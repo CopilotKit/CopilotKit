@@ -2160,6 +2160,10 @@ importers:
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/markdown-renderer:
+    dependencies:
+      react-native:
+        specifier: '>=0.70'
+        version: 0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*
@@ -2366,6 +2370,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/markdown-renderer':
+        specifier: workspace:*
+        version: link:../markdown-renderer
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../react-core
@@ -32818,6 +32825,18 @@ snapshots:
       fast-glob: 3.3.3
       picocolors: 1.1.1
 
+  '@react-native-community/cli-config@20.1.0(typescript@5.8.2)':
+    dependencies:
+      '@react-native-community/cli-tools': 20.1.0
+      cosmiconfig: 9.0.0(typescript@5.8.2)
+      deepmerge: 4.3.1
+      fast-glob: 3.3.3
+      joi: 17.13.3
+      picocolors: 1.1.1
+    transitivePeerDependencies:
+      - typescript
+    optional: true
+
   '@react-native-community/cli-config@20.1.0(typescript@5.9.3)':
     dependencies:
       '@react-native-community/cli-tools': 20.1.0
@@ -32828,6 +32847,27 @@ snapshots:
       picocolors: 1.1.1
     transitivePeerDependencies:
       - typescript
+
+  '@react-native-community/cli-doctor@20.1.0(typescript@5.8.2)':
+    dependencies:
+      '@react-native-community/cli-config': 20.1.0(typescript@5.8.2)
+      '@react-native-community/cli-platform-android': 20.1.0
+      '@react-native-community/cli-platform-apple': 20.1.0
+      '@react-native-community/cli-platform-ios': 20.1.0
+      '@react-native-community/cli-tools': 20.1.0
+      command-exists: 1.2.9
+      deepmerge: 4.3.1
+      envinfo: 7.21.0
+      execa: 5.1.1
+      node-stream-zip: 1.15.0
+      ora: 5.4.1
+      picocolors: 1.1.1
+      semver: 7.7.4
+      wcwidth: 1.0.1
+      yaml: 2.8.3
+    transitivePeerDependencies:
+      - typescript
+    optional: true
 
   '@react-native-community/cli-doctor@20.1.0(typescript@5.9.3)':
     dependencies:
@@ -32902,6 +32942,30 @@ snapshots:
   '@react-native-community/cli-types@20.1.0':
     dependencies:
       joi: 17.13.3
+
+  '@react-native-community/cli@20.1.0(typescript@5.8.2)':
+    dependencies:
+      '@react-native-community/cli-clean': 20.1.0
+      '@react-native-community/cli-config': 20.1.0(typescript@5.8.2)
+      '@react-native-community/cli-doctor': 20.1.0(typescript@5.8.2)
+      '@react-native-community/cli-server-api': 20.1.0
+      '@react-native-community/cli-tools': 20.1.0
+      '@react-native-community/cli-types': 20.1.0
+      commander: 9.5.0
+      deepmerge: 4.3.1
+      execa: 5.1.1
+      find-up: 5.0.0
+      fs-extra: 8.1.0
+      graceful-fs: 4.2.11
+      picocolors: 1.1.1
+      prompts: 2.4.2
+      semver: 7.7.4
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - typescript
+      - utf-8-validate
+    optional: true
 
   '@react-native-community/cli@20.1.0(typescript@5.9.3)':
     dependencies:
@@ -33001,6 +33065,23 @@ snapshots:
       nullthrows: 1.1.1
       tinyglobby: 0.2.16
       yargs: 17.7.2
+
+  '@react-native/community-cli-plugin@0.85.2(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))':
+    dependencies:
+      '@react-native/dev-middleware': 0.85.2
+      debug: 4.4.3(supports-color@5.5.0)
+      invariant: 2.2.4
+      metro: 0.84.4
+      metro-config: 0.84.4
+      metro-core: 0.84.4
+      semver: 7.7.4
+    optionalDependencies:
+      '@react-native-community/cli': 20.1.0(typescript@5.8.2)
+      '@react-native/metro-config': 0.85.2(@babel/core@7.28.5)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
   '@react-native/community-cli-plugin@0.85.2(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))':
     dependencies:
@@ -33119,6 +33200,15 @@ snapshots:
   '@react-native/normalize-colors@0.85.3': {}
 
   '@react-native/typescript-config@0.85.2': {}
+
+  '@react-native/virtualized-lists@0.85.2(@types/react@19.1.8)(react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      invariant: 2.2.4
+      nullthrows: 1.1.1
+      react: 19.2.3
+      react-native: 0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3)
+    optionalDependencies:
+      '@types/react': 19.1.8
 
   '@react-native/virtualized-lists@0.85.2(@types/react@19.1.8)(react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)':
     dependencies:
@@ -47759,6 +47849,52 @@ snapshots:
       semver: 7.8.1
     transitivePeerDependencies:
       - supports-color
+
+  react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3):
+    dependencies:
+      '@react-native/assets-registry': 0.85.2
+      '@react-native/codegen': 0.85.2(@babel/core@7.28.5)
+      '@react-native/community-cli-plugin': 0.85.2(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))
+      '@react-native/gradle-plugin': 0.85.2
+      '@react-native/js-polyfills': 0.85.2
+      '@react-native/normalize-colors': 0.85.2
+      '@react-native/virtualized-lists': 0.85.2(@types/react@19.1.8)(react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.8.2))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)
+      abort-controller: 3.0.0
+      anser: 1.4.10
+      ansi-regex: 5.0.1
+      babel-plugin-syntax-hermes-parser: 0.33.3
+      base64-js: 1.5.1
+      commander: 12.1.0
+      flow-enums-runtime: 0.0.6
+      hermes-compiler: 250829098.0.10
+      invariant: 2.2.4
+      memoize-one: 5.2.1
+      metro-runtime: 0.84.4
+      metro-source-map: 0.84.4
+      nullthrows: 1.1.1
+      pretty-format: 29.7.0
+      promise: 8.3.0
+      react: 19.2.3
+      react-devtools-core: 6.1.5
+      react-refresh: 0.14.2
+      regenerator-runtime: 0.13.11
+      scheduler: 0.27.0
+      semver: 7.7.4
+      stacktrace-parser: 0.1.11
+      tinyglobby: 0.2.15
+      whatwg-fetch: 3.6.20
+      ws: 7.5.10
+      yargs: 17.7.2
+    optionalDependencies:
+      '@react-native/jest-preset': 0.85.2(@babel/core@7.28.5)(react@19.2.3)
+      '@types/react': 19.1.8
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@react-native-community/cli'
+      - '@react-native/metro-config'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
   react-native@0.85.2(@babel/core@7.28.5)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.28.5)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.28.5))(@types/react@19.1.8)(react@19.2.3):
     dependencies:
