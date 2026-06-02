@@ -37,6 +37,17 @@ export interface SlackComponent<Schema extends ObjectSchema = ObjectSchema> {
    * `SlackComponent<ObjectSchema>` — method syntax is bivariant.)
    */
   fallbackText?(props: InferSchemaOutput<Schema>): string;
+  /**
+   * Optional accent color (hex, e.g. `#5E6AD2`), or a function of the props
+   * for a data-driven color (e.g. red for an urgent issue). When set, the
+   * rendered blocks are posted inside a message *attachment* with this
+   * `color`, which gives the card a rounded container with a colored left
+   * border — the "nice card" look (Block Kit blocks alone have no border).
+   * Return `undefined` (or omit) for a plain, borderless message.
+   */
+  accentColor?:
+    | string
+    | ((props: InferSchemaOutput<Schema>) => string | undefined);
   /** Pure function: typed props in, Slack Block Kit blocks out. */
   render(props: InferSchemaOutput<Schema>): KnownBlock[];
 }
@@ -68,7 +79,11 @@ export function componentToFrontendTool<Schema extends ObjectSchema>(
     async handler(props, ctx) {
       const blocks = c.render(props);
       const text = resolveFallbackText(c, props);
-      return postBlocks(ctx, blocks, text, c.name);
+      const accent =
+        typeof c.accentColor === "function"
+          ? c.accentColor(props)
+          : c.accentColor;
+      return postBlocks(ctx, blocks, text, c.name, accent);
     },
   };
 }
@@ -86,13 +101,20 @@ async function postBlocks(
   blocks: KnownBlock[],
   text: string,
   componentName: string,
+  accentColor?: string,
 ): Promise<string> {
   try {
+    // With an accent color, wrap the blocks in an attachment so Slack draws
+    // the rounded card + colored left border. Without one, post the blocks
+    // at top level (borderless).
+    const message = accentColor
+      ? { attachments: [{ color: accentColor, blocks, fallback: text }] }
+      : { blocks };
     const r = (await ctx.client.chat.postMessage({
       channel: ctx.channel,
       thread_ts: ctx.threadTs,
-      blocks,
       text,
+      ...message,
     })) as { ok?: boolean; ts?: string };
     return JSON.stringify({
       ok: true,

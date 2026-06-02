@@ -61,6 +61,15 @@ export interface HumanInTheLoop<
    * the tool waits indefinitely (until the conversation is cancelled).
    */
   timeoutMs?: number;
+  /**
+   * Optional accent color (hex), or a function of the current state, that
+   * wraps the rendered blocks in a colored attachment — a rounded card with
+   * a colored left border. e.g. amber while pending, green when approved,
+   * red when declined. Return `undefined` for a borderless message.
+   */
+  accentColor?:
+    | string
+    | ((state: HitlRenderState<PropsSchema>) => string | undefined);
 }
 
 /**
@@ -324,8 +333,21 @@ export async function applyRenderResult(args: {
   click?: SlackClickMetadata;
   existingMessageTs?: string;
   metadata?: { event_type: string; event_payload: Record<string, unknown> };
+  /**
+   * When set, post the blocks inside an attachment with this `color` (a
+   * rounded card with a colored left border) instead of as top-level blocks.
+   * Interactive buttons inside attachment blocks still fire `block_actions`.
+   */
+  accentColor?: string;
 }): Promise<{ messageTs?: string; deleted: boolean }> {
-  const { result, text, ctx, click, existingMessageTs, metadata } = args;
+  const { result, text, ctx, click, existingMessageTs, metadata, accentColor } =
+    args;
+  // Either top-level `blocks`, or `attachments:[{color, blocks}]` for the
+  // bordered-card look. Reused across all three post paths below.
+  const payload = (blocks: KnownBlock[]) =>
+    accentColor
+      ? { attachments: [{ color: accentColor, blocks, fallback: text }] }
+      : { blocks };
   if (result === "noop")
     return { messageTs: existingMessageTs, deleted: false };
   if (result === "delete") {
@@ -350,7 +372,7 @@ export async function applyRenderResult(args: {
     await postToResponseUrl(click.responseUrl, {
       replace_original: true,
       text,
-      blocks: result,
+      ...payload(result),
     });
     return { messageTs: existingMessageTs ?? click.messageTs, deleted: false };
   }
@@ -359,7 +381,7 @@ export async function applyRenderResult(args: {
       channel: ctx.channel,
       ts: existingMessageTs,
       text,
-      blocks: result,
+      ...payload(result),
     });
     return { messageTs: existingMessageTs, deleted: false };
   }
@@ -367,7 +389,7 @@ export async function applyRenderResult(args: {
     channel: ctx.channel,
     thread_ts: ctx.threadTs,
     text,
-    blocks: result,
+    ...payload(result),
     ...(metadata ? { metadata } : {}),
   } as never)) as { ts?: string };
   return { messageTs: r.ts, deleted: false };
@@ -478,6 +500,12 @@ export function hitlToFrontendTool<PropsSchema extends ObjectSchema>(
     parameters: h.props,
     async handler(props, ctx) {
       const text = h.fallbackText ? h.fallbackText(props) : h.description;
+      const accentFor = (
+        state: HitlRenderState<PropsSchema>,
+      ): string | undefined =>
+        typeof h.accentColor === "function"
+          ? h.accentColor(state)
+          : h.accentColor;
 
       // ── Initial render ────────────────────────────────────────────
       const pendingActionMap = new Map<string, unknown>();
@@ -511,6 +539,10 @@ export function hitlToFrontendTool<PropsSchema extends ObjectSchema>(
           result: encodedPending,
           text,
           ctx,
+          accentColor: accentFor({
+            status: "pending",
+            props,
+          } as HitlRenderState<PropsSchema>),
           // Carry the dispatch context (handler name + the originating
           // props) on the message itself, so a stale click after a
           // bridge restart can rehydrate the resolved-state render and
@@ -566,6 +598,7 @@ export function hitlToFrontendTool<PropsSchema extends ObjectSchema>(
           ctx,
           click,
           existingMessageTs: messageTs,
+          accentColor: accentFor(resolvedState),
         });
       } catch (err) {
         console.error("[hitl] applying resolved render failed:", err);
