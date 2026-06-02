@@ -24,15 +24,13 @@ describe("client component SSR safety (shell-docs)", () => {
 
   it("SignupLink SSR-renders without throwing", () => {
     expect(() =>
-      renderToStaticMarkup(
-        React.createElement(SignupLink, { surface: "test" }, "Sign up"),
-      ),
+      renderToStaticMarkup(<SignupLink surface="test">Sign up</SignupLink>),
     ).not.toThrow();
   });
 
   it("SignupLink SSR href parses as a URL", () => {
     const html = renderToStaticMarkup(
-      React.createElement(SignupLink, { surface: "test" }, "Sign up"),
+      <SignupLink surface="test">Sign up</SignupLink>,
     );
     const match = html.match(/href="([^"]+)"/);
     expect(match).not.toBeNull();
