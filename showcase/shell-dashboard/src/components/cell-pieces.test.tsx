@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
-import { CellStatus, DocsRow } from "./cell-pieces";
+import { CellStatus, DocsRow, urlsFor } from "./cell-pieces";
 import type { Integration, Feature } from "@/lib/registry";
 import type { CellContext } from "./feature-grid";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
@@ -264,6 +264,45 @@ describe("CP5: missing-state tooltip distinguishes opt-out vs absent", () => {
       .filter(Boolean);
     // Should NOT show framework-opt-out for a globally-absent feature.
     expect(titles.some((t) => t!.includes("framework opt-out"))).toBe(false);
+  });
+});
+
+describe("urlsFor: trailing-slash normalization (SSR placeholder leak)", () => {
+  it("does NOT emit a double slash when shellUrl has a trailing slash", () => {
+    // The SSR placeholder (runtime-config.client.ts) is
+    // `https://ssr-placeholder.invalid/` WITH a trailing slash. During SSR
+    // the client config reader returns that placeholder, and the raw
+    // server-rendered HTML froze links like
+    // `https://ssr-placeholder.invalid//integrations/<slug>/<feature>/preview`.
+    // urlsFor must normalize the base so concatenation never yields `//`.
+    const ctx = makeCtx({
+      shellUrl: "https://ssr-placeholder.invalid/",
+      integration: makeIntegration({ slug: "langgraph-fastapi" }),
+      feature: makeFeature({ id: "hitl-in-app" }),
+    });
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    expect(demoUrl).toBe(
+      "https://ssr-placeholder.invalid/integrations/langgraph-fastapi/hitl-in-app/preview",
+    );
+    expect(codeUrl).toBe(
+      "https://ssr-placeholder.invalid/integrations/langgraph-fastapi/hitl-in-app/code",
+    );
+    expect(demoUrl).not.toContain(".invalid//");
+  });
+
+  it("builds correct links for a normal (no trailing slash) shellUrl", () => {
+    const ctx = makeCtx({
+      shellUrl: "https://showcase.staging.copilotkit.ai",
+      integration: makeIntegration({ slug: "mastra" }),
+      feature: makeFeature({ id: "beautiful-chat" }),
+    });
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    expect(demoUrl).toBe(
+      "https://showcase.staging.copilotkit.ai/integrations/mastra/beautiful-chat/preview",
+    );
+    expect(codeUrl).toBe(
+      "https://showcase.staging.copilotkit.ai/integrations/mastra/beautiful-chat/code",
+    );
   });
 });
 
