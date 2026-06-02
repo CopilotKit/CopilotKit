@@ -26,7 +26,7 @@ The built-in streaming renderer is now the default across **React, Vue, and Reac
 
 - **React** (`@copilotkit/react-core`) — uses `@copilotkit/markdown-renderer/react` for assistant messages.
 - **Vue** (`@copilotkit/vue`) — uses `@copilotkit/markdown-renderer/vue` for assistant and reasoning messages.
-- **React Native** (`@copilotkit/react-native`) — `CopilotMarkdown` delegates to `@copilotkit/markdown-renderer/react-native`. Defaults to `segmenter: false` (no `Intl.Segmenter`) so it is safe on Hermes, the default React Native JS engine. Per-token streaming animation is available by enabling the `streamingAnimation` prop on `CopilotMarkdown` — do this only when your target environment is confirmed to support `Intl.Segmenter`.
+- **React Native** (`@copilotkit/react-native`) — `CopilotMarkdown` delegates to `@copilotkit/markdown-renderer/react-native`, which renders GFM into native `<Text>`/`<View>`. It defaults to `segmenter: false` (no `Intl.Segmenter`) so it is safe on Hermes, the default React Native JS engine. Unlike the React and Vue renderers, the React Native renderer renders text directly and does **not** perform per-token fade-in animation.
 
 The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http(s)`, `mailto`, `tel`, relative, and non-SVG `data:image/*` URLs are allowed) to prevent XSS.
 
@@ -39,7 +39,7 @@ The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http
 
 - **If streaming GFM + animation is enough** (most apps): nothing. Your messages keep rendering with the new built-in streaming renderer — you just lose syntax-highlight colors, KaTeX math, mermaid diagrams, and the table/image/code action buttons that Streamdown provided.
 - **If you relied on syntax highlighting, math, diagrams, or the action buttons:** install your renderer of choice and plug it in (below).
-- **React Native — per-token animation:** the new default is `streamingAnimation: false` (Hermes-safe). If you previously relied on Streamdown's per-token animation and your environment supports `Intl.Segmenter`, pass `streamingAnimation` to `CopilotMarkdown` to opt back in.
+- **React Native — no per-token animation:** unlike Streamdown, the React Native renderer renders text directly without per-token fade-in animation. The `streamingAnimation` prop is accepted for backward compatibility but currently has no visual effect in React Native (it only toggles the parser's `Intl.Segmenter`); leave it `false` (the default) to avoid the extra segmentation cost on Hermes.
 - **If you want to use the streaming renderer directly** (headless, custom context): install [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) directly.
 
 ## Restoring Streamdown rendering

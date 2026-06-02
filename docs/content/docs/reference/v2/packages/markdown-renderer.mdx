@@ -379,7 +379,7 @@ The `/react-native` entry point provides a React Native `StreamingMarkdownRender
 </Callout>
 
 <Callout type="warn">
-  The React Native renderer defaults to `segmenter: false` (no `Intl.Segmenter`). This is intentional — Hermes, the default React Native JS engine, may not ship `Intl.Segmenter`. Per-token animation is opt-in via `animate={true}` and should only be enabled when you have confirmed `Intl.Segmenter` availability in your target environment.
+  The React Native renderer defaults to `segmenter: false` (no `Intl.Segmenter`). This is intentional — Hermes, the default React Native JS engine, may not ship `Intl.Segmenter`. The React Native renderer renders text directly and does not perform per-token fade-in animation (unlike the React and Vue renderers), so leaving `animate` at its `false` default is recommended.
 </Callout>
 
 ### Import
@@ -410,7 +410,7 @@ import type {
 </PropertyReference>
 
 <PropertyReference name="animate" type="boolean">
-  When `true`, enables `Intl.Segmenter`-based per-token animation. Defaults to `false` — safe on Hermes which may not ship `Intl.Segmenter`. Only enable when you have confirmed Segmenter availability in your target environment.
+  Toggles `Intl.Segmenter`-based token segmentation in the parser. Defaults to `false` — safe on Hermes, which may not ship `Intl.Segmenter`. **Note:** the React Native renderer renders text directly and does not perform per-token fade-in animation, so enabling this currently has no visual effect and only adds segmentation cost.
 </PropertyReference>
 
 ### Usage
@@ -441,7 +441,6 @@ function StreamingBubble({
     <StreamingMarkdownRenderer
       content={content}
       isComplete={isComplete}
-      animate={true}
     />
   );
 }

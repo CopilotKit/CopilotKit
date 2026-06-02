@@ -33,8 +33,11 @@ export interface CopilotMarkdownProps {
   content: string;
   style?: MarkdownStyle;
   /**
-   * When true, enables `Intl.Segmenter`-based per-token animation inside the
-   * streaming renderer. Defaults to `false` (Hermes-safe: no Segmenter needed).
+   * Toggles `Intl.Segmenter`-based token segmentation in the parser. Defaults
+   * to `false` (Hermes-safe: no Segmenter needed). Note: the React Native
+   * renderer renders text directly and does not perform per-token fade-in
+   * animation, so this currently has no visual effect — it is accepted for
+   * backward compatibility.
    */
   streamingAnimation?: boolean;
 }
