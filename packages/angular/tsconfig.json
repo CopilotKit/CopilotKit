@@ -18,6 +18,12 @@
     "importHelpers": true,
     "types": ["node"],
     "paths": {
+      "@copilotkit/a2ui-renderer/web-components": [
+        "../a2ui-renderer/src/web-components/index.ts"
+      ],
+      "@copilotkit/a2ui-renderer/web-components/define": [
+        "../a2ui-renderer/src/web-components/define.ts"
+      ],
       "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
       "@copilotkit/shared": [
         "../shared/dist/index.d.mts",

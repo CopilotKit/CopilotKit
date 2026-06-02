@@ -69,15 +69,15 @@ export class CopilotChatTextarea implements AfterViewInit {
   computedClass = computed(() => {
     const baseClasses = cn(
       // Layout and sizing
-      "w-full p-5 pb-0",
+      "cpk:w-full",
       // Behavior
-      "outline-none resize-none",
+      "cpk:outline-none cpk:resize-none",
       // Background
-      "bg-transparent",
+      "cpk:bg-transparent",
       // Typography
-      "antialiased font-regular leading-relaxed text-[16px]",
+      "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]",
       // Placeholder styles
-      "placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
+      "cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
     );
     return cn(baseClasses, this.inputClass());
   });

@@ -13,7 +13,7 @@ export class CopilotChatAssistantMessageToolbar {
 
   readonly computedClass = computed(() => {
     return cn(
-      "w-full bg-transparent flex items-center -ml-[5px] -mt-[0px]",
+      "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]",
       this.inputClass(),
     );
   });

@@ -84,6 +84,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         <copilot-chat-tool-calls-view
           [message]="message()!"
           [messages]="messages()"
+          [agentId]="agentId()"
           [isLoading]="isLoading()"
         >
         </copilot-chat-tool-calls-view>
@@ -100,7 +101,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
           </copilot-slot>
         } @else {
           <div copilotChatAssistantMessageToolbar [inputClass]="toolbarClass()">
-            <div class="flex items-center gap-1">
+            <div class="cpk:flex cpk:items-center cpk:gap-1">
               <!-- Copy button -->
               @if (copyButtonTemplate || copyButtonComponent()) {
                 <copilot-slot
@@ -395,6 +396,7 @@ export class CopilotChatAssistantMessage {
   // Regular inputs
   readonly message = input.required<AssistantMessage>();
   readonly messages = input<Message[]>([]);
+  readonly agentId = input<string | undefined>();
   readonly isLoading = input<boolean>(false);
   readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(
     undefined,
@@ -426,7 +428,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "prose max-w-full break-words dark:prose-invert",
+      "cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
     );
   });
@@ -464,9 +466,7 @@ export class CopilotChatAssistantMessage {
 
   // Return true if assistant message has non-empty text content
   hasMessageContent(): boolean {
-    const raw = (this.message()?.content ?? "") as any;
-    const content = typeof raw === "string" ? raw : String(raw ?? "");
-    return content.trim().length > 0;
+    return (this.message()?.content ?? "").trim().length > 0;
   }
 
   toolCallsViewContext = computed(() => ({

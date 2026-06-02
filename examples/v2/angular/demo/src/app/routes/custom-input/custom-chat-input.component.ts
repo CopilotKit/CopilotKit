@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 
 import { FormsModule } from "@angular/forms";
-import { injectChatState } from "@copilotkit/angular";
+import { injectChatState } from "@copilotkitnext/angular";
 
 @Component({
   selector: "nextgen-custom-input",
@@ -74,6 +74,17 @@ import { injectChatState } from "@copilotkit/angular";
       .ck-input-wrapper.ck-disabled {
         opacity: 0.7;
         pointer-events: none;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
       .ck-icon {
         width: 36px;
