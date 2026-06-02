@@ -22,50 +22,50 @@ import { cn } from "../../utils";
 
 // Base button classes matching React's button variants
 const buttonBase = cn(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
-  "transition-all disabled:pointer-events-none disabled:opacity-50",
-  "shrink-0 outline-none",
-  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+  "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
+  "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
+  "cpk:shrink-0 cpk:outline-none",
+  "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
 );
 
 const chatInputToolbarPrimary = cn(
-  "cursor-pointer",
+  "cpk:cursor-pointer",
   // Background and text
-  "bg-black text-white",
+  "cpk:bg-black cpk:text-white",
   // Dark mode
-  "dark:bg-white dark:text-black dark:focus-visible:outline-white",
+  "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
   // Shape and sizing
-  "rounded-full h-9 w-9",
+  "cpk:rounded-full cpk:h-9 cpk:w-9",
   // Interactions
-  "transition-colors",
+  "cpk:transition-colors",
   // Focus states
-  "focus:outline-none",
+  "cpk:focus:outline-none",
   // Hover states
-  "hover:opacity-70 disabled:hover:opacity-100",
+  "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
   // Disabled states
-  "disabled:cursor-not-allowed disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)]",
-  "dark:disabled:bg-[#454545] dark:disabled:text-white",
+  "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
+  "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
 );
 
 const chatInputToolbarSecondary = cn(
-  "cursor-pointer",
+  "cpk:cursor-pointer",
   // Background and text
-  "bg-transparent text-[#444444]",
+  "cpk:bg-transparent cpk:text-[#444444]",
   // Dark mode
-  "dark:text-white dark:border-[#404040]",
+  "cpk:dark:text-white cpk:dark:border-[#404040]",
   // Shape and sizing
-  "rounded-full h-9 w-9",
+  "cpk:rounded-full cpk:h-9 cpk:w-9",
   // Interactions
-  "transition-colors",
+  "cpk:transition-colors",
   // Focus states
-  "focus:outline-none",
+  "cpk:focus:outline-none",
   // Hover states
-  "hover:bg-[#f8f8f8] hover:text-[#333333]",
-  "dark:hover:bg-[#404040] dark:hover:text-[#FFFFFF]",
+  "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
+  "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
   // Disabled states
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "disabled:hover:bg-transparent disabled:hover:text-[#444444]",
-  "dark:disabled:hover:bg-transparent dark:disabled:hover:text-[#CCCCCC]",
+  "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
+  "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
+  "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
 );
 
 @Component({
@@ -75,7 +75,7 @@ const chatInputToolbarSecondary = cn(
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div class="mr-[10px]">
+    <div class="cpk:mr-[10px]">
       <button
         type="button"
         [disabled]="disabled()"
@@ -129,7 +129,7 @@ export class CopilotChatStartTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly MicIcon = Mic;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "mr-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
 
   get label(): string {
     return this.labels.chatInputToolbarStartTranscribeButtonLabel;
@@ -169,7 +169,7 @@ export class CopilotChatCancelTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly XIcon = X;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "mr-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-2");
 
   get label(): string {
     return this.labels.chatInputToolbarCancelTranscribeButtonLabel;
@@ -209,7 +209,7 @@ export class CopilotChatFinishTranscribeButton {
   readonly labels = injectChatLabels();
 
   readonly CheckIcon = Check;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "mr-[10px]");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:mr-[10px]");
 
   get label(): string {
     return this.labels.chatInputToolbarFinishTranscribeButtonLabel;
@@ -249,7 +249,7 @@ export class CopilotChatAddFileButton {
   readonly labels = injectChatLabels();
 
   readonly PlusIcon = Plus;
-  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "ml-2");
+  buttonClass = cn(buttonBase, chatInputToolbarSecondary, "cpk:ml-2");
 
   get label(): string {
     return this.labels.chatInputToolbarAddButtonLabel;

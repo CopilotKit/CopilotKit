@@ -5,6 +5,23 @@ import { z } from "zod";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
+import {
+  GENERATE_SANDBOXED_UI_TOOL_NAME,
+  OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
+} from "./open-generative-ui";
+import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
+import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
+import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import {
+  AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
+  CopilotA2UIToolRenderer,
+  RENDER_A2UI_TOOL_NAME,
+} from "./components/a2ui/a2ui-tool-renderer";
+import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/a2ui-renderer/web-components";
+import {
+  A2UI_DEFAULT_DESIGN_GUIDELINES,
+  A2UI_DEFAULT_GENERATION_GUIDELINES,
+} from "@copilotkit/shared";
 
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
@@ -15,6 +32,9 @@ const mockSetHeaders = vi.fn();
 const mockSetProperties = vi.fn();
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
+const mockGetTool = vi.fn();
+const mockAddContext = vi.fn();
+const mockRemoveContext = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
@@ -39,10 +59,15 @@ vi.mock("@copilotkit/core", () => {
     readonly setProperties = mockSetProperties;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
+    readonly getTool = mockGetTool;
+    readonly addContext = mockAddContext;
+    readonly removeContext = mockRemoveContext;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
+    a2uiEnabled = false;
+    openGenerativeUIEnabled = false;
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
@@ -54,6 +79,9 @@ vi.mock("@copilotkit/core", () => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
       });
+      mockAddContext.mockImplementation(
+        () => `ctx-${mockAddContext.mock.calls.length}`,
+      );
     }
   }
 
@@ -217,6 +245,143 @@ describe("CopilotKit", () => {
     expect(onResultSpy).toHaveBeenCalledWith("call-1", "approval");
 
     onResultSpy.mockRestore();
+  });
+
+  it("registers Open Generative UI tool, activity renderer, and contexts", async () => {
+    const sandboxHandler = vi.fn().mockResolvedValue("dark");
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          openGenerativeUI: {
+            designSkill: "Use compact dashboard styling.",
+            sandboxFunctions: [
+              {
+                name: "setTheme",
+                description: "Set the active theme",
+                parameters: z.object({ theme: z.string() }),
+                handler: sandboxHandler,
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(mockAddTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: GENERATE_SANDBOXED_UI_TOOL_NAME,
+        component: CopilotOpenGenerativeUIToolRenderer,
+        followUp: true,
+      }),
+    );
+    expect(copilotKit.clientToolCallRenderConfigs()).toEqual([
+      expect.objectContaining({
+        name: GENERATE_SANDBOXED_UI_TOOL_NAME,
+        component: CopilotOpenGenerativeUIToolRenderer,
+        followUp: true,
+      }),
+    ]);
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
+      expect.objectContaining({
+        activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
+        component: CopilotOpenGenerativeUIActivityRenderer,
+      }),
+    ]);
+
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
+        value: "Use compact dashboard styling.",
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
+        value: expect.stringContaining('"setTheme"'),
+      }),
+    );
+
+    const tool = mockAddTool.mock.calls.at(-1)![0];
+    const result = await tool.handler(
+      { initialHeight: 200 },
+      {
+        toolCall: {
+          id: "call-1",
+          function: { name: GENERATE_SANDBOXED_UI_TOOL_NAME },
+        },
+        agent: { agentId: "agent-1" },
+      },
+    );
+    expect(result).toBe("UI generated");
+  });
+
+  it("enables built-in A2UI renderers and contexts from runtime capability", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = lastCoreInstance!;
+
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
+
+    core.a2uiEnabled = true;
+    core.listener!.onRuntimeConnectionStatusChanged({
+      status: "connected",
+    });
+
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
+      expect.objectContaining({
+        activityType: "a2ui-surface",
+        component: CopilotA2UIActivityRenderer,
+      }),
+    ]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([
+      expect.objectContaining({
+        name: RENDER_A2UI_TOOL_NAME,
+        component: CopilotA2UIToolRenderer,
+        passAgent: true,
+      }),
+      expect.objectContaining({
+        name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
+        component: CopilotA2UIToolRenderer,
+        passAgent: true,
+      }),
+    ]);
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+        value: expect.stringContaining("Available A2UI catalog:"),
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+        value: expect.stringContaining('"catalogId"'),
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
+        value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+      }),
+    );
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
+        value: A2UI_DEFAULT_DESIGN_GUIDELINES,
+      }),
+    );
   });
 
   it("removes tools and renderer configs", () => {

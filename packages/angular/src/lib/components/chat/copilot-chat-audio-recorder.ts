@@ -25,7 +25,7 @@ import {
     <div [class]="computedClass()">
       <canvas
         #canvasRef
-        class="w-full h-full"
+        class="cpk:w-full cpk:h-full"
         [style.imageRendering]="'pixelated'"
       ></canvas>
     </div>
@@ -51,7 +51,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
 
   // Computed values
   computedClass = computed(() => {
-    const baseClasses = "h-11 w-full px-5";
+    const baseClasses = "cpk:h-11 cpk:w-full cpk:px-5";
     return `${baseClasses} ${this.inputClass() || ""}`;
   });
 

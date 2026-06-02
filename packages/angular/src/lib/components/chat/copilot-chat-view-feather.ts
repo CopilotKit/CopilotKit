@@ -30,13 +30,13 @@ export class CopilotChatViewFeather {
   get computedClass(): string {
     return cn(
       // Positioning
-      "absolute bottom-0 left-0 right-4 h-24 pointer-events-none z-10",
+      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10",
       // Gradient
-      "bg-gradient-to-t",
+      "cpk:bg-gradient-to-t",
       // Light mode colors
-      "from-white via-white to-transparent",
+      "cpk:from-white cpk:via-white cpk:to-transparent",
       // Dark mode colors
-      "dark:from-[rgb(33,33,33)] dark:via-[rgb(33,33,33)]",
+      "cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]",
       // Custom classes
       this.inputClass(),
     );

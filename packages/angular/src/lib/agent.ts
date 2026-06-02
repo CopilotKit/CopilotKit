@@ -20,6 +20,11 @@ import {
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
+type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
+
+function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
+  return "headers" in agent;
+}
 
 export class AgentStore {
   readonly #subscription?: {
@@ -27,7 +32,7 @@ export class AgentStore {
   };
   readonly #isRunning = signal<boolean>(false);
   readonly #messages = signal<Message[]>([]);
-  readonly #state = signal<any>(undefined);
+  readonly #state = signal<unknown>(undefined);
 
   readonly agent: AbstractAgent;
   readonly isRunning = this.#isRunning.asReadonly();
@@ -124,7 +129,9 @@ export class CopilotkitAgentFactory {
           });
           // Apply current headers so runs/connects inherit them
 
-          (provisional as any).headers = { ...headers };
+          if (hasAgentHeaders(provisional)) {
+            provisional.headers = { ...headers };
+          }
           lastAgentStore = new AgentStore(
             provisional,
             destroyRef,

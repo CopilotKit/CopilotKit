@@ -16,7 +16,7 @@ import { CopilotChatToolsMenu } from "./copilot-chat-tools-menu";
  *
  * @example
  * ```typescript
- * import { CopilotChatInputDefaults } from '@copilotkit/angular';
+ * import { CopilotChatInputDefaults } from '@copilotkitnext/angular';
  *
  * @Component({
   standalone: true,

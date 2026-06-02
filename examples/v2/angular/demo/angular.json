@@ -15,7 +15,10 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": ["src/favicon.ico", "src/assets"],
-            "styles": ["node_modules/@copilotkitnext/angular/dist/styles.css"],
+            "styles": [
+              "../../../../packages/angular/src/styles/generated.css",
+              "src/styles.css"
+            ],
             "optimization": false
           }
         },
