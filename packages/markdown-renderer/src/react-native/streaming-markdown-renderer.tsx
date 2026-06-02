@@ -253,6 +253,17 @@ function renderInlineNode(
     case "hard-break":
       return "\n";
 
+    case "citation":
+      // Citation marker (e.g. "[1]"). This is an inline-level node reached via
+      // a paragraph/heading's renderTextContent; without this case it would
+      // fall through to `default` and render nothing (no text/children).
+      // Prefer the resolved number, fall back to the citation id.
+      return (
+        <Text key={node.id} style={{ fontSize: 12, verticalAlign: "top" } as any}>
+          [{(node as any).number ?? (node as any).idRef}]
+        </Text>
+      );
+
     default:
       // Fallback for any inline nodes not explicitly handled
       if ("text" in node && typeof (node as any).text === "string") {
@@ -379,16 +390,10 @@ function renderNode(
     case "image":
     case "soft-break":
     case "hard-break":
-      // These are inline; wrap in Text for block-level context
-      return <Text key={node.id}>{renderInlineNode(node, ctx)}</Text>;
-
     case "citation":
-      // Render citation number as plain text
-      return (
-        <Text key={node.id} style={{ fontSize: 12, verticalAlign: "top" } as any}>
-          [{(node as any).number ?? (node as any).idRef}]
-        </Text>
-      );
+      // These are inline; wrap in Text for block-level context. Citation
+      // rendering lives in renderInlineNode so block and inline paths agree.
+      return <Text key={node.id}>{renderInlineNode(node, ctx)}</Text>;
 
     default:
       return null;

@@ -8,15 +8,14 @@ import type { MarkdownStyle as StreamingMarkdownStyle } from "@copilotkit/markdo
 /**
  * Style map for CopilotMarkdown. Each key maps a node type to a React Native
  * style object. Extends the streaming renderer's style keys with a `code`
- * shorthand kept for backward compatibility.
+ * shorthand kept for backward compatibility (`list` already exists on the
+ * base style and needs no alias).
  *
  * @public
  */
 export type MarkdownStyle = StreamingMarkdownStyle & {
   /** Alias for `inlineCode`; kept for backward compatibility. */
   code?: Record<string, unknown>;
-  /** Alias for `list`; kept for backward compatibility. */
-  list?: Record<string, unknown>;
 };
 
 /**
@@ -56,11 +55,23 @@ export function CopilotMarkdown({
   style,
   streamingAnimation = false,
 }: CopilotMarkdownProps): React.ReactElement | null {
+  // Translate the back-compat `code` alias onto `inlineCode` — the key the
+  // streaming renderer actually reads. Without this, a caller migrating from
+  // the previous renderer who passes `style={{ code: ... }}` would silently
+  // lose inline-code styling. An explicit `inlineCode` wins over the alias.
+  let resolvedStyle = style as StreamingMarkdownStyle | undefined;
+  if (style?.code !== undefined) {
+    const { code, ...rest } = style;
+    resolvedStyle = {
+      ...(rest as StreamingMarkdownStyle),
+      inlineCode: (rest as StreamingMarkdownStyle).inlineCode ?? code,
+    };
+  }
   return (
     <StreamingMarkdownRenderer
       content={content}
       isComplete={true}
-      style={style as StreamingMarkdownStyle | undefined}
+      style={resolvedStyle}
       animate={streamingAnimation}
     />
   );
