@@ -3,7 +3,8 @@
     "description": "D6 fixtures for mastra / shared-state-read-write",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "note": "ported from shared-state-read-write (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {
@@ -17,18 +18,18 @@
       }
     },
     {
-      "_comment": "shared-state-read-write — Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
+      "_comment": "shared-state-read-write \u2014 Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
       "match": {
         "userMessage": "Say hi and introduce yourself",
         "turnIndex": 0,
         "context": "mastra"
       },
       "response": {
-        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+        "content": "Hi \u2014 I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
       }
     },
     {
-      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
+      "_comment": "shared-state-read-write \u2014 Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
       "match": {
         "userMessage": "weekend plan based on my interests",
         "turnIndex": 0,
@@ -61,17 +62,17 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Got it — I have noted that your favorite color is blue."
+        "content": "Got it \u2014 I have noted that your favorite color is blue."
       }
     },
     {
+      "_comment": "shared-state-write turn 2 \u2014 recall. No turnIndex gate: this is turn 2 of a 2-turn probe (turn 1 = set_notes, turn 2 = recall).",
       "match": {
         "userMessage": "favorite color",
-        "turnIndex": 0,
         "context": "mastra"
       },
       "response": {
-        "content": "Your favorite color is blue — I noted it earlier."
+        "content": "Your favorite color is blue \u2014 I noted it earlier."
       }
     }
   ]

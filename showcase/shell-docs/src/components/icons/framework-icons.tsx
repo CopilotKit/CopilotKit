@@ -327,6 +327,7 @@ export const SpringIcon = wrap(
 
 const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   "built-in-agent": CopilotKitKiteIcon,
+  deepagents: DeepAgentsIcon,
   "langgraph-python": LanggraphIcon,
   "langgraph-typescript": LanggraphIcon,
   "langgraph-fastapi": LanggraphIcon,

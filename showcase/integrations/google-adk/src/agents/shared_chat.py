@@ -37,6 +37,8 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from ag_ui_adk import AGUIToolset
 
+from agents._header_forwarding import install_httpx_hook
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -131,7 +133,12 @@ def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
     """
     base_url = os.environ.get("GOOGLE_GEMINI_BASE_URL")
     if base_url:
-        return Gemini(model=model, base_url=base_url)
+        gemini = Gemini(model=model, base_url=base_url)
+        # Walk Gemini's ``._client`` chain and attach the request hook so
+        # inbound x-* headers (e.g. ``x-aimock-context``) ride along on
+        # outbound calls to the aimock proxy.
+        install_httpx_hook(gemini)
+        return gemini
     return model
 
 

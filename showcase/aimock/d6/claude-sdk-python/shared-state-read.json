@@ -7,21 +7,20 @@
   },
   "fixtures": [
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only \u2014 agent has no tools.",
       "match": {
         "userMessage": "Italian pasta recipe",
         "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {
-        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+        "content": "Great choice \u2014 looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
       }
     },
     {
       "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
       "match": {
         "userMessage": "healthier with more vegetables",
-        "turnIndex": 0,
         "context": "claude-sdk-python"
       },
       "response": {

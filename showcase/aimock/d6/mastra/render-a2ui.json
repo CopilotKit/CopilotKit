@@ -3,7 +3,8 @@
     "description": "D6 fixtures for mastra / render-a2ui",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "note": "ported from render-a2ui (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {
@@ -49,7 +50,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above \u2014 Electronics is the largest slice, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -85,7 +86,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+        "content": "Here is a quick card for Ada Lovelace \u2014 the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
       }
     },
     {
@@ -283,7 +284,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — KPI dashboard pill (Google-ADK secondary tool name). Card has a single `child` slot (per myDefinitions.Card.props.child: string), so we wrap the three Metrics in a basic-catalog Column to satisfy the multi-child layout.",
+      "_comment": "render_a2ui \u2014 KPI dashboard pill (Google-ADK secondary tool name). Card has a single `child` slot (per myDefinitions.Card.props.child: string), so we wrap the three Metrics in a basic-catalog Column to satisfy the multi-child layout.",
       "match": {
         "userMessage": "KPI dashboard",
         "toolName": "render_a2ui",
@@ -343,7 +344,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "_comment": "render_a2ui \u2014 pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
       "match": {
         "userMessage": "pie chart of sales by region",
         "toolName": "render_a2ui",
@@ -361,7 +362,7 @@
                   "id": "root",
                   "component": "PieChart",
                   "title": "Sales by region",
-                  "description": "Q4 — share of total revenue",
+                  "description": "Q4 \u2014 share of total revenue",
                   "data": [
                     {
                       "label": "North America",
@@ -389,7 +390,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "_comment": "render_a2ui \u2014 bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
         "toolName": "render_a2ui",
@@ -407,7 +408,7 @@
                   "id": "root",
                   "component": "BarChart",
                   "title": "Quarterly revenue",
-                  "description": "FY24 — USD thousands",
+                  "description": "FY24 \u2014 USD thousands",
                   "data": [
                     {
                       "label": "Q1",
@@ -435,7 +436,7 @@
       }
     },
     {
-      "_comment": "render_a2ui — status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
+      "_comment": "render_a2ui \u2014 status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
       "match": {
         "userMessage": "status report on system health",
         "toolName": "render_a2ui",

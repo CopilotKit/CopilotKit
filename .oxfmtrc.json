@@ -12,6 +12,7 @@
     "packages/web-inspector/src/styles/generated.css",
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",
-    "showcase/aimock/d6/**"
+    "showcase/aimock/d6/**",
+    "**/package.json"
   ]
 }

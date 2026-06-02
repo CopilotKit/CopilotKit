@@ -2,14 +2,15 @@
 
 // Tool Rendering — REASONING CHAIN variant.
 //
-// Combines a custom `reasoningMessage` slot (extended-thinking via Claude
-// 3.7 Sonnet) with sequential tool calls rendered as:
-//   get_weather     → <WeatherCard />
-//   search_flights  → <FlightListCard />
-//   *               → <CustomCatchallRenderer />
+// A single cell that composes two previously-separate patterns:
 //
-// Tools are exposed via `useFrontendTool` with stub handlers so the Claude
-// Agent SDK pass-through can call them.
+//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
+//      the same approach used by the `reasoning-custom` cell.
+//   2. Sequential tool calls rendered with:
+//        get_weather     → <WeatherCard />
+//        search_flights  → <FlightListCard />
+//        *               → <CustomCatchallRenderer />
+//      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
 import {
@@ -18,7 +19,6 @@ import {
   CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
-  useFrontendTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -29,6 +29,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -42,15 +43,6 @@ interface FlightSearchResult {
   origin?: string;
   destination?: string;
   flights?: Flight[];
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -69,82 +61,6 @@ export default function ToolRenderingReasoningChainDemo() {
 }
 
 function Chat() {
-  useFrontendTool({
-    name: "get_weather",
-    description: "Get the current weather for a given location.",
-    parameters: z.object({ location: z.string() }),
-    handler: async ({ location }: { location: string }) => ({
-      city: location,
-      temperature: 68,
-      humidity: 55,
-      wind_speed: 10,
-      conditions: "Sunny",
-    }),
-  });
-
-  useFrontendTool({
-    name: "search_flights",
-    description: "Search mock flights between two airports.",
-    parameters: z.object({
-      origin: z.string(),
-      destination: z.string(),
-    }),
-    handler: async ({
-      origin,
-      destination,
-    }: {
-      origin: string;
-      destination: string;
-    }) => ({
-      origin,
-      destination,
-      flights: [
-        {
-          airline: "United",
-          flight: "UA231",
-          depart: "08:15",
-          arrive: "16:45",
-          price_usd: 348,
-        },
-        {
-          airline: "Delta",
-          flight: "DL412",
-          depart: "11:20",
-          arrive: "19:55",
-          price_usd: 312,
-        },
-        {
-          airline: "JetBlue",
-          flight: "B6722",
-          depart: "17:05",
-          arrive: "01:30",
-          price_usd: 289,
-        },
-      ],
-    }),
-  });
-
-  useFrontendTool({
-    name: "get_stock_price",
-    description: "Get a mock current price for a stock ticker.",
-    parameters: z.object({ ticker: z.string() }),
-    handler: async ({ ticker }: { ticker: string }) => ({
-      ticker: ticker.toUpperCase(),
-      price_usd: 187.42,
-      change_pct: 1.32,
-    }),
-  });
-
-  useFrontendTool({
-    name: "roll_dice",
-    description: "Roll a single die with the given number of sides.",
-    parameters: z.object({ sides: z.number().default(6) }),
-    handler: async ({ sides }: { sides: number }) => ({
-      sides,
-      result: Math.max(1, Math.floor(Math.random() * Math.max(2, sides)) + 1),
-    }),
-  });
-
   useRenderTool(
     {
       name: "get_weather",
@@ -207,14 +123,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
+      {
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
       {
         title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

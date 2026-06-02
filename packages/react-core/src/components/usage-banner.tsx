@@ -195,7 +195,7 @@ export function UsageBanner({
         `}
       </style>
 
-      <div className="usage-banner">
+      <div className="usage-banner" data-testid="copilot-error-banner">
         <div className="banner-content">
           <div className="banner-message">{message}</div>
           {actions?.primary && (

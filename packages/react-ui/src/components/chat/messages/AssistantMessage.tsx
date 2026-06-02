@@ -1,4 +1,4 @@
-import { AssistantMessageProps } from "../props";
+import type { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
@@ -48,7 +48,9 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     }
   };
 
-  const LoadingIcon = () => <span>{icons.activityIcon}</span>;
+  const LoadingIcon = () => (
+    <span data-testid="copilot-loading-cursor">{icons.activityIcon}</span>
+  );
   const content = message?.content || "";
   const subComponent = message?.generativeUI?.() ?? props.subComponent;
   const subComponentPosition = message?.generativeUIPosition ?? "after";

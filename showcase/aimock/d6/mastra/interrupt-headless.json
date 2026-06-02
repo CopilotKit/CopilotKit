@@ -2,13 +2,36 @@
   "_meta": {
     "description": "D6 fixtures for mastra / interrupt-headless. Same agent and LLM-layer responses as gen-ui-interrupt, but the frontend renders the time-picker in a separate app-surface pane via useHeadlessInterrupt. Mastra uses suspend/resume \u2014 the aimock fixture emits schedule_meeting tool calls which the adapter translates into tool-call-suspended events.",
     "sourceFile": "harness/fixtures/d5/interrupt-headless.json",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "note": "ported from interrupt-headless (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers Mastra suspend.",
+      "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless sales-call pill \u2014 first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
+      "match": {
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "mastra"
       },
@@ -37,31 +60,9 @@
       }
     },
     {
-      "_comment": "interrupt-headless sales-call pill \u2014 cancelled leg.",
+      "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001__cancelled",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "Denied \u2014 the sales intro call was not booked because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "interrupt-headless sales-call pill \u2014 second leg: confirmation after user picks a slot.",
-      "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "Booked: Sales intro call confirmed for the slot you picked."
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 first leg.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "mastra"
       },
@@ -87,28 +88,6 @@
             }
           }
         ]
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 cancelled leg.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001__cancelled",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "Denied \u2014 the 1:1 with Alice was not scheduled because no time slot was selected."
-      }
-    },
-    {
-      "_comment": "interrupt-headless alice-1on1 pill \u2014 second leg.",
-      "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
       }
     }
   ]

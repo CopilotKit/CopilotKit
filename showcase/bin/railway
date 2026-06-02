@@ -70,22 +70,38 @@ module Railway
         GOOGLE_API_KEY
     ].freeze
 
-    EXPECTED_DOMAINS = {
-        PRODUCTION_ENV_ID => %w[
-            showcase.copilotkit.ai
-            dashboard.showcase.copilotkit.ai
-            dojo.showcase.copilotkit.ai
-            docs.copilotkit.ai
-            hooks.showcase.copilotkit.ai
-        ].freeze,
-        STAGING_ENV_ID => %w[
-            showcase.staging.copilotkit.ai
-            dashboard.showcase.staging.copilotkit.ai
-            dojo.showcase.staging.copilotkit.ai
-            docs.staging.copilotkit.ai
-            hooks.staging.copilotkit.ai
-        ].freeze,
-    }.freeze
+    # EXPECTED_DOMAINS is derived from showcase/scripts/railway-envs.generated.json
+    # (canonical source: showcase/scripts/railway-envs.ts). The CI guard
+    # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
+    # JSON artifact stays in sync with the TS SSOT on every PR. Only public
+    # (non-`*.up.railway.app`) hosts are included, preserving the original set.
+    # Shared SSOT load — read once at class-load, derive both EXPECTED_DOMAINS
+    # and STAGING_SERVICES from the same generated.json so they cannot drift.
+    SSOT_DATA = begin
+        ssot_json = File.expand_path("../scripts/railway-envs.generated.json", __dir__)
+        unless File.exist?(ssot_json)
+            raise "railway-envs.generated.json not found at #{ssot_json}. " \
+                  "Re-run: npx tsx showcase/scripts/emit-railway-envs-json.ts"
+        end
+        JSON.parse(File.read(ssot_json)).freeze
+    end
+
+    EXPECTED_DOMAINS = begin
+        by_env = { PRODUCTION_ENV_ID => [], STAGING_ENV_ID => [] }
+        SSOT_DATA.fetch("services").each do |svc|
+            domains = svc.fetch("domains")
+            prod = domains.fetch("prod")
+            staging = domains.fetch("staging")
+            by_env[PRODUCTION_ENV_ID] << prod unless prod.end_with?(".up.railway.app")
+            by_env[STAGING_ENV_ID] << staging unless staging.end_with?(".up.railway.app")
+        end
+        by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
+    end
+
+    # Canonical staging service names — used to validate the optional
+    # positional `bin/railway promote <service>` argument. Sourced from the
+    # same SSOT as EXPECTED_DOMAINS so they cannot drift.
+    STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
     # Heuristic markers for env-scoped URLs (ignored in env-diff and promote).
     ENV_SCOPED_URL_MARKERS = [
@@ -133,6 +149,21 @@ module Railway
                     "Export RAILWAY_TOKEN before running.")
             end
             t
+        end
+
+        # GHCR bearer. Distinct from the Railway token (Auth.token).
+        # Resolution order:
+        #   1. GHCR_TOKEN — explicit PAT (local dev or CI override).
+        #   2. GITHUB_TOKEN — GitHub Actions automatic token (needs packages:read).
+        # Returns nil if no token is available; caller MUST refuse rather than
+        # silently fall through to anonymous (which works for public images but
+        # not for digest-existence verification against private repos).
+        def ghcr_token
+            t = ENV["GHCR_TOKEN"]
+            return t.strip if t && !t.strip.empty?
+            t = ENV["GITHUB_TOKEN"]
+            return t.strip if t && !t.strip.empty?
+            nil
         end
     end
 
@@ -197,7 +228,7 @@ module Railway
             "application/vnd.docker.distribution.manifest.v2+json",
         ].join(", ").freeze
 
-        def initialize(token: ENV["GHCR_TOKEN"], http: nil)
+        def initialize(token: Railway::Auth.ghcr_token, http: nil)
             @token = token
             @http = http
         end
@@ -230,6 +261,44 @@ module Railway
             raise Error, "GHCR did not return Docker-Content-Digest for #{image_ref}" if digest.nil?
 
             digest
+        end
+
+        # Verify a digest-pinned image exists in GHCR. Returns:
+        #   :exists       — HEAD returned 200.
+        #   :missing      — HEAD returned 404 (digest GC'd or never built).
+        #   :auth_failed  — HEAD returned 401/403 (token missing/insufficient).
+        # Raises GHCR::Error on 5xx or transport failure.
+        #
+        # The caller MUST pass an image ref already pinned to @sha256:<digest>;
+        # this is the "P1 precondition" check from the showcase deploy spec, not
+        # a tag-resolution. We do not chase a tag here — we verify the exact
+        # bytes about to be pinned to prod.
+        def manifest_exists(image_ref)
+            parts = parse_image_ref(image_ref)
+            digest = parts[:digest]
+            raise ArgumentError, "manifest_exists requires a digest-pinned ref, got #{image_ref}" if digest.nil?
+
+            org  = parts[:org]
+            name = parts[:name]
+
+            bearer = bearer_for(org, name)
+            url = "https://ghcr.io/v2/#{org}/#{name}/manifests/#{digest}"
+
+            resp =
+                if @http
+                    @http.call(method: :head, url: url, headers: headers(bearer))
+                else
+                    http_head(url, headers: headers(bearer))
+                end
+
+            status = resp[:status]
+            case status
+            when 200       then :exists
+            when 404       then :missing
+            when 401, 403  then :auth_failed
+            else
+                raise Error, "GHCR manifest HEAD #{status} for #{image_ref}"
+            end
         end
 
         # Parse image ref into { registry, org, name, tag, digest }.
@@ -380,7 +449,17 @@ module Railway
     # We capture KEYS only for env vars (never values) so snapshots are safe
     # to commit/share.
     class SnapshotIO
-        SCHEMA_VERSION = 1
+        SCHEMA_VERSION = 2
+
+        # v1: initial fields (name, service_id, image, image_tag, digest,
+        #     start_command, auto_updates_disabled, latest_deployment_id,
+        #     env_keys, custom_domains).
+        # v2: adds healthcheck_path, region, replicas, restart_policy
+        #     (for the P6 parity matrix in promote). We accept v1 reads
+        #     for backwards-compat with historical committed snapshots —
+        #     promote always uses live snapshots, but rollback-commit
+        #     replays snapshots from arbitrary SHAs.
+        SUPPORTED_VERSIONS = [1, SCHEMA_VERSION].freeze
 
         def self.write(path, snapshot)
             FileUtils.mkdir_p(File.dirname(path)) unless path == "-"
@@ -395,8 +474,8 @@ module Railway
         def self.read(path)
             raw = path == "-" ? $stdin.read : File.read(path)
             data = YAML.safe_load(raw, permitted_classes: [Time, Symbol], aliases: false)
-            unless data.is_a?(Hash) && data["version"] == SCHEMA_VERSION
-                Railway.die!("Snapshot schema mismatch (expected version=#{SCHEMA_VERSION}).")
+            unless data.is_a?(Hash) && SUPPORTED_VERSIONS.include?(data["version"])
+                Railway.die!("Snapshot schema mismatch (expected version in #{SUPPORTED_VERSIONS.inspect}).")
             end
             data
         end
@@ -448,6 +527,10 @@ module Railway
                 serviceId
                 environmentId
                 startCommand
+                healthcheckPath
+                region
+                numReplicas
+                restartPolicyType
                 source { image repo }
                 latestDeployment { id status }
                 domains {
@@ -596,6 +679,10 @@ module Railway
                     "image_tag"             => tag_ref,
                     "digest"                => digest,
                     "start_command"         => inst["startCommand"],
+                    "healthcheck_path"      => inst["healthcheckPath"],
+                    "region"                => inst["region"],
+                    "replicas"              => inst["numReplicas"],
+                    "restart_policy"        => inst["restartPolicyType"],
                     "auto_updates_disabled" => nil,
                     "latest_deployment_id"  => inst.dig("latestDeployment", "id"),
                     "env_keys"              => (keys_by_service[node["id"]] || []).sort.uniq,
@@ -819,13 +906,33 @@ module Railway
             env = options[:env]
             sha = options[:sha]
 
+            # Input validation BEFORE invoking git — these values flow into
+            # subprocess invocations and an attacker-controlled `--sha` or
+            # `--env` must not be able to inject shell or git arguments.
+            # `sha` must look like a git object name (7-40 lowercase hex).
+            # `env` must resolve via Railway.env_id_for, which constrains it
+            # to the known set ("staging"/"stage"/"production"/"prod"); on miss
+            # it calls Railway.die! itself.
+            unless sha.is_a?(String) && sha.match?(/\A[0-9a-f]{7,40}\z/)
+                Railway.die!("--sha must be a 7-40 char lowercase hex git SHA " \
+                    "(got #{sha.inspect}).")
+            end
+            Railway.env_id_for(env)  # dies with "Unknown env: ..." if invalid.
+
             # We look in showcase/.railway-snapshots/*-<env>.yaml at SHA, take last.
-            list_cmd = %(git ls-tree -r --name-only #{sha} -- 'showcase/.railway-snapshots/*-#{env}.yaml')
-            entries = `#{list_cmd}`.lines.map(&:strip).reject(&:empty?).sort
+            # IO.popen with an argv array (no shell string) so sha/env are
+            # passed as literal argv to git — never parsed by a shell.
+            pathspec = "showcase/.railway-snapshots/*-#{env}.yaml"
+            ls_out = IO.popen(["git", "ls-tree", "-r", "--name-only", sha, "--", pathspec],
+                err: [:child, :out]) { |io| io.read }
+            Railway.die!("git ls-tree failed for #{sha}") unless $?.exitstatus == 0
+            entries = ls_out.lines.map(&:strip).reject(&:empty?).sort
             Railway.die!("No snapshot for env=#{env} at #{sha}.") if entries.empty?
             path = entries.last
 
-            yaml = `git show #{sha}:#{path}`
+            yaml = IO.popen(["git", "show", "#{sha}:#{path}"],
+                err: [:child, :out]) { |io| io.read }
+            Railway.die!("git show failed for #{sha}:#{path}") unless $?.exitstatus == 0
             Railway.die!("git show failed for #{sha}:#{path}") if yaml.nil? || yaml.empty?
 
             snap = YAML.safe_load(yaml, permitted_classes: [Time, Symbol], aliases: false)
@@ -845,24 +952,133 @@ module Railway
 
     # promote — copy staging digests into production with prechecks.
     class PromoteCommand < BaseCommand
+        class MutationError < StandardError; end
+
+        SERVICE_INSTANCE_RECHECK_QUERY = <<~GQL
+            query ServiceInstanceRecheck($serviceId: String!, $envId: String!) {
+                serviceInstance(serviceId: $serviceId, environmentId: $envId) {
+                    id
+                    source { image }
+                    updatedAt
+                }
+            }
+        GQL
+
+        RETRY_COUNT     = 3
+        RETRY_DELAY_SEC = 10
+
+        # Pin + verify: confirms the boolean mutation result AND re-queries
+        # serviceInstance to confirm BOTH source.image advanced to the new
+        # digest AND updatedAt strictly advanced past the pre-mutation value.
+        # 3 retries 10s apart absorb Railway's eventual consistency.
+        # `sleeper:` is injected for tests.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
+            # Upfront guard: this method's contract is to pin a DIGEST-form
+            # image. Pre-fix, a stray tag ref would fall through to retries
+            # (since expected_digest stayed nil and image_ok was always false)
+            # and ultimately surface as a misleading "did not observe image
+            # advance" error after 30s of futile waits.
+            unless image.include?("@sha256:")
+                raise ArgumentError,
+                    "pin_and_verify requires an @sha256:-pinned image, got #{image.inspect}"
+            end
+
+            # Capture pre-update serviceInstance.updatedAt so we can gate on a
+            # strict advance after the mutation (spec §7.2 P5). Image-equality
+            # alone is insufficient — a no-op re-pin to the current value would
+            # otherwise appear green. nil pre_ts means "no prior instance" and
+            # is treated as a permanent advance below.
+            pre_data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                serviceId: service_id, envId: env_id)
+            pre_inst = pre_data && pre_data["serviceInstance"]
+            pre_update_ts = pre_inst && pre_inst["updatedAt"]
+
+            updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
+                serviceId: service_id, envId: env_id, image: image)
+            unless updated && updated["serviceInstanceUpdate"] == true
+                raise MutationError,
+                    "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
+            end
+
+            # Symmetric assertion: serviceInstanceUpdate has already advanced
+            # source.image+updatedAt, so a failed redeploy could otherwise
+            # sneak through verification. Require truthy redeploy result.
+            redeployed = gql.query(RestoreCommand::REDEPLOY_MUTATION,
+                serviceId: service_id, envId: env_id)
+            unless redeployed && redeployed["serviceInstanceRedeploy"]
+                raise MutationError,
+                    "P5: serviceInstanceRedeploy returned #{redeployed.inspect} (expected truthy) for #{service_id} -> #{image}"
+            end
+
+            expected_digest = image.include?("@") ? image.split("@", 2).last : nil
+            last_seen_image = nil
+            last_seen_ts    = nil
+
+            RETRY_COUNT.times do |i|
+                data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                    serviceId: service_id, envId: env_id)
+                inst = data && data["serviceInstance"]
+                actual_image  = inst && inst.dig("source", "image")
+                actual_ts     = inst && inst["updatedAt"]
+                actual_digest = actual_image && actual_image.include?("@") ? actual_image.split("@", 2).last : nil
+                last_seen_image = actual_image
+                last_seen_ts    = actual_ts
+
+                image_ok = expected_digest && actual_digest == expected_digest
+                # Non-vacuous timestamp gate: a non-nil observed updatedAt is
+                # ALWAYS required. Pre-fix this collapsed to (pre_ts.nil? ||
+                # ...), which made the gate vacuous for new prod services and
+                # fell back to digest-equality alone — the exact weakness this
+                # gate was added to prevent.
+                ts_ok    = actual_ts && (pre_update_ts.nil? || actual_ts > pre_update_ts)
+                return inst if image_ok && ts_ok
+
+                sleeper.call(RETRY_DELAY_SEC) if i < RETRY_COUNT - 1
+            end
+
+            raise MutationError,
+                "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
+                "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
+                "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+        end
+
+        def default_options
+            super.merge(
+                confirm_divergence:    false,
+                require_staging_green: true,   # default-on per spec §7.2 P3
+                service:               nil,    # optional positional: restrict to ONE service
+                digest:                nil,    # override resolved prod-image ref (single-service only)
+            )
+        end
+
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway promote [--include-startcommand] [--yes] [--non-interactive] [--dry-run]
+                    Usage: bin/railway promote [SERVICE] [--digest REF] [--yes] [--non-interactive] [--dry-run]
 
                       Promote staging snapshot to production.
 
-                      MOVES: image digests; startCommand (only if --include-startcommand);
+                      SERVICE (optional positional): restrict the promote to a single
+                        staging service by name. Without it, the entire staging fleet
+                        is promoted (interactive operator use).
+                      --digest REF: pin SERVICE's prod image to REF instead of the
+                        digest resolved from staging's :latest tag. Only valid with a
+                        positional SERVICE; errors otherwise.
+
+                      MOVES: image digests (resolved to @sha256: at promote time);
                              autoUpdate=disabled flag.
                       VERIFY-REFUSE: service-set parity, critical env-key parity,
-                             PB superuser auth, PB collection parity,
-                             cross-env URL leak scan.
+                             startCommand parity, PB superuser auth,
+                             PB collection parity, cross-env URL leak scan.
                       WARN: missing/extra custom domains, sealed-var heuristics.
                       IGNORE: env-scoped URLs, volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
-                o.on("--include-startcommand") { options[:include_startcommand] = true }
+                o.on("--confirm-divergence", "Proceed past WARN findings (region/replicas/etc.)") { options[:confirm_divergence] = true }
+                o.on("--require-staging-green", "Require live staging probe green at promote time (default)") { options[:require_staging_green] = true }
+                o.on("--no-require-staging-green", "Skip live staging probe (NOT recommended)") { options[:require_staging_green] = false }
+                o.on("--digest REF", "Pin SERVICE's prod image to REF (requires positional SERVICE).") { |v| options[:digest] = v }
                 o.on("--yes") { options[:yes] = true }
                 o.on("--non-interactive") { options[:non_interactive] = true }
                 o.on("--dry-run") { options[:dry_run] = true }
@@ -873,47 +1089,186 @@ module Railway
         def run
             parser.parse!(argv)
 
-            # Capture both env snapshots.
-            staging = SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)
-            prod    = SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
+            # Optional positional service name; remaining argv after parse! is
+            # whatever the OptionParser left behind. The workflow shape is
+            # `promote <svc> [--digest REF]` — one positional only.
+            if argv.length > 1
+                Railway.die!("promote: too many positional args #{argv.inspect}; expected at most one service name.")
+            end
+            options[:service] = argv.first if argv.first && !argv.first.empty?
 
-            findings = []
-
-            # VERIFY: service-set parity.
-            s_names = (staging["services"] || []).map { |s| s["name"] }.sort
-            p_names = (prod["services"] || []).map { |s| s["name"] }.sort
-            missing_in_prod = s_names - p_names
-            missing_in_stg  = p_names - s_names
-            findings << "REFUSE: services in staging not in prod: #{missing_in_prod.join(', ')}" unless missing_in_prod.empty?
-            findings << "REFUSE: services in prod not in staging: #{missing_in_stg.join(', ')}" unless missing_in_stg.empty?
-
-            # VERIFY: critical env-key parity per service.
-            (staging["services"] || []).each do |svc|
-                pmatch = Railway.find_service(prod, svc["name"])
-                next unless pmatch
-                missing_keys = (CRITICAL_ENV_KEYS & svc["env_keys"]) - pmatch["env_keys"]
-                unless missing_keys.empty?
-                    findings << "REFUSE: #{svc['name']}: critical keys missing in prod: #{missing_keys.join(', ')}"
-                end
+            # --digest is meaningful only with a positional service. Without
+            # one it would otherwise silently promote the whole fleet pinned
+            # to one (likely wrong) digest — fail fast instead.
+            if options[:digest] && options[:service].nil?
+                Railway.die!("promote: --digest requires a positional service argument " \
+                             "(e.g. `bin/railway promote <service> --digest <ref>`). " \
+                             "Refusing to promote the fleet with a single digest.")
             end
 
-            # WARN: domain audits.
-            expected_prod_domains = EXPECTED_DOMAINS[PRODUCTION_ENV_ID]
-            actual_prod_domains = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
-            missing_domains = expected_prod_domains - actual_prod_domains
-            findings << "WARN: production missing expected custom domains: #{missing_domains.join(', ')}" unless missing_domains.empty?
+            # Validate the positional service against the SSOT
+            # (railway-envs.generated.json). Unknown names must hard-fail with
+            # the valid set listed so the operator can self-correct; falling
+            # through would silently fleet-promote (the original bug).
+            if options[:service] && !STAGING_SERVICES.include?(options[:service])
+                Railway.die!("promote: unknown service #{options[:service].inspect}. " \
+                             "Valid staging services: #{STAGING_SERVICES.join(', ')}.")
+            end
 
-            # WARN: cross-env URL leak in env-key NAMES is impossible (we have names only);
-            # we cannot read values without an explicit per-key fetch. Log as IGNORE note.
+            capture_snapshots
+
+            # When restricted to a single service, narrow PER-SERVICE views
+            # of both snapshots BEFORE preflight so per-service checks
+            # (P1..P3/P6, critical env keys, execute_promotion) operate
+            # only on the targeted service. FLEET-SCOPED invariants
+            # (check_expected_prod_domains, check_service_set_parity) MUST
+            # continue to evaluate against the FULL un-narrowed snapshots
+            # — they describe properties of the fleet itself, not the
+            # promote target. Co-narrowing them produces two failure
+            # modes that the per-service workflow can't tolerate:
+            #
+            #   (1) check_expected_prod_domains diffs the fleet-wide
+            #       EXPECTED_DOMAINS against the union of custom_domains
+            #       in `prod["services"]`. Narrowed prod carries at most
+            #       one service's domains → the other ~4 fleet hosts look
+            #       "missing" → spurious WARN → run_with_preflight_only
+            #       refuses (workflow doesn't pass --confirm-divergence).
+            #   (2) check_service_set_parity is a fleet-shape invariant
+            #       (no env has services the other lacks); evaluating it
+            #       on the narrowed pair makes it tautological when both
+            #       contain the same single name, and only accidentally
+            #       fires in the target-absent-from-prod case.
+            #
+            # We therefore retain references to the full snapshots and
+            # only narrow when the per-service branch is taken. Reads go
+            # through the fleet_*/target_* accessors below so the
+            # fleet-scoped vs per-service distinction is enforced by
+            # method name (not by comment, as it was before — two prior
+            # regressions came from reading the wrong ivar in a
+            # fleet-scoped check).
+            @full_staging_snapshot = @staging_snapshot
+            @full_prod_snapshot    = @prod_snapshot
+            if options[:service]
+                narrow_snapshots_to_single_service!(options[:service])
+            end
+
+            run_with_preflight_only
+        end
+
+        # Narrow @staging_snapshot and @prod_snapshot to only the named
+        # service. Staging presence is mandatory (validated against SSOT
+        # already); prod absence is tolerated here so the fleet-scoped
+        # service-set-parity REFUSE (comparing fleet_staging vs fleet_prod) can surface as
+        # the user-facing error rather than a silent rc=0 'success'
+        # (find_service returns nil, so execute_promotion would
+        # otherwise skip the absent service with no mutation).
+        def narrow_snapshots_to_single_service!(name)
+            staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }
+            if staging_match.empty?
+                Railway.die!("promote: service #{name.inspect} not present in staging snapshot " \
+                             "(SSOT lists it but Railway env returned no instance).")
+            end
+            @staging_snapshot = @staging_snapshot.merge("services" => staging_match)
+            prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }
+            @prod_snapshot = @prod_snapshot.merge("services" => prod_match)
+        end
+
+        # Test seam — capture_snapshots may be skipped by injecting
+        # @staging_snapshot / @prod_snapshot directly.
+        def capture_snapshots
+            @staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)
+            @prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)
+        end
+
+        # ── Snapshot accessors ─────────────────────────────────────────────
+        #
+        # The fleet-vs-target distinction is load-bearing. A "fleet" view
+        # is the FULL un-narrowed snapshot (every service in the env). A
+        # "target" view is the snapshot scoped to whatever this promote
+        # run actually targets — narrowed to one service when the
+        # operator passed a positional service argument, equal to the
+        # fleet view otherwise.
+        #
+        # Use:
+        #   fleet_staging / fleet_prod   — for FLEET-SHAPE invariants
+        #     (service-set parity, expected prod domain set). These
+        #     answer questions about the env itself, not the promote
+        #     target, and must produce the same verdict regardless of
+        #     whether this run is full-fleet or single-service.
+        #   target_staging / target_prod — for PER-SERVICE checks
+        #     (P1..P3/P6, critical env-key parity, execute_promotion,
+        #     resolved_prod_image). These iterate the services we are
+        #     actually about to promote.
+        #
+        # The `|| @*` fallback preserves the existing test seam: legacy
+        # promote tests stub @staging_snapshot/@prod_snapshot directly
+        # and invoke run_with_preflight_only without going through `run`
+        # (which is what sets @full_*). For those tests full == narrowed
+        # by construction (full-fleet semantics), so falling back to the
+        # target view is correct.
+        # Below: fleet_* / target_* accessors are intentionally private to this
+        # class (PromoteCommand-internal views of the snapshots). A matching
+        # `public` toggle after target_prod restores default visibility for the
+        # subsequent run_with_preflight_only / check_* methods.
+        private
+
+        def fleet_staging
+            @full_staging_snapshot || @staging_snapshot
+        end
+
+        def fleet_prod
+            @full_prod_snapshot || @prod_snapshot
+        end
+
+        def target_staging
+            @staging_snapshot
+        end
+
+        def target_prod
+            @prod_snapshot
+        end
+
+        public
+
+        # All preconditions, then (if clean) the actual promote.
+        def run_with_preflight_only
+            findings = []
+
+            findings.concat(check_p1_ghcr_digests(target_staging))
+            findings.concat(check_p2_staging_deployments(target_staging))
+            findings.concat(check_p3_staging_live_green(target_staging))
+            findings.concat(check_p6_parity(target_staging, target_prod))
+            # FLEET-SCOPED invariants — must see the FULL fleet so they
+            # produce the same verdict regardless of whether this run is
+            # full-fleet or restricted to a single service. See `run` for
+            # the fleet_* rationale.
+            findings.concat(check_service_set_parity(fleet_staging, fleet_prod))
+            findings.concat(check_critical_env_key_parity(target_staging, target_prod))
+            findings.concat(check_expected_prod_domains(fleet_prod))
+
+            # Mandatory parity-NOTE that env var VALUES are not compared.
+            puts "NOTE: env var VALUES are not compared between staging and prod " \
+                 "(intentional — staging and prod hold different secrets/URLs). " \
+                 "Only the set of keys is compared."
 
             refuses = findings.select { |f| f.start_with?("REFUSE") }
+            warns   = findings.select { |f| f.start_with?("WARN") }
+
             unless refuses.empty?
                 refuses.each { |f| puts f }
                 puts "Promote refused due to #{refuses.size} REFUSE finding(s)."
                 return 1
             end
 
-            findings.each { |f| puts f }
+            unless warns.empty?
+                warns.each { |f| puts f }
+                unless options[:confirm_divergence]
+                    puts "Promote refused: #{warns.size} WARN finding(s). " \
+                         "Re-run with --confirm-divergence after inspecting."
+                    return 1
+                end
+                puts "[--confirm-divergence set] proceeding past #{warns.size} WARN finding(s)."
+            end
 
             Railway.confirm_destructive!(
                 env_label: "production",
@@ -922,23 +1277,373 @@ module Railway
                 yes: options[:yes],
             )
 
-            # Execute promotion: redeploy each prod service with staging's image.
+            execute_promotion(target_staging, target_prod)
+        end
+
+        # Resolve a staging service's image to the DIGEST-form ref that should
+        # be pinned to prod. The showcase deploy model is STAGING = mutable
+        # `:latest` tag, PROD = immutable `@sha256:<digest>`. Pinning prod to
+        # a tag would defeat the entire pipeline invariant — and verify-railway-
+        # image-refs PROD_SHAPE would later REFUSE.
+        #
+        # Returns the canonical `<ghcr.io/org/name>@sha256:<digest>` ref.
+        # Returns nil if the staging tag cannot be resolved (e.g. GHCR 404 /
+        # auth failed); the caller MUST refuse rather than pin a tag.
+        def resolved_prod_image(svc)
+            # --digest override: when the operator supplied an explicit ref AND
+            # we are restricted to a single service, use that ref verbatim. The
+            # `run` entry-point already enforces that --digest requires a
+            # positional service, and snapshots are narrowed to that service
+            # before preflight, so `svc["name"] == options[:service]` here.
+            if options[:digest] && options[:service] && svc["name"] == options[:service]
+                return options[:digest]
+            end
+
+            image = svc["image"] || svc["image_tag"]
+            return nil if image.nil? || image.empty?
+            return image if image.include?("@sha256:")  # already pinned
+
+            digest = ghcr.resolve_digest(image)
+            return nil if digest.nil?
+
+            # Strip the tag (`:latest`) and append the digest. parse_image_ref
+            # returns the structured parts; rebuild the canonical pinned ref.
+            parts = ghcr.parse_image_ref(image)
+            registry = parts[:registry] || "ghcr.io"
+            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{digest}"
+        end
+
+        # P1 — every staging digest about to be promoted must exist in GHCR.
+        # Verifies the DIGEST-form ref that will actually be pinned to prod
+        # (resolves tag refs first; refuses if the tag can't be resolved).
+        #
+        # Side-effect: populates @promote_refs (service_name => digest-pinned
+        # ref) so execute_promotion pins the EXACT ref P1 verified — staging
+        # `:latest` is mutable, so a second resolve_digest could return a
+        # different digest (TOCTOU) and prod would be pinned to a digest P1
+        # never verified.
+        def check_p1_ghcr_digests(staging)
+            findings = []
+            # RESET (not memoize): a reused PromoteCommand instance running a
+            # second preflight against a different snapshot must not carry
+            # stale A-era refs into a B-era promote.
+            @promote_refs = {}
+            (staging["services"] || []).each do |svc|
+                image = svc["image"] || svc["image_tag"]
+                if image.nil? || image.empty?
+                    # Make this loud — pre-fix this was a silent `next`, and
+                    # execute_promotion later emitted a misleading "internal
+                    # error" for the same service.
+                    findings << "REFUSE: P1 (#{svc['name']}): no image recorded in staging snapshot; " \
+                                "cannot promote."
+                    next
+                end
+
+                # Per-service rescue: an error on one service must not
+                # discard findings already accumulated for earlier services.
+                # Broadened to StandardError — a non-GHCR error (e.g. an
+                # ArgumentError from parse_image_ref, or a network error
+                # wrapped as something else) would otherwise bypass the
+                # per-service rescue and crash the whole loop.
+                begin
+                    resolved = resolved_prod_image(svc)
+                    if resolved.nil?
+                        findings << "REFUSE: P1 (#{svc['name']}): cannot resolve #{image} to a GHCR digest; " \
+                                    "refusing to pin prod to a mutable tag."
+                        next
+                    end
+
+                    case ghcr.manifest_exists(resolved)
+                    when :exists
+                        # Record the verified ref for use by execute_promotion
+                        # — guarantees pin parity with what P1 verified.
+                        @promote_refs[svc["name"]] = resolved
+                    when :missing
+                        findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
+                                    "(digest may have been garbage-collected; staging build may not have pushed)."
+                    when :auth_failed
+                        findings << "REFUSE: P1 (#{svc['name']}): GHCR auth failed for #{resolved}. " \
+                                    "Set GHCR_TOKEN (local: 'gh auth token') or GITHUB_TOKEN (CI: workflow token with packages:read)."
+                    end
+                rescue StandardError => e
+                    findings << "REFUSE: P1 (#{svc['name']}): unexpected #{e.class}: #{e.message}"
+                end
+            end
+            findings
+        end
+
+        # P2 — for each staging service we are promoting, the most recent
+        # staging deployment must be SUCCESS AND its image digest must match
+        # the digest we are about to promote (otherwise a newer build is
+        # in flight; refuse to avoid the race).
+        def check_p2_staging_deployments(staging)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                next if svc["service_id"].nil? || svc["image"].nil?
+                deployments = fetch_latest_staging_deployments(svc["service_id"])
+                latest = deployments.first
+                if latest.nil?
+                    findings << "REFUSE: P2 (#{svc['name']}): no staging deployments found."
+                    next
+                end
+                status = latest["status"]
+                if status != "SUCCESS"
+                    findings << "REFUSE: P2 (#{svc['name']}): latest staging deployment status is #{status}, not SUCCESS."
+                    next
+                end
+                # Railway's Deployment.meta is a JSON scalar that may deserialize
+                # as a String (not a Hash). Parse it first; fall back to the
+                # WARN branch only if it is still non-Hash after the parse.
+                meta = latest["meta"]
+                meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
+                if meta.is_a?(Hash)
+                    deployed_image = meta["image"].to_s
+                    deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
+                    # Compare against the digest P1 resolved+verified (recorded
+                    # in @promote_refs), NOT svc["digest"] — staging images are
+                    # tag-form, so svc["digest"] is nil and the race-check would
+                    # otherwise be dead code. P2 runs after P1 in the preflight,
+                    # so the entry must exist; if it doesn't, P1 has already
+                    # REFUSEd this service and we skip the race comparison.
+                    promote_ref = (@promote_refs || {})[svc["name"]]
+                    promote_digest = promote_ref && promote_ref.include?("@sha256:") ? promote_ref.split("@", 2).last : nil
+                    if promote_digest && deployed_digest && deployed_digest != promote_digest
+                        findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
+                                    "#{deployed_digest} but P1 resolved #{promote_digest}. Re-snapshot and retry."
+                    end
+                else
+                    findings << "WARN: P2 (#{svc['name']}): in-flight race check skipped — " \
+                                "deployment meta is #{meta.class}, expected Hash."
+                end
+            end
+            findings
+        end
+
+        def fetch_latest_staging_deployments(service_id)
+            data = gql.query(RollbackCommand::DEPLOYMENTS_QUERY,
+                serviceId: service_id, envId: STAGING_ENV_ID)
+            nodes = (data.dig("deployments", "edges") || []).map { |e| e["node"] }
+            # Railway's deployments query has no explicit order; sort client-side
+            # by createdAt descending so `.first` is genuinely the newest. nil
+            # createdAt sorts last (treated as oldest).
+            nodes.sort_by { |n| n["createdAt"].to_s }.reverse
+        end
+
+        # P3 — re-probe staging live at promote time. Authoritative; CI history
+        # is not, because showcase_deploy.yml uses cancel-in-progress.
+        # Default-on; can be disabled with --no-require-staging-green.
+        def check_p3_staging_live_green(staging)
+            unless options[:require_staging_green]
+                puts "P3 SKIPPED (--no-require-staging-green set; staging is NOT being live-re-probed)."
+                return []
+            end
+            services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            return [] if services.empty?
+            result = run_staging_probe(services: services)
+            return [] if result[:ok]
+            ["REFUSE: P3: staging is not green for #{services.join(', ')}: #{result[:summary]}"]
+        end
+
+        # Shell out to Workstream A's parameterized probe entrypoint.
+        # Contract: exit 0 = green, non-zero = red; stdout is the human summary.
+        #
+        # Explicitly forward RAILWAY_TOKEN (the probe enumerates Railway state
+        # over GraphQL) and GHCR_TOKEN / GITHUB_TOKEN (the probe may need to
+        # cross-check GHCR for the digest under test). All three are inherited
+        # from the parent process env when set; the explicit hash below makes
+        # the dependency visible and survives any future child-env sanitizing.
+        def run_staging_probe(services:)
+            probe_bin = File.expand_path("../scripts/verify-deploy.ts", __dir__)
+            unless File.exist?(probe_bin)
+                return { ok: false, summary: "verify-deploy.ts not found at #{probe_bin} — Workstream A dependency missing." }
+            end
+            services_arg = services.join(",")
+            child_env = {
+                "RAILWAY_TOKEN" => ENV["RAILWAY_TOKEN"],
+                "GHCR_TOKEN"    => ENV["GHCR_TOKEN"],
+                "GITHUB_TOKEN"  => ENV["GITHUB_TOKEN"],
+                "PATH"          => ENV["PATH"],
+                "HOME"          => ENV["HOME"],
+            }.compact
+            # Use `tsx` (workspace dev dependency) for stdlib-free TS execution.
+            # IO.popen preserves a clean child env (Kernel#`` would inherit the
+            # parent shell verbatim — fine, but explicit is better for audit).
+            # Wrap the launch in a rescue: a missing `npx` (Errno::ENOENT) or
+            # any other spawn-time failure should produce a clean REFUSE
+            # rather than a raw stack trace bubbling up out of P3.
+            begin
+                output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
+                    "--env", "staging",
+                    "--services", services_arg,
+                    err: [:child, :out]]) { |io| io.read }
+            rescue Errno::ENOENT, StandardError => e
+                return { ok: false, summary: "staging probe failed to launch: #{e.class}: #{e.message}" }
+            end
+            ok = $?.exitstatus == 0
+            { ok: ok, summary: output.lines.last(10).join.strip }
+        end
+
+        # P6 — parity matrix.
+        #   REFUSE: startCommand, healthcheckPath, image shape.
+        #   WARN:   region, replicas, restartPolicy, env-var KEY set.
+        #   IGNORE: env-var VALUES (printed as NOTE every run; see
+        #           run_with_preflight_only).
+        def check_p6_parity(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch  # service-set parity catches this separately.
+                name = svc["name"]
+
+                # REFUSE — startCommand
+                if svc["start_command"] != pmatch["start_command"]
+                    findings << "REFUSE: P6 (#{name}): startCommand divergence " \
+                                "(staging=#{svc['start_command'].inspect} prod=#{pmatch['start_command'].inspect})"
+                end
+
+                # REFUSE — healthcheckPath
+                if svc["healthcheck_path"] != pmatch["healthcheck_path"]
+                    findings << "REFUSE: P6 (#{name}): healthcheckPath divergence " \
+                                "(staging=#{svc['healthcheck_path'].inspect} prod=#{pmatch['healthcheck_path'].inspect})"
+                end
+
+                # REFUSE — image shape (staging=:tag mutable, prod=@sha256 pinned).
+                staging_shape = image_shape(svc["image"])
+                prod_shape    = image_shape(pmatch["image"])
+                expected_staging_shape = :tag
+                expected_prod_shape    = :digest
+                if staging_shape != expected_staging_shape || prod_shape != expected_prod_shape
+                    findings << "REFUSE: P6 (#{name}): image shape wrong " \
+                                "(staging=#{staging_shape} expected=#{expected_staging_shape}; " \
+                                "prod=#{prod_shape} expected=#{expected_prod_shape})"
+                end
+
+                # WARN — region
+                if svc["region"] != pmatch["region"]
+                    findings << "WARN: P6 (#{name}): region divergence " \
+                                "(staging=#{svc['region'].inspect} prod=#{pmatch['region'].inspect})"
+                end
+
+                # WARN — replicas
+                if svc["replicas"] != pmatch["replicas"]
+                    findings << "WARN: P6 (#{name}): replicas divergence " \
+                                "(staging=#{svc['replicas']} prod=#{pmatch['replicas']})"
+                end
+
+                # WARN — restartPolicy
+                if svc["restart_policy"] != pmatch["restart_policy"]
+                    findings << "WARN: P6 (#{name}): restartPolicy divergence " \
+                                "(staging=#{svc['restart_policy'].inspect} prod=#{pmatch['restart_policy'].inspect})"
+                end
+
+                # WARN — env var KEY set
+                staging_keys = (svc["env_keys"] || []).sort
+                prod_keys    = (pmatch["env_keys"] || []).sort
+                if staging_keys != prod_keys
+                    only_staging = staging_keys - prod_keys
+                    only_prod    = prod_keys - staging_keys
+                    findings << "WARN: P6 (#{name}): env key set divergence " \
+                                "(only-in-staging=#{only_staging.inspect} only-in-prod=#{only_prod.inspect})"
+                end
+            end
+            findings
+        end
+
+        # Classify an image ref. :tag (mutable), :digest (immutable @sha256:),
+        # :missing, or :other.
+        def image_shape(ref)
+            return :missing if ref.nil? || ref.empty?
+            return :digest  if ref.include?("@sha256:")
+            return :tag     if ref.include?(":") && ref.split(":", 2).last !~ /\A\s*\z/
+            :other
+        end
+
+        def check_service_set_parity(staging, prod)
+            findings = []
+            s_names = (staging["services"] || []).map { |s| s["name"] }.sort
+            p_names = (prod["services"] || []).map { |s| s["name"] }.sort
+            findings << "REFUSE: services in staging not in prod: #{(s_names - p_names).join(', ')}" unless (s_names - p_names).empty?
+            findings << "REFUSE: services in prod not in staging: #{(p_names - s_names).join(', ')}" unless (p_names - s_names).empty?
+            findings
+        end
+
+        def check_critical_env_key_parity(staging, prod)
+            findings = []
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
-                image = svc["image"] || svc["image_tag"]
+                missing = (CRITICAL_ENV_KEYS & (svc["env_keys"] || [])) - (pmatch["env_keys"] || [])
+                findings << "REFUSE: #{svc['name']}: critical env keys missing in prod: #{missing.join(', ')}" unless missing.empty?
+            end
+            findings
+        end
+
+        def check_expected_prod_domains(prod)
+            expected = EXPECTED_DOMAINS[PRODUCTION_ENV_ID] || []
+            actual = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
+            missing = expected - actual
+            return [] if missing.empty?
+            ["WARN: production missing expected custom domains: #{missing.join(', ')}"]
+        end
+
+        def execute_promotion(staging, prod)
+            # Hard guard: @promote_refs is populated by check_p1_ghcr_digests.
+            # If it is nil, preflight did not run — refusing to silently pin
+            # nothing (which a memoize default `||= {}` would have done).
+            raise "internal error: execute_promotion invoked without preflight (@promote_refs nil)" if @promote_refs.nil?
+
+            # Pre-validation pass: every prod-matched staging service MUST
+            # have a digest-shaped @promote_refs entry BEFORE we pin anything.
+            # Pre-fix, a missing entry was detected lazily mid-loop, which
+            # could leave production partially-promoted (some services pinned
+            # to new digest, others still on prior digest). Fail fast here.
+            missing = []
+            (staging["services"] || []).each do |svc|
+                next unless Railway.find_service(prod, svc["name"])
+                ref = @promote_refs[svc["name"]]
+                if ref.nil? || !ref.include?("@sha256:")
+                    missing << "#{svc['name']}=#{ref.inspect}"
+                end
+            end
+            unless missing.empty?
+                warn "REFUSE: promote: P1-verified digest ref missing or non-digest for " \
+                     "#{missing.join(', ')} (internal error — preflight did not capture these services). " \
+                     "Refusing to pin (no mutations issued)."
+                return 1
+            end
+
+            already_pinned = []
+            (staging["services"] || []).each do |svc|
+                pmatch = Railway.find_service(prod, svc["name"])
+                next unless pmatch
+                # Use the EXACT ref P1 resolved+verified. Re-resolving here
+                # would risk TOCTOU on staging's mutable `:latest`.
+                image = @promote_refs[svc["name"]]
                 if options[:dry_run]
                     puts "[dry-run] promote #{svc['name']} -> #{image}"
                     next
                 end
-
-                RestoreCommand.pin_and_redeploy(gql,
-                    service_id: pmatch["service_id"],
-                    env_id: PRODUCTION_ENV_ID,
-                    image: image)
-                puts "promoted #{svc['name']} -> #{image}"
+                begin
+                    PromoteCommand.pin_and_verify(gql,
+                        service_id: pmatch["service_id"],
+                        env_id: PRODUCTION_ENV_ID,
+                        image: image)
+                    puts "promoted #{svc['name']} -> #{image}"
+                    already_pinned << svc["name"]
+                # Broadened rescue: a transient GraphQL or network error
+                # mid-loop must NOT crash the script (which would lose the
+                # PARTIAL-PROMOTION report — its entire reason for existing).
+                rescue PromoteCommand::MutationError, Railway::GraphQL::Error, StandardError => e
+                    warn "PARTIAL PROMOTION: already pinned #{already_pinned.inspect}; " \
+                         "FAILED on #{svc['name']}: #{e.class}: #{e.message}. " \
+                         "Production is in a mixed state — note that serviceInstanceUpdate " \
+                         "runs BEFORE serviceInstanceRedeploy, so #{svc['name']}'s prod " \
+                         "source.image may already be partially advanced on Railway's side. " \
+                         "Run 'bin/railway rollback-commit' against the prior snapshot to revert, " \
+                         "or re-run promote to retry."
+                    return 1
+                end
             end
-
             0
         end
     end

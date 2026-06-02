@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.59.0",
+  "version": "1.59.2",
   "description": "Core web utilities for CopilotKit2",
   "repository": {
     "type": "git",
@@ -24,6 +24,8 @@
   },
   "scripts": {
     "build": "tsdown",
+    "size": "size-limit",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",

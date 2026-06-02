@@ -61,7 +61,7 @@ function Chat() {
   return (
     <div
       className="flex justify-center items-center h-screen w-full"
-      data-testid="background-container"
+      data-testid="frontend-tools-background"
       style={{ background }}
     >
       <div className="h-full w-full max-w-4xl">

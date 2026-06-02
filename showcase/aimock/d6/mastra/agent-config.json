@@ -2,67 +2,68 @@
   "_meta": {
     "description": "D6 fixtures for mastra / agent-config",
     "sourceFile": "harness/fixtures/d5/agent-config.json",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "note": "ported from agent-config (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {
-      "_comment": "agent-config tone:professional knob — formal response.",
+      "_comment": "agent-config tone:professional \u2014 value-A for the tone knob pair. Must differ from the tone:casual fixture below.",
       "match": {
-        "userMessage": "tone:professional",
+        "userMessage": "tone:professional \u2014 introduce yourself per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "Greetings. I am operating in professional tone. I will provide measured, formal responses calibrated to your stated preferences and refrain from colloquialisms in my replies."
+        "content": "Good day. I am your CopilotKit assistant, configured to operate in a professional capacity. I am prepared to assist you with any questions or tasks you may have. How may I be of service today?"
       }
     },
     {
-      "_comment": "agent-config tone:casual knob — easygoing response.",
+      "_comment": "agent-config tone:casual \u2014 value-B for the tone knob pair. Must differ from the tone:professional fixture above.",
       "match": {
-        "userMessage": "tone:casual",
+        "userMessage": "tone:casual \u2014 introduce yourself per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "Hey! Casual mode here — I'll keep things friendly and easygoing. Just shoot me whatever you want to know and I'll riff on it without sounding like a press release."
+        "content": "Hey there! I'm your CopilotKit buddy. I keep things chill and easy-going. What's up \u2014 need a hand with anything?"
       }
     },
     {
-      "_comment": "agent-config expertise:beginner knob — simplified explanation.",
+      "_comment": "agent-config expertise:beginner \u2014 value-A for the expertise knob pair.",
       "match": {
-        "userMessage": "expertise:beginner",
+        "userMessage": "expertise:beginner \u2014 explain how copilotkit works per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "Sure! Think of CopilotKit as a friendly toolkit. It helps you add an AI helper to your app. The helper can answer questions, run small tasks, and show buttons or charts when needed."
+        "content": "CopilotKit is like a smart helper you can add to your website or app. Think of it as a friendly assistant that lives inside your project and can answer questions, fill out forms, and do tasks for you automatically."
       }
     },
     {
-      "_comment": "agent-config expertise:expert knob — deep technical explanation.",
+      "_comment": "agent-config expertise:expert \u2014 value-B for the expertise knob pair. Must differ from the beginner fixture above.",
       "match": {
-        "userMessage": "expertise:expert",
+        "userMessage": "expertise:expert \u2014 explain how copilotkit works per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "CopilotKit composes a runtime adapter (Express/Hono) over the AG-UI SSE protocol; the React client wires hooks (useFrontendTool, useAgentContext) into a typed agent runner. The architecture front-runs round-trip latency by streaming TEXT_MESSAGE_CHUNK and TOOL_CALL events on the same channel."
+        "content": "CopilotKit is an open-source AI agent framework with three layers: a React frontend SDK providing hooks (useCopilotChat, useCopilotAction), a runtime middleware (Express/Hono) that manages the AG-UI SSE stream, and agent adapters for LangGraph, CrewAI, and custom backends. The runtime proxies tool calls between the frontend and the agent, handling streaming, state synchronization, and human-in-the-loop interrupts transparently."
       }
     },
     {
-      "_comment": "agent-config responseLength:concise knob — short answer.",
+      "_comment": "agent-config responseLength:concise \u2014 value-A for the response-length knob pair. Must be at least 80 chars shorter than the detailed fixture below.",
       "match": {
-        "userMessage": "responseLength:concise",
+        "userMessage": "responseLength:concise \u2014 describe agent context per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "Agent context is a typed payload sent each turn."
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via useAgentContext."
       }
     },
     {
-      "_comment": "agent-config responseLength:detailed knob — long explanation.",
+      "_comment": "agent-config responseLength:detailed \u2014 value-B for the response-length knob pair. Must exceed the concise fixture by >= 80 chars.",
       "match": {
-        "userMessage": "responseLength:detailed",
+        "userMessage": "responseLength:detailed \u2014 describe agent context per your config",
         "context": "mastra"
       },
       "response": {
-        "content": "Agent context is a typed payload published from the frontend on every turn through the useAgentContext hook. The payload is forwarded into the agent's runtime context (LangGraph 0.6 introduced the `context` channel as the supported relay for per-run frontend-supplied data; legacy `properties` flowed via `forwardedProps` and did not land in `RunnableConfig`). On the Python side, CopilotKitMiddleware reads the value off the runtime context, then routes it into the system-prompt builder so the model sees the user's tone, expertise, and length preferences before each call. The result is per-turn behavior change without a model swap."
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via the useAgentContext hook. On the React side, you call useAgentContext({ tone, expertise, responseLength }) and CopilotKit serialises those values into the runtime request. The runtime injects them into the agent's system prompt builder, so each turn's LLM call reflects the latest frontend state. This enables real-time personalisation: switching a dropdown from 'professional' to 'casual' immediately changes how the agent responds, without restarting the conversation or reconfiguring the backend. The pattern extends to any key-value pair your app needs \u2014 feature flags, user roles, locale, or custom metadata."
       }
     }
   ]

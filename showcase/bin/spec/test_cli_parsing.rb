@@ -58,9 +58,9 @@ class CLIParsingTest < Minitest::Test
     end
 
     def test_promote_flags_parse
-        c = Railway::PromoteCommand.new(["--include-startcommand", "--yes", "--dry-run"])
+        c = Railway::PromoteCommand.new(["--confirm-divergence", "--yes", "--dry-run"])
         c.parser.parse!(c.argv)
-        assert c.options[:include_startcommand]
+        assert c.options[:confirm_divergence]
         assert c.options[:yes]
         assert c.options[:dry_run]
     end

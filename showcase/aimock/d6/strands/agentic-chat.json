@@ -9,7 +9,6 @@
     {
       "match": {
         "userMessage": "good name for a goldfish",
-        "turnIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -19,7 +18,6 @@
     {
       "match": {
         "userMessage": "name for its tank",
-        "turnIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -29,7 +27,6 @@
     {
       "match": {
         "userMessage": "what we named the goldfish",
-        "turnIndex": 0,
         "context": "strands"
       },
       "response": {

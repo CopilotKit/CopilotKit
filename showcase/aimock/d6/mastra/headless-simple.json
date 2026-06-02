@@ -3,7 +3,8 @@
     "description": "D6 fixtures for mastra / headless-simple",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "note": "ported from headless-simple (langgraph-python); context rewritten to mastra"
   },
   "fixtures": [
     {

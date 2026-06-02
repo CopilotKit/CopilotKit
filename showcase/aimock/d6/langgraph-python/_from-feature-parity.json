@@ -220,9 +220,9 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Narrowed userMessage to a sentinel substring 'recent activity for the feature-parity probe' that no current pill prompt contains, so this entry no longer shadows the readonly-state.json D6 fixture (which expects the test-asserted leading phrase 'Since you recently viewed the pricing page...'). The original broad userMessage 'Based on my recent activity, what should I try next' was matching the D6 readonly-state pill verbatim and winning by load order (underscore-prefixed _from-feature-parity.json loads before readonly-state.json alphabetically) — first-match-wins meant the test-asserted content never fired. Preserved as a structural placeholder.",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next",
+        "userMessage": "recent activity for the feature-parity probe",
         "context": "langgraph-python"
       },
       "response": {

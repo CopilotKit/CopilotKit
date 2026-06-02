@@ -69,9 +69,9 @@ test.describe("Chat Slots", () => {
     // Type and send via the send button — Enter-on-textarea was intermittently
     // dropping the submit on this deployment. We assert the disclaimer +
     // custom assistant wrapper appear once we transition out of the welcome
-    // state.
+    // state. Use exact aimock fixture messages to ensure deterministic responses.
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Hello");
+    await input.fill("Say hello in one short sentence");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     // Assistant replies and is wrapped in the custom slot.
@@ -94,15 +94,34 @@ test.describe("Chat Slots", () => {
     const sendBtn = () =>
       page.locator('[data-testid="copilot-send-button"]').first();
 
-    // Turn 1
-    await input.fill("Hi");
+    // Turn 1 — use exact aimock fixture messages for deterministic responses.
+    await input.fill("Say hello in one short sentence");
     await sendBtn().click();
     await expect(page.locator(SLOT_LABEL_ASSISTANT).first()).toBeVisible({
       timeout: 45000,
     });
 
+    // Wait for the first turn's stream to fully complete. The assistant
+    // message becomes visible as soon as the first chunk arrives, but the
+    // chat input stays in "responding" state until the full stream ends.
+    // Rather than race with that, wait for the assistant text to stabilize
+    // (no new content for 2 seconds).
+    const firstAssistant = page.locator(SLOT_LABEL_ASSISTANT).first();
+    let previousText = "";
+    await expect
+      .poll(
+        async () => {
+          const text = (await firstAssistant.textContent()) ?? "";
+          const stable = text.length > 0 && text === previousText;
+          previousText = text;
+          return stable;
+        },
+        { timeout: 30000, intervals: [2000] },
+      )
+      .toBe(true);
+
     // Turn 2 — the slot should wrap every assistant turn, not just the first.
-    await input.fill("Say something short");
+    await input.fill("Give me a fun fact");
     await sendBtn().click();
 
     // Expect at least two custom-wrapped assistant messages.

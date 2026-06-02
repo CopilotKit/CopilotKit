@@ -2,11 +2,7 @@
 
 import posthog from "posthog-js";
 import { useCallback } from "react";
-
-const DEFAULT_SIGNUP_URL = "https://dashboard.operations.copilotkit.ai/";
-
-const SIGNUP_URL =
-  process.env.NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL || DEFAULT_SIGNUP_URL;
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
 export interface SignupLinkProps {
   /** Stable identifier for analytics, e.g. "docs_langgraph_quickstart_step1" */
@@ -15,7 +11,12 @@ export interface SignupLinkProps {
 }
 
 function buildHref(surface: string): string {
-  const url = new URL(SIGNUP_URL);
+  // Read the signup URL at render time from the runtime config injected
+  // by the root layout so a single built artifact can point at staging
+  // vs prod by changing the Railway env var. The reader already returns
+  // a fallback when NEXT_PUBLIC_INTELLIGENCE_SIGNUP_URL is unset.
+  const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
+  const url = new URL(signupUrl);
   url.searchParams.set("utm_source", "docs");
   url.searchParams.set("utm_medium", "cta");
   url.searchParams.set("utm_campaign", "intelligence");

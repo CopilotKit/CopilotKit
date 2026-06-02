@@ -35,6 +35,7 @@ examples/showcases/banking/next.config.mjs
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
 examples/showcases/chatkit-studio/apps/world/next.config.ts
+examples/showcases/daytona-runcode/next.config.ts
 examples/showcases/deep-agents-finance-erp/next.config.ts
 examples/showcases/deep-agents-job-search/next.config.ts
 examples/showcases/deep-agents/next.config.ts

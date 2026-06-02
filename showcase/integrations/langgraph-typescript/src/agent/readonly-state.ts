@@ -17,6 +17,8 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 const AgentStateAnnotation = CopilotKitStateAnnotation;
@@ -32,7 +34,7 @@ const SYSTEM_PROMPT =
 
 // @region[agent-context-setup]
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-5.4" });
+  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
 
   // Inject read-only context from useAgentContext / useCopilotReadable.
   // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:

@@ -1,0 +1,25 @@
+{
+  "name": "daytona-runcode-showcase",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "1.58.0",
+    "@copilotkit/runtime": "1.58.0",
+    "@daytonaio/sdk": "latest",
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "hono": "^4.6.14",
+    "next": "^15.5.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-syntax-highlighter": "^16.1.1",
+    "typescript": "^5.7.3",
+    "zod": "^3.23.8"
+  }
+}

@@ -6,6 +6,7 @@ import {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
@@ -85,7 +86,11 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
 export function provideCopilotKit(config: CopilotKitConfig): Provider {
   const resolvedLicense = resolveLicense(config);
   const headers = config.headers ?? {};
-  if (!resolvedLicense.valid && resolvedLicense.warning) {
+  if (
+    LICENSE_WATERMARK_ENABLED &&
+    !resolvedLicense.valid &&
+    resolvedLicense.warning
+  ) {
     logLicenseWatermarkWarning(resolvedLicense.warning);
   }
 

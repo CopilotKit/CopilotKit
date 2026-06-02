@@ -16,6 +16,7 @@ import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
 import { buildCellModel } from "@/lib/cell-model";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import type { CatalogCell } from "@/components/depth-utils";
 import type { Overlay } from "@/lib/overlay-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -158,32 +159,14 @@ export function computeColumnTallyDetail(
 }
 
 /**
- * Resolve the shell URL used to build Demo/Code links.
- *
- * `NEXT_PUBLIC_SHELL_URL` is inlined at build time. In production builds we
- * REFUSE to silently fall back to `http://localhost:3000` — those links ship
- * in the deployed bundle and render as broken "localhost:3000" references
- * for every visitor on Vercel/Railway. Instead, surface a sentinel URL
- * (`about:blank#shell-url-missing`) so the link visibly breaks and operators
- * see the misconfiguration on first click; also emit a build-time warning
- * on the server render path.
- *
- * In development/test we retain the historical localhost fallback to keep
- * local iteration friction-free.
+ * Resolve the shell URL used to build Demo / Code / docs-shell links.
+ * Reads from the runtime config injected by the root layout. The
+ * sentinel `about:blank#shell-url-missing` is set inside
+ * runtime-config.ts when the env var is missing in production —
+ * visibly broken links, not silent localhost rendering.
  */
 function resolveShellUrl(): string {
-  const env = process.env.NEXT_PUBLIC_SHELL_URL;
-  if (env && env.length > 0) return env;
-  if (process.env.NODE_ENV === "production") {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[feature-grid] FATAL-CONFIG: NEXT_PUBLIC_SHELL_URL is unset in a " +
-        "production build; Demo / Code / docs-shell links will render as " +
-        "about:blank#shell-url-missing. Rebuild with the env var set.",
-    );
-    return "about:blank#shell-url-missing";
-  }
-  return "http://localhost:3000";
+  return getRuntimeConfig().shellUrl;
 }
 
 /* ------------------------------------------------------------------ */

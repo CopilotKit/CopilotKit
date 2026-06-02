@@ -854,9 +854,20 @@ async def run_agent(
 
 def create_app() -> FastAPI:
     """Create the FastAPI app with AG-UI endpoint."""
+    # Local import to avoid a top-level ``agents._header_forwarding``
+    # dependency in this module (kept agnostic so unit tests that import
+    # individual handlers don't need the starlette middleware shape).
+    from agents._header_forwarding import HeaderForwardingHTTPMiddleware
+
     app = FastAPI(title="Claude Agent SDK (Python) Agent Server")
 
     app.add_middleware(HealthMiddleware)
+
+    # Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+    # into a per-request ContextVar so any outbound LLM/provider httpx call
+    # made inside the request scope copies them onto its outbound request.
+    # Paired with ``install_global_httpx_hook`` at the top of agent_server.py.
+    app.add_middleware(HeaderForwardingHTTPMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

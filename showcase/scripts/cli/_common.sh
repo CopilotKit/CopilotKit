@@ -185,6 +185,20 @@ apply_isolation() {
   local name="${1:-}"
   ISOLATE_ACTIVE=true
 
+  # docker compose project names must be lowercase ([a-z0-9_-]). Reject (or
+  # normalize) uppercase so the user gets a clear error instead of an opaque
+  # compose failure. We normalize-with-warn for ergonomic CLI use.
+  if [ -n "$name" ] && [[ "$name" =~ [^a-z0-9_-] ]]; then
+    local lowered
+    lowered="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$lowered" =~ ^[a-z0-9_-]+$ ]]; then
+      warn "Isolation name '$name' has uppercase chars; lowercasing to '$lowered' (docker compose project-name constraint)"
+      name="$lowered"
+    else
+      die "Invalid --isolate name '$name': must match [a-z0-9_-]+ (docker compose project-name constraint)"
+    fi
+  fi
+
   # Guard: clean up stale .iso-bak files from a prior botched run that
   # mutated originals in-place (the old approach). This makes migration safe.
   if [ -f "${PORTS_FILE}.iso-bak" ] || [ -f "${COMPOSE_FILE}.iso-bak" ]; then
@@ -235,6 +249,34 @@ def offset_port(m):
 content = re.sub(r'(\s+)- \"(\d+):(\d+)\"', offset_port, content)
 content = content.replace('container_name: showcase-', 'container_name: $name-')
 
+# Rewrite relative paths to absolute, anchored at SHOWCASE_ROOT. Without this,
+# docker compose resolves them against the temp dir holding the rewritten
+# compose file and fails (env_file: .env, build: ./pocketbase, volume mounts).
+# We touch: build context (./xxx and 'context: ./xxx'), volumes (\"- ./xxx:\"),
+# and env_file: .env / .env.local style references.
+ROOT = '$SHOWCASE_ROOT'
+
+import os.path as _osp
+PARENT = _osp.dirname(ROOT.rstrip('/'))
+
+def _abs(prefix, tail, base):
+    return prefix + base.rstrip('/') + '/' + tail
+
+# build: ../foo  /  build: ../   →  rooted at <parent-of-showcase>
+content = re.sub(r'(\s+build:\s+)\.\./?([^\n]*)', lambda m: _abs(m.group(1), m.group(2), PARENT), content)
+# build: ./foo                    →  rooted at <showcase>
+content = re.sub(r'(\s+build:\s+)\./([^\n]+)', lambda m: _abs(m.group(1), m.group(2), ROOT), content)
+# context: ../...                 →  rooted at <parent>
+content = re.sub(r'(\s+context:\s+)\.\./?([^\n]*)', lambda m: _abs(m.group(1), m.group(2), PARENT), content)
+# context: ./foo                  →  rooted at <showcase>
+content = re.sub(r'(\s+context:\s+)\./([^\n]+)', lambda m: _abs(m.group(1), m.group(2), ROOT), content)
+# dockerfile: ./foo
+content = re.sub(r'(\s+dockerfile:\s+)\./([^\n]+)', lambda m: _abs(m.group(1), m.group(2), ROOT), content)
+# volumes:  - ./foo:/bar    →  - <showcase>/foo:/bar
+content = re.sub(r'(\s+-\s+)\./([^:\n]+:)', lambda m: _abs(m.group(1), m.group(2), ROOT), content)
+# env_file: .env            →  <showcase>/.env
+content = re.sub(r'(\s+env_file:\s+)\.env(\b)', lambda m: m.group(1) + ROOT + '/.env' + m.group(2), content)
+
 with open('$tmp_compose', 'w') as f:
     f.write(content)
 "
@@ -245,8 +287,26 @@ with open('$tmp_compose', 'w') as f:
   COMPOSE_CMD="docker compose -f $COMPOSE_FILE --project-name $name"
   PORTS_FILE="$tmp_ports"
 
-  # Export for the TS harness CLI (config.ts / lifecycle.ts honor this)
+  # Export for the TS harness CLI (config.ts / lifecycle.ts honor these).
+  # Without SHOWCASE_COMPOSE_FILE the harness hardcodes the default compose
+  # path, causing container-name collisions on a second concurrent --isolate.
+  # SHOWCASE_INFRA_PORT_OFFSET shifts the hardcoded :4010/:8090/:3200 health
+  # checks onto the isolated stack's offset host ports (otherwise the harness
+  # would silently report the DEFAULT-project aimock/pocketbase as healthy).
   export LOCAL_PORTS_FILE="$tmp_ports"
+  export SHOWCASE_COMPOSE_FILE="$tmp_compose"
+  export SHOWCASE_INFRA_PORT_OFFSET="$ISOLATE_PORT_OFFSET"
+
+  # Offset host-side URLs so any harness code referencing config.aimockUrl /
+  # dashboardUrl / pocketbase.url talks to THIS project's instances (not the
+  # default :4010 / :3200 / :8090).
+  local aimock_host_port=$(( 4010 + ISOLATE_PORT_OFFSET ))
+  local dashboard_host_port=$(( 3200 + ISOLATE_PORT_OFFSET ))
+  local pocketbase_host_port=$(( 8090 + ISOLATE_PORT_OFFSET ))
+  export AIMOCK_URL_LOCAL="http://localhost:${aimock_host_port}"
+  export DASHBOARD_URL_LOCAL="http://localhost:${dashboard_host_port}"
+  export DASHBOARD_PORT_LOCAL="$dashboard_host_port"
+  export POCKETBASE_URL_LOCAL="http://localhost:${pocketbase_host_port}"
 
   # Idempotent: tear down any prior run with this name
   $COMPOSE_CMD down --remove-orphans 2>/dev/null || true

@@ -5,9 +5,9 @@ import {
   CopilotKit,
   CopilotChat,
   useHumanInTheLoop,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { useHitlSuggestions } from "./suggestions";
 
 interface Step {
   description: string;
@@ -23,19 +23,7 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Simple plan",
-        message: "Please plan a trip to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please plan a pasta dish in 10 steps.",
-      },
-    ],
-    available: "always",
-  });
+  useHitlSuggestions();
 
   // NB: dropped the `useLangGraphInterrupt({...})` registration here because
   // MS Agent Framework has no `interrupt()` primitive — the agent only ever
