@@ -114,7 +114,7 @@ needs the `users:read.email` scope (already in the manifest — reinstall the
 app once after adding it).
 
 Caveat: a single API key can't forge Linear's `creator`, so created issues
-are *authored* by the bot and *assigned* to the requester. True per-user
+are _authored_ by the bot and _assigned_ to the requester. True per-user
 attribution (and reliable Notion personalization) needs per-user OAuth —
 see the design notes.
 
