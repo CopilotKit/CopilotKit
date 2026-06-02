@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,13 +18,14 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.710.0",
     "@hono/node-server": "^1.14.0",
+    "@playwright/test": "1.59.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.3",
     "croner": "^9.0.0",
     "hono": "^4.6.0",
     "js-yaml": "^4.1.0",
     "mustache": "^4.2.0",
-    "playwright": "^1.59.1",
+    "playwright": "1.59.1",
     "ulid": "^2.3.0",
     "zod": "^3.23.8"
   },

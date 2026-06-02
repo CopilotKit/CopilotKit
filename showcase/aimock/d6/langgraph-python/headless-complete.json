@@ -23,7 +23,7 @@
         "context": "langgraph-python"
       },
       "response": {
-        "content": "AAPL is at $189.42, up 1.27% on the day."
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
       }
     },
     {

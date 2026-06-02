@@ -72,6 +72,14 @@ ENV QA_REPO_ROOT=/app
 # dist/probes/drivers/pin-drift.js, five `..` segments overshoot /app
 # and land at /. Override so the driver finds showcase/scripts/fail-baseline.json.
 ENV PIN_DRIFT_REPO_ROOT=/app
+# D6 probe (cli/config.ts loadConfig): the compiled config.js lives at
+# /app/dist/cli/config.js, so its `../../..` relative walk lands at `/`, not
+# `/app/showcase`. resolveIntegrationDir then looks for specs under
+# `/integrations/<slug>` and never finds the suite the COPY below places at
+# `/app/showcase/integrations/<slug>`, so a real in-container D6 run reports
+# "No Playwright e2e suite found" → all-unknown. Pin the showcase root to the
+# image's actual layout so spec resolution works.
+ENV SHOWCASE_DIR=/app/showcase
 # Playwright cache lives outside /home/node so `chown` below doesn't
 # have to recurse over the ~300MB chromium tree on every build. Setting
 # PLAYWRIGHT_BROWSERS_PATH at this stage pins the install target; the
@@ -82,7 +90,7 @@ COPY --from=build /repo/showcase/harness/dist ./dist
 COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /deploy/package.json ./package.json
 COPY --from=build /repo/showcase/harness/config ./config
-# e2e-smoke probe: install chromium + its system deps. `--with-deps`
+# e2e-smoke + D6 probes: install chromium + its system deps. `--with-deps`
 # pulls in libnss3, libatk, libxkbcommon, libdrm, etc. via apt. Runs as
 # root because apt-get needs root. Call `playwright/cli.js` directly
 # (not via `npx playwright`) — pnpm's deploy output materialises a
@@ -110,6 +118,45 @@ COPY --from=build /repo/showcase/scripts/fail-baseline.json ./showcase/scripts/f
 # keep the runtime image lean. The qa/ subdirectories are also needed
 # since the driver file-stats qa/<featureId>.md per demo.
 COPY --from=build /repo/showcase/integrations ./showcase/integrations
+# D6 spec-driven toolchain contract: the D6 driver runs each integration's
+# OWN Playwright suite by spawning `npx playwright test` with cwd
+# /app/showcase/integrations/<slug> (see cli/e2e.ts buildE2eCommand). Those
+# specs `import { test, expect } from "@playwright/test"` and Node resolves
+# that by walking up from the integration dir to /app/node_modules. We ship
+# the integration specs WITHOUT their own node_modules, so the SINGLE hoisted
+# @playwright/test in /app/node_modules (added as a PROD dep of
+# showcase-harness → materialised by `pnpm --prod deploy` above) is what both
+# the runner binary AND the specs resolve. @playwright/test and playwright are
+# pinned to the SAME exact 1.59.1 as the chromium build installed above, so the
+# runner and the specs share one version — eliminating Playwright's
+# "two different versions of @playwright/test" guard. Fail the BUILD (not a
+# probe tick) if any leg of that contract is missing:
+#   1. @playwright/test resolves from a sample integration dir (walk-up works).
+#   2. `npx playwright` resolves to the hoisted CLI (creates the .bin shim if
+#      pnpm deploy omitted it, so the unchanged `npx playwright test` runner
+#      path works).
+#   3. chromium is resolvable under PLAYWRIGHT_BROWSERS_PATH.
+#
+# CRITICAL ORDERING: this verify MUST run AFTER the
+# `COPY --from=build /repo/showcase/integrations` above. The earlier
+# placement (immediately after the chromium install, ~30 lines up) ran
+# BEFORE the integrations were present, so the `cd
+# /app/showcase/integrations/langgraph-python` failed but — because the
+# `cd` was the only integration-dependent leg and the step's exit code was
+# masked — the @playwright/test version contract was never actually
+# exercised at build. A version/resolution break would have shipped silently
+# and only surfaced as an all-unknown probe tick at runtime. Keeping it here,
+# after the COPY, makes a broken contract fail the BUILD as intended.
+RUN set -eux; \
+    test -f /app/showcase/integrations/langgraph-python/playwright.config.ts; \
+    node -e "require.resolve('@playwright/test', { paths: ['/app/showcase/integrations/langgraph-python'] })"; \
+    if [ ! -e /app/node_modules/.bin/playwright ]; then \
+      mkdir -p /app/node_modules/.bin; \
+      ln -sf ../playwright/cli.js /app/node_modules/.bin/playwright; \
+      chmod +x /app/node_modules/playwright/cli.js; \
+    fi; \
+    cd /app/showcase/integrations/langgraph-python && npx playwright --version; \
+    node /app/node_modules/playwright/cli.js install chromium --dry-run >/dev/null
 # e2e-smoke probe: the driver's default demos resolver reads
 # `/app/data/registry.json` to look up each Railway service slug's demo
 # list (`tool-rendering` gates the L4 tool-rendering check). The registry

@@ -537,11 +537,25 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     // AND won't use the onError branch).
     const willUseOnError = probeState === "error" && !!rule.onError;
     if (!rule.template && !willUseOnError) return;
+    // CR-fix (cron false-green): map the neutral no-evidence `"unknown"`
+    // ProbeState explicitly so it NEVER collapses to "green". A bare ternary
+    // default lumps `unknown` into the `: "green"` arm, framing a no-evidence
+    // cron/webhook tick as a healthy GREEN — the exact false-green this PR
+    // eliminated on the writer-persistence path, re-introduced here on the
+    // cron synthesizer. Mirror the status.changed `cleared` path: an `unknown`
+    // tick resolves to `newState:"unknown"` + `transition:"cleared"` below,
+    // which fires NO alert (`cleared` is not a declarable trigger). `error` is
+    // handled separately (newState/transition `"error"` → dispatchOnError).
     // If the probe reports error, downstream WriteOutcome should keep the
     // alert engine's state-machine in a consistent shape — newState must be
-    // one of the real `State` values. Default to "green" when missing.
+    // one of the real `State` values. Default to "green" only for a genuine
+    // green/missing tick.
     const resolvedState: State =
-      probeState === "red" || probeState === "degraded" ? probeState : "green";
+      probeState === "red" || probeState === "degraded"
+        ? probeState
+        : probeState === "unknown"
+          ? "unknown"
+          : "green";
     // Thread fail-tracking from the probe signal if present, so escalations
     // (`whenFailCount >= N`) fire on cron-driven rules too. Upstream jobs
     // that POST results via rule.scheduled may include failCount/firstFailureAt
@@ -601,10 +615,17 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       // Non-error cron ticks unchanged.
       newState: probeState === "error" ? "error" : resolvedState,
       // Use the probe's actual transition semantics on errors: `"error"`
-      // (matching handleStatusChanged's onError path). For non-error
-      // probes keep "first" — cron ticks are first-observation in the
-      // rule's own framing.
-      transition: probeState === "error" ? "error" : "first",
+      // (matching handleStatusChanged's onError path). A neutral `"unknown"`
+      // (no-evidence) tick gets `"cleared"` — mirroring the status.changed
+      // any→unknown move — which fires NO alert (not a declarable trigger).
+      // For genuine green/missing ticks keep "first" — those are
+      // first-observation in the rule's own framing.
+      transition:
+        probeState === "error"
+          ? "error"
+          : probeState === "unknown"
+            ? "cleared"
+            : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
     };
@@ -619,6 +640,21 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       // → suppress/rate-limit (inside dispatchOnError) → dispatch. See A9.
       if (!passesGuards(rule, { outcome, result: fakeResult })) return;
       await dispatchOnError(rule, { outcome, result: fakeResult });
+      return;
+    }
+    // CR-fix (cron false-green): a neutral no-evidence `"unknown"` tick
+    // synthesizes `transition: "cleared"` above. Mirror the status.changed
+    // any→unknown move and fire NO alert: `cleared` is deliberately not a
+    // declarable trigger, so it must NOT take the cron-only `["first"]`
+    // fall-back below (which would dispatch a spurious green-framed alert —
+    // the exact false-green this guard closes). Return before trigger
+    // resolution so neither the dispatch nor the dedupe-record path runs.
+    if (outcome.transition === "cleared") {
+      logger.debug("alert-engine.cron-cleared-no-evidence", {
+        ruleId: rule.id,
+        key: fakeResult.key,
+        path: "cron",
+      });
       return;
     }
     // Resolve triggers from the probe's real signal + the synthesized cron

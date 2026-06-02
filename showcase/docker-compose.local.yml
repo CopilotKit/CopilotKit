@@ -120,7 +120,13 @@ services:
     image: showcase-pocketbase:local
     container_name: showcase-pocketbase
     environment:
-      - POCKETBASE_SUPERUSER_EMAIL=admin@localhost
+      # PocketBase 0.22+ rejects `admin@localhost` (single-label TLD) with
+      # `validation_is_email`, so the superuser is never created and every
+      # probe result write 401/403s. Use a PB-valid address that matches the
+      # harness default in showcase/harness/src/cli/config.ts (loadConfig →
+      # pocketbase.email). The two MUST agree — the harness authenticates with
+      # config.ts's value against the account this env var bootstraps.
+      - POCKETBASE_SUPERUSER_EMAIL=admin@localhost.dev
       - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
     ports:
       - "8090:8090"

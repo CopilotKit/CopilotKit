@@ -786,3 +786,61 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
     expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
   });
 });
+
+// The harness now persists a neutral `"unknown"` State for D6 cells that
+// have no pass evidence (replacing a false-green-retaining `"error"`
+// projection). The dashboard must render `unknown` as a distinct,
+// NON-green, NON-red gray tone, and must never credit it as a pass.
+describe('neutral "unknown" D6 state (no pass evidence)', () => {
+  it('renders gray tone + "?" label (NOT green, NOT red)', () => {
+    const live = mapOf([row("d6:agno", "d6", "unknown")]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d6.tone).toBe("gray");
+    expect(c.d6.label).toBe("?");
+    expect(c.d6.tone).not.toBe("green");
+    expect(c.d6.tone).not.toBe("red");
+    expect(c.d6.label).not.toBe("✓");
+  });
+
+  it("tooltip says no evidence with last-run timestamp", () => {
+    const live = mapOf([
+      row("d6:agno", "d6", "unknown", {
+        observed_at: "2026-04-22T08:00:00Z",
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d6.tooltip).toContain("no evidence");
+    expect(c.d6.tooltip).toContain(formatTs("2026-04-22T08:00:00Z"));
+  });
+
+  it("an unknown sub-row ranks below green — family resolves to no-data, NOT green", () => {
+    // `reasoning-custom` and `reasoning-default` both map to the single
+    // D5 key `reasoning-display`, but use a multi-key family for the
+    // worst-state fold proof: an `unknown` sub-row must NOT win worst-state
+    // (rank 0) yet must collapse the family out of green. Use beautiful-chat
+    // (5 sub-rows) with one `unknown` among greens.
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "unknown"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    // The family must not present as a green pass.
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.label).not.toBe("✓");
+    // unknown is the lowest rank, so it never wins worst-state; the family
+    // collapses to no-data (gray "?").
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+  });
+
+  it("a single unknown sub-row family resolves to gray (no-data), never green", () => {
+    // agentic-chat → single key `agentic-chat`.
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", "unknown")]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.tone).not.toBe("green");
+  });
+});

@@ -76,7 +76,7 @@ function baseRule(overrides: Partial<CompiledRule> = {}): CompiledRule {
 }
 
 function probeRes(
-  state: "green" | "red" | "degraded" | "error",
+  state: "green" | "red" | "degraded" | "error" | "unknown",
   slug = "mastra",
 ): ProbeResult<unknown> {
   return {
@@ -134,6 +134,49 @@ describe("alert-engine", () => {
     await Promise.resolve();
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
+  });
+
+  // ---- neutral `cleared` transition (D6 no-evidence unknown state) -------
+  // A green→unknown / red→unknown move emits transition `cleared`, which is
+  // deliberately NOT a member of StringTriggerEnum. No rule can declare it,
+  // so it must fire NO alert: no spurious green-recovery on green→unknown,
+  // no spurious red on red→unknown.
+  it("green→unknown (cleared) fires NO alert — no spurious green-recovery", async () => {
+    const e = engine();
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "unknown",
+        transition: "cleared",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: probeRes("unknown"),
+    });
+    await Promise.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
+  it("red→unknown (cleared) fires NO alert — no spurious red, no recovery", async () => {
+    const e = engine();
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "unknown",
+        transition: "cleared",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: probeRes("unknown"),
+    });
+    await Promise.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
   });
 
   it("does NOT dispatch unrelated transition", async () => {
@@ -1717,6 +1760,85 @@ describe("alert-engine dispatchCronAlert fresh-red + error state (F1.2/F1.3)", (
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
     expect(text).toBe("ERR: GHCR 500");
+    e.stop();
+  });
+});
+
+// CR-fix: dispatchCronAlert must NOT collapse the neutral no-evidence
+// `unknown` ProbeState into a synthesized green/first dispatch. A cron/webhook
+// tick carrying `state:"unknown"` (no evidence) must mirror the status.changed
+// `cleared` path: synthesize `newState:"unknown"` + `transition:"cleared"`,
+// which fires NO alert. Pre-fix, `resolvedState` defaulted unknown → "green"
+// and `transition` → "first"; a cron-only rule then fell back to ["first"] and
+// dispatched a false-green. This is the OTHER false-green path (the writer
+// persistence path was fixed elsewhere in this PR); the existing `cleared`
+// tests only cover the status.changed ingress, leaving this synthesizer path
+// uncovered.
+describe("alert-engine dispatchCronAlert neutral unknown (no false-green)", () => {
+  it("cron `unknown` tick fires NO alert and is NOT framed green", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    // Spy on dedupe writes: a green/first dispatch records a dedupe key after
+    // sending; a neutral `cleared` tick records nothing.
+    const recorded: string[] = [];
+    const origRecord = store.record.bind(store);
+    store.record = async (rule, key, f) => {
+      recorded.push(key);
+      return origRecord(rule, key, f);
+    };
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T10:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-unknown",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        // Cron-only rule (no string triggers): pre-fix this fell back to
+        // ["first"] and dispatched the synthesized green tick — the false-green.
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "RAN" },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-unknown",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "unknown",
+        signal: {},
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    // 1. No alert dispatched — an unknown (no-evidence) tick is neutral.
+    expect(sent).toHaveLength(0);
+    // 2. Not framed green: a green/first dispatch records a dedupe key in the
+    //    state store. A neutral `cleared` tick records nothing.
+    expect(recorded).toHaveLength(0);
     e.stop();
   });
 });

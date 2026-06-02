@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, onTestFinished } from "vitest";
 import { z } from "zod";
-import { buildProbeInvoker } from "./probe-invoker.js";
+import { buildProbeInvoker, matchesTriggerSlug } from "./probe-invoker.js";
 import type { ProbeConfig } from "./schema.js";
 import { createDiscoveryRegistry } from "../discovery/index.js";
 import type { DiscoverySource, ProbeDriver } from "../types.js";
@@ -2650,6 +2650,64 @@ describe("buildProbeInvoker", () => {
     expect(summary).toEqual({ total: 3, passed: 2, failed: 1 });
   });
 
+  it("a neutral `unknown` primary state writes state=unknown, tracks 'yellow', counts as non-passed (not red)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "e2e_d6",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        // `:u` → neutral no-evidence unknown; `:g` → green.
+        return {
+          key,
+          state: key.endsWith(":u") ? "unknown" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "e2e_d6",
+      id: "d6",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "d6:g" }, { key: "d6:u" }],
+    };
+    const { writer, writes } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    let capturedTracker: ProbeRunTracker | null = null;
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker && capturedTracker === null) capturedTracker = tracker;
+      origSet(id, tracker);
+    };
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+
+    // The neutral unknown tick is written through with its real state — the
+    // writer's success path persists it (overwriting any prior green).
+    const u = writes.find((w) => w.key === "d6:u");
+    expect(u?.state).toBe("unknown");
+
+    // The run tracker records `unknown` as the neutral `yellow` display
+    // result — NOT `red` (a no-evidence cell is not a real failure).
+    const snap = capturedTracker!.snapshot();
+    const uSvc = snap.services.find((s) => s.slug === "d6:u");
+    expect(uSvc?.result).toBe("yellow");
+
+    // `unknown` is non-green, so it rolls up under `failed` ("anything not
+    // green") in the summary — consistent with degraded.
+    expect(summary).toEqual({ total: 2, passed: 1, failed: 1 });
+  });
+
   it("invokes runWriter.start at run start and runWriter.finish with state='completed' on success", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
@@ -3903,5 +3961,125 @@ describe("buildProbeInvoker", () => {
     // for sibling promises, well under any meaningful stagger value.
     const totalSpread = startTimes[3]! - startTimes[0]!;
     expect(totalSpread).toBeLessThan(50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// matchesTriggerSlug — slug ↔ service-name ↔ full-key normalization
+//
+// The HTTP trigger `POST /api/probes/d6-all-pills-e2e/trigger` scoped to
+// `{"filter":{"slugs":["langgraph-python"]}}` returned `no-inputs` because the
+// d6 key_template `d6-all-pills-e2e:${name}` interpolates the SERVICE NAME
+// `showcase-langgraph-python`, so the resolved key is
+// `d6-all-pills-e2e:showcase-langgraph-python` — which a bare-slug filter
+// never matched. The matcher must accept the bare slug, the service name, and
+// the full templated key (the last for back-compat with callers that pass it).
+// ---------------------------------------------------------------------------
+describe("matchesTriggerSlug", () => {
+  const key = "d6-all-pills-e2e:showcase-langgraph-python";
+  const record = { name: "showcase-langgraph-python", key };
+
+  it("matches the bare registry slug (the operator/Slack/HTTP-trigger form)", () => {
+    expect(matchesTriggerSlug(new Set(["langgraph-python"]), key, record)).toBe(
+      true,
+    );
+  });
+
+  it("matches the full Railway service name", () => {
+    expect(
+      matchesTriggerSlug(new Set(["showcase-langgraph-python"]), key, record),
+    ).toBe(true);
+  });
+
+  it("matches the full interpolated key (back-compat with full-key callers)", () => {
+    expect(matchesTriggerSlug(new Set([key]), key, record)).toBe(true);
+  });
+
+  it("does not match an unrelated slug", () => {
+    expect(matchesTriggerSlug(new Set(["mastra"]), key, record)).toBe(false);
+  });
+
+  it("matches the record name even when the key_template omits ${name}", () => {
+    // Key embeds a dimension that is NOT the service name; the record's own
+    // `name` field still drives a slug/name match.
+    const oddKey = "d6-all-pills-e2e:overall";
+    const rec = { name: "showcase-mastra", key: oddKey };
+    expect(matchesTriggerSlug(new Set(["mastra"]), oddKey, rec)).toBe(true);
+    expect(matchesTriggerSlug(new Set(["showcase-mastra"]), oddKey, rec)).toBe(
+      true,
+    );
+  });
+
+  it("handles keys with no colon and non-object records gracefully", () => {
+    expect(matchesTriggerSlug(new Set(["alpha"]), "alpha", null)).toBe(true);
+    expect(
+      matchesTriggerSlug(new Set(["alpha"]), "alpha", "not-an-object"),
+    ).toBe(true);
+    expect(matchesTriggerSlug(new Set(["beta"]), "alpha", undefined)).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// End-to-end: the d6 trigger filter scoped by a BARE slug must now run the
+// discovered `showcase-<slug>` service (the exact gate failure mode).
+// ---------------------------------------------------------------------------
+describe("trigger filter — bare-slug scoping matches showcase-<slug> services", () => {
+  it("runs showcase-langgraph-python when filter.slugs is the bare slug", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const seenKeys: string[] = [];
+    const driver: ProbeDriver = {
+      kind: "e2e_d6",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        seenKeys.push(key);
+        return {
+          key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "d6-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return [
+          { name: "showcase-langgraph-python" },
+          { name: "showcase-mastra" },
+        ];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "e2e_d6",
+      id: "d6-all-pills-e2e",
+      schedule: "40 * * * *",
+      max_concurrency: 8,
+      discovery: {
+        source: "d6-src",
+        filter: {},
+        key_template: "d6-all-pills-e2e:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    });
+    await invoker({ filter: { slugs: ["langgraph-python"] } });
+    // ONLY langgraph-python ran/was written; mastra (discovered but not in
+    // the bare-slug filter) must not appear.
+    expect(seenKeys).toEqual(["d6-all-pills-e2e:showcase-langgraph-python"]);
+    expect(writes.map((w) => w.key)).toEqual([
+      "d6-all-pills-e2e:showcase-langgraph-python",
+    ]);
   });
 });

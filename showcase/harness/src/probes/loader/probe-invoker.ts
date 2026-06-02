@@ -105,13 +105,90 @@ export interface RunSummary {
  * Optional filter passed through from `scheduler.trigger(id, opts)` so
  * operators can re-run a probe against a subset of its discovered targets
  * (e.g. a Slack `/probe smoke --slugs starter-lg-react,starter-lg-py`
- * style invocation). `slugs` is the post-key_template slug list — i.e.
- * the same value the writer keys on. Drivers don't see this; the invoker
- * filters discovered inputs before fan-out so non-matching targets are
- * never enqueued or written.
+ * style invocation). Drivers don't see this; the invoker filters discovered
+ * inputs before fan-out so non-matching targets are never enqueued or
+ * written.
+ *
+ * Slug-vs-key matching: a discovered input's `key` is the interpolated
+ * `key_template` (e.g. `d6-all-pills-e2e:${name}` →
+ * `d6-all-pills-e2e:showcase-langgraph-python`). Operators virtually never
+ * type the full templated key — they type the integration SLUG
+ * (`langgraph-python`) or, at most, the Railway service NAME
+ * (`showcase-langgraph-python`). A naive `wanted.has(r.key)` therefore
+ * dropped the HTTP-trigger case `{"slugs":["langgraph-python"]}` →
+ * `no-inputs`, even though the service was discovered. `matchesTriggerSlug`
+ * below accepts ANY of the three equivalent forms so the filter matches the
+ * shape an operator naturally supplies, while a full-key value still matches
+ * verbatim (back-compat with callers that pass the templated key).
  */
 export interface InvokerTriggerOptions {
   filter?: { slugs?: string[]; featureTypes?: string[] };
+}
+
+/**
+ * Strip the `showcase-` prefix from a Railway service name to derive the
+ * registry slug (`showcase-langgraph-python` → `langgraph-python`). Mirrors
+ * `deriveSlugFromServiceName` in `discovery/railway-services.ts` — kept as a
+ * local copy so the invoker has no import dependency on the discovery source.
+ * Names without the prefix pass through unchanged.
+ */
+function stripShowcasePrefix(name: string): string {
+  return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
+}
+
+/**
+ * Tail of an interpolated key after the LAST `:` separator — the `${name}`
+ * value the `key_template` embedded. For `d6-all-pills-e2e:showcase-foo`
+ * this is `showcase-foo`; for an un-prefixed key (no `:`) it's the whole
+ * key. Keys can legitimately contain `:` in the dimension prefix (e.g.
+ * `d6-all-pills-e2e:`), so we split on the last colon, not the first.
+ */
+function keyServiceTail(key: string): string {
+  const idx = key.lastIndexOf(":");
+  return idx === -1 ? key : key.slice(idx + 1);
+}
+
+/**
+ * True iff a discovered input matches an operator-supplied trigger slug set.
+ *
+ * Accepts three equivalent identifiers for a given discovered target so the
+ * filter is robust to how the operator typed the slug:
+ *   1. the FULL interpolated key (`d6-all-pills-e2e:showcase-langgraph-python`)
+ *      — back-compat for callers/tests that pass the templated key verbatim;
+ *   2. the Railway SERVICE NAME (`showcase-langgraph-python`) — the `${name}`
+ *      tail of the key, also the discovery record's `name` field;
+ *   3. the registry SLUG (`langgraph-python`) — the service name with the
+ *      `showcase-` prefix stripped.
+ *
+ * `wanted` is the pre-built Set of operator slugs. `key` is the input's
+ * resolved key; `record` is the discovery record (used to read `.name`
+ * directly when present, so a future key_template that doesn't embed the
+ * service name still matches on the service name / slug).
+ */
+export function matchesTriggerSlug(
+  wanted: ReadonlySet<string>,
+  key: string,
+  record: unknown,
+): boolean {
+  // Form 1: exact key match (back-compat — full templated key).
+  if (wanted.has(key)) return true;
+
+  // Form 2/3 derived from the key's service-name tail.
+  const tail = keyServiceTail(key);
+  if (wanted.has(tail)) return true;
+  if (wanted.has(stripShowcasePrefix(tail))) return true;
+
+  // Also honor the discovery record's own `name` field when present — this
+  // keeps matching correct even if a probe's key_template ever stops
+  // embedding `${name}` (the tail-derived forms above would then miss).
+  if (record !== null && typeof record === "object" && !Array.isArray(record)) {
+    const name = (record as Record<string, unknown>).name;
+    if (typeof name === "string") {
+      if (wanted.has(name)) return true;
+      if (wanted.has(stripShowcasePrefix(name))) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -361,7 +438,9 @@ export function buildProbeInvoker(
       // trigger still sees the misconfigured-record tiles alongside foo's
       // result.
       inputs = allInputs.filter(
-        (r) => r.preError !== undefined || wanted.has(r.key),
+        (r) =>
+          r.preError !== undefined ||
+          matchesTriggerSlug(wanted, r.key, r.input),
       );
     }
 
@@ -607,10 +686,12 @@ export function buildProbeInvoker(
         // ProbeState → tracker-result mapping:
         //   green     → tracker.complete(slug, "green")  passed++
         //   degraded  → tracker.complete(slug, "yellow") failed++  (degraded contributes to failure count for surfacing)
+        //   unknown   → tracker.complete(slug, "yellow") failed++  (neutral "no-evidence" — NOT a real failure, but non-green so it surfaces under `failed`)
         //   red       → tracker.complete(slug, "red")    failed++
         //   error     → tracker.fail(slug, errorDesc)    failed++
-        // The summary's `failed` count rolls up degraded + red + error so
-        // the scheduler-side `lastRunSummary` reflects "anything not green".
+        // The summary's `failed` count rolls up degraded + unknown + red +
+        // error so the scheduler-side `lastRunSummary` reflects "anything not
+        // green".
         if (result.state === "error") {
           const errDesc =
             (result.signal as { errorDesc?: string } | undefined)?.errorDesc ??
@@ -620,7 +701,11 @@ export function buildProbeInvoker(
         } else if (result.state === "green") {
           tracker.complete(key, "green");
           passed++;
-        } else if (result.state === "degraded") {
+        } else if (result.state === "degraded" || result.state === "unknown") {
+          // `unknown` is the neutral "no-evidence" state — display it as the
+          // neutral `yellow` tone (NOT `red`: a no-evidence cell is not a real
+          // failure). The State widening (types/index.ts) forced this branch:
+          // without it the `else` below would mislabel `unknown` as `red`.
           tracker.complete(key, "yellow");
           failed++;
         } else {

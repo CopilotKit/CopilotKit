@@ -42,7 +42,7 @@ migrate(
     try {
       dao.findCollectionByNameOrId("probe_runs");
       return;
-    } catch (e) {
+    } catch {
       // Not present (or PB JSVM threw something equivalent) — fall
       // through to create. We can't tighten further without typed
       // errors from the runtime.
@@ -61,11 +61,22 @@ migrate(
         { name: "duration_ms", type: "number", options: { min: 0 } },
         {
           name: "triggered",
-          // CR-A1.6: writer always sets this (running rows pass true|false
-          // explicitly), so the schema should match the contract. Marking
-          // required:true makes a forgetful caller fail at insert time.
+          // CR-A1.6 marked this field as a required bool so a forgetful
+          // caller would fail at insert time. That is WRONG for a PB bool:
+          // PocketBase validates the required flag with ozzo-validation's
+          // `validation.Required`, which treats a field's ZERO VALUE as empty.
+          // For a bool the zero value is `false`, so a required bool REJECTS
+          // every write carrying `false` with
+          // `{"triggered":{"code":"validation_required","message":"Missing
+          // required value."}}`. `triggered` is `false` for every SCHEDULED
+          // run (the common case), so requiring it 400'd every scheduled
+          // probe's probe_runs insert and blocked all run/result persistence
+          // (the dashboard never saw d6-all-pills-e2e results). The writer
+          // (run-history.ts start()) always sends an explicit boolean, so a
+          // bool is never genuinely absent and requiring it buys no integrity
+          // — keep this optional. Guarded by probe-runs-schema-drift.test.ts.
           type: "bool",
-          required: true,
+          required: false,
         },
         // CR-A1.6: tighten maxSize from 2MB to 64KB. The summary shape
         // is `{total, passed, failed, services?}` — well under 64KB.
@@ -120,7 +131,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_runs");
-    } catch (e) {
+    } catch {
       // Already absent — nothing to do.
       return;
     }

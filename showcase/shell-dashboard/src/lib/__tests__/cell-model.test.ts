@@ -669,6 +669,86 @@ describe("buildCellModel", () => {
     });
   });
 
+  // ── Neutral "unknown" D6 state (no pass evidence) ───────────────────
+  // The harness persists `state:"unknown"` for D6 cells with no pass
+  // evidence. The dashboard must map it to a no-data chip (gray), never
+  // credit it as a pass, and never count it toward achieved depth.
+  describe('neutral "unknown" D6 state', () => {
+    it("D5 green + D6 unknown → amber (no-data D6, NOT green) and depth caps at 5", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "unknown"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      // unknown → no-data (status null), so it exists but does not pass.
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.status).toBeNull();
+      // D5 green but D6 not green → amber, never green.
+      expect(model.chipColor).toBe("amber");
+      expect(model.chipColor).not.toBe("green");
+      // unknown D6 must NOT credit depth 6.
+      expect(model.achievedDepth).toBe(5);
+    });
+
+    it("D5 null + D6 unknown → gray (unverified, NOT green)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d6", "agno"), "d6", "unknown"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.status).toBeNull();
+      expect(model.chipColor).toBe("gray");
+      expect(model.chipColor).not.toBe("green");
+    });
+
+    it("a pre-green D6 cell going unknown renders non-green and drops depth", () => {
+      // Was: D6 green (achieved=6). Now the harness emits unknown (no
+      // evidence). The cell must fall back to its D5 ceiling, NOT retain
+      // a false green.
+      const wasGreen = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "green"),
+      ]);
+      const greenModel = buildCellModel(
+        wasGreen,
+        wiredInput("agno", "agentic-chat"),
+      );
+      expect(greenModel.achievedDepth).toBe(6);
+      expect(greenModel.chipColor).toBe("green");
+
+      const nowUnknown = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno"), "d6", "unknown"),
+      ]);
+      const unknownModel = buildCellModel(
+        nowUnknown,
+        wiredInput("agno", "agentic-chat"),
+      );
+      expect(unknownModel.chipColor).not.toBe("green");
+      expect(unknownModel.achievedDepth).toBeLessThan(6);
+      expect(unknownModel.achievedDepth).toBe(5);
+    });
+
+    it("D5 red + D6 unknown → red (broken ladder dominates no-data D6)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+        row(keyFor("d6", "agno"), "d6", "unknown"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.status).toBeNull();
+      expect(model.chipColor).toBe("red");
+    });
+  });
+
   // ── isRegression: achievedDepth below ceilingDepth ─────────────────
   describe("isRegression", () => {
     it("is true when achievedDepth < ceilingDepth (D3 red, tests exist)", () => {

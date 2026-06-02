@@ -42,12 +42,13 @@ const DIM = "\x1b[2m";
 function stateColor(state: ProbeState): string {
   if (state === "green") return GREEN;
   if (state === "red" || state === "error") return RED;
-  return YELLOW; // degraded
+  return YELLOW; // degraded | unknown (neutral "no-evidence")
 }
 
 function stateIcon(state: ProbeState): string {
   if (state === "green") return "\u2713"; // checkmark
   if (state === "red" || state === "error") return "\u2717"; // x-mark
+  if (state === "unknown") return "?"; // neutral "no-evidence"
   return "~"; // degraded
 }
 
@@ -75,12 +76,25 @@ export function printResult(result: TerminalResult): void {
 }
 
 /**
+ * A hard failure is a probe that produced a trustworthy negative verdict:
+ * red, degraded, or error. `green` passes and `unknown` is the NEUTRAL
+ * "no-evidence" state (the probe ran but yielded no trustworthy verdict) —
+ * neither counts as a failure. See `ProbeState` in ../types/index.js and the
+ * neutral rendering in `stateIcon`/`stateColor` above.
+ */
+function isFailure(state: ProbeState): boolean {
+  return state === "red" || state === "degraded" || state === "error";
+}
+
+/**
  * Print a summary after all results. Shows pass/fail counts and lists
- * failures with their keys and error messages.
+ * failures with their keys and error messages. `unknown` results are
+ * reported on a distinct neutral "no evidence" line — never as failures.
  */
 export function printSummary(results: TerminalResult[]): void {
   const passed = results.filter((r) => r.state === "green").length;
-  const failed = results.filter((r) => r.state !== "green").length;
+  const failed = results.filter((r) => isFailure(r.state)).length;
+  const noEvidence = results.filter((r) => r.state === "unknown").length;
   const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
 
   console.log("");
@@ -92,9 +106,20 @@ export function printSummary(results: TerminalResult[]): void {
     console.log(
       `  ${GREEN}${passed} passed${RESET}, ${RED}${failed} failed${RESET} ${DIM}(${(totalMs / 1000).toFixed(1)}s)${RESET}`,
     );
+  }
+
+  // Surface no-evidence results on their own neutral line so an `unknown`
+  // (errored/non-zero-exit/skip) D6 run is never mislabelled as a failure.
+  if (noEvidence > 0) {
+    console.log(
+      `  ${YELLOW}${noEvidence} no evidence${RESET} ${DIM}(neutral, not a failure)${RESET}`,
+    );
+  }
+
+  if (failed > 0) {
     console.log("");
     console.log(`  ${RED}Failed:${RESET}`);
-    for (const r of results.filter((r) => r.state !== "green")) {
+    for (const r of results.filter((r) => isFailure(r.state))) {
       console.log(
         `    ${RED}${stateIcon(r.state)}${RESET} ${r.key}: ${r.state}${r.error ? ` \u2014 ${r.error}` : ""}`,
       );
@@ -141,8 +166,14 @@ export function probeResultToTerminal(
       signal.failureSummary.length > 0
     ) {
       error = signal.failureSummary;
+    } else if (result.state === "error") {
+      error = "probe error";
+    } else if (result.state === "unknown") {
+      // Neutral "no-evidence" state — not a failure; label it distinctly so
+      // the CLI doesn't render a no-evidence cell as a hard "failed".
+      error = "no evidence";
     } else {
-      error = result.state === "error" ? "probe error" : "failed";
+      error = "failed";
     }
   }
 
