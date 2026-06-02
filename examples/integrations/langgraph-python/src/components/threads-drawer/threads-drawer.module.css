@@ -14,8 +14,8 @@
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;
-  background: var(--card);
-  border-right: 1px solid var(--border);
+  background: var(--threads-drawer-bg, var(--card));
+  border-right: 1px solid var(--threads-drawer-border, var(--border));
   transition:
     width 180ms ease,
     box-shadow 180ms ease;
@@ -23,7 +23,7 @@
 
 .drawerOpen {
   width: 18rem;
-  box-shadow: 4px 0 20px rgb(0 0 0 / 0.04);
+  box-shadow: var(--threads-drawer-shadow, 4px 0 20px rgb(0 0 0 / 0.04));
 }
 
 .drawerClosed {
@@ -168,7 +168,7 @@
 .segmentedOptionActive {
   background: var(--card);
   color: var(--foreground);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  box-shadow: var(--threads-segment-active-shadow, 0 1px 2px rgb(0 0 0 / 0.06));
 }
 
 .drawerContent {
@@ -371,7 +371,7 @@
   left: 50%;
   transform: translateX(-50%) translateY(2px);
   padding: 0.2rem 0.45rem;
-  border-radius: 0.3rem;
+  border-radius: var(--threads-tooltip-radius, calc(var(--radius) - 0.45rem));
   border: 1px solid var(--border);
   background: var(--foreground);
   color: var(--background);
@@ -399,7 +399,10 @@
 
 .deleteButton:hover,
 .deleteButton:focus-visible {
-  background: rgb(220 38 38 / 0.1);
+  background: var(
+    --threads-delete-hover-bg,
+    color-mix(in srgb, var(--destructive) 10%, transparent)
+  );
   color: var(--destructive);
 }
 
@@ -521,7 +524,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgb(0 0 0 / 0.5);
+  background: var(--threads-overlay-bg, rgb(0 0 0 / 0.5));
   backdrop-filter: blur(2px);
   animation: dialogOverlayEnter 140ms ease-out;
 }
@@ -534,7 +537,7 @@
   border-radius: calc(var(--radius) + 0.25rem);
   background: var(--card);
   color: var(--foreground);
-  box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
+  box-shadow: var(--threads-dialog-shadow, 0 20px 50px rgb(0 0 0 / 0.25));
   font-family: var(--font-body);
   animation: dialogEnter 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
