@@ -71,13 +71,14 @@ async function importHook() {
 
 describe("useOverlays", () => {
   // 1. Default state
-  it("defaults to links + health when no hash and no localStorage", async () => {
+  it("defaults to links + health + depth when no hash and no localStorage", async () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
     expect(result.current.overlays.has("links")).toBe(true);
     expect(result.current.overlays.has("health")).toBe(true);
-    expect(result.current.overlays.size).toBe(2);
+    expect(result.current.overlays.has("depth")).toBe(true);
+    expect(result.current.overlays.size).toBe(3);
     expect(result.current.activeTab).toBe("matrix");
   });
 
@@ -86,28 +87,31 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
+    // "parity" is not in the default set (links + health + depth)
     act(() => {
-      result.current.toggle("depth");
+      result.current.toggle("parity");
     });
 
-    expect(result.current.overlays.has("depth")).toBe(true);
+    expect(result.current.overlays.has("parity")).toBe(true);
     expect(result.current.overlays.has("links")).toBe(true);
     expect(result.current.overlays.has("health")).toBe(true);
-    expect(result.current.overlays.size).toBe(3);
+    expect(result.current.overlays.has("depth")).toBe(true);
+    expect(result.current.overlays.size).toBe(4);
   });
 
   it("toggle removes an overlay when present", async () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    // Remove "links" — "health" remains
+    // Remove "links" — "health" + "depth" remain
     act(() => {
       result.current.toggle("links");
     });
 
     expect(result.current.overlays.has("links")).toBe(false);
     expect(result.current.overlays.has("health")).toBe(true);
-    expect(result.current.overlays.size).toBe(1);
+    expect(result.current.overlays.has("depth")).toBe(true);
+    expect(result.current.overlays.size).toBe(2);
   });
 
   // 3. Minimum-one rule
@@ -115,9 +119,13 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    // Start with links + health, remove links so only health remains
+    // Start with links + health + depth; remove links and depth so only
+    // health remains
     act(() => {
       result.current.toggle("links");
+    });
+    act(() => {
+      result.current.toggle("depth");
     });
     expect(result.current.overlays.size).toBe(1);
     expect(result.current.overlays.has("health")).toBe(true);
@@ -162,7 +170,7 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    // Default is links + health — not an exact preset match
+    // Default is links + health + depth — not an exact preset match
     expect(result.current.activePreset).toBeNull();
   });
 
@@ -171,10 +179,8 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    act(() => {
-      result.current.toggle("depth");
-    });
-
+    // "depth" is in the default set, so showFilters is true out of the box
+    expect(result.current.overlays.has("depth")).toBe(true);
     expect(result.current.showFilters).toBe(true);
   });
 
@@ -194,7 +200,11 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    // Default is links + health. Add docs.
+    // Default is links + health + depth. Remove depth, add docs so the set
+    // is links + health + docs (no filter-trigger overlays).
+    act(() => {
+      result.current.toggle("depth");
+    });
     act(() => {
       result.current.toggle("docs");
     });
@@ -202,6 +212,7 @@ describe("useOverlays", () => {
     expect(result.current.overlays.has("links")).toBe(true);
     expect(result.current.overlays.has("health")).toBe(true);
     expect(result.current.overlays.has("docs")).toBe(true);
+    expect(result.current.overlays.has("depth")).toBe(false);
     expect(result.current.showFilters).toBe(false);
   });
 
@@ -274,15 +285,17 @@ describe("useOverlays", () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
+    // Add "parity" on top of the default (links + health + depth)
     act(() => {
-      result.current.toggle("depth");
+      result.current.toggle("parity");
     });
 
-    // Hash should contain all three overlays in canonical order
+    // Hash should contain all four overlays in canonical order
     expect(hashValue).toContain("matrix:");
     expect(hashValue).toContain("links");
     expect(hashValue).toContain("depth");
     expect(hashValue).toContain("health");
+    expect(hashValue).toContain("parity");
   });
 
   // 16. localStorage persists overlay state
@@ -309,7 +322,7 @@ describe("useOverlays", () => {
 
     expect(result.current.has("links")).toBe(true);
     expect(result.current.has("health")).toBe(true);
-    expect(result.current.has("depth")).toBe(false);
+    expect(result.current.has("depth")).toBe(true);
     expect(result.current.has("parity")).toBe(false);
     expect(result.current.has("docs")).toBe(false);
   });
