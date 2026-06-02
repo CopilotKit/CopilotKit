@@ -11,7 +11,6 @@ import type {
   ProbeResult,
   ProbeState,
 } from "../../types/index.js";
-import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { SpecFileResult } from "../helpers/pw-json-reporter.js";
 import { rollupCells } from "../helpers/d6-rollup.js";
 import type { CellRollup } from "../helpers/d6-rollup.js";
@@ -176,22 +175,6 @@ export interface E2eFullPage extends Page {
   unroute?(url: string | RegExp): Promise<unknown>;
 }
 
-export interface E2eFullBrowserContext {
-  newPage(): Promise<E2eFullPage>;
-  close(): Promise<void>;
-}
-
-export interface E2eFullBrowser {
-  newContext(opts?: {
-    extraHTTPHeaders?: Record<string, string>;
-  }): Promise<E2eFullBrowserContext>;
-  close(): Promise<void>;
-}
-
-export type E2eFullBrowserLauncher = (
-  abortSignal?: AbortSignal,
-) => Promise<E2eFullBrowser>;
-
 export type E2eFullScriptLoader = (ctx: ProbeContext) => Promise<void>;
 
 /**
@@ -232,7 +215,6 @@ export type D6RunAndParse = (
 ) => Promise<{ exitCode: number; specResults: SpecFileResult[] }>;
 
 export interface E2eFullDriverDeps {
-  launcher?: E2eFullBrowserLauncher;
   pageTimeoutMs?: number;
   timeoutMs?: number;
   featureTimeoutMs?: number;
@@ -252,9 +234,10 @@ export interface E2eFullDriverDeps {
 }
 
 /**
- * D6 runs 4 features concurrently (vs D5's 2). Retained for the pooled
- * launcher's context budget; the spec-driven run path delegates parallelism
- * to Playwright's own `--workers`.
+ * D6's nominal per-integration feature concurrency (4, vs D5's 2). The
+ * spec-driven run path delegates real parallelism to Playwright's own
+ * `--workers`; this constant is retained as the documented concurrency budget
+ * and is asserted by the unit suite.
  */
 export const FEATURE_CONCURRENCY_D6 = 4;
 
@@ -288,141 +271,6 @@ export class Semaphore {
       next();
     }
   }
-}
-
-export function createPooledE2eFullLauncher(
-  pool: BrowserPool,
-  logger?: { warn(event: string, meta?: Record<string, unknown>): void },
-): E2eFullBrowserLauncher {
-  return async (abortSignal?: AbortSignal): Promise<E2eFullBrowser> => {
-    // CONTEXT-POOLED model: each newContext() checks out a pooled
-    // BrowserContext (X-AIMock-Strict centralized in the pool; per-feature
-    // X-AIMock-Context / X-Test-Id flow through `contextOpts`) and the
-    // wrapper's close() releases it. The dead-browser re-acquire dance is
-    // gone: the pool only opens contexts on live browsers (acquire skips
-    // recycling/disconnected browsers and retries on another if newContext
-    // throws), so a dead process can never be handed to a feature. The abort
-    // closure re-targets onto the open contexts: on abort it closes each
-    // (each close() releases its pooled context). There is no Browser held.
-    let aborted = false;
-    const openContexts = new Set<{ close(): Promise<void> }>();
-
-    const onAbort = (): void => {
-      if (aborted) return;
-      aborted = true;
-      const ctxCount = openContexts.size;
-      const stats = pool.stats();
-      logger?.warn("probe.e2e-full.pool-abort-release", {
-        openContexts: ctxCount,
-        poolAvailable: stats.available,
-        poolInUse: stats.inUse,
-        poolSize: stats.size,
-      });
-      const contextClosePromises = Array.from(openContexts).map((ctx) =>
-        ctx.close().catch(() => {}),
-      );
-      void Promise.allSettled(contextClosePromises).then(() => {
-        logger?.warn("probe.e2e-full.pool-abort-released", {
-          closedContexts: ctxCount,
-          poolAvailable: pool.stats().available,
-        });
-      });
-    };
-    // Capture the listener so launcher-level close() can detach it: without
-    // removeEventListener a post-completion abort would fire onAbort after the
-    // run returned, leaking the listener for the signal's lifetime.
-    let detachAbort: (() => void) | undefined;
-    if (abortSignal) {
-      if (abortSignal.aborted) {
-        aborted = true;
-        logger?.warn("probe.e2e-full.pool-pre-aborted-release");
-      } else {
-        abortSignal.addEventListener("abort", onAbort, { once: true });
-        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
-      }
-    }
-
-    return {
-      async newContext(contextOpts?: {
-        extraHTTPHeaders?: Record<string, string>;
-      }): Promise<E2eFullBrowserContext> {
-        const ctx = await pool.acquire({
-          extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
-        });
-        // If the signal was already aborted at launcher construction (the
-        // pre-aborted branch never attached the live abort listener), a context
-        // opened now would never be closed by the abort path. Release it
-        // immediately and refuse so it cannot leak into a torn-down run.
-        if (aborted) {
-          await pool.release(ctx).catch(() => {});
-          throw new Error("e2e-full launcher aborted");
-        }
-        const ctxHandle = { close: () => pool.release(ctx) };
-        openContexts.add(ctxHandle);
-        return {
-          async newPage(): Promise<E2eFullPage> {
-            const page = await ctx.newPage();
-
-            const consoleLogs: string[] = [];
-            const requestFailures: string[] = [];
-
-            page.on("console", (msg) => {
-              const t = msg.type();
-              if (t === "error" || t === "warning") {
-                consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
-              }
-            });
-
-            page.on("requestfailed", (request) => {
-              requestFailures.push(
-                `${request.method()} ${request.url().slice(0, 200)} => ${
-                  request.failure()?.errorText || "unknown"
-                }`,
-              );
-            });
-
-            const wrapped: E2eFullPage = {
-              waitForSelector: (s, o) => page.waitForSelector(s, o),
-              fill: (s, v, o) => page.fill(s, v, o),
-              press: (s, k, o) => page.press(s, k, o),
-              evaluate: <R>(fn: () => R) => page.evaluate(fn),
-              inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
-              close: () => page.close(),
-              click: (s, o) => page.click(s, o),
-              waitForFunction: (fn, wfOpts) =>
-                page.waitForFunction(
-                  fn as Parameters<typeof page.waitForFunction>[0],
-                  undefined,
-                  wfOpts,
-                ),
-              getDiagnostics: () => ({
-                consoleLogs: consoleLogs.slice(-20),
-                requestFailures: requestFailures.slice(-10),
-              }),
-              isClosed: () => page.isClosed(),
-              locator: (s) => page.locator(s),
-              route: (u, handler) =>
-                page.route(u, handler as Parameters<typeof page.route>[1]),
-              unroute: (u) => page.unroute(u),
-            };
-            return wrapped;
-          },
-          close: async () => {
-            openContexts.delete(ctxHandle);
-            await pool.release(ctx);
-          },
-        };
-      },
-      // Launcher-level close releases nothing itself (each context releases
-      // itself) but detaches the abort listener so a post-completion abort
-      // can't fire onAbort after the run returned.
-      close: async () => {
-        detachAbort?.();
-      },
-    };
-  };
 }
 
 /**

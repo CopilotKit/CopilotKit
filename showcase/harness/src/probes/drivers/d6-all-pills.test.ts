@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   createE2eFullDriver,
-  createPooledE2eFullLauncher,
   DEPLOY_CHURN_GRACE_MS,
   e2eFullDriver,
   FEATURE_CONCURRENCY_D6,
@@ -13,8 +12,6 @@ import type {
   E2eFullFeatureSignal,
 } from "./d6-all-pills.js";
 import { logger } from "../../logger.js";
-import type { Browser } from "playwright";
-import type { BrowserPool } from "../helpers/browser-pool.js";
 import type {
   ProbeContext,
   ProbeResult,
@@ -100,9 +97,6 @@ describe("e2e-full driver (spec-driven)", () => {
   describe("exports preserved", () => {
     it("exports createE2eFullDriver factory", () => {
       expect(typeof createE2eFullDriver).toBe("function");
-    });
-    it("exports createPooledE2eFullLauncher factory", () => {
-      expect(typeof createPooledE2eFullLauncher).toBe("function");
     });
     it("exports FEATURE_CONCURRENCY_D6 = 4", () => {
       expect(FEATURE_CONCURRENCY_D6).toBe(4);
@@ -414,6 +408,46 @@ describe("e2e-full driver (spec-driven)", () => {
       expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
         "green",
       );
+    });
+
+    // A seam that DROPS `exitCode` (returns `undefined`) must be treated as
+    // untrustworthy, NOT green: `runUntrustworthy = exitCode !== 0` is `true`
+    // for `undefined`, so all-pass rows downgrade to `unknown`. This guards
+    // the d6-gate-a-validate.mts `strictRunAndParse` regression where the seam
+    // returned only `{ specResults }`, dropping `exitCode` and reporting every
+    // genuinely-green cell as `unknown`.
+    it("exitCode undefined (seam dropped it) + all-pass → cells UNKNOWN, never green", async () => {
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const driver = createE2eFullDriver({
+        // Seam intentionally omits `exitCode` (the bug shape).
+        runAndParse: async () =>
+          ({
+            specResults: allPassRows(),
+          }) as unknown as Awaited<ReturnType<D6RunAndParse>>,
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+
+      expect(result.state).not.toBe("green");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "unknown",
+      );
+      const sideRows = sideEmits.filter((r) =>
+        r.key.startsWith("d6:langgraph-python/"),
+      );
+      expect(sideRows.some((r) => r.state === "green")).toBe(false);
+      expect(
+        sideRows.every(
+          (r) => (r.signal as E2eFullFeatureSignal).cellState === "unknown",
+        ),
+      ).toBe(true);
     });
   });
 
@@ -750,132 +784,3 @@ describe("Semaphore", () => {
     expect(() => sem.release()).toThrow();
   });
 });
-
-// ---------------------------------------------------------------------------
-// createPooledE2eFullLauncher — retained pooling primitive (NOT used by the
-// spec-driven run path, but still exported for other consumers / future use).
-// ---------------------------------------------------------------------------
-describe("createPooledE2eFullLauncher", () => {
-  it("checks out a pooled context per newContext() and moves inUse by 1", async () => {
-    const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(
-      pool as unknown as BrowserPool,
-    );
-    const browser = await launcher();
-    expect(pool.stats().inUse).toBe(0);
-    const ctx = await browser.newContext();
-    expect(pool.stats().inUse).toBe(1);
-    await ctx.close();
-    expect(pool.stats().inUse).toBe(0);
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-
-  it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
-    const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(
-      pool as unknown as BrowserPool,
-    );
-    const browser = await launcher();
-    await browser.newContext({
-      extraHTTPHeaders: {
-        "X-AIMock-Context": "slug-d6",
-        "X-Test-Id": "d6-slug-d6",
-      },
-    });
-    expect(pool._acquireOptions[0]).toEqual({
-      extraHTTPHeaders: {
-        "X-AIMock-Context": "slug-d6",
-        "X-Test-Id": "d6-slug-d6",
-      },
-    });
-  });
-
-  it("closes open contexts on abort (each releasing its pooled context)", async () => {
-    const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(
-      pool as unknown as BrowserPool,
-    );
-    const ac = new AbortController();
-    const browser = await launcher(ac.signal);
-    const ctx = await browser.newContext();
-    await ctx.newPage();
-    expect(pool.stats().inUse).toBe(1);
-    ac.abort();
-    await new Promise((r) => setTimeout(r, 10));
-    expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().inUse).toBe(0);
-  });
-
-  it("launcher-level close is a no-op (contexts release themselves)", async () => {
-    const pool = makeFakeContextPool(4);
-    const launcher = createPooledE2eFullLauncher(
-      pool as unknown as BrowserPool,
-    );
-    const browser = await launcher();
-    const ctx = await browser.newContext();
-    await ctx.close();
-    await browser.close(); // no-op
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-});
-
-// Module-scoped fake context-pool for the createPooledE2eFullLauncher tests.
-function makeFakeContextPool(maxContexts: number) {
-  let nextCtxId = 0;
-  const liveContexts = new Set<object>();
-  const releaseLog: number[] = [];
-  const acquireOptions: Array<
-    { extraHTTPHeaders?: Record<string, string> } | undefined
-  > = [];
-  return {
-    async acquire(options?: { extraHTTPHeaders?: Record<string, string> }) {
-      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
-      const id = nextCtxId++;
-      acquireOptions.push(options);
-      const ctx = {
-        __id: id,
-        async newPage() {
-          return {
-            on: () => {},
-            waitForSelector: async () => {},
-            fill: async () => {},
-            press: async () => {},
-            evaluate: async () => 0,
-            goto: async () => {},
-            close: async () => {},
-            click: async () => {},
-            waitForFunction: async () => {},
-            isClosed: () => false,
-            locator: () => ({ count: async () => 0 }),
-            route: async () => {},
-            unroute: async () => {},
-          } as unknown;
-        },
-        async close() {},
-      };
-      liveContexts.add(ctx);
-      return ctx as unknown as Browser;
-    },
-    async release(ctx: unknown) {
-      if (typeof ctx !== "object" || ctx === null || !liveContexts.has(ctx)) {
-        return;
-      }
-      liveContexts.delete(ctx);
-      releaseLog.push((ctx as { __id: number }).__id);
-    },
-    stats() {
-      return {
-        size: maxContexts,
-        available: maxContexts - liveContexts.size,
-        inUse: liveContexts.size,
-        totalRecycles: 0,
-      };
-    },
-    get _releaseLog() {
-      return releaseLog;
-    },
-    get _acquireOptions() {
-      return acquireOptions;
-    },
-  };
-}
