@@ -148,7 +148,7 @@ const SYSTEM_PROMPT = [
   '  state:"In Progress", priority:"High") on the component props — the cards',
   "  use them for the status dot and the colored border. The Linear MCP returns",
   '  priority as an object {value, name}; pass its NAME string (e.g. "High"),',
-  '  not the object. Map the issue\'s workflow status into state. Include',
+  "  not the object. Map the issue's workflow status into state. Include",
   "  assignee, url, and updated too when you have them.",
   "",
   "WRITE GATING (important): before you create or modify anything in Linear or",
