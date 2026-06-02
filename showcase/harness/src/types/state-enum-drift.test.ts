@@ -34,10 +34,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { STATE_VALUES, TRANSITION_VALUES } from "./index.js";
 
-const MIGRATIONS_DIR = resolve(
-  __dirname,
-  "../../../pocketbase/pb_migrations",
-);
+const MIGRATIONS_DIR = resolve(__dirname, "../../../pocketbase/pb_migrations");
 const BASE_MIGRATION = resolve(
   MIGRATIONS_DIR,
   "1776789100_recreate_collections_v2.js",
