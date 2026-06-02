@@ -5,7 +5,19 @@ import type {
   StandardSchemaV1,
 } from "@standard-schema/spec";
 import * as z from "zod";
+import { getA2UITools } from "@ag-ui/langgraph";
 import { getForwardedHeaders } from "../header-propagation";
+
+// ---------------------------------------------------------------------------
+// Auto-A2UI: bridge the inferred model's generate_a2ui tool from wrapModelCall
+// (the only hook that exposes the bound model) to wrapToolCall (where the tool
+// actually executes but the model is absent). Keyed by the run's thread id so
+// concurrent runs don't clobber each other.
+// ---------------------------------------------------------------------------
+const a2uiToolsByThread = new Map<string, any>();
+const A2UI_DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__";
+const a2uiThreadKey = (state: any): string =>
+  (state?.thread_id as string) || A2UI_DEFAULT_THREAD_KEY;
 
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
@@ -322,14 +334,32 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
       };
     }
 
+    // Auto-inject generate_a2ui when the frontend has registered an A2UI
+    // catalog. The AG-UI runtime surfaces that catalog into
+    // state["ag-ui"].a2ui_schema; its presence is the signal that the client
+    // can actually render A2UI surfaces. Gating on it keeps the feature fully
+    // zero-config (the developer only uses the middleware) while never
+    // advertising a tool that would render nowhere. The model is inferred from
+    // request.model; the built tool is stashed for wrapToolCall to execute.
+    let a2uiTool: any = null;
+    const a2uiSchema = (request.state["ag-ui"] as any)?.a2ui_schema;
+    if (a2uiSchema && typeof getA2UITools === "function") {
+      a2uiTool = getA2UITools(request.model);
+      a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
+    }
+
     const frontendTools = request.state["copilotkit"]?.actions ?? [];
 
-    if (frontendTools.length === 0) {
+    if (frontendTools.length === 0 && !a2uiTool) {
       return handler(request);
     }
 
     const existingTools = request.tools || [];
-    const mergedTools = [...existingTools, ...frontendTools];
+    const mergedTools = [
+      ...existingTools,
+      ...(a2uiTool ? [a2uiTool] : []),
+      ...frontendTools,
+    ];
 
     return handler({
       ...request,
@@ -337,10 +367,27 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
     });
   },
 
+  // Execute the dynamically-advertised generate_a2ui tool. It is not in the
+  // agent's static tool registry, so the tool node cannot run it on its own;
+  // we supply the implementation (built with the inferred model) for that one
+  // tool. This hook's presence also disables createAgent's "unknown tool"
+  // guard for dynamically-advertised tools.
+  wrapToolCall: async (request: any, handler: (req: any) => Promise<any>) => {
+    const tool = a2uiToolsByThread.get(a2uiThreadKey(request.state));
+    if (tool && !request.tool && request.toolCall?.name === tool.name) {
+      return handler({ ...request, tool });
+    }
+    return handler(request);
+  },
+
   beforeAgent: createAppContextBeforeAgent,
 
   // Restore frontend tool calls to AIMessage before agent exits
   afterAgent: (state) => {
+    // Drop the bridged A2UI tool for this run — all tool calls for the turn
+    // have executed by now; the next model call re-stashes if needed.
+    a2uiToolsByThread.delete(a2uiThreadKey(state));
+
     const interceptedToolCalls = state["copilotkit"]?.interceptedToolCalls;
     const originalMessageId = state["copilotkit"]?.originalAIMessageId;
 

@@ -499,6 +499,114 @@ describe("afterAgent", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Auto-A2UI — middleware injects + executes generate_a2ui when the frontend
+// registered a catalog (surfaced into state["ag-ui"].a2ui_schema)
+// ---------------------------------------------------------------------------
+//
+// Contract: the developer passes nothing — using the middleware is enough.
+// generate_a2ui is advertised to the model only when an A2UI catalog is
+// present, is built from the agent's own (inferred) model, and is executed by
+// the middleware itself (it is never in the agent's static tool registry).
+
+async function runWrapTool(middleware: any, request: any) {
+  let received: any = null;
+  const handler = async (req: any) => {
+    received = req;
+    return { content: "tool-ok" } as any;
+  };
+  await middleware.wrapToolCall(request, handler);
+  return received;
+}
+
+describe("auto-A2UI injection", () => {
+  it("does NOT advertise generate_a2ui when there is no A2UI catalog", async () => {
+    const request = makeRequest({
+      state: { messages: [], thread_id: "a2ui-off" },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    expect(received.tools.map((t: any) => t.name)).toEqual(["backend"]);
+  });
+
+  it("advertises generate_a2ui (alongside existing tools) when a catalog is present", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-on",
+        "ag-ui": { a2ui_schema: "<components/>" },
+      },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const names = received.tools.map((t: any) => t.name);
+    expect(names).toContain("backend");
+    expect(names).toContain("generate_a2ui");
+  });
+
+  it("executes generate_a2ui via wrapToolCall using the inferred model", async () => {
+    const state = {
+      messages: [],
+      thread_id: "a2ui-exec",
+      "ag-ui": { a2ui_schema: "<components/>" },
+    };
+    // First the model call infers the model + stashes the built tool.
+    await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
+
+    const received = await runWrapTool(copilotkitMiddleware, {
+      toolCall: { name: "generate_a2ui", id: "1", args: {} },
+      tool: undefined,
+      state,
+      runtime: {},
+    });
+
+    expect(received.tool).toBeDefined();
+    expect(received.tool.name).toBe("generate_a2ui");
+  });
+
+  it("leaves non-A2UI tool calls untouched", async () => {
+    const state = {
+      messages: [],
+      thread_id: "a2ui-other",
+      "ag-ui": { a2ui_schema: "<components/>" },
+    };
+    await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
+
+    const backendTool = { name: "backend" };
+    const received = await runWrapTool(copilotkitMiddleware, {
+      toolCall: { name: "backend", id: "1", args: {} },
+      tool: backendTool,
+      state,
+      runtime: {},
+    });
+
+    expect(received.tool).toBe(backendTool);
+  });
+
+  it("stops executing generate_a2ui after the run ends (afterAgent clears the bridge)", async () => {
+    const state = {
+      messages: [],
+      thread_id: "a2ui-clean",
+      "ag-ui": { a2ui_schema: "<components/>" },
+    };
+    await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
+    copilotkitMiddleware.afterAgent(state, {} as any);
+
+    const received = await runWrapTool(copilotkitMiddleware, {
+      toolCall: { name: "generate_a2ui", id: "1", args: {} },
+      tool: undefined,
+      state,
+      runtime: {},
+    });
+
+    expect(received.tool).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // zodState — Standard-Schema JSON-schema augmentation
 // ---------------------------------------------------------------------------
 //
