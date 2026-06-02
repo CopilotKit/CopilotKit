@@ -3,23 +3,32 @@
 import { createCatalog } from "@copilotkit/a2ui-renderer";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 import {
+  Area,
+  AreaChart as RechartsAreaChart,
   Bar,
-  BarChart,
+  BarChart as RechartsBarChart,
   CartesianGrid,
   Cell,
   Line,
-  LineChart,
+  LineChart as RechartsLineChart,
   Pie,
-  PieChart,
-  Area,
-  AreaChart,
+  PieChart as RechartsPieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart as RechartsRadarChart,
+  RadialBar,
+  RadialBarChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { ReactNode } from "react";
-import type { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -27,357 +36,874 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import type { ChartConfig } from "@/components/ui/chart";
-import type {
-  areaPointSchema,
-  categoryPointSchema,
-  fileSchema,
-  metricSchema,
-  tableRowSchema,
-} from "@/lib/control-room-a2ui-definitions";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   CONTROL_ROOM_A2UI_CATALOG_ID,
   controlRoomA2UIDefinitions,
 } from "@/lib/control-room-a2ui-definitions";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_METRICS: z.infer<typeof metricSchema>[] = [
-  { label: "Mode", value: "Plan" },
-  { label: "Files", value: "2" },
-  { label: "Todos", value: "3" },
-];
+const CHART_COLORS = [
+  "#2563EB",
+  "#06B6D4",
+  "#14B8A6",
+  "#F59E0B",
+  "#E11D48",
+  "#7C3AED",
+] as const;
 
-const DEFAULT_POINTS: z.infer<typeof categoryPointSchema>[] = [
-  { label: "Alpha", value: 12 },
-  { label: "Beta", value: 18 },
-  { label: "Gamma", value: 15 },
-];
+const CHART_TOOLTIP_STYLE = {
+  backgroundColor: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 8,
+  color: "hsl(var(--foreground))",
+  fontSize: 12,
+  padding: "8px 10px",
+  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)",
+};
 
-const DEFAULT_AREA_POINTS: z.infer<typeof areaPointSchema>[] = [
-  { label: "Jan", primary: 12, secondary: 8 },
-  { label: "Feb", primary: 18, secondary: 14 },
-  { label: "Mar", primary: 24, secondary: 19 },
-  { label: "Apr", primary: 30, secondary: 23 },
-];
+type RenderChild = (id: string) => ReactNode;
 
-const DEFAULT_ROWS: z.infer<typeof tableRowSchema>[] = [
-  { label: "Tests", status: "ready", value: "pass" },
-  { label: "Coverage", status: "pending", value: "not run" },
-  { label: "Memory", status: "saved", value: "1 note" },
-];
-
-const DEFAULT_FILES: z.infer<typeof fileSchema>[] = [
-  { path: "README.md", status: "read", detail: "Workspace overview." },
-  { path: "data/revenue.csv", status: "sample", detail: "Chart data." },
-];
-
-const CHART_COLORS = {
-  indigo: "var(--cr-chart-indigo)",
-  blue: "var(--cr-chart-blue)",
-  mint: "var(--cr-chart-mint)",
-} as const;
-
-const chartConfig = {
-  value: { label: "Value", color: CHART_COLORS.blue },
-  primary: { label: "Primary", color: CHART_COLORS.indigo },
-  secondary: { label: "Secondary", color: CHART_COLORS.mint },
-} satisfies ChartConfig;
-
-function withFallbackArray<T>(value: T[] | undefined, fallback: T[]) {
-  return Array.isArray(value) && value.length > 0 ? value : fallback;
-}
-
-function A2UICard({
-  label,
-  title,
-  description,
-  children,
-}: {
+type ChartPoint = {
   label: string;
-  title?: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="my-4 max-w-3xl overflow-hidden">
-      <CardHeader className="space-y-2">
-        <Badge className="w-fit" variant="secondary">
-          {label}
-        </Badge>
-        <CardTitle>{title ?? label}</CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+  value: number;
+  secondary?: number;
+};
+
+type DonutPoint = {
+  name: string;
+  value: number;
+};
+
+function renderChildIds(ids: unknown, renderChild: RenderChild) {
+  if (!Array.isArray(ids)) return null;
+  return ids.map((id) =>
+    typeof id === "string" ? (
+      <div key={id} className="min-w-0">
+        {renderChild(id)}
+      </div>
+    ) : null,
   );
 }
 
+function asChartPoints(value: unknown): ChartPoint[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [
+      { label: "Plan", value: 34, secondary: 18 },
+      { label: "Build", value: 56, secondary: 28 },
+      { label: "Verify", value: 82, secondary: 42 },
+    ];
+  }
+
+  return value.map((point, index) => {
+    const record = point as Record<string, unknown>;
+    return {
+      label: String(
+        record.label ??
+          record.stage ??
+          record.name ??
+          record.capability ??
+          `P${index + 1}`,
+      ),
+      value: Number(record.value ?? record.confidence ?? record.score ?? 0),
+      secondary:
+        record.secondary === undefined && record.failures === undefined
+          ? undefined
+          : Number(record.secondary ?? record.failures ?? 0),
+    };
+  });
+}
+
+function asDonutPoints(value: unknown): DonutPoint[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [
+      { name: "Files", value: 42 },
+      { name: "Tools", value: 28 },
+      { name: "Approvals", value: 18 },
+    ];
+  }
+
+  return value.map((point, index) => {
+    const record = point as Record<string, unknown>;
+    return {
+      name: String(record.name ?? record.label ?? `Slice ${index + 1}`),
+      value: Number(record.value ?? 0),
+    };
+  });
+}
+
+function chartHeading(title?: unknown, summary?: unknown) {
+  if (!title && !summary) return null;
+  return (
+    <div className="mb-3 space-y-1">
+      {title ? (
+        <h4 className="text-sm font-semibold">{String(title)}</h4>
+      ) : null}
+      {summary ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {String(summary)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function badgeVariantClass(variant?: unknown) {
+  switch (variant) {
+    case "success":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "danger":
+    case "error":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "info":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    default:
+      return "";
+  }
+}
+
+function metricToneClass(tone?: unknown, trend?: unknown) {
+  const signal = tone ?? trend;
+  switch (signal) {
+    case "success":
+    case "up":
+      return "border-emerald-200 bg-emerald-50/70 text-emerald-950";
+    case "warning":
+      return "border-amber-200 bg-amber-50/70 text-amber-950";
+    case "danger":
+    case "down":
+      return "border-red-200 bg-red-50/70 text-red-950";
+    default:
+      return "border-border bg-muted/25 text-foreground";
+  }
+}
+
+function riskClass(risk?: unknown) {
+  switch (risk) {
+    case "high":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "medium":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    default:
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+}
+
+function statusClass(status?: unknown) {
+  switch (status) {
+    case "pass":
+      return "text-emerald-700";
+    case "running":
+      return "text-blue-700";
+    case "blocked":
+      return "text-amber-700";
+    case "fail":
+      return "text-red-700";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
 export const controlRoomA2UIRenderers = {
-  HarnessSummary: ({ props }) => {
-    const metrics = withFallbackArray(props?.metrics, DEFAULT_METRICS);
-    return (
-      <A2UICard
-        label="Harness summary"
-        title={props?.title ?? "Harness Summary"}
-        description={props?.description ?? "Current workspace and run status."}
-      >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {metrics.map((metric) => (
-            <div
-              key={`${metric.label}-${metric.value}`}
-              className="rounded-2xl border bg-muted/30 p-3"
-            >
-              <div className="text-xs text-muted-foreground">
-                {metric.label}
-              </div>
-              <div className="mt-1 text-xl font-semibold">{metric.value}</div>
-              {metric.detail ? (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {metric.detail}
-                </div>
+  Surface: ({ props, children }) => (
+    <section
+      className="my-4 w-full max-w-5xl space-y-5 rounded-lg border bg-background p-5 shadow-sm"
+      data-testid="control-room-a2ui-surface"
+    >
+      <div className="space-y-2">
+        {props.eyebrow ? (
+          <Badge variant="secondary" className="w-fit">
+            {props.eyebrow}
+          </Badge>
+        ) : null}
+        <h2 className="text-2xl font-semibold tracking-normal">
+          {props.title}
+        </h2>
+        {props.subtitle ? (
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            {props.subtitle}
+          </p>
+        ) : null}
+      </div>
+      <div className="space-y-4">
+        {renderChildIds(props.children, children)}
+      </div>
+    </section>
+  ),
+
+  SectionHeader: ({ props }) => (
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1">
+        <h3 className="text-base font-semibold">{props.title}</h3>
+        {props.description ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {props.description}
+          </p>
+        ) : null}
+      </div>
+      {props.badge ? <Badge variant="secondary">{props.badge}</Badge> : null}
+    </div>
+  ),
+
+  Card: ({ props, children }) => (
+    <Card
+      className="m-1.5 h-full min-w-[min(100%,18rem)] flex-1 basis-0"
+      data-testid="control-room-a2ui-card"
+    >
+      {props.title || props.description || props.badge ? (
+        <CardHeader className="space-y-2">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              {props.title ? <CardTitle>{props.title}</CardTitle> : null}
+              {props.description ? (
+                <CardDescription>{props.description}</CardDescription>
               ) : null}
             </div>
-          ))}
+            {props.badge ? (
+              <Badge variant="secondary" className="shrink-0">
+                {props.badge}
+              </Badge>
+            ) : null}
+          </div>
+        </CardHeader>
+      ) : null}
+      <CardContent className="space-y-4">
+        {renderChildIds(props.children, children)}
+      </CardContent>
+    </Card>
+  ),
+
+  Metric: ({ props }) => {
+    const trend = props.trend ?? "neutral";
+    const arrow = trend === "up" ? "↑" : trend === "down" ? "↓" : "";
+
+    return (
+      <div
+        className={cn(
+          "m-1.5 flex min-h-[96px] min-w-[140px] flex-1 flex-col justify-between rounded-lg border p-3",
+          metricToneClass(props.tone, trend),
+        )}
+        data-testid="control-room-a2ui-metric"
+      >
+        <div className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+          {props.label}
         </div>
-      </A2UICard>
+        <div className="mt-2 flex items-baseline gap-2 text-2xl font-semibold tabular-nums">
+          <span>{props.value}</span>
+          {arrow ? <span className="text-base">{arrow}</span> : null}
+        </div>
+        {props.detail ? (
+          <div className="mt-1 text-xs text-muted-foreground">
+            {props.detail}
+          </div>
+        ) : null}
+      </div>
     );
   },
+
+  Badge: ({ props }) => (
+    <Badge
+      variant={props.variant === "default" ? "default" : "outline"}
+      className={cn("w-fit", badgeVariantClass(props.variant))}
+      data-testid="control-room-a2ui-badge"
+    >
+      {props.text}
+    </Badge>
+  ),
+
+  Button: ({ props, dispatch }) => (
+    <Button
+      type="button"
+      variant={props.variant ?? "default"}
+      onClick={() => {
+        if (props.action && dispatch) dispatch(props.action);
+      }}
+      data-testid="control-room-a2ui-button"
+    >
+      {props.label}
+    </Button>
+  ),
+
+  TextInput: ({ props }) => (
+    <label className="block space-y-2" data-testid="control-room-a2ui-input">
+      {props.label ? (
+        <span className="text-sm font-medium">{props.label}</span>
+      ) : null}
+      <Input
+        readOnly
+        value={props.value ?? ""}
+        placeholder={props.placeholder ?? ""}
+      />
+    </label>
+  ),
+
+  Textarea: ({ props }) => (
+    <label className="block space-y-2" data-testid="control-room-a2ui-textarea">
+      {props.label ? (
+        <span className="text-sm font-medium">{props.label}</span>
+      ) : null}
+      <Textarea
+        readOnly
+        value={props.value ?? ""}
+        placeholder={props.placeholder ?? ""}
+      />
+    </label>
+  ),
+
+  Select: ({ props }) => (
+    <label className="block space-y-2" data-testid="control-room-a2ui-select">
+      {props.label ? (
+        <span className="text-sm font-medium">{props.label}</span>
+      ) : null}
+      <Select value={props.value ?? undefined}>
+        <SelectTrigger>
+          <SelectValue placeholder={props.placeholder ?? "Select"} />
+        </SelectTrigger>
+        <SelectContent>
+          {(Array.isArray(props.options) ? props.options : []).map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  ),
+
+  Checkbox: ({ props }) => (
+    <label
+      className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+      data-testid="control-room-a2ui-checkbox"
+    >
+      <Checkbox checked={Boolean(props.checked)} />
+      <span>{props.label}</span>
+    </label>
+  ),
+
+  Switch: ({ props }) => (
+    <label
+      className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm"
+      data-testid="control-room-a2ui-switch"
+    >
+      <span>{props.label}</span>
+      <Switch checked={Boolean(props.checked)} />
+    </label>
+  ),
+
+  Progress: ({ props }) => (
+    <div className="space-y-2" data-testid="control-room-a2ui-progress">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium">{props.label}</span>
+        <span className="tabular-nums text-muted-foreground">
+          {Number(props.value ?? 0)}%
+        </span>
+      </div>
+      <Progress value={Number(props.value ?? 0)} />
+      {props.detail ? (
+        <p className="text-xs text-muted-foreground">{props.detail}</p>
+      ) : null}
+    </div>
+  ),
+
   BarChart: ({ props }) => {
-    const data = withFallbackArray(props?.data, DEFAULT_POINTS);
+    const data = asChartPoints(props.data);
+
     return (
-      <A2UICard
-        label="bar chart"
-        title={props?.title ?? "Bar Chart"}
-        description={props?.description ?? "Compare values across categories."}
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-bar-chart"
       >
-        <ChartContainer config={chartConfig} className="min-h-[260px]">
-          <BarChart data={data} margin={{ left: 8, right: 8, top: 12 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar
-              dataKey="value"
-              fill={CHART_COLORS.blue}
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ChartContainer>
-      </A2UICard>
-    );
-  },
-  LineChart: ({ props }) => {
-    const data = withFallbackArray(props?.data, DEFAULT_POINTS);
-    return (
-      <A2UICard
-        label="line chart"
-        title={props?.title ?? "Line Chart"}
-        description={props?.description ?? "Show movement across a sequence."}
-      >
-        <ChartContainer config={chartConfig} className="min-h-[260px]">
-          <LineChart data={data} margin={{ left: 8, right: 8, top: 12 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Line
-              dataKey="value"
-              type="monotone"
-              stroke={CHART_COLORS.indigo}
-              strokeWidth={3}
-              dot={{ r: 4, fill: "white", strokeWidth: 2 }}
-            />
-          </LineChart>
-        </ChartContainer>
-      </A2UICard>
-    );
-  },
-  AreaChart: ({ props }) => {
-    const data = withFallbackArray(props?.data, DEFAULT_AREA_POINTS);
-    return (
-      <A2UICard
-        label="area chart"
-        title={props?.title ?? "Area Chart"}
-        description={props?.description ?? "Show a trend with a filled line."}
-      >
-        <ChartContainer config={chartConfig} className="min-h-[260px]">
-          <AreaChart data={data} margin={{ left: 8, right: 8, top: 12 }}>
-            <defs>
-              <linearGradient id="a2uiPrimaryFill" x1="0" x2="0" y1="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor={CHART_COLORS.indigo}
-                  stopOpacity={0.35}
-                />
-                <stop
-                  offset="95%"
-                  stopColor={CHART_COLORS.indigo}
-                  stopOpacity={0.05}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              dataKey="primary"
-              type="monotone"
-              stroke={CHART_COLORS.indigo}
-              strokeWidth={3}
-              fill="url(#a2uiPrimaryFill)"
-            />
-            <Line
-              dataKey="secondary"
-              type="monotone"
-              stroke={CHART_COLORS.mint}
-              strokeWidth={2}
-              dot={false}
-            />
-          </AreaChart>
-        </ChartContainer>
-      </A2UICard>
-    );
-  },
-  DonutChart: ({ props }) => {
-    const data = withFallbackArray(props?.data, DEFAULT_POINTS);
-    return (
-      <A2UICard
-        label="donut chart"
-        title={props?.title ?? "Donut Chart"}
-        description={props?.description ?? "Show a proportional breakdown."}
-      >
-        <div className="grid items-center gap-4 sm:grid-cols-[220px_1fr]">
-          <ChartContainer config={chartConfig} className="min-h-[220px]">
-            <PieChart>
-              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="label"
-                innerRadius={55}
-                outerRadius={85}
-                paddingAngle={3}
-              >
-                {data.map((point, index) => (
+        {chartHeading(props.title, props.summary)}
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsBarChart
+              data={data}
+              margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                {data.map((_, index) => (
                   <Cell
-                    key={point.label}
-                    fill={
-                      [
-                        CHART_COLORS.blue,
-                        CHART_COLORS.indigo,
-                        CHART_COLORS.mint,
-                      ][index % 3]
-                    }
+                    key={index}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
                   />
                 ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+              </Bar>
+            </RechartsBarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  },
+
+  LineChart: ({ props }) => {
+    const data = asChartPoints(props.data);
+
+    return (
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-line-chart"
+      >
+        {chartHeading(props.title, props.summary)}
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsLineChart
+              data={data}
+              margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={CHART_COLORS[0]}
+                strokeWidth={3}
+                dot={{ r: 3 }}
+              />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  },
+
+  AreaChart: ({ props }) => {
+    const data = asChartPoints(props.data);
+    const hasSecondary = data.some((point) => point.secondary !== undefined);
+
+    return (
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-area-chart"
+      >
+        {chartHeading(props.title, props.summary)}
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsAreaChart
+              data={data}
+              margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              {hasSecondary ? (
+                <Area
+                  type="monotone"
+                  dataKey="secondary"
+                  stroke={CHART_COLORS[2]}
+                  fill={CHART_COLORS[2]}
+                  fillOpacity={0.18}
+                  strokeWidth={2}
+                />
+              ) : null}
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={CHART_COLORS[0]}
+                fill={CHART_COLORS[0]}
+                fillOpacity={0.24}
+                strokeWidth={3}
+              />
+            </RechartsAreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  },
+
+  StackedAreaChart: ({ props }) => {
+    const data = Array.isArray(props.data) ? props.data : [];
+
+    return (
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-stacked-area-chart"
+      >
+        {chartHeading(props.title, props.summary)}
+        <div className="h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsAreaChart
+              data={data}
+              margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Area
+                type="monotone"
+                dataKey="toolCalls"
+                stackId="1"
+                stroke={CHART_COLORS[0]}
+                fill={CHART_COLORS[0]}
+                fillOpacity={0.35}
+              />
+              <Area
+                type="monotone"
+                dataKey="evidence"
+                stackId="1"
+                stroke={CHART_COLORS[2]}
+                fill={CHART_COLORS[2]}
+                fillOpacity={0.35}
+              />
+              <Area
+                type="monotone"
+                dataKey="approvals"
+                stackId="1"
+                stroke={CHART_COLORS[3]}
+                fill={CHART_COLORS[3]}
+                fillOpacity={0.35}
+              />
+            </RechartsAreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  },
+
+  DonutChart: ({ props }) => {
+    const data = asDonutPoints(props.data);
+    const total = data.reduce((sum, point) => sum + point.value, 0);
+
+    return (
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-donut-chart"
+      >
+        {chartHeading(props.title, props.summary)}
+        <div className="grid items-center gap-4 sm:grid-cols-[220px_1fr]">
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart>
+                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={58}
+                  outerRadius={90}
+                  paddingAngle={2}
+                >
+                  {data.map((_, index) => (
+                    <Cell
+                      key={index}
+                      fill={CHART_COLORS[index % CHART_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
           <div className="space-y-2">
             {data.map((point, index) => (
               <div
-                key={point.label}
-                className="flex items-center justify-between rounded-xl border bg-muted/20 px-3 py-2 text-sm"
+                key={point.name}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex min-w-0 items-center gap-2">
                   <span
-                    className="size-2 rounded-full"
+                    className="size-2.5 shrink-0 rounded-sm"
                     style={{
-                      backgroundColor: [
-                        CHART_COLORS.blue,
-                        CHART_COLORS.indigo,
-                        CHART_COLORS.mint,
-                      ][index % 3],
+                      backgroundColor:
+                        CHART_COLORS[index % CHART_COLORS.length],
                     }}
                   />
-                  {point.label}
+                  <span className="truncate">{point.name}</span>
                 </span>
-                <span className="font-medium">{point.value}</span>
+                <span className="shrink-0 tabular-nums">
+                  {total > 0 ? Math.round((point.value / total) * 100) : 0}%
+                </span>
               </div>
             ))}
           </div>
         </div>
-      </A2UICard>
+      </div>
     );
   },
-  DataTable: ({ props }) => {
-    const rows = withFallbackArray(props?.rows, DEFAULT_ROWS);
+
+  RadarChart: ({ props }) => {
+    const data = Array.isArray(props.data) ? props.data : [];
+
     return (
-      <A2UICard
-        label="table"
-        title={props?.title ?? "Data Table"}
-        description={
-          props?.description ?? "Structured rows for the current run."
-        }
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-radar-chart"
       >
-        <div className="overflow-hidden rounded-2xl border">
-          {rows.map((row) => (
-            <div
-              key={row.label}
-              className="grid gap-2 border-b p-3 text-sm last:border-b-0 sm:grid-cols-[1fr_auto_auto]"
-            >
-              <div>
-                <div className="font-medium">{row.label}</div>
-                {row.detail ? (
-                  <div className="text-muted-foreground">{row.detail}</div>
+        {chartHeading(props.title, props.summary)}
+        <div className="h-[280px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsRadarChart data={data}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="capability" />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Radar
+                dataKey="score"
+                stroke={CHART_COLORS[0]}
+                fill={CHART_COLORS[0]}
+                fillOpacity={0.28}
+              />
+            </RechartsRadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  },
+
+  RadialChart: ({ props }) => {
+    const metrics = Array.isArray(props.metrics) ? props.metrics : [];
+    const data = metrics.map((metric, index) => ({
+      ...metric,
+      fill: CHART_COLORS[index % CHART_COLORS.length],
+    }));
+
+    return (
+      <div
+        className="min-w-[16rem] w-full"
+        data-testid="control-room-a2ui-radial-chart"
+      >
+        {chartHeading(props.title, props.summary)}
+        <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart innerRadius={36} outerRadius={96} data={data}>
+                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                <RadialBar dataKey="value" background />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2">
+            {metrics.map((metric, index) => (
+              <div key={metric.label} className="rounded-lg border p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span>{metric.label}</span>
+                  <span className="font-semibold tabular-nums">
+                    {metric.value}%
+                  </span>
+                </div>
+                <Progress value={metric.value} className="mt-2" />
+                {metric.detail ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {metric.detail}
+                  </p>
                 ) : null}
               </div>
-              {row.status ? (
-                <Badge variant="secondary" className="w-fit">
-                  {row.status}
-                </Badge>
-              ) : null}
-              {row.value ? (
-                <div className="font-semibold">{row.value}</div>
-              ) : null}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </A2UICard>
+      </div>
     );
   },
-  FileList: ({ props }) => {
-    const files = withFallbackArray(props?.files, DEFAULT_FILES);
+
+  Calendar: ({ props }) => {
+    const events = Array.isArray(props.events) ? props.events : [];
+    const selectedDates = events
+      .map((event) => new Date(`${event.date}T12:00:00`))
+      .filter((date) => !Number.isNaN(date.getTime()));
+
     return (
-      <A2UICard
-        label="files"
-        title={props?.title ?? "Files"}
-        description={props?.description ?? "Files inspected or changed."}
+      <div
+        className="grid gap-4 sm:grid-cols-[280px_1fr]"
+        data-testid="control-room-a2ui-calendar"
       >
-        <div className="space-y-2">
-          {files.map((file) => (
+        <Calendar
+          mode="multiple"
+          selected={selectedDates}
+          className="rounded-lg border"
+        />
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold">{props.title}</h4>
+            {props.summary ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {props.summary}
+              </p>
+            ) : null}
+          </div>
+          {events.map((event) => (
             <div
-              key={file.path}
-              className={cn(
-                "rounded-2xl border bg-muted/20 p-3",
-                file.status === "high" && "border-amber-200 bg-amber-50",
-              )}
+              key={`${event.date}-${event.label}`}
+              className="rounded-lg border p-3 text-sm"
             >
               <div className="flex items-center justify-between gap-3">
-                <code className="text-sm font-medium">{file.path}</code>
-                {file.status ? (
-                  <Badge variant="secondary" className="shrink-0">
-                    {file.status}
-                  </Badge>
-                ) : null}
+                <span className="font-medium">{event.label}</span>
+                <Badge
+                  variant="outline"
+                  className={badgeVariantClass(event.tone)}
+                >
+                  {event.date}
+                </Badge>
               </div>
-              {file.detail ? (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {file.detail}
-                </div>
+              {event.detail ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {event.detail}
+                </p>
               ) : null}
             </div>
           ))}
         </div>
-      </A2UICard>
+      </div>
     );
   },
+
+  RunHealthTable: ({ props }) => {
+    const rows = Array.isArray(props.rows) ? props.rows : [];
+
+    return (
+      <div data-testid="control-room-a2ui-run-health-table">
+        {chartHeading(props.title, props.summary)}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Check</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Progress</TableHead>
+              <TableHead>Detail</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.check}>
+                <TableCell className="font-medium">{row.check}</TableCell>
+                <TableCell
+                  className={cn("capitalize", statusClass(row.status))}
+                >
+                  {row.status}
+                </TableCell>
+                <TableCell className="min-w-[120px]">
+                  <Progress value={Number(row.progress ?? 0)} />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {row.detail}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  },
+
+  FileImpactMap: ({ props }) => {
+    const files = Array.isArray(props.files) ? props.files : [];
+
+    return (
+      <div
+        className="space-y-3"
+        data-testid="control-room-a2ui-file-impact-map"
+      >
+        {chartHeading(props.title, props.summary)}
+        {files.map((file) => (
+          <div key={file.path} className="rounded-lg border p-3 text-sm">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <code className="truncate text-xs font-medium">{file.path}</code>
+              <Badge variant="outline" className={riskClass(file.risk)}>
+                {file.risk}
+              </Badge>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {file.change}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  },
+
+  ApprovalForm: ({ props }) => (
+    <div className="space-y-4" data-testid="control-room-a2ui-approval-form">
+      <div>
+        <h4 className="text-sm font-semibold">{props.title}</h4>
+        {props.summary ? (
+          <p className="mt-1 text-xs text-muted-foreground">{props.summary}</p>
+        ) : null}
+      </div>
+      <div className="rounded-lg border p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+            Command
+          </span>
+          <Badge variant="outline" className={riskClass(props.risk)}>
+            {props.risk} risk
+          </Badge>
+        </div>
+        <code className="block whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-xs">
+          {props.command}
+        </code>
+      </div>
+      <div className="space-y-2">
+        {(Array.isArray(props.checks) ? props.checks : []).map((check) => (
+          <label
+            key={check.label}
+            className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+          >
+            <Checkbox checked={Boolean(check.complete)} />
+            <span>{check.label}</span>
+          </label>
+        ))}
+      </div>
+      <Button type="button">Request approval</Button>
+    </div>
+  ),
+
+  HandoffForm: ({ props }) => (
+    <div className="space-y-4" data-testid="control-room-a2ui-handoff-form">
+      <div>
+        <h4 className="text-sm font-semibold">{props.title}</h4>
+        {props.summary ? (
+          <p className="mt-1 text-xs text-muted-foreground">{props.summary}</p>
+        ) : null}
+      </div>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Owner</span>
+        <Input readOnly value={props.owner ?? ""} />
+      </label>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Notes</span>
+        <Textarea readOnly value={props.notes ?? ""} />
+      </label>
+      <div className="space-y-2">
+        {(Array.isArray(props.followups) ? props.followups : []).map((item) => (
+          <label
+            key={item}
+            className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+          >
+            <Checkbox checked={false} />
+            <span>{item}</span>
+          </label>
+        ))}
+      </div>
+      <Button type="button" variant="outline">
+        Save handoff
+      </Button>
+    </div>
+  ),
 } satisfies CatalogRenderers<typeof controlRoomA2UIDefinitions>;
 
 export const controlRoomA2UICatalog = createCatalog(
@@ -385,6 +911,6 @@ export const controlRoomA2UICatalog = createCatalog(
   controlRoomA2UIRenderers,
   {
     catalogId: CONTROL_ROOM_A2UI_CATALOG_ID,
-    includeBasicCatalog: false,
+    includeBasicCatalog: true,
   },
 );

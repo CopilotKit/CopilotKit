@@ -63,6 +63,8 @@ export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
 export interface ControlRoomLocalState {
   currentEndpoint: string;
+  a2uiEnabled: boolean;
+  openGenerativeUIEnabled: boolean;
   featureSupport: ControlRoomFeatureSupport | null;
   connectionStatus: ConnectionStatus;
   lastError?: string;
@@ -73,6 +75,10 @@ export interface ControlRoomLocalContextValue {
   localState: ControlRoomLocalState;
   /** Update the active endpoint. Caller must have validated the URL. */
   setEndpoint: (url: string) => void;
+  /** Enable or disable the local A2UI catalog and presenter prompts. */
+  setA2UIEnabled: (enabled: boolean) => void;
+  /** Enable or disable Open Generative UI component tool registration. */
+  setOpenGenerativeUIEnabled: (enabled: boolean) => void;
   /** Cache the agent's reported feature support payload. */
   setFeatureSupport: (support: ControlRoomFeatureSupport | null) => void;
   /** Record the most recent connection probe result. */
@@ -88,12 +94,20 @@ interface ControlRoomProviderProps {
   children: ReactNode;
   currentEndpoint: string;
   setCurrentEndpoint: (url: string) => void;
+  a2uiEnabled: boolean;
+  setA2UIEnabled: (enabled: boolean) => void;
+  openGenerativeUIEnabled: boolean;
+  setOpenGenerativeUIEnabled: (enabled: boolean) => void;
 }
 
 export function ControlRoomProvider({
   children,
   currentEndpoint,
   setCurrentEndpoint,
+  a2uiEnabled,
+  setA2UIEnabled,
+  openGenerativeUIEnabled,
+  setOpenGenerativeUIEnabled,
 }: ControlRoomProviderProps) {
   const [featureSupport, setFeatureSupportState] =
     useState<ControlRoomFeatureSupport | null>(null);
@@ -135,23 +149,31 @@ export function ControlRoomProvider({
     () => ({
       localState: {
         currentEndpoint,
+        a2uiEnabled,
+        openGenerativeUIEnabled,
         featureSupport,
         connectionStatus,
         lastError,
         reconnectAttempts,
       },
       setEndpoint,
+      setA2UIEnabled,
+      setOpenGenerativeUIEnabled,
       setFeatureSupport,
       recordConnection,
       bumpReconnect,
     }),
     [
       currentEndpoint,
+      a2uiEnabled,
+      openGenerativeUIEnabled,
       featureSupport,
       connectionStatus,
       lastError,
       reconnectAttempts,
       setEndpoint,
+      setA2UIEnabled,
+      setOpenGenerativeUIEnabled,
       setFeatureSupport,
       recordConnection,
       bumpReconnect,

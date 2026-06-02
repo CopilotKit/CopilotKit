@@ -12,12 +12,7 @@
 
 import { CodeBlock } from "@/components/control-room/renderers/CodeBlock";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CommandExecutionResult } from "@/lib/control-room-types";
 
 interface ShellOutputCardProps {

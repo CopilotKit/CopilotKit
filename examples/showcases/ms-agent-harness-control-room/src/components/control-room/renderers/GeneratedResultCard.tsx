@@ -10,12 +10,7 @@
  */
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CodeBlock } from "@/components/control-room/renderers/CodeBlock";
 
 interface GeneratedResultCardProps {
@@ -77,7 +72,9 @@ export function GeneratedResultCard({
           )}
         </section>
         {timestamp && (
-          <p className="text-xs text-muted-foreground">Emitted at {timestamp}</p>
+          <p className="text-xs text-muted-foreground">
+            Emitted at {timestamp}
+          </p>
         )}
       </CardContent>
     </Card>

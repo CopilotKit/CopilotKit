@@ -10,12 +10,7 @@
 
 import { CodeBlock } from "@/components/control-room/renderers/CodeBlock";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApprovalRequest } from "@/lib/control-room-types";
 import { cn } from "@/lib/utils";
 
@@ -97,7 +92,9 @@ export function DiffProposalCard({
         )}
         {variant === "patch" && (
           <section className="space-y-1.5">
-            <div className="text-xs font-medium text-muted-foreground">Diff</div>
+            <div className="text-xs font-medium text-muted-foreground">
+              Diff
+            </div>
             {proposedDiff ? (
               <CodeBlock code={proposedDiff} language="diff" maxHeight={320} />
             ) : (

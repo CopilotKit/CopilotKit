@@ -15,11 +15,7 @@ import {
 } from "@/components/control-room/renderers/CodeBlock";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,17 +40,19 @@ export function FileReadCard({ args, status, result }: FileReadCardProps) {
     args?.fileName ??
     args?.path ??
     "(unknown path)";
-  const content = typeof result === "string" ? result : (resultObject?.content ?? "");
+  const content =
+    typeof result === "string" ? result : (resultObject?.content ?? "");
   const isComplete = status === "complete";
   const isError = isComplete && /not found|error|failed/i.test(content);
   const lineCount = content ? content.split(/\r\n|\r|\n/).length : 0;
-  const summary = !isComplete && !result
-    ? "Reading"
-    : isError
-      ? "Read failed"
-      : content
-        ? `${lineCount} line${lineCount === 1 ? "" : "s"}`
-        : "Empty file";
+  const summary =
+    !isComplete && !result
+      ? "Reading"
+      : isError
+        ? "Read failed"
+        : content
+          ? `${lineCount} line${lineCount === 1 ? "" : "s"}`
+          : "Empty file";
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} asChild>
@@ -75,9 +73,7 @@ export function FileReadCard({ args, status, result }: FileReadCardProps) {
             <div className="mt-1 truncate text-xs text-muted-foreground sm:hidden">
               {path}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {summary}
-            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{summary}</div>
           </div>
           <StatusBadge status={status} />
           <CollapsibleTrigger asChild>
@@ -114,7 +110,9 @@ export function FileReadCard({ args, status, result }: FileReadCardProps) {
                 maxHeight={320}
               />
             ) : (
-              <p className="text-xs italic text-muted-foreground">(empty file)</p>
+              <p className="text-xs italic text-muted-foreground">
+                (empty file)
+              </p>
             )}
           </CardContent>
         </CollapsibleContent>
@@ -140,8 +138,7 @@ function StatusBadge({ status }: { status?: string }) {
         "hidden sm:inline-flex",
         tone === "emerald" &&
           "border-emerald-200 bg-emerald-50 text-emerald-700",
-        tone === "amber" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
+        tone === "amber" && "border-amber-200 bg-amber-50 text-amber-700",
         tone === "cyan" && "border-cyan-200 bg-cyan-50 text-cyan-700",
       )}
     >

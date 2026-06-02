@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -80,7 +81,13 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   CONTROL_ROOM_AGENT_NAME,
+  useControlRoomLocal,
   useSendUserMessage,
 } from "@/hooks/use-control-room-state";
 import { cn } from "@/lib/utils";
@@ -435,6 +442,64 @@ const TRY_COMPONENT_PROMPTS: Record<CatalogItemId, string> = {
   handoff: createTryPrompt("showHandoffForm", "Handoff Form"),
 };
 
+const createA2UITryPrompt = (label: string, composition: string) =>
+  `Render A2UI as the final action. Use render_control_room_a2ui exactly once with a flat components array. The root node must be { id: "root", component: "Surface" }. Container nodes must reference child ids with children arrays; do not inline children. Compose a small ${label} demo using the A2UI catalog, not any show... useComponent display tool. ${composition} Do not inspect files, update todos, save memory, request approval, run commands, or call another display tool afterward.`;
+
+const A2UI_TRY_COMPONENT_PROMPTS: Record<CatalogItemId, string> = {
+  summary: createA2UITryPrompt(
+    "Harness Summary",
+    "Use a Surface with one Card containing three Metric nodes for mode, todos, and approvals.",
+  ),
+  bar: createA2UITryPrompt(
+    "Bar Chart",
+    "Use a Card containing a BarChart with four category values.",
+  ),
+  line: createA2UITryPrompt(
+    "Line Chart",
+    "Use a Card containing a LineChart with five ordered values.",
+  ),
+  coverage: createA2UITryPrompt(
+    "Area Chart",
+    "Use a Card containing an AreaChart with progress values and a secondary comparison series.",
+  ),
+  workstream: createA2UITryPrompt(
+    "Stacked Area Chart",
+    "Use a Card containing a StackedAreaChart with toolCalls, evidence, and approvals values.",
+  ),
+  usage: createA2UITryPrompt(
+    "Donut Chart",
+    "Use a Card containing a DonutChart with tool usage slices.",
+  ),
+  radar: createA2UITryPrompt(
+    "Radar Chart",
+    "Use a Card containing a RadarChart with capability scores.",
+  ),
+  radial: createA2UITryPrompt(
+    "Radial Chart",
+    "Use a Card containing a RadialChart with two readiness metrics.",
+  ),
+  calendar: createA2UITryPrompt(
+    "Calendar",
+    "Use a Card containing a Calendar with two dated milestone events.",
+  ),
+  files: createA2UITryPrompt(
+    "File Impact Map",
+    "Use a Card containing a FileImpactMap with three files and risk labels.",
+  ),
+  runHealth: createA2UITryPrompt(
+    "Run Health Table",
+    "Use a Card containing a RunHealthTable with tests, typecheck, and approval rows.",
+  ),
+  approval: createA2UITryPrompt(
+    "Approval Form",
+    "Use a Card containing an ApprovalForm with command, risk, and readiness checks.",
+  ),
+  handoff: createA2UITryPrompt(
+    "Handoff Form",
+    "Use a Card containing a HandoffForm with owner, notes, and follow-up items.",
+  ),
+};
+
 const DEFAULT_CATALOG_STATE: CatalogState = {
   summary: true,
   bar: true,
@@ -688,6 +753,11 @@ export function useGenerativeUICatalog() {
 
 export function GenerativeUIRegistry() {
   const { enabled } = useGenerativeUICatalog();
+  const { localState } = useControlRoomLocal();
+
+  if (!localState.openGenerativeUIEnabled || localState.a2uiEnabled) {
+    return null;
+  }
 
   return (
     <>
@@ -715,9 +785,13 @@ export function GenerativeUICatalogPanel({
 }) {
   const [query, setQuery] = useState("");
   const { enabled, setEnabled, setEnabledItems } = useGenerativeUICatalog();
+  const { localState, setA2UIEnabled, setOpenGenerativeUIEnabled } =
+    useControlRoomLocal();
   const { send, isRunning } = useSendUserMessage();
+  const normalizedQuery = query.trim().toLowerCase();
+  const renderingEnabled =
+    localState.a2uiEnabled || localState.openGenerativeUIEnabled;
   const filteredItems = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return GENERATIVE_UI_CATALOG;
     return GENERATIVE_UI_CATALOG.filter((item) =>
       `${item.label} ${item.name} ${item.category} ${item.description}`
@@ -726,12 +800,16 @@ export function GenerativeUICatalogPanel({
     );
   }, [query]);
   const tryComponent = async (item: CatalogItem) => {
-    if (isRunning) return;
+    if (isRunning || !renderingEnabled) return;
     if (!enabled[item.id]) {
       flushSync(() => setEnabled(item.id, true));
       await waitForNextFrame();
     }
-    await send(TRY_COMPONENT_PROMPTS[item.id]);
+    await send(
+      localState.a2uiEnabled
+        ? A2UI_TRY_COMPONENT_PROMPTS[item.id]
+        : TRY_COMPONENT_PROMPTS[item.id],
+    );
   };
 
   return (
@@ -739,22 +817,31 @@ export function GenerativeUICatalogPanel({
       <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
         <ScrollArea className="h-full">
           <div className="space-y-3 px-4 pb-7 pt-4">
-            <div className="flex gap-2">
+            <div className="flex h-7 items-center justify-between gap-3">
               <CatalogPresetPopover
                 enabled={enabled}
                 onApplyPreset={setEnabledItems}
               />
-              <div className="group relative flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border/80 bg-card px-3 shadow-sm transition-colors focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10">
-                <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary transition-colors group-focus-within:bg-primary/15">
-                  <Search className="size-3.5" />
-                </span>
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search components"
-                  className="h-full min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none placeholder:text-muted-foreground/80 focus-visible:border-0 focus-visible:ring-0"
-                />
-              </div>
+              <RenderingModeControls
+                a2uiEnabled={localState.a2uiEnabled}
+                openGenerativeUIEnabled={localState.openGenerativeUIEnabled}
+                onA2UIEnabledChange={setA2UIEnabled}
+                onOpenGenerativeUIEnabledChange={setOpenGenerativeUIEnabled}
+              />
+            </div>
+            <div className="group relative flex h-11 min-w-0 items-center gap-2 rounded-xl border border-border/80 bg-card px-3.5 shadow-sm transition-colors focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10">
+              <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-primary transition-colors group-focus-within:bg-primary/15">
+                <Search className="size-3.5" />
+              </span>
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search components"
+                className="h-full min-w-0 border-0 bg-transparent px-0 py-0 text-[15px] shadow-none placeholder:text-muted-foreground/80 focus-visible:border-0 focus-visible:ring-0"
+              />
+            </div>
+            <div className="-mx-4 px-4 py-1.5">
+              <Separator />
             </div>
             <div className="space-y-3">
               {filteredItems.map((item) => (
@@ -764,7 +851,8 @@ export function GenerativeUICatalogPanel({
                   enabled={enabled[item.id]}
                   onEnabledChange={(checked) => setEnabled(item.id, checked)}
                   onTry={() => void tryComponent(item)}
-                  isTryingDisabled={isRunning}
+                  isTryingDisabled={isRunning || !renderingEnabled}
+                  renderingEnabled={renderingEnabled}
                 />
               ))}
               {filteredItems.length === 0 ? (
@@ -795,12 +883,13 @@ function CatalogPresetPopover({
         <Button
           type="button"
           variant="outline"
-          size="icon"
-          className="size-9 shrink-0 rounded-xl bg-background text-primary shadow-none"
+          size="xs"
+          className="cr-brand-gradient-control h-5 shrink-0 rounded-md border-transparent px-2 text-white shadow-none hover:text-white aria-expanded:text-white"
           aria-label="Choose component catalog"
           title="Catalog"
         >
-          <LayoutGrid className="text-primary" />
+          <LayoutGrid className="size-2.5 text-white" />
+          <span className="text-[11px] font-medium leading-none">Catalogs</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
@@ -873,18 +962,86 @@ function waitForNextFrame() {
   });
 }
 
+function RenderingModeControls({
+  a2uiEnabled,
+  openGenerativeUIEnabled,
+  onA2UIEnabledChange,
+  onOpenGenerativeUIEnabledChange,
+}: {
+  a2uiEnabled: boolean;
+  openGenerativeUIEnabled: boolean;
+  onA2UIEnabledChange: (enabled: boolean) => void;
+  onOpenGenerativeUIEnabledChange: (enabled: boolean) => void;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-end gap-3 px-1">
+      <RenderingModeSwitch
+        title="A2UI"
+        tooltip="Composes selected components into one generated surface."
+        enabled={a2uiEnabled}
+        onEnabledChange={onA2UIEnabledChange}
+      />
+      <RenderingModeSwitch
+        title="Open Gen UI"
+        tooltip="Registers selected components as individual display tools."
+        enabled={openGenerativeUIEnabled}
+        onEnabledChange={onOpenGenerativeUIEnabledChange}
+      />
+    </div>
+  );
+}
+
+function RenderingModeSwitch({
+  title,
+  tooltip,
+  enabled,
+  onEnabledChange,
+}: {
+  title: string;
+  tooltip: string;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <label className="flex h-6 min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <Switch
+            size="sm"
+            checked={enabled}
+            onCheckedChange={onEnabledChange}
+            aria-label={`Enable ${title}`}
+            className="cr-brand-gradient-switch"
+          />
+          <span className="whitespace-nowrap">{title}</span>
+        </label>
+      </TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        align="center"
+        sideOffset={6}
+        className="max-w-48 rounded-lg px-2 py-1 text-left text-[11px] leading-snug"
+      >
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function CatalogItemRow({
   item,
   enabled,
   onEnabledChange,
   onTry,
   isTryingDisabled,
+  renderingEnabled,
 }: {
   item: CatalogItem;
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onTry: () => void;
   isTryingDisabled: boolean;
+  renderingEnabled: boolean;
 }) {
   const checkboxId = useId();
 
@@ -914,7 +1071,9 @@ function CatalogItemRow({
           disabled={isTryingDisabled}
           title={
             isTryingDisabled
-              ? "Agent is busy. Try after the current run finishes."
+              ? renderingEnabled
+                ? "Agent is busy. Try after the current run finishes."
+                : "Enable Open Gen UI or A2UI to try this component."
               : `Ask the agent to render ${item.label}.`
           }
           variant="outline"

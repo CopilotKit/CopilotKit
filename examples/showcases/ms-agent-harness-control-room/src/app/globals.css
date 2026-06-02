@@ -353,6 +353,25 @@ a {
     0 1px 0 rgba(15, 23, 42, 0.04);
 }
 
+.cr-brand-gradient-control {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  );
+}
+
+.cr-brand-gradient-switch[data-state="checked"] {
+  background: linear-gradient(
+    135deg,
+    var(--cr-action-indigo) 0%,
+    color-mix(in oklab, var(--cr-action-indigo) 45%, var(--cr-action-blue)) 48%,
+    var(--cr-action-blue) 100%
+  );
+  border-color: transparent;
+}
+
 .harness-settings-scroll [data-slot="scroll-area-viewport"] > div {
   display: block !important;
   min-width: 0 !important;

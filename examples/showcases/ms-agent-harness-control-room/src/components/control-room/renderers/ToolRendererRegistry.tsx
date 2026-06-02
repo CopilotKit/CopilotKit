@@ -25,12 +25,7 @@ import { useRenderTool } from "@copilotkit/react-core/v2";
 
 import { CONTROL_ROOM_AGENT_NAME } from "@/hooks/use-control-room-state";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CodeBlock } from "./CodeBlock";
 import { DiffProposalCard } from "./DiffProposalCard";
 import { FileReadCard } from "./FileReadCard";
@@ -87,7 +82,11 @@ export function ToolRendererRegistry() {
           return (
             <FileReadCard
               args={
-                args as { relative_path?: string; fileName?: string; path?: string }
+                args as {
+                  relative_path?: string;
+                  fileName?: string;
+                  path?: string;
+                }
               }
               status={status}
               result={parsedResult as never}

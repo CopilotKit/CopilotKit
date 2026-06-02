@@ -25,12 +25,7 @@ import {
 import { CONTROL_ROOM_AGENT_NAME } from "@/hooks/use-control-room-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
@@ -215,7 +210,9 @@ export function HarnessApprovalCard({
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <Checkbox
                 checked={rememberChoice}
-                onCheckedChange={(checked) => setRememberChoice(checked === true)}
+                onCheckedChange={(checked) =>
+                  setRememberChoice(checked === true)
+                }
                 disabled={!canAct}
               />
               Remember approval for {toolName} this session

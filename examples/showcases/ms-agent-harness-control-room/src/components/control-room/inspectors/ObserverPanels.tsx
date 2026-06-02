@@ -140,13 +140,9 @@ function FeatureList({ label, items }: { label: string; items: string[] }) {
   const safe = Array.isArray(items) ? items : [];
   return (
     <div>
-      <div className="text-xs font-medium text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       {safe.length === 0 ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          None reported.
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">None reported.</p>
       ) : (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {safe.map((item) => (

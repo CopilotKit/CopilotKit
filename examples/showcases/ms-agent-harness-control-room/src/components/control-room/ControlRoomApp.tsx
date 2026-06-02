@@ -49,12 +49,15 @@ import { cn } from "@/lib/utils";
 export function ControlRoomApp() {
   const [currentEndpoint, setCurrentEndpoint] =
     useState<string>(DEFAULT_ENDPOINT);
+  const [a2uiEnabled, setA2UIEnabled] = useState(true);
+  const [openGenerativeUIEnabled, setOpenGenerativeUIEnabled] = useState(true);
 
   const runtimeHeaders = useCallback(
     () => ({
       [CONTROL_ROOM_ENDPOINT_HEADER]: currentEndpoint,
+      "x-control-room-a2ui-enabled": a2uiEnabled ? "true" : "false",
     }),
-    [currentEndpoint],
+    [a2uiEnabled, currentEndpoint],
   );
 
   return (
@@ -62,14 +65,20 @@ export function ControlRoomApp() {
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       headers={runtimeHeaders}
-      a2ui={{
-        catalog: controlRoomA2UICatalog,
-      }}
-      openGenerativeUI={{}}
+      a2ui={
+        a2uiEnabled
+          ? { catalog: controlRoomA2UICatalog }
+          : { includeSchema: false }
+      }
+      openGenerativeUI={openGenerativeUIEnabled ? {} : undefined}
     >
       <ControlRoomProvider
         currentEndpoint={currentEndpoint}
         setCurrentEndpoint={setCurrentEndpoint}
+        a2uiEnabled={a2uiEnabled}
+        setA2UIEnabled={setA2UIEnabled}
+        openGenerativeUIEnabled={openGenerativeUIEnabled}
+        setOpenGenerativeUIEnabled={setOpenGenerativeUIEnabled}
       >
         <GenerativeUICatalogProvider>
           <ToolRendererRegistry />

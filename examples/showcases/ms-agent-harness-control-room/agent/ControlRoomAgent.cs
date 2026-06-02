@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -91,9 +92,9 @@ internal sealed class ControlRoomAgentFactory
             {
                 Name = "render_control_room_a2ui",
                 Description =
-                    "Render one local A2UI component as the final display action. " +
-                    "Supported components: HarnessSummary, BarChart, LineChart, AreaChart, DonutChart, DataTable, FileList. " +
-                    "Use literal values only; do not use path bindings. Returns A2UI operations for the local catalog.",
+                    "Render one composed A2UI surface from the local dynamic catalog as the final display action. " +
+                    "Pass a flat components array with root id 'root'; containers reference child ids via children arrays. " +
+                    "Use this for dashboards, charts, forms, tables, and cards. Returns A2UI operations for the local catalog.",
             });
 
         var harnessAgent = chatClient.AsHarnessAgent(
@@ -224,107 +225,51 @@ internal sealed class ControlRoomAgentFactory
     private const string A2UICatalogId = "copilotkit://ms-agent-harness-control-room";
 
     private static string RenderA2UI(
-        [Description("One of: HarnessSummary | BarChart | LineChart | AreaChart | DonutChart | DataTable | FileList.")]
-        string component,
-        [Description("Short component title.")]
+        [Description(
+            "Flat A2UI v0.9 component array. Every item needs id and component. " +
+            "The root item must have id 'root'. Container components such as Surface, Card, Row, and Column reference child ids with children. " +
+            "Use catalog components: Surface, SectionHeader, Card, Metric, Badge, Button, TextInput, Textarea, Select, Checkbox, Switch, Progress, BarChart, LineChart, AreaChart, StackedAreaChart, DonutChart, RadarChart, RadialChart, Calendar, RunHealthTable, FileImpactMap, ApprovalForm, HandoffForm. Basic Row and Column are also available.")]
+        List<A2UIComponentNode>? components = null,
+        [Description("Optional short surface title used only if components is omitted.")]
         string? title = null,
-        [Description("One concise supporting sentence.")]
+        [Description("Optional supporting sentence used only if components is omitted.")]
         string? description = null,
-        [Description("Metrics for HarnessSummary. Two to six items.")]
+        [Description("Deprecated simple component name. Prefer components. Kept for older prompts.")]
+        string? component = null,
+        [Description("Metrics used only for deprecated simple Card calls.")]
         List<A2UIMetric>? metrics = null,
-        [Description("Category data for BarChart, LineChart, and DonutChart. Two to eight items.")]
-        List<A2UICategoryPoint>? data = null,
-        [Description("Trend data for AreaChart. Two to eight items.")]
-        List<A2UIAreaPoint>? areaData = null,
-        [Description("Rows for DataTable. Two to eight items.")]
-        List<A2UITableRow>? rows = null,
-        [Description("Files for FileList. One to eight items.")]
-        List<A2UIFileItem>? files = null)
+        [Description("Chart data used only for deprecated simple chart calls.")]
+        List<A2UIDataPoint>? data = null)
     {
-        var supportedComponents = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "HarnessSummary",
-            "BarChart",
-            "LineChart",
-            "AreaChart",
-            "DonutChart",
-            "DataTable",
-            "FileList",
-        };
+        var normalizedComponents = components is { Count: > 0 }
+            ? NormalizeA2UIComponents(components)
+            : BuildFallbackA2UIComponents(title, description, component, metrics, data);
 
-        if (!supportedComponents.Contains(component))
+        if (!normalizedComponents.Any(c => c.TryGetValue("id", out var id) && id as string == "root"))
         {
-            return JsonSerializer.Serialize(new
-            {
-                error = $"Unsupported A2UI component '{component}'. Use one of: {string.Join(", ", supportedComponents)}."
-            });
+            return JsonSerializer.Serialize(
+                new
+                {
+                    error = "A2UI components must include a root node with id 'root'."
+                },
+                A2UIJsonOptions);
         }
 
-        var surfaceId = $"control-room-{component.ToLowerInvariant()}-{Guid.NewGuid():N}";
-        var root = new Dictionary<string, object?>
-        {
-            ["id"] = "root",
-            ["component"] = component,
-        };
+        var invalidComponent = normalizedComponents
+            .Select(c => c.TryGetValue("component", out var name) ? name as string : null)
+            .FirstOrDefault(name => string.IsNullOrWhiteSpace(name) || !SupportedA2UIComponents.Contains(name));
 
-        if (!string.IsNullOrWhiteSpace(title)) root["title"] = title;
-        if (!string.IsNullOrWhiteSpace(description)) root["description"] = description;
-
-        switch (component)
+        if (!string.IsNullOrWhiteSpace(invalidComponent))
         {
-            case "HarnessSummary":
-                root["metrics"] = metrics is { Count: > 0 }
-                    ? metrics
-                    : new List<A2UIMetric>
-                    {
-                        new("Mode", "plan", "Read-only display"),
-                        new("Surface", "A2UI", "Local catalog"),
-                        new("Status", "ready", "Rendered by Harness"),
-                    };
-                break;
-            case "BarChart":
-            case "LineChart":
-            case "DonutChart":
-                root["data"] = data is { Count: > 0 }
-                    ? data
-                    : new List<A2UICategoryPoint>
-                    {
-                        new("Jan", 12),
-                        new("Feb", 18),
-                        new("Mar", 24),
-                    };
-                break;
-            case "AreaChart":
-                root["data"] = areaData is { Count: > 0 }
-                    ? areaData
-                    : new List<A2UIAreaPoint>
-                    {
-                        new("Plan", 1, 0),
-                        new("Inspect", 2, 1),
-                        new("Verify", 3, 2),
-                    };
-                break;
-            case "DataTable":
-                root["rows"] = rows is { Count: > 0 }
-                    ? rows
-                    : new List<A2UITableRow>
-                    {
-                        new("Mode", "pass", "Plan", "Read-only"),
-                        new("Files", "pass", "2", "Available"),
-                        new("Chart", "pass", "A2UI", "Rendered"),
-                    };
-                break;
-            case "FileList":
-                root["files"] = files is { Count: > 0 }
-                    ? files
-                    : new List<A2UIFileItem>
-                    {
-                        new("README.md", "read", "Workspace orientation"),
-                        new("data/revenue.csv", "available", "Sample chart data"),
-                    };
-                break;
+            return JsonSerializer.Serialize(
+                new
+                {
+                    error = $"Unsupported A2UI component '{invalidComponent}'. Use one of: {string.Join(", ", SupportedA2UIComponents)}."
+                },
+                A2UIJsonOptions);
         }
 
+        var surfaceId = $"control-room-a2ui-{Guid.NewGuid():N}";
         var operations = new object[]
         {
             new Dictionary<string, object?>
@@ -342,21 +287,366 @@ internal sealed class ControlRoomAgentFactory
                 ["updateComponents"] = new Dictionary<string, object?>
                 {
                     ["surfaceId"] = surfaceId,
-                    ["components"] = new[] { root },
+                    ["components"] = normalizedComponents,
                 },
             },
         };
 
         return JsonSerializer.Serialize(
             new Dictionary<string, object?> { ["a2ui_operations"] = operations },
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            A2UIJsonOptions);
     }
 
-    internal sealed record A2UIMetric(string Label, string Value, string? Detail = null);
-    internal sealed record A2UICategoryPoint(string Label, double Value);
-    internal sealed record A2UIAreaPoint(string Label, double Primary, double? Secondary = null);
-    internal sealed record A2UITableRow(string Label, string? Status = null, string? Value = null, string? Detail = null);
-    internal sealed record A2UIFileItem(string Path, string? Status = null, string? Detail = null);
+    private static readonly HashSet<string> SupportedA2UIComponents = new(StringComparer.Ordinal)
+    {
+        "Surface",
+        "SectionHeader",
+        "Card",
+        "Metric",
+        "Badge",
+        "Button",
+        "TextInput",
+        "Textarea",
+        "Select",
+        "Checkbox",
+        "Switch",
+        "Progress",
+        "BarChart",
+        "LineChart",
+        "AreaChart",
+        "StackedAreaChart",
+        "DonutChart",
+        "RadarChart",
+        "RadialChart",
+        "Calendar",
+        "RunHealthTable",
+        "FileImpactMap",
+        "ApprovalForm",
+        "HandoffForm",
+        "Row",
+        "Column",
+        // Backwards-compatible aliases from the previous catalog.
+        "StatusBadge",
+        "PrimaryButton",
+        "PieChart",
+        "InfoRow",
+    };
+
+    private static readonly JsonSerializerOptions A2UIJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private static List<Dictionary<string, object?>> NormalizeA2UIComponents(List<A2UIComponentNode> nodes)
+    {
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var normalized = new List<Dictionary<string, object?>>();
+
+        foreach (var node in nodes)
+        {
+            if (string.IsNullOrWhiteSpace(node.Id) || !seenIds.Add(node.Id))
+            {
+                continue;
+            }
+
+            normalized.Add(ToA2UIComponent(node));
+        }
+
+        return normalized;
+    }
+
+    private static Dictionary<string, object?> ToA2UIComponent(A2UIComponentNode node)
+    {
+        var component = NormalizeComponentName(node.Component);
+        var item = new Dictionary<string, object?>
+        {
+            ["id"] = node.Id,
+            ["component"] = component,
+        };
+
+        AddIfPresent(item, "title", node.Title);
+        AddIfPresent(item, "subtitle", node.Subtitle);
+        AddIfPresent(item, "description", node.Description);
+        AddIfPresent(item, "summary", node.Summary);
+        AddIfPresent(item, "eyebrow", node.Eyebrow);
+        AddIfPresent(item, "badge", node.Badge);
+        AddIfPresent(item, "label", node.Label);
+        AddIfPresent(item, "value", component == "Progress" ? node.NumericValue : node.Value);
+        AddIfPresent(item, "detail", node.Detail);
+        AddIfPresent(item, "trend", NormalizeTrend(node.Trend));
+        AddIfPresent(item, "tone", node.Tone);
+        AddIfPresent(item, "text", node.Text ?? node.Label);
+        AddIfPresent(item, "variant", NormalizeVariant(node.Variant));
+        AddIfPresent(item, "checked", node.Checked);
+        AddIfPresent(item, "placeholder", node.Placeholder);
+        AddIfPresent(item, "owner", node.Owner);
+        AddIfPresent(item, "notes", node.Notes);
+        AddIfPresent(item, "command", node.Command);
+        AddIfPresent(item, "risk", NormalizeRisk(node.Risk));
+        AddIfPresent(item, "options", node.Options);
+        AddIfPresent(item, "data", node.Data);
+        AddIfPresent(item, "metrics", node.Metrics);
+        AddIfPresent(item, "rows", node.Rows);
+        AddIfPresent(item, "events", node.Events);
+        AddIfPresent(item, "files", node.Files);
+        AddIfPresent(item, "checks", node.Checks);
+        AddIfPresent(item, "followups", node.Followups);
+
+        var childIds = node.Children is { Count: > 0 }
+            ? node.Children
+            : string.IsNullOrWhiteSpace(node.Child)
+                ? null
+                : new List<string> { node.Child };
+        AddIfPresent(item, "children", childIds);
+
+        return item;
+    }
+
+    private static List<Dictionary<string, object?>> BuildFallbackA2UIComponents(
+        string? title,
+        string? description,
+        string? component,
+        List<A2UIMetric>? metrics,
+        List<A2UIDataPoint>? data)
+    {
+        var requestedComponent = NormalizeComponentName(component ?? "Surface");
+
+        if (requestedComponent is "BarChart" or "AreaChart" or "LineChart" or "DonutChart")
+        {
+            return
+            [
+                new()
+                {
+                    ["id"] = "root",
+                    ["component"] = "Surface",
+                    ["title"] = string.IsNullOrWhiteSpace(title) ? "A2UI Chart" : title,
+                    ["subtitle"] = description,
+                    ["children"] = new List<string> { "chart-card" },
+                },
+                new()
+                {
+                    ["id"] = "chart-card",
+                    ["component"] = "Card",
+                    ["title"] = string.IsNullOrWhiteSpace(title) ? requestedComponent : title,
+                    ["description"] = description,
+                    ["children"] = new List<string> { "chart" },
+                },
+                new()
+                {
+                    ["id"] = "chart",
+                    ["component"] = requestedComponent,
+                    ["data"] = data is { Count: > 0 }
+                        ? data
+                        : new List<A2UIDataPoint>
+                        {
+                            new(Label: "Plan", Value: 34, Secondary: 16),
+                            new(Label: "Build", Value: 58, Secondary: 28),
+                            new(Label: "Verify", Value: 82, Secondary: 44),
+                        },
+                },
+            ];
+        }
+
+        var metricItems = metrics is { Count: > 0 }
+            ? metrics
+            : new List<A2UIMetric>
+            {
+                new("Planned", "34%", "Requirements and catalog ready", "up", "default"),
+                new("Built", "58%", "Composable nodes emitted", "up", "success"),
+                new("Verified", "82%", "Renderer path active", "up", "success"),
+            };
+
+        var fallback = new List<Dictionary<string, object?>>
+        {
+            new()
+            {
+                ["id"] = "root",
+                ["component"] = "Surface",
+                ["title"] = string.IsNullOrWhiteSpace(title) ? "Progress Dashboard" : title,
+                ["subtitle"] = string.IsNullOrWhiteSpace(description)
+                    ? "Composed in one A2UI generation from catalog components."
+                    : description,
+                ["children"] = new List<string> { "metrics-row", "charts-row" },
+            },
+            new()
+            {
+                ["id"] = "metrics-row",
+                ["component"] = "Row",
+                ["children"] = metricItems.Select((_, index) => $"metric-{index + 1}").ToList(),
+            },
+        };
+
+        for (var i = 0; i < metricItems.Count; i++)
+        {
+            fallback.Add(new Dictionary<string, object?>
+            {
+                ["id"] = $"metric-{i + 1}",
+                ["component"] = "Metric",
+                ["label"] = metricItems[i].Label,
+                ["value"] = metricItems[i].Value,
+                ["detail"] = metricItems[i].Detail,
+                ["trend"] = NormalizeTrend(metricItems[i].Trend),
+                ["tone"] = metricItems[i].Tone,
+            });
+        }
+
+        fallback.AddRange(
+        [
+            new()
+            {
+                ["id"] = "charts-row",
+                ["component"] = "Row",
+                ["children"] = new List<string> { "bar-card", "area-card" },
+            },
+            new()
+            {
+                ["id"] = "bar-card",
+                ["component"] = "Card",
+                ["title"] = "Completed Work",
+                ["description"] = "Progress by phase.",
+                ["children"] = new List<string> { "bar-chart" },
+            },
+            new()
+            {
+                ["id"] = "bar-chart",
+                ["component"] = "BarChart",
+                ["data"] = new List<A2UIDataPoint>
+                {
+                    new(Label: "Plan", Value: 34),
+                    new(Label: "Build", Value: 58),
+                    new(Label: "Verify", Value: 82),
+                },
+            },
+            new()
+            {
+                ["id"] = "area-card",
+                ["component"] = "Card",
+                ["title"] = "Confidence Trend",
+                ["description"] = "Confidence and review progress.",
+                ["children"] = new List<string> { "area-chart" },
+            },
+            new()
+            {
+                ["id"] = "area-chart",
+                ["component"] = "AreaChart",
+                ["data"] = new List<A2UIDataPoint>
+                {
+                    new(Label: "Plan", Value: 34, Secondary: 18),
+                    new(Label: "Build", Value: 58, Secondary: 31),
+                    new(Label: "Verify", Value: 82, Secondary: 52),
+                },
+            },
+        ]);
+
+        return fallback;
+    }
+
+    private static string NormalizeComponentName(string component) => component switch
+    {
+        "StatusBadge" => "Badge",
+        "PrimaryButton" => "Button",
+        "PieChart" => "DonutChart",
+        "InfoRow" => "Metric",
+        _ => component,
+    };
+
+    private static void AddIfPresent(Dictionary<string, object?> item, string key, object? value)
+    {
+        switch (value)
+        {
+            case null:
+                return;
+            case string text when string.IsNullOrWhiteSpace(text):
+                return;
+            case System.Collections.ICollection collection when collection.Count == 0:
+                return;
+            default:
+                item[key] = value;
+                return;
+        }
+    }
+
+    private static string? NormalizeVariant(string? variant)
+    {
+        var normalized = variant?.Trim().ToLowerInvariant();
+        return normalized is "default" or "secondary" or "success" or "warning" or "danger" or "info" or "outline" or "ghost"
+            ? normalized
+            : null;
+    }
+
+    private static string? NormalizeRisk(string? risk)
+    {
+        var normalized = risk?.Trim().ToLowerInvariant();
+        return normalized is "low" or "medium" or "high"
+            ? normalized
+            : null;
+    }
+
+    private static string? NormalizeTrend(string? trend)
+    {
+        var normalized = trend?.Trim().ToLowerInvariant();
+        return normalized is "up" or "down" or "neutral"
+            ? normalized
+            : null;
+    }
+
+    internal sealed record A2UIComponentNode(
+        string Id,
+        string Component,
+        string? Title = null,
+        string? Subtitle = null,
+        string? Description = null,
+        string? Summary = null,
+        string? Eyebrow = null,
+        string? Badge = null,
+        List<string>? Children = null,
+        string? Child = null,
+        string? Label = null,
+        string? Value = null,
+        double? NumericValue = null,
+        string? Detail = null,
+        string? Trend = null,
+        string? Tone = null,
+        string? Text = null,
+        string? Variant = null,
+        bool? Checked = null,
+        string? Placeholder = null,
+        string? Owner = null,
+        string? Notes = null,
+        string? Command = null,
+        string? Risk = null,
+        List<A2UIOption>? Options = null,
+        List<A2UIDataPoint>? Data = null,
+        List<A2UIMetric>? Metrics = null,
+        List<A2UITableRow>? Rows = null,
+        List<A2UITimelineEvent>? Events = null,
+        List<A2UIFileImpact>? Files = null,
+        List<A2UIApprovalCheck>? Checks = null,
+        List<string>? Followups = null);
+
+    internal sealed record A2UIMetric(
+        string Label,
+        string Value,
+        string? Detail = null,
+        string? Trend = null,
+        string? Tone = null);
+
+    internal sealed record A2UIDataPoint(
+        string? Label = null,
+        string? Name = null,
+        string? Capability = null,
+        double? Value = null,
+        double? Secondary = null,
+        double? ToolCalls = null,
+        double? Evidence = null,
+        double? Approvals = null,
+        double? Score = null);
+
+    internal sealed record A2UIOption(string Label, string Value);
+    internal sealed record A2UITableRow(string Check, string Status, double Progress, string Detail);
+    internal sealed record A2UITimelineEvent(string Label, string Date, string? Detail = null, string? Tone = null);
+    internal sealed record A2UIFileImpact(string Path, string Risk, string Change);
+    internal sealed record A2UIApprovalCheck(string Label, bool Complete);
 
     private static string ResolveFixtureRoot()
     {
@@ -441,29 +731,50 @@ internal sealed class ControlRoomAgentFactory
 
         Frontend display tools are named `show...` (for example
         `showBarChart`, `showLineChart`, `showAreaChart`,
-        `showHarnessSummary`, and `showHandoffForm`). Open Generative UI and
-        A2UI-generated UI are display surfaces too. For A2UI, use only the
-        local `copilotkit://ms-agent-harness-control-room` catalog components:
-        `HarnessSummary`, `BarChart`, `LineChart`, `AreaChart`, `DonutChart`,
-        `DataTable`, and `FileList`. Do not emit A2UI operations for the
-        public basic catalog URL. For A2UI, call
-        `render_control_room_a2ui` with one supported component name and
-        literal prop values only. The tool owns the surface id, local catalog
-        id, and A2UI operation envelope. Do not call any tool named
-        `render_a2ui`, do not pass `catalogId`, and do not hand-write
-        `a2ui_operations`. Treat every display call as the final action of the
-        current turn. Never call a display tool while a Harness tool action
-        still needs to happen, and never call a display tool in the same model
-        step as TodoList, FileMemory, FileAccess, AgentMode, approval, or shell
-        tools. Complete those Harness actions first, wait for their results,
-        then render exactly one final display component when the operator
-        prompt asks for one.
+        `showHarnessSummary`, and `showHandoffForm`). When A2UI is available,
+        prefer `render_control_room_a2ui` instead of `show...` display tools so
+        the local A2UI catalog can compose multiple UI pieces in one generated
+        surface. A2UI is registered locally as
+        `copilotkit://ms-agent-harness-control-room`; do not emit A2UI
+        operations for the public basic catalog URL.
+
+        For A2UI, call `render_control_room_a2ui` with a flat `components`
+        array. Every component object must include a unique `id` and a
+        `component` name. The root component must be `{ id: "root",
+        component: "Surface" }` for dashboards and reports. Container
+        components (`Surface`, `Card`, `Row`, `Column`) reference children by
+        id via a `children` array; never inline child objects. Build the full
+        UI in one call instead of making one call per chart or card. The custom
+        catalog includes ShadCN-style primitives and sidebar components:
+        `Surface`, `SectionHeader`, `Card`, `Metric`, `Badge`, `Button`,
+        `TextInput`, `Textarea`, `Select`, `Checkbox`, `Switch`, `Progress`,
+        `BarChart`, `LineChart`, `AreaChart`, `StackedAreaChart`, `DonutChart`,
+        `RadarChart`, `RadialChart`, `Calendar`, `RunHealthTable`,
+        `FileImpactMap`, `ApprovalForm`, and `HandoffForm`. Basic `Row` and
+        `Column` are also available for layout composition.
+
+        Example: if the operator asks for a dashboard with a bar chart and an
+        area chart describing progress, do not call TodoList, FileMemory,
+        FileAccess, AgentMode, approval, shell, or `show...` display tools.
+        Make one `render_control_room_a2ui` call whose components contain a
+        root `Surface`, a `Row` of `Metric` nodes, and a chart `Row` containing
+        two `Card` nodes, one with `BarChart` and one with `AreaChart`. The tool
+        owns the surface id, local catalog id, and A2UI operation envelope.
+        Do not call any tool named `render_a2ui`, do not pass `catalogId`, and
+        do not hand-write `a2ui_operations`. Treat every display call as the
+        final action of the current turn. Never call a display tool while a
+        Harness tool action still needs to happen, and never call a display
+        tool in the same model step as TodoList, FileMemory, FileAccess,
+        AgentMode, approval, or shell tools. Complete those Harness actions
+        first, wait for their results, then render exactly one final display
+        component when the operator prompt asks for one.
 
         For workspace orientation prompts that ask for a final Harness Summary,
         the required Harness work is: load the workspace-analysis skill, read
         `README.md`, list the top-level files, and finish any todo updates.
-        `showHarnessSummary` is not final until those results are visible. Once
-        it is rendered, stop without additional text or tool calls.
+        `showHarnessSummary` or an A2UI `Card` summary is not final until those
+        results are visible. Once it is rendered, stop without additional text
+        or tool calls.
 
         Do not claim that todos, memory, file writes, approvals, shell commands,
         or verification have completed unless the matching Harness tool result
@@ -472,12 +783,15 @@ internal sealed class ControlRoomAgentFactory
         A tool request is not complete when you decide to call it; it is only
         complete after the tool result is visible in your context.
 
-        If the operator asks for a simple chart, form, table, calendar, or other
-        visual demo, render the relevant `show...` component with small,
-        illustrative data. If the prompt mentions workspace data or a file path,
-        read that file first and wait for the FileAccess result before rendering
-        any display component. If the file cannot be read, explain the problem
-        and stop instead of rendering guessed data.
+        If the operator asks for a simple chart, dashboard, form, table,
+        calendar, or other visual demo and does not ask to inspect workspace
+        data, render the relevant A2UI surface or `show...` component directly
+        with small illustrative data. Do not create todos or switch modes for
+        pure display-only visualization prompts. If the prompt mentions
+        workspace data or a file path, read that file first and wait for the
+        FileAccess result before rendering any display component. If the file
+        cannot be read, explain the problem and stop instead of rendering
+        guessed data.
 
         If the operator asks to run or verify something, use `pnpm_run` so the
         real Harness approval card appears. Stop at the approval card until the

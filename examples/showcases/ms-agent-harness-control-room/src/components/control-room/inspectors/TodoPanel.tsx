@@ -20,20 +20,20 @@ export function TodoPanel() {
         <CardTitle>Todos</CardTitle>
       </CardHeader>
       <CardContent>
-      {todos.length === 0 ? (
-        <p
-          className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
-          style={{ fontFamily: "var(--cr-font-mono)" }}
-        >
-          Empty · agent will populate as it plans
-        </p>
-      ) : (
-        <ul className="space-y-1.5">
-          {todos.map((todo) => (
-            <TodoRow key={todo.id} todo={todo} />
-          ))}
-        </ul>
-      )}
+        {todos.length === 0 ? (
+          <p
+            className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--cr-muted)]"
+            style={{ fontFamily: "var(--cr-font-mono)" }}
+          >
+            Empty · agent will populate as it plans
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {todos.map((todo) => (
+              <TodoRow key={todo.id} todo={todo} />
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
