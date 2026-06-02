@@ -6,7 +6,10 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
 import { LinkIcon } from "lucide-react";
 import remarkGfm from "remark-gfm";
-import { rehypeCode, rehypeCodeDefaultOptions } from "fumadocs-core/mdx-plugins";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import { PropertyReference } from "@/components/property-reference";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { transformerMeta } from "@/lib/rehype-code-meta";
