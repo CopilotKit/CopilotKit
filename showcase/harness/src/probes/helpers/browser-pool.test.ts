@@ -1,7 +1,35 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import type { Browser, BrowserContext } from "playwright";
 import { BrowserPool } from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
+
+/**
+ * Count chromium MAIN (browser) processes on this host. A headless chromium
+ * forks a tree of helper processes (GPU, zygote, renderers, utility) whose
+ * argv carries a `--type=` flag; the MAIN browser process is the ONE that does
+ * NOT. We count only the type-less chromium processes so the assertion pins
+ * the BROWSER count, not the helper-process count.
+ */
+function countChromiumMainProcesses(): number {
+  let out: string;
+  try {
+    out = execFileSync("ps", ["-eo", "command"], { encoding: "utf8" });
+  } catch {
+    return 0;
+  }
+  return out.split("\n").filter((line) => {
+    const l = line.toLowerCase();
+    const isChromium =
+      l.includes("chromium") ||
+      l.includes("chrome") ||
+      l.includes("headless_shell");
+    if (!isChromium) return false;
+    // Helper processes carry `--type=<renderer|gpu-process|zygote|utility>`;
+    // the main browser process is the type-less one.
+    return !line.includes("--type=");
+  }).length;
+}
 
 /**
  * Minimal `BrowserContext` stand-in. Tracks close + the extraHTTPHeaders the
@@ -1150,4 +1178,58 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.release(c2!);
     await pool.shutdown();
   });
+});
+
+// ---------------------------------------------------------------------------
+// Browser SERVER lifecycle — the single-path browser-server surface. This is
+// an ADDITIONAL surface alongside the in-process context pool: the harness owns
+// ONE `chromium.launchServer()` whose `wsEndpoint()` gold specs connect to via
+// `use.connectOptions`, pinning the MAIN browser-process count to the server
+// count regardless of Playwright `--workers`.
+//
+// These tests spawn a REAL chromium server (no fake) so the process-bounded
+// assertion is genuine — the whole point is that exactly ONE main browser
+// process exists.
+// ---------------------------------------------------------------------------
+describe("BrowserPool — browser server lifecycle", () => {
+  it("startServer() yields a live ws endpoint and exactly ONE new main browser process; shutdown() reclaims it", async () => {
+    const before = countChromiumMainProcesses();
+
+    const pool = new BrowserPool({ logger: { info() {} }, launchStaggerMs: 0 });
+    await pool.startServer();
+
+    // wsEndpoint() returns a live ws URL.
+    const ws = pool.wsEndpoint();
+    expect(ws).toMatch(/^ws:\/\//);
+
+    // Health check reports the server up.
+    expect(await pool.serverHealthy()).toBe(true);
+
+    // Exactly ONE new main browser process exists (bounded to the server).
+    const after = countChromiumMainProcesses();
+    expect(after - before).toBe(1);
+
+    // shutdown() closes the server — the main process is reclaimed.
+    await pool.shutdown();
+    expect(() => pool.wsEndpoint()).toThrow();
+
+    // Give the OS a beat to reap the closed process before re-counting.
+    await new Promise((r) => setTimeout(r, 250));
+    const afterShutdown = countChromiumMainProcesses();
+    expect(afterShutdown).toBeLessThanOrEqual(before);
+  }, 30_000);
+
+  it("wsEndpoint() throws before the server is started", () => {
+    const pool = new BrowserPool({ logger: { info() {} } });
+    expect(() => pool.wsEndpoint()).toThrow();
+  });
+
+  it("serverHealthy() is false before start and after shutdown", async () => {
+    const pool = new BrowserPool({ logger: { info() {} }, launchStaggerMs: 0 });
+    expect(await pool.serverHealthy()).toBe(false);
+    await pool.startServer();
+    expect(await pool.serverHealthy()).toBe(true);
+    await pool.shutdown();
+    expect(await pool.serverHealthy()).toBe(false);
+  }, 30_000);
 });

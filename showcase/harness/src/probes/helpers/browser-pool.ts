@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext } from "playwright";
+import type { Browser, BrowserContext, BrowserServer } from "playwright";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium
@@ -77,6 +77,16 @@ interface PoolLogger {
 export type LaunchBrowser = () => Promise<Browser>;
 
 /**
+ * Factory that produces a fresh Playwright `BrowserServer` for the harness's
+ * single-path browser-server surface. The default implementation imports
+ * `playwright` and calls `chromium.launchServer` with the SAME launch args as
+ * the in-process pool (`--no-sandbox`, `--disable-dev-shm-usage`). Tests inject
+ * a fake (or simply rely on the real launcher) — the server lifecycle is an
+ * additional surface, not the hot acquire/release path.
+ */
+export type LaunchBrowserServer = () => Promise<BrowserServer>;
+
+/**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
  * this — the hot path (`acquire`/`release`) opens and closes CONTEXTS on an
  * already-running browser and never forks a process. A browser is only
@@ -130,6 +140,9 @@ export interface BrowserPoolOptions {
   logger?: PoolLogger;
   /** Injected launcher (tests). Defaults to the real chromium launcher. */
   launchBrowser?: LaunchBrowser;
+  /** Injected browser-SERVER launcher (tests). Defaults to the real
+   *  `chromium.launchServer` wrapper. */
+  launchBrowserServer?: LaunchBrowserServer;
   /** Stagger between serialized launches (ms). Tests pass 0. */
   launchStaggerMs?: number;
 }
@@ -156,6 +169,15 @@ export class BrowserPool {
   private isShutdown = false;
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
+  private readonly injectedLaunchBrowserServer?: LaunchBrowserServer;
+
+  // The single-path browser SERVER. The harness owns exactly ONE
+  // `chromium.launchServer()`; gold specs connect to its `wsEndpoint()` via
+  // Playwright `use.connectOptions`, so the MAIN browser-process count is
+  // pinned to this one server regardless of `--workers`. Bounded: a second
+  // startServer() is a no-op while one is live. Independent of the in-process
+  // context pool (browsers/maxContexts) used by D4/D5.
+  private browserServer?: BrowserServer;
 
   // Launch-serialization gate. Every chromium launch — init fill, crash
   // recovery, hygiene recycle — is funneled through `launchBrowser`, which
@@ -168,6 +190,7 @@ export class BrowserPool {
   constructor(options: BrowserPoolOptions = {}) {
     this.logger = options.logger;
     this.injectedLaunchBrowser = options.launchBrowser;
+    this.injectedLaunchBrowserServer = options.launchBrowserServer;
 
     const envBrowsers = process.env.BROWSER_POOL_BROWSERS
       ? parseInt(process.env.BROWSER_POOL_BROWSERS, 10)
@@ -268,11 +291,102 @@ export class BrowserPool {
     }
   }
 
+  /**
+   * Start the single-path browser SERVER. Launches exactly ONE
+   * `chromium.launchServer()` (same args as the in-process pool) and routes the
+   * launch through the SAME serialization gate as `init()` so a server start
+   * concurrent with a pool fill never bursts PID demand past the container
+   * ceiling. Bounded + idempotent: a second call while a server is already live
+   * is a no-op (logged) — the harness owns exactly one server.
+   *
+   * On boot the orchestrator calls this and publishes `wsEndpoint()` into the
+   * env so the spawned `npx playwright test` subprocess connects to it.
+   */
+  async startServer(): Promise<void> {
+    if (this.isShutdown) {
+      throw new Error("BrowserPool is shut down");
+    }
+    if (this.browserServer) {
+      this.logger?.info("browser-pool.server-already-started", {
+        wsEndpoint: this.browserServer.wsEndpoint(),
+      });
+      return;
+    }
+
+    const launch =
+      this.injectedLaunchBrowserServer ??
+      (async () => {
+        const { chromium } =
+          (await import("playwright")) as typeof import("playwright");
+        return chromium.launchServer({
+          headless: true,
+          args: ["--no-sandbox", "--disable-dev-shm-usage"],
+        });
+      });
+
+    // Route the server launch through the launch-serialization gate so it
+    // cannot fork concurrently with an init()/recovery launch and spike PID
+    // demand. `gateLaunch` returns the server once `launch()` settles; the
+    // stagger gates only the NEXT launch.
+    const server = await this.gateLaunch(launch);
+    this.browserServer = server;
+    this.logger?.info("browser-pool.server-started", {
+      wsEndpoint: server.wsEndpoint(),
+      pid: server.process()?.pid,
+    });
+  }
+
+  /**
+   * The live ws endpoint of the browser server. Throws if the server has not
+   * been started (or has been shut down) — callers MUST start it first. Kept a
+   * hard throw rather than an empty string so a missing server surfaces loudly
+   * instead of silently threading an empty endpoint into the test subprocess.
+   */
+  wsEndpoint(): string {
+    if (!this.browserServer) {
+      throw new Error("BrowserPool: browser server not started");
+    }
+    return this.browserServer.wsEndpoint();
+  }
+
+  /**
+   * Health check for the browser server: true iff the server is started and its
+   * underlying process is alive. Best-effort — a server whose process has
+   * already exited (`process()` null, or a recorded exit) reports false.
+   */
+  async serverHealthy(): Promise<boolean> {
+    if (!this.browserServer) return false;
+    const proc = this.browserServer.process();
+    // A launched server always exposes its child process; a null process means
+    // it never came up or was already reclaimed. `exitCode === null` while the
+    // process object exists means it is still running.
+    if (!proc) return false;
+    return proc.exitCode === null && proc.signalCode === null;
+  }
+
   // The un-gated launcher. Assigned during init() — either the injected fake
   // (tests) or the real `chromium.launch` wrapper (production). Never called
   // directly by the pool's lifecycle paths; they all go through
   // `launchBrowser()`, which serializes via the gate.
   private rawLaunchBrowser!: LaunchBrowser;
+
+  /**
+   * Generic launch-serialization gate primitive. Chains an arbitrary launch
+   * thunk onto `launchChain` so AT MOST ONE launch (browser OR server) runs at
+   * a time across the whole pool, with a `launchStaggerMs` delay after each
+   * settles before the next begins. `launchBrowser()` is the browser-typed
+   * specialization; `startServer()` reuses this directly for the server launch.
+   */
+  private gateLaunch<T>(thunk: () => Promise<T>): Promise<T> {
+    const gate = this.launchChain;
+    const result = gate.then(() => thunk());
+    this.launchChain = result
+      .catch(() => undefined)
+      .then(() =>
+        this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
+      );
+    return result;
+  }
 
   /**
    * The single launch seam every pool path routes through (init fill, crash
@@ -290,16 +404,8 @@ export class BrowserPool {
    * whether the launch resolved or threw — a failed launch is just as
    * PID-costly to retry.
    */
-  private launchBrowser = (): Promise<Browser> => {
-    const gate = this.launchChain;
-    const result = gate.then(() => this.rawLaunchBrowser());
-    this.launchChain = result
-      .catch(() => undefined)
-      .then(() =>
-        this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
-      );
-    return result;
-  };
+  private launchBrowser = (): Promise<Browser> =>
+    this.gateLaunch(() => this.rawLaunchBrowser());
 
   /**
    * Close a browser, routing any failure through the structured logger with
@@ -790,6 +896,22 @@ export class BrowserPool {
     this.browsers = [];
     this.contextToBrowser.clear();
     this.liveContextCount = 0;
+
+    // Close the single-path browser server (if started). This reclaims its one
+    // MAIN browser process. Best-effort + logged so a close failure does not
+    // mask the rest of shutdown; clear the handle so wsEndpoint()/serverHealthy
+    // report the server gone afterward.
+    if (this.browserServer) {
+      const server = this.browserServer;
+      this.browserServer = undefined;
+      try {
+        await server.close();
+      } catch (err) {
+        this.logger?.warn?.("browser-pool.server-close-failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   stats(): BrowserPoolStats {
