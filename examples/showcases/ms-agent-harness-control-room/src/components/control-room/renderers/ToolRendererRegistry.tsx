@@ -51,7 +51,6 @@ interface RenderProps {
   result: string | undefined;
 }
 
-const A2UI_OPERATIONS_KEY = "a2ui_operations";
 const CONTROL_ROOM_A2UI_TOOL_NAME = "render_control_room_a2ui";
 const CONTROL_ROOM_A2UI_CATALOG_ID =
   "copilotkit://ms-agent-harness-control-room";
@@ -154,19 +153,9 @@ export function ToolRendererRegistry() {
   return null;
 }
 
-function StreamingA2UIToolCard({
-  toolCallId,
-  args,
-  status,
-  result,
-}: RenderProps) {
+function StreamingA2UIToolCard({ toolCallId, args, status }: RenderProps) {
   if (status === "complete") {
-    const operations = parseA2UIOperationsFromResult(result);
-    return operations.length > 0 ? (
-      <A2UIToolSurface operations={operations} />
-    ) : (
-      <A2UIStreamingSkeleton status={status} components={0} />
-    );
+    return <></>;
   }
 
   const components = getRenderableA2UIComponents(args);
@@ -335,14 +324,6 @@ function A2UIStreamingSkeleton({
       </div>
     </A2UIStreamingFrame>
   );
-}
-
-function parseA2UIOperationsFromResult(result: string | undefined) {
-  const parsed = parseToolResult(result);
-  if (!parsed || typeof parsed !== "object") return [];
-
-  const operations = (parsed as Record<string, unknown>)[A2UI_OPERATIONS_KEY];
-  return Array.isArray(operations) ? operations : [];
 }
 
 function buildA2UIOperations(surfaceId: string, components: A2UIComponent[]) {
