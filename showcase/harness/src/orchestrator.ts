@@ -57,7 +57,6 @@ import {
 import {
   e2eFullDriver,
   createE2eFullDriver,
-  createPooledE2eFullLauncher,
 } from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { qaDriver } from "./probes/drivers/qa.js";
@@ -301,6 +300,28 @@ export async function boot(opts: BootOptions = {}): Promise<{
   try {
     await browserPool.init();
     browserPoolReady = true;
+
+    // Single-path browser SERVER: the harness owns exactly ONE
+    // `chromium.launchServer()` and publishes its live ws endpoint as
+    // `PLAYWRIGHT_WS_ENDPOINT`. The spec-driven D6 path threads this into the
+    // spawned `npx playwright test` (cli/e2e.ts → buildE2eCommand) so the
+    // integration's `use.connectOptions.wsEndpoint` connects EVERY worker to
+    // this one server — pinning the MAIN browser-process count to the server
+    // count regardless of `--workers`. A server-start failure is non-fatal:
+    // absent the env var, specs fall back to launching their own browsers.
+    try {
+      await browserPool.startServer();
+      process.env.PLAYWRIGHT_WS_ENDPOINT = browserPool.wsEndpoint();
+      logger.info("boot.browser-server-started", {
+        wsEndpoint: process.env.PLAYWRIGHT_WS_ENDPOINT,
+      });
+    } catch (serverErr) {
+      logger.error("boot.browser-server-start-failed", {
+        error:
+          serverErr instanceof Error ? serverErr.message : String(serverErr),
+      });
+    }
+
     try {
       // Only stamp `recovered: true` when a prior degraded (red) state
       // actually existed — on a cold first boot nothing was recovered, so a
@@ -913,6 +934,10 @@ export async function boot(opts: BootOptions = {}): Promise<{
       engine.stop();
       await scheduler.stop();
       await browserPool.shutdown();
+      // Clear the published browser-server endpoint so a repeated boot/stop in
+      // the same process (tests, hot-reload) never threads a stale, closed ws
+      // endpoint into a subsequent run's spawned Playwright subprocess.
+      delete process.env.PLAYWRIGHT_WS_ENDPOINT;
       // Release all bus subscriptions so repeated boot/stop don't accumulate
       // listeners on the shared EventEmitter.
       for (const u of busUnsubs) u();
@@ -980,11 +1005,13 @@ export function registerAllProbeDrivers(
         launcher: createPooledE2eDeepLauncher(pool, logger),
       }),
     );
-    probeRegistry.register(
-      createE2eFullDriver({
-        launcher: createPooledE2eFullLauncher(pool, logger),
-      }),
-    );
+    // D6 is fully spec-driven: createE2eFullDriver consumes only `runAndParse`
+    // (spawns the integration's Playwright suite) + `declaredSkipsImpl`, never
+    // a browser launcher. The pooled launcher injection here was dead wiring
+    // (the driver ignored `deps.launcher`), so it is gone. The single-path
+    // browser SERVER the suite connects to is owned by the pool/orchestrator
+    // boot and threaded via PLAYWRIGHT_WS_ENDPOINT, not via this driver.
+    probeRegistry.register(createE2eFullDriver());
   } else {
     probeRegistry.register(e2eChatToolsDriver);
     probeRegistry.register(e2eReadinessDriver);
