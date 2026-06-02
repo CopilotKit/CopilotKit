@@ -40,7 +40,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsdown",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
