@@ -6,7 +6,7 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 
 | Before                            | After                                  |
 | --------------------------------- | -------------------------------------- |
-| `@copilotkit/react-core`          | `@copilotkit/react-core/v2`            |
+| v1 hooks from `@copilotkit/react-core` | v2 hooks from `@copilotkit/react-core/v2` |
 | `@copilotkit/react-ui`            | `@copilotkit/react-core/v2`            |
 | `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
 
@@ -15,14 +15,16 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 - Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
 - Your `CopilotRuntime` configuration — stays the same
 - Agent definitions and backend setup — stays the same
+- The `<CopilotKit>` provider — keep importing it from `@copilotkit/react-core`
 
 ## Migration Steps
 
 <Steps>
 <Step>
-### Update `@copilotkit/react-core` imports
+### Update v1 hook imports
 
-Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
+Replace v1 hooks from `@copilotkit/react-core` with their v2 equivalents from `@copilotkit/react-core/v2`.
+Keep the `<CopilotKit>` provider imported from `@copilotkit/react-core`.
 
 #### Before
 
@@ -34,7 +36,7 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 #### After
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
 import { useAgent } from "@copilotkit/react-core/v2";
 ```
 
@@ -113,15 +115,16 @@ export function App() {
 ### After
 
 ```tsx
-import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <YourApp />
       <CopilotPopup />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```

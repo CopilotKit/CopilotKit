@@ -22,7 +22,8 @@ All observability hooks require a `publicLicenseKey` (self-hosted) or `publicApi
 Track user interactions and chat events:
 
 ```tsx
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -56,7 +57,7 @@ export default function App() {
 Monitor runtime errors:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
 
 <CopilotKit
   publicApiKey="ck_pub_your_key" // [!code highlight]

@@ -132,6 +132,29 @@ describe("loadDoc", () => {
   });
 });
 
+describe("migration docs", () => {
+  it("recommends the root CopilotKit provider while migrating hooks and UI to v2", () => {
+    const snippet = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/troubleshooting/migrate-to-v2.mdx"),
+      "utf8",
+    );
+
+    expect(snippet).toContain(
+      'import { CopilotKit } from "@copilotkit/react-core";',
+    );
+    expect(snippet).toContain(
+      'import { useAgent } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).toContain(
+      'import { CopilotPopup } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).not.toContain("CopilotKitProvider");
+    expect(snippet).not.toContain(
+      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+    );
+  });
+});
+
 describe("framework nav", () => {
   it("includes the shared React Native platform guide in generated framework nav", () => {
     const navTree = buildFrameworkNav(
