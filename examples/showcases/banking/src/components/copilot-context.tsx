@@ -1,5 +1,6 @@
 "use client";
-import { useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
+import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 import { useAuthContext } from "@/components/auth-context";
 import { Button } from "./ui/button";
 
@@ -30,12 +31,12 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
   // Given the respective authorization role, the LLM will allow/deny actions/information throughout the entire app.
-  useCopilotReadable({
+  useAgentContext({
     description: "The current user logged into the system",
-    value: currentUser,
+    value: JSON.stringify(currentUser),
   });
 
-  useCopilotReadable({
+  useAgentContext({
     description:
       "The available pages and operations, as well as the current page",
     value: {
@@ -59,28 +60,20 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             For example, if the user is on the cards page and asks to add a card, do NOT use this action - use the addNewCard tool instead.
             Only use this when the user is on the wrong page entirely (e.g., on team page but asking about cards).
         `,
-    parameters: [
-      {
-        name: "page",
-        type: "string",
-        description: "The page in which to perform the operation",
-        required: true,
-        enum: ["/cards", "/team", "/"],
-      },
-      {
-        name: "operation",
-        type: "string",
-        description:
+    parameters: z.object({
+      page: z
+        .enum(["/cards", "/team", "/"])
+        .describe("The page in which to perform the operation"),
+      operation: z
+        .string()
+        .describe(
           "The operation to perform. Use operation code from available operations per page. If the operation is unavailable, do not pass it",
-        required: false,
-      },
-      {
-        name: "operationAvailable",
-        type: "boolean",
-        description: "Flag if the operation is available",
-        required: true,
-      },
-    ],
+        )
+        .optional(),
+      operationAvailable: z
+        .boolean()
+        .describe("Flag if the operation is available"),
+    }),
     followUp: false,
     render: ({ args, respond }) => {
       const { page, operation, operationAvailable } = args;
