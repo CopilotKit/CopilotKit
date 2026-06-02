@@ -344,8 +344,8 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
 
   interface FanCase {
     name: string;
-    d5: State | "missing-one" | "absent";
-    d6: State | "missing-one" | "absent";
+    d5: State | "missing-one" | "absent" | "red-late";
+    d6: State | "missing-one" | "absent" | "red-late";
     expectChip: ChipColor;
   }
 
@@ -361,11 +361,19 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
     { name: "D5 all-missing + D6 absent", d5: "absent", d6: "absent", expectChip: "gray" },
     // D5 partial (1 sub-key missing) + D6 absent → D5 null (strict) → gray
     { name: "D5 partial + D6 absent", d5: "missing-one", d6: "absent", expectChip: "gray" },
-    // D5 any-fail (one red sub-key) → red (broken ladder dominates D6)
-    { name: "D5 any-fail", d5: "red", d6: "green", expectChip: "red" },
+    // D5 any-fail (one red sub-key, RED FIRST) → red (broken ladder dominates D6)
+    { name: "D5 any-fail (red first)", d5: "red", d6: "green", expectChip: "red" },
+    // D5 any-fail with the red sub-key NOT first (greens, then a red) →
+    // still red. Proves the worst-state fold is order-independent: a red
+    // encountered AFTER greens must not be lost. Mirrors the
+    // mid-list-red worst-state style in cell-model.test.ts / live-status.test.ts.
+    { name: "D5 any-fail (red NOT first)", d5: "red-late", d6: "green", expectChip: "red" },
   ];
 
-  function buildFanRows(kind: State | "missing-one" | "absent", dim: "d5" | "d6"): StatusRow[] {
+  function buildFanRows(
+    kind: State | "missing-one" | "absent" | "red-late",
+    dim: "d5" | "d6",
+  ): StatusRow[] {
     const keys = CATALOG_TO_D5_KEY[BC] ?? [];
     if (kind === "absent") return [];
     if (kind === "missing-one") {
@@ -378,6 +386,14 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
       // One red sub-key, rest green → worst-state red.
       return keys.map((k, i) =>
         row(keyFor(dim, SLUG, k), dim, i === 0 ? "red" : "green"),
+      );
+    }
+    if (kind === "red-late") {
+      // Greens first, then a red in a LATER slot (last key) → worst-state
+      // must still resolve red regardless of fold order.
+      const lastIdx = keys.length - 1;
+      return keys.map((k, i) =>
+        row(keyFor(dim, SLUG, k), dim, i === lastIdx ? "red" : "green"),
       );
     }
     return keys.map((k) => row(keyFor(dim, SLUG, k), dim, kind));
@@ -469,9 +485,8 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
 
   it("aggregate-only (no per-cell row) → D6 no-data → chip gray for enum-mapped feature", () => {
     // Only the aggregate exists; the per-cell enum row is absent. Because
-    // resolveD6 reads per-cell keys, D6 resolves to no-data (status null),
-    // and D5 green + D6 missing → amber per the ladder... but here D5 is also
-    // unemitted → D5 null + D6 missing → gray.
+    // resolveD6 reads per-cell keys, D6 resolves to no-data (status null).
+    // Here D5 is also unemitted → D5 null + D6 no-data → gray.
     const live = mapOf([
       ...gateGreen(FEATURE),
       row(keyFor("d6", SLUG), "d6", "green"), // aggregate ONLY

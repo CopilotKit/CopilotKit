@@ -256,7 +256,8 @@ describe("computeColumnTallyDetail", () => {
         "e2e:h-int/agentic-chat",
         makeRow("e2e:h-int/agentic-chat", "e2e", "green"),
       ],
-      // chat green → D4 green (tools absent, worst-state skips it)
+      // tools row absent → not folded into the worst-state comparison; chat
+      // green alone yields D4 green.
       ["chat:h-int", makeRow("chat:h-int", "chat", "green")],
       // d5 red → ladder broken at D5 → chipColor red, dimension health
       ["d5:h-int/agentic-chat", makeRow("d5:h-int/agentic-chat", "d5", "red")],
@@ -371,7 +372,7 @@ describe("computeColumnTallyDetail", () => {
       ["e2e:lgp/voice", makeRow("e2e:lgp/voice", "e2e", "green")],
       ["d5:lgp/agentic-chat", makeRow("d5:lgp/agentic-chat", "d5", "green")],
       ["d5:lgp/voice", makeRow("d5:lgp/voice", "d5", "green")],
-      // Aggregate is RED (because agentic-chat's parity failed)…
+      // aggregate distractor — NOT consulted by per-cell resolveD6.
       ["d6:lgp", makeRow("d6:lgp", "d6", "red")],
       // …but per-cell: voice passed parity, agentic-chat did not.
       [
