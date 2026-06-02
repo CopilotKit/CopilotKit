@@ -810,9 +810,7 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
 
     // Enqueue a waiter with a SHORT timeout — it pends past the cap.
     let waiterRejected: Error | undefined;
-    const waiterP = pool
-      .acquire(undefined, 20)
-      .catch((e: Error) => (waiterRejected = e));
+    void pool.acquire(undefined, 20).catch((e: Error) => (waiterRejected = e));
     await drainMicrotasks();
 
     // Release c1 → serveNextWaiter() picks the waiter, calls newContext()
