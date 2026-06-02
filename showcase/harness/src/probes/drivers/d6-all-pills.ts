@@ -201,14 +201,17 @@ export interface D6RunAndParseArgs {
  * FAIL-CLOSED contract: an errored/empty run returns `{ exitCode, specResults:
  * [] }` (or throws) — the driver maps that to all-UNKNOWN cells, never green.
  *
- * `exitCode` is the run's process exit status. A non-zero exit is treated as
- * UNTRUSTWORTHY even when per-spec rows report PASS: a Playwright run can exit
- * non-zero for reasons that never render as a per-spec `failed` row
- * (global-setup / webServer / fixture failure, worker crash/SIGSEGV,
- * `--max-failures` abort) while still emitting green rows for the specs that
- * ran. The driver therefore downgrades any would-be-green cell to `unknown`
- * when `exitCode !== 0` (red rows stay red — a real failure is still a
- * failure).
+ * `exitCode` is the run's process exit status. A non-zero exit is NORMAL when
+ * some specs failed and is NOT, by itself, a reason to distrust the report: a
+ * Playwright run with failing specs exits non-zero AND still writes a fully-
+ * trustworthy JSON report with real per-spec PASS/FAIL rows. The driver trusts
+ * the PARSED REPORT: when `specResults` carries real per-spec rows, PASS rows
+ * green their cells and FAIL rows red theirs regardless of the exit code. The
+ * genuine fail-closed case is a non-zero exit WITH AN EMPTY `specResults`
+ * (crash / global-setup / webServer / fixture failure / worker crash before
+ * any spec reported, or an empty/unparseable report) — those collapse to
+ * `specResults: []` here, and the driver downgrades every would-be-green cell
+ * to `unknown` only in that no-rows-parsed case.
  */
 export type D6RunAndParse = (
   args: D6RunAndParseArgs,
@@ -447,16 +450,34 @@ export function createE2eFullDriver(
         // specResults stays [] → rollup yields all-UNKNOWN (fail-closed).
       }
 
-      // FAIL-CLOSED on a non-zero exit: a Playwright run can exit non-zero for
-      // reasons that never render as a per-spec `failed` row (global-setup /
-      // webServer / fixture failure, worker crash/SIGSEGV, `--max-failures`
-      // abort) while STILL emitting green rows for the specs that ran. Treat
-      // the whole run as untrustworthy — any cell that would be `green` from a
-      // mere pass-row becomes `unknown` instead. Red rows stay red (a real
-      // failure is still a failure) and skips stay skipped.
-      const runUntrustworthy = exitCode !== 0;
-      if (runUntrustworthy) {
-        ctx.logger.warn("probe.e2e-full.nonzero-exit", { slug, exitCode });
+      // TRUSTWORTHINESS is the parsed report, NOT the exit code alone. A
+      // NORMAL Playwright run with some failing specs exits NON-ZERO and STILL
+      // writes a fully-trustworthy JSON report carrying real per-spec PASS/FAIL
+      // rows — downgrading those PASS rows to `unknown` just because the
+      // process exited non-zero nukes genuinely-passing cells (the in-container
+      // LGP run that exposed this showed green:0/unknown:36 despite 36 real
+      // PASS rows). So a cell is trustworthy whenever the parser produced real
+      // per-spec rows (`specResults.length > 0`).
+      //
+      // The genuine fail-closed case is a non-zero exit WITH NO parsed rows:
+      // a crash / global-setup / webServer / fixture failure / worker SIGSEGV
+      // before any spec reported, or an empty/unparseable report. `runE2eAndParse`
+      // collapses ALL of those to `specResults: []`, so an empty parse under a
+      // non-zero exit is the real untrustworthy signal → all cells `unknown`,
+      // never green. (Red rows can only exist when rows were parsed, so this
+      // path never has any red to preserve.)
+      const reportHasRows = specResults.length > 0;
+      const runUntrustworthy = exitCode !== 0 && !reportHasRows;
+      if (exitCode !== 0) {
+        ctx.logger.warn("probe.e2e-full.nonzero-exit", {
+          slug,
+          exitCode,
+          reportHasRows,
+          // When the report parsed real rows the non-zero exit is the NORMAL
+          // "some specs failed" signal — trustworthy. Only an empty parse under
+          // a non-zero exit is treated as untrustworthy (fail-closed).
+          untrustworthy: runUntrustworthy,
+        });
       }
 
       // ---- Fail-closed rollup ------------------------------------------

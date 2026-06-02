@@ -324,45 +324,60 @@ describe("e2e-full driver (spec-driven)", () => {
     });
   });
 
-  // ---- FAIL-CLOSED on non-zero run exit code (Fix 2) ---------------------
-  // A Playwright run can exit non-zero for reasons that never render as a
-  // per-spec `failed` row (global-setup/webServer/fixture failure, worker
-  // crash/SIGSEGV, `--max-failures` abort) while STILL emitting green rows
-  // for the specs that ran. Honoring exitCode keeps those pass-rows from
-  // manufacturing green cells.
-  describe("non-zero exit code (untrustworthy run)", () => {
-    it("exitCode!==0 + all-pass rows → cells UNKNOWN, aggregate non-green", async () => {
+  // ---- NON-ZERO EXIT WITH A VALID REPORT (trustworthy-with-failures) -----
+  // THE FIX: a normal Playwright run with some failing specs exits non-zero
+  // AND emits a fully-trustworthy JSON report with real per-spec PASS/FAIL
+  // rows. The non-zero exit is NORMAL in that case. The trustworthiness
+  // signal is whether the parser produced real per-spec rows
+  // (`specResults.length > 0`), NOT the exit code. When real rows exist, the
+  // PASS rows must green their cells and the FAIL rows must red theirs — the
+  // non-zero exit must NOT nuke the passing cells to `unknown`.
+  describe("non-zero exit WITH a valid parsed report (trustworthy)", () => {
+    it("36 PASS + 4 FAIL rows + exitCode!==0 → 36 green / 4 red / 0 unknown", async () => {
       const sideEmits: ProbeResult<unknown>[] = [];
       const writer: ProbeResultWriter = {
         write: async (r) => {
           sideEmits.push(r);
         },
       };
+      // Mirror the in-container LGP run that exposed the bug: a valid report
+      // with real per-spec rows — first 4 mapped specs FAIL, the rest PASS —
+      // and the process exits non-zero (NORMAL when any spec fails).
+      const mapped = allMappedSpecFiles();
+      const failFiles = new Set(mapped.slice(0, 4));
+      const rows = mapped.map((f) => (failFiles.has(f) ? red(f) : pass(f)));
       const driver = createE2eFullDriver({
-        // All specs reported PASS, but the process exited non-zero — the run
-        // is untrustworthy. Pass-rows must NOT green their cells.
-        runAndParse: fakeRunAndParse(allPassRows(), undefined, 1),
+        runAndParse: fakeRunAndParse(rows, undefined, 1),
       });
       const result = await driver.run(makeCtx({ writer }), {
         key: "d6:langgraph-python",
         backendUrl: "https://lgp.example.com",
       });
 
-      // Aggregate is non-green; the precise verdict is "unknown".
-      expect(result.state).not.toBe("green");
+      // Aggregate is RED (real failures dominate) — but the PASS cells are NOT
+      // downgraded to unknown. The per-cell breakdown is the load-bearing
+      // assertion: every PASS row is green, every FAIL row is red, nothing
+      // unknown.
+      expect(result.state).toBe("red");
       expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
-        "unknown",
+        "red",
       );
 
-      // Every would-be-green cell is now UNKNOWN (projects to "error"); none
-      // manufactured green.
       const sideRows = sideEmits.filter((r) =>
         r.key.startsWith("d6:langgraph-python/"),
       );
-      expect(sideRows.some((r) => r.state === "green")).toBe(false);
+      const green = sideRows.filter((r) => r.state === "green");
+      const redCells = sideRows.filter((r) => r.state === "red");
+      const unknown = sideRows.filter(
+        (r) => (r.signal as E2eFullFeatureSignal).cellState === "unknown",
+      );
+      expect(green).toHaveLength(mapped.length - 4);
+      expect(redCells).toHaveLength(4);
+      expect(unknown).toHaveLength(0);
+      // Every green cell carries a green cellState (a real PASS row).
       expect(
-        sideRows.every(
-          (r) => (r.signal as E2eFullFeatureSignal).cellState === "unknown",
+        green.every(
+          (r) => (r.signal as E2eFullFeatureSignal).cellState === "green",
         ),
       ).toBe(true);
     });
@@ -410,13 +425,12 @@ describe("e2e-full driver (spec-driven)", () => {
       );
     });
 
-    // A seam that DROPS `exitCode` (returns `undefined`) must be treated as
-    // untrustworthy, NOT green: `runUntrustworthy = exitCode !== 0` is `true`
-    // for `undefined`, so all-pass rows downgrade to `unknown`. This guards
-    // the d6-gate-a-validate.mts `strictRunAndParse` regression where the seam
-    // returned only `{ specResults }`, dropping `exitCode` and reporting every
-    // genuinely-green cell as `unknown`.
-    it("exitCode undefined (seam dropped it) + all-pass → cells UNKNOWN, never green", async () => {
+    // A non-zero exit with a VALID parsed report (real per-spec rows) is the
+    // NORMAL "some specs failed" shape — even when the seam reports the exit
+    // imprecisely. The trustworthiness signal is the parsed report, not the
+    // exit code: a full all-pass report greens its cells regardless of a
+    // truthy/imprecise exit code, because real PASS rows exist.
+    it("imprecise exit (undefined) + a VALID all-pass report → cells GREEN (trust the report)", async () => {
       const sideEmits: ProbeResult<unknown>[] = [];
       const writer: ProbeResultWriter = {
         write: async (r) => {
@@ -424,7 +438,7 @@ describe("e2e-full driver (spec-driven)", () => {
         },
       };
       const driver = createE2eFullDriver({
-        // Seam intentionally omits `exitCode` (the bug shape).
+        // Seam reports no precise exit code, but the report is fully valid.
         runAndParse: async () =>
           ({
             specResults: allPassRows(),
@@ -435,7 +449,39 @@ describe("e2e-full driver (spec-driven)", () => {
         backendUrl: "https://lgp.example.com",
       });
 
+      expect(result.state).toBe("green");
+      expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
+        "green",
+      );
+      const sideRows = sideEmits.filter((r) =>
+        r.key.startsWith("d6:langgraph-python/"),
+      );
+      expect(sideRows.every((r) => r.state === "green")).toBe(true);
+    });
+
+    // GENUINE untrustworthy: a non-zero exit AND an EMPTY report (no parsed
+    // per-spec rows — crash, global-setup failure, webServer failure, zero
+    // specs collected). The fail-closed path MUST stay intact: all cells
+    // UNKNOWN, never green. This is the real crash case the discriminator must
+    // continue to catch.
+    it("exitCode!==0 + EMPTY report (crash / no rows parsed) → all cells UNKNOWN, never green", async () => {
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const driver = createE2eFullDriver({
+        // Non-zero exit AND the parser produced nothing — genuinely untrustworthy.
+        runAndParse: fakeRunAndParse([], undefined, 1),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:langgraph-python",
+        backendUrl: "https://lgp.example.com",
+      });
+
       expect(result.state).not.toBe("green");
+      expect(result.state).toBe("unknown");
       expect((result.signal as E2eFullAggregateSignal).aggregateState).toBe(
         "unknown",
       );
