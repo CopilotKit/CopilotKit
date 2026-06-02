@@ -28,7 +28,12 @@ export type ProbeState = State | "error";
  * `State` member is NOT listed here — so the array can never silently drift
  * out of lockstep with the type.
  */
-export const STATE_VALUES = ["green", "red", "degraded", "unknown"] as const satisfies readonly State[];
+export const STATE_VALUES = [
+  "green",
+  "red",
+  "degraded",
+  "unknown",
+] as const satisfies readonly State[];
 // Exhaustiveness guard: resolves to `never` only when every `State` member is
 // present in STATE_VALUES. If a member is missing this becomes the missing
 // literal and the assignment to `never` is a compile error.
