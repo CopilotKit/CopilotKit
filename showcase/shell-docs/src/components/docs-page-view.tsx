@@ -105,6 +105,8 @@ export interface DocsPageViewProps {
   navTree?: NavNode[];
   /** Banner slot rendered above the main content column. */
   bannerSlot?: React.ReactNode;
+  /** Banner slot rendered at the top of the sidebar. */
+  sidebarBannerSlot?: React.ReactNode;
   /** When set, hide the main MDX body (used by pivot-only pages). */
   hideBody?: boolean;
   /**
@@ -142,6 +144,7 @@ export async function DocsPageView({
   frameworkOverride,
   navTree,
   bannerSlot,
+  sidebarBannerSlot,
   hideBody = false,
   ContentWrapper,
 }: DocsPageViewProps) {
@@ -199,7 +202,16 @@ export async function DocsPageView({
   const fumadocsToc = tocHeadingsToFumadocs(tocHeadings);
 
   return (
-    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        sidebarBannerSlot === undefined ? (
+          <SidebarFrameworkSelector />
+        ) : (
+          sidebarBannerSlot
+        )
+      }
+    >
       <DocsPage
         toc={fumadocsToc}
         breadcrumb={{ enabled: false }}
