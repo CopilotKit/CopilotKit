@@ -3,14 +3,15 @@
 /**
  * Connection-health indicator. Self-managed `HttpAgent` instances don't ship
  * AG-UI capability discovery, so this component probes the agent's `/health`
- * endpoint directly and then reads `/features` when available. A 2xx health
- * response flips the pip to ONLINE; anything else leaves it CONNECTING until
- * the next poll.
+ * endpoint through Next.js and then reads `/features` when available. A 2xx
+ * health response flips the pip to ONLINE; anything else leaves it CONNECTING
+ * until the next poll.
  */
 
 import { useEffect } from "react";
 
 import { useControlRoomLocal } from "@/hooks/use-control-room-state";
+import { CONTROL_ROOM_ENDPOINT_HEADER } from "@/lib/endpoint";
 
 const HEALTH_POLL_MS = 4000;
 
@@ -23,15 +24,19 @@ export function ConnectionStatus() {
     let cancelled = false;
     const probe = async () => {
       try {
-        const url = currentEndpoint.replace(/\/?$/, "/health");
-        const res = await fetch(url, { method: "GET", cache: "no-store" });
+        const headers = { [CONTROL_ROOM_ENDPOINT_HEADER]: currentEndpoint };
+        const res = await fetch("/api/agent/health", {
+          method: "GET",
+          cache: "no-store",
+          headers,
+        });
         if (cancelled) return;
         if (res.ok) {
           recordConnection("connected");
-          const featuresUrl = currentEndpoint.replace(/\/?$/, "/features");
-          const featuresRes = await fetch(featuresUrl, {
+          const featuresRes = await fetch("/api/agent/features", {
             method: "GET",
             cache: "no-store",
+            headers,
           });
           if (!cancelled && featuresRes.ok) {
             const payload = (await featuresRes.json()) as {
