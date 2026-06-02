@@ -4,6 +4,7 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { resolveAgents } from "../../core/runtime";
+import { NormalizeToolResultMessageIdsMiddleware } from "../../normalize-tool-result-message-ids-middleware";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";
@@ -54,6 +55,10 @@ export function configureAgentForRequest(params: {
 }): void {
   const { runtime, request, agentId } = params;
   const agent = params.agent as MiddlewareCapableAgent;
+
+  if (typeof agent.use === "function") {
+    agent.use(new NormalizeToolResultMessageIdsMiddleware());
+  }
 
   if (runtime.a2ui) {
     const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;

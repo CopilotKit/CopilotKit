@@ -8,6 +8,22 @@ const childIdsSchema = z
   .array(z.string())
   .describe("Child component ids rendered inside this component.");
 
+const layoutJustifySchema = z
+  .enum([
+    "start",
+    "center",
+    "end",
+    "spaceBetween",
+    "spaceAround",
+    "spaceEvenly",
+    "stretch",
+  ])
+  .optional();
+
+const layoutAlignSchema = z
+  .enum(["start", "center", "end", "stretch"])
+  .optional();
+
 export const metricSchema = z.object({
   label: z.string().describe("Short metric label."),
   value: z.string().describe("Metric value to display."),
@@ -93,6 +109,24 @@ export const controlRoomA2UIDefinitions = {
       title: z.string(),
       description: z.string().optional(),
       badge: z.string().optional(),
+    }),
+  },
+  Row: {
+    description:
+      "Responsive horizontal layout for composing cards, metrics, charts, or controls. It wraps automatically so generated surfaces stay within the chat panel.",
+    props: z.object({
+      children: childIdsSchema,
+      justify: layoutJustifySchema,
+      align: layoutAlignSchema,
+    }),
+  },
+  Column: {
+    description:
+      "Vertical layout for stacking cards, metrics, charts, or controls with consistent spacing.",
+    props: z.object({
+      children: childIdsSchema,
+      justify: layoutJustifySchema,
+      align: layoutAlignSchema,
     }),
   },
   Card: {
@@ -370,8 +404,7 @@ export const controlRoomA2UISchema = {
           const: name,
           description: `Render the local ${name} component.`,
         },
-        ...((propsSchema.properties as Record<string, unknown> | undefined) ??
-          {}),
+        ...(propsSchema.properties as Record<string, unknown> | undefined),
       };
 
       return [

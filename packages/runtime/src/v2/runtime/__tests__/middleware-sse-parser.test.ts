@@ -83,6 +83,42 @@ describe("parseSSEResponse", () => {
     });
   });
 
+  it("keeps tool results distinct when an upstream stream reuses a messageId", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-1",
+        messageId: "duplicated-result",
+        role: "tool",
+        content: "first result",
+      },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-2",
+        messageId: "duplicated-result",
+        role: "tool",
+        content: "second result",
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      {
+        id: "duplicated-result",
+        role: "tool",
+        content: "first result",
+        toolCallId: "tc-1",
+      },
+      {
+        id: "tc-2-result",
+        role: "tool",
+        content: "second result",
+        toolCallId: "tc-2",
+      },
+    ]);
+  });
+
   it("normalizes array content in TOOL_CALL_RESULT (MCP adapters)", async () => {
     const response = buildSSEResponse([
       { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
@@ -213,6 +249,62 @@ describe("parseSSEResponse", () => {
       content: "18C",
       toolCallId: "tc-1",
     });
+  });
+
+  it("reattaches stale tool call parents to the active assistant message", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_START",
+        toolCallId: "tc-early",
+        toolCallName: "loadContext",
+        parentMessageId: "stale-parent",
+      },
+      {
+        type: "TEXT_MESSAGE_START",
+        messageId: "assistant-current",
+        role: "assistant",
+      },
+      {
+        type: "TEXT_MESSAGE_CONTENT",
+        messageId: "assistant-current",
+        delta: "Reading files.",
+      },
+      {
+        type: "TOOL_CALL_START",
+        toolCallId: "tc-late",
+        toolCallName: "readFile",
+        parentMessageId: "stale-parent",
+      },
+      {
+        type: "TOOL_CALL_ARGS",
+        toolCallId: "tc-late",
+        delta: '{"file":"README.md"}',
+      },
+      {
+        type: "TOOL_CALL_END",
+        toolCallId: "tc-late",
+      },
+      { type: "TEXT_MESSAGE_END", messageId: "assistant-current" },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+
+    const result = await parseSSEResponse(response);
+
+    expect(result.messages).toEqual([
+      {
+        id: "assistant-current",
+        role: "assistant",
+        content: "Reading files.",
+        toolCalls: [
+          {
+            id: "tc-late",
+            name: "readFile",
+            args: '{"file":"README.md"}',
+          },
+        ],
+      },
+    ]);
   });
 
   it("returns empty messages for non-SSE responses", async () => {

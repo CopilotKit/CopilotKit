@@ -68,6 +68,9 @@ importers:
       recharts:
         specifier: 3.8.0
         version: 3.8.0(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@18.3.1)(react@19.2.6)(redux@5.0.1)
+      rxjs:
+        specifier: 7.8.1
+        version: 7.8.1
       shadcn:
         specifier: ^4.8.3
         version: 4.8.3(@cfworker/json-schema@4.1.1)(@types/node@20.19.41)(typescript@5.9.3)

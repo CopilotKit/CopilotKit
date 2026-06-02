@@ -154,10 +154,6 @@ export function ToolRendererRegistry() {
 }
 
 function StreamingA2UIToolCard({ toolCallId, args, status }: RenderProps) {
-  if (status === "complete") {
-    return <></>;
-  }
-
   const components = getRenderableA2UIComponents(args);
   if (components.length === 0) {
     return (
@@ -175,7 +171,7 @@ function StreamingA2UIToolCard({ toolCallId, args, status }: RenderProps) {
     <A2UIStreamingFrame
       status={status}
       componentCount={components.length}
-      isPreview
+      isPreview={status !== "complete"}
     >
       <A2UIToolSurface operations={operations} />
     </A2UIStreamingFrame>

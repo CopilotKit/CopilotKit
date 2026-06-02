@@ -350,6 +350,15 @@ a {
     0 18px 42px -34px rgba(28, 75, 160, 0.32);
 }
 
+.cr-chat-panel .copilotKitMessages {
+  padding-bottom: 18px;
+  scroll-padding-bottom: 18px;
+}
+
+.cr-chat-panel [data-testid="copilot-input-overlay"] {
+  bottom: 14px !important;
+}
+
 .cr-desktop-layout {
   display: none !important;
 }

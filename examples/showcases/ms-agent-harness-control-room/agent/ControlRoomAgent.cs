@@ -276,6 +276,10 @@ internal sealed class ControlRoomAgentFactory
             "The root item must have id 'root'. Container components such as Surface, Card, Row, and Column reference child ids with children. " +
             "Use catalog components: Surface, SectionHeader, Card, Metric, Badge, Button, TextInput, Textarea, Select, Checkbox, Switch, Progress, BarChart, LineChart, AreaChart, StackedAreaChart, DonutChart, RadarChart, RadialChart, Calendar, RunHealthTable, FileImpactMap, ApprovalForm, HandoffForm. Basic Row and Column are also available.")]
         List<A2UIComponentNode>? components = null,
+        [Description("Stable surface id for streaming previews. Use a concise kebab-case id such as progress-dashboard.")]
+        string? surfaceId = null,
+        [Description("A2UI catalog id. Use copilotkit://ms-agent-harness-control-room.")]
+        string? catalogId = null,
         [Description("Optional short surface title used only if components is omitted.")]
         string? title = null,
         [Description("Optional supporting sentence used only if components is omitted.")]
@@ -315,7 +319,8 @@ internal sealed class ControlRoomAgentFactory
                 A2UIJsonOptions);
         }
 
-        var surfaceId = $"control-room-a2ui-{Guid.NewGuid():N}";
+        var resolvedSurfaceId = NormalizeSurfaceId(surfaceId);
+        var resolvedCatalogId = catalogId == A2UICatalogId ? catalogId : A2UICatalogId;
         var operations = new object[]
         {
             new Dictionary<string, object?>
@@ -323,8 +328,8 @@ internal sealed class ControlRoomAgentFactory
                 ["version"] = "v0.9",
                 ["createSurface"] = new Dictionary<string, object?>
                 {
-                    ["surfaceId"] = surfaceId,
-                    ["catalogId"] = A2UICatalogId,
+                    ["surfaceId"] = resolvedSurfaceId,
+                    ["catalogId"] = resolvedCatalogId,
                 },
             },
             new Dictionary<string, object?>
@@ -332,7 +337,7 @@ internal sealed class ControlRoomAgentFactory
                 ["version"] = "v0.9",
                 ["updateComponents"] = new Dictionary<string, object?>
                 {
-                    ["surfaceId"] = surfaceId,
+                    ["surfaceId"] = resolvedSurfaceId,
                     ["components"] = normalizedComponents,
                 },
             },
@@ -341,6 +346,37 @@ internal sealed class ControlRoomAgentFactory
         return JsonSerializer.Serialize(
             new Dictionary<string, object?> { ["a2ui_operations"] = operations },
             A2UIJsonOptions);
+    }
+
+    private static string NormalizeSurfaceId(string? surfaceId)
+    {
+        if (string.IsNullOrWhiteSpace(surfaceId))
+        {
+            return $"control-room-a2ui-{Guid.NewGuid():N}";
+        }
+
+        var trimmed = surfaceId.Trim();
+        if (trimmed.Length > 80)
+        {
+            trimmed = trimmed[..80];
+        }
+
+        var normalized = new StringBuilder(trimmed.Length);
+        foreach (var ch in trimmed)
+        {
+            if (char.IsLetterOrDigit(ch) || ch is '-' or '_')
+            {
+                normalized.Append(ch);
+            }
+            else if (char.IsWhiteSpace(ch))
+            {
+                normalized.Append('-');
+            }
+        }
+
+        return normalized.Length > 0
+            ? normalized.ToString()
+            : $"control-room-a2ui-{Guid.NewGuid():N}";
     }
 
     private static readonly HashSet<string> SupportedA2UIComponents = new(StringComparer.Ordinal)
@@ -833,13 +869,17 @@ internal sealed class ControlRoomAgentFactory
         operations for the public basic catalog URL.
 
         For A2UI, call `render_control_room_a2ui` with a flat `components`
-        array. Every component object must include a unique `id` and a
-        `component` name. The root component must be `{ id: "root",
-        component: "Surface" }` for dashboards and reports. Container
-        components (`Surface`, `Card`, `Row`, `Column`) reference children by
-        id via a `children` array; never inline child objects. Build the full
-        UI in one call instead of making one call per chart or card. The custom
-        catalog includes ShadCN-style primitives and sidebar components:
+        array, a `surfaceId`, and a `catalogId` value of
+        `copilotkit://ms-agent-harness-control-room`. Use a short stable
+        kebab-case `surfaceId` derived from the display, such as
+        `progress-dashboard` or `workspace-health-check`. Every component
+        object must include a unique `id` and a `component` name. The root
+        component must be `{ id: "root", component: "Surface" }` for
+        dashboards and reports. Container components (`Surface`, `Card`,
+        `Row`, `Column`) reference children by id via a `children` array; never
+        inline child objects. Build the full UI in one call instead of making
+        one call per chart or card. The custom catalog includes ShadCN-style
+        primitives and sidebar components:
         `Surface`, `SectionHeader`, `Card`, `Metric`, `Badge`, `Button`,
         `TextInput`, `Textarea`, `Select`, `Checkbox`, `Switch`, `Progress`,
         `BarChart`, `LineChart`, `AreaChart`, `StackedAreaChart`, `DonutChart`,
@@ -874,29 +914,59 @@ internal sealed class ControlRoomAgentFactory
           card; do not read files, write memory, or run commands unless the
           operator explicitly asks.
 
+        Mandatory workspace health check flow:
+        When the prompt asks for a workspace health check, sample project health
+        check, sample workspace audit, or similar health/audit wording, run the
+        full demo workflow. Do not stop after planning, file reads, or memory.
+        The required sequence is:
+        1. Load the `workspace-analysis` skill if it is not already loaded.
+        2. Create a short todo list for the audit so Harness progress is visible.
+        3. Read `README.md` and `data/revenue.csv`.
+        4. Mark the read/planning todos complete.
+        5. Switch to Act mode with `AgentMode_Set` if the current mode is not
+           already Act. Do not ask the operator in text to change modes.
+        6. Call `pnpm_run` with `command: "data:summary"`. Do not ask for
+           approval in prose first; Harness ToolApproval is the approval
+           surface and will render the approval card automatically.
+        7. If approval is pending, stop and wait for the approval result. After
+           the command result is visible, complete the command todo and render
+           exactly one `render_control_room_a2ui` dashboard with the findings,
+           run health, revenue summary, file impact, and next steps.
+        8. Do not call FileMemory for this flow unless the operator explicitly
+           asks to save a durable note, memory, or handoff.
+
         Example: if the operator asks for a dashboard with a bar chart and an
         area chart describing progress, do not call TodoList, FileMemory,
         FileAccess, AgentMode, approval, shell, or `show...` display tools.
         Make one `render_control_room_a2ui` call whose components contain a
         root `Surface`, a `Row` of `Metric` nodes, and a chart `Row` containing
-        two `Card` nodes, one with `BarChart` and one with `AreaChart`. The tool
-        owns the surface id, local catalog id, and A2UI operation envelope.
-        Do not call any tool named `render_a2ui`, do not pass `catalogId`, and
-        do not hand-write `a2ui_operations`. Treat every display call as the
-        final tool action of the current turn, then write one concise follow-up
-        sentence. Never call a display tool while a
+        two `Card` nodes, one with `BarChart` and one with `AreaChart`. Include
+        `surfaceId` and the local `catalogId` in the tool call so the frontend
+        can render the surface while the call is still streaming. The tool owns
+        the A2UI operation envelope. Do not call any tool named `render_a2ui`
+        and do not hand-write `a2ui_operations`. Treat every display call as
+        the final tool action of the current turn, then write one concise
+        follow-up sentence. Never call a display tool while a
         Harness tool action still needs to happen, and never call a display
         tool in the same model step as TodoList, FileMemory, FileAccess,
         AgentMode, approval, or shell tools. Complete those Harness actions
         first, wait for their results, then render exactly one display
         component when the operator prompt asks for one.
 
-        For workspace orientation prompts that ask for a final Harness Summary,
-        the required Harness work is: load the workspace-analysis skill, read
-        `README.md`, list the top-level files, and finish any todo updates.
+        For Harness Summary prompts, including prompts that ask for current
+        mode, todos, files, approvals, workspace orientation, or a compact
+        control-room summary, gather the status first and then render one final
+        summary. The required Harness work is: get the current mode, inspect
+        current todo/approval/file state when the matching tools are available,
+        read `README.md`, list the top-level files, and finish any todo updates.
         `showHarnessSummary` or an A2UI `Card` summary is not ready until those
         results are visible. Once it is rendered, add one short follow-up
-        sentence and do not call additional tools.
+        sentence and do not call additional tools. The final summary must use
+        those results: include a populated Workspace snapshot section with 2-4
+        concrete facts from `README.md` and the listed files, such as project
+        purpose, available scripts/data, top-level files, and readiness notes.
+        Never render an empty Card, Column, Row, or Workspace snapshot section;
+        if a section has no concrete children, omit that section instead.
 
         Do not claim that todos, memory, file writes, approvals, shell commands,
         or verification have completed unless the matching Harness tool result

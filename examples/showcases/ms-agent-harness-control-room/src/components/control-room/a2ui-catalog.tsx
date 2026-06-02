@@ -94,11 +94,15 @@ type DonutPoint = {
   value: number;
 };
 
-function renderChildIds(ids: unknown, renderChild: RenderChild) {
+function renderChildIds(
+  ids: unknown,
+  renderChild: RenderChild,
+  wrapperClassName = "min-w-0",
+) {
   if (!Array.isArray(ids)) return null;
   return ids.map((id) =>
     typeof id === "string" ? (
-      <div key={id} className="min-w-0">
+      <div key={id} className={wrapperClassName}>
         {renderChild(id)}
       </div>
     ) : null,
@@ -266,11 +270,26 @@ export const controlRoomA2UIRenderers = {
     </div>
   ),
 
-  Card: ({ props, children }) => (
-    <Card
-      className="m-1.5 h-full min-w-[min(100%,18rem)] flex-1 basis-0"
-      data-testid="control-room-a2ui-card"
+  Row: ({ props, children }) => (
+    <div
+      className="grid w-full min-w-0 gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr))]"
+      data-testid="control-room-a2ui-row"
     >
+      {renderChildIds(props.children, children)}
+    </div>
+  ),
+
+  Column: ({ props, children }) => (
+    <div
+      className="flex w-full min-w-0 flex-col gap-4"
+      data-testid="control-room-a2ui-column"
+    >
+      {renderChildIds(props.children, children)}
+    </div>
+  ),
+
+  Card: ({ props, children }) => (
+    <Card className="h-full min-w-0" data-testid="control-room-a2ui-card">
       {props.title || props.description || props.badge ? (
         <CardHeader className="space-y-2">
           <div className="flex min-w-0 items-start justify-between gap-3">
@@ -301,7 +320,7 @@ export const controlRoomA2UIRenderers = {
     return (
       <div
         className={cn(
-          "m-1.5 flex min-h-[96px] min-w-[140px] flex-1 flex-col justify-between rounded-lg border p-3",
+          "flex min-h-[96px] min-w-0 flex-1 flex-col justify-between rounded-lg border p-3",
           metricToneClass(props.tone, trend),
         )}
         data-testid="control-room-a2ui-metric"
@@ -710,7 +729,7 @@ export const controlRoomA2UIRenderers = {
             </ResponsiveContainer>
           </div>
           <div className="space-y-2">
-            {metrics.map((metric, index) => (
+            {metrics.map((metric) => (
               <div key={metric.label} className="rounded-lg border p-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span>{metric.label}</span>

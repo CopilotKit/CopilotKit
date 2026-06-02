@@ -1,4 +1,6 @@
 import { logger } from "@copilotkit/shared";
+import type { BaseEvent } from "@ag-ui/client";
+import { createToolResultMessageIdNormalizer } from "./normalize-tool-result-message-ids";
 
 export interface ParsedSSEResult {
   messages: Message[];
@@ -50,6 +52,7 @@ export async function parseSSEResponse(
   const messagesById = new Map<string, Message>();
   const toolCallsById = new Map<string, ToolCall>();
   const toolCallParent = new Map<string, string>(); // toolCallId → messageId
+  const normalizeToolResultMessageId = createToolResultMessageIdNormalizer();
   let snapshotMessages: Message[] | undefined;
 
   for (const line of text.split("\n")) {
@@ -62,6 +65,10 @@ export async function parseSSEResponse(
     } catch {
       continue;
     }
+    event = normalizeToolResultMessageId(event as BaseEvent) as Record<
+      string,
+      any
+    >;
 
     switch (event.type) {
       case "RUN_STARTED":

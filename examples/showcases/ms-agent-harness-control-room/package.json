@@ -33,6 +33,7 @@
     "react-shiki": "^0.9.0",
     "react-textarea-autosize": "^8.5.9",
     "recharts": "3.8.0",
+    "rxjs": "7.8.1",
     "shadcn": "^4.8.3",
     "shiki": "^4.0.0",
     "tailwind-merge": "^3.3.1",

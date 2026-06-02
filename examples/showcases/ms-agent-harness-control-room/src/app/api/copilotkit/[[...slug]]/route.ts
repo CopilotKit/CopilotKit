@@ -11,6 +11,8 @@ import {
   CONTROL_ROOM_ENDPOINT_HEADER,
   resolveEndpointHeader,
 } from "@/lib/endpoint";
+import { ControlRoomA2UIStreamingMiddleware } from "@/lib/control-room-a2ui-streaming-middleware";
+import { NormalizeToolResultMessageIdsMiddleware } from "@/lib/normalize-tool-result-message-ids";
 
 function resolveAgentEndpoint(headers: Headers): string {
   const resolved = resolveEndpointHeader(
@@ -26,12 +28,11 @@ const copilotRuntime = new CopilotRuntime({
   agents: ({ request }) => ({
     [CONTROL_ROOM_AGENT_NAME]: new HttpAgent({
       url: resolveAgentEndpoint(request.headers),
-    }),
+    })
+      .use(new ControlRoomA2UIStreamingMiddleware())
+      .use(new NormalizeToolResultMessageIdsMiddleware()),
   }),
   runner: new InMemoryAgentRunner(),
-  a2ui: {
-    injectA2UITool: false,
-  },
   openGenerativeUI: true,
 });
 
