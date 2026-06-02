@@ -4,7 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -12,23 +11,18 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import {
-  CopilotKitContext,
-  type CopilotKitContextValue,
-  LicenseContext,
-} from "../context";
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-  type DebugConfig,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -153,6 +147,19 @@ export interface CopilotKitProviderProps {
   };
   showDevConsole?: boolean | "auto";
   /**
+   * Whether the built-in `IntelligenceIndicator` pill ("Using CopilotKit
+   * Intelligence") auto-mounts on assistant messages when the runtime is in
+   * intelligence mode (e.g. for OAuth-gated MCP HTTP servers that require
+   * user verification).
+   *
+   * Set to `false` to suppress the auto-mounted indicator — useful for apps
+   * that render their own custom agent/intelligence status UI and don't want
+   * the default pill to appear alongside it.
+   *
+   * @default true
+   */
+  showIntelligenceIndicator?: boolean;
+  /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
    */
@@ -261,6 +268,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   showDevConsole = false,
+  showIntelligenceIndicator = true,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -749,8 +757,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({ copilotkit, executingToolCallIds, showIntelligenceIndicator }),
+    [copilotkit, executingToolCallIds, showIntelligenceIndicator],
   );
 
   // License context — driven by server-reported status via /info endpoint

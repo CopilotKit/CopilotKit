@@ -151,18 +151,22 @@ const RunAgentHarness: React.FC<{ withIntelligence: boolean }> = ({
 
 interface RenderOptions {
   withIntelligence?: boolean;
+  showIntelligenceIndicator?: boolean;
 }
 
 const renderForIndicator = (
   agent: MockStepwiseAgent,
   options: RenderOptions = {},
 ): void => {
-  const { withIntelligence = true } = options;
+  const { withIntelligence = true, showIntelligenceIndicator } = options;
 
   // No `renderCustomMessages` prop is passed — the indicator
   // auto-mounts when intelligence is configured.
   render(
-    <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+    <CopilotKitProvider
+      agents__unsafe_dev_only={{ default: agent }}
+      showIntelligenceIndicator={showIntelligenceIndicator}
+    >
       <CopilotChatConfigurationProvider agentId="default" threadId="t">
         <RunAgentHarness withIntelligence={withIntelligence} />
         <div style={{ height: 400 }}>
@@ -363,6 +367,21 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
     emitAssistantMessageWithToolCalls(agent, "m1", [{ id: "tc1", arg: "{}" }]);
 
     // Without the gate, the pill would be visible by now.
+    await new Promise((r) => setTimeout(r, 80));
+    expectNoPillAnywhere();
+  });
+
+  it("showIntelligenceIndicator=false: does not render even when intelligence is configured", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, { showIntelligenceIndicator: false });
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m1", [{ id: "tc1", arg: "{}" }]);
+
+    // Intelligence is configured (withIntelligence defaults to true), so
+    // without the opt-out the pill would be visible by now.
     await new Promise((r) => setTimeout(r, 80));
     expectNoPillAnywhere();
   });
