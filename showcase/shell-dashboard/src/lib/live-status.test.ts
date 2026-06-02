@@ -321,11 +321,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("resolves d5 / d6 per-feature rows when present", () => {
-    // D5 uses per-feature keys (d5:<slug>/<featureId>),
-    // D6 uses integration-scoped aggregate keys (d6:<slug>).
+    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), both
+    // mapped from catalog featureId via CATALOG_TO_D5_KEY. The aggregate
+    // `d6:<slug>` here (green) must NOT be read — the per-cell row wins.
     const live = mapOf([
       row("d5:agno/agentic-chat", "d5", "green"),
-      row("d6:agno", "d6", "red"),
+      // aggregate green distractor — not consulted:
+      row("d6:agno", "d6", "green"),
+      // per-cell red is what the badge surfaces:
+      row("d6:agno/agentic-chat", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.d5.tone).toBe("green");
@@ -333,7 +337,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d5.row?.key).toBe("d5:agno/agentic-chat");
     expect(c.d6.tone).toBe("red");
     expect(c.d6.label).toBe("✗");
-    expect(c.d6.row?.key).toBe("d6:agno");
+    expect(c.d6.row?.key).toBe("d6:agno/agentic-chat");
   });
 
   it("falls through to gray '?' when d5 / d6 rows are absent", () => {
@@ -355,13 +359,13 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Note: with LS1 in force, health-only does NOT roll up to green
     // (e2e is also required); rollup is "gray" and the red d5/d6 rows
     // must not promote it to red.
-    // D6 uses integration-scoped aggregate keys (d6:<slug>), not per-feature.
-    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry (single-key family);
-    // its d5 row resolves through resolveD5Row's mapped path.
+    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), mapped
+    // via CATALOG_TO_D5_KEY. `agentic-chat` is a real single-key family;
+    // both its d5/d6 rows resolve through the mapped per-cell path.
     const live = mapOf([
       row("health:agno", "health", "green"),
       row("d5:agno/agentic-chat", "d5", "red"),
-      row("d6:agno", "d6", "red"),
+      row("d6:agno/agentic-chat", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.rollup).toBe("gray");
@@ -647,12 +651,13 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
   });
 
   it("stale-green d6 badge downgrades to amber (6h window)", () => {
+    // D6 is per-cell (d6:<slug>/<featureType>), so use a mapped feature.
     const live = mapOf([
-      row("d6:agno", "d6", "green", {
+      row("d6:agno/agentic-chat", "d6", "green", {
         observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
       }),
     ]);
-    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    const c = resolveCell(live, "agno", "agentic-chat", { now: NOW });
     expect(c.d6.tone).toBe("amber");
   });
 

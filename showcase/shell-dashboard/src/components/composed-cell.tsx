@@ -19,7 +19,7 @@ import { LinkPreview } from "@/components/link-preview";
 import { DepthChip } from "@/components/depth-chip";
 import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
-import { keyFor } from "@/lib/live-status";
+import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
 
 import type { Overlay } from "@/lib/overlay-types";
 export type { Overlay };
@@ -258,19 +258,27 @@ function arePropsEqual(
   if (p.liveStatus === n.liveStatus) return true;
 
   // Map identity changed — verify only the rows this cell reads. Mirrors
-  // the lookups in resolveCell + LevelStrip-adjacent helpers; D5 is
-  // resolved through CATALOG_TO_D5_KEY, so we walk the same indirection
-  // here to avoid false-negative skips. Keep this list in sync with
-  // resolveCell + resolveD5Row in lib/live-status.ts.
+  // the lookups in resolveCell + LevelStrip-adjacent helpers; D5 AND D6 are
+  // resolved per-cell through CATALOG_TO_D5_KEY, so we walk the same
+  // indirection here to avoid false-negative skips. Keep this list in sync
+  // with resolveCell + resolveD5Row + resolveD6Row in lib/live-status.ts.
   const slug = p.integration.slug;
   const featureId = p.feature.id;
   const directKeys = [
     keyFor("health", slug),
     keyFor("e2e", slug, featureId),
     keyFor("smoke", slug),
-    keyFor("d5", slug, featureId),
-    keyFor("d6", slug),
   ];
+  // D5 + D6 per-cell sub-keys (both map catalog featureId → featureType via
+  // CATALOG_TO_D5_KEY). An unmapped feature has no per-cell rows, so nothing
+  // is added — the resolver returns no-data for it either way.
+  const featureKeys = CATALOG_TO_D5_KEY[featureId];
+  if (featureKeys && featureKeys.length > 0) {
+    for (const ft of featureKeys) {
+      directKeys.push(keyFor("d5", slug, ft));
+      directKeys.push(keyFor("d6", slug, ft));
+    }
+  }
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;
   }

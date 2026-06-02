@@ -125,7 +125,15 @@ describe("computeColumnTallyDetail", () => {
         "d5:my-int/tool-rendering",
         makeRow("d5:my-int/tool-rendering", "d5", "green"),
       ],
-      ["d6:my-int", makeRow("d6:my-int", "d6", "green")],
+      // Per-cell D6 rows (mapped via CATALOG_TO_D5_KEY) green for both cells.
+      [
+        "d6:my-int/agentic-chat",
+        makeRow("d6:my-int/agentic-chat", "d6", "green"),
+      ],
+      [
+        "d6:my-int/tool-rendering",
+        makeRow("d6:my-int/tool-rendering", "d6", "green"),
+      ],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -191,7 +199,10 @@ describe("computeColumnTallyDetail", () => {
         "d5:partial/agentic-chat",
         makeRow("d5:partial/agentic-chat", "d5", "green"),
       ],
-      ["d6:partial", makeRow("d6:partial", "d6", "green")],
+      [
+        "d6:partial/agentic-chat",
+        makeRow("d6:partial/agentic-chat", "d6", "green"),
+      ],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -320,7 +331,10 @@ describe("computeColumnTallyDetail", () => {
         "d5:ns-int/agentic-chat",
         makeRow("d5:ns-int/agentic-chat", "d5", "green"),
       ],
-      ["d6:ns-int", makeRow("d6:ns-int", "d6", "green")],
+      [
+        "d6:ns-int/agentic-chat",
+        makeRow("d6:ns-int/agentic-chat", "d6", "green"),
+      ],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -337,6 +351,52 @@ describe("computeColumnTallyDetail", () => {
       { label: "Feature A", dimension: "e2e", featureId: "agentic-chat" },
     ]);
     expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
+  });
+
+  it("tallies PER-CELL D6 greens in a column with mixed per-cell rows (bug fix)", () => {
+    // The bug: the column tally derived from the integration aggregate
+    // `d6:<slug>`, so the moment ANY cell failed parity the WHOLE column went
+    // red. With per-cell D6 rows, a column with one red and one green cell
+    // tallies one green + one amber/red — NOT all-red.
+    const integration = makeIntegration("lgp", ["agentic-chat", "voice"]);
+    const features = [
+      makeFeature("agentic-chat", "Agentic Chat"),
+      makeFeature("voice", "Voice"),
+    ];
+
+    const liveStatus: LiveStatusMap = new Map([
+      // Both cells contiguous to D5 (green e2e + green d5).
+      ["e2e:lgp/agentic-chat", makeRow("e2e:lgp/agentic-chat", "e2e", "green")],
+      ["e2e:lgp/voice", makeRow("e2e:lgp/voice", "e2e", "green")],
+      ["d5:lgp/agentic-chat", makeRow("d5:lgp/agentic-chat", "d5", "green")],
+      ["d5:lgp/voice", makeRow("d5:lgp/voice", "d5", "green")],
+      // Aggregate is RED (because agentic-chat's parity failed)…
+      ["d6:lgp", makeRow("d6:lgp", "d6", "red")],
+      // …but per-cell: voice passed parity, agentic-chat did not.
+      [
+        "d6:lgp/agentic-chat",
+        makeRow("d6:lgp/agentic-chat", "d6", "red"),
+      ],
+      ["d6:lgp/voice", makeRow("d6:lgp/voice", "d6", "green")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    // voice: D5 green + per-cell D6 green → green (NOT dragged red by aggregate).
+    expect(result.green).toEqual([
+      { label: "Voice", dimension: "e2e", featureId: "voice" },
+    ]);
+    // agentic-chat: D5 green + per-cell D6 red → amber (D6 above D5).
+    expect(result.amber).toEqual([
+      { label: "Agentic Chat", dimension: "health", featureId: "agentic-chat" },
+    ]);
     expect(result.red).toEqual([]);
   });
 });

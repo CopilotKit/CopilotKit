@@ -3,13 +3,15 @@
  * showcase-harness design spec).
  *
  * PB row keys: `<dimension>:<slug>` for integration-level dimensions
- * (e.g. `health`, `agent`, `chat`, `tools`, `d6`), or
- * `<dimension>:<slug>/<featureId>` for per-feature dimensions
- * (e.g. `smoke`, `e2e`, `d5`). The `d5:` per-feature rows
- * are emitted by the `e2e-deep` driver, and `d6:` integration-scoped
- * rows are emitted by the `e2e-full` driver (D5/D6 spec) — D5
- * featureId here is the D5 featureType (e.g. `agentic-chat`) so the
- * existing per-cell lookup pattern stays uniform.
+ * (e.g. `health`, `agent`, `chat`, `tools`), or
+ * `<dimension>:<slug>/<featureType>` for per-feature dimensions
+ * (e.g. `smoke`, `e2e`, `d5`, `d6`). The `d5:` per-feature rows are
+ * emitted by the `e2e-deep` driver, and `d6:` per-feature rows by the
+ * `e2e-parity` driver (D5/D6 spec) — both fan out over the same
+ * `D5FeatureType` keyspace (e.g. `agentic-chat`) so the per-cell lookup
+ * pattern stays uniform. The e2e-parity driver ALSO writes an
+ * integration-level `d6:<slug>` aggregate, but the dashboard resolves D6
+ * per-cell (the aggregate is red whenever any cell fails).
  */
 
 import { formatTs } from "./format-ts";
@@ -68,11 +70,14 @@ export interface CellState {
    */
   d5: BadgeRender;
   /**
-   * D6 (parity-vs-reference) integration-scoped badge. Sourced from
-   * `d6:<slug>` rows emitted by the `e2e-full` driver. D6 runs the full
-   * feature matrix for each integration — a missing row resolves to a
-   * gray `?` badge. Does NOT contribute to the rollup for the same
-   * reason as D5.
+   * D6 (parity-vs-reference) PER-CELL badge. Sourced from
+   * `d6:<slug>/<featureType>` rows emitted by the `e2e-parity` driver and
+   * mapped from catalog featureId via CATALOG_TO_D5_KEY (the same bridge as
+   * D5). The driver also writes an integration-level `d6:<slug>` aggregate,
+   * but the dashboard resolves cells per-cell — the aggregate is red whenever
+   * ANY cell fails and would mis-paint green cells red. A missing row resolves
+   * to a gray `?` badge. Does NOT contribute to the rollup for the same reason
+   * as D5.
    */
   d6: BadgeRender;
   /** Rollup tone for the cell, by precedence red > degraded > green > error > unknown. */
@@ -269,6 +274,56 @@ function resolveD5Row(
   // A missing mapped sub-row makes the family unverified: collapse a
   // present green/degraded fold to no-data (null). A present red still
   // dominates (returns the red row).
+  if (anyMissing && worstState !== "red") {
+    return null;
+  }
+  return worst;
+}
+
+/**
+ * Resolve the rolled-up D6 (parity-vs-reference) row for `(slug, featureId)`.
+ *
+ * D6 is PER-CELL, not an integration aggregate. The `e2e-parity` driver emits
+ * one `d6:<slug>/<featureType>` row per featureType (the same featureType
+ * keyspace D5 uses — both fan out over `demosToFeatureTypes`) PLUS a single
+ * aggregate `d6:<slug>` row that is red whenever ANY cell fails. Resolving a
+ * cell's badge against that aggregate painted genuinely-green cells red, so we
+ * resolve the PER-CELL row, mapped through `CATALOG_TO_D5_KEY` (the same
+ * catalog-featureId → featureType bridge D5 uses). The aggregate `d6:<slug>`
+ * row no longer drives per-cell rendering.
+ *
+ * Identical semantics to `resolveD5Row`: worst-state across the mapped family
+ * (red > degraded > green), per-sub-row stale-green→degraded fold (E2E 6h
+ * window) applied BEFORE the fold, and STRICT on missing sub-rows — a missing
+ * mapped sub-row collapses a present green/degraded fold to `null` (no-data →
+ * gray badge) UNLESS a present sub-row is red (red dominates no-data). An
+ * unmapped feature returns `null` (no D6 test exists for it).
+ */
+function resolveD6Row(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number = Date.now(),
+): StatusRow | null {
+  const d6Keys = CATALOG_TO_D5_KEY[featureId];
+  if (!d6Keys || d6Keys.length === 0) {
+    return null;
+  }
+  let worst: StatusRow | null = null;
+  let worstState: State | null = null;
+  let anyMissing = false;
+  for (const d6Key of d6Keys) {
+    const row = live.get(keyFor("d6", slug, d6Key)) ?? null;
+    if (!row) {
+      anyMissing = true;
+      continue;
+    }
+    const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
+    if (worstState === null || D5_STATE_RANK[eff] > D5_STATE_RANK[worstState]) {
+      worst = row;
+      worstState = eff;
+    }
+  }
   if (anyMissing && worstState !== "red") {
     return null;
   }
@@ -496,17 +551,18 @@ export function resolveCell(
   // the same D2 badge. Informational — does NOT contribute to the
   // rollup (same model as smoke).
   const agentRow = live.get(keyFor("agent", slug)) ?? null;
-  // D5 per-feature rows (`d5:<slug>/<featureType>`) emitted by the
-  // e2e-deep driver. D6 uses aggregate keys (`d6:<slug>`) emitted by the
-  // e2e-full driver — one row per integration, not per cell, because
-  // D6 probes test the integration as a whole.
-  // Informational — they do NOT contribute to the rollup
-  // (alert engine routes them independently, same model as smoke). A
-  // missing row resolves to a gray "?" badge, which is the expected
-  // resting state for D6 cells outside their weekly-rotation slot.
+  // D5 + D6 per-feature rows, both keyed `<dim>:<slug>/<featureType>` and
+  // mapped from catalog featureId via CATALOG_TO_D5_KEY. D5 rows come from
+  // the e2e-deep driver; D6 rows from the e2e-parity driver, which emits one
+  // `d6:<slug>/<featureType>` row per featureType (PLUS an integration-level
+  // `d6:<slug>` aggregate the dashboard no longer reads per-cell — it is red
+  // whenever ANY cell fails and would paint green cells red).
+  // Informational — neither contributes to the rollup (alert engine routes
+  // them independently, same model as smoke). A missing row resolves to a
+  // gray "?" badge, the expected resting state for cells outside their
+  // weekly-rotation slot.
   const d5Row = resolveD5Row(live, slug, featureId, now);
-  // D6 probe writes aggregate keys d6:<slug>, not per-cell d6:<slug>/<featureId>.
-  const d6Row = live.get(keyFor("d6", slug)) ?? null;
+  const d6Row = resolveD6Row(live, slug, featureId, now);
 
   // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
   // Each contributor's stale-green is downgraded to degraded BEFORE tone

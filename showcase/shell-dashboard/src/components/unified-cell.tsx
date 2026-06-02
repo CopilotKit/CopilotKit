@@ -310,17 +310,20 @@ function arePropsEqual(
     keyFor("tools", slug),
   ];
 
-  // Add D5 sub-keys from CATALOG_TO_D5_KEY
-  const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  if (d5Keys && d5Keys.length > 0) {
-    for (const d5Key of d5Keys) {
-      directKeys.push(keyFor("d5", slug, d5Key));
+  // Add D5 + D6 sub-keys from CATALOG_TO_D5_KEY. D6 is per-cell (not the
+  // integration aggregate), resolved through the SAME featureType bridge as
+  // D5 — see resolveD6Row/resolveD6. Keep in sync with resolveCell +
+  // buildCellModel.
+  const featureKeys = CATALOG_TO_D5_KEY[featureId];
+  if (featureKeys && featureKeys.length > 0) {
+    for (const ft of featureKeys) {
+      directKeys.push(keyFor("d5", slug, ft));
+      directKeys.push(keyFor("d6", slug, ft));
     }
   } else {
     directKeys.push(keyFor("d5", slug, featureId));
+    directKeys.push(keyFor("d6", slug, featureId));
   }
-
-  directKeys.push(keyFor("d6", slug));
 
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;
