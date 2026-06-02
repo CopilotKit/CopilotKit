@@ -1,0 +1,680 @@
+.layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.drawer {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  transition:
+    width 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.drawerOpen {
+  width: 18rem;
+  box-shadow: 4px 0 20px rgb(0 0 0 / 0.04);
+}
+
+.drawerClosed {
+  width: 3.5rem;
+}
+
+.drawerSurface {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawerHeaderMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-body);
+}
+
+.drawerTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--muted-foreground);
+  background: transparent;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+  cursor: pointer;
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.iconButton:focus-visible,
+.threadItem:focus-visible,
+.newThreadButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.newThreadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.newThreadButton:hover {
+  opacity: 0.9;
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.segmented {
+  display: inline-flex;
+  width: 100%;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--secondary);
+  gap: 0.15rem;
+}
+
+.segmentedOption {
+  flex: 1;
+  min-height: 1.75rem;
+  padding: 0.3rem 0.75rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 0.15rem);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.segmentedOption:hover {
+  color: var(--foreground);
+}
+
+.segmentedOption:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.segmentedOptionActive {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.drawerContent {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.threadList {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+  /* Reserve scrollbar space so the list doesn't shift horizontally
+     when the scrollbar appears during the thread-enter animation. */
+  scrollbar-gutter: stable;
+  padding: 0.75rem 0.5rem;
+}
+
+.threadRow {
+  position: relative;
+}
+
+.threadItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.65rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    padding-right 140ms ease;
+}
+
+.threadItem:hover,
+.threadItem:focus-visible {
+  background: var(--secondary);
+}
+
+.threadRow:hover .threadItem,
+.threadRow:focus-within .threadItem {
+  padding-right: 3.5rem;
+}
+
+.threadItemSelected {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.threadItemAnimatingIn {
+  animation: threadItemEnter 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.threadAccent {
+  flex: none;
+  width: 0.35rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 140ms ease;
+}
+
+.threadItemSelected .threadAccent {
+  background: var(--primary);
+}
+
+.threadBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.threadTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.threadTitlePlaceholder {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.threadTitleAnimated {
+  display: inline-block;
+  animation: generatedTitleReveal 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: left center;
+}
+
+.threadMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+}
+
+.threadItemArchived .threadTitle {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.threadItemArchived .threadAccent {
+  opacity: 0.5;
+}
+
+.archivedBadge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  vertical-align: middle;
+}
+
+.loadMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.loadMoreButton:hover:not(:disabled) {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.loadMoreButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.threadActions {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  transform: translateY(-50%) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.threadRow:hover .threadActions,
+.threadRow:focus-within .threadActions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.threadActionButton {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border);
+  background: var(--foreground);
+  color: var(--background);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 110ms ease 200ms,
+    transform 110ms ease 200ms;
+  z-index: 20;
+}
+
+.tooltip:hover::after,
+.tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.deleteButton {
+  color: var(--destructive);
+}
+
+.deleteButton:hover,
+.deleteButton:focus-visible {
+  background: rgb(220 38 38 / 0.1);
+  color: var(--destructive);
+}
+
+.loadingList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.65rem;
+  border-radius: var(--radius);
+}
+
+.loadingAccent {
+  flex: none;
+  width: 0.35rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+}
+
+.loadingBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.loadingTitleBar {
+  height: 0.6rem;
+  width: 60%;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+}
+
+.loadingMetaBar {
+  height: 0.45rem;
+  width: 35%;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+  animation-delay: 140ms;
+}
+
+@keyframes threadsDrawerPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.emptyCard {
+  display: flex;
+  max-width: 13rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-family: var(--font-body);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.emptyMessage {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.collapsedRail {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0.5rem;
+}
+
+.mainPanel {
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100dvh;
+  overflow: auto;
+}
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(2px);
+  animation: dialogOverlayEnter 140ms ease-out;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
+  font-family: var(--font-body);
+  animation: dialogEnter 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialogTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+.dialogDescription {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialogButton {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.95rem;
+  border: 0;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.dialogButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dialogButtonSecondary {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.dialogButtonSecondary:hover {
+  background: var(--border);
+}
+
+.dialogButtonPrimary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.dialogButtonPrimary:hover {
+  opacity: 0.9;
+}
+
+.dialogButtonDestructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.dialogButtonDestructive:hover {
+  opacity: 0.9;
+}
+
+@keyframes dialogOverlayEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes threadItemEnter {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+    background: var(--secondary);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    background: transparent;
+  }
+}
+
+@keyframes generatedTitleReveal {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .layout {
+    position: relative;
+    isolation: isolate;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+  }
+
+  .drawerOpen {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: min(16rem, calc(100vw - 1rem));
+  }
+
+  .drawerClosed {
+    position: relative;
+    z-index: 2;
+  }
+
+  .mainPanel {
+    grid-column: 2;
+    position: relative;
+    z-index: 1;
+  }
+}
