@@ -1,9 +1,18 @@
 // Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
+/**
+ * Magic Text streaming parser API.
+ * @public
+ */
 export {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from "./parser/state";
+} from './state';
+
+/**
+ * Magic Text parser and AST types.
+ * @public
+ */
 export type {
   CitationDefinition,
   CitationState,
@@ -15,4 +24,4 @@ export type {
   ParseMode,
   SegmenterOptions,
   TextSegment,
-} from "./parser/types";
+} from './types';
