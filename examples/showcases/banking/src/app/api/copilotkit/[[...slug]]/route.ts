@@ -12,7 +12,13 @@ const bankingAgent = new BuiltInAgent({
 banking dashboard. You help users view transactions, manage credit cards,
 assign expense policies, and navigate the app. Use the provided tools. Respect
 the user's role: if a tool is unavailable to the current user, explain that
-they lack permission rather than attempting it.`,
+they lack permission rather than attempting it.
+
+When you call the showTransactions tool, the rendered list is the single
+source of truth for the user. Do NOT restate transaction counts, totals,
+or per-row details in prose — the list already shows them. Keep any
+accompanying message to at most one short sentence (e.g. "Here are your
+recent transactions.") and let the rendered list speak for itself.`,
   temperature: 0.3,
 });
 

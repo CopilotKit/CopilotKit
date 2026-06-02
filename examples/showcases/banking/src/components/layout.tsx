@@ -98,10 +98,9 @@ function UserNavigation({
 export function LayoutComponent({ children }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const pathname = usePathname();
-  console.log("pathname", pathname.split("/")[1]);
   useAgentContext({
     description: "The current page where the user is",
-    value: pathname.split("/")[1] == "" ? "cards" : pathname.split("/")[1],
+    value: pathname.split("/")[1] === "" ? "cards" : pathname.split("/")[1],
   });
 
   return (
