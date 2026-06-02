@@ -9,10 +9,11 @@ type MarkdownMode = "built-in" | "streamdown";
 export default function Index() {
   const [agentType, setAgentType] = useState<AgentType>("tanstack");
   // Demo: swap the markdown renderer at runtime via the provider's pluggable
-  // `markdownRenderer` prop. "built-in" = CopilotKit's basic GFM renderer
-  // (no extra deps); "streamdown" = the app-supplied streamdown renderer
-  // (syntax highlighting, math, diagrams). Ask the agent for a code block,
-  // table, or math to see the difference.
+  // `markdownRenderer` prop. "built-in" = CopilotKit's default streaming
+  // markdown renderer (@copilotkit/markdown-renderer — zero extra deps, with
+  // streaming-safe incremental rendering + per-token animation); "streamdown"
+  // = the app-supplied streamdown renderer (syntax highlighting, math,
+  // diagrams). Ask the agent for a code block, table, or math to compare.
   const [markdownMode, setMarkdownMode] = useState<MarkdownMode>("built-in");
 
   return (
@@ -58,7 +59,7 @@ export default function Index() {
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            Built-in (basic)
+            Built-in (streaming)
           </button>
           <button
             onClick={() => setMarkdownMode("streamdown")}
