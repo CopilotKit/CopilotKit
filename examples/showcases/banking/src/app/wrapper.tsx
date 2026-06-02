@@ -6,7 +6,6 @@ import {
   CopilotPopup,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
 import CopilotContext from "@/components/copilot-context";
 import { useAuthContext } from "@/components/auth-context";
 import { IDENTITY } from "@/lib/identity";
