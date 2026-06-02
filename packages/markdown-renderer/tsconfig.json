@@ -16,7 +16,12 @@
     // Full `strict` is otherwise inherited from the base config.
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      // react-native ships Flow syntax that tsc cannot parse; redirect to our
+      // minimal stub so check-types succeeds without pulling the real package.
+      "react-native": ["./src/react-native/__mocks__/react-native.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "src/**/*.spec.ts", "src/**/*.spec.tsx"]

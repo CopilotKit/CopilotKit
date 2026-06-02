@@ -20,6 +20,10 @@
       "import": "./dist/react/index.mjs",
       "require": "./dist/react/index.cjs"
     },
+    "./react-native": {
+      "import": "./dist/react-native/index.mjs",
+      "require": "./dist/react-native/index.cjs"
+    },
     "./vue": {
       "import": "./dist/vue/index.mjs",
       "require": "./dist/vue/index.cjs"
@@ -46,10 +50,14 @@
   },
   "peerDependencies": {
     "react": ">=18",
+    "react-native": ">=0.70",
     "vue": ">=3"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "react-native": {
       "optional": true
     },
     "vue": {
