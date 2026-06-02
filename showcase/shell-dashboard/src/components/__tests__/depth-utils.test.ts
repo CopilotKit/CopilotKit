@@ -701,6 +701,20 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(false);
     });
 
+    it("stub with no live data → maxPossible=0, NOT a regression (stub = not-yet-wired)", () => {
+      // A `stub` cell is "not yet wired", not "regressed". Treating it like
+      // `unshipped` (maxPossible=0) means a stub with no probe data does not
+      // light up the regression indicator. Pre-fix, computeMaxPossible gave a
+      // stub the same 4/6 ceiling as a wired cell, so achieved=0 < maxPossible
+      // falsely flagged isRegression.
+      const c = cell("lgp", "agentic-chat", "stub");
+      const live = mapOf([]);
+      const result = deriveDepth(c, live);
+      expect(result.achieved).toBe(0);
+      expect(result.maxPossible).toBe(0);
+      expect(result.isRegression).toBe(false);
+    });
+
     it("null feature → maxPossible=2 (integration-scoped only)", () => {
       const c: CatalogCell = {
         id: "lgp/null",

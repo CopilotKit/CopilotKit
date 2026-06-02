@@ -143,6 +143,10 @@ function isD5Green(
  * mirrors `isD5Green` and `cell-model.ts` `resolveD6` so all consumers agree.
  * The integration-level `d6:<slug>` aggregate is NOT read here (it is red
  * whenever any cell fails and would deny D6 to genuinely-green cells).
+ *
+ * The ladder walk in `deriveDepth` invokes this ONLY after D5 is green (the
+ * walk is contiguous), so D6 can never be credited over a broken D5 — a green
+ * D6 row on a red-D5 cell is short-circuited before reaching this check.
  */
 function isD6Green(
   live: LiveStatusMap,
@@ -164,7 +168,9 @@ function isD6Green(
  * This checks whether the structural prerequisites for each depth level
  * exist (key mappings, feature ID), NOT whether probes are currently green.
  *
- * - D0: always possible for wired/stub cells
+ * - unshipped/unsupported/stub: max possible is 0 (no probes attached — a
+ *   `stub` is "not yet wired", not a regressed cell)
+ * - D0: always possible for wired cells
  * - D1-D4: always possible if the cell has a feature ID
  * - D5: possible only if CATALOG_TO_D5_KEY[featureId] exists and has entries
  * - D6: possible when a D5 mapping exists — D6 is per-cell and resolves
@@ -172,8 +178,15 @@ function isD6Green(
  *   doubles as the D6 reachability check
  */
 function computeMaxPossible(cell: CatalogCell): AchievedDepth {
-  // Unsupported/unshipped: max possible is 0.
-  if (cell.status === "unsupported" || cell.status === "unshipped") {
+  // Unsupported/unshipped/stub: max possible is 0. A `stub` cell is "not yet
+  // wired" — like `unshipped`, it has no probes attached, so capping its
+  // ceiling at 0 keeps achieved===maxPossible and prevents a false-positive
+  // regression flag for a cell that simply hasn't been built yet.
+  if (
+    cell.status === "unsupported" ||
+    cell.status === "unshipped" ||
+    cell.status === "stub"
+  ) {
     return 0;
   }
 

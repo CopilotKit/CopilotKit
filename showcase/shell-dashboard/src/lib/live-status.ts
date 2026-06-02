@@ -192,23 +192,12 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * Resolve the rolled-up D5 row for `(slug, featureId)`.
- *
- * Precedence across the multi-key set (red > degraded > green) — the
- * cell's badge tone reflects the worst-state row in the family. A
- * naive "first non-null wins" or "only red wins" implementation
- * silently masks degraded sub-rows behind green ones; for a cell like
- * `beautiful-chat` which fans out to 5 per-pill keys, that means an
- * amber sub-row would render the cell green and operators would never
- * see the partial regression.
- *
- * Missing rows are treated as not-yet-emitted and are NOT a signal of
- * health — but they also can't be "worst" because we can't compare
- * them to anything. The caller (`resolveCell`) renders gray when no
- * row is returned, which surfaces "no data yet" distinctly from
- * green.
+ * Worst-state precedence ranking shared by `resolveD5Row` AND `resolveD6Row`
+ * (red > degraded > green): a higher rank dominates the worst-state fold across
+ * a multi-key family. Not D5-specific — both per-feature resolvers fold over
+ * it, so the name reflects that scope.
  */
-const D5_STATE_RANK: Readonly<Record<State, number>> = {
+const WORST_STATE_RANK: Readonly<Record<State, number>> = {
   red: 3,
   degraded: 2,
   green: 1,
@@ -227,6 +216,23 @@ function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
     : row.state;
 }
 
+/**
+ * Resolve the rolled-up D5 row for `(slug, featureId)`.
+ *
+ * Precedence across the multi-key set (red > degraded > green) — the
+ * cell's badge tone reflects the worst-state row in the family. A
+ * naive "first non-null wins" or "only red wins" implementation
+ * silently masks degraded sub-rows behind green ones; for a cell like
+ * `beautiful-chat` which fans out to 5 per-pill keys, that means an
+ * amber sub-row would render the cell green and operators would never
+ * see the partial regression.
+ *
+ * Missing rows are treated as not-yet-emitted and are NOT a signal of
+ * health — but they also can't be "worst" because we can't compare
+ * them to anything. The caller (`resolveCell`) renders gray when no
+ * row is returned, which surfaces "no data yet" distinctly from
+ * green.
+ */
 function resolveD5Row(
   live: LiveStatusMap,
   slug: string,
@@ -266,7 +272,10 @@ function resolveD5Row(
       continue;
     }
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
-    if (worstState === null || D5_STATE_RANK[eff] > D5_STATE_RANK[worstState]) {
+    if (
+      worstState === null ||
+      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+    ) {
       worst = row;
       worstState = eff;
     }
@@ -319,7 +328,10 @@ function resolveD6Row(
       continue;
     }
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
-    if (worstState === null || D5_STATE_RANK[eff] > D5_STATE_RANK[worstState]) {
+    if (
+      worstState === null ||
+      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+    ) {
       worst = row;
       worstState = eff;
     }
@@ -690,13 +702,21 @@ export function upsertByKey<T extends { key: string }>(
  * Surface it via `console.warn` so dev mode catches the regression
  * without changing return semantics (last-wins is still fine for
  * eventual consistency).
+ *
+ * The warning fires only on GENUINE divergence — two rows with the same key
+ * but a different observable state (compared via `rowsAreNoop`, the same
+ * key/state/observed_at/transitioned_at shallow check the reducer uses).
+ * Identical-content-but-different-reference rows (e.g. the same producer row
+ * re-allocated across two groups) are NOT a real invariant violation and used
+ * to fire a noisy false warning under the old reference-based `prior !== r`
+ * check.
  */
 export function mergeRowsToMap(...rowGroups: StatusRow[][]): LiveStatusMap {
   const map: LiveStatusMap = new Map();
   for (const rows of rowGroups) {
     for (const r of rows) {
       const prior = map.get(r.key);
-      if (prior !== undefined && prior !== r) {
+      if (prior !== undefined && !rowsAreNoop(prior, r)) {
         // eslint-disable-next-line no-console
         console.warn(
           `mergeRowsToMap: disjoint-key invariant violated for key="${r.key}" ` +

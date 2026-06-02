@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  CATALOG_TO_D5_KEY,
   keyFor,
   mergeRowsToMap,
   resolveCell,
@@ -81,6 +82,21 @@ describe("keyFor", () => {
     expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
     expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
   });
+  it("every CATALOG_TO_D5_KEY mapping value is delimiter-free (keyFor feeds these as featureId)", () => {
+    // resolveD5Row/resolveD6Row pass each mapping value into keyFor as the
+    // featureId segment. keyFor's guard protects slug + the caller-supplied
+    // featureId, but NOT the mapping values themselves — a ':' or '/' smuggled
+    // into a mapping value would produce an ambiguous/colliding key. Assert the
+    // table is clean so the guard's coverage is complete.
+    for (const [feature, d5Keys] of Object.entries(CATALOG_TO_D5_KEY)) {
+      for (const d5Key of d5Keys) {
+        expect(
+          d5Key.includes(":") || d5Key.includes("/"),
+          `CATALOG_TO_D5_KEY["${feature}"] value "${d5Key}" must not contain ':' or '/'`,
+        ).toBe(false);
+      }
+    }
+  });
 });
 
 describe("upsertByKey", () => {
@@ -138,6 +154,19 @@ describe("mergeRowsToMap", () => {
       [row("e2e:a/b", "e2e", "red")],
     );
     expect(map.size).toBe(2);
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it("does NOT warn on identical-content rows with different references (no false collision)", () => {
+    // The same producer row re-allocated across two groups (different object
+    // reference, identical key/state/observed_at/transitioned_at) is NOT a
+    // genuine invariant violation. Pre-fix the reference-based `prior !== r`
+    // check fired a noisy false warning here.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const a = row("dup:k", "smoke", "green");
+    const aClone = row("dup:k", "smoke", "green"); // distinct object, same content
+    expect(a).not.toBe(aClone);
+    const map = mergeRowsToMap([a], [aClone]);
+    expect(map.get("dup:k")?.state).toBe("green");
     expect(warn).not.toHaveBeenCalled();
   });
   it("warns on collision but still applies last-wins (disjoint-key invariant guard)", () => {
