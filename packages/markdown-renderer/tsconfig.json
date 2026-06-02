@@ -7,8 +7,17 @@
     "declarationMap": true,
     "sourceMap": true,
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // This package is bundled by tsdown and vendors hashbrown's "Magic Text"
+    // (MIT) verbatim. Use bundler resolution (extensionless relative imports,
+    // matching the upstream + how tsdown builds it) and relax
+    // noUncheckedIndexedAccess — the vendored parser was not authored under it,
+    // and enabling it would churn vendored code and complicate upstream syncs.
+    // Full `strict` is otherwise inherited from the base config.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
 }

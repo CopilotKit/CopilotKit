@@ -8,7 +8,9 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    external: ["react", "react/jsx-runtime", "react-dom"],
+    // react is a peer; @copilotkit/markdown-renderer is the root entry of this same
+    // package — consumers always have it, so treat it as external in the /react bundle.
+    external: ["react", "react/jsx-runtime", "react-dom", "@copilotkit/markdown-renderer"],
     exports: true,
   },
 ]);
