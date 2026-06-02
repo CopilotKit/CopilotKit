@@ -72,14 +72,14 @@ function renderTextSegments(node: TextNode): (VNode | string)[] {
   if (node.text.length === 0) return [];
   if (node.segments.length === 0) {
     return [
-      h('span', { class: 'hb-streaming-markdown-segment' }, node.text),
+      h('span', { class: 'cpk-streaming-markdown-segment' }, node.text),
     ];
   }
   return node.segments.map((segment: TextSegment) =>
     h(
       'span',
       {
-        class: 'hb-streaming-markdown-segment',
+        class: 'cpk-streaming-markdown-segment',
         'data-streaming-markdown-segment-kind': segment.kind,
         'data-streaming-markdown-whitespace': String(segment.isWhitespace),
       },
@@ -362,12 +362,12 @@ function renderNode(
         {
           'data-streaming-markdown-node': 'citation',
           'data-node-open': String(!node.closed),
-          class: 'hb-streaming-markdown-citation',
+          class: 'cpk-streaming-markdown-citation',
         },
         [
           h(
             'span',
-            { role: 'doc-noteref', class: 'hb-streaming-markdown-citation-label' },
+            { role: 'doc-noteref', class: 'cpk-streaming-markdown-citation-label' },
             String(node.number ?? node.idRef),
           ),
         ],
@@ -481,8 +481,8 @@ export const StreamingMarkdownRenderer = defineComponent({
       const renderers = props.nodeRenderers;
 
       const rootClass = props.class
-        ? `hb-streaming-markdown-root ${props.class}`
-        : 'hb-streaming-markdown-root';
+        ? `cpk-streaming-markdown-root ${props.class}`
+        : 'cpk-streaming-markdown-root';
 
       if (!rootNode) {
         return h('div', {
@@ -505,7 +505,7 @@ export const StreamingMarkdownRenderer = defineComponent({
         children.push(
           h('span', {
             'aria-hidden': true,
-            class: 'hb-streaming-markdown-caret',
+            class: 'cpk-streaming-markdown-caret',
             'data-streaming-markdown-caret': true,
             style: {
               display: 'inline-block',
