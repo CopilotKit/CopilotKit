@@ -140,6 +140,9 @@ describe("migration docs", () => {
     );
 
     expect(snippet).toContain(
+      "The `<CopilotKit>` provider name — keep using it, but import it from `@copilotkit/react-core/v2`",
+    );
+    expect(snippet).toContain(
       "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
     );
     expect(snippet).toContain(
