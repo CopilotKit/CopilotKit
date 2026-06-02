@@ -25,9 +25,10 @@ import { declaredSkips as defaultDeclaredSkips } from "../helpers/skip-list.js";
  * verbatim per integration), parses the JSON reporter output into per-spec-
  * FILE verdicts, and rolls those up FAIL-CLOSED into dashboard cells:
  *
- *   1. Invoke the integration's e2e suite via `runAndParse` (production:
- *      `runE2eAndParse` with `--retries=1`, the PRODUCTION probe path — a
- *      retried PASS counts green). Returns `SpecFileResult[]`.
+ *   1. Invoke the integration's e2e suite via `runAndParse` (with
+ *      `--retries=0` for verdict-equivalence — D6 observes the same
+ *      first-attempt verdict a human/CI run does, no flake-masking retry).
+ *      Returns `SpecFileResult[]`.
  *   2. Resolve the integration's declared skips via `declaredSkips(slug)`.
  *   3. Run the PURE fail-closed rollup `rollupCells({ slug, specResults,
  *      skipped })` → one cell per mapped gold spec FILE.
@@ -186,8 +187,10 @@ export interface D6RunAndParseArgs {
   /** Live integration URL the specs navigate against (BASE_URL). */
   backendUrl: string;
   /**
-   * Playwright retry count. The PRODUCTION probe path passes `1` (a retried
-   * PASS counts green); strict validation/CI uses `0`.
+   * Playwright retry count. The D6 driver passes `0` for verdict-equivalence
+   * with the human/CI paths (shared integration base config is `retries:0`) —
+   * a single retry value across all three paths so D6 observes the same
+   * first-attempt verdict, with no flake-masking retry.
    */
   retries: number;
 }
@@ -419,10 +422,12 @@ export function createE2eFullDriver(
       }
 
       // ---- Run the integration's e2e suite + parse ----------------------
-      // PRODUCTION probe path: retries=1 (a retried PASS counts green; an
-      // exhausted-retry fail stays red — Playwright reflects the final
-      // per-case status in the JSON the parser reads). FAIL-CLOSED: any
-      // error here yields empty specResults → all-UNKNOWN cells, never green.
+      // VERDICT-EQUIVALENCE: retries=0, matching the shared integration base
+      // config (human + CI both run retries=0). A retry would let a flaky
+      // PASS mask a real failure, so D6 must observe the SAME first-attempt
+      // verdict a human/CI run would — one retry value across all three paths.
+      // FAIL-CLOSED: any error here yields empty specResults → all-UNKNOWN
+      // cells, never green.
       const runStart = Date.now();
       let specResults: SpecFileResult[] = [];
       // Defaults to 0 (trustworthy); a non-zero exit OR a thrown error makes
@@ -436,7 +441,7 @@ export function createE2eFullDriver(
         const parsed = await runAndParse({
           slug,
           backendUrl,
-          retries: 1,
+          retries: 0,
         });
         specResults = parsed.specResults;
         exitCode = parsed.exitCode;

@@ -125,7 +125,7 @@ describe("e2e-full driver (spec-driven)", () => {
 
   // The driver runs the e2e suite once per integration, parses, rolls up.
   describe("run → parse → rollup → write", () => {
-    it("invokes runAndParse once with retries:1 (PRODUCTION probe path)", async () => {
+    it("invokes runAndParse once with retries:0 (verdict-equivalence with human/CI)", async () => {
       const capture = { calls: [] as Parameters<D6RunAndParse>[0][] };
       const driver = createE2eFullDriver({
         runAndParse: fakeRunAndParse(allPassRows(), capture),
@@ -137,7 +137,7 @@ describe("e2e-full driver (spec-driven)", () => {
       expect(capture.calls).toHaveLength(1);
       expect(capture.calls[0]!.slug).toBe("langgraph-python");
       expect(capture.calls[0]!.backendUrl).toBe("https://lgp.example.com");
-      expect(capture.calls[0]!.retries).toBe(1);
+      expect(capture.calls[0]!.retries).toBe(0);
     });
 
     it("Fix 3: does NOT forward a dead abortSignal into runAndParse", async () => {
