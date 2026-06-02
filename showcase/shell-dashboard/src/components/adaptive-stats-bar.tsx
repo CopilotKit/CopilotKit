@@ -12,6 +12,7 @@ import type { Overlay } from "@/lib/overlay-types";
 
 /** Depth distribution: count of cells at each depth level. */
 export interface DepthDistribution {
+  d6: number;
   d5: number;
   d4: number;
   d3: number;
@@ -23,6 +24,8 @@ export interface DepthDistribution {
 /** D6 (parity-vs-reference) rollup counts. */
 export interface D6Stats {
   green: number;
+  /** Degraded / stale-green D6 cells — surfaced distinctly, not hidden as gray. */
+  degraded: number;
   gray: number;
   red: number;
 }
@@ -31,7 +34,7 @@ export interface AdaptiveStatsBarProps {
   overlays: Set<Overlay>;
   catalog: CatalogData;
   /** Health stats (computed externally) */
-  healthStats?: { green: number; amber: number; red: number };
+  healthStats?: { green: number; amber: number; red: number; noData: number };
   /** Parity tier counts (computed externally) */
   parityStats?: Record<ParityTier, number>;
   /** Docs stats (computed externally) */
@@ -164,13 +167,14 @@ function DepthSection({
   );
 }
 
-/** Compact depth distribution: D5..D1 counts in a single row. */
+/** Compact depth distribution: D6..D1 counts in a single row. */
 function DepthDistributionSection({
   distribution,
 }: {
   distribution: DepthDistribution;
 }) {
   const levels: { key: keyof DepthDistribution; label: string }[] = [
+    { key: "d6", label: "D6" },
     { key: "d5", label: "D5" },
     { key: "d4", label: "D4" },
     { key: "d3", label: "D3" },
@@ -197,7 +201,7 @@ function DepthDistributionSection({
 function HealthSection({
   stats,
 }: {
-  stats: { green: number; amber: number; red: number };
+  stats: { green: number; amber: number; red: number; noData: number };
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -223,6 +227,14 @@ function HealthSection({
           value={stats.red}
           label="red"
           colorClass="text-[var(--danger)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--text-muted)" />
+        <MiniStat
+          value={stats.noData}
+          label="no data"
+          colorClass="text-[var(--text-muted)]"
         />
       </span>
     </div>
@@ -261,6 +273,14 @@ function D6Section({ stats }: { stats: D6Stats }) {
           value={stats.green}
           label="green"
           colorClass="text-[var(--ok)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--amber)" />
+        <MiniStat
+          value={stats.degraded}
+          label="degraded"
+          colorClass="text-[var(--amber)]"
         />
       </span>
       <span className="flex items-center gap-1">

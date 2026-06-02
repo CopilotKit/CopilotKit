@@ -13,18 +13,18 @@ import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
 import { UnifiedCell } from "@/components/unified-cell";
 import { buildCellModel } from "@/lib/cell-model";
+import {
+  computeHealthStats,
+  computeParityStats,
+  computeDepthDistribution,
+  computeD6Stats,
+} from "@/lib/page-stats";
 import { AdaptiveStatsBar } from "@/components/adaptive-stats-bar";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
 import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
-import type { ParityTier } from "@/components/parity-badge";
 import { getDocsStatus } from "@/lib/docs-status";
-import { resolveCell } from "@/lib/live-status";
-import type {
-  DepthDistribution,
-  D6Stats,
-} from "@/components/adaptive-stats-bar";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 
@@ -98,61 +98,20 @@ export default function Page() {
   } = useOverlays();
 
   // Compute health stats using buildCellModel — single source of truth for
-  // chip color, so the stats bar matches what's visually displayed in the table.
-  const healthStats = useMemo(() => {
-    let green = 0;
-    let amber = 0;
-    let red = 0;
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      // "wired" status implies supported — no need to check unsupported here
-      const model = buildCellModel(
-        liveStatus,
-        {
-          slug: cell.integration,
-          featureId: cell.feature,
-          isSupported: true,
-          isWired: true,
-        },
-        now,
-      );
-      switch (model.chipColor) {
-        case "green":
-          green++;
-          break;
-        case "amber":
-          amber++;
-          break;
-        case "red":
-          red++;
-          break;
-        case "gray":
-          green++;
-          break; // no data yet, not a failure
-      }
-    }
-    return { green, amber, red };
-  }, [liveStatus, now]);
+  // chip color, so the stats bar matches what's visually displayed in the
+  // table. A gray chip (no data yet) is tracked as `noData`, NOT folded into
+  // green, so the bar agrees with the matrix it summarizes.
+  const healthStats = useMemo(
+    () => computeHealthStats(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
-  // Compute parity tier counts
-  const parityStats = useMemo(() => {
-    const counts: Record<ParityTier, number> = {
-      reference: 0,
-      at_parity: 0,
-      partial: 0,
-      minimal: 0,
-      not_wired: 0,
-    };
-    // Count unique integrations by tier
-    const seen = new Set<string>();
-    for (const cell of catalogData.cells) {
-      if (!seen.has(cell.integration)) {
-        seen.add(cell.integration);
-        counts[cell.parity_tier as ParityTier]++;
-      }
-    }
-    return counts;
-  }, []);
+  // Compute parity tier counts (validates tier before indexing — fail-loud
+  // on unknown tiers rather than producing NaN).
+  const parityStats = useMemo(
+    () => computeParityStats(catalogData.cells),
+    [],
+  );
 
   // Compute docs reachability stats from unique feature IDs
   const docsStats = useMemo(() => {
@@ -175,59 +134,20 @@ export default function Page() {
   }, []);
 
   // Compute depth distribution across all wired cells — re-derives whenever
-  // live-status changes since depth is a function of probe states.
-  const depthDistribution = useMemo((): DepthDistribution => {
-    const dist: DepthDistribution = {
-      d5: 0,
-      d4: 0,
-      d3: 0,
-      d2: 0,
-      d1: 0,
-      d0: 0,
-    };
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      // "wired" status implies supported — no need to check unsupported here
-      const model = buildCellModel(
-        liveStatus,
-        {
-          slug: cell.integration,
-          featureId: cell.feature,
-          isSupported: true,
-          isWired: true,
-        },
-        now,
-      );
-      const key = `d${model.achievedDepth}` as keyof DepthDistribution;
-      dist[key]++;
-    }
-    return dist;
-  }, [liveStatus, now]);
+  // live-status changes since depth is a function of probe states. Uses an
+  // exhaustive achievedDepth→key map so D6-achieved cells land in the `d6`
+  // bucket (the old string cast dropped them).
+  const depthDistribution = useMemo(
+    () => computeDepthDistribution(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
-  // Compute D6 (parity-vs-reference) rollup counts across wired cells.
-  const d6Stats = useMemo((): D6Stats => {
-    let green = 0;
-    let gray = 0;
-    let red = 0;
-    for (const cell of catalogData.cells) {
-      if (cell.status !== "wired" || cell.feature === null) continue;
-      const state = resolveCell(liveStatus, cell.integration, cell.feature, {
-        now,
-      });
-      switch (state.d6.tone) {
-        case "green":
-          green++;
-          break;
-        case "red":
-          red++;
-          break;
-        default:
-          gray++;
-          break;
-      }
-    }
-    return { green, gray, red };
-  }, [liveStatus, now]);
+  // Compute D6 (parity-vs-reference) rollup counts across wired cells —
+  // degraded/stale D6 surfaces distinctly instead of folding into gray.
+  const d6Stats = useMemo(
+    () => computeD6Stats(catalogData.cells, liveStatus, now),
+    [liveStatus, now],
+  );
 
   // renderCell callback wrapping UnifiedCell + buildCellModel.
   // buildCellModel is the single source of truth for cell state — it handles
