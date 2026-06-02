@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -371,7 +372,12 @@ internal sealed class ControlRoomAgentFactory
         AddIfPresent(item, "eyebrow", node.Eyebrow);
         AddIfPresent(item, "badge", node.Badge);
         AddIfPresent(item, "label", node.Label);
-        AddIfPresent(item, "value", component == "Progress" ? node.NumericValue : node.Value);
+        AddIfPresent(
+            item,
+            "value",
+            component == "Progress"
+                ? node.NumericValue ?? ParseProgressValue(node.Value)
+                : node.Value);
         AddIfPresent(item, "detail", node.Detail);
         AddIfPresent(item, "trend", NormalizeTrend(node.Trend));
         AddIfPresent(item, "tone", node.Tone);
@@ -590,6 +596,26 @@ internal sealed class ControlRoomAgentFactory
             : null;
     }
 
+    private static double? ParseProgressValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().TrimEnd('%').Trim();
+        if (!double.TryParse(
+                normalized,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return null;
+        }
+
+        return Math.Clamp(parsed, 0, 100);
+    }
+
     internal sealed record A2UIComponentNode(
         string Id,
         string Component,
@@ -729,13 +755,30 @@ internal sealed class ControlRoomAgentFactory
         read-only planning or visualization moments; for those, do not switch
         to Act mode, edit files, or run commands.
 
+        The operator should be able to ask in normal product language. They do
+        not know about A2UI, component arrays, tool names, or catalog ids. Treat
+        requests for dashboards, reports, control panels, status views, chart
+        sets, forms, approval previews, handoffs, calendars, tables, and
+        summaries as requests for a polished visual surface.
+
+        Optimize visualization turns for time-to-first-wow: if the operator
+        asks for a read-only visual and does not request real workspace/file
+        data, do not inspect files, create todos, switch modes, ask permission,
+        or explain the plan first. Render one sensible, well-scaled visual with
+        small illustrative data, then add one short natural-language follow-up
+        sentence that explains the visual or suggests a next step. Never ask
+        the operator to exit Plan mode for read-only visualization or preview
+        prompts; stay in the current mode and render the display. Switch to Act
+        mode only before edits or command execution.
+
         Frontend display tools are named `show...` (for example
         `showBarChart`, `showLineChart`, `showAreaChart`,
         `showHarnessSummary`, and `showHandoffForm`). When A2UI is available,
-        prefer `render_control_room_a2ui` instead of `show...` display tools so
-        the local A2UI catalog can compose multiple UI pieces in one generated
-        surface. A2UI is registered locally as
-        `copilotkit://ms-agent-harness-control-room`; do not emit A2UI
+        prefer `render_control_room_a2ui` instead of `show...` display tools for
+        any visual request that could benefit from more than one component, a
+        layout, or ShadCN-style primitives. The local A2UI catalog can compose
+        multiple UI pieces in one generated surface. A2UI is registered locally
+        as `copilotkit://ms-agent-harness-control-room`; do not emit A2UI
         operations for the public basic catalog URL.
 
         For A2UI, call `render_control_room_a2ui` with a flat `components`
@@ -753,6 +796,28 @@ internal sealed class ControlRoomAgentFactory
         `FileImpactMap`, `ApprovalForm`, and `HandoffForm`. Basic `Row` and
         `Column` are also available for layout composition.
 
+        Natural prompt mapping examples:
+        - "Show me a progress dashboard" means one composed surface with a
+          concise header, 2-4 metrics, and charts/cards that explain progress.
+        - "Create a controls panel" means one card or surface with a header,
+          inputs, select/switch/checkbox controls, badges, and a primary button.
+        - "Show workspace operations" means a composed status surface with run
+          health, file impact, and approval readiness sections.
+        - "Show me a chart set" means a compact dashboard of several chart
+          cards, not separate turns.
+        - "Show me a project overview dashboard" means an illustrative overview
+          surface with metrics and cards; do not read files unless the operator
+          asks for the real current workspace contents.
+        - "Show me a revenue dashboard" means a polished chart dashboard using
+          small illustrative revenue data unless the operator explicitly names
+          a file or asks for actual sample data.
+        - "Show me a small improvement plan with run health" means a visual
+          plan/readiness surface; do not create todos unless the operator asks
+          to track real implementation work.
+        - "Preview an approval" or "create a handoff" means a visual form or
+          card; do not read files, write memory, or run commands unless the
+          operator explicitly asks.
+
         Example: if the operator asks for a dashboard with a bar chart and an
         area chart describing progress, do not call TodoList, FileMemory,
         FileAccess, AgentMode, approval, shell, or `show...` display tools.
@@ -762,19 +827,20 @@ internal sealed class ControlRoomAgentFactory
         owns the surface id, local catalog id, and A2UI operation envelope.
         Do not call any tool named `render_a2ui`, do not pass `catalogId`, and
         do not hand-write `a2ui_operations`. Treat every display call as the
-        final action of the current turn. Never call a display tool while a
+        final tool action of the current turn, then write one concise follow-up
+        sentence. Never call a display tool while a
         Harness tool action still needs to happen, and never call a display
         tool in the same model step as TodoList, FileMemory, FileAccess,
         AgentMode, approval, or shell tools. Complete those Harness actions
-        first, wait for their results, then render exactly one final display
+        first, wait for their results, then render exactly one display
         component when the operator prompt asks for one.
 
         For workspace orientation prompts that ask for a final Harness Summary,
         the required Harness work is: load the workspace-analysis skill, read
         `README.md`, list the top-level files, and finish any todo updates.
-        `showHarnessSummary` or an A2UI `Card` summary is not final until those
-        results are visible. Once it is rendered, stop without additional text
-        or tool calls.
+        `showHarnessSummary` or an A2UI `Card` summary is not ready until those
+        results are visible. Once it is rendered, add one short follow-up
+        sentence and do not call additional tools.
 
         Do not claim that todos, memory, file writes, approvals, shell commands,
         or verification have completed unless the matching Harness tool result
@@ -816,6 +882,7 @@ internal sealed class ControlRoomAgentFactory
         - Use the workspace-analysis skill when a request benefits from a
           structured read-first workflow.
         - For read-only visualization prompts, keep the interaction complete:
-          do the needed reads first, render one final component, then stop.
+          do the needed reads first, render one component, then write one brief
+          follow-up sentence.
         """;
 }

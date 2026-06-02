@@ -38,8 +38,18 @@
     color-mix(in oklab, #ffffff 91%, var(--cr-action-indigo) 4%) 0%,
     color-mix(in oklab, #ffffff 90%, var(--cr-action-blue) 5%) 100%
   );
-  --cr-card-bg: rgba(255, 255, 255, 0.78);
-  --cr-card-bg-hover: rgba(255, 255, 255, 0.92);
+  --cr-catalog-scroll-surface: color-mix(
+    in oklab,
+    #ffffff 90%,
+    var(--cr-action-blue) 7%
+  );
+  --cr-catalog-scroll-surface-strong: color-mix(
+    in oklab,
+    #ffffff 84%,
+    var(--cr-action-blue) 10%
+  );
+  --cr-card-bg: rgba(255, 255, 255, 0.94);
+  --cr-card-bg-hover: #ffffff;
   --cr-card-border: color-mix(in oklab, var(--cr-action-indigo) 16%, white);
   --cr-card-border-active: color-mix(
     in oklab,
@@ -409,16 +419,38 @@ a {
 }
 
 .cr-catalog-surface {
-  background: var(--cr-sidebar-surface);
+  background: #ffffff;
   box-shadow: inset -1px 0 0
     color-mix(in oklab, var(--cr-action-blue) 18%, white);
+}
+
+.cr-catalog-controls {
+  position: relative;
+  z-index: 20;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    color-mix(in oklab, #ffffff 95%, var(--cr-action-blue) 3%) 100%
+  );
+}
+
+.cr-catalog-scroll-region {
+  background: linear-gradient(
+    180deg,
+    var(--cr-catalog-scroll-surface) 0%,
+    var(--cr-catalog-scroll-surface-strong) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 12px 24px -26px rgba(0, 120, 212, 0.58);
 }
 
 .cr-catalog-fade-top {
   background: linear-gradient(
     to bottom,
-    var(--cr-panel-tint) 0%,
-    color-mix(in oklab, var(--cr-panel-tint) 72%, transparent) 54%,
+    var(--cr-catalog-scroll-surface) 0%,
+    var(--cr-catalog-scroll-surface) 42%,
+    color-mix(in oklab, var(--cr-catalog-scroll-surface) 88%, transparent) 76%,
     transparent 100%
   );
 }
@@ -426,8 +458,13 @@ a {
 .cr-catalog-fade-bottom {
   background: linear-gradient(
     to top,
-    var(--cr-panel-tint) 0%,
-    color-mix(in oklab, var(--cr-panel-tint) 74%, transparent) 58%,
+    var(--cr-catalog-scroll-surface-strong) 0%,
+    color-mix(
+        in oklab,
+        var(--cr-catalog-scroll-surface-strong) 88%,
+        transparent
+      )
+      62%,
     transparent 100%
   );
 }

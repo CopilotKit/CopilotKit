@@ -30,8 +30,15 @@ import {
   Play,
   Search,
 } from "lucide-react";
-import { createContext, useContext, useId, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+} from "react";
+import type { ReactNode, UIEvent } from "react";
 import { flushSync } from "react-dom";
 import { z } from "zod";
 
@@ -316,7 +323,7 @@ const HandoffFormProps = z.object({
 });
 
 const DISPLAY_COMPONENT_FINAL_ACTION =
-  "This is a display-only component. Use it only as the final action of the current response, after every required Harness tool result is complete. Never call it in the same model step as a pending mode change, todo update, file read, file write, memory write, approval request, or shell command. Never use it to claim todos, memory, files, tests, approval, or shell work unless the matching Harness tool result is already present in the conversation.";
+  "This is a display-only component. Use it only after every required Harness tool result is complete. After rendering, write one short natural-language follow-up that summarizes what the visual shows or suggests a next step. Never call it in the same model step as a pending mode change, todo update, file read, file write, memory write, approval request, or shell command. Never use it to claim todos, memory, files, tests, approval, or shell work unless the matching Harness tool result is already present in the conversation.";
 
 export const GENERATIVE_UI_CATALOG = [
   {
@@ -423,82 +430,25 @@ type CatalogPreset = {
   itemIds: readonly CatalogItemId[];
 };
 
-const createTryPrompt = (componentName: string, label: string) =>
-  `Render exactly one ${componentName} component as the final action, showing a simple demonstrative ${label} with small illustrative data. Include every required field for that component, including any arrays such as metrics, data, rows, events, files, checks, or followups. Do not inspect files, update todos, save memory, request approval, or run commands.`;
-
 const TRY_COMPONENT_PROMPTS: Record<CatalogItemId, string> = {
-  summary: createTryPrompt("showHarnessSummary", "Harness Summary"),
-  bar: createTryPrompt("showBarChart", "Bar Chart"),
-  line: createTryPrompt("showLineChart", "Line Chart"),
-  coverage: createTryPrompt("showAreaChart", "Area Chart"),
-  workstream: createTryPrompt("showStackedAreaChart", "Stacked Area Chart"),
-  usage: createTryPrompt("showDonutChart", "Donut Chart"),
-  radar: createTryPrompt("showRadarChart", "Radar Chart"),
-  radial: createTryPrompt("showRadialChart", "Radial Chart"),
-  calendar: createTryPrompt("showCalendar", "Calendar"),
-  files: createTryPrompt("showFileImpactMap", "File Impact Map"),
-  runHealth: createTryPrompt("showRunHealthTable", "Run Health Table"),
-  approval: createTryPrompt("showApprovalReadinessForm", "Approval Form"),
-  handoff: createTryPrompt("showHandoffForm", "Handoff Form"),
+  summary:
+    "Show me a compact harness summary with the current mode, todos, files, and approvals.",
+  bar: "Show me a bar chart comparing a few workstream categories.",
+  line: "Show me a line chart of progress across recent milestones.",
+  coverage: "Show me an area chart of progress with a comparison trend.",
+  workstream:
+    "Show me a stacked area chart of work across tool calls, evidence, and approvals.",
+  usage: "Show me a donut chart of tool usage across a run.",
+  radar: "Show me a radar chart of capability scores for a project run.",
+  radial: "Show me a radial chart for readiness and completion.",
+  calendar: "Show me a calendar view with a couple of upcoming milestones.",
+  files: "Show me a file impact view with risk levels for a few files.",
+  runHealth: "Show me a run health table for tests, typecheck, and approvals.",
+  approval: "Show me an approval readiness form for a pending command.",
+  handoff: "Show me a handoff form with owner, notes, and follow-up items.",
 };
 
-const createA2UITryPrompt = (label: string, composition: string) =>
-  `Render A2UI as the final action. Use render_control_room_a2ui exactly once with a flat components array. The root node must be { id: "root", component: "Surface" }. Container nodes must reference child ids with children arrays; do not inline children. Compose a small ${label} demo using the A2UI catalog, not any show... useComponent display tool. ${composition} Do not inspect files, update todos, save memory, request approval, run commands, or call another display tool afterward.`;
-
-const A2UI_TRY_COMPONENT_PROMPTS: Record<CatalogItemId, string> = {
-  summary: createA2UITryPrompt(
-    "Harness Summary",
-    "Use a Surface with one Card containing three Metric nodes for mode, todos, and approvals.",
-  ),
-  bar: createA2UITryPrompt(
-    "Bar Chart",
-    "Use a Card containing a BarChart with four category values.",
-  ),
-  line: createA2UITryPrompt(
-    "Line Chart",
-    "Use a Card containing a LineChart with five ordered values.",
-  ),
-  coverage: createA2UITryPrompt(
-    "Area Chart",
-    "Use a Card containing an AreaChart with progress values and a secondary comparison series.",
-  ),
-  workstream: createA2UITryPrompt(
-    "Stacked Area Chart",
-    "Use a Card containing a StackedAreaChart with toolCalls, evidence, and approvals values.",
-  ),
-  usage: createA2UITryPrompt(
-    "Donut Chart",
-    "Use a Card containing a DonutChart with tool usage slices.",
-  ),
-  radar: createA2UITryPrompt(
-    "Radar Chart",
-    "Use a Card containing a RadarChart with capability scores.",
-  ),
-  radial: createA2UITryPrompt(
-    "Radial Chart",
-    "Use a Card containing a RadialChart with two readiness metrics.",
-  ),
-  calendar: createA2UITryPrompt(
-    "Calendar",
-    "Use a Card containing a Calendar with two dated milestone events.",
-  ),
-  files: createA2UITryPrompt(
-    "File Impact Map",
-    "Use a Card containing a FileImpactMap with three files and risk labels.",
-  ),
-  runHealth: createA2UITryPrompt(
-    "Run Health Table",
-    "Use a Card containing a RunHealthTable with tests, typecheck, and approval rows.",
-  ),
-  approval: createA2UITryPrompt(
-    "Approval Form",
-    "Use a Card containing an ApprovalForm with command, risk, and readiness checks.",
-  ),
-  handoff: createA2UITryPrompt(
-    "Handoff Form",
-    "Use a Card containing a HandoffForm with owner, notes, and follow-up items.",
-  ),
-};
+const A2UI_TRY_COMPONENT_PROMPTS = TRY_COMPONENT_PROMPTS;
 
 const DEFAULT_CATALOG_STATE: CatalogState = {
   summary: true,
@@ -784,6 +734,7 @@ export function GenerativeUICatalogPanel({
   className?: string;
 }) {
   const [query, setQuery] = useState("");
+  const [catalogScrolled, setCatalogScrolled] = useState(false);
   const { enabled, setEnabled, setEnabledItems } = useGenerativeUICatalog();
   const { localState, setA2UIEnabled, setOpenGenerativeUIEnabled } =
     useControlRoomLocal();
@@ -798,7 +749,7 @@ export function GenerativeUICatalogPanel({
         .toLowerCase()
         .includes(normalizedQuery),
     );
-  }, [query]);
+  }, [normalizedQuery]);
   const tryComponent = async (item: CatalogItem) => {
     if (isRunning || !renderingEnabled) return;
     if (!enabled[item.id]) {
@@ -811,11 +762,14 @@ export function GenerativeUICatalogPanel({
         : TRY_COMPONENT_PROMPTS[item.id],
     );
   };
+  const handleCatalogScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    setCatalogScrolled(event.currentTarget.scrollTop > 1);
+  }, []);
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
       <div className="cr-catalog-surface relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="space-y-3 px-4 pb-3 pt-4">
+        <div className="cr-catalog-controls space-y-3 px-4 pb-3 pt-4">
           <div className="flex h-7 items-center justify-between gap-3">
             <CatalogPresetPopover
               enabled={enabled}
@@ -841,8 +795,13 @@ export function GenerativeUICatalogPanel({
           </div>
         </div>
         <Separator className="cr-catalog-rule shrink-0" />
-        <div className="relative min-h-0 flex-1">
-          <ScrollArea className="h-full">
+        <div className="cr-catalog-scroll-region relative min-h-0 flex-1">
+          <ScrollArea
+            className="h-full"
+            viewportProps={{
+              onScroll: handleCatalogScroll,
+            }}
+          >
             <div className="space-y-3 px-4 pb-7 pt-3">
               <div className="space-y-3">
                 {filteredItems.map((item) => (
@@ -864,7 +823,9 @@ export function GenerativeUICatalogPanel({
               </div>
             </div>
           </ScrollArea>
-          <div className="cr-catalog-fade-top pointer-events-none absolute inset-x-0 top-0 z-10 h-5" />
+          {catalogScrolled ? (
+            <div className="cr-catalog-fade-top pointer-events-none absolute inset-x-0 top-0 z-10 h-8" />
+          ) : null}
           <div className="cr-catalog-fade-bottom pointer-events-none absolute inset-x-0 bottom-0 z-10 h-7" />
         </div>
       </div>
@@ -1148,7 +1109,7 @@ function HarnessSummaryRegistration() {
     name: "showHarnessSummary",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: HarnessSummaryProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this for concise stage status summaries after planning, after a patch, after a test run, or during final review. Populate metrics with Harness-specific values such as mode, todos, files, approvals, last test, and memory.`,
     render: HarnessSummaryCard,
   });
@@ -1160,7 +1121,7 @@ function BarChartRegistration() {
     name: "showBarChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: BarChartProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display a simple bar chart for comparing category values. Use it when discrete values should be compared side-by-side.`,
     render: BarChartCard,
   });
@@ -1172,7 +1133,7 @@ function LineChartRegistration() {
     name: "showLineChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: LineChartProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display a simple line chart for ordered values. Use it when movement, trend, or sequence is the primary point.`,
     render: LineChartCard,
   });
@@ -1184,7 +1145,7 @@ function CoverageAreaChartRegistration() {
     name: "showAreaChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: CoverageAreaChartProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display an area chart for one primary trend with an optional comparison series. Use it for momentum, confidence, load, or other continuous values.`,
     render: CoverageAreaChart,
   });
@@ -1196,7 +1157,7 @@ function WorkstreamStackedAreaRegistration() {
     name: "showStackedAreaChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: WorkstreamStackedAreaProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display a stacked area chart for three related series across a shared x-axis. Use it when composition over time matters.`,
     render: WorkstreamStackedArea,
   });
@@ -1208,7 +1169,7 @@ function ToolUsageDonutRegistration() {
     name: "showDonutChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ToolUsageDonutProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display a donut chart for proportional category breakdowns. Keep labels short and use it for compact totals.`,
     render: ToolUsageDonut,
   });
@@ -1220,7 +1181,7 @@ function CapabilityRadarRegistration() {
     name: "showRadarChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: CapabilityRadarProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display a radar chart for comparing scores across several dimensions.`,
     render: CapabilityRadar,
   });
@@ -1232,7 +1193,7 @@ function ApprovalRadialRegistration() {
     name: "showRadialChart",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ApprovalRadialProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Display one or more radial progress values as compact circular bars.`,
     render: ApprovalRadial,
   });
@@ -1244,7 +1205,7 @@ function CalendarComponentRegistration() {
     name: "showCalendar",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: CalendarComponentProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this to show dated milestones, approval windows, or handoff schedules. Choose realistic ISO dates and keep labels short enough for a stage demo.`,
     render: CalendarCard,
   });
@@ -1256,7 +1217,7 @@ function ApprovalReadinessFormRegistration() {
     name: "showApprovalReadinessForm",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: ApprovalReadinessFormProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this form-style component only when the current turn is explicitly a readiness preview, not when the real Harness approval card is required. It should show the command, risk level, and readiness checks for the presenter.`,
     render: ApprovalReadinessForm,
   });
@@ -1268,7 +1229,7 @@ function HandoffFormRegistration() {
     name: "showHandoffForm",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: HandoffFormProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this form-style component during handoff after memory has already been saved. It should summarize owner, notes, and follow-up items for handoff.`,
     render: HandoffForm,
   });
@@ -1280,7 +1241,7 @@ function FileImpactMapRegistration() {
     name: "showFileImpactMap",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: FileImpactMapProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this after inspecting or changing files. Show workspace-relative paths, risk level, and why each file matters.`,
     render: FileImpactMap,
   });
@@ -1292,7 +1253,7 @@ function RunHealthTableRegistration() {
     name: "showRunHealthTable",
     agentId: CONTROL_ROOM_AGENT_NAME,
     parameters: RunHealthTableProps,
-    followUp: false,
+    followUp: true,
     description: `${DISPLAY_COMPONENT_FINAL_ACTION} Use this table when the audience should see run health as rows: tests, coverage, typecheck, approvals, files, and memory with status and progress.`,
     render: RunHealthTable,
   });

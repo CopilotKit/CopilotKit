@@ -485,6 +485,7 @@ export const controlRoomA2UIRenderers = {
                 stroke={CHART_COLORS[0]}
                 strokeWidth={3}
                 dot={{ r: 3 }}
+                isAnimationActive={false}
               />
             </RechartsLineChart>
           </ResponsiveContainer>
@@ -520,7 +521,9 @@ export const controlRoomA2UIRenderers = {
                   stroke={CHART_COLORS[2]}
                   fill={CHART_COLORS[2]}
                   fillOpacity={0.18}
+                  strokeOpacity={1}
                   strokeWidth={2}
+                  isAnimationActive={false}
                 />
               ) : null}
               <Area
@@ -529,7 +532,9 @@ export const controlRoomA2UIRenderers = {
                 stroke={CHART_COLORS[0]}
                 fill={CHART_COLORS[0]}
                 fillOpacity={0.24}
+                strokeOpacity={1}
                 strokeWidth={3}
+                isAnimationActive={false}
               />
             </RechartsAreaChart>
           </ResponsiveContainer>
@@ -564,6 +569,8 @@ export const controlRoomA2UIRenderers = {
                 stroke={CHART_COLORS[0]}
                 fill={CHART_COLORS[0]}
                 fillOpacity={0.35}
+                strokeOpacity={1}
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -572,6 +579,8 @@ export const controlRoomA2UIRenderers = {
                 stroke={CHART_COLORS[2]}
                 fill={CHART_COLORS[2]}
                 fillOpacity={0.35}
+                strokeOpacity={1}
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
@@ -580,6 +589,8 @@ export const controlRoomA2UIRenderers = {
                 stroke={CHART_COLORS[3]}
                 fill={CHART_COLORS[3]}
                 fillOpacity={0.35}
+                strokeOpacity={1}
+                isAnimationActive={false}
               />
             </RechartsAreaChart>
           </ResponsiveContainer>
@@ -729,15 +740,15 @@ export const controlRoomA2UIRenderers = {
 
     return (
       <div
-        className="grid gap-4 sm:grid-cols-[280px_1fr]"
+        className="grid min-w-0 gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]"
         data-testid="control-room-a2ui-calendar"
       >
         <Calendar
           mode="multiple"
           selected={selectedDates}
-          className="rounded-lg border"
+          className="max-w-full rounded-lg border"
         />
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <div>
             <h4 className="text-sm font-semibold">{props.title}</h4>
             {props.summary ? (
@@ -749,10 +760,12 @@ export const controlRoomA2UIRenderers = {
           {events.map((event) => (
             <div
               key={`${event.date}-${event.label}`}
-              className="rounded-lg border p-3 text-sm"
+              className="min-w-0 rounded-lg border p-3 text-sm"
             >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">{event.label}</span>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <span className="min-w-0 break-words font-medium">
+                  {event.label}
+                </span>
                 <Badge
                   variant="outline"
                   className={badgeVariantClass(event.tone)}
