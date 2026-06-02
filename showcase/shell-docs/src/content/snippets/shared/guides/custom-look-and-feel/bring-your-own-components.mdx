@@ -25,7 +25,7 @@ The main thing to be aware of here is the `message` prop, which is the message t
 
 ```tsx
 import { type UserMessageProps } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -62,7 +62,7 @@ import { useChatContext } from "@copilotkit/react-core/v2";
 import { Markdown } from "@copilotkit/react-core/v2";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -113,7 +113,7 @@ import {
   useChatContext,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 function Window({ children }: WindowProps) {
   const { open, setOpen } = useChatContext();
@@ -155,7 +155,7 @@ import {
   useChatContext,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 function Button({}: ButtonProps) {
   const { open, setOpen } = useChatContext();
@@ -197,7 +197,7 @@ import {
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 function Header({}: HeaderProps) {
   const { setOpen, icons, labels } = useChatContext();
@@ -235,7 +235,7 @@ The Messages component handles the display and organization of different message
 
 ```tsx
 import { type MessagesProps, CopilotSidebar } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export default function CustomMessages({
@@ -281,7 +281,7 @@ The suggestions component allows you to customize how suggestions are displayed.
     The main props to be aware of are the `suggestions` array and `onSuggestionClick` function.
 
     ```tsx
-        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotKit } from "@copilotkit/react-core/v2";
         import {
             CopilotSidebar,
             type CopilotChatSuggestion,
@@ -326,7 +326,7 @@ to have a custom "Ask" button and placeholder text.
 
 ```tsx
 import { type InputProps, CopilotSidebar } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
   const handleSubmit = (value: string) => {
@@ -486,7 +486,7 @@ For a complete guide, see [Reasoning Messages](/custom-look-and-feel/reasoning-m
 
 ```tsx
 import { type CopilotChatReasoningMessageProps } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 

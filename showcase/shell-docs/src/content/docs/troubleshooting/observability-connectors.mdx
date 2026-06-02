@@ -10,7 +10,7 @@ See [Observability](/premium/observability) for a complete description of all Ob
 ## Quick Setup
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -69,7 +69,7 @@ type CopilotKitErrorEvent = {
 - **`context`** — a free-form record carrying whatever extra metadata the error site provides (e.g. `agentId`, `runId`, `toolName`, request URL).
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 <CopilotKit
@@ -103,7 +103,7 @@ import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 ```tsx
 import * as Sentry from "@sentry/react";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
@@ -125,7 +125,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 ### Custom Analytics
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   publicApiKey="ck_pub_your_key" // or publicLicenseKey for self-hosted
@@ -178,7 +178,7 @@ The three hooks correspond to the three phases of an LLM call. Custom observabil
 ### Development Environment
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   runtimeUrl="http://localhost:3000/api/copilotkit"
@@ -196,7 +196,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 ### Production Environment
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   runtimeUrl="https://your-app.com/api/copilotkit"

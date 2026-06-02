@@ -24,7 +24,7 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 ### Update v1 hook imports
 
 Replace v1 hooks from `@copilotkit/react-core` with their v2 equivalents from `@copilotkit/react-core/v2`.
-Keep the `<CopilotKit>` provider imported from `@copilotkit/react-core`.
+Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
 
 #### Before
 
@@ -36,8 +36,7 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 #### After
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
 ```
 
 </Step>
@@ -115,8 +114,7 @@ export function App() {
 ### After
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {

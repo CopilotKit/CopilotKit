@@ -133,25 +133,22 @@ describe("loadDoc", () => {
 });
 
 describe("migration docs", () => {
-  it("recommends the root CopilotKit provider while migrating hooks and UI to v2", () => {
+  it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
     const snippet = fs.readFileSync(
       path.join(SNIPPETS_DIR, "shared/troubleshooting/migrate-to-v2.mdx"),
       "utf8",
     );
 
     expect(snippet).toContain(
-      'import { CopilotKit } from "@copilotkit/react-core";',
+      "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
     );
     expect(snippet).toContain(
-      'import { useAgent } from "@copilotkit/react-core/v2";',
+      'import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";',
     );
     expect(snippet).toContain(
-      'import { CopilotPopup } from "@copilotkit/react-core/v2";',
+      'import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";',
     );
     expect(snippet).not.toContain("CopilotKitProvider");
-    expect(snippet).not.toContain(
-      'import { CopilotKit } from "@copilotkit/react-core/v2";',
-    );
   });
 });
 

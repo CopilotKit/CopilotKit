@@ -40,7 +40,7 @@ export const POST = async (req: NextRequest) => {
 Then point your frontend at the endpoint:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
@@ -115,7 +115,7 @@ a2ui: { agents: ["my-agent"] }
 On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
   {children}
@@ -145,7 +145,7 @@ CopilotKit is built on the [AG-UI protocol](./ag-ui), which is an open standard.
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 const myAgent = new HttpAgent({
   url: "https://my-agent.example.com",
