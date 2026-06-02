@@ -5,12 +5,14 @@
  * the array into `createSlackBridge({components: appComponents})`.
  */
 import { issueListComponent } from "./issue-list.js";
+import { issueCardComponent } from "./issue-card.js";
 import { pageListComponent } from "./page-list.js";
 import type { SlackComponent } from "@copilotkit/slack";
 
 export const appComponents: ReadonlyArray<SlackComponent> = [
   issueListComponent,
+  issueCardComponent,
   pageListComponent,
 ];
 
-export { issueListComponent, pageListComponent };
+export { issueListComponent, issueCardComponent, pageListComponent };

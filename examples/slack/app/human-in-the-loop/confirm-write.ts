@@ -9,11 +9,17 @@
  * The Slack-side equivalent of React's `useHumanInTheLoop`. Because #4883's
  * HITL encodes its resume payload into the button `value`, a click still
  * works minutes later — even after a deploy restarted the bridge process —
- * which is exactly the "approve the action 20 minutes later" durability
- * story.
+ * the "approve the action 20 minutes later" durability story.
  */
 import { z } from "zod";
 import { defineHumanInTheLoop } from "@copilotkit/slack";
+import type { KnownBlock } from "@slack/types";
+
+/** header text is plain_text and capped at 150 chars. */
+const header = (text: string): KnownBlock => ({
+  type: "header",
+  text: { type: "plain_text", text: text.slice(0, 150), emoji: true },
+});
 
 export const confirmWriteHitl = defineHumanInTheLoop({
   name: "confirm_write",
@@ -42,24 +48,37 @@ export const confirmWriteHitl = defineHumanInTheLoop({
   fallbackText({ action }) {
     return `Approve: ${action}`;
   },
+  // Colored left border that tracks the decision: amber while pending,
+  // green once approved, red if declined, gray on cancel/timeout.
+  accentColor: (state) => {
+    if (state.status === "pending") return "#E2B340";
+    if (state.status === "resolved") {
+      return (state.value as { confirmed: boolean }).confirmed
+        ? "#27AE60"
+        : "#EB5757";
+    }
+    return "#9B9B9B";
+  },
   render(state, api) {
-    const body = (icon: string, label: string) => {
-      const lines = [
-        `${icon}  *${label}*`,
-        `:writing_hand:  ${state.props.action}`,
-      ];
-      if (state.props.detail) lines.push(state.props.detail);
-      return lines.join("\n");
-    };
+    const detailBlock: KnownBlock | undefined = state.props.detail
+      ? {
+          type: "section",
+          text: { type: "mrkdwn", text: state.props.detail },
+        }
+      : undefined;
 
     if (state.status === "pending") {
       return [
+        header(`📝 ${state.props.action}?`),
+        ...(detailBlock ? [detailBlock] : []),
         {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: body(":raised_hand:", "Approve this write?"),
-          },
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: ":lock:  Nothing is written until you click *Create*.",
+            },
+          ],
         },
         {
           type: "actions",
@@ -67,13 +86,13 @@ export const confirmWriteHitl = defineHumanInTheLoop({
             {
               type: "button",
               style: "primary",
-              text: { type: "plain_text", text: "Create" },
+              text: { type: "plain_text", text: "Create", emoji: true },
               action_id: api.respond({ confirmed: true }),
             },
             {
               type: "button",
               style: "danger",
-              text: { type: "plain_text", text: "Cancel" },
+              text: { type: "plain_text", text: "Cancel", emoji: true },
               action_id: api.respond({ confirmed: false }),
             },
           ],
@@ -83,27 +102,36 @@ export const confirmWriteHitl = defineHumanInTheLoop({
 
     if (state.status === "resolved") {
       const v = state.value as { confirmed: boolean };
-      const icon = v.confirmed ? ":white_check_mark:" : ":no_entry_sign:";
-      const label = v.confirmed ? "Approved" : "Declined";
       return [
+        header(`${v.confirmed ? "✅" : "🚫"} ${state.props.action}`),
         {
-          type: "section",
-          text: { type: "mrkdwn", text: body(icon, label) },
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: v.confirmed
+                ? ":white_check_mark:  Approved — writing now."
+                : ":no_entry_sign:  Declined — nothing was written.",
+            },
+          ],
         },
       ];
     }
 
     if (state.status === "cancelled" || state.status === "timeout") {
-      const label =
-        state.status === "timeout"
-          ? "Approval timed out"
-          : "Approval cancelled";
-      const icon =
-        state.status === "timeout" ? ":hourglass:" : ":no_entry_sign:";
+      const timedOut = state.status === "timeout";
       return [
+        header(`${timedOut ? "⏳" : "🚫"} ${state.props.action}`),
         {
-          type: "section",
-          text: { type: "mrkdwn", text: body(icon, label) },
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: timedOut
+                ? ":hourglass:  Approval timed out — nothing was written."
+                : ":no_entry_sign:  Approval cancelled — nothing was written.",
+            },
+          ],
         },
       ];
     }

@@ -372,7 +372,15 @@ export const CASES: E2ECase[] = [
         const errs: string[] = [];
         const buttons: Array<{ action_id?: string; value?: string }> = [];
         for (const m of raw) {
-          for (const b of m.blocks ?? []) {
+          // confirm_write wraps its blocks in a colored attachment, so the
+          // buttons live under attachments[].blocks; scan both.
+          const blocks = [
+            ...(m.blocks ?? []),
+            ...(
+              (m.attachments as Array<{ blocks?: any[] }> | undefined) ?? []
+            ).flatMap((a) => a.blocks ?? []),
+          ];
+          for (const b of blocks) {
             if (b.type === "actions" && Array.isArray(b.elements)) {
               for (const el of b.elements) {
                 if (el?.type === "button") buttons.push(el);

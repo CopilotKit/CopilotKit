@@ -1,14 +1,21 @@
 /**
- * `issue_list` — renders a set of Linear issues as a Block Kit card.
+ * `issue_list` — renders a set of Linear issues as a clean Block Kit card:
+ * a header, then one scannable row per issue (status dot + linked identifier
+ * + title, with a greyed meta line for assignee / priority / updated), with
+ * dividers between rows and a count footer.
  *
- * The agent fetches issues from the Linear MCP server, then calls this
- * component with the fields it wants shown. Keeping the render here (not
- * in the agent) means the agent only has to produce data; the Slack
- * formatting — mrkdwn links, status dots, assignee — lives in one place.
+ * The agent fetches issues from the Linear MCP server and passes the fields
+ * it wants shown; the Slack formatting lives here. For a single issue (or
+ * right after creating one) prefer `issue_card`, which shows a full grid.
  */
 import { z } from "zod";
 import { defineSlackComponent } from "@copilotkit/slack";
 import type { KnownBlock } from "@slack/types";
+import {
+  accentForIssues,
+  priorityShortcode,
+  stateShortcode,
+} from "./_status.js";
 
 const issueSchema = z.object({
   identifier: z.string().describe("Linear issue identifier, e.g. 'CPK-1234'."),
@@ -25,7 +32,11 @@ const issueSchema = z.object({
   priority: z
     .string()
     .optional()
-    .describe("Priority label, e.g. 'Urgent', 'High'."),
+    .describe("Priority label, e.g. 'Urgent', 'High', 'Medium', 'Low'."),
+  updated: z
+    .string()
+    .optional()
+    .describe("Human-readable last-updated, e.g. '2d ago'."),
 });
 
 const issueListSchema = z.object({
@@ -36,65 +47,73 @@ const issueListSchema = z.object({
   issues: z.array(issueSchema).min(1).describe("The issues to render."),
 });
 
-/** Map a Linear workflow-state name to a coloured status dot. */
-function stateDot(state?: string): string {
-  const s = (state ?? "").toLowerCase();
-  if (s.includes("done") || s.includes("complete")) return ":white_check_mark:";
-  if (s.includes("progress") || s.includes("started"))
-    return ":large_blue_circle:";
-  if (s.includes("cancel")) return ":no_entry_sign:";
-  if (s.includes("backlog")) return ":white_circle:";
-  return ":large_orange_circle:"; // Todo / triage / unknown
-}
-
 export const issueListComponent = defineSlackComponent({
   name: "issue_list",
   description:
-    "Render a list of Linear issues as a Block Kit card (one row per issue " +
-    "with a status dot, the identifier as a link, the title, assignee and " +
-    "priority). Use this whenever you're showing the user issues you pulled " +
-    "from Linear instead of writing them out as prose.",
+    "Render a list of Linear issues as a Block Kit card — a header plus one " +
+    "row per issue (status dot, linked identifier, title, and a meta line " +
+    "with assignee/priority/updated). Use this whenever you're showing the " +
+    "user multiple issues you pulled from Linear instead of writing them out " +
+    "as prose. For a single issue, use issue_card.",
+  // Left border surfaces the hottest priority in the list (red=urgent,
+  // orange=high), else Linear purple.
+  accentColor: ({ issues }) => accentForIssues(issues),
   props: issueListSchema,
   fallbackText({ heading, issues }) {
     return `${heading ?? "Linear issues"} (${issues.length})`;
   },
   render({ heading, issues }) {
-    const blocks: KnownBlock[] = [];
+    const blocks: KnownBlock[] = [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: `📋  ${heading ?? "Linear issues"}`,
+          emoji: true,
+        },
+      },
+    ];
 
-    if (heading) {
-      blocks.push({
-        type: "section",
-        text: { type: "mrkdwn", text: `:clipboard:  *${heading}*` },
-      });
-      blocks.push({ type: "divider" });
-    }
-
-    for (const issue of issues) {
+    issues.forEach((issue, i) => {
       const idLink = issue.url
-        ? `<${issue.url}|${issue.identifier}>`
+        ? `<${issue.url}|*${issue.identifier}*>`
         : `*${issue.identifier}*`;
-      const meta = [
-        issue.state ? issue.state : null,
-        issue.assignee
-          ? `:bust_in_silhouette: ${issue.assignee}`
-          : "unassigned",
-        issue.priority ? `:fire: ${issue.priority}` : null,
-      ]
-        .filter(Boolean)
-        .join("  ·  ");
-
       blocks.push({
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `${stateDot(issue.state)}  ${idLink}  ${issue.title}`,
+          text: `${stateShortcode(issue.state)}  ${idLink}  ${issue.title}`,
         },
       });
+
+      const prio = priorityShortcode(issue.priority);
+      const meta = [
+        issue.state,
+        issue.assignee
+          ? `:bust_in_silhouette: ${issue.assignee}`
+          : "unassigned",
+        issue.priority ? `${prio ? `${prio} ` : ""}${issue.priority}` : null,
+        issue.updated ? `:clock3: ${issue.updated}` : null,
+      ]
+        .filter(Boolean)
+        .join("   ·   ");
       blocks.push({
         type: "context",
         elements: [{ type: "mrkdwn", text: meta }],
       });
-    }
+
+      if (i < issues.length - 1) blocks.push({ type: "divider" });
+    });
+
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `${issues.length} issue${issues.length === 1 ? "" : "s"}`,
+        },
+      ],
+    });
 
     return blocks;
   },

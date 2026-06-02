@@ -99,7 +99,19 @@ async function waitForPicker(
     if (!picker) continue;
     const buttons: Array<{ action_id: string; value: string; text: string }> =
       [];
-    for (const b of picker.blocks ?? []) {
+    // confirm_write wraps its blocks in a colored attachment, so the action
+    // buttons live under attachments[].blocks; older pickers use top-level
+    // blocks. Scan both.
+    const pickerAtt = (
+      picker as {
+        attachments?: Array<{ blocks?: Array<Record<string, unknown>> }>;
+      }
+    ).attachments;
+    const allBlocks = [
+      ...(picker.blocks ?? []),
+      ...(pickerAtt ?? []).flatMap((a) => a.blocks ?? []),
+    ];
+    for (const b of allBlocks) {
       if (
         b.type === "actions" &&
         Array.isArray((b as { elements?: unknown[] }).elements)
