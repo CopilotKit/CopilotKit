@@ -23,7 +23,8 @@ internal sealed class ControlRoomAgentFactory
     private const string AgentName = "control_room_agent";
     private const string DefaultModelId = "gpt-5.4";
     private const int MaxContextWindowTokens = 200_000;
-    private const int MaxOutputTokens = 16_000;
+    private const int DefaultMaxOutputTokens = 2_048;
+    private const ReasoningEffort DefaultReasoningEffort = ReasoningEffort.None;
 
     private readonly IConfiguration _configuration;
 
@@ -43,6 +44,8 @@ internal sealed class ControlRoomAgentFactory
         var modelId = _configuration["OPENAI_MODEL_ID"]
             ?? Environment.GetEnvironmentVariable("OPENAI_MODEL_ID")
             ?? DefaultModelId;
+        var maxOutputTokens = ResolveMaxOutputTokens(_configuration);
+        var reasoningEffort = ResolveReasoningEffort(_configuration);
 
         // Use OpenAI's public Responses API directly — Wesley's Harness samples
         // funnel through Azure AI Foundry, but Harness's IChatClient pipeline is
@@ -100,7 +103,7 @@ internal sealed class ControlRoomAgentFactory
 
         var harnessAgent = chatClient.AsHarnessAgent(
             MaxContextWindowTokens,
-            MaxOutputTokens,
+            maxOutputTokens,
             new HarnessAgentOptions
             {
                 Name = AgentName,
@@ -121,7 +124,8 @@ internal sealed class ControlRoomAgentFactory
                     // display components from being batched with pending
                     // Harness tool calls.
                     AllowMultipleToolCalls = false,
-                    MaxOutputTokens = MaxOutputTokens,
+                    MaxOutputTokens = maxOutputTokens,
+                    Reasoning = new ReasoningOptions { Effort = reasoningEffort },
                     Tools = [gatedPnpmTool, a2uiTool],
                 },
             });
@@ -131,6 +135,47 @@ internal sealed class ControlRoomAgentFactory
         // function-call so the AG-UI wire (which only serialises function-
         // calls + text) can carry the approval flow end-to-end.
         return new ApprovalContentWireBridge(harnessAgent);
+    }
+
+    private static int ResolveMaxOutputTokens(IConfiguration configuration)
+    {
+        var raw = configuration["CONTROL_ROOM_MAX_OUTPUT_TOKENS"]
+            ?? Environment.GetEnvironmentVariable("CONTROL_ROOM_MAX_OUTPUT_TOKENS");
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultMaxOutputTokens;
+        }
+
+        if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0)
+        {
+            return value;
+        }
+
+        throw new InvalidOperationException(
+            "CONTROL_ROOM_MAX_OUTPUT_TOKENS must be a positive integer when set.");
+    }
+
+    private static ReasoningEffort ResolveReasoningEffort(IConfiguration configuration)
+    {
+        var raw = configuration["CONTROL_ROOM_REASONING_EFFORT"]
+            ?? Environment.GetEnvironmentVariable("CONTROL_ROOM_REASONING_EFFORT");
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultReasoningEffort;
+        }
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "none" => ReasoningEffort.None,
+            "low" => ReasoningEffort.Low,
+            "medium" => ReasoningEffort.Medium,
+            "high" => ReasoningEffort.High,
+            "extra-high" or "extrahigh" or "extra_high" => ReasoningEffort.ExtraHigh,
+            _ => throw new InvalidOperationException(
+                "CONTROL_ROOM_REASONING_EFFORT must be one of: none, low, medium, high, extra-high."),
+        };
     }
 
     /// <summary>
@@ -770,6 +815,12 @@ internal sealed class ControlRoomAgentFactory
         the operator to exit Plan mode for read-only visualization or preview
         prompts; stay in the current mode and render the display. Switch to Act
         mode only before edits or command execution.
+
+        For pure display-only prompts, start streaming immediately with one
+        brief acknowledgement sentence of eight words or fewer, then call the
+        display tool. Keep the acknowledgement specific and non-processy, for
+        example: "Here is a compact revenue dashboard." Do not do this before
+        workspace inspection, edits, command execution, or approval flows.
 
         Frontend display tools are named `show...` (for example
         `showBarChart`, `showLineChart`, `showAreaChart`,

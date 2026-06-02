@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -57,15 +58,52 @@ internal sealed class ApprovalContentWireBridge : DelegatingAIAgent
         AgentRunOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var stopwatch = Stopwatch.StartNew();
+        var updateCount = 0;
+        var firstUpdateLogged = false;
+        var firstContentUpdateLogged = false;
+
         // Transform incoming approval responses from the client into the typed
         // ToolApproval* shapes the inner Harness loop recognises.
         var processedMessages = ProcessIncomingApprovals(messages.ToList(), _jsonOptions);
+        LogLatency($"run-start messages={processedMessages.Count}");
 
-        await foreach (var update in InnerAgent.RunStreamingAsync(
-            processedMessages, session, options, cancellationToken).ConfigureAwait(false))
+        try
         {
-            yield return ProcessOutgoingApprovalRequests(update, _jsonOptions);
+            await foreach (var update in InnerAgent.RunStreamingAsync(
+                processedMessages, session, options, cancellationToken).ConfigureAwait(false))
+            {
+                updateCount++;
+                if (!firstUpdateLogged)
+                {
+                    firstUpdateLogged = true;
+                    var contentTypes = update.Contents.Count == 0
+                        ? "none"
+                        : string.Join(",", update.Contents.Select(c => c.GetType().Name));
+                    LogLatency(
+                        $"first-inner-update elapsed_ms={stopwatch.ElapsedMilliseconds} content_types={contentTypes}");
+                }
+                if (!firstContentUpdateLogged && update.Contents.Count > 0)
+                {
+                    firstContentUpdateLogged = true;
+                    var contentTypes = string.Join(",", update.Contents.Select(c => c.GetType().Name));
+                    LogLatency(
+                        $"first-content-update elapsed_ms={stopwatch.ElapsedMilliseconds} content_types={contentTypes}");
+                }
+
+                yield return ProcessOutgoingApprovalRequests(update, _jsonOptions);
+            }
         }
+        finally
+        {
+            LogLatency($"run-finished elapsed_ms={stopwatch.ElapsedMilliseconds} updates={updateCount}");
+        }
+    }
+
+    private static void LogLatency(string message)
+    {
+        Console.WriteLine(
+            $"[control-room-latency] {DateTimeOffset.UtcNow:O} {message}");
     }
 
     // ---------- outbound: ToolApprovalRequestContent → request_approval ----------

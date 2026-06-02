@@ -98,10 +98,12 @@ The active fixture lives in the container's writable layer and is wiped whenever
 
 `.env` (loaded by `docker-compose.yml`):
 
-| Variable          | Required | Default   | Notes                                  |
-| ----------------- | -------- | --------- | -------------------------------------- |
-| `OPENAI_API_KEY`  | yes      | —         | OpenAI key used by the .NET agent.     |
-| `OPENAI_MODEL_ID` | no       | `gpt-5.4` | Override the Responses API model name. |
+| Variable                         | Required | Default   | Notes                                                    |
+| -------------------------------- | -------- | --------- | -------------------------------------------------------- |
+| `OPENAI_API_KEY`                 | yes      | —         | OpenAI key used by the .NET agent.                       |
+| `OPENAI_MODEL_ID`                | no       | `gpt-5.4` | Override the Responses API model name.                   |
+| `CONTROL_ROOM_REASONING_EFFORT`  | no       | `none`    | Reasoning effort for model calls; higher values are slower. |
+| `CONTROL_ROOM_MAX_OUTPUT_TOKENS` | no       | `2048`    | Max generated output tokens per agent call.              |
 
 The `.env` file is gitignored — your token never leaves the host.
 
