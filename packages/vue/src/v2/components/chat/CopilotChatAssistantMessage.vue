@@ -11,7 +11,7 @@ import {
   IconThumbsUp,
   IconVolume2,
 } from "../icons";
-import BasicMarkdown from "./BasicMarkdown.vue";
+import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
 import { useMarkdownRenderer } from "../../providers/markdown-renderer";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
 import type {
@@ -128,7 +128,7 @@ const hasContent = computed(() => normalizedContent.value.trim().length > 0);
 
 const providerMarkdownRenderer = useMarkdownRenderer();
 const ActiveMarkdownRenderer = computed(
-  () => providerMarkdownRenderer ?? BasicMarkdown,
+  () => providerMarkdownRenderer ?? StreamingMarkdownDefault,
 );
 
 function hasListener(listenerName: string) {

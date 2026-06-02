@@ -3090,6 +3090,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/markdown-renderer':
+        specifier: workspace:*
+        version: link:../markdown-renderer
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared

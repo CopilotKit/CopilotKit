@@ -88,54 +88,71 @@ function renderTextSegments(node: TextNode): (VNode | string)[] {
   );
 }
 
-function renderChildren(childIds: number[], nodeById: NodeById): (VNode | string | null)[] {
+function renderChildren(
+  childIds: number[],
+  nodeById: NodeById,
+  nodeRenderers?: VueStreamingMarkdownNodeRenderers,
+): (VNode | string | null)[] {
   return childIds.map((id) => {
     const child = nodeById.get(id);
-    return child ? renderNode(child, nodeById) : null;
+    return child ? renderNode(child, nodeById, nodeRenderers) : null;
   });
 }
 
-function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode | string | null {
+function renderNode(
+  node: StreamingMarkdownAstNode,
+  nodeById: NodeById,
+  nodeRenderers?: VueStreamingMarkdownNodeRenderers,
+): VNode | string | null {
+  // Helper: apply a nodeRenderers override if one is registered for this node type.
+  function withOverride(key: string, defaultVNode: VNode | string | null): VNode | string | null {
+    const override = nodeRenderers?.[key];
+    return override ? override(node, defaultVNode) : defaultVNode;
+  }
+
   switch (node.type) {
     case 'document': {
       // Document is transparent — render children directly as a Fragment via array
       // We wrap in a div for the root element, handled at the top level.
       // Here just return children inlined (will be wrapped by root div).
-      return h('span', { style: 'display:contents' }, renderChildren(node.children, nodeById));
+      return h('span', { style: 'display:contents' }, renderChildren(node.children, nodeById, nodeRenderers));
     }
 
     case 'paragraph': {
-      return h(
+      const defaultVNode = h(
         'p',
         {
           'data-streaming-markdown-node': 'paragraph',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('paragraph', defaultVNode);
     }
 
     case 'heading': {
       const tag = `h${node.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
-      return h(
+      const defaultVNode = h(
         tag,
         {
           'data-streaming-markdown-node': 'heading',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('heading', defaultVNode);
     }
 
     case 'blockquote': {
-      return h(
+      const defaultVNode = h(
         'blockquote',
         {
           'data-streaming-markdown-node': 'blockquote',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('blockquote', defaultVNode);
     }
 
     case 'list': {
@@ -148,72 +165,80 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
       if (node.ordered && node.start != null) {
         attrs.start = node.start;
       }
-      return h(tag, attrs, renderChildren(node.children, nodeById));
+      const defaultVNode = h(tag, attrs, renderChildren(node.children, nodeById, nodeRenderers));
+      return withOverride('list', defaultVNode);
     }
 
     case 'list-item': {
-      return h(
+      const defaultVNode = h(
         'li',
         {
           'data-streaming-markdown-node': 'list-item',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('list-item', defaultVNode);
     }
 
     case 'code-block': {
-      return h(
+      const defaultVNode = h(
         'pre',
         {
           'data-streaming-markdown-node': 'code-block',
           'data-node-open': String(!node.closed),
+          class: 'cpk:overflow-x-auto cpk:rounded-lg cpk:p-3',
         },
         [h('code', { 'data-code-info': node.info ?? undefined }, node.text)],
       );
+      return withOverride('codeBlock', defaultVNode);
     }
 
     case 'table': {
-      return h(
+      const defaultVNode = h(
         'table',
         {
           'data-streaming-markdown-node': 'table',
           'data-node-open': String(!node.closed),
         },
-        [h('tbody', renderChildren(node.children, nodeById))],
+        [h('tbody', renderChildren(node.children, nodeById, nodeRenderers))],
       );
+      return withOverride('table', defaultVNode);
     }
 
     case 'table-row': {
-      return h(
+      const defaultVNode = h(
         'tr',
         {
           'data-streaming-markdown-node': 'table-row',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('table-row', defaultVNode);
     }
 
     case 'table-cell': {
       const parent = node.parentId != null ? nodeById.get(node.parentId) : undefined;
       const isHeader = parent?.type === 'table-row' && parent.isHeader;
       const tag = isHeader ? 'th' : 'td';
-      return h(
+      const defaultVNode = h(
         tag,
         {
           'data-streaming-markdown-node': 'table-cell',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('table-cell', defaultVNode);
     }
 
     case 'thematic-break': {
-      return h('hr', {
+      const defaultVNode = h('hr', {
         'data-streaming-markdown-node': 'thematic-break',
         'data-node-open': String(!node.closed),
       });
+      return withOverride('thematic-break', defaultVNode);
     }
 
     case 'text': {
@@ -221,40 +246,43 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
     }
 
     case 'em': {
-      return h(
+      const defaultVNode = h(
         'em',
         {
           'data-streaming-markdown-node': 'em',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('em', defaultVNode);
     }
 
     case 'strong': {
-      return h(
+      const defaultVNode = h(
         'strong',
         {
           'data-streaming-markdown-node': 'strong',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('strong', defaultVNode);
     }
 
     case 'strikethrough': {
-      return h(
+      const defaultVNode = h(
         'del',
         {
           'data-streaming-markdown-node': 'strikethrough',
           'data-node-open': String(!node.closed),
         },
-        renderChildren(node.children, nodeById),
+        renderChildren(node.children, nodeById, nodeRenderers),
       );
+      return withOverride('strikethrough', defaultVNode);
     }
 
     case 'inline-code': {
-      return h(
+      const defaultVNode = h(
         'code',
         {
           'data-streaming-markdown-node': 'inline-code',
@@ -262,6 +290,7 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
         },
         node.text,
       );
+      return withOverride('inline-code', defaultVNode);
     }
 
     case 'soft-break': {
@@ -269,10 +298,11 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
     }
 
     case 'hard-break': {
-      return h('br', {
+      const defaultVNode = h('br', {
         'data-streaming-markdown-node': 'hard-break',
         'data-node-open': String(!node.closed),
       });
+      return withOverride('hard-break', defaultVNode);
     }
 
     case 'link': {
@@ -289,7 +319,8 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
       if (node.title) {
         attrs.title = node.title;
       }
-      return h('a', attrs, renderChildren(node.children, nodeById));
+      const defaultVNode = h('a', attrs, renderChildren(node.children, nodeById, nodeRenderers));
+      return withOverride('link', defaultVNode);
     }
 
     case 'image': {
@@ -305,7 +336,8 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
       if (node.title) {
         attrs.title = node.title;
       }
-      return h('img', attrs);
+      const defaultVNode = h('img', attrs);
+      return withOverride('image', defaultVNode);
     }
 
     case 'autolink': {
@@ -319,12 +351,13 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
       if (safeHref != null) {
         attrs.href = safeHref;
       }
-      return h('a', attrs, node.text);
+      const defaultVNode = h('a', attrs, node.text);
+      return withOverride('autolink', defaultVNode);
     }
 
     case 'citation': {
       // Render as a superscript with the citation reference
-      return h(
+      const defaultVNode = h(
         'sup',
         {
           'data-streaming-markdown-node': 'citation',
@@ -339,6 +372,7 @@ function renderNode(node: StreamingMarkdownAstNode, nodeById: NodeById): VNode |
           ),
         ],
       );
+      return withOverride('citation', defaultVNode);
     }
 
     default: {
@@ -412,6 +446,18 @@ export const StreamingMarkdownRenderer = defineComponent({
       type: Boolean as PropType<boolean>,
       default: false,
     },
+    /**
+     * Optional map of node-type keys to custom Vue render functions.
+     * Each function receives the AST node and the default VNode and can return
+     * a replacement VNode (or the defaultVNode to keep the default).
+     * Supported keys: paragraph, heading, blockquote, list, list-item, codeBlock,
+     * table, table-row, table-cell, thematic-break, em, strong, strikethrough,
+     * inline-code, hard-break, link, image, autolink, citation.
+     */
+    nodeRenderers: {
+      type: Object as PropType<VueStreamingMarkdownNodeRenderers>,
+      default: undefined,
+    },
   },
 
   setup(props) {
@@ -432,6 +478,7 @@ export const StreamingMarkdownRenderer = defineComponent({
       const state = parserState.value;
       const byId = nodeById.value;
       const rootNode = state.rootId != null ? byId.get(state.rootId) : undefined;
+      const renderers = props.nodeRenderers;
 
       const rootClass = props.class
         ? `hb-streaming-markdown-root ${props.class}`
@@ -449,9 +496,9 @@ export const StreamingMarkdownRenderer = defineComponent({
         rootNode.type === 'document'
           ? rootNode.children.map((id) => {
               const child = byId.get(id);
-              return child ? renderNode(child, byId) : null;
+              return child ? renderNode(child, byId, renderers) : null;
             })
-          : [renderNode(rootNode, byId)];
+          : [renderNode(rootNode, byId, renderers)];
 
       // Append caret if requested and not complete
       if (props.caret && !state.isComplete) {
