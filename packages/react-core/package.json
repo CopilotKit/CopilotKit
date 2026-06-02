@@ -78,6 +78,7 @@
     "@ag-ui/core": "0.0.53",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
+    "@copilotkit/markdown-renderer": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
