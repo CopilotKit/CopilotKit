@@ -375,10 +375,7 @@ describe("computeColumnTallyDetail", () => {
       // aggregate distractor — NOT consulted by per-cell resolveD6.
       ["d6:lgp", makeRow("d6:lgp", "d6", "red")],
       // …but per-cell: voice passed parity, agentic-chat did not.
-      [
-        "d6:lgp/agentic-chat",
-        makeRow("d6:lgp/agentic-chat", "d6", "red"),
-      ],
+      ["d6:lgp/agentic-chat", makeRow("d6:lgp/agentic-chat", "d6", "red")],
       ["d6:lgp/voice", makeRow("d6:lgp/voice", "d6", "green")],
     ]);
 

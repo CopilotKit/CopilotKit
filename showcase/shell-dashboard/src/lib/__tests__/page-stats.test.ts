@@ -118,10 +118,20 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
   it("lands a wired-but-unverified cell in d0 and sums to the wired total", () => {
     // Three wired cells: one reaches D6, two have no live data → D0.
     const d6Cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
-    const d0CellA = wiredCell({ integration: "mastra", feature: "agentic-chat" });
-    const d0CellB = wiredCell({ integration: "crewai", feature: "agentic-chat" });
+    const d0CellA = wiredCell({
+      integration: "mastra",
+      feature: "agentic-chat",
+    });
+    const d0CellB = wiredCell({
+      integration: "crewai",
+      feature: "agentic-chat",
+    });
     // A non-wired cell must NOT be counted toward the wired total.
-    const stub = wiredCell({ integration: "x", feature: "agentic-chat", status: "stub" });
+    const stub = wiredCell({
+      integration: "x",
+      feature: "agentic-chat",
+      status: "stub",
+    });
     const cells = [d6Cell, d0CellA, d0CellB, stub];
     const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
     const now = Date.parse(FRESH);
@@ -171,9 +181,18 @@ describe("computeD6Stats — degraded (Finding #2)", () => {
   });
 
   it("still counts green / red / gray (no row) correctly", () => {
-    const greenCell = wiredCell({ integration: "agno", feature: "agentic-chat" });
-    const redCell = wiredCell({ integration: "mastra", feature: "agentic-chat" });
-    const grayCell = wiredCell({ integration: "agno", feature: "tool-rendering" });
+    const greenCell = wiredCell({
+      integration: "agno",
+      feature: "agentic-chat",
+    });
+    const redCell = wiredCell({
+      integration: "mastra",
+      feature: "agentic-chat",
+    });
+    const grayCell = wiredCell({
+      integration: "agno",
+      feature: "tool-rendering",
+    });
     const live = mapOf([
       row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
       row(keyFor("d6", "mastra", "agentic-chat"), "d6", "red"),

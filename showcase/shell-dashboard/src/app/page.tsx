@@ -108,10 +108,7 @@ export default function Page() {
 
   // Compute parity tier counts (validates tier before indexing — fail-loud
   // on unknown tiers rather than producing NaN).
-  const parityStats = useMemo(
-    () => computeParityStats(catalogData.cells),
-    [],
-  );
+  const parityStats = useMemo(() => computeParityStats(catalogData.cells), []);
 
   // Compute docs reachability stats from unique feature IDs
   const docsStats = useMemo(() => {

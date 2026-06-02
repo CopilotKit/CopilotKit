@@ -249,12 +249,18 @@ describe("(1) per-depth badge rendering — API/RT/CV/D6", () => {
     // CV (d5) — single enum key (agentic-chat→agentic-chat)
     {
       badge: "CV",
-      rows: [...gateGreen(FEATURE), row(keyFor("d5", SLUG, FEATURE), "d5", "green")],
+      rows: [
+        ...gateGreen(FEATURE),
+        row(keyFor("d5", SLUG, FEATURE), "d5", "green"),
+      ],
       expectStatus: "green",
     },
     {
       badge: "CV",
-      rows: [...gateGreen(FEATURE), row(keyFor("d5", SLUG, FEATURE), "d5", "red")],
+      rows: [
+        ...gateGreen(FEATURE),
+        row(keyFor("d5", SLUG, FEATURE), "d5", "red"),
+      ],
       expectStatus: "red",
     },
     // D6 — single enum key
@@ -288,9 +294,8 @@ describe("(1) per-depth badge rendering — API/RT/CV/D6", () => {
       );
       expect(labels.length).toBe(1);
       // The glyph sibling carries the tone class.
-      const glyphSpan = labels[0].parentElement?.querySelector(
-        "span.tabular-nums",
-      );
+      const glyphSpan =
+        labels[0].parentElement?.querySelector("span.tabular-nums");
       expect(glyphSpan).not.toBeNull();
       const expected = BADGE_RENDER[c.expectStatus ?? "null"];
       expect(glyphSpan?.textContent).toBe(expected.glyph);
@@ -352,22 +357,57 @@ describe("(2) D6 / D5 enum fan-out rollup → chip color", () => {
   // Derived from spec §5 chipColor decision table. Gate is green throughout.
   const fanCases: FanCase[] = [
     // D5 all-green + D6 all-green → green
-    { name: "D5 all-pass + D6 all-pass", d5: "green", d6: "green", expectChip: "green" },
+    {
+      name: "D5 all-pass + D6 all-pass",
+      d5: "green",
+      d6: "green",
+      expectChip: "green",
+    },
     // D5 all-green + D6 any-fail → amber (D5 green, D6 red)
-    { name: "D5 all-pass + D6 all-fail", d5: "green", d6: "red", expectChip: "amber" },
+    {
+      name: "D5 all-pass + D6 all-fail",
+      d5: "green",
+      d6: "red",
+      expectChip: "amber",
+    },
     // D5 all-green + D6 absent (unemitted) → amber (D5 green, D6 missing)
-    { name: "D5 all-pass + D6 absent", d5: "green", d6: "absent", expectChip: "amber" },
+    {
+      name: "D5 all-pass + D6 absent",
+      d5: "green",
+      d6: "absent",
+      expectChip: "amber",
+    },
     // D5 all-missing (none emitted) + D6 absent → D5 null → gray
-    { name: "D5 all-missing + D6 absent", d5: "absent", d6: "absent", expectChip: "gray" },
+    {
+      name: "D5 all-missing + D6 absent",
+      d5: "absent",
+      d6: "absent",
+      expectChip: "gray",
+    },
     // D5 partial (1 sub-key missing) + D6 absent → D5 null (strict) → gray
-    { name: "D5 partial + D6 absent", d5: "missing-one", d6: "absent", expectChip: "gray" },
+    {
+      name: "D5 partial + D6 absent",
+      d5: "missing-one",
+      d6: "absent",
+      expectChip: "gray",
+    },
     // D5 any-fail (one red sub-key, RED FIRST) → red (broken ladder dominates D6)
-    { name: "D5 any-fail (red first)", d5: "red", d6: "green", expectChip: "red" },
+    {
+      name: "D5 any-fail (red first)",
+      d5: "red",
+      d6: "green",
+      expectChip: "red",
+    },
     // D5 any-fail with the red sub-key NOT first (greens, then a red) →
     // still red. Proves the worst-state fold is order-independent: a red
     // encountered AFTER greens must not be lost. Mirrors the
     // mid-list-red worst-state style in cell-model.test.ts / live-status.test.ts.
-    { name: "D5 any-fail (red NOT first)", d5: "red-late", d6: "green", expectChip: "red" },
+    {
+      name: "D5 any-fail (red NOT first)",
+      d5: "red-late",
+      d6: "green",
+      expectChip: "red",
+    },
   ];
 
   function buildFanRows(
@@ -545,7 +585,9 @@ describe("(4) depth chip rendering D0..D6 × wired/unwired", () => {
 
   it("regression always forces danger-red regardless of color", () => {
     for (const color of colors) {
-      expect(chipColorToClass(color, true)).toBe("bg-[var(--danger)] text-white");
+      expect(chipColorToClass(color, true)).toBe(
+        "bg-[var(--danger)] text-white",
+      );
     }
   });
 
@@ -679,9 +721,7 @@ describe("(6) edges + rollup precedence", () => {
     // `tabular-nums`, so a container-wide selector would catch the chip.
     const healthLayer = queryByTestId("health-layer");
     expect(healthLayer).not.toBeNull();
-    expect(
-      healthLayer?.querySelectorAll("span.tabular-nums").length,
-    ).toBe(0);
+    expect(healthLayer?.querySelectorAll("span.tabular-nums").length).toBe(0);
     expect(queryByTestId("depth-chip")?.className).toContain(CHIP_CLASS.gray);
   });
 
@@ -745,11 +785,7 @@ describe("(6) edges + rollup precedence", () => {
     const integration = {
       slug: SLUG,
       name: "Agno",
-      demos: [
-        { id: "agentic-chat" },
-        { id: "voice" },
-        { id: "subagents" },
-      ],
+      demos: [{ id: "agentic-chat" }, { id: "voice" }, { id: "subagents" }],
     } as unknown as Integration;
     const features = [
       makeFeature("agentic-chat"), // green

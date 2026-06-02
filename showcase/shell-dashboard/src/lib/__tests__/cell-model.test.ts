@@ -742,7 +742,10 @@ describe("buildCellModel", () => {
         row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
         row(keyFor("d6", "agno", "voice"), "d6", "green"),
       ]);
-      const modelChat = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      const modelChat = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+      );
       const modelVoice = buildCellModel(live, wiredInput("agno", "voice"));
       expect(modelChat.d6!.status).toBe("red");
       expect(modelVoice.d6!.status).toBe("green");
@@ -767,7 +770,11 @@ describe("buildCellModel", () => {
         row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
         row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "green"),
         row(keyFor("d5", "agno", "beautiful-chat-bar-chart"), "d5", "green"),
-        row(keyFor("d5", "agno", "beautiful-chat-search-flights"), "d5", "green"),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
         row(
           keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
           "d5",
@@ -776,7 +783,11 @@ describe("buildCellModel", () => {
         // D6: only 4 of 5 per-cell rows present (bar-chart omitted).
         row(keyFor("d6", "agno", "beautiful-chat-toggle-theme"), "d6", "green"),
         row(keyFor("d6", "agno", "beautiful-chat-pie-chart"), "d6", "green"),
-        row(keyFor("d6", "agno", "beautiful-chat-search-flights"), "d6", "green"),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-search-flights"),
+          "d6",
+          "green",
+        ),
         row(
           keyFor("d6", "agno", "beautiful-chat-schedule-meeting"),
           "d6",
@@ -801,7 +812,11 @@ describe("buildCellModel", () => {
         row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
         row(keyFor("d5", "agno", "beautiful-chat-pie-chart"), "d5", "green"),
         row(keyFor("d5", "agno", "beautiful-chat-bar-chart"), "d5", "green"),
-        row(keyFor("d5", "agno", "beautiful-chat-search-flights"), "d5", "green"),
+        row(
+          keyFor("d5", "agno", "beautiful-chat-search-flights"),
+          "d5",
+          "green",
+        ),
         row(
           keyFor("d5", "agno", "beautiful-chat-schedule-meeting"),
           "d5",
@@ -810,7 +825,11 @@ describe("buildCellModel", () => {
         // D6: one present sub-row is red, bar-chart missing.
         row(keyFor("d6", "agno", "beautiful-chat-toggle-theme"), "d6", "green"),
         row(keyFor("d6", "agno", "beautiful-chat-pie-chart"), "d6", "red"),
-        row(keyFor("d6", "agno", "beautiful-chat-search-flights"), "d6", "green"),
+        row(
+          keyFor("d6", "agno", "beautiful-chat-search-flights"),
+          "d6",
+          "green",
+        ),
         row(
           keyFor("d6", "agno", "beautiful-chat-schedule-meeting"),
           "d6",
@@ -1286,7 +1305,12 @@ describe("buildCellModel", () => {
       const live = mapOf([
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
         rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
-        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", E2E_STALE, "green"),
+        rowAtAge(
+          keyFor("d5", "agno", "agentic-chat"),
+          "d5",
+          E2E_STALE,
+          "green",
+        ),
       ]);
       const model = buildCellModel(
         live,
@@ -1302,7 +1326,12 @@ describe("buildCellModel", () => {
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
         rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
         rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
-        rowAtAge(keyFor("d6", "agno", "agentic-chat"), "d6", E2E_STALE, "green"),
+        rowAtAge(
+          keyFor("d6", "agno", "agentic-chat"),
+          "d6",
+          E2E_STALE,
+          "green",
+        ),
       ]);
       const model = buildCellModel(
         live,
