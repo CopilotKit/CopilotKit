@@ -243,4 +243,61 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     expect(agent.runAgentCalls).toHaveLength(3);
     expect(result.newMessages).toEqual([finalMsg]);
   });
+
+  it("should not re-execute a tool whose result already exists in agent.messages", async () => {
+    // Regression test for #2416 / #3044: when the backend re-emits an
+    // assistant tool-call message whose result is already in the conversation
+    // history, the tool handler must not run again, no duplicate tool-result
+    // message must be inserted, and no follow-up must be triggered. Otherwise
+    // a backend that keeps re-sending the tool call (e.g. after a RunError)
+    // drives an infinite execute → follow-up loop.
+    const handler = vi.fn(async () => "Result");
+    const tool = createTool({
+      name: "dedupeTool",
+      handler,
+      followUp: true,
+    });
+    copilotKitCore.addTool(tool);
+
+    const toolCallId = "tool-call-dedupe-1";
+    const assistantMessage = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: toolCallId,
+          type: "function",
+          function: { name: "dedupeTool", arguments: "{}" },
+        },
+      ],
+    });
+    const toolResultMessage = {
+      id: "tool-result-dedupe-1",
+      role: "tool" as const,
+      toolCallId,
+      content: "Result",
+    };
+
+    // History already contains the assistant tool-call and its result.
+    const agent = new MockAgent({
+      messages: [assistantMessage, toolResultMessage],
+      // Backend re-emits the same assistant tool-call (no result attached).
+      newMessages: [assistantMessage],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    // Handler must not run again.
+    expect(handler).not.toHaveBeenCalled();
+    // No follow-up run should be triggered (only the initial run).
+    expect(agent.runAgentCalls).toHaveLength(1);
+    // The tool result must still appear exactly once.
+    const toolResults = agent.messages.filter(
+      (m) => m.role === "tool" && m.toolCallId === toolCallId,
+    );
+    expect(toolResults).toHaveLength(1);
+  });
 });
