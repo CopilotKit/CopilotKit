@@ -55,4 +55,13 @@ describe("CopilotChatAssistantMessage markdown resolution", () => {
     expect(screen.queryByTestId("provider-renderer")).toBeNull();
     expect(screen.getByTestId("slot-renderer").textContent).toBe("# Hi");
   });
+
+  it("default renderer renders streaming markdown content", () => {
+    wrap(
+      <CopilotChatAssistantMessage
+        message={{ id: "s1", role: "assistant", content: "# Streaming" } as any}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Streaming");
+  });
 });

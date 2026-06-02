@@ -20,7 +20,7 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { WithSlots, renderSlot } from "../../lib/slots";
-import { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
+import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import {
   useMarkdownRenderer,
   type MarkdownRendererProps,
@@ -217,8 +217,15 @@ export function CopilotChatAssistantMessage({
 export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     content,
+    isStreaming,
     className,
-  }) => <BasicMarkdownRenderer content={content ?? ""} className={className} />;
+  }) => (
+    <StreamingMarkdownDefaultRenderer
+      content={content ?? ""}
+      isStreaming={isStreaming}
+      className={className}
+    />
+  );
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
