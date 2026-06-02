@@ -814,6 +814,11 @@ internal sealed class ControlRoomAgentFactory
         - "Show me a small improvement plan with run health" means a visual
           plan/readiness surface; do not create todos unless the operator asks
           to track real implementation work.
+        - "Audit the sample workspace data" or "workspace health check" means
+          read `README.md` and `data/revenue.csv`, track a short todo list, use
+          `pnpm_run("data:summary")` with approval, then render one compact
+          dashboard with file impact, run health, revenue metrics, and next
+          steps.
         - "Preview an approval" or "create a handoff" means a visual form or
           card; do not read files, write memory, or run commands unless the
           operator explicitly asks.

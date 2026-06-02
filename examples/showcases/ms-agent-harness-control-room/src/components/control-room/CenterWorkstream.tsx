@@ -119,6 +119,12 @@ export function ControlRoomSuggestions() {
         ]
       : []),
     {
+      title: "Workspace health check",
+      className: suggestionClassName,
+      message:
+        "Audit the sample workspace data: read the README and revenue CSV, track the steps, run the data summary with approval, then show a compact dashboard with findings and next steps.",
+    },
+    {
       title: "Project overview",
       className: suggestionClassName,
       message: "Show me a concise project overview dashboard.",
