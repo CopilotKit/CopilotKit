@@ -21,8 +21,7 @@ pre-commit:
       # drift from the set of promotable services. Plain regenerate + git add
       # (no stash) — keep this hook worktree-safe; lefthook's shared
       # refs/stash is not safe across concurrent worktree commits.
-      glob:
-        "{showcase/scripts/railway-envs.ts,showcase/scripts/sync-promote-service-options.ts,.github/workflows/showcase_promote.yml}"
+      glob: "{showcase/scripts/railway-envs.ts,showcase/scripts/sync-promote-service-options.ts,.github/workflows/showcase_promote.yml}"
       run: |
         set -euo pipefail
         pnpm exec tsx showcase/scripts/sync-promote-service-options.ts \
