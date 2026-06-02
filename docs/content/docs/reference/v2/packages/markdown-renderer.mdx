@@ -1,0 +1,286 @@
+---
+title: "@copilotkit/markdown-renderer"
+description: "Zero-dependency streaming markdown parser and React renderer — CopilotKit's built-in default for assistant messages"
+---
+
+## Overview
+
+`@copilotkit/markdown-renderer` is a zero-dependency, streaming-safe markdown package that ships as CopilotKit's **built-in default renderer** for assistant messages. It consists of two entry points:
+
+- **Root** (`@copilotkit/markdown-renderer`) — a framework-agnostic headless incremental parser. Parses a growing markdown string token-by-token into a typed AST without re-parsing from scratch on each update.
+- **React** (`@copilotkit/markdown-renderer/react`) — a React renderer built on top of the headless parser. Provides the `StreamingMarkdownRenderer` component, a `useStreamingMarkdownParser` hook, and helpers for building custom node renderers.
+
+Capabilities include streaming-safe incremental rendering (no flash of incomplete markdown), per-token fade-in animation via `Intl.Segmenter`, GFM (headings, bold, italic, strikethrough, lists, links, images, inline & fenced code, tables, blockquotes), autolinks, and citations. It does **not** do syntax highlighting, math, or diagram rendering — plug in a custom `markdownRenderer` for those.
+
+<Callout type="info">
+  Most React applications using `@copilotkit/react-core` do not need to install this package directly — it is already the default renderer for `CopilotChatAssistantMessage`. Install it only if you need the headless parser or `StreamingMarkdownRenderer` in a custom context outside the standard CopilotKit chat UI.
+</Callout>
+
+<Callout type="info">
+  Upgrading from a version that bundled Streamdown? See [Migrate the Markdown Renderer](/migration-guides/migrate-markdown-renderer).
+</Callout>
+
+## Attribution
+
+Derived from [hashbrown Magic Text](https://github.com/liveLoveApp/magic-text) (MIT, © LiveLoveApp, LLC).
+
+## Install
+
+```bash
+npm install @copilotkit/markdown-renderer
+```
+
+## Root: Headless Parser
+
+The root entry point is framework-agnostic. It exposes a three-function incremental parser API.
+
+### Import
+
+```ts
+import {
+  createStreamingMarkdownParserState,
+  parseStreamingMarkdownChunk,
+  finalizeStreamingMarkdown,
+} from "@copilotkit/markdown-renderer";
+```
+
+### API
+
+<PropertyReference name="createStreamingMarkdownParserState" type="(options?: StreamingMarkdownParserOptions) => StreamingMarkdownParserState">
+  Creates a fresh parser state. Call this once before you start feeding chunks. The returned state is an immutable snapshot — each `parseStreamingMarkdownChunk` call returns a new state.
+</PropertyReference>
+
+<PropertyReference name="parseStreamingMarkdownChunk" type="(state: StreamingMarkdownParserState, chunk: string) => StreamingMarkdownParserState">
+  Feeds a new chunk (typically a single token or a partial token) into the parser and returns the updated state. Designed to be called on every streaming delta.
+</PropertyReference>
+
+<PropertyReference name="finalizeStreamingMarkdown" type="(state: StreamingMarkdownParserState) => StreamingMarkdownParserState">
+  Signals that the stream is complete. Flushes any buffered partial nodes and closes open blocks. Call this when `isComplete` is true.
+</PropertyReference>
+
+### Usage
+
+```ts
+import {
+  createStreamingMarkdownParserState,
+  parseStreamingMarkdownChunk,
+  finalizeStreamingMarkdown,
+} from "@copilotkit/markdown-renderer";
+
+let state = createStreamingMarkdownParserState();
+
+// Feed tokens as they arrive
+for (const token of streamingTokens) {
+  state = parseStreamingMarkdownChunk(state, token);
+  renderAST(state.nodes);
+}
+
+// Finalize when the stream ends
+state = finalizeStreamingMarkdown(state);
+renderAST(state.nodes);
+```
+
+### Types
+
+| Type | Description |
+|------|-------------|
+| `StreamingMarkdownParserState` | The immutable parser state returned by each parse call. Contains `nodes: StreamingMarkdownAstNode[]`. |
+| `StreamingMarkdownParserOptions` | Options passed to `createStreamingMarkdownParserState`. |
+| `StreamingMarkdownAstNode` | A single AST node. Has `type: StreamingMarkdownNodeType` and type-specific fields. |
+| `StreamingMarkdownNodeType` | Union of node type string literals (e.g. `"paragraph"`, `"heading"`, `"codeBlock"`, `"table"`, etc.). |
+| `StreamingMarkdownWarning` | A diagnostic warning produced during parsing. |
+| `CitationDefinition` | A parsed citation reference (URL + optional title). |
+| `CitationState` | Accumulated citation map attached to the parser state. |
+| `TextSegment` | A grapheme-segmented text run used for per-token animation. |
+| `SegmenterOptions` | Options for the `Intl.Segmenter` used to split text into animated segments. |
+| `ParseMode` | Controls parser strictness or dialect. |
+
+## React: `StreamingMarkdownRenderer`
+
+The `/react` entry point provides the `StreamingMarkdownRenderer` component and related utilities.
+
+### Import
+
+```tsx
+import {
+  StreamingMarkdownRenderer,
+  createStreamingMarkdownNodeRenderers,
+  useStreamingMarkdownParser,
+} from "@copilotkit/markdown-renderer/react";
+```
+
+### `StreamingMarkdownRenderer` Props
+
+<PropertyReference name="children" type="string" required>
+  The growing markdown string to render. Pass the accumulated content on every streaming update — the renderer handles incremental diffing internally.
+</PropertyReference>
+
+<PropertyReference name="isComplete" type="boolean">
+  Set to `true` when the stream has finished. Triggers `finalizeStreamingMarkdown` to flush any buffered partial nodes.
+</PropertyReference>
+
+<PropertyReference name="options" type="Partial<StreamingMarkdownParserOptions>">
+  Parser options forwarded to `createStreamingMarkdownParserState`. Lets you configure citation handling, segmenter options, and parse mode.
+</PropertyReference>
+
+<PropertyReference name="caret" type="false | true | ReactNode | StreamingMarkdownCaretRenderer">
+  Controls the streaming caret. Pass `false` to disable, `true` for the default animated caret, a `ReactNode` for a custom caret element, or a render function `(props: StreamingMarkdownCaretRenderProps) => ReactNode` for full control.
+</PropertyReference>
+
+<PropertyReference name="className" type="string">
+  CSS class applied to the root wrapper element.
+</PropertyReference>
+
+<PropertyReference name="onLinkClick" type="(href: string, event: React.MouseEvent) => void">
+  Called when a rendered link is clicked. Intercepts the default navigation.
+</PropertyReference>
+
+<PropertyReference name="onCitationClick" type="(citation: StreamingMarkdownCitationRenderData) => void">
+  Called when a rendered citation is clicked.
+</PropertyReference>
+
+<PropertyReference name="nodeRenderers" type="Partial<StreamingMarkdownNodeRenderers>">
+  Custom renderer overrides keyed by `StreamingMarkdownNodeType`. Each renderer receives `{ node, children, defaultNode, citation? }`. Use `createStreamingMarkdownNodeRenderers` to build a type-safe map. The key for code blocks is `"codeBlock"`.
+</PropertyReference>
+
+### Usage
+
+#### Basic streaming render
+
+```tsx
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+
+function AssistantBubble({ content, isComplete }: { content: string; isComplete: boolean }) {
+  return (
+    <StreamingMarkdownRenderer isComplete={isComplete}>
+      {content}
+    </StreamingMarkdownRenderer>
+  );
+}
+```
+
+#### Custom code-block renderer (e.g. syntax highlighting)
+
+```tsx
+import {
+  StreamingMarkdownRenderer,
+  createStreamingMarkdownNodeRenderers,
+} from "@copilotkit/markdown-renderer/react";
+import { codeToHtml } from "shiki";
+
+const nodeRenderers = createStreamingMarkdownNodeRenderers({
+  codeBlock: ({ node, children }) => (
+    <pre className="shiki">
+      <code dangerouslySetInnerHTML={{ __html: highlight(node.language, node.value) }} />
+    </pre>
+  ),
+});
+
+function MarkdownMessage({ content, isComplete }) {
+  return (
+    <StreamingMarkdownRenderer isComplete={isComplete} nodeRenderers={nodeRenderers}>
+      {content}
+    </StreamingMarkdownRenderer>
+  );
+}
+```
+
+#### Disable the streaming caret
+
+```tsx
+<StreamingMarkdownRenderer isComplete={isComplete} caret={false}>
+  {content}
+</StreamingMarkdownRenderer>
+```
+
+### `useStreamingMarkdownParser`
+
+A lower-level React hook that manages parser state in a component. Returns the current `StreamingMarkdownParserState` and updates it whenever `content` or `isComplete` changes.
+
+```tsx
+import { useStreamingMarkdownParser } from "@copilotkit/markdown-renderer/react";
+
+function CustomRenderer({ content, isComplete }) {
+  const state = useStreamingMarkdownParser(content, { isComplete });
+
+  return (
+    <div>
+      {state.nodes.map((node, i) => (
+        <div key={i}>{/* render node */}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+### `createStreamingMarkdownNodeRenderers`
+
+A helper that creates a type-safe `nodeRenderers` map. Pass an object keyed by `StreamingMarkdownNodeType`; unspecified node types fall back to the default renderer.
+
+```tsx
+import { createStreamingMarkdownNodeRenderers } from "@copilotkit/markdown-renderer/react";
+
+const nodeRenderers = createStreamingMarkdownNodeRenderers({
+  heading: ({ node, children }) => (
+    <h1 className="my-heading">{children}</h1>
+  ),
+  codeBlock: ({ node }) => (
+    <pre className="my-code">{node.value}</pre>
+  ),
+});
+```
+
+### React Types
+
+| Type | Description |
+|------|-------------|
+| `StreamingMarkdownRendererProps` | Props for `StreamingMarkdownRenderer`. |
+| `StreamingMarkdownNodeRenderers` | Full map of node type → renderer function. |
+| `StreamingMarkdownNodeRenderer` | A single renderer function: `(props: StreamingMarkdownNodeRendererProps) => ReactNode`. |
+| `StreamingMarkdownNodeRendererProps` | Props passed to each node renderer: `{ node, children, defaultNode, citation? }`. |
+| `StreamingMarkdownCitationRenderData` | Data passed to `onCitationClick` and citation node renderers. |
+| `StreamingMarkdownCaret` | Union type for the `caret` prop value. |
+| `StreamingMarkdownCaretRenderProps` | Props passed to a caret render function. |
+| `StreamingMarkdownCaretRenderer` | Type for a caret render function `(props: StreamingMarkdownCaretRenderProps) => ReactNode`. |
+| `StreamingMarkdownNodeRendererKey` | Union of valid `nodeRenderers` keys (matches `StreamingMarkdownNodeType`). |
+
+## Using as the CopilotKit renderer
+
+`@copilotkit/markdown-renderer` is already the built-in default — `CopilotChatAssistantMessage` uses it automatically. You do not need to configure anything for standard use.
+
+If you want to pass a customized instance of `StreamingMarkdownRenderer` as the renderer (for example to add syntax highlighting via `nodeRenderers` globally), pass it as `markdownRenderer` on the provider:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+
+function MyRenderer({ content, isStreaming }: { content: string; isStreaming?: boolean }) {
+  return (
+    <StreamingMarkdownRenderer isComplete={!isStreaming} nodeRenderers={myNodeRenderers}>
+      {content}
+    </StreamingMarkdownRenderer>
+  );
+}
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={MyRenderer}>
+      {/* your app */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+The `markdownRenderer` resolution order is:
+
+1. **Per-message slot** — `markdownRenderer` on `CopilotChatAssistantMessage` wins.
+2. **Provider renderer** — `markdownRenderer` on `CopilotKitProvider`.
+3. **Built-in** — `@copilotkit/markdown-renderer` streaming renderer.
+
+`BasicMarkdownRenderer` (marked-based) is exported from `@copilotkit/react-core/v2` as a lighter alternative if you don't need streaming animation.
+
+## Related
+
+- [Migrate the Markdown Renderer](/migration-guides/migrate-markdown-renderer) — upgrade guide from Streamdown, pluggable renderer overview
+- [`CopilotChatAssistantMessage`](/reference/v2/components/CopilotChatAssistantMessage) — component that uses this renderer by default
+- [Slots](/custom-look-and-feel/slots) — customize rendering without replacing the full engine

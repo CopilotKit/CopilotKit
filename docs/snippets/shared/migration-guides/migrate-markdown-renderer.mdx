@@ -3,9 +3,9 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## Overview
 
-CopilotKit no longer bundles [Streamdown](https://www.npmjs.com/package/streamdown) as its markdown engine. Assistant and reasoning messages now render with a small, built-in **basic-GFM renderer** that ships with the framework packages and pulls in **no markdown dependencies** of its own. If you want richer rendering — syntax highlighting, math, diagrams — you now plug in your own renderer through a pluggable interface.
+CopilotKit no longer bundles [Streamdown](https://www.npmjs.com/package/streamdown) as its markdown engine. Assistant and reasoning messages now render with CopilotKit's own **streaming markdown renderer** — [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) — a zero-dependency, streaming-safe renderer that supports GFM, tables, autolinks, citations, and per-token fade-in animation. It ships with the framework packages and pulls in **no external markdown dependencies**.
 
-This removes a large transitive dependency tree (Streamdown pulled in `mermaid`, `shiki`, and `katex`) from every CopilotKit app, and lets you choose exactly what your copilot renders.
+If you want richer rendering — syntax highlighting, math, diagrams — you can still plug in your own renderer through the pluggable interface. The built-in renderer does not do syntax highlighting, math, or diagram rendering by default.
 
 <Callout type="info">
   To customize how messages render without replacing the engine entirely, see [Slots](/custom-look-and-feel/slots).
@@ -16,7 +16,7 @@ This removes a large transitive dependency tree (Streamdown pulled in `mermaid`,
 | Before | After |
 | --- | --- |
 | `streamdown` / `streamdown-vue` / `react-native-streamdown` shipped as a (peer) dependency | Removed entirely — not installed, not a peer dependency |
-| Default renderer did GFM + syntax highlighting (shiki) + math (KaTeX) + diagrams (mermaid) + table/image/code-block action buttons | Default renderer does **basic GFM only**: headings, bold/italic/strikethrough, lists, links, inline & fenced code, tables, blockquotes, images |
+| Default renderer did GFM + syntax highlighting (shiki) + math (KaTeX) + diagrams (mermaid) + table/image/code-block action buttons | Default renderer is **`@copilotkit/markdown-renderer`**: streaming-safe GFM, tables, autolinks, citations, per-token animation — no syntax highlighting, math, or diagrams |
 | Renderer was fixed | Renderer is **pluggable**: set one globally on `CopilotKitProvider`, or per-message via the `markdownRenderer` slot |
 | Vue: `useKatexStyles` composable exported from `@copilotkit/vue` | **Removed** (KaTeX is no longer a dependency) |
 
@@ -29,8 +29,9 @@ The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http
 
 ## Do you need to do anything?
 
-- **If basic GFM is enough** (most apps): nothing. Your messages keep rendering — you just lose syntax-highlight colors, KaTeX math, mermaid diagrams, and the table/image/code action buttons.
+- **If streaming GFM + animation is enough** (most apps): nothing. Your messages keep rendering with the new built-in streaming renderer — you just lose syntax-highlight colors, KaTeX math, mermaid diagrams, and the table/image/code action buttons that Streamdown provided.
 - **If you relied on syntax highlighting, math, diagrams, or the action buttons:** install your renderer of choice and plug it in (below).
+- **If you want to use the streaming renderer directly** (headless, custom React app): install [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) directly.
 
 ## Restoring Streamdown rendering
 
@@ -131,7 +132,7 @@ When CopilotKit renders an assistant message, it picks the renderer in this orde
 
 1. **Per-message slot** — a `markdownRenderer` passed directly to `CopilotChatAssistantMessage` wins.
 2. **Provider renderer** — the `markdownRenderer` set on `CopilotKitProvider`.
-3. **Built-in** — the basic-GFM renderer, when neither is set.
+3. **Built-in** — the streaming markdown renderer ([`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer)), when neither is set.
 
 Reasoning messages always use the built-in renderer.
 
