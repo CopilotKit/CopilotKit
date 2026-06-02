@@ -657,10 +657,16 @@ describe.each(DRIVER_CASES)(
         });
       });
       const healthUrls = seen.filter((u) => !u.includes("/graphql/v2"));
-      expect(healthUrls).toHaveLength(1);
-      expect(healthUrls[0]).toBe(
-        `https://${entry.domains.prod}${expectedHealthPath}`,
-      );
+      // The dashboard driver makes a SECOND GET to `/` after the baseline
+      // healthcheck to fetch + sentinel-check the injected
+      // `__SHOWCASE_CONFIG__` (see verify-deploy.drivers.dashboard.ts). That
+      // extra GET targets the same `/` path, so both non-graphql fetches go
+      // to `https://<host>/`. Every other driver makes exactly one.
+      const expectedHealthCount = label === "dashboard" ? 2 : 1;
+      expect(healthUrls).toHaveLength(expectedHealthCount);
+      for (const u of healthUrls) {
+        expect(u).toBe(`https://${entry.domains.prod}${expectedHealthPath}`);
+      }
     });
 
     it("queries Railway with the SSOT serviceId for the resolved env", async () => {
@@ -723,3 +729,134 @@ describe.each(DRIVER_CASES)(
     });
   },
 );
+
+describe("probeDashboard runtime-config sentinel guard", () => {
+  // Build the dashboard `/` HTML carrying the root-layout injection
+  // `<script id="__showcase_config__">window.__SHOWCASE_CONFIG__={...};</script>`.
+  // The serializer escapes `<` to <; our config URLs never contain `<`,
+  // so the JSON is byte-identical to JSON.stringify.
+  function dashboardHtml(cfg: Record<string, unknown>): string {
+    const json = JSON.stringify(cfg);
+    return `<!doctype html><html><head><script id="__showcase_config__">window.__SHOWCASE_CONFIG__=${json};</script></head><body>ok</body></html>`;
+  }
+
+  const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
+  const PROD_INVALID_POCKETBASE_URL = "http://pocketbase.invalid";
+  const HEALTHY_CFG = {
+    pocketbaseUrl: "https://pb.example.com",
+    shellUrl: "https://shell.example.com",
+    opsBaseUrl: "",
+  };
+
+  // Drive the full driver (baseline GraphQL + healthcheck, then the
+  // config GET) with a single seam that serves SUCCESS for GraphQL, 200
+  // for every page GET, and the provided HTML body.
+  function seamFor(html: string): FetchLike {
+    return makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      return Promise.resolve(mkResponse({ status: 200, text: html }));
+    });
+  }
+
+  const entry = SERVICES.dashboard;
+  const target: ProbeTarget = {
+    name: "dashboard",
+    host: asHost(entry.domains.prod),
+    driver: "dashboard",
+  };
+
+  it("passes when the injected config is healthy", async () => {
+    await withGlobalSeam(
+      seamFor(dashboardHtml(HEALTHY_CFG)),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(true);
+      },
+    );
+  });
+
+  it("fails loud when shellUrl is the env-unset sentinel", async () => {
+    await withGlobalSeam(
+      seamFor(
+        dashboardHtml({ ...HEALTHY_CFG, shellUrl: PROD_INVALID_SHELL_URL }),
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+          expect(out.error).toMatch(/shellUrl/);
+          expect(out.error).toContain(PROD_INVALID_SHELL_URL);
+          expect(out.error).toMatch(/SHELL_URL/);
+        }
+      },
+    );
+  });
+
+  it("fails loud when pocketbaseUrl is the env-unset sentinel", async () => {
+    await withGlobalSeam(
+      seamFor(
+        dashboardHtml({
+          ...HEALTHY_CFG,
+          pocketbaseUrl: PROD_INVALID_POCKETBASE_URL,
+        }),
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+          expect(out.error).toMatch(/pocketbaseUrl/);
+          expect(out.error).toContain(PROD_INVALID_POCKETBASE_URL);
+        }
+      },
+    );
+  });
+
+  it("does NOT false-fail when the config block is absent from the page", async () => {
+    await withGlobalSeam(
+      seamFor("<html><body>rendered without a config block</body></html>"),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(true);
+      },
+    );
+  });
+
+  it("fails when the config block is present but malformed JSON", async () => {
+    await withGlobalSeam(
+      seamFor(
+        '<html><head><script id="__showcase_config__">window.__SHOWCASE_CONFIG__={broken};</script></head><body>ok</body></html>',
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) expect(out.error).toMatch(/not valid JSON/);
+      },
+    );
+  });
+
+  it("surfaces a config-fetch failure as a probe error (after a green baseline)", async () => {
+    // GraphQL + the baseline healthcheck succeed; the SECOND GET (the
+    // config probe) throws. The dashboard driver must surface it, not
+    // silently pass.
+    let pageGets = 0;
+    const seam = makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      pageGets += 1;
+      if (pageGets === 1) return Promise.resolve(mkResponse({ status: 200 }));
+      throw new Error("connection refused");
+    });
+    await withGlobalSeam(seam, TOKEN, async () => {
+      const out = await probeDashboard(target);
+      expect(out.ok).toBe(false);
+      if (out.ok === false) {
+        expect(out.error).toMatch(/runtime-config GET/);
+        expect(out.error).toMatch(/connection refused/);
+      }
+    });
+  });
+});
