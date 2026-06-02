@@ -33,7 +33,7 @@ test('StreamingMarkdownRenderer creates one span per parsed text segment', () =>
     <StreamingMarkdownRenderer options={{ segmenter: { granularity: 'grapheme' } }}>ab</StreamingMarkdownRenderer>,
   );
 
-  const segments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const segments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
 
   expect(segments).toHaveLength(2);
   expect(segments[0]?.textContent).toBe('a');
@@ -51,7 +51,7 @@ test('StreamingMarkdownRenderer prefixes word joiner before punctuation after ci
   );
 
   const segments = Array.from(
-    container.querySelectorAll('span.hb-streaming-markdown-segment'),
+    container.querySelectorAll('span.cpk-streaming-markdown-segment'),
   );
   const punctuationSegment = segments.find(
     (segment) => segment.textContent?.includes(';') ?? false,
@@ -75,7 +75,7 @@ test('StreamingMarkdownRenderer keeps unresolved citation punctuation glued', ()
     'sup[data-streaming-markdown-node="citation"] button',
   );
   const segments = Array.from(
-    container.querySelectorAll('span.hb-streaming-markdown-segment'),
+    container.querySelectorAll('span.cpk-streaming-markdown-segment'),
   );
   const punctuationSegment = segments.find(
     (segment) => segment.textContent?.includes('.') ?? false,
@@ -91,14 +91,14 @@ test('StreamingMarkdownRenderer preserves existing segment dom identity across u
     <StreamingMarkdownRenderer options={{ segmenter: { granularity: 'grapheme' } }}>ab</StreamingMarkdownRenderer>,
   );
 
-  const initialSegments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const initialSegments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
   const firstSegmentBefore = initialSegments[0];
 
   rerender(
     <StreamingMarkdownRenderer options={{ segmenter: { granularity: 'grapheme' } }}>abc</StreamingMarkdownRenderer>,
   );
 
-  const nextSegments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const nextSegments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
   const firstSegmentAfter = nextSegments[0];
 
   expect(nextSegments).toHaveLength(3);
@@ -110,14 +110,14 @@ test('StreamingMarkdownRenderer keeps optimistic word-tail segment identity as i
     <StreamingMarkdownRenderer options={{ segmenter: { granularity: 'word' } }}>hello wo</StreamingMarkdownRenderer>,
   );
 
-  const firstSegments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const firstSegments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
   const tailBefore = firstSegments[2];
 
   rerender(
     <StreamingMarkdownRenderer options={{ segmenter: { granularity: 'word' } }}>hello world</StreamingMarkdownRenderer>,
   );
 
-  const nextSegments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const nextSegments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
   const tailAfter = nextSegments[2];
 
   expect(nextSegments).toHaveLength(3);
@@ -281,7 +281,7 @@ const x = 1;
   const hardBreak = container.querySelector('br[data-streaming-markdown-node="hard-break"]');
   const thematicBreak = container.querySelector('hr[data-streaming-markdown-node="thematic-break"]');
   const codeBlock = container.querySelector('pre code[data-code-info="ts"]');
-  const segments = container.querySelectorAll('span.hb-streaming-markdown-segment');
+  const segments = container.querySelectorAll('span.cpk-streaming-markdown-segment');
 
   expect(blockquote?.textContent).toBe('block');
   expect(unorderedList?.querySelectorAll('li')).toHaveLength(1);

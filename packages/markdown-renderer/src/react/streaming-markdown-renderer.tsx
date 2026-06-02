@@ -255,11 +255,11 @@ type StreamingMarkdownTextNode = Extract<StreamingMarkdownAstNode, { type: 'text
 type StreamingMarkdownCitationNode = Extract<StreamingMarkdownAstNode, { type: 'citation' }>;
 
 const WORD_JOINER = '\u2060';
-const DEFAULT_ROOT_CLASS = 'hb-streaming-markdown-root';
-const DEFAULT_CITATION_CLASS = 'hb-streaming-markdown-citation';
-const DEFAULT_CITATION_LABEL_CLASS = 'hb-streaming-markdown-citation-label';
+const DEFAULT_ROOT_CLASS = 'cpk-streaming-markdown-root';
+const DEFAULT_CITATION_CLASS = 'cpk-streaming-markdown-citation';
+const DEFAULT_CITATION_LABEL_CLASS = 'cpk-streaming-markdown-citation-label';
 const DEFAULT_STYLES = `
-  .${DEFAULT_ROOT_CLASS} .hb-streaming-markdown-segment {
+  .${DEFAULT_ROOT_CLASS} .cpk-streaming-markdown-segment {
     opacity: 1;
     transition: opacity 400ms ease-out;
     @starting-style {
@@ -290,7 +290,7 @@ const DEFAULT_STYLES = `
 `;
 
 const DEFAULT_STYLES_FALLBACK = `
-  .${DEFAULT_ROOT_CLASS} .hb-streaming-markdown-segment {
+  .${DEFAULT_ROOT_CLASS} .cpk-streaming-markdown-segment {
     opacity: 1;
     transition: opacity 400ms ease-out;
   }
@@ -412,7 +412,7 @@ function renderDefaultCaret(): ReactNode {
   return (
     <span
       aria-hidden
-      className="hb-streaming-markdown-caret"
+      className="cpk-streaming-markdown-caret"
       data-streaming-markdown-caret
       style={{
         display: 'inline-block',
@@ -456,7 +456,7 @@ function renderTextSegments(node: StreamingMarkdownTextNode): ReactNode {
     return (
       <span
         key={`segment-${node.id}-full`}
-        className="hb-streaming-markdown-segment"
+        className="cpk-streaming-markdown-segment"
         data-streaming-markdown-segment-kind="full"
         data-streaming-markdown-whitespace="false"
       >
@@ -468,7 +468,7 @@ function renderTextSegments(node: StreamingMarkdownTextNode): ReactNode {
   return node.segments.map((segment: TextSegment) => (
     <span
       key={`segment-${node.id}-${segment.start}-${segment.kind}`}
-      className="hb-streaming-markdown-segment"
+      className="cpk-streaming-markdown-segment"
       data-streaming-markdown-segment-kind={segment.kind}
       data-streaming-markdown-whitespace={String(segment.isWhitespace)}
     >
