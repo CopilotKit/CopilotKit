@@ -103,7 +103,10 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
   }
 
   // Fold to the worst effective state across present rows, applying the
-  // per-row stale-green→degraded downgrade before comparing.
+  // per-row stale-green→degraded downgrade before comparing. The winner row
+  // is stored in its EFFECTIVE (downgraded) form so `.row.state` agrees with
+  // `.status` — mirroring `buildBadge` in live-status.ts, whose returned
+  // `.row` is the effective row.
   let winner: StatusRow | null = null;
   let worstState: State | null = null;
   for (const candidate of [chatRow, toolsRow]) {
@@ -116,15 +119,24 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      winner = candidate;
+      winner =
+        effectiveState === candidate.state
+          ? candidate
+          : { ...candidate, state: effectiveState };
       worstState = effectiveState;
     }
   }
 
+  if (!winner || worstState === null) {
+    // Both rows present-checked above, so this is unreachable in practice;
+    // guard anyway instead of asserting (mirrors resolveD5/resolveD6).
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(worstState!),
-    row: winner!,
+    status: stateToTestStatus(worstState),
+    row: winner,
   };
 }
 
@@ -190,7 +202,10 @@ function resolveD5(
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      worstRow = row;
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
       worstState = effectiveState;
     }
   }
@@ -225,6 +240,11 @@ function resolveD5(
  * the frozen-green row is no longer trustworthy evidence of health. Only
  * green is downgraded — a stale red/degraded row already signals a problem
  * and is left as-is.
+ *
+ * PRODUCER-INVARIANT ASSUMPTION: the implicit D1/D2 gate is enforced
+ * upstream, not here — this resolver credits D3 from the `e2e:<slug>/<feature>`
+ * row ALONE and never consults the `health:<slug>`/`agent:<slug>` rows. The
+ * e2e driver is expected not to emit green when liveness is red.
  */
 function resolveD3(
   live: LiveStatusMap,
@@ -310,7 +330,10 @@ function resolveD6(
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      worstRow = row;
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
       worstState = effectiveState;
     }
   }

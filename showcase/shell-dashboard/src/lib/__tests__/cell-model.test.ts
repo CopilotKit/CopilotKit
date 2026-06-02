@@ -1238,4 +1238,127 @@ describe("buildCellModel", () => {
       expect(model.d4?.status).toBe("red");
     });
   });
+
+  // ── Effective-row invariant: .row.state must AGREE with .status ─────
+  // The returned `.row` must be the EFFECTIVE (stale-downgraded) row, so
+  // `stateToTestStatus(.row.state) === .status`. This mirrors the invariant
+  // in live-status.ts `buildBadge`, whose returned `.row` is the effective
+  // row (`{ ...row, state: "degraded" }`). Previously resolveD4/D5/D6 returned
+  // the RAW status row while `.status` was derived from the stale-downgraded
+  // effective state, so a stale-green fold reported `.row.state === "green"`
+  // but `.status === "amber"` — an internal contradiction.
+  describe("effective-row invariant (.row.state agrees with .status)", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function rowAtAge(
+      key: string,
+      dimension: string,
+      ageMs: number,
+      state: State = "green",
+    ) {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(key, dimension, state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+      });
+    }
+
+    const E2E_STALE = E2E_STALE_AFTER_MS + 60 * 60 * 1000;
+    const D4_STALE = D4_STALE_AFTER_MS + 60 * 1000;
+    const FRESH = 60 * 1000;
+
+    it("D4: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", D4_STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d4?.status).toBe("amber");
+      // The effective row must reflect the downgrade, not the raw green state.
+      expect(model.d4?.row?.state).toBe("degraded");
+    });
+
+    it("D5: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", E2E_STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("amber");
+      expect(model.d5?.row?.state).toBe("degraded");
+    });
+
+    it("D6: stale-green folds to amber and .row.state matches .status", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+        rowAtAge(keyFor("d6", "agno", "agentic-chat"), "d6", E2E_STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d6?.status).toBe("amber");
+      expect(model.d6?.row?.state).toBe("degraded");
+    });
+
+    it("D5: fresh-green keeps the raw row (no spurious downgrade)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d5?.status).toBe("green");
+      // Fresh green is not downgraded: .row.state stays green.
+      expect(model.d5?.row?.state).toBe("green");
+    });
+  });
+
+  // ── CHARACTERIZATION: buildCellModel does NOT read health:/agent: rows ──
+  // resolveD3 credits D3 from the `e2e:<slug>/<feature>` row ALONE. The
+  // implicit "D1/D2 gate" (a failing liveness probe drags e2e down) is a
+  // PRODUCER-SIDE invariant: the e2e driver is expected not to emit green
+  // when health/agent are red. buildCellModel itself never consults the
+  // health:/agent: rows, so a fresh-green e2e row credits D3 even when a
+  // health/agent row is red or absent. This test PINS that documented
+  // current behavior; it does NOT assert a new requirement.
+  describe("D1/D2 gate is a producer invariant (characterization)", () => {
+    it("credits D3 from a fresh-green e2e row even when health: is RED", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+        // A red liveness/agent row is present but buildCellModel ignores it.
+        row(keyFor("health", "agno"), "health", "red"),
+        row(keyFor("agent", "agno"), "agent", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      // D3 is credited from e2e alone — health/agent rows are not consulted.
+      expect(model.d3!.status).toBe("green");
+      expect(model.achievedDepth).toBe(3);
+    });
+
+    it("credits D3 from a fresh-green e2e row even when health:/agent: are ABSENT", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "no-d5-feature"), "e2e", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "no-d5-feature"));
+      expect(model.d3!.status).toBe("green");
+      expect(model.achievedDepth).toBe(3);
+    });
+  });
 });
