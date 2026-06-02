@@ -121,14 +121,27 @@ export function resolveIntegrationDir(
 // ---------------------------------------------------------------------------
 
 /**
+ * Deliberate, host-INDEPENDENT default Playwright worker count. Pinned (NOT
+ * derived from `os.cpus()`) so local and staging run the SAME worker count off
+ * the same config — a host-scaled default made the two diverge, which is a
+ * forbidden local≠staging deviation.
+ *
+ * Resource model: with `launchServer` pinning browser PROCESSES to 1, the
+ * worker count bounds CONTEXT concurrency (the real memory cost) =
+ * workers × concurrent-integration-fanout (`FEATURE_CONCURRENCY_D6` = 4).
+ * 6 workers × 4 ≈ 24 concurrent contexts — the chosen steady-state target.
+ */
+export const DEFAULT_E2E_WORKERS = 6;
+
+/**
  * Resolve the default Playwright worker count when no explicit override is
  * supplied. Honors the `D6_WORKERS` env knob (used by the strict gate and the
- * compiled-dist probe path to parallelize), otherwise scales to the host:
- * `ceil(cpuCount / 2)`, floored at 4 so even small machines parallelize.
+ * compiled-dist probe path to retune parallelism), otherwise returns the
+ * pinned, host-independent `DEFAULT_E2E_WORKERS`.
  *
  * A non-numeric or non-positive `D6_WORKERS` is ignored (falls through to the
- * host-scaled default) — never collapses to 0, which Playwright reinterprets
- * as "use all cores" and would silently over-subscribe the browser pool.
+ * pinned default) — never collapses to 0, which Playwright reinterprets as
+ * "use all cores" and would silently over-subscribe the browser pool.
  */
 export function resolveDefaultWorkers(): number {
   const raw = process.env.D6_WORKERS;
@@ -138,8 +151,7 @@ export function resolveDefaultWorkers(): number {
       return parsed;
     }
   }
-  const cpus = os.cpus()?.length ?? 4;
-  return Math.max(4, Math.ceil(cpus / 2));
+  return DEFAULT_E2E_WORKERS;
 }
 
 /**
@@ -159,11 +171,11 @@ export function buildE2eCommand(
   const baseUrl = opts.baseUrlOverride ?? getPackageUrl(slug, config);
 
   // Worker count resolution order:
-  //   1. explicit `opts.workers` (caller override — e.g. a test pinning 1)
-  //   2. `D6_WORKERS` env (operator/gate knob — parallelizes the strict gate
-  //      AND the compiled-dist probe path, which both flow through here without
-  //      passing `workers`)
-  //   3. parallel default scaled to the host: ceil(cpus/2), floored at 4
+  //   1. explicit `opts.workers` (caller override)
+  //   2. `D6_WORKERS` env (operator/gate knob — retunes parallelism for the
+  //      strict gate AND the compiled-dist probe path, which both flow through
+  //      here without passing `workers`)
+  //   3. the pinned, host-independent `DEFAULT_E2E_WORKERS` (see resolver)
   // A non-numeric / non-positive `D6_WORKERS` falls back to the default rather
   // than silently collapsing to 0 (which Playwright treats as "all cores").
   const workers = opts.workers ?? resolveDefaultWorkers();

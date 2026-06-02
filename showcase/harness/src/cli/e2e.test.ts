@@ -72,14 +72,16 @@ describe("buildE2eCommand", () => {
     expect(cmd.cwd).toBe("/repo/showcase/integrations/langgraph-python");
   });
 
-  it("builds a deterministic playwright invocation with line reporter and 1 worker / 0 retries by default", () => {
+  it("builds a deterministic playwright invocation with line reporter and the pinned default workers / 0 retries by default", () => {
     const cmd = buildE2eCommand("langgraph-python", { tier: "d6" }, config);
     expect(cmd.command).toBe("npx");
+    // Host-INDEPENDENT pinned default (DEFAULT_E2E_WORKERS=6), NOT derived from
+    // os.cpus() — local and staging must run the same worker count.
     expect(cmd.args).toEqual([
       "playwright",
       "test",
       "--reporter=line",
-      "--workers=1",
+      "--workers=6",
       "--retries=0",
     ]);
   });
@@ -105,7 +107,7 @@ describe("buildE2eCommand", () => {
       "test",
       "subagents",
       "--reporter=line",
-      "--workers=1",
+      "--workers=6",
       "--retries=0",
     ]);
   });
