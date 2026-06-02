@@ -46,7 +46,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error"
   },
   "peerDependencies": {
     "react": ">=18",
