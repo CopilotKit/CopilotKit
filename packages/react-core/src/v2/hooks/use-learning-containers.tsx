@@ -3,7 +3,7 @@ import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
 
 /** The default learning containers value. Matches the backend default. */
-const DEFAULT_CONTAINERS: string[] = ["organization"];
+const DEFAULT_CONTAINERS: string[] = ["project"];
 
 /**
  * Arguments for {@link useLearningContainers}.
@@ -13,7 +13,7 @@ export interface UseLearningContainersArgs {
   threadId: string;
   /**
    * The ordered list of learning container identifiers to activate for this
-   * thread. Defaults to `["organization"]` on the backend when absent.
+   * thread. Defaults to `["project"]` on the backend when absent.
    */
   learningContainers: readonly string[];
 }
@@ -24,12 +24,12 @@ export interface UseLearningContainersArgs {
  * endpoint (`POST ${runtimeUrl}/annotate`).
  *
  * **Emit rules:**
- * - On mount with `["organization"]` (the backend default) → does NOT emit.
+ * - On mount with `["project"]` (the backend default) → does NOT emit.
  *   Absence of an annotation equals the default, so the round-trip is skipped.
  * - On mount with any other value → emits immediately.
  * - On any subsequent content change (including a switch back to
- *   `["organization"]`) → emits (a deliberate switch is always recorded).
- * - On unmount or threadId change → emits a reset to `["organization"]`
+ *   `["project"]`) → emits (a deliberate switch is always recorded).
+ * - On unmount or threadId change → emits a reset to `["project"]`
  *   so the backend is left in a clean state for the next consumer.
  *   Changing `learningContainers` within the same thread does NOT reset the
  *   thread; only the new value is emitted.

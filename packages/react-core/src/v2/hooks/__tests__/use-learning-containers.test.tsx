@@ -78,14 +78,14 @@ const installChatConfig = (threadId: string | null | undefined) => {
 
 // ─── useLearningContainers ────────────────────────────────────────────────────
 
-test("mount with default [organization] → NO emit", () => {
+test("mount with default [project] → NO emit", () => {
   installCopilotKit();
   const { calls, restore } = mockFetch([
     { status: 200, body: { id: "1", duplicate: false } },
   ]);
 
   renderHook(() =>
-    useLearningContainers({ threadId: "t1", learningContainers: ["organization"] }),
+    useLearningContainers({ threadId: "t1", learningContainers: ["project"] }),
   );
 
   expect(calls).toHaveLength(0);
@@ -177,7 +177,7 @@ test("change [team]→[organization] mid-mount → emits [organization] (a real 
   restore();
 });
 
-test("unmount → emits reset [organization] for the captured threadId", async () => {
+test("unmount → emits reset [project] for the captured threadId", async () => {
   installCopilotKit();
   const { calls, restore } = mockFetch([
     { status: 200, body: { id: "1", duplicate: false } },
@@ -198,7 +198,7 @@ test("unmount → emits reset [organization] for the captured threadId", async (
   // 1 more emit for the reset.
   expect(calls).toHaveLength(2);
   expect(calls[1]!.body!.type).toBe("set_learning_containers");
-  expect((calls[1]!.body!.payload as Record<string, unknown>).containers).toEqual(["organization"]);
+  expect((calls[1]!.body!.payload as Record<string, unknown>).containers).toEqual(["project"]);
   expect(calls[1]!.body!.threadId).toBe("thread-xyz");
   restore();
 });
@@ -227,7 +227,7 @@ test("threadId change → resets old thread then syncs new thread", async () => 
   // Cleanup reset for old-thread + emit for new-thread.
   expect(calls).toHaveLength(3);
   expect(calls[1]!.body!.threadId).toBe("old-thread");
-  expect((calls[1]!.body!.payload as Record<string, unknown>).containers).toEqual(["organization"]);
+  expect((calls[1]!.body!.payload as Record<string, unknown>).containers).toEqual(["project"]);
   expect(calls[2]!.body!.threadId).toBe("new-thread");
   expect((calls[2]!.body!.payload as Record<string, unknown>).containers).toEqual(["team"]);
 
@@ -338,7 +338,7 @@ test("useLearningContainersInCurrentThread with default containers → NO emit",
   ]);
 
   renderHook(() =>
-    useLearningContainersInCurrentThread({ learningContainers: ["organization"] }),
+    useLearningContainersInCurrentThread({ learningContainers: ["project"] }),
   );
 
   await act(async () => {});
