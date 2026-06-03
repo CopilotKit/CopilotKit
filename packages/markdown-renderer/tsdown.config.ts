@@ -9,18 +9,17 @@ import { defineConfig } from "tsdown";
 // requires run for side effects, a web-only consumer doing
 // `require("@copilotkit/markdown-renderer/react")` would crash with
 // "Cannot find module 'react-native'" (react-native is an optional peer that web
-// apps don't install).
+// apps don't install). Separate builds keep each entry self-contained.
 //
-// Separate builds keep each entry self-contained. They use DISTINCT outDirs so
-// the concurrent builds never touch each other's files (a shared outDir caused
-// tsdown to drop sibling output). `clean: false` everywhere — the `build` script
-// removes `dist` once up-front.
+// Only the root build cleans — it owns the top-level `dist/` and runs first, so
+// its clean wipes stale output before the per-framework builds write into their
+// own subdirs. Those use `clean: false` so they don't wipe the root's output
+// (or each other's).
 const shared = {
   format: ["esm", "cjs"] as const,
   dts: true,
   sourcemap: true,
   target: "es2022",
-  clean: false,
   external: [
     "react",
     "react/jsx-runtime",
@@ -32,8 +31,8 @@ const shared = {
 };
 
 export default defineConfig([
-  { ...shared, entry: { index: "src/index.ts" }, outDir: "dist" },
-  { ...shared, entry: { index: "src/react/index.ts" }, outDir: "dist/react" },
-  { ...shared, entry: { index: "src/vue/index.ts" }, outDir: "dist/vue" },
-  { ...shared, entry: { index: "src/react-native/index.ts" }, outDir: "dist/react-native" },
+  { ...shared, entry: { index: "src/index.ts" }, outDir: "dist", clean: true },
+  { ...shared, entry: { index: "src/react/index.ts" }, outDir: "dist/react", clean: false },
+  { ...shared, entry: { index: "src/vue/index.ts" }, outDir: "dist/vue", clean: false },
+  { ...shared, entry: { index: "src/react-native/index.ts" }, outDir: "dist/react-native", clean: false },
 ]);
