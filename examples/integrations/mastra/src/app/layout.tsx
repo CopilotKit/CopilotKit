@@ -35,7 +35,6 @@ export default function RootLayout({
             `next dev` and can fall back to single-route (no threads support). */}
         <CopilotKit
           runtimeUrl="/api/copilotkit"
-          agent="weatherAgent"
           useSingleEndpoint={false}
         >
           {children}
