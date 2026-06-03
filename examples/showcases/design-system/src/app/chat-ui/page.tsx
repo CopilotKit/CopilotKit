@@ -15,11 +15,13 @@ import {
   Wind,
 } from "lucide-react";
 import { z } from "zod";
-import type { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import type {
+  CopilotChatAssistantMessageProps,
+  CopilotChatUserMessage,
+} from "@copilotkit/react-core/v2";
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
-  type CopilotChatAssistantMessageProps,
   useAgent,
   useComponent,
   useCopilotKit,
@@ -249,24 +251,6 @@ function extractText(content: unknown): string {
       .join("");
   }
   return "";
-}
-
-function WarmAssistant({ message }: CopilotChatAssistantMessageProps) {
-  const text = extractText(message.content);
-  if (!text.trim()) return null;
-  return (
-    <div
-      className="my-5 mx-1 pl-6 py-1 text-[18px] leading-snug max-w-[600px]"
-      style={{
-        borderLeft: "3px solid #c25c34",
-        color: "#1f1a13",
-        fontFamily: "var(--warm-serif)",
-        fontWeight: 500,
-      }}
-    >
-      {text}
-    </div>
-  );
 }
 
 function WarmWelcome({
