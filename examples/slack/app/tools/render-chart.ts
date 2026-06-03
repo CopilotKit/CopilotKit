@@ -14,11 +14,24 @@ const schema = z.object({
     .optional()
     .describe("Short title shown as the image's filename/caption."),
   chartSpec: z
-    .string()
+    .union([
+      z.object({
+        type: z
+          .string()
+          .describe(
+            "'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' etc.",
+          ),
+        data: z
+          .any()
+          .describe("Chart.js data: { labels: [...], datasets: [...] }."),
+        options: z.any().optional().describe("Optional Chart.js options."),
+      }),
+      z.string(),
+    ])
     .describe(
-      "A Chart.js config as a JSON string — { type, data, options? }. type is " +
-        "'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' etc. Keep it self-" +
-        "contained (inline the data).",
+      "A Chart.js config OBJECT — { type, data, options? } — with all data " +
+        "inlined (a JSON string of the same is also accepted). For a stacked " +
+        "bar set options.scales.x.stacked and options.scales.y.stacked to true.",
     ),
 });
 
@@ -35,19 +48,25 @@ export const renderChartTool: FrontendTool<typeof schema> = {
   name: "render_chart",
   description:
     "Render a chart as an image and post it to the Slack thread. Pass a " +
-    "Chart.js config (type + data, optionally options) as a JSON string. Use " +
-    "this to visualize data — e.g. after analyzing an uploaded CSV. The image " +
-    "renders inline in Slack.",
+    "Chart.js config OBJECT (type + data, optionally options). Use this to " +
+    "visualize data — e.g. after analyzing an uploaded CSV. The image renders " +
+    "inline in Slack.",
   parameters: schema,
   async handler({ title, chartSpec }, ctx) {
+    // chartSpec is an object; tolerate a stringified one too (some models
+    // still hand back a JSON string).
     let spec: Record<string, unknown>;
-    try {
-      spec = JSON.parse(chartSpec) as Record<string, unknown>;
-    } catch (e) {
-      return JSON.stringify({
-        ok: false,
-        error: `chartSpec is not valid JSON: ${(e as Error).message}`,
-      });
+    if (typeof chartSpec === "string") {
+      try {
+        spec = JSON.parse(chartSpec) as Record<string, unknown>;
+      } catch (e) {
+        return JSON.stringify({
+          ok: false,
+          error: `chartSpec must be a Chart.js config object; got an unparseable string: ${(e as Error).message}`,
+        });
+      }
+    } else {
+      spec = chartSpec as Record<string, unknown>;
     }
     if (!ctx.postFile) {
       return JSON.stringify({ ok: false, error: "file delivery unavailable" });

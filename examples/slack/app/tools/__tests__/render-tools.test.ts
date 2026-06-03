@@ -29,15 +29,17 @@ beforeEach(() => {
 });
 
 describe("render_chart tool", () => {
-  it("parses the spec, renders, and posts the PNG", async () => {
+  it("renders a config object and posts the PNG", async () => {
     const { ctx, postFile } = makeCtx();
-    const spec = {
-      type: "bar",
-      data: { labels: ["a"], datasets: [{ data: [1] }] },
-    };
     const out = JSON.parse(
       (await renderChartTool.handler(
-        { title: "Revenue Q2", chartSpec: JSON.stringify(spec) },
+        {
+          title: "Revenue Q2",
+          chartSpec: {
+            type: "bar",
+            data: { labels: ["a"], datasets: [{ data: [1] }] },
+          },
+        },
         ctx,
       )) as string,
     );
@@ -53,7 +55,26 @@ describe("render_chart tool", () => {
     expect(out).toMatchObject({ ok: true, posted: true });
   });
 
-  it("returns an error for invalid JSON without rendering", async () => {
+  it("still tolerates a stringified config", async () => {
+    const { ctx } = makeCtx();
+    const out = JSON.parse(
+      (await renderChartTool.handler(
+        {
+          chartSpec: JSON.stringify({
+            type: "line",
+            data: { labels: [], datasets: [] },
+          }),
+        },
+        ctx,
+      )) as string,
+    );
+    expect(renderChart).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "line" }),
+    );
+    expect(out).toMatchObject({ ok: true });
+  });
+
+  it("returns an error for an unparseable stringified spec", async () => {
     const { ctx, postFile } = makeCtx();
     const out = JSON.parse(
       (await renderChartTool.handler(
@@ -62,7 +83,6 @@ describe("render_chart tool", () => {
       )) as string,
     );
     expect(out.ok).toBe(false);
-    expect(out.error).toMatch(/JSON/i);
     expect(renderChart).not.toHaveBeenCalled();
     expect(postFile).not.toHaveBeenCalled();
   });
