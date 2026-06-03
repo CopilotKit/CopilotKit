@@ -17,6 +17,7 @@ function makeCtx(
     threadTs: "1700000000.000100",
     botUserId: "UBOT",
     conversationKey: "C123::1700000000.000100",
+    postFile: async () => ({ ok: true }),
     ...overrides,
   };
 }

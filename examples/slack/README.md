@@ -126,6 +126,33 @@ streamed reply reuses that message (dots → answer); if the first output is a
 card or a confirm picker, the placeholder is removed. It's part of
 `@copilotkit/slack`, on by default.
 
+## Files → charts & diagrams
+
+Upload a file and the bot analyzes it: images go straight to the (vision)
+model, and CSV/JSON/text are decoded and handed over as text. The SDK is
+transport-only — it downloads the upload and delivers it to the agent as
+multimodal content; the **app** decides what to do.
+
+Two app-side tools turn analysis into pictures, rendered **locally** in a
+headless browser (reusing the Playwright dep) and posted back inline:
+
+- `render_chart` — the agent emits a Chart.js config; we draw it to a PNG.
+- `render_diagram` — the agent emits Mermaid; we render it to a PNG.
+
+Try it: drop a CSV and say _"chart revenue by month"_, or _"diagram this
+incident flow"_. Requires a Chromium binary for rendering:
+
+```bash
+npx playwright install chromium
+```
+
+Notes: image analysis needs a vision-capable `AGENT_MODEL` (e.g.
+`openai/gpt-4.1`, `anthropic/claude-sonnet-4.5`). Inbound files are capped
+(8 MiB/file, 5 files, 200 KiB of decoded text) — tune via
+`createSlackBridge({ files: { … } })`. The chart/diagram libraries load from a
+CDN into the local browser (override `CHART_JS_URL` / `MERMAID_URL`); your
+data is rendered locally and never sent to a rendering service.
+
 ## Deploying
 
 There's nothing local-only here: the bridge and the runtime are plain

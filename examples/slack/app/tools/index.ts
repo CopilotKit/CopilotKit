@@ -9,8 +9,14 @@
  * in `app/index.ts`.
  */
 import { readThreadTool } from "./read-thread.js";
+import { renderChartTool } from "./render-chart.js";
+import { renderDiagramTool } from "./render-diagram.js";
 import type { FrontendTool } from "@copilotkit/slack";
 
-export const appTools: ReadonlyArray<FrontendTool> = [readThreadTool];
+export const appTools: ReadonlyArray<FrontendTool> = [
+  readThreadTool,
+  renderChartTool,
+  renderDiagramTool,
+];
 
-export { readThreadTool };
+export { readThreadTool, renderChartTool, renderDiagramTool };

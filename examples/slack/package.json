@@ -20,6 +20,7 @@
     "@copilotkit/slack": "workspace:*",
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
+    "playwright": "^1.49.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -27,7 +28,6 @@
     "@notionhq/notion-mcp-server": "^2.2.1",
     "@types/node": "^22.10.0",
     "dotenv": "^16.4.5",
-    "playwright": "^1.49.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3"

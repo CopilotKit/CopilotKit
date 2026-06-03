@@ -19,6 +19,7 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appComponents } from "./components/index.js";
 import { appHitl } from "./human-in-the-loop/index.js";
+import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -63,6 +64,8 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`\n[slack-bridge] received ${signal}, stopping…`);
     await bridge.stop();
+    // Tear down the shared headless browser used for chart/diagram rendering.
+    await closeBrowser();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));
