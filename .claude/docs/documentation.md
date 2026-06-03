@@ -8,12 +8,12 @@ silently never reaches the live site. Read this before editing any docs.
 All CopilotKit documentation is authored in **`showcase/shell-docs/src/content/`**, which
 builds and serves **docs.copilotkit.ai**:
 
-| Content type | Location |
-| --- | --- |
-| Guide / how-to / concept pages | `showcase/shell-docs/src/content/docs/` |
-| API reference | `showcase/shell-docs/src/content/reference/` |
-| Reusable snippets (shared MDX) | `showcase/shell-docs/src/content/snippets/` |
-| Framework overview pages | `showcase/shell-docs/src/content/framework-overviews/` |
+| Content type                   | Location                                               |
+| ------------------------------ | ------------------------------------------------------ |
+| Guide / how-to / concept pages | `showcase/shell-docs/src/content/docs/`                |
+| API reference                  | `showcase/shell-docs/src/content/reference/`           |
+| Reusable snippets (shared MDX) | `showcase/shell-docs/src/content/snippets/`            |
+| Framework overview pages       | `showcase/shell-docs/src/content/framework-overviews/` |
 
 When you add a **guide page** under `docs/`, also update that section's `meta.json` so it
 appears in navigation.
