@@ -132,10 +132,7 @@
         "serve.py",
         "scripts/**",
         "src/components/threads-drawer/**",
-        "src/app/layout.tsx",
         "src/app/page.tsx",
-        "src/components/example-layout/index.tsx",
-        "docker-route-override.ts",
         "next.config.ts"
       ],
       "packageJsonOverrides": {
