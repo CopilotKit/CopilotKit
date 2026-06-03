@@ -1161,7 +1161,11 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
   // bookkeeping is to read them directly.
   const entry0 = (
     pool: BrowserPool,
-  ): { servedContexts: number; recyclePending: boolean; pendingOpens: number } =>
+  ): {
+    servedContexts: number;
+    recyclePending: boolean;
+    pendingOpens: number;
+  } =>
     (
       pool as unknown as {
         browsers: Array<{
@@ -1262,9 +1266,7 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
 
     // Queue a waiter W past the cap with a SHORT timeout.
     let wRejected: Error | undefined;
-    const wP = pool
-      .acquire(undefined, 20)
-      .catch((e: Error) => (wRejected = e));
+    const wP = pool.acquire(undefined, 20).catch((e: Error) => (wRejected = e));
     await drainMicrotasks();
 
     // Release c1: the boundary-crossing release (servedContexts>=recycleAfter,
