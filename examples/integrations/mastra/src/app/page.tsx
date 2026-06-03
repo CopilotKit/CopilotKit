@@ -39,8 +39,8 @@ export default function CopilotKitPage() {
         disableSystemMessage={true}
         clickOutsideToClose={false}
         labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
         }}
         suggestions={[
           {

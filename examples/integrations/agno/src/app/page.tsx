@@ -38,8 +38,9 @@ export default function CopilotKitPage() {
         defaultOpen={true}
         // Adds an initial message to the chat
         labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an Agno agent.",
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText:
+            "👋 Hi, there! You're chatting with an Agno agent.",
         }}
         // Suggestions for guiding users
         suggestions={[
