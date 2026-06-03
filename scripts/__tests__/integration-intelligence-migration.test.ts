@@ -8,6 +8,7 @@ const integrationsDir = path.join(repoRoot, "examples", "integrations");
 const migratedIntegrations = [
   "crewai-flows",
   "llamaindex",
+  "langgraph-fastapi",
   "pydantic-ai",
 ] as const;
 
