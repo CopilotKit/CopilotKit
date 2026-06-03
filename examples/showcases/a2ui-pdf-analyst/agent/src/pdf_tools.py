@@ -1,4 +1,5 @@
 """Shared agent tools: PDF text → structured data for the catalog."""
+
 from __future__ import annotations
 
 import json
@@ -86,7 +87,9 @@ Return JSON with this shape:
 Return ONLY the JSON object.
 """
     out = _EXTRACTOR.invoke([("system", sys), ("user", user)])
-    raw = _strip_to_json(out.content if isinstance(out.content, str) else str(out.content))
+    raw = _strip_to_json(
+        out.content if isinstance(out.content, str) else str(out.content)
+    )
     # Validate. fall back to a tiny placeholder if the LLM produced invalid JSON.
     try:
         data = json.loads(raw)
@@ -96,8 +99,14 @@ Return ONLY the JSON object.
             "title": document_name or "Untitled",
             "subtitle": "Could not extract structured data from this document.",
             "kpis": [
-                {"label": "Status", "value": "n/a", "delta": "", "caption": "extraction failed"}
-            ] * 4,
+                {
+                    "label": "Status",
+                    "value": "n/a",
+                    "delta": "",
+                    "caption": "extraction failed",
+                }
+            ]
+            * 4,
             "trend": [],
             "share": [],
             "rows": [],
@@ -142,7 +151,9 @@ Return JSON shaped like:
 }}
 """
     out = _EXTRACTOR.invoke([("system", sys), ("user", user)])
-    raw = _strip_to_json(out.content if isinstance(out.content, str) else str(out.content))
+    raw = _strip_to_json(
+        out.content if isinstance(out.content, str) else str(out.content)
+    )
     try:
         json.loads(raw)  # validate
         return raw
