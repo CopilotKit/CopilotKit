@@ -165,7 +165,7 @@ test("change [team]→[organization] mid-mount → emits [organization] (a real 
   await act(async () => {});
   expect(calls).toHaveLength(1);
 
-  // Switch back to the default — this is a deliberate change and must emit.
+  // Switch to a different non-default value — a deliberate change always emits.
   rerender({ containers: ["organization"] });
   await act(async () => {});
 
