@@ -558,7 +558,7 @@
    pill matching the sidebar's send button. */
 .lockedPanel {
   display: flex;
-  width: 18rem;
+  width: 20rem;
   flex-shrink: 0;
   flex-direction: column;
   height: 100dvh;
@@ -632,6 +632,7 @@
 .lockedCommandCode {
   font-family: var(--font-code);
   font-size: 0.75rem;
+  white-space: nowrap;
   color: var(--secondary-foreground);
 }
 

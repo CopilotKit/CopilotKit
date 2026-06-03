@@ -42,6 +42,9 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
               thread management with CopilotKit Intelligence.
             </p>
           </div>
+          <p className={styles.lockedDescription}>
+            Add it to your project with:
+          </p>
           <div className={styles.lockedCommand}>
             <code className={styles.lockedCommandCode}>
               copilotkit add-intelligence

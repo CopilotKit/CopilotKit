@@ -30,7 +30,7 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col items-center justify-center p-4 bg-[var(--threads-drawer-bg,var(--card))] border-r border-[var(--threads-drawer-border,var(--border))]">
+    <div className="flex w-80 shrink-0 flex-col items-center justify-center p-4 bg-[var(--threads-drawer-bg,var(--card))] border-r border-[var(--threads-drawer-border,var(--border))]">
       <Card className="w-full">
         <CardHeader>
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--secondary)]">
@@ -61,12 +61,12 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
         <CardContent>
           <p className="text-sm text-[var(--muted-foreground)]">
             To enable Threads, add a CopilotKit Intelligence license to your
-            project.
+            project with:
           </p>
         </CardContent>
         <CardFooter className="flex-col items-start gap-3">
           <div className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--secondary)] px-3 py-2">
-            <code className="text-xs text-[var(--secondary-foreground)]">
+            <code className="text-xs whitespace-nowrap text-[var(--secondary-foreground)]">
               copilotkit add-intelligence
             </code>
           </div>
