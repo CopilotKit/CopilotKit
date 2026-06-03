@@ -1,11 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
 } from "@copilotkit/markdown-renderer/react";
-import type { DefaultMarkdownRendererProps, MarkdownRendererProps } from "../../providers/MarkdownRendererContext";
+import type {
+  DefaultMarkdownRendererProps,
+  MarkdownRendererProps,
+} from "../../providers/MarkdownRendererContext";
 
 // Theme code blocks to CopilotKit's readable, theme-aware treatment
 // (light/dark safe). Key is "codeBlock" (camelCase) per NODE_TYPE_TO_RENDERER_KEY.
@@ -36,10 +39,21 @@ export function StreamingMarkdownDefaultRenderer({
   onLinkClick,
   onCitationClick,
 }: MarkdownRendererProps & DefaultMarkdownRendererProps) {
+  // Hooks must run unconditionally and in a stable order on every render, so
+  // this useMemo stays above the early return below — a streaming message
+  // commonly renders empty first, then non-empty, which would otherwise change
+  // the hook count between renders (Rules of Hooks violation + runtime crash).
+  const mergedNodeRenderers = useMemo(
+    () =>
+      nodeRenderers
+        ? createStreamingMarkdownNodeRenderers({
+            ...defaultNodeRenderers,
+            ...nodeRenderers,
+          })
+        : defaultNodeRenderers,
+    [nodeRenderers],
+  );
   if (!content) return null;
-  const mergedNodeRenderers = nodeRenderers
-    ? createStreamingMarkdownNodeRenderers({ ...defaultNodeRenderers, ...nodeRenderers })
-    : defaultNodeRenderers;
   return (
     <StreamingMarkdownRenderer
       className={className}
@@ -55,4 +69,5 @@ export function StreamingMarkdownDefaultRenderer({
   );
 }
 
-StreamingMarkdownDefaultRenderer.displayName = "StreamingMarkdownDefaultRenderer";
+StreamingMarkdownDefaultRenderer.displayName =
+  "StreamingMarkdownDefaultRenderer";

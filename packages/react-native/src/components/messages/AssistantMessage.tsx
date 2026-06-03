@@ -1,7 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet, type ViewStyle } from "react-native";
 import { CopilotMarkdown } from "../Markdown";
-import { useMarkdownRenderer, isNativeComponentRenderer } from "../MarkdownRendererContext";
+import {
+  useMarkdownRenderer,
+  isNativeComponentRenderer,
+} from "../MarkdownRendererContext";
 import { TypingIndicator } from "./TypingIndicator";
 import { formatTimestamp } from "./utils";
 
@@ -48,7 +51,11 @@ export function AssistantMessage({
           isNativeComponentRenderer(provided) ? (
             React.createElement(provided, { content, isStreaming: isLoading })
           ) : provided ? (
-            <CopilotMarkdown content={content} style={provided.style} streamingAnimation={provided.animate} />
+            <CopilotMarkdown
+              content={content}
+              style={provided.style}
+              streamingAnimation={provided.animate}
+            />
           ) : (
             <CopilotMarkdown content={content} />
           )

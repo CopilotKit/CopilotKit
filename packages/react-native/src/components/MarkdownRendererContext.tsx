@@ -14,10 +14,14 @@ export interface DefaultMarkdownRendererProps {
   style?: MarkdownStyle;
   animate?: boolean;
 }
-export type MarkdownRendererValue = NativeMarkdownRenderer | DefaultMarkdownRendererProps;
+export type MarkdownRendererValue =
+  | NativeMarkdownRenderer
+  | DefaultMarkdownRendererProps;
 
 /** A component is a function or an object carrying React's `$$typeof` (forwardRef/memo). */
-export function isNativeComponentRenderer(value: unknown): value is NativeMarkdownRenderer {
+export function isNativeComponentRenderer(
+  value: unknown,
+): value is NativeMarkdownRenderer {
   if (typeof value === "function") return true;
   return !!value && typeof value === "object" && "$$typeof" in value;
 }

@@ -14,13 +14,15 @@ export interface DefaultMarkdownRendererProps {
 export type MarkdownRendererValue = Component | DefaultMarkdownRendererProps;
 
 /** Injection key for a global markdown renderer component (or `undefined`). */
-export const MARKDOWN_RENDERER_KEY: InjectionKey<MarkdownRendererValue | undefined> =
-  Symbol("copilotkit-markdown-renderer");
+export const MARKDOWN_RENDERER_KEY: InjectionKey<
+  MarkdownRendererValue | undefined
+> = Symbol("copilotkit-markdown-renderer");
 
 /**
  * The markdown renderer provided at the provider level, or `undefined`.
  * Message components fall back to the built-in `StreamingMarkdownDefault` when undefined.
- * The renderer is a Vue component accepting `{ content: string; isStreaming?: boolean }`.
+ * The value is either a Vue component (accepting `{ content: string; isStreaming?: boolean }`)
+ * or a `DefaultMarkdownRendererProps` config object for the built-in renderer.
  */
 export function useMarkdownRenderer(): MarkdownRendererValue | undefined {
   return inject(MARKDOWN_RENDERER_KEY, undefined);

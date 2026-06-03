@@ -49,9 +49,11 @@ export interface CopilotKitNativeProviderProps {
    */
   defaultThrottleMs?: number;
   /**
-   * Custom markdown renderer component. When provided, CopilotKit will use this
-   * instead of the built-in token-walking renderer. Receives `content` (markdown
-   * string) and optional `isStreaming` flag.
+   * Custom markdown renderer for assistant messages. Either a component (escape
+   * hatch — receives `content` and an optional `isStreaming` flag) used instead
+   * of the built-in renderer, or a `{ style, animate }` config object to
+   * configure the built-in React Native renderer (the `CopilotMarkdown` used by
+   * the default `AssistantMessage`) without writing a wrapper.
    */
   markdownRenderer?: MarkdownRendererValue;
   // Cloud features (publicApiKey, licenseToken) — not yet supported on React Native

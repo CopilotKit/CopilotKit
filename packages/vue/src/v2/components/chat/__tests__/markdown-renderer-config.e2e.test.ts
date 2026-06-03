@@ -7,7 +7,11 @@ import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConf
 import CopilotChatAssistantMessage from "../CopilotChatAssistantMessage.vue";
 import { MARKDOWN_RENDERER_KEY } from "../../../providers/markdown-renderer";
 
-const codeMsg: AssistantMessage = { id: "m1", role: "assistant", content: "```\nx\n```" } as any;
+const codeMsg: AssistantMessage = {
+  id: "m1",
+  role: "assistant",
+  content: "```\nx\n```",
+} as any;
 
 /** Wraps the component in the required providers, optionally injecting a markdownRenderer. */
 function makeWrapper(rendererValue: unknown) {
@@ -19,7 +23,11 @@ function makeWrapper(rendererValue: unknown) {
             defineComponent({
               setup() {
                 provide(MARKDOWN_RENDERER_KEY, rendererValue as any);
-                return () => h(CopilotChatAssistantMessage, { message: codeMsg, messages: [codeMsg] });
+                return () =>
+                  h(CopilotChatAssistantMessage, {
+                    message: codeMsg,
+                    messages: [codeMsg],
+                  });
               },
             }),
           ),
@@ -34,7 +42,8 @@ describe("Vue markdownRenderer config", () => {
     const { container } = render(
       makeWrapper({
         nodeRenderers: {
-          codeBlock: (node: any) => h("pre", { "data-testid": "prov-code" }, node.text),
+          codeBlock: (node: any) =>
+            h("pre", { "data-testid": "prov-code" }, node.text),
         },
       }),
     );

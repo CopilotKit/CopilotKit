@@ -19,7 +19,12 @@ export interface MarkdownRendererProps {
  */
 export type DefaultMarkdownRendererProps = Pick<
   StreamingMarkdownRendererProps,
-  "nodeRenderers" | "caret" | "options" | "className" | "onLinkClick" | "onCitationClick"
+  | "nodeRenderers"
+  | "caret"
+  | "options"
+  | "className"
+  | "onLinkClick"
+  | "onCitationClick"
 >;
 
 /** A markdown renderer: a component, OR config for the built-in default. */
@@ -42,7 +47,8 @@ export const MarkdownRendererProvider: React.FC<{
 
 /**
  * The markdown renderer set at the provider level, or `undefined` when none was
- * supplied. Message components fall back to the built-in `BasicMarkdownRenderer`
+ * supplied. Message components fall back to the built-in
+ * `StreamingMarkdownDefaultRenderer` (via `CopilotChatAssistantMessage.MarkdownRenderer`)
  * when this is `undefined`.
  */
 export function useMarkdownRenderer(): MarkdownRenderer | undefined {

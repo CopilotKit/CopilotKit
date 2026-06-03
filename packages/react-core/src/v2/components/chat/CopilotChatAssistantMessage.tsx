@@ -1,5 +1,5 @@
 import { AssistantMessage, Message } from "@ag-ui/core";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -19,7 +19,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
-import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
+import {
+  WithSlots,
+  renderSlot,
+  isReactComponentType,
+  useShallowStableRef,
+} from "../../lib/slots";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import {
   useMarkdownRenderer,
@@ -56,12 +61,27 @@ export type CopilotChatAssistantMessageProps = WithSlots<
 
 function resolveMarkdownRenderer(
   value: MarkdownRendererValue | undefined,
-): React.ComponentType<MarkdownRendererProps> {
+): React.FC<MarkdownRendererProps & DefaultMarkdownRendererProps> {
   if (!value) return CopilotChatAssistantMessage.MarkdownRenderer;
-  if (isReactComponentType(value)) return value;
+  if (isReactComponentType(value)) {
+    // A provider-supplied component (escape hatch) renders with the bound
+    // { content, isStreaming } props; wrap it so the resolved type matches the
+    // slot's component type. createElement accepts function or class components.
+    const ProvidedRenderer = value;
+    const ProvidedMarkdownRenderer: React.FC<
+      MarkdownRendererProps & DefaultMarkdownRendererProps
+    > = (props) => React.createElement(ProvidedRenderer, props);
+    return ProvidedMarkdownRenderer;
+  }
   const config = value as DefaultMarkdownRendererProps;
-  const ConfiguredRenderer: React.FC<MarkdownRendererProps> = (props) => (
-    <CopilotChatAssistantMessage.MarkdownRenderer {...props} {...config} />
+  const ConfiguredRenderer: React.FC<
+    MarkdownRendererProps & DefaultMarkdownRendererProps
+  > = (props) => (
+    // Provider config is the base; props (bound content/isStreaming plus any
+    // per-message slot config merged in by renderSlot) override it, so a
+    // per-message markdownRenderer wins over the provider per the documented
+    // slot -> provider -> built-in resolution order.
+    <CopilotChatAssistantMessage.MarkdownRenderer {...config} {...props} />
   );
   return ConfiguredRenderer;
 }
@@ -88,7 +108,16 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
-  const providerRenderer = useMarkdownRenderer();
+  // Stabilize the provider value so a shallow-equal inline config object (e.g.
+  // `markdownRenderer={{ caret: true }}`) with a fresh identity on each provider
+  // render doesn't churn resolveMarkdownRenderer's output and remount the
+  // markdown subtree (which would throw away streaming parser state). This is a
+  // shallow, key-by-key compare — configs whose values are themselves new
+  // objects each render (e.g. an inline `nodeRenderers`) or an inline component
+  // renderer still change identity, so define those outside render / memoize
+  // them, exactly as you would any component prop. Mirrors how slot props are
+  // stabilized via the same helper.
+  const providerRenderer = useShallowStableRef(useMarkdownRenderer());
   const DefaultMarkdownRenderer = useMemo(
     () => resolveMarkdownRenderer(providerRenderer),
     [providerRenderer],
@@ -231,12 +260,9 @@ export function CopilotChatAssistantMessage({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
-  export const MarkdownRenderer: React.FC<MarkdownRendererProps & DefaultMarkdownRendererProps> = ({
-    content,
-    isStreaming,
-    className,
-    ...config
-  }) => (
+  export const MarkdownRenderer: React.FC<
+    MarkdownRendererProps & DefaultMarkdownRendererProps
+  > = ({ content, isStreaming, className, ...config }) => (
     <StreamingMarkdownDefaultRenderer
       content={content ?? ""}
       isStreaming={isStreaming}
