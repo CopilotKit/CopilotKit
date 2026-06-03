@@ -12,6 +12,7 @@ import {
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 import React, { useState } from "react";
+import { z } from "zod";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -19,13 +20,11 @@ export default function CopilotKitPage() {
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/adk/frontend-actions
   useFrontendTool({
     name: "setThemeColor",
-    parameters: [
-      {
-        name: "themeColor",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      themeColor: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler({ themeColor }) {
       setThemeColor(themeColor);
     },

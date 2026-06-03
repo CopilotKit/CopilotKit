@@ -10,6 +10,7 @@ import {
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 import { useState } from "react";
+import { z } from "zod";
 import { AgentState } from "@/lib/types";
 
 export default function CopilotKitPage() {
@@ -19,14 +20,11 @@ export default function CopilotKitPage() {
   useFrontendTool({
     name: "setThemeColor",
     description: "Set the theme color of the application",
-    parameters: [
-      {
-        name: "themeColor",
-        type: "string",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      themeColor: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
     },
@@ -96,7 +94,9 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       name: "get_weather",
       description: "Get the weather for a given location.",
       available: "disabled",
-      parameters: [{ name: "location", type: "string", required: true }],
+      parameters: z.object({
+        location: z.string(),
+      }),
       render: ({ args }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
