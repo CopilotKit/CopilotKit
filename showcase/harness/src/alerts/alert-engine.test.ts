@@ -1938,7 +1938,9 @@ describe("alert-engine R7 (A1/A4/A5/A9)", () => {
     });
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
-    expect((sent[0] as { payload: { text: string } }).payload.text).toBe("[unknown] ERR");
+    expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "[unknown] ERR",
+    );
     e.stop();
   });
 
