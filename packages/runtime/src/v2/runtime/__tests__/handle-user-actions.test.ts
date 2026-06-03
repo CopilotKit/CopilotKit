@@ -1,307 +1,267 @@
-import { describe, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 
-import { handleRecordUserAction } from "../handlers/handle-user-actions";
+import { handleAnnotate } from "../handlers/handle-user-actions";
 import { CopilotRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 
-describe("handleRecordUserAction", () => {
-  const createIdentifyUser = () =>
-    vi.fn().mockResolvedValue({ id: "user-1", name: "User One" });
+const createIdentifyUser = () =>
+  vi.fn().mockResolvedValue({ id: "user-1", name: "User One" });
 
-  const createIntelligenceRuntime = (options?: {
-    identifyUser?: (
-      request: Request,
-    ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
-    intelligence?: Record<string, unknown>;
-  }) =>
-    ({
-      agents: Promise.resolve({}),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      runner: {
-        run: vi.fn(),
-        connect: vi.fn(),
-        isRunning: vi.fn(),
-        stop: vi.fn(),
-      },
-      mode: "intelligence",
-      generateThreadNames: false,
-      identifyUser: options?.identifyUser ?? createIdentifyUser(),
-      intelligence: options?.intelligence,
-    }) as unknown as CopilotRuntime;
+const createIntelligenceRuntime = (options?: {
+  identifyUser?: (
+    request: Request,
+  ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
+  intelligence?: Record<string, unknown>;
+}) =>
+  ({
+    agents: Promise.resolve({}),
+    transcriptionService: undefined,
+    beforeRequestMiddleware: undefined,
+    afterRequestMiddleware: undefined,
+    runner: {
+      run: vi.fn(),
+      connect: vi.fn(),
+      isRunning: vi.fn(),
+      stop: vi.fn(),
+    },
+    mode: "intelligence",
+    generateThreadNames: false,
+    identifyUser: options?.identifyUser ?? createIdentifyUser(),
+    intelligence: options?.intelligence,
+  }) as unknown as CopilotRuntime;
 
-  const validBody = () => ({
-    clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+const validBody = () => ({
+  type: "user_action",
+  payload: { previous: { name: "Foo" }, next: { name: "Bar" } },
+  threadId: "thread-1",
+  clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+  occurredAt: "2026-01-01T00:00:00.000Z",
+});
+
+const buildRequest = (body: Record<string, unknown>) =>
+  new Request("https://example.com/annotate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+it("returns 422 when intelligence is not configured", async () => {
+  const runtime = new CopilotRuntime({ agents: {} });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(validBody()),
+  });
+  expect(response.status).toBe(422);
+});
+
+it("forwards to intelligence.annotate with the resolved userId", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "42", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const body = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(body),
+  });
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({ id: "42", duplicate: false });
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      userId: "user-1",
+      threadId: "thread-1",
+      type: "user_action",
+      payload: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+      occurredAt: "2026-01-01T00:00:00.000Z",
+    }),
+  );
+});
+
+it("resolves userId server-side (not from the request body)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  // Body contains NO userId field — server must inject it from auth
+  const bodyWithoutUserId = {
+    type: "user_action",
     threadId: "thread-1",
-    title: "Renamed project",
-    description: "User renamed Foo to Bar",
-    data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-    metadata: { source: "settings-page" },
+  };
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(bodyWithoutUserId),
   });
+  expect(response.status).toBe(200);
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({ userId: "user-1" }),
+  );
+});
 
-  const buildRequest = (body: Record<string, unknown>) =>
-    new Request("https://example.com/user-actions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-  it("returns 422 when intelligence is not configured", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(response.status).toBe(422);
+it("returns 400 when threadId is missing", async () => {
+  const annotate = vi.fn();
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const { threadId: _drop, ...rest } = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(rest),
   });
+  expect(response.status).toBe(400);
+  expect(annotate).not.toHaveBeenCalled();
+});
 
-  it("forwards to intelligence.recordUserAction with the resolved userId", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "42", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const body = validBody();
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(body),
-    });
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      id: "42",
-      duplicate: false,
-    });
-    expect(recordUserAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-1",
-        threadId: "thread-1",
-        title: "Renamed project",
-        description: "User renamed Foo to Bar",
-        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-        metadata: { source: "settings-page" },
-        clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
-      }),
-    );
+it("returns 400 when threadId is empty string", async () => {
+  const annotate = vi.fn();
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest({ ...validBody(), threadId: "" }),
   });
+  expect(response.status).toBe(400);
+  expect(annotate).not.toHaveBeenCalled();
+});
 
-  it("returns 400 when threadId is missing", async () => {
-    const recordUserAction = vi.fn();
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const { threadId: _drop, ...rest } = validBody();
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(rest),
-    });
-    expect(response.status).toBe(400);
-    expect(recordUserAction).not.toHaveBeenCalled();
+it("returns 400 when type is missing", async () => {
+  const annotate = vi.fn();
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const { type: _drop, ...rest } = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(rest),
   });
+  expect(response.status).toBe(400);
+  expect(annotate).not.toHaveBeenCalled();
+});
 
-  it("returns 400 when clientEventId is missing", async () => {
-    const recordUserAction = vi.fn();
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const { clientEventId: _drop, ...rest } = validBody();
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(rest),
-    });
-    expect(response.status).toBe(400);
-    expect(recordUserAction).not.toHaveBeenCalled();
+it("returns 400 when type is empty string", async () => {
+  const annotate = vi.fn();
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest({ ...validBody(), type: "" }),
   });
+  expect(response.status).toBe(400);
+  expect(annotate).not.toHaveBeenCalled();
+});
 
-  it("succeeds when title is omitted (title is optional)", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const { title: _drop, ...rest } = validBody();
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(rest),
-    });
-    expect(response.status).toBe(200);
-    expect(recordUserAction).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: "thread-1" }),
-    );
-    // Title is absent or undefined when the body didn't carry one.
-    expect(recordUserAction.mock.calls[0]![0].title).toBeUndefined();
+it("succeeds when payload is omitted (payload is optional)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const { payload: _drop, ...rest } = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(rest),
   });
+  expect(response.status).toBe(200);
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "user_action", threadId: "thread-1" }),
+  );
+  expect(annotate.mock.calls[0]![0].payload).toBeUndefined();
+});
 
-  it("returns 502 with the expected error body when the platform call fails", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockRejectedValue(new Error("platform exploded"));
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({
-      error: "Failed to record user action",
-    });
+it("succeeds when clientEventId is omitted (optional)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const { clientEventId: _drop, ...rest } = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(rest),
   });
+  expect(response.status).toBe(200);
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "user_action", threadId: "thread-1" }),
+  );
+  expect(annotate.mock.calls[0]![0].clientEventId).toBeUndefined();
+});
 
-  it("forwards 4xx PlatformRequestError statuses verbatim (not collapsed into 502)", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockRejectedValue(new PlatformRequestError("bad threadId", 400));
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("bad threadId"),
-    });
+it("succeeds when occurredAt is omitted (optional)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const { occurredAt: _drop, ...rest } = validBody();
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(rest),
   });
+  expect(response.status).toBe(200);
+  expect(annotate.mock.calls[0]![0].occurredAt).toBeUndefined();
+});
 
-  it("collapses 5xx PlatformRequestError into a 502 (upstream is genuinely at fault)", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockRejectedValue(
-        new PlatformRequestError("internal server error", 503),
-      );
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(response.status).toBe(502);
+it("returns 400 for malformed JSON body", async () => {
+  const annotate = vi.fn();
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const request = new Request("https://example.com/annotate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "not-json{{{",
   });
+  const response = await handleAnnotate({ runtime, request });
+  expect(response.status).toBe(400);
+  expect(annotate).not.toHaveBeenCalled();
+});
 
-  it("silently drops an empty-string title (coerced to undefined)", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest({ ...validBody(), title: "" }),
-    });
-    // Empty string is treated as "no title" — the handler coerces via
-    // `isNonEmptyString`. Pin this contract so a future change that
-    // started rejecting empty strings instead is intentional, not
-    // accidental.
-    expect(recordUserAction.mock.calls[0]![0].title).toBeUndefined();
+it("returns 502 with the expected error body when the platform call fails", async () => {
+  const annotate = vi.fn().mockRejectedValue(new Error("platform exploded"));
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(validBody()),
   });
+  expect(response.status).toBe(502);
+  await expect(response.json()).resolves.toEqual({
+    error: "Failed to annotate",
+  });
+});
 
-  it("rejects an array as metadata (typeof [] === 'object' footgun)", async () => {
-    const recordUserAction = vi.fn();
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest({ ...validBody(), metadata: [1, 2, 3] }),
-    });
-    // Arrays are not valid metadata; the handler drops them rather
-    // than passing through as a record. Pin this so a future refactor
-    // can't accidentally re-introduce the bug.
-    expect(recordUserAction.mock.calls[0]![0].metadata).toBeUndefined();
+it("forwards 4xx PlatformRequestError statuses verbatim (not collapsed into 502)", async () => {
+  const annotate = vi
+    .fn()
+    .mockRejectedValue(new PlatformRequestError("bad threadId", 400));
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(validBody()),
   });
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({
+    error: expect.stringContaining("bad threadId"),
+  });
+});
 
-  it("forwards learningContainer (string) through to intelligence.recordUserAction", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest({ ...validBody(), learningContainer: "user" }),
-    });
-    expect(recordUserAction).toHaveBeenCalledWith(
-      expect.objectContaining({ learningContainer: "user" }),
-    );
+it("collapses 5xx PlatformRequestError into a 502 (upstream is genuinely at fault)", async () => {
+  const annotate = vi
+    .fn()
+    .mockRejectedValue(new PlatformRequestError("internal server error", 503));
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(validBody()),
   });
+  expect(response.status).toBe(502);
+});
 
-  it("forwards learningContainer (array) through to intelligence.recordUserAction", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest({
-        ...validBody(),
-        learningContainer: ["user", "organization"],
-      }),
-    });
-    expect(recordUserAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        learningContainer: ["user", "organization"],
-      }),
-    );
+it("returns the duplicate=true payload verbatim from the platform", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "42", duplicate: true });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const response = await handleAnnotate({
+    runtime,
+    request: buildRequest(validBody()),
   });
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({ id: "42", duplicate: true });
+});
 
-  it("omits learningContainer from the forward call when not provided", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(
-      recordUserAction.mock.calls[0]![0].learningContainer,
-    ).toBeUndefined();
+it("forwards payload verbatim (any shape) to intelligence.annotate", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({ intelligence: { annotate } });
+  const customPayload = { containers: ["user", "organization"] };
+  await handleAnnotate({
+    runtime,
+    request: buildRequest({
+      ...validBody(),
+      type: "set_learning_containers",
+      payload: customPayload,
+    }),
   });
-
-  it("forwards a malformed learningContainer (non-string, non-array) verbatim so the platform's Zod boundary is the single source of validation", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "1", duplicate: false });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    await handleRecordUserAction({
-      runtime,
-      request: buildRequest({ ...validBody(), learningContainer: 123 }),
-    });
-    // The runtime no longer silently rewrites bad input to `undefined`
-    // (which would silently land the platform default). The malformed
-    // value flows through; Intelligence's Zod rejects it with 400.
-    expect(recordUserAction.mock.calls[0]![0].learningContainer).toBe(123);
-  });
-
-  it("returns the duplicate=true payload verbatim from the platform", async () => {
-    const recordUserAction = vi
-      .fn()
-      .mockResolvedValue({ id: "42", duplicate: true });
-    const runtime = createIntelligenceRuntime({
-      intelligence: { recordUserAction },
-    });
-    const response = await handleRecordUserAction({
-      runtime,
-      request: buildRequest(validBody()),
-    });
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      id: "42",
-      duplicate: true,
-    });
-  });
+  expect(annotate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: "set_learning_containers",
+      payload: customPayload,
+    }),
+  );
 });

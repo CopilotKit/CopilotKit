@@ -8,27 +8,22 @@ import { PlatformRequestError } from "../../intelligence-platform/client";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 
-interface UserActionsHandlerParams {
+interface AnnotateHandlerParams {
   runtime: CopilotRuntimeLike;
   request: Request;
 }
 
-interface RecordUserActionBody {
+interface AnnotateBody {
+  /** Discriminator identifying the annotation type (e.g. `"user_action"`). */
+  type: string;
+  /** Type-specific payload. Shape varies by `type`. */
+  payload?: unknown;
+  /** The thread the annotation is associated with. */
   threadId: string;
-  title?: string | null;
-  description?: string | null;
-  data?: unknown;
-  /**
-   * Forwarded verbatim to the platform; Intelligence is the single
-   * authoritative validator and rejects malformed values (non-string,
-   * non-array, empty string, empty array, array with empty elements)
-   * with 400. The runtime intentionally does not type-guard this field
-   * to avoid silently rewriting bad input into the platform default.
-   */
-  learningContainer?: unknown;
-  metadata?: Record<string, unknown> | null;
+  /** Caller-supplied idempotency key. Optional — platform auto-generates one when absent. */
+  clientEventId?: string;
+  /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
-  clientEventId: string;
 }
 
 async function parseJsonBody(
@@ -37,7 +32,7 @@ async function parseJsonBody(
   try {
     return (await request.json()) as Record<string, unknown>;
   } catch (error) {
-    logger.error({ err: error }, "Malformed JSON in record-user-action body");
+    logger.error({ err: error }, "Malformed JSON in annotate body");
     return errorResponse("Invalid request body", 400);
   }
 }
@@ -47,7 +42,7 @@ function requireIntelligenceRuntime(
 ): CopilotIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Missing CopilotKitIntelligence configuration. recordUserAction requires a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+      "Missing CopilotKitIntelligence configuration. annotate requires a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
       422,
     );
   }
@@ -59,23 +54,23 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * `POST /user-actions` handler.
+ * `POST /annotate` handler.
  *
  * Three-tier flow:
- *   useLearnFromUserAction() (frontend)
- *     → POST ${runtimeUrl}/user-actions
+ *   useAnnotate() (frontend)
+ *     → POST ${runtimeUrl}/annotate
  *     → this handler resolves the Intel user from BFF auth
- *     → intelligence.recordUserAction(...)
- *     → PUT ${apiUrl}/connector/user-actions/record/:clientEventId
+ *     → intelligence.annotate(...)
+ *     → PUT ${apiUrl}/connector/annotate/:clientEventId
  *
- * The frontend hook auto-generates a UUID `clientEventId` per call,
+ * The frontend hook may auto-generate a UUID `clientEventId` per call
  * so retries are idempotent end-to-end (the platform collapses to the
  * original row).
  */
-export async function handleRecordUserAction({
+export async function handleAnnotate({
   runtime,
   request,
-}: UserActionsHandlerParams): Promise<Response> {
+}: AnnotateHandlerParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) return intelligenceRuntime;
 
@@ -88,27 +83,24 @@ export async function handleRecordUserAction({
   });
   if (isHandlerResponse(user)) return user;
 
-  const parsed = parseRecordUserActionBody(body);
+  const parsed = parseAnnotateBody(body);
   if (isHandlerResponse(parsed)) return parsed;
 
   try {
-    const result = await intelligenceRuntime.intelligence.recordUserAction({
+    const result = await intelligenceRuntime.intelligence.annotate({
       userId: user.id,
       threadId: parsed.threadId,
-      title: parsed.title,
-      description: parsed.description,
-      data: parsed.data,
-      learningContainer: parsed.learningContainer,
-      metadata: parsed.metadata,
-      occurredAt: parsed.occurredAt,
+      type: parsed.type,
+      payload: parsed.payload,
       clientEventId: parsed.clientEventId,
+      occurredAt: parsed.occurredAt,
     });
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    logger.error({ err }, "recordUserAction: platform call failed");
+    logger.error({ err }, "annotate: platform call failed");
     // Forward the platform's HTTP status when it's a client error
     // (4xx) so the SDK author sees an actionable response instead of
     // a generic 502. 5xx and non-platform errors collapse to 502
@@ -120,48 +112,26 @@ export async function handleRecordUserAction({
     ) {
       return errorResponse(err.message, err.status);
     }
-    return errorResponse("Failed to record user action", 502);
+    return errorResponse("Failed to annotate", 502);
   }
 }
 
-function parseRecordUserActionBody(
+function parseAnnotateBody(
   body: Record<string, unknown>,
-): RecordUserActionBody | Response {
+): AnnotateBody | Response {
   if (!isNonEmptyString(body.threadId)) {
     return errorResponse("Valid threadId is required", 400);
   }
-  if (!isNonEmptyString(body.clientEventId)) {
-    return errorResponse("Valid clientEventId is required", 400);
+  if (!isNonEmptyString(body.type)) {
+    return errorResponse("Valid type is required", 400);
   }
   return {
+    type: body.type,
+    payload: body.payload,
     threadId: body.threadId,
-    title:
-      body.title === undefined
-        ? undefined
-        : body.title === null
-          ? null
-          : isNonEmptyString(body.title)
-            ? body.title
-            : undefined,
-    description:
-      body.description === undefined
-        ? undefined
-        : body.description === null
-          ? null
-          : isNonEmptyString(body.description)
-            ? body.description
-            : undefined,
-    data: body.data,
-    learningContainer: body.learningContainer,
-    metadata:
-      body.metadata === undefined
-        ? undefined
-        : body.metadata === null
-          ? null
-          : typeof body.metadata === "object" && !Array.isArray(body.metadata)
-            ? (body.metadata as Record<string, unknown>)
-            : undefined,
+    clientEventId: isNonEmptyString(body.clientEventId)
+      ? body.clientEventId
+      : undefined,
     occurredAt: isNonEmptyString(body.occurredAt) ? body.occurredAt : undefined,
-    clientEventId: body.clientEventId,
   };
 }

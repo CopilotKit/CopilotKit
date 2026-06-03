@@ -47,7 +47,7 @@ export type RouteInfo =
   | { method: "threads/events"; threadId: string }
   | { method: "threads/state"; threadId: string }
   | { method: "threads/clear" }
-  | { method: "user-actions/record" }
+  | { method: "annotate" }
   | { method: "cpk-debug-events" };
 
 /* ------------------------------------------------------------------------------------------------

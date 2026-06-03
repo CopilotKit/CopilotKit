@@ -1,1 +1,1 @@
-export { handleRecordUserAction } from "./intelligence/user-actions";
+export { handleAnnotate } from "./intelligence/annotate";

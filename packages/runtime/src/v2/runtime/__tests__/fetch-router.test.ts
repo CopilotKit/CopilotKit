@@ -55,9 +55,9 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "threads/list" });
     });
 
-    it("matches POST /user-actions", () => {
-      const result = matchRoute("/api/copilotkit/user-actions", basePath);
-      expect(result).toEqual({ method: "user-actions/record" });
+    it("matches POST /annotate", () => {
+      const result = matchRoute("/api/copilotkit/annotate", basePath);
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches POST /threads/subscribe", () => {
@@ -236,9 +236,9 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "threads/list" });
     });
 
-    it("matches /user-actions suffix", () => {
-      const result = matchRoute("/anything/user-actions");
-      expect(result).toEqual({ method: "user-actions/record" });
+    it("matches /annotate suffix", () => {
+      const result = matchRoute("/anything/annotate");
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches /threads/subscribe suffix", () => {

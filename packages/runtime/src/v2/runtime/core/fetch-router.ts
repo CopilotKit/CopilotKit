@@ -199,9 +199,9 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
-  // /user-actions (1 segment) — record a UI interaction
-  if (len >= 1 && segments[len - 1] === "user-actions") {
-    return { method: "user-actions/record" };
+  // /annotate (1 segment) — annotate a thread event
+  if (len >= 1 && segments[len - 1] === "annotate") {
+    return { method: "annotate" };
   }
 
   return null;
