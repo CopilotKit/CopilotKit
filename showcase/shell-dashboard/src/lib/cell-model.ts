@@ -39,6 +39,30 @@ export interface CellModel {
   d4: TestLevel | null;
   d5: TestLevel | null;
   d6: TestLevel | null;
+  /**
+   * Ladder-gated D6 status — the value the D6 badge and D6 stat MUST consume
+   * (NOT the raw per-dimension `d6.status`). D6 is the top of the verification
+   * ladder, so a green D6 claim is only valid when the ladder through D5 is
+   * intact. When the ladder is broken/unverified below D6 (D1-D4 gate fails, or
+   * D5 is red/amber/no-data), the raw D6 result is meaningless as a top-of-ladder
+   * claim, so this collapses to `null` (blocked/not-achieved — rendered gray/—,
+   * NOT a false green and NOT a false red; the actual lower-rung failure is
+   * already shown by the CV/API/RT badges). When the ladder IS intact through D5,
+   * the raw D6 status passes through (a genuine D6 red still surfaces as red).
+   *
+   * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
+   * there is no D5 rung to gate against, so the raw `d6.status` passes through
+   * unchanged (a present failing D6 still surfaces — this mirrors the chip's
+   * `!d5.exists` branch, which goes red on a non-green D6). Only a PRESENT but
+   * non-green / no-data D5 collapses D6 to `null`.
+   *
+   * Derived from the SAME contiguous-ladder algorithm as `chipColor` so the
+   * badge, the stat, and the chip never disagree. Mirrors the chip table:
+   *   chip green  ⇔ d6Effective green   (full ladder, achievedDepth === 6)
+   *   chip amber  ⇔ d6Effective amber/null (D5 green, D6 not green)
+   *   chip red (D5-broken) / gray (unverified) ⇒ d6Effective null (blocked)
+   */
+  d6Effective: TestStatus;
   achievedDepth: 0 | 3 | 4 | 5 | 6;
   ceilingDepth: 0 | 3 | 4 | 5 | 6;
   chipColor: ChipColor;
@@ -372,6 +396,7 @@ const UNSUPPORTED: CellModel = {
   d4: null,
   d5: null,
   d6: null,
+  d6Effective: null,
   achievedDepth: 0,
   ceilingDepth: 0,
   chipColor: "gray",
@@ -405,6 +430,7 @@ export function buildCellModel(
       d4: NOT_WIRED_LEVEL,
       d5: NOT_WIRED_LEVEL,
       d6: NOT_WIRED_LEVEL,
+      d6Effective: null,
       achievedDepth: 0,
       ceilingDepth: 0,
       chipColor: "gray",
@@ -492,6 +518,35 @@ export function buildCellModel(
     chipColor = "red";
   }
 
+  // d6Effective — ladder-gated D6 status for the D6 badge + D6 stat.
+  //
+  // D6 is the TOP of the verification ladder, so a green D6 claim is only
+  // meaningful when the ladder through D5 is intact. This reuses the SAME
+  // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
+  // badge/stat never contradict the chip:
+  //   gate fails              → null (blocked; API/RT badge shows the failure)
+  //   D5 not mapped (!exists) → raw d6.status (D6 is not D5's gate here; a
+  //                             present failing D6 still surfaces — matches the
+  //                             chip's `!d5.exists` branch which goes red on a
+  //                             non-green D6)
+  //   D5 green                → raw d6.status (ladder intact through D5; a
+  //                             genuine D6 red/amber/green passes through)
+  //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the
+  //                             D6 claim is not-achieved/blocked; never a false
+  //                             green and never a false red — the CV badge
+  //                             already shows the real lower-rung failure)
+  let d6Effective: TestStatus;
+  if (d1d4GateFails) {
+    d6Effective = null;
+  } else if (!d5.exists) {
+    d6Effective = d6.status;
+  } else if (d5.status === "green") {
+    d6Effective = d6.status;
+  } else {
+    // D5 red, stale-amber, or no-data → ladder not intact through D5.
+    d6Effective = null;
+  }
+
   // isRegression: a cell has slid below its own ceiling. Beyond
   // `achievedDepth < ceilingDepth`, the NEXT rung above `achievedDepth` must
   // have EMITTED data — `exists && status !== null` — for the slide-back to
@@ -502,6 +557,14 @@ export function buildCellModel(
   // null) still counts — that is a genuine failure below the ceiling.
   //
   // Next-rung map by achievedDepth: 0→d3, 3→d4, 4→d5, 5→d6.
+  //
+  // The D6 rung uses the LADDER-GATED `d6Effective` (NOT raw `d6.status`) so the
+  // regression flag agrees with the rendered gated D6 badge. When achievedDepth
+  // is already 5 the ladder is intact through D5, so d6Effective passes the raw
+  // d6.status through — this is behavior-preserving for the active case — but
+  // sourcing the gated value keeps the regression flag, the badge, and the chip
+  // from ever disagreeing about D6.
+  const d6EffectiveRung: TestLevel = { ...d6, status: d6Effective };
   const nextRung: TestLevel | null =
     achievedDepth === 0
       ? d3
@@ -510,7 +573,7 @@ export function buildCellModel(
         : achievedDepth === 4
           ? d5
           : achievedDepth === 5
-            ? d6
+            ? d6EffectiveRung
             : null;
   const isRegression =
     ceilingDepth > 0 &&
@@ -525,6 +588,7 @@ export function buildCellModel(
     d4,
     d5,
     d6,
+    d6Effective,
     achievedDepth,
     ceilingDepth,
     chipColor,
