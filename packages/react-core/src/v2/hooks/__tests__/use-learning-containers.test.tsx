@@ -235,10 +235,11 @@ test("threadId change → resets old thread then syncs new thread", async () => 
   restore();
 });
 
-test("failing emit does not throw from render", async () => {
+test("failing emit does not throw from render and warns via console.warn", async () => {
   installCopilotKit();
   const original = globalThis.fetch;
   globalThis.fetch = vi.fn().mockRejectedValue(new TypeError("network fail")) as unknown as typeof globalThis.fetch;
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
   // Should not throw.
   const { unmount } = renderHook(() =>
@@ -246,28 +247,44 @@ test("failing emit does not throw from render", async () => {
   );
 
   await act(async () => {});
-  // No throw — test passes.
+  // No throw and a warning was emitted.
+  expect(warnSpy).toHaveBeenCalledWith(
+    expect.stringContaining("failed to record set_learning_containers"),
+    expect.any(TypeError),
+  );
 
   unmount();
   globalThis.fetch = original;
+  warnSpy.mockRestore();
 });
 
-test("runtimeUrl absent → all emits silently skipped", async () => {
+test("runtimeUrl absent → all emits skipped and warns once", async () => {
   installCopilotKit(null);
   const { calls, restore } = mockFetch([
     { status: 200, body: { id: "1", duplicate: false } },
   ]);
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-  const { unmount } = renderHook(() =>
+  const { rerender, unmount } = renderHook(() =>
     useLearningContainers({ threadId: "t1", learningContainers: ["team"] }),
   );
 
+  await act(async () => {});
+  // Rerender to confirm the warning is not emitted a second time.
+  rerender();
   await act(async () => {});
   unmount();
   await act(async () => {});
 
   expect(calls).toHaveLength(0);
+  // Warning emitted exactly once (guarded by ref).
+  const missingUrlWarns = warnSpy.mock.calls.filter((args) =>
+    String(args[0]).includes("runtimeUrl not configured"),
+  );
+  expect(missingUrlWarns).toHaveLength(1);
+
   restore();
+  warnSpy.mockRestore();
 });
 
 // ─── useLearningContainersInCurrentThread ─────────────────────────────────────
