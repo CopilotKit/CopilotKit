@@ -51,7 +51,12 @@ export default function ThreadsDrawer({
   onThreadChange,
 }: ThreadsDrawerProps) {
   const [showArchived, setShowArchived] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  // Start collapsed on narrow screens so the panel (which overlays below 900px)
+  // doesn't cover the content + chat on load. The drawer is client-mounted, so
+  // reading window here is safe and won't cause a hydration mismatch.
+  const [isOpen, setIsOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > 900,
+  );
   const [pendingDelete, setPendingDelete] = useState<{
     id: string;
     title: string;
