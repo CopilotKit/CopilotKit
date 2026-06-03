@@ -5,7 +5,11 @@ import * as path from "node:path";
 const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-const migratedIntegrations = ["crewai-flows", "llamaindex"] as const;
+const migratedIntegrations = [
+  "crewai-flows",
+  "llamaindex",
+  "agent-spec",
+] as const;
 
 function readIntegrationFile(
   integration: string,
@@ -48,8 +52,9 @@ describe("batch-2 Intelligence integration migration", () => {
 
     it(`${integration} forces REST transport for thread routes`, () => {
       const layout = readIntegrationFile(integration, "src/app/layout.tsx");
+      const page = readIntegrationFile(integration, "src/app/page.tsx");
 
-      expect(layout).toContain("useSingleEndpoint={false}");
+      expect(`${layout}\n${page}`).toContain("useSingleEndpoint={false}");
     });
 
     it(`${integration} wires the threads drawer into the chat thread context`, () => {
