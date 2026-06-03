@@ -120,7 +120,8 @@ export interface BrowserPoolOptions {
    *  (env BROWSER_POOL_BROWSERS, legacy fallback BROWSER_POOL_SIZE). */
   browsers?: number;
   /** Global cap on concurrently-live contexts across all browsers. Default
-   *  24 (env BROWSER_POOL_MAX_CONTEXTS). acquire() past this pends a waiter. */
+   *  40 (env BROWSER_POOL_MAX_CONTEXTS) — covers D6 peak 32 + D5 peak 8.
+   *  acquire() past this pends a waiter. */
   maxContexts?: number;
   /** Per-browser served-context hygiene threshold: once a browser has served
    *  >= recycleAfter contexts AND has no live contexts, it is recycled (its
@@ -189,7 +190,7 @@ export class BrowserPool {
       options.maxContexts ??
       (envMax !== undefined && !Number.isNaN(envMax) && envMax > 0
         ? envMax
-        : 24);
+        : 40);
 
     const envRecycle = process.env.BROWSER_POOL_RECYCLE_AFTER
       ? parseInt(process.env.BROWSER_POOL_RECYCLE_AFTER, 10)

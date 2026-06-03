@@ -114,4 +114,28 @@ describe("orchestrator BrowserPool env construction (NaN footgun regression)", (
     expect(count()).toBe(3);
     await pool.shutdown();
   });
+
+  it("an unset BROWSER_POOL_MAX_CONTEXTS yields the default cap of 40", async () => {
+    delete process.env.BROWSER_POOL_MAX_CONTEXTS;
+
+    const { launch } = makeCountingLauncher();
+    const pool = new BrowserPool({ launchBrowser: launch, launchStaggerMs: 0 });
+    await pool.init();
+
+    // `stats().size` exposes the resolved maxContexts. Default covers D6 peak
+    // 32 + D5 peak 8 so the two probe families never contend at the cap.
+    expect(pool.stats().size).toBe(40);
+    await pool.shutdown();
+  });
+
+  it("a valid numeric BROWSER_POOL_MAX_CONTEXTS env still wins over the default", async () => {
+    process.env.BROWSER_POOL_MAX_CONTEXTS = "12";
+
+    const { launch } = makeCountingLauncher();
+    const pool = new BrowserPool({ launchBrowser: launch, launchStaggerMs: 0 });
+    await pool.init();
+
+    expect(pool.stats().size).toBe(12);
+    await pool.shutdown();
+  });
 });

@@ -16,9 +16,19 @@ export function urlsFor(ctx: CellContext): {
   codeUrl: string;
   hostedUrl: string;
 } {
+  // Strip any trailing slash from the base before concatenating the
+  // `/integrations/...` path. `readUrl` in runtime-config.ts already
+  // normalizes real shellUrls this way, but the SSR placeholder
+  // (`https://ssr-placeholder.invalid/`, runtime-config.client.ts) carries
+  // a trailing slash and is what the client config reader returns during
+  // server-side render. Without this guard the server-rendered HTML froze
+  // double-slash links (`https://ssr-placeholder.invalid//integrations/...`)
+  // that leaked into the page before hydration. Normalizing here makes the
+  // link builder correct for any base, sentinel or real.
+  const base = ctx.shellUrl.replace(/\/+$/, "");
   return {
-    demoUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
-    codeUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
+    demoUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
+    codeUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
     hostedUrl: ctx.hostedUrl,
   };
 }
