@@ -5,10 +5,12 @@
 Install all required peer dependencies:
 
 ```bash
-npm install react react-native @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
+npm install react react-native @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown react-native-enriched-markdown react-native-worklets remend
 ```
 
-`@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown` are required peer dependencies for the UI components.
+`@gorhom/bottom-sheet`, `react-native-gesture-handler`, and `react-native-reanimated` are required for `CopilotModal`. `react-native-streamdown`, `react-native-enriched-markdown`, `react-native-worklets`, and `remend` are required for markdown rendering.
+
+> **Bundle Mode setup required** — `react-native-streamdown` processes markdown on a worklet thread using [Bundle Mode](https://docs.swmansion.com/react-native-worklets/docs/bundleMode/setup/) from `react-native-worklets`. You must complete the Bundle Mode setup (Babel plugin + Metro config) before the markdown component will work. See the [react-native-streamdown README](https://github.com/software-mansion-labs/react-native-streamdown) for full setup instructions.
 
 ## Quick Start
 
@@ -72,12 +74,16 @@ modalRef.current?.open();
 
 ### CopilotMarkdown
 
-Renders Markdown text with sensible React Native styling.
+Renders Markdown text with sensible React Native styling. Defaults to GitHub Flavored Markdown (`flavor="github"`) which enables table rendering — requires `react-native-enriched-markdown >=0.6.0`.
 
 ```tsx
 import { CopilotMarkdown } from "@copilotkit/react-native";
 
+// GitHub Flavored Markdown (default) — supports tables
 <CopilotMarkdown content="**Hello** from CopilotKit!" />;
+
+// CommonMark only
+<CopilotMarkdown content="**Hello** from CopilotKit!" flavor="commonmark" />;
 ```
 
 ### AssistantMessage / UserMessage

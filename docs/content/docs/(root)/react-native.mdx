@@ -30,25 +30,29 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
         ```
     </Step>
     <Step>
-        ### Install CopilotKit
+        ### Install CopilotKit and peer dependencies
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native
+                npm install @copilotkit/react-native react-native-streamdown react-native-enriched-markdown react-native-worklets remend
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native
+                pnpm add @copilotkit/react-native react-native-streamdown react-native-enriched-markdown react-native-worklets remend
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native
+                yarn add @copilotkit/react-native react-native-streamdown react-native-enriched-markdown react-native-worklets remend
                 ```
             </Tab>
         </Tabs>
+
+        <Callout type="warn" title="Bundle Mode setup required">
+          `react-native-streamdown` processes markdown on a background worklet thread using [Bundle Mode](https://docs.swmansion.com/react-native-worklets/docs/bundleMode/setup/) from `react-native-worklets`. You must complete the Bundle Mode Babel + Metro configuration before the markdown components will work. See the [react-native-streamdown README](https://github.com/software-mansion-labs/react-native-streamdown) for full setup instructions.
+        </Callout>
     </Step>
     <Step>
         ### Add polyfills
