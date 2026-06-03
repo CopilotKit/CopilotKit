@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { fireEvent, render } from '@testing-library/react';
 import {
   createStreamingMarkdownNodeRenderers,
@@ -12,7 +11,7 @@ test('StreamingMarkdownRenderer renders markdown blocks and citations from the A
       isComplete
       options={{ segmenter: false }}
     >
-      {'# Title\n\n- one\n- two\n\nCite [^ref]\n\n[^ref]: Ref https://hashbrown.dev'}
+      {'# Title\n\n- one\n- two\n\nCite [^ref]\n\n[^ref]: Ref https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -22,7 +21,7 @@ test('StreamingMarkdownRenderer renders markdown blocks and citations from the A
 
   expect(heading?.textContent).toBe('Title');
   expect(listItems).toHaveLength(2);
-  expect(citation?.getAttribute('href')).toBe('https://hashbrown.dev');
+  expect(citation?.getAttribute('href')).toBe('https://example.org');
   expect(citation?.getAttribute('target')).toBe('_blank');
   expect(citation?.getAttribute('rel')).toBe('noopener noreferrer');
   expect(citation?.textContent).toBe('1');
@@ -46,7 +45,7 @@ test('StreamingMarkdownRenderer prefixes word joiner before punctuation after ci
       isComplete
       options={{ segmenter: { granularity: 'word' } }}
     >
-      {'Alpha[^a]; beta\n\n[^a]: Source https://hashbrown.dev'}
+      {'Alpha[^a]; beta\n\n[^a]: Source https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -190,7 +189,7 @@ test('StreamingMarkdownRenderer allows overriding individual node renderers by n
         ),
       }}
     >
-      {'hello [^ref]\n\n[^ref]: Ref https://hashbrown.dev'}
+      {'hello [^ref]\n\n[^ref]: Ref https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -247,7 +246,7 @@ test('StreamingMarkdownRenderer renders block and inline node families', () => {
 | c1 | c2 |
 
 [link](https://example.com "title")
-https://hashbrown.dev
+https://example.org
 
 ![alt](https://images.example.com/x.png "image-title")
 
@@ -272,7 +271,7 @@ const x = 1;
   const tableHeaders = container.querySelectorAll('th');
   const tableCells = container.querySelectorAll('td');
   const markdownLink = container.querySelector('a[href="https://example.com"]');
-  const autolink = container.querySelector('a[href="https://hashbrown.dev"]');
+  const autolink = container.querySelector('a[href="https://example.org"]');
   const image = container.querySelector('img');
   const inlineCode = container.querySelector('code[data-streaming-markdown-node="inline-code"]');
   const emphasis = container.querySelector('em');
@@ -295,7 +294,7 @@ const x = 1;
   expect(markdownLink?.getAttribute('rel')).toBe('noopener noreferrer');
   expect(autolink?.getAttribute('target')).toBe('_blank');
   expect(autolink?.getAttribute('rel')).toBe('noopener noreferrer');
-  expect(autolink?.textContent).toBe('https://hashbrown.dev');
+  expect(autolink?.textContent).toBe('https://example.org');
   expect(image?.getAttribute('alt')).toBe('alt');
   expect(image?.getAttribute('title')).toBe('image-title');
   expect(inlineCode?.textContent).toBe('inline');
@@ -318,12 +317,12 @@ test('StreamingMarkdownRenderer calls link click callback for links and autolink
         linkUrls.push(url);
       }}
     >
-      {'[link](https://example.com)\n\nhttps://hashbrown.dev'}
+      {'[link](https://example.com)\n\nhttps://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
   const markdownLink = container.querySelector('a[href="https://example.com"]');
-  const autolink = container.querySelector('a[href="https://hashbrown.dev"]');
+  const autolink = container.querySelector('a[href="https://example.org"]');
   if (markdownLink) {
     fireEvent.click(markdownLink);
   }
@@ -331,7 +330,7 @@ test('StreamingMarkdownRenderer calls link click callback for links and autolink
     fireEvent.click(autolink);
   }
 
-  expect(linkUrls).toEqual(['https://example.com', 'https://hashbrown.dev']);
+  expect(linkUrls).toEqual(['https://example.com', 'https://example.org']);
 });
 
 test('StreamingMarkdownRenderer calls citation callback when a citation has a URL', () => {
@@ -344,7 +343,7 @@ test('StreamingMarkdownRenderer calls citation callback when a citation has a UR
         clicked.push(`${citation.id}:${String(citation.number)}`);
       }}
     >
-      {'cite [^ref]\n\n[^ref]: Ref https://hashbrown.dev'}
+      {'cite [^ref]\n\n[^ref]: Ref https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -440,7 +439,7 @@ test('StreamingMarkdownRenderer uses the latest click callbacks after rerender',
         callsA.push(citation.id);
       }}
     >
-      {'[link](https://example.com)\n\ncite [^ref]\n\n[^ref]: Ref https://hashbrown.dev'}
+      {'[link](https://example.com)\n\ncite [^ref]\n\n[^ref]: Ref https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -456,7 +455,7 @@ test('StreamingMarkdownRenderer uses the latest click callbacks after rerender',
         callsB.push(citation.id);
       }}
     >
-      {'[link](https://example.com)\n\ncite [^ref]\n\n[^ref]: Ref https://hashbrown.dev'}
+      {'[link](https://example.com)\n\ncite [^ref]\n\n[^ref]: Ref https://example.org'}
     </StreamingMarkdownRenderer>,
   );
 
@@ -581,7 +580,7 @@ test('StreamingMarkdownRenderer invokes overrides for every node type in a rich 
 | v1 | v2 |
 
 [link](https://example.com)
-https://hashbrown.dev
+https://example.org
 ![alt](https://images.example.com/p.png)
 \`inline\` *em* **strong** ~~strike~~
 soft
@@ -596,7 +595,7 @@ code
 
 cite [^ref]
 
-[^ref]: Ref https://hashbrown.dev`}
+[^ref]: Ref https://example.org`}
     </StreamingMarkdownRenderer>,
   );
 

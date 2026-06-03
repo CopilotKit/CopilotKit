@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import type {
   CitationDefinition,
   CitationState,
@@ -82,7 +81,7 @@ export interface StreamingMarkdownRendererProps {
   ) => void;
 
   /**
-   * Optional custom renderers keyed by Magic Text node type.
+   * Optional custom renderers keyed by streaming markdown node type.
    */
   nodeRenderers?: StreamingMarkdownNodeRenderers;
 }
@@ -117,7 +116,7 @@ export interface StreamingMarkdownNodeRendererProps<
 }
 
 /**
- * Custom renderer callback for a specific Magic Text node.
+ * Custom renderer callback for a specific streaming markdown node.
  *
  * @public
  */
@@ -231,7 +230,7 @@ export type StreamingMarkdownNodeRenderers = Partial<{
 }>;
 
 /**
- * Helper for creating typed Magic Text node renderer maps.
+ * Helper for creating typed streaming markdown node renderer maps.
  *
  * @public
  */
@@ -923,7 +922,7 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
 }
 
 /**
- * React renderer for streaming Magic Text parser output.
+ * React renderer for streaming markdown parser output.
  *
  * @public
  */

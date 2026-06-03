@@ -1,4 +1,3 @@
-// Uses @copilotkit/markdown-renderer (derived from hashbrown Magic Text, MIT, © LiveLoveApp, LLC).
 import { computed, defineComponent, h } from 'vue';
 import type { PropType, VNode } from 'vue';
 import {

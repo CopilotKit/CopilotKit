@@ -1,9 +1,8 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import type { StreamingMarkdownParserOptions } from './types';
 import type { SourceLine } from './internal';
 
 /**
- * Default parser options for Magic Text.
+ * Default parser options for streaming markdown.
  */
 export const DEFAULT_OPTIONS: StreamingMarkdownParserOptions = {
   segmenter: true,

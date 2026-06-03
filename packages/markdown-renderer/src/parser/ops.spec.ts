@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { applyAstOps, createAstOpsFromDraft } from './ops';
 import type { DraftNode } from './internal';
 import type { StreamingMarkdownAstNode } from './types';

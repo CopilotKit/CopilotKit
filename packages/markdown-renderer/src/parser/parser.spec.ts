@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
@@ -134,7 +133,7 @@ test('does not create table node when tables are disabled', () => {
 
 test('parses links and images with optional title', () => {
   const result = parseAll(
-    '[site](https://hashbrown.dev "Hashbrown") ![logo](https://x.test/logo.png)',
+    '[site](https://example.org "Example") ![logo](https://x.test/logo.png)',
   );
 
   const link = result.nodes.find((node) => node.type === 'link');
@@ -142,9 +141,9 @@ test('parses links and images with optional title', () => {
 
   expect(link).toBeDefined();
   expect(link && link.type === 'link' ? link.url : '').toBe(
-    'https://hashbrown.dev',
+    'https://example.org',
   );
-  expect(link && link.type === 'link' ? link.title : '').toBe('Hashbrown');
+  expect(link && link.type === 'link' ? link.title : '').toBe('Example');
   expect(image).toBeDefined();
   expect(image && image.type === 'image' ? image.alt : '').toBe('logo');
 });

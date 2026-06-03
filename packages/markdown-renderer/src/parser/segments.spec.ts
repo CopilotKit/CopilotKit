@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { createSegments } from './segments';
 
 test('returns empty segments when segmentation is disabled', () => {

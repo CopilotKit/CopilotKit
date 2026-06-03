@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import type { SegmenterOptions, TextSegment } from './types';
 
 /**

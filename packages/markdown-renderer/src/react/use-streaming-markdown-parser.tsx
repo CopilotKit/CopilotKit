@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
@@ -124,12 +123,12 @@ function resolveNextSession(
 }
 
 /**
- * Internal prop-driven hook for streaming Magic Text parsing in React.
+ * Internal prop-driven hook for streaming markdown parsing in React.
  *
  * @param text - Full markdown text that typically grows over time.
  * @param options - Optional parser option overrides.
  * @param isCompleteInput - When true, finalizes the parse state for the current text.
- * @returns The current immutable Magic Text parser state.
+ * @returns The current immutable streaming markdown parser state.
  */
 export function useStreamingMarkdownParser(
   text: string,

@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { parseInline } from './inline-parser';
 import type { ParseContext } from './internal';
 import type { CitationState, StreamingMarkdownWarning } from './types';

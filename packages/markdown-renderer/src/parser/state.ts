@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { parseBlocks } from './block-parser';
 import { parseCitationDefinitions } from './citations';
 import {
@@ -17,7 +16,7 @@ import type {
 } from './types';
 
 /**
- * Creates a new Magic Text parser state.
+ * Creates a new streaming markdown parser state.
  *
  * @param options - Optional parser option overrides.
  * @returns New immutable parser state.

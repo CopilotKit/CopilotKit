@@ -1,6 +1,5 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 /**
- * Magic Text streaming parser API.
+ * streaming markdown parser API.
  * @public
  */
 export {
@@ -10,7 +9,7 @@ export {
 } from './state';
 
 /**
- * Magic Text parser and AST types.
+ * streaming markdown parser and AST types.
  * @public
  */
 export type {

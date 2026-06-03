@@ -1,8 +1,6 @@
-MIT License
+The MIT License
 
-Copyright (c) 2025 LiveLoveApp, LLC (portions: the streaming markdown parser and
-  renderer, derived from the hashbrown "Magic Text" feature — https://github.com/liveloveapp/hashbrown)
-Copyright (c) 2026 CopilotKit (modifications)
+Copyright (c) Atai Barkai
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

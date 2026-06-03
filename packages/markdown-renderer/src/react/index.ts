@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 export { StreamingMarkdownRenderer, createStreamingMarkdownNodeRenderers } from "./streaming-markdown-renderer";
 export type {
   StreamingMarkdownRendererProps,

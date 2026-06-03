@@ -1,4 +1,3 @@
-// Uses @copilotkit/markdown-renderer (derived from hashbrown Magic Text, MIT, © LiveLoveApp, LLC).
 import { mount } from '@vue/test-utils';
 import { describe, it, expect } from 'vitest';
 import { StreamingMarkdownRenderer } from '../streaming-markdown-renderer';

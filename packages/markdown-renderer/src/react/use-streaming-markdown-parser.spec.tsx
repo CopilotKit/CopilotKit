@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { renderHook } from '@testing-library/react';
 import { useStreamingMarkdownParser } from './use-streaming-markdown-parser';
 

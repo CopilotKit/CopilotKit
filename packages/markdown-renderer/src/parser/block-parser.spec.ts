@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 import { parseBlocks } from './block-parser';
 import { splitLines } from './helpers';
 import type { ParseContext } from './internal';

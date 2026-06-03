@@ -1,4 +1,3 @@
-// Derived from hashbrown "Magic Text" (MIT, © LiveLoveApp, LLC). See NOTICE.
 type SegmentGranularity = 'grapheme' | 'word' | 'sentence';
 
 /**
@@ -14,7 +13,7 @@ export type SegmenterOptions =
     };
 
 /**
- * Options for the streaming Magic Text parser.
+ * Options for the streaming markdown parser.
  * @public
  */
 export type StreamingMarkdownParserOptions = {
@@ -24,7 +23,7 @@ export type StreamingMarkdownParserOptions = {
 };
 
 /**
- * Supported Magic Text AST node kinds.
+ * Supported streaming markdown AST node kinds.
  * @public
  */
 export type StreamingMarkdownNodeType =
@@ -364,7 +363,7 @@ export type CitationState = {
 };
 
 /**
- * Immutable state for streaming Magic Text parsing.
+ * Immutable state for streaming markdown parsing.
  * @public
  */
 export type StreamingMarkdownParserState = {
