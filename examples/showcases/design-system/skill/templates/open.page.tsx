@@ -1,0 +1,1 @@
+../../src/app/open/page.tsx

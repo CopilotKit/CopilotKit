@@ -1,0 +1,1 @@
+../../src/app/controlled/page.tsx

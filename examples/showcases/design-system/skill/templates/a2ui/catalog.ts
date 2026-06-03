@@ -1,0 +1,1 @@
+../../../src/a2ui/catalog.ts
