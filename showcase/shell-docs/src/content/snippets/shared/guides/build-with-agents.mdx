@@ -15,10 +15,12 @@ Skills are folders of instructions, references, and scripts that coding agents c
     Run the following command to install CopilotKit skills into your agent environment:
 
     ```bash
-    npx skills add CopilotKit/CopilotKit
+    npx skills add CopilotKit/CopilotKit/skills -y
     ```
 
-    This pulls the latest skills directly from the CopilotKit repository and installs them into your tool's skills directory (e.g. `~/.claude/skills/` for Claude Code). The CopilotKit MCP server is also auto-wired so your agent has live documentation access.
+    <Callout type="info">
+      Want to choose what gets installed? Run `npx skills add CopilotKit/CopilotKit/skills` without `-y` to pick specific skills, target agents, and scope interactively — or add `-g` to install globally for every project.
+    </Callout>
 
     Skills cover project setup, building AI features, connecting agent frameworks, debugging, and version upgrades. The full list is in the [CopilotKit skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/skills).
 
