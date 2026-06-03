@@ -18,8 +18,6 @@ Skills are folders of instructions, references, and scripts that coding agents c
     npx skills add CopilotKit/CopilotKit/skills -y
     ```
 
-    The `/skills` path installs CopilotKit's published skills only (not the repository's internal tooling), and `-y` installs **all** of them without prompting you to pick them one by one. This pulls the latest skills directly from the CopilotKit repository into your project's skills directory (e.g. `.claude/skills/` for Claude Code) — installing per-project keeps each project pinned to the skills that match its CopilotKit version. The CopilotKit MCP server is also auto-wired so your agent has live documentation access.
-
     <Callout type="info">
       Want to choose what gets installed? Run `npx skills add CopilotKit/CopilotKit/skills` without `-y` to pick specific skills, target agents, and scope interactively — or add `-g` to install globally for every project.
     </Callout>
