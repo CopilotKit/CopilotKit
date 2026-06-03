@@ -837,6 +837,12 @@
     display: none;
   }
 
+  /* No-license locked panel: hide on mobile (no interactive drawer to launch,
+     and a fixed-width panel leaves a dead column). */
+  .lockedPanel {
+    display: none;
+  }
+
   /* Collapsed: a small floating launcher pinned top-left, above the full-screen
      mobile chat (z-index 1200) so threads stay reachable over it. */
   .drawer.drawerClosed {
