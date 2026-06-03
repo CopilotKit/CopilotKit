@@ -28,6 +28,7 @@ rest of the multimodal pipeline keeps working for real images.
 
 Call ``install()`` once at agent startup. It's idempotent.
 """
+
 from __future__ import annotations
 
 from typing import Any, List

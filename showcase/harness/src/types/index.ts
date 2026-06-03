@@ -247,7 +247,17 @@ export interface TemplateContext {
     runUrl?: string;
     jobUrl?: string;
   };
-  env: { dashboardUrl: string; repo: string };
+  // `sourceEnv` labels the deploy environment the alerting harness is
+  // running in ("staging" / "production" / "unknown"). Threaded so the
+  // renderer can prefix every alert with a source-env tag — operators
+  // triaging a red probe need to know whether staging or production is
+  // affected, which the raw probe text never carried. Derived in the
+  // orchestrator from RAILWAY_ENVIRONMENT_NAME (see AlertEngineDeps.env).
+  // `sourceEnv` is optional at the type boundary so the many test fixtures
+  // constructing a context need not all set it; production always supplies
+  // it (orchestrator.ts), and the renderer defaults a missing/empty value
+  // to `[unknown]` rather than dropping the tag.
+  env: { dashboardUrl: string; repo: string; sourceEnv?: string };
   lastAlertAgeMin?: number;
 }
 

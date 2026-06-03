@@ -32,6 +32,7 @@ listens for. No frontend tool stripping. No orphan. No turn-2 crash.
 `web/src/app/api/copilotkit/route.ts` sets `injectA2UITool: false` to
 match.
 """
+
 from __future__ import annotations
 
 import json
@@ -110,12 +111,8 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         "comparison, etc.)."
     )
 
-    model_with_tool = _RENDER_MODEL.bind_tools(
-        [render_a2ui], tool_choice="render_a2ui"
-    )
-    response = model_with_tool.invoke(
-        [SystemMessage(content=prompt), *messages]
-    )
+    model_with_tool = _RENDER_MODEL.bind_tools([render_a2ui], tool_choice="render_a2ui")
+    response = model_with_tool.invoke([SystemMessage(content=prompt), *messages])
 
     if not response.tool_calls:
         return json.dumps({"error": "secondary LLM did not call render_a2ui"})
