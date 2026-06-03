@@ -174,10 +174,7 @@
         "docker/Dockerfile.agent",
         "docker-compose.test.yml",
         "serve.py",
-        "scripts/**",
-        "src/components/threads-drawer/**",
-        "src/app/page.tsx",
-        "next.config.ts"
+        "scripts/**"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
