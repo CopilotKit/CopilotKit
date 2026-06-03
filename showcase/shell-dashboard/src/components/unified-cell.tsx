@@ -234,7 +234,7 @@ function HealthLayer({ model }: { model: CellModel }) {
           Boolean(model.d4?.exists && model.d4.status !== "green") ||
           Boolean(
             model.d5?.exists &&
-              (model.d5.status === "red" || model.d5.status === "amber"),
+            (model.d5.status === "red" || model.d5.status === "amber"),
           );
         const d6Gated = Boolean(
           model.d6?.exists && model.d6Effective === null && lowerRungFailing,
