@@ -44,7 +44,7 @@ The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http
 
 ## Restoring Streamdown rendering
 
-You ship the renderer now, not CopilotKit. Install Streamdown in your app and pass it to `CopilotKitProvider` via the `markdownRenderer` prop. A renderer is any component that accepts the exported `MarkdownRendererProps` type — `{ content: string; isStreaming?: boolean; className?: string }` (only `content` is required). Import it from `@copilotkit/react-core/v2` instead of hand-writing the shape.
+You ship the renderer now, not CopilotKit. Install Streamdown in your app and pass it to `CopilotKitProvider` via the `markdownRenderer` prop. A renderer is any component that accepts the exported `MarkdownRendererProps` type — `{ content: string; isStreaming?: boolean; className?: string }` (only `content` is required). Import it from `@copilotkit/react-core/v2` instead of hand-writing the shape. `markdownRenderer` also accepts a config object (`DefaultMarkdownRendererProps`) to configure the built-in renderer without writing a wrapper — e.g. `markdownRenderer={{ nodeRenderers: { codeBlock: Shiki } }}`.
 
 <Tabs groupId="cpk-framework" items={["React", "Vue", "React Native"]} default="React">
 <Tab value="React">

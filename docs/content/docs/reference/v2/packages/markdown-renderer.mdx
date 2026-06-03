@@ -501,6 +501,41 @@ The streaming renderer is already the built-in default across all CopilotKit fra
 - **Vue** — `@copilotkit/vue` uses `@copilotkit/markdown-renderer/vue` for both assistant and reasoning messages. No configuration needed.
 - **React Native** — `@copilotkit/react-native`'s `CopilotMarkdown` delegates to `@copilotkit/markdown-renderer/react-native`. No configuration needed.
 
+### Configure the built-in renderer (without a wrapper)
+
+Pass a **config object** as `markdownRenderer` to tweak the built-in renderer in place — no wrapper component needed. Passing a **component** instead replaces the renderer entirely (the escape hatch shown below).
+
+```tsx
+import { CopilotKitProvider, type DefaultMarkdownRendererProps } from "@copilotkit/react-core/v2";
+
+// Configure the built-in (e.g. syntax-highlighted code blocks)
+const markdownRenderer = {
+  nodeRenderers: {
+    codeBlock: ({ node }) => <Shiki lang={node.info}>{node.text}</Shiki>,
+  },
+} satisfies DefaultMarkdownRendererProps;
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={markdownRenderer}>
+  {/* your app */}
+</CopilotKitProvider>;
+```
+
+Vue and React Native accept the same pattern. Vue config keys: `{ nodeRenderers, caret, options, class }`. React Native is style-based: `{ style, animate }` (no `nodeRenderers`).
+
+```vue
+<!-- Vue -->
+<CopilotKitProvider :markdown-renderer="{ nodeRenderers: { codeBlock: ShikiBlock } }" />
+```
+
+```tsx
+// React Native
+<CopilotKitProvider markdownRenderer={{ style: { codeBlock: { backgroundColor: "#111" } } }}>
+  {/* your app */}
+</CopilotKitProvider>
+```
+
+The same config object also works per-message on the `CopilotChatAssistantMessage` `markdownRenderer` slot. Reasoning messages always use the built-in default.
+
 If you want to pass a customized instance of `StreamingMarkdownRenderer` as the renderer (for example to add syntax highlighting via `nodeRenderers` globally), pass it as `markdownRenderer` on the provider:
 
 ```tsx
