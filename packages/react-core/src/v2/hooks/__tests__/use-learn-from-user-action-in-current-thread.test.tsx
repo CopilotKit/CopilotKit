@@ -93,7 +93,7 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     vi.clearAllMocks();
   });
 
-  it("pre-fills threadId from the chat configuration", async () => {
+  it("POSTs to ${runtimeUrl}/annotate with type:user_action and pre-fills threadId from chat config", async () => {
     installCopilotKit();
     installChatConfig("thread-from-context");
     const { calls, fetch } = mockFetch([
@@ -107,6 +107,10 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     await result.current({ title: "Clicked rename" });
 
     expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe(
+      "https://bff.example.com/api/copilotkit/annotate",
+    );
+    expect(calls[0]!.body!.type).toBe("user_action");
     expect(calls[0]!.body!.threadId).toBe("thread-from-context");
   });
 
@@ -167,7 +171,7 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     );
   });
 
-  it("forwards all other fields verbatim", async () => {
+  it("nests title, description, and data inside payload", async () => {
     installCopilotKit();
     installChatConfig("thread-1");
     const { calls, fetch } = mockFetch([
@@ -182,19 +186,23 @@ describe("useLearnFromUserActionInCurrentThread", () => {
       title: "Renamed project",
       description: "User renamed Foo to Bar",
       data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-      metadata: { source: "settings-page" },
     });
 
     expect(calls[0]!.body).toMatchObject({
+      type: "user_action",
       threadId: "thread-1",
-      title: "Renamed project",
-      description: "User renamed Foo to Bar",
-      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-      metadata: { source: "settings-page" },
+      payload: {
+        title: "Renamed project",
+        description: "User renamed Foo to Bar",
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      },
     });
+    // learningContainer and metadata must not appear anywhere in the body
+    expect(calls[0]!.body).not.toHaveProperty("learningContainer");
+    expect(calls[0]!.body).not.toHaveProperty("metadata");
   });
 
-  it("threads learningContainer through to the underlying call", async () => {
+  it("does not accept learningContainer or metadata — both are removed from the input type", async () => {
     installCopilotKit();
     installChatConfig("thread-1");
     const { calls, fetch } = mockFetch([
@@ -207,10 +215,10 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     );
     await result.current({
       title: "Renamed project",
-      learningContainer: ["user", "organization"],
     });
 
-    expect(calls[0]!.body!.learningContainer).toEqual(["user", "organization"]);
+    expect(calls[0]!.body).not.toHaveProperty("learningContainer");
+    expect(calls[0]!.body).not.toHaveProperty("metadata");
   });
 
   it("allows omitting all optional fields", async () => {
@@ -228,7 +236,12 @@ describe("useLearnFromUserActionInCurrentThread", () => {
     await result.current({});
 
     expect(calls[0]!.body!.threadId).toBe("thread-1");
-    expect(calls[0]!.body).not.toHaveProperty("title");
-    expect(calls[0]!.body).not.toHaveProperty("description");
+    expect(calls[0]!.body!.type).toBe("user_action");
+    // payload may be present but should not have title/description
+    const payload = calls[0]!.body!.payload as Record<string, unknown> | undefined;
+    if (payload) {
+      expect(payload).not.toHaveProperty("title");
+      expect(payload).not.toHaveProperty("description");
+    }
   });
 });

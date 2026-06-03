@@ -82,7 +82,7 @@ describe("useLearnFromUserAction", () => {
     vi.clearAllMocks();
   });
 
-  it("POSTs to ${runtimeUrl}/user-actions with the body and returns the platform result", async () => {
+  it("POSTs to ${runtimeUrl}/annotate with type:user_action, payload, and returns the platform result", async () => {
     installCopilotKit();
     const { calls, fetch } = mockFetch([
       { status: 200, body: { id: "42", duplicate: false } },
@@ -99,13 +99,16 @@ describe("useLearnFromUserAction", () => {
     expect(recorded).toEqual({ id: "42", duplicate: false });
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).toBe(
-      "https://bff.example.com/api/copilotkit/user-actions",
+      "https://bff.example.com/api/copilotkit/annotate",
     );
     expect(calls[0]!.init?.method).toBe("POST");
     expect(calls[0]!.body).toMatchObject({
+      type: "user_action",
       threadId: "thread-1",
-      title: "Renamed project",
-      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      payload: {
+        title: "Renamed project",
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      },
     });
     expect(typeof calls[0]!.body!.clientEventId).toBe("string");
     expect((calls[0]!.body!.clientEventId as string).length).toBeGreaterThan(0);
@@ -212,27 +215,17 @@ describe("useLearnFromUserAction", () => {
       title: "x",
     });
 
-    expect(calls[0]!.body).not.toHaveProperty("description");
-    expect(calls[0]!.body).not.toHaveProperty("data");
+    // Top-level body should not contain these removed fields
     expect(calls[0]!.body).not.toHaveProperty("learningContainer");
     expect(calls[0]!.body).not.toHaveProperty("metadata");
     expect(calls[0]!.body).not.toHaveProperty("occurredAt");
+    // Payload should not have description or data when absent
+    const payload = calls[0]!.body!.payload as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("description");
+    expect(payload).not.toHaveProperty("data");
   });
 
-  it("forwards learningContainer (string) in the request body", async () => {
-    installCopilotKit();
-    const { calls, fetch } = mockFetch([
-      { status: 200, body: { id: "1", duplicate: false } },
-    ]);
-    globalThis.fetch = fetch;
-
-    const { result } = renderHook(() => useLearnFromUserAction());
-    await result.current({ threadId: "t1", learningContainer: "user" });
-
-    expect(calls[0]!.body!.learningContainer).toBe("user");
-  });
-
-  it("forwards learningContainer (array) in the request body", async () => {
+  it("nests title, description, and data inside payload", async () => {
     installCopilotKit();
     const { calls, fetch } = mockFetch([
       { status: 200, body: { id: "1", duplicate: false } },
@@ -241,10 +234,54 @@ describe("useLearnFromUserAction", () => {
 
     const { result } = renderHook(() => useLearnFromUserAction());
     await result.current({
-      threadId: "t1",
-      learningContainer: ["user", "organization"],
+      threadId: "t",
+      title: "My title",
+      description: "Some description",
+      data: { key: "value" },
     });
 
-    expect(calls[0]!.body!.learningContainer).toEqual(["user", "organization"]);
+    expect(calls[0]!.body!.payload).toEqual({
+      title: "My title",
+      description: "Some description",
+      data: { key: "value" },
+    });
+  });
+
+  it("does not include learningContainer or metadata in the request body", async () => {
+    // learningContainer and metadata are removed from the input type entirely.
+    // Verify they are never present in the outgoing request body.
+    installCopilotKit();
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t", title: "x" });
+
+    expect(calls[0]!.body).not.toHaveProperty("learningContainer");
+    expect(calls[0]!.body).not.toHaveProperty("metadata");
+    const payload = calls[0]!.body!.payload as Record<string, unknown> | undefined;
+    if (payload) {
+      expect(payload).not.toHaveProperty("learningContainer");
+      expect(payload).not.toHaveProperty("metadata");
+    }
+  });
+
+  it("forwards occurredAt in the request body when provided", async () => {
+    installCopilotKit();
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({
+      threadId: "t",
+      title: "x",
+      occurredAt: "2024-01-01T00:00:00Z",
+    });
+
+    expect(calls[0]!.body!.occurredAt).toBe("2024-01-01T00:00:00Z");
   });
 });
