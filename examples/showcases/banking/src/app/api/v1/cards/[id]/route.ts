@@ -9,9 +9,6 @@ export const PUT = async (
     const { id: cardId } = await params;
     // Handle pin or card limit change
     const body = await req.json();
-    console.info(
-      `${req.method}: ${req.url} called with: ${JSON.stringify(body)}`,
-    );
     const { pin } = body;
     if (!pin) {
       const card = store.findCard(cardId);

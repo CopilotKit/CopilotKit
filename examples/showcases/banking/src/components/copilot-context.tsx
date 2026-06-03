@@ -1,5 +1,6 @@
 "use client";
 import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { usePathname } from "next/navigation";
 import { z } from "zod";
 import { useAuthContext } from "@/components/auth-context";
 import { Button } from "./ui/button";
@@ -27,6 +28,7 @@ export const AVAILABLE_OPERATIONS_PER_PAGE = {
 // A component dedicated to adding readables/actions that are global to the app.
 const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuthContext();
+  const pathname = usePathname();
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
@@ -42,7 +44,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     value: {
       pages: Object.values(Page),
       operations: AVAILABLE_OPERATIONS_PER_PAGE,
-      currentPage: window.location.pathname.split("/").pop() as Page,
+      currentPage: pathname.split("/").pop() as Page,
     },
   });
 

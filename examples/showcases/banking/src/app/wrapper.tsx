@@ -1,6 +1,5 @@
 "use client";
 import { LayoutComponent } from "@/components/layout";
-import "./globals.css";
 import {
   CopilotKitProvider,
   CopilotPopup,
