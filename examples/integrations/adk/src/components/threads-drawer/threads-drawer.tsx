@@ -214,10 +214,12 @@ export default function ThreadsDrawer({
         className={cx(styles.drawer, styles.drawerClosed)}
       >
         <div className={styles.collapsedRail}>
+          {/* Native title here (not the styled ::after): the collapsed rail
+              sits at the viewport's left edge where a centered tooltip clips. */}
           <button
             aria-label="Open threads drawer"
-            data-tooltip="Expand"
-            className={cx(styles.iconButton, styles.tooltip)}
+            title="Expand"
+            className={styles.iconButton}
             type="button"
             onClick={() => setIsOpen(true)}
           >
@@ -225,10 +227,10 @@ export default function ThreadsDrawer({
           </button>
           <button
             aria-label="Create thread"
-            data-tooltip="New thread"
-            className={cx(styles.iconButton, styles.tooltip)}
+            title="New thread"
+            className={styles.iconButton}
             type="button"
-            onClick={() => onThreadChange(undefined)}
+            onClick={() => onThreadChange(crypto.randomUUID())}
           >
             <Plus size={18} />
           </button>
@@ -260,7 +262,7 @@ export default function ThreadsDrawer({
                 aria-label="Create thread"
                 className={styles.newThreadButton}
                 type="button"
-                onClick={() => onThreadChange(undefined)}
+                onClick={() => onThreadChange(crypto.randomUUID())}
               >
                 <Plus size={14} />
                 <span>New thread</span>
