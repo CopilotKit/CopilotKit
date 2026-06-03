@@ -1172,3 +1172,60 @@ class TestAutoA2UI:
         )
 
         assert received.tool is None
+
+    # --- catalog sourced from wherever the frontend passed it ----------------
+
+    def test_injected_from_copilotkit_context(self):
+        """CopilotKit runtime-proxy path: catalog arrives as a context entry."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            "messages": [],
+            "copilotkit": {
+                "context": [
+                    {
+                        "description": "A2UI catalog capabilities: available "
+                        "catalog IDs and custom component definitions.",
+                        "value": "Available A2UI catalog:\n- my-custom-catalog\n"
+                        "  - Card: {...}\n  - Metric: {...}",
+                    }
+                ]
+            },
+        }
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "backend" in names
+
+    def test_resolve_catalog_from_context_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "copilotkit": {
+                    "context": [
+                        {
+                            "description": "A2UI catalog capabilities",
+                            "value": "Available A2UI catalog:\n- declarative-gen-ui-catalog\n  ...",
+                        }
+                    ]
+                }
+            }
+        )
+        assert catalog_id == "declarative-gen-ui-catalog"
+        assert schema and "declarative-gen-ui-catalog" in schema
+
+    def test_resolve_catalog_from_native_schema_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "ag-ui": {
+                    "a2ui_schema": json.dumps({"catalogId": "cat-x", "components": []})
+                }
+            }
+        )
+        # Native path: toolkit reads a2ui_schema from state, so no guide needed.
+        assert schema is None
+        assert catalog_id == "cat-x"
+
+    def test_resolve_catalog_none_when_absent(self):
+        assert CopilotKitMiddleware._resolve_a2ui_catalog({"messages": []}) is None

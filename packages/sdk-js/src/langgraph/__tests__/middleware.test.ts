@@ -547,6 +547,32 @@ describe("auto-A2UI injection", () => {
     expect(names).toContain("generate_a2ui");
   });
 
+  it("advertises generate_a2ui when the catalog arrives via copilotkit.context (runtime-proxy path)", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-ctx",
+        copilotkit: {
+          context: [
+            {
+              description:
+                "A2UI catalog capabilities: available catalog IDs and custom component definitions.",
+              value:
+                "Available A2UI catalog:\n- declarative-gen-ui-catalog\n  - Card: {...}\n  - Metric: {...}",
+            },
+          ],
+        },
+      },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const names = received.tools.map((t: any) => t.name);
+    expect(names).toContain("backend");
+    expect(names).toContain("generate_a2ui");
+  });
+
   it("executes generate_a2ui via wrapToolCall using the inferred model", async () => {
     const state = {
       messages: [],

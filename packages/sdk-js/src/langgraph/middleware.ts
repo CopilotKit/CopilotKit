@@ -19,6 +19,45 @@ const A2UI_DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__";
 const a2uiThreadKey = (state: any): string =>
   (state?.thread_id as string) || A2UI_DEFAULT_THREAD_KEY;
 
+/**
+ * Find the frontend-registered A2UI catalog wherever it was passed. Returns
+ * `{ compositionGuide?, catalogId? }` when a catalog is present, else `null`
+ * (so the tool is never advertised when the client can't render A2UI). Two
+ * delivery paths, depending on how the agent is served:
+ *  - AG-UI native endpoint → `state["ag-ui"].a2ui_schema` (JSON
+ *    `{ catalogId, components }`); the toolkit reads it from state itself.
+ *  - CopilotKit runtime proxy → a `state.copilotkit.context` entry describing
+ *    the A2UI catalog (catalog id + component schemas as text), passed to the
+ *    subagent via `compositionGuide`.
+ * `catalogId` binds generated surfaces to the frontend's catalog so BYOC
+ * custom catalogs render their own components (not the basic one).
+ */
+const resolveA2uiCatalog = (
+  state: any,
+): { compositionGuide?: string; catalogId?: string } | null => {
+  const a2uiSchema = state?.["ag-ui"]?.a2ui_schema;
+  if (a2uiSchema) {
+    let catalogId: string | undefined;
+    try {
+      const parsed =
+        typeof a2uiSchema === "string" ? JSON.parse(a2uiSchema) : a2uiSchema;
+      catalogId = parsed?.catalogId;
+    } catch {
+      // non-JSON schema — fall back to the toolkit's basic catalog
+    }
+    return { catalogId };
+  }
+  const context = state?.copilotkit?.context;
+  for (const entry of Array.isArray(context) ? context : []) {
+    const description = entry?.description ?? "";
+    const value = entry?.value ?? "";
+    if (!description.includes("A2UI catalog") || !value) continue;
+    const match = /^\s*-\s+(\S+)/m.exec(value);
+    return { compositionGuide: value, catalogId: match?.[1] };
+  }
+  return null;
+};
+
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
       "~standard": S &
@@ -335,16 +374,24 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
     }
 
     // Auto-inject generate_a2ui when the frontend has registered an A2UI
-    // catalog. The AG-UI runtime surfaces that catalog into
-    // state["ag-ui"].a2ui_schema; its presence is the signal that the client
-    // can actually render A2UI surfaces. Gating on it keeps the feature fully
-    // zero-config (the developer only uses the middleware) while never
-    // advertising a tool that would render nowhere. The model is inferred from
-    // request.model; the built tool is stashed for wrapToolCall to execute.
+    // catalog — sourced wherever the FE passed it (CopilotKit runtime proxy via
+    // copilotkit.context, or AG-UI native via ag-ui.a2ui_schema). The catalog's
+    // presence is the signal that the client can render A2UI surfaces, so this
+    // never advertises a tool that would render nowhere while staying fully
+    // zero-config. The model is inferred from request.model; the catalog id
+    // binds surfaces to the FE's catalog; the built tool is stashed for
+    // wrapToolCall to execute.
     let a2uiTool: any = null;
-    const a2uiSchema = (request.state["ag-ui"] as any)?.a2ui_schema;
-    if (a2uiSchema && typeof getA2UITools === "function") {
-      a2uiTool = getA2UITools(request.model);
+    const a2uiCatalog =
+      typeof getA2UITools === "function"
+        ? resolveA2uiCatalog(request.state)
+        : null;
+    if (a2uiCatalog) {
+      const opts: { defaultCatalogId?: string; compositionGuide?: string } = {};
+      if (a2uiCatalog.catalogId) opts.defaultCatalogId = a2uiCatalog.catalogId;
+      if (a2uiCatalog.compositionGuide)
+        opts.compositionGuide = a2uiCatalog.compositionGuide;
+      a2uiTool = getA2UITools(request.model, opts);
       a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
     }
 

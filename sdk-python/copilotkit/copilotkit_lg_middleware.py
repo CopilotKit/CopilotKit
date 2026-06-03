@@ -318,28 +318,92 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     # Auto-A2UI tool injection
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _resolve_a2ui_catalog(state: dict) -> "tuple[str | None, str | None] | None":
+        """Find the frontend-registered A2UI catalog wherever it was passed.
+
+        Returns ``(component_schema, catalog_id)`` when a catalog is present,
+        else ``None`` (so the tool is never advertised when the client can't
+        render A2UI). Two delivery paths are supported, because the catalog
+        lands in different places depending on how the agent is served:
+
+        - **AG-UI native endpoint** → ``state["ag-ui"]["a2ui_schema"]``, a JSON
+          string ``{"catalogId": ..., "components": [...]}``.
+        - **CopilotKit runtime proxy** → a ``state["copilotkit"]["context"]``
+          entry describing the A2UI catalog (catalog id + component schemas as
+          text).
+
+        ``component_schema`` is the text/JSON the subagent should compose from;
+        ``catalog_id`` binds generated surfaces to the frontend's catalog (so
+        BYOC custom catalogs render their own components, not the basic one).
+        """
+        # AG-UI native path.
+        ag_ui = state.get("ag-ui") or {}
+        a2ui_schema = ag_ui.get("a2ui_schema")
+        if a2ui_schema:
+            catalog_id = None
+            try:
+                parsed = (
+                    json.loads(a2ui_schema)
+                    if isinstance(a2ui_schema, str)
+                    else a2ui_schema
+                )
+                if isinstance(parsed, dict):
+                    catalog_id = parsed.get("catalogId")
+            except (TypeError, ValueError):
+                pass
+            # Native path: the toolkit reads ``a2ui_schema`` from state itself,
+            # so no composition_guide is needed — just surface the catalog id.
+            return None, catalog_id
+
+        # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
+        context = (state.get("copilotkit") or {}).get("context") or []
+        for entry in context:
+            if not isinstance(entry, dict):
+                continue
+            description = entry.get("description") or ""
+            value = entry.get("value") or ""
+            if "A2UI catalog" not in description or not value:
+                continue
+            # The value lists catalogs as "- <catalogId>" lines; the first is
+            # the custom catalog the client registered.
+            match = re.search(r"(?m)^\s*-\s+(\S+)", value)
+            catalog_id = match.group(1) if match else None
+            return value, catalog_id
+
+        return None
+
     def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
         """Build a ``generate_a2ui`` tool bound to the agent's own model when
-        the frontend has registered an A2UI catalog.
+        the frontend has registered an A2UI catalog — wherever it was passed.
 
-        The catalog is surfaced by the AG-UI runtime into
-        ``state["ag-ui"]["a2ui_schema"]``; its presence is the signal that the
-        client can actually render A2UI surfaces. Gating on it means agents
-        whose frontend has no catalog never see the tool — so we never advertise
-        a tool that would render nowhere — while keeping the feature fully
-        zero-config: the developer only uses the middleware, nothing else.
+        The catalog's presence is the signal that the client can actually render
+        A2UI surfaces, so agents whose frontend has no catalog never see the
+        tool (we never advertise a tool that would render nowhere) while the
+        feature stays fully zero-config: the developer only uses the middleware.
 
         The model is inferred from ``request.model`` (the bound agent model);
-        the built tool is stashed for the tool-call hook to execute. Returns the
-        tool (also appended to the advertised tools) or ``None`` when A2UI is
-        not applicable.
+        the component schema and catalog id come from the registered catalog so
+        the subagent composes the right components and surfaces bind to the
+        frontend's catalog. The built tool is stashed for the tool-call hook to
+        execute. Returns the tool or ``None`` when A2UI is not applicable.
         """
         if get_a2ui_tools is None:
             return None
-        ag_ui = request.state.get("ag-ui") or {}
-        if not ag_ui.get("a2ui_schema"):
+        resolved = self._resolve_a2ui_catalog(request.state or {})
+        if resolved is None:
             return None
-        tool = get_a2ui_tools(request.model)
+        component_schema, catalog_id = resolved
+
+        kwargs: dict[str, Any] = {}
+        if catalog_id:
+            kwargs["default_catalog_id"] = catalog_id
+        # Feed the registered component schema to the subagent so it composes
+        # only catalog components (the toolkit appends this to its prompt).
+        if component_schema:
+            kwargs["composition_guide"] = component_schema
+
+        tool = get_a2ui_tools(request.model, **kwargs)
         _a2ui_tools_by_thread[_current_thread_id() or _DEFAULT_THREAD_KEY] = tool
         return tool
 
