@@ -28,7 +28,6 @@ export default function RootLayout({
             inspectorDefaultAnchor={{ horizontal: "right", vertical: "top" }}
             a2ui={{ catalog: demonstrationCatalog }}
             openGenerativeUI={{}}
-            // Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev).
             useSingleEndpoint={false}
           >
             {children}

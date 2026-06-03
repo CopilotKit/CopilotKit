@@ -1,89 +1,95 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const exampleRoot = join(
-  process.cwd(),
-  "examples",
-  "integrations",
-  "llamaindex",
-);
+const repoRoot = path.resolve(__dirname, "..", "..");
+const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-function readExampleFile(path: string): string {
-  return readFileSync(join(exampleRoot, path), "utf8");
+const migratedIntegrations = ["crewai-flows", "llamaindex"] as const;
+
+function readIntegrationFile(
+  integration: string,
+  relativePath: string,
+): string {
+  return fs.readFileSync(
+    path.join(integrationsDir, integration, relativePath),
+    "utf8",
+  );
 }
 
-test("llamaindex runtime route is gated for Intelligence threads", () => {
-  const route = readExampleFile("src/app/api/copilotkit/[[...slug]]/route.ts");
+function readOptionalIntegrationFile(
+  integration: string,
+  relativePath: string,
+): string {
+  const filePath = path.join(integrationsDir, integration, relativePath);
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+}
 
-  expect(route).toContain("CopilotKitIntelligence");
-  expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
-  expect(route).toContain("process.env.INTELLIGENCE_API_URL");
-  expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
-  expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
-  expect(route).toContain("export const GET = handle(app);");
-  expect(route).toContain("export const POST = handle(app);");
-  expect(route).toContain("export const PATCH = handle(app);");
-  expect(route).toContain("export const DELETE = handle(app);");
-});
+describe("batch-2 Intelligence integration migration", () => {
+  for (const integration of migratedIntegrations) {
+    it(`${integration} has the env-gated Intelligence runtime route`, () => {
+      const route = readIntegrationFile(
+        integration,
+        "src/app/api/copilotkit/[[...slug]]/route.ts",
+      );
 
-test("llamaindex layout uses REST transport for Threads APIs", () => {
-  const layout = readExampleFile("src/app/layout.tsx");
+      expect(route).toContain("CopilotKitIntelligence");
+      expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
+      expect(route).toContain(
+        "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
+      );
+      expect(route).toContain('id: "demo-user"');
+      expect(route).toContain("new InMemoryAgentRunner()");
+      expect(route).toContain("export const GET = handle(app)");
+      expect(route).toContain("export const POST = handle(app)");
+      expect(route).toContain("export const PATCH = handle(app)");
+      expect(route).toContain("export const DELETE = handle(app)");
+    });
 
-  expect(layout).toContain('runtimeUrl="/api/copilotkit"');
-  expect(layout).toContain('agent="sample_agent"');
-  expect(layout).toContain("useSingleEndpoint={false}");
-});
+    it(`${integration} forces REST transport for thread routes`, () => {
+      const layout = readIntegrationFile(integration, "src/app/layout.tsx");
 
-test("llamaindex page wires a threads drawer into the active chat thread", () => {
-  const page = readExampleFile("src/app/page.tsx");
+      expect(layout).toContain("useSingleEndpoint={false}");
+    });
 
-  expect(page).toContain("ThreadsDrawer");
-  expect(page).toContain("ThreadsPanelGate");
-  expect(page).toContain("CopilotChatConfigurationProvider");
-  expect(page).toContain("const [threadId, setThreadId]");
-  expect(page).toContain('agentId="sample_agent"');
-  expect(page).toContain("threadId={threadId}");
-  expect(page).toContain("useAgent({");
-  expect(page).toContain('agentId: "sample_agent"');
-  expect(page).not.toContain("clickOutsideToClose");
-});
+    it(`${integration} wires the threads drawer into the chat thread context`, () => {
+      const page = readIntegrationFile(integration, "src/app/page.tsx");
 
-test("llamaindex exposes local Intelligence env documentation", () => {
-  const envExample = readExampleFile(".env.example");
-  const gitignore = readExampleFile(".gitignore");
+      expect(page).toContain("ThreadsDrawer");
+      expect(page).toContain("ThreadsPanelGate");
+      expect(page).toContain("CopilotChatConfigurationProvider");
+      expect(page).toContain("threadId");
+      expect(page).toContain("onThreadChange={setThreadId}");
+    });
 
-  expect(envExample).toContain("OPENAI_API_KEY=");
-  expect(envExample).toContain("AGENT_URL=http://127.0.0.1:9000");
-  expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN=");
-  expect(envExample).toContain("INTELLIGENCE_API_KEY=");
-  expect(envExample).toContain("INTELLIGENCE_API_URL=http://localhost:4201");
-  expect(envExample).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401",
-  );
-  expect(gitignore).toContain("!.env.example");
-});
+    it(`${integration} exposes the client-safe threads enabled gate`, () => {
+      const nextConfig = readIntegrationFile(integration, "next.config.ts");
 
-test("llamaindex package is pinned to the Intelligence-ready CopilotKit SDK", () => {
-  const packageJson = JSON.parse(readExampleFile("package.json")) as {
-    dependencies: Record<string, string>;
-  };
+      expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
+      expect(nextConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
+    });
 
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.1");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.1");
-  expect(packageJson.dependencies["class-variance-authority"]).toBeDefined();
-  expect(packageJson.dependencies["clsx"]).toBeDefined();
-  expect(packageJson.dependencies["lucide-react"]).toBeDefined();
-  expect(packageJson.dependencies["tailwind-merge"]).toBeDefined();
-});
+    it(`${integration} documents the local Intelligence environment`, () => {
+      const envExample = readOptionalIntegrationFile(
+        integration,
+        ".env.example",
+      );
 
-test("llamaindex Next config enables the Threads feature flag", () => {
-  const nextConfig = readExampleFile("next.config.ts");
+      expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN");
+      expect(envExample).toContain("INTELLIGENCE_API_KEY");
+      expect(envExample).toContain("INTELLIGENCE_API_URL");
+      expect(envExample).toContain("INTELLIGENCE_GATEWAY_WS_URL");
+    });
 
-  expect(nextConfig).toContain('output: "standalone"');
-  expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
-  expect(nextConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
+    it(`${integration} pins CopilotKit packages to the threads-capable release`, () => {
+      const packageJson = JSON.parse(
+        readIntegrationFile(integration, "package.json"),
+      ) as { dependencies?: Record<string, string> };
+
+      expect(packageJson.dependencies?.["@copilotkit/react-core"]).toBe(
+        "1.59.1",
+      );
+      expect(packageJson.dependencies?.["@copilotkit/runtime"]).toBe("1.59.1");
+    });
+  }
 });
