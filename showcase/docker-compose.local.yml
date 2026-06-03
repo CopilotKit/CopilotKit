@@ -148,11 +148,21 @@ services:
         # docs-shell jumps. Points at the langgraph-python integration's
         # host port for now (no shared "shell" service in the local stack).
         NEXT_PUBLIC_SHELL_URL: http://localhost:3100
-        # /api/ops/* rewrites here. There's no harness HTTP server in the
-        # local stack, so this points back at the dashboard itself; the
-        # rewrites will 404 but the matrix view reads from PocketBase
-        # directly and doesn't depend on /api/ops.
-        OPS_BASE_URL: http://localhost:3200
+        # Ops proxy target for the dashboard's /api/ops/* Route Handler
+        # (shell-dashboard/src/app/api/ops/[...path]/route.ts), which
+        # forwards /api/ops/probes -> ${OPS_BASE_URL}/api/probes. It MUST
+        # point at the showcase-harness HTTP origin (the service that serves
+        # /api/probes), reached over the compose network by its container
+        # name on the harness's internal port 8080 (harness/Dockerfile
+        # EXPOSEs 8080; orchestrator.ts binds PORT ?? 8080). Mirrors staging,
+        # where the dashboard's OPS_BASE_URL points at the harness origin.
+        # Run the harness on this compose network (container_name:
+        # showcase-harness) for the Ops tab's live-probe grid to resolve;
+        # without it the proxy returns 502 (unreachable upstream) rather than
+        # the previous self-referential 500. NOTE: OPS_BASE_URL is read at
+        # REQUEST time by the Route Handler, so it does not need to resolve
+        # at build time — this build arg only seeds the runtime default.
+        OPS_BASE_URL: http://showcase-harness:8080
     image: showcase-dashboard:local
     container_name: showcase-dashboard
     environment:

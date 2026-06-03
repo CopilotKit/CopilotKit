@@ -120,7 +120,8 @@ export interface BrowserPoolOptions {
    *  (env BROWSER_POOL_BROWSERS, legacy fallback BROWSER_POOL_SIZE). */
   browsers?: number;
   /** Global cap on concurrently-live contexts across all browsers. Default
-   *  24 (env BROWSER_POOL_MAX_CONTEXTS). acquire() past this pends a waiter. */
+   *  40 (env BROWSER_POOL_MAX_CONTEXTS) — covers D6 peak 32 + D5 peak 8.
+   *  acquire() past this pends a waiter. */
   maxContexts?: number;
   /** Per-browser served-context hygiene threshold: once a browser has served
    *  >= recycleAfter contexts AND has no live contexts, it is recycled (its
@@ -189,7 +190,7 @@ export class BrowserPool {
       options.maxContexts ??
       (envMax !== undefined && !Number.isNaN(envMax) && envMax > 0
         ? envMax
-        : 24);
+        : 40);
 
     const envRecycle = process.env.BROWSER_POOL_RECYCLE_AFTER
       ? parseInt(process.env.BROWSER_POOL_RECYCLE_AFTER, 10)
@@ -395,6 +396,28 @@ export class BrowserPool {
   }
 
   /**
+   * Fire a hygiene recycle that was previously DEFERRED (carried on
+   * `entry.recyclePending`) if the entry is now genuinely recyclable. This is
+   * the shared "honor the deferred recycle" check that EVERY path which returns
+   * an entry to idle must run — not just `release()`. The release path defers a
+   * hygiene recycle (e.g. because a waiter was just served onto the freed slot)
+   * and sets `recyclePending`, expecting the next idle release to honor it; but
+   * an entry can also return to idle via NON-release teardowns (the
+   * `openContextOn` orphan-by-recycle rollback and the `serveNextWaiter`
+   * orphan-close), where no `release()` ever fires. Without re-checking here the
+   * deferred recycle is dropped and the browser exceeds `recycleAfter`
+   * indefinitely. Race-safe: the predicate + flag clear + recycle dispatch are
+   * all synchronous (no await straddles them), and `recycleBrowser` itself
+   * re-guards on `recycling`/`pendingOpens`.
+   */
+  private maybeFireDeferredRecycle(entry: BrowserEntry): void {
+    if (entry.recyclePending && this.isEntryRecyclable(entry)) {
+      entry.recyclePending = false;
+      this.recycleBrowser(entry, "hygiene");
+    }
+  }
+
+  /**
    * Open a context on the given live browser against a reservation the caller
    * ALREADY took via `reserveSlot()`. Centralizes the `X-AIMock-Strict` default
    * header. On success the reservation is converted into a tracked live context
@@ -454,6 +477,15 @@ export class BrowserPool {
       this.logger?.warn?.("browser-pool.open-orphaned-by-recycle", {
         browserIndex: this.browsers.indexOf(entry),
       });
+      // NON-release teardown: this in-flight open ended without a release(), so
+      // the release-path's deferred-recycle re-check (recyclePending) and waiter
+      // drain never run for the capacity this rollback just freed. Mirror them
+      // here. (Bug 2) honor a recycle that was deferred behind this very open,
+      // now that pendingOpens dropped and the entry may be idle; (Bug 3) drain a
+      // queued waiter onto the freed slot instead of stalling it until the next
+      // unrelated release/recycle handoff. Both run on synchronous state.
+      this.maybeFireDeferredRecycle(entry);
+      this.scheduleServeNextWaiter();
       throw new Error("browser-pool: context open orphaned by recycle");
     }
 
@@ -656,11 +688,25 @@ export class BrowserPool {
     if (waiter.settled) {
       this.contextToBrowser.delete(context);
       entry.liveContexts.delete(context);
+      // openContextOn already did `entry.servedContexts++` for this context.
+      // Since it is being orphan-closed and never delivered, mirror that
+      // increment with a decrement — otherwise every timed-out-mid-serve
+      // permanently inflates servedContexts and biases the hygiene recycle
+      // (servedContexts >= recycleAfter) to fire early, wasting PID budget on
+      // relaunches. (Bug 1)
+      entry.servedContexts--;
       this.releaseReservation();
       void context.close().catch(() => {});
       this.logger?.warn?.("browser-pool.serve-waiter-orphan-closed", {
         browserIndex: this.browsers.indexOf(entry),
       });
+      // NON-release teardown: returning this entry to idle here without a
+      // release() means the release-path's deferred-recycle re-check never runs.
+      // Honor a hygiene recycle that was deferred behind this serve (set via the
+      // release-path `shouldRecycle && hadWaiter` guard) now that the entry is
+      // idle again — otherwise the deferred recycle is dropped and the browser
+      // exceeds recycleAfter indefinitely. (Bug 2)
+      this.maybeFireDeferredRecycle(entry);
       if (this.waiters.length > 0) this.scheduleServeNextWaiter();
       return;
     }

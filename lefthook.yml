@@ -14,6 +14,18 @@ pre-commit:
     check-binaries:
       tags: binaries
       run: bash scripts/hooks/check-binaries.sh
+    sync-promote-dropdown:
+      tags: promote-dropdown
+      # Regenerate the showcase_promote.yml `service` dropdown from the
+      # railway-envs.ts SSOT and re-stage it so the option list can never
+      # drift from the set of promotable services. Plain regenerate + git add
+      # (no stash) — keep this hook worktree-safe; lefthook's shared
+      # refs/stash is not safe across concurrent worktree commits.
+      glob: "{showcase/scripts/railway-envs.ts,showcase/scripts/sync-promote-service-options.ts,.github/workflows/showcase_promote.yml}"
+      run: |
+        set -euo pipefail
+        pnpm exec tsx showcase/scripts/sync-promote-service-options.ts \
+          && git add .github/workflows/showcase_promote.yml
     sync-lockfile:
       tags: lockfile
       glob: "{packages,examples,showcase/scripts}/**/package.json"

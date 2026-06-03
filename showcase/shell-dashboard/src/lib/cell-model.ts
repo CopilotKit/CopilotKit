@@ -39,6 +39,30 @@ export interface CellModel {
   d4: TestLevel | null;
   d5: TestLevel | null;
   d6: TestLevel | null;
+  /**
+   * Ladder-gated D6 status — the value the D6 badge and D6 stat MUST consume
+   * (NOT the raw per-dimension `d6.status`). D6 is the top of the verification
+   * ladder, so a green D6 claim is only valid when the ladder through D5 is
+   * intact. When the ladder is broken/unverified below D6 (D1-D4 gate fails, or
+   * D5 is red/amber/no-data), the raw D6 result is meaningless as a top-of-ladder
+   * claim, so this collapses to `null` (blocked/not-achieved — rendered gray/—,
+   * NOT a false green and NOT a false red; the actual lower-rung failure is
+   * already shown by the CV/API/RT badges). When the ladder IS intact through D5,
+   * the raw D6 status passes through (a genuine D6 red still surfaces as red).
+   *
+   * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
+   * there is no D5 rung to gate against, so the raw `d6.status` passes through
+   * unchanged (a present failing D6 still surfaces — this mirrors the chip's
+   * `!d5.exists` branch, which goes red on a non-green D6). Only a PRESENT but
+   * non-green / no-data D5 collapses D6 to `null`.
+   *
+   * Derived from the SAME contiguous-ladder algorithm as `chipColor` so the
+   * badge, the stat, and the chip never disagree. Mirrors the chip table:
+   *   chip green  ⇔ d6Effective green   (full ladder, achievedDepth === 6)
+   *   chip amber  ⇔ d6Effective amber/null (D5 green, D6 not green)
+   *   chip red (D5-broken) / gray (unverified) ⇒ d6Effective null (blocked)
+   */
+  d6Effective: TestStatus;
   achievedDepth: 0 | 3 | 4 | 5 | 6;
   ceilingDepth: 0 | 3 | 4 | 5 | 6;
   chipColor: ChipColor;
@@ -103,7 +127,10 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
   }
 
   // Fold to the worst effective state across present rows, applying the
-  // per-row stale-green→degraded downgrade before comparing.
+  // per-row stale-green→degraded downgrade before comparing. The winner row
+  // is stored in its EFFECTIVE (downgraded) form so `.row.state` agrees with
+  // `.status` — mirroring `buildBadge` in live-status.ts, whose returned
+  // `.row` is the effective row.
   let winner: StatusRow | null = null;
   let worstState: State | null = null;
   for (const candidate of [chatRow, toolsRow]) {
@@ -116,15 +143,24 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      winner = candidate;
+      winner =
+        effectiveState === candidate.state
+          ? candidate
+          : { ...candidate, state: effectiveState };
       worstState = effectiveState;
     }
   }
 
+  if (!winner || worstState === null) {
+    // Both rows present-checked above, so this is unreachable in practice;
+    // guard anyway instead of asserting (mirrors resolveD5/resolveD6).
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(worstState!),
-    row: winner!,
+    status: stateToTestStatus(worstState),
+    row: winner,
   };
 }
 
@@ -190,7 +226,10 @@ function resolveD5(
       worstState === null ||
       STATE_RANK[effectiveState] > STATE_RANK[worstState]
     ) {
-      worstRow = row;
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
       worstState = effectiveState;
     }
   }
@@ -225,6 +264,11 @@ function resolveD5(
  * the frozen-green row is no longer trustworthy evidence of health. Only
  * green is downgraded — a stale red/degraded row already signals a problem
  * and is left as-is.
+ *
+ * PRODUCER-INVARIANT ASSUMPTION: the implicit D1/D2 gate is enforced
+ * upstream, not here — this resolver credits D3 from the `e2e:<slug>/<feature>`
+ * row ALONE and never consults the `health:<slug>`/`agent:<slug>` rows. The
+ * e2e driver is expected not to emit green when liveness is red.
  */
 function resolveD3(
   live: LiveStatusMap,
@@ -247,29 +291,96 @@ function resolveD3(
 }
 
 /**
- * Resolve the D6 (parity-vs-reference) test level for `slug`.
+ * Resolve the D6 (parity-vs-reference) test level for `(slug, featureId)`.
  *
- * D6 is an aggregate integration-level signal (`d6:<slug>`), NOT per-cell.
- * The e2e-full driver emits a single row per integration that covers
- * the entire parity comparison against the reference implementation.
+ * D6 is PER-CELL, not an integration aggregate. The `e2e-parity` driver
+ * emits one `d6:<slug>/<featureType>` row per featureType (mirroring D5's
+ * keyspace — both fan out over `demosToFeatureTypes`), PLUS a single
+ * integration-level aggregate `d6:<slug>` row. The aggregate is red whenever
+ * ANY cell fails, so resolving cells against it would paint genuinely-green
+ * cells red. This resolver therefore reads the PER-CELL row, mapped through
+ * `CATALOG_TO_D5_KEY` (the same catalog-featureId → featureType bridge D5
+ * uses); the aggregate `d6:<slug>` row no longer drives per-cell rendering.
  *
- * Staleness applies the same downgrade as `resolveD3`: a green D6 row whose
- * `observed_at` is older than `E2E_STALE_AFTER_MS` is downgraded to `amber`
- * (degraded), so a frozen-green row from a stalled driver no longer credits
- * D6 forever. Only green is downgraded; stale red/degraded is left as-is.
+ * Mirrors `resolveD5` exactly:
+ *
+ * Staleness applies the same downgrade as `resolveD3`, but PER SUB-ROW and
+ * BEFORE the worst-state fold: a green D6 sub-row whose `observed_at` is older
+ * than `E2E_STALE_AFTER_MS` is treated as `degraded` while folding, so a
+ * fresh-green sub-row can never win the all-green tie and mask a stale-green
+ * sibling. Only green is downgraded; a stale red/degraded sub-row already
+ * signals a problem.
+ *
+ * STRICT on missing sub-rows: a multi-key family is credited green ONLY when
+ * EVERY mapped sub-row is present and green-and-fresh — a missing mapped
+ * sub-row forces the family out of green and resolves to `status: null`
+ * (no-data/unverified). A present RED sub-row still yields red (red dominates
+ * no-data). This matches `depth-utils.ts` `isD6Green`, which uses
+ * `d6Keys.every(...)`, and the identical handling in `resolveD5`.
  */
-function resolveD6(live: LiveStatusMap, slug: string, now: number): TestLevel {
-  const row = live.get(keyFor("d6", slug)) ?? null;
-  if (!row) {
+function resolveD6(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): TestLevel {
+  const d6Keys = CATALOG_TO_D5_KEY[featureId];
+
+  // No mapping → test doesn't exist for this feature.
+  if (!d6Keys || d6Keys.length === 0) {
     return { exists: false, status: null, row: null };
   }
-  if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
-    return { exists: true, status: "amber", row };
+
+  let worstRow: StatusRow | null = null;
+  let worstState: State | null = null;
+  let anyMissing = false;
+  for (const d6Key of d6Keys) {
+    const row = live.get(keyFor("d6", slug, d6Key)) ?? null;
+    if (!row) {
+      // STRICT: a missing mapped sub-row means the family is unverified —
+      // it can no longer be credited green. Mirrors `isD6Green`'s
+      // `every(...)` in depth-utils.ts so both consumers agree.
+      anyMissing = true;
+      continue;
+    }
+    // Per-row staleness downgrade applied BEFORE the fold: a green sub-row
+    // that is stale folds in as `degraded` so it can never win the all-green
+    // tie and mask a fresh-green sibling.
+    const effectiveState: State =
+      row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)
+        ? "degraded"
+        : row.state;
+    if (
+      worstState === null ||
+      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+    ) {
+      // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
+      // `.status` — mirrors `buildBadge` in live-status.ts.
+      worstRow =
+        effectiveState === row.state ? row : { ...row, state: effectiveState };
+      worstState = effectiveState;
+    }
   }
+
+  if (!worstRow || worstState === null) {
+    // Keys are mapped but no rows emitted yet — test exists but has no
+    // data. Treat as exists=true so ceilingDepth reflects it.
+    return { exists: true, status: null, row: null };
+  }
+
+  // STRICT missing-sub-row handling: when a mapped sub-row is absent the
+  // family is unverified. A present RED sub-row still signals a real failure
+  // (red dominates no-data), but a present green/degraded fold must NOT be
+  // credited — collapse it to no-data (status: null) so the chip renders
+  // gray/amber per the ladder, not a false-green.
+  if (anyMissing && worstState !== "red") {
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(row.state),
-    row,
+    status: stateToTestStatus(worstState),
+    row: worstRow,
   };
 }
 
@@ -285,6 +396,7 @@ const UNSUPPORTED: CellModel = {
   d4: null,
   d5: null,
   d6: null,
+  d6Effective: null,
   achievedDepth: 0,
   ceilingDepth: 0,
   chipColor: "gray",
@@ -318,6 +430,7 @@ export function buildCellModel(
       d4: NOT_WIRED_LEVEL,
       d5: NOT_WIRED_LEVEL,
       d6: NOT_WIRED_LEVEL,
+      d6Effective: null,
       achievedDepth: 0,
       ceilingDepth: 0,
       chipColor: "gray",
@@ -329,7 +442,7 @@ export function buildCellModel(
   const d3 = resolveD3(live, slug, featureId, now);
   const d4 = resolveD4(live, slug, now);
   const d5 = resolveD5(live, slug, featureId, now);
-  const d6 = resolveD6(live, slug, now);
+  const d6 = resolveD6(live, slug, featureId, now);
 
   // ceilingDepth: highest CONTIGUOUS depth where a test EXISTS.
   // D4 only counts if D3 exists; D5 only counts if D4 counts; D6 only
@@ -405,6 +518,35 @@ export function buildCellModel(
     chipColor = "red";
   }
 
+  // d6Effective — ladder-gated D6 status for the D6 badge + D6 stat.
+  //
+  // D6 is the TOP of the verification ladder, so a green D6 claim is only
+  // meaningful when the ladder through D5 is intact. This reuses the SAME
+  // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
+  // badge/stat never contradict the chip:
+  //   gate fails              → null (blocked; API/RT badge shows the failure)
+  //   D5 not mapped (!exists) → raw d6.status (D6 is not D5's gate here; a
+  //                             present failing D6 still surfaces — matches the
+  //                             chip's `!d5.exists` branch which goes red on a
+  //                             non-green D6)
+  //   D5 green                → raw d6.status (ladder intact through D5; a
+  //                             genuine D6 red/amber/green passes through)
+  //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the
+  //                             D6 claim is not-achieved/blocked; never a false
+  //                             green and never a false red — the CV badge
+  //                             already shows the real lower-rung failure)
+  let d6Effective: TestStatus;
+  if (d1d4GateFails) {
+    d6Effective = null;
+  } else if (!d5.exists) {
+    d6Effective = d6.status;
+  } else if (d5.status === "green") {
+    d6Effective = d6.status;
+  } else {
+    // D5 red, stale-amber, or no-data → ladder not intact through D5.
+    d6Effective = null;
+  }
+
   // isRegression: a cell has slid below its own ceiling. Beyond
   // `achievedDepth < ceilingDepth`, the NEXT rung above `achievedDepth` must
   // have EMITTED data — `exists && status !== null` — for the slide-back to
@@ -415,6 +557,14 @@ export function buildCellModel(
   // null) still counts — that is a genuine failure below the ceiling.
   //
   // Next-rung map by achievedDepth: 0→d3, 3→d4, 4→d5, 5→d6.
+  //
+  // The D6 rung uses the LADDER-GATED `d6Effective` (NOT raw `d6.status`) so the
+  // regression flag agrees with the rendered gated D6 badge. When achievedDepth
+  // is already 5 the ladder is intact through D5, so d6Effective passes the raw
+  // d6.status through — this is behavior-preserving for the active case — but
+  // sourcing the gated value keeps the regression flag, the badge, and the chip
+  // from ever disagreeing about D6.
+  const d6EffectiveRung: TestLevel = { ...d6, status: d6Effective };
   const nextRung: TestLevel | null =
     achievedDepth === 0
       ? d3
@@ -423,7 +573,7 @@ export function buildCellModel(
         : achievedDepth === 4
           ? d5
           : achievedDepth === 5
-            ? d6
+            ? d6EffectiveRung
             : null;
   const isRegression =
     ceilingDepth > 0 &&
@@ -438,6 +588,7 @@ export function buildCellModel(
     d4,
     d5,
     d6,
+    d6Effective,
     achievedDepth,
     ceilingDepth,
     chipColor,

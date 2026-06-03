@@ -10,19 +10,29 @@ import type { ParityTier } from "./parity-badge";
 import type { CatalogData } from "../data/catalog-types";
 import type { Overlay } from "@/lib/overlay-types";
 
-/** Depth distribution: count of cells at each depth level. */
+/**
+ * Depth distribution: count of cells at each achieved depth.
+ *
+ * Keys mirror the only values `buildCellModel().achievedDepth` can produce
+ * (`0 | 3 | 4 | 5 | 6`). There is no d1/d2 bucket — the contiguous-ladder
+ * algorithm in cell-model.ts never yields achievedDepth 1 or 2, so those
+ * buckets would be permanently 0. `d0` is wired-but-unverified (no passing
+ * rung yet); the rendered row includes it so the distribution sums to the
+ * wired-cell count.
+ */
 export interface DepthDistribution {
+  d6: number;
   d5: number;
   d4: number;
   d3: number;
-  d2: number;
-  d1: number;
   d0: number;
 }
 
 /** D6 (parity-vs-reference) rollup counts. */
 export interface D6Stats {
   green: number;
+  /** Degraded / stale-green D6 cells — surfaced distinctly, not hidden as gray. */
+  degraded: number;
   gray: number;
   red: number;
 }
@@ -31,7 +41,7 @@ export interface AdaptiveStatsBarProps {
   overlays: Set<Overlay>;
   catalog: CatalogData;
   /** Health stats (computed externally) */
-  healthStats?: { green: number; amber: number; red: number };
+  healthStats?: { green: number; amber: number; red: number; noData: number };
   /** Parity tier counts (computed externally) */
   parityStats?: Record<ParityTier, number>;
   /** Docs stats (computed externally) */
@@ -164,18 +174,25 @@ function DepthSection({
   );
 }
 
-/** Compact depth distribution: D5..D1 counts in a single row. */
+/**
+ * Compact depth distribution: D6, D5, D4, D3, D0 counts in a single row.
+ *
+ * Only depths `buildCellModel().achievedDepth` can produce are shown. D0 (wired
+ * but no passing rung yet) is rendered so wired-unverified cells stay visible
+ * and the row sums to the "Wired" count; the never-reachable D1/D2 rows are
+ * omitted instead of rendering permanent zeros.
+ */
 function DepthDistributionSection({
   distribution,
 }: {
   distribution: DepthDistribution;
 }) {
   const levels: { key: keyof DepthDistribution; label: string }[] = [
+    { key: "d6", label: "D6" },
     { key: "d5", label: "D5" },
     { key: "d4", label: "D4" },
     { key: "d3", label: "D3" },
-    { key: "d2", label: "D2" },
-    { key: "d1", label: "D1" },
+    { key: "d0", label: "D0" },
   ];
 
   return (
@@ -197,7 +214,7 @@ function DepthDistributionSection({
 function HealthSection({
   stats,
 }: {
-  stats: { green: number; amber: number; red: number };
+  stats: { green: number; amber: number; red: number; noData: number };
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -223,6 +240,14 @@ function HealthSection({
           value={stats.red}
           label="red"
           colorClass="text-[var(--danger)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--text-muted)" />
+        <MiniStat
+          value={stats.noData}
+          label="no data"
+          colorClass="text-[var(--text-muted)]"
         />
       </span>
     </div>
@@ -261,6 +286,14 @@ function D6Section({ stats }: { stats: D6Stats }) {
           value={stats.green}
           label="green"
           colorClass="text-[var(--ok)]"
+        />
+      </span>
+      <span className="flex items-center gap-1">
+        <Dot color="var(--amber)" />
+        <MiniStat
+          value={stats.degraded}
+          label="degraded"
+          colorClass="text-[var(--amber)]"
         />
       </span>
       <span className="flex items-center gap-1">
@@ -323,7 +356,11 @@ export function AdaptiveStatsBar({
   depthDistribution,
   d6Stats,
 }: AdaptiveStatsBarProps) {
-  const sections: React.ReactNode[] = [];
+  // Typed as ReactElement (not ReactNode) so each section's stable `key` is
+  // readable below — the wrapper reuses it for correct reconciliation when
+  // overlays toggle, instead of an array index that shifts as sections appear
+  // and disappear.
+  const sections: React.ReactElement[] = [];
 
   // Base — always present
   sections.push(
@@ -362,7 +399,7 @@ export function AdaptiveStatsBar({
       className="px-8 py-3 flex items-center gap-4 border-b border-[var(--border)] bg-[var(--bg-muted)]"
     >
       {sections.map((section, i) => (
-        <div key={i} className="flex items-center gap-4">
+        <div key={section.key} className="flex items-center gap-4">
           {i > 0 && <Divider />}
           {section}
         </div>

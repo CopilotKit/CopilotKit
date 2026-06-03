@@ -1,0 +1,15 @@
+[project]
+name = "agent"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "ag-ui-langgraph>=0.0.36",
+  "copilotkit>=0.1.90",
+  "fastapi>=0.136.3",
+  "langchain>=1.0",
+  "langchain-core>=1.4.0",
+  "langchain-openai>=1.2.2",
+  "langgraph>=1.0",
+  "python-dotenv>=1.2.2",
+  "uvicorn>=0.48.0",
+]

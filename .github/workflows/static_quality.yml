@@ -40,6 +40,12 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+          # Check the head branch out from the head repo, not the base repo.
+          # For fork PRs the head branch only exists on the fork, so defaulting
+          # to the base repo makes checkout fail with "a branch or tag with the
+          # name '<branch>' could not be found". Same-repo PRs resolve to the
+          # base repo unchanged, so the auto-format push-back below still works.
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           # Full history so we can diff HEAD against the current base branch
           # tip to scope the formatter to PR-changed files.

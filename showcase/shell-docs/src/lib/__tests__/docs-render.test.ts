@@ -9,6 +9,7 @@ vi.mock("../registry", () => ({
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
+  CONTENT_DIR,
   inlineSnippets,
   loadDoc,
   SNIPPET_MAP,
@@ -45,6 +46,14 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
     if (inSection && node.type === "page" && node.title === page) return true;
   }
   return false;
+}
+
+function collectMdxFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) return collectMdxFiles(filePath);
+    return entry.isFile() && entry.name.endsWith(".mdx") ? [filePath] : [];
+  });
 }
 
 describe("inlineSnippets", () => {
@@ -129,6 +138,78 @@ describe("loadDoc", () => {
     expect(doc?.filePath).toContain(
       "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
+  });
+});
+
+describe("migration docs", () => {
+  it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
+    const snippet = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/troubleshooting/migrate-to-v2.mdx"),
+      "utf8",
+    );
+
+    expect(snippet).toContain(
+      "The `<CopilotKit>` provider name — keep using it, but import it from `@copilotkit/react-core/v2`",
+    );
+    expect(snippet).toContain(
+      "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
+    );
+    expect(snippet).toContain(
+      'import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).toContain(
+      'import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).not.toContain("CopilotKitProvider");
+  });
+
+  it("keeps v2 reference pages aligned with the CopilotKit v2 entrypoint", () => {
+    const referenceIndex = fs.readFileSync(
+      path.join(CONTENT_DIR, "..", "reference/index.mdx"),
+      "utf8",
+    );
+    const componentReference = fs.readFileSync(
+      path.join(CONTENT_DIR, "..", "reference/components/CopilotKit.mdx"),
+      "utf8",
+    );
+
+    expect(referenceIndex).toContain(
+      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+    );
+    expect(referenceIndex).not.toContain(
+      "CopilotKit is imported from the root package",
+    );
+    expect(referenceIndex).not.toContain(
+      "import `CopilotKit` from `@copilotkit/react-core`",
+    );
+    expect(componentReference).toContain("`@copilotkit/react-core/v2`");
+    expect(componentReference).not.toContain("not from the v2 subpackage");
+  });
+
+  it("does not recommend stale v2 package paths in authored docs", () => {
+    const authoredDocFiles = collectMdxFiles(CONTENT_DIR);
+    const allowedRootProviderImports = new Set([
+      path.join(CONTENT_DIR, "migrate/v2.mdx"),
+    ]);
+
+    const rootProviderImports = authoredDocFiles.filter((filePath) => {
+      if (allowedRootProviderImports.has(filePath)) return false;
+      return fs
+        .readFileSync(filePath, "utf8")
+        .includes('import { CopilotKit } from "@copilotkit/react-core";');
+    });
+
+    const oldV2StyleImports = [
+      ...authoredDocFiles,
+      ...collectMdxFiles(SNIPPETS_DIR),
+    ].filter((filePath) =>
+      fs
+        .readFileSync(filePath, "utf8")
+        .includes("@copilotkit/react-ui/v2/styles.css"),
+    );
+
+    expect(rootProviderImports).toEqual([]);
+    expect(oldV2StyleImports).toEqual([]);
   });
 });
 

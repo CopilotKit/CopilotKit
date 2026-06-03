@@ -201,7 +201,7 @@ demos:
     name: "Generative UI: useComponent"
     description: Agent uses tools to trigger UI generation
     tags:
-      - generative-ui
+      - controlled-generative-ui
     route: /demos/gen-ui-tool-based
     animated_preview_url:
     highlight:

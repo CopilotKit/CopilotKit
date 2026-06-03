@@ -42,6 +42,10 @@ vi.mock("@/components/depth-chip", () => ({
 }));
 
 vi.mock("@/components/badges", () => ({
+  // Mirror the REAL Badge contract: a "?" label means no-data and the real
+  // Badge returns null (hides). Replicating that here keeps these tests from
+  // being overfit to a mock that renders unconditionally — a gated D6 routed
+  // through label "?" would vanish in production but pass against a naive mock.
   Badge: vi.fn(
     ({
       name,
@@ -50,11 +54,12 @@ vi.mock("@/components/badges", () => ({
       name: string;
       state: { tone: string; label: string };
       title?: string;
-    }) => (
-      <span data-testid={`mock-badge-${name}`} data-tone={state.tone}>
-        {name} {state.label}
-      </span>
-    ),
+    }) =>
+      state.label === "?" ? null : (
+        <span data-testid={`mock-badge-${name}`} data-tone={state.tone}>
+          {name} {state.label}
+        </span>
+      ),
   ),
   FlashOnChange: vi.fn(
     ({ children }: { children: React.ReactNode; tone: string }) => (
@@ -166,6 +171,7 @@ function makeModel(overrides?: Partial<CellModel>): CellModel {
     d4: makeLevel(true, "green"),
     d5: makeLevel(true, "green"),
     d6: makeLevel(false),
+    d6Effective: null,
     achievedDepth: 5,
     ceilingDepth: 5,
     chipColor: "green",
@@ -405,6 +411,111 @@ describe("UnifiedCell", () => {
       expect(getByTestId("unified-cell-empty")).toBeInTheDocument();
       expect(queryByTestId("unified-cell")).not.toBeInTheDocument();
     });
+
+    // ── d6 is a content-bearing overlay (surfaces depth + health) ─────
+    // Regression guard: a {d6}-only set must NOT render a blank cell even
+    // though only adaptive-stats-bar reads overlays.has("d6"). Per-cell the
+    // d6 pill surfaces the depth chip + health badges (incl. the D6 badge).
+    it("renders depth + health content (not blank) for a {d6}-only overlay set", () => {
+      const ctx = makeCtx();
+      // Fully-intact ladder (D3-D5 green by default) with a present green D6 →
+      // d6Effective passes through as green, so the D6 badge renders visibly.
+      // (The default makeModel d6Effective is null, which models a no-data
+      //  ladder — that would correctly suppress the D6 badge, defeating this
+      //  test's intent, so set it consistently here.)
+      const model = makeModel({
+        d6: makeLevel(true, "green"),
+        d6Effective: "green",
+      });
+      const { getByTestId, queryByTestId } = render(
+        <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("d6")} />,
+      );
+
+      // Cell is NOT the blank-empty placeholder.
+      expect(queryByTestId("unified-cell-empty")).not.toBeInTheDocument();
+      expect(getByTestId("unified-cell")).toBeInTheDocument();
+      // Depth + health content surfaces, including the D6 badge.
+      expect(getByTestId("depth-layer")).toBeInTheDocument();
+      expect(getByTestId("health-layer")).toBeInTheDocument();
+      expect(getByTestId("mock-badge-D6")).toBeInTheDocument();
+    });
+  });
+
+  // ── D6 badge ladder-gating (D6 never green if D5 fails) ────────────
+  describe("D6 badge reflects ladder-gated d6Effective", () => {
+    it("renders a VISIBLE gated D6 badge ('—', gray) when D5 is red even though raw d6 is green", () => {
+      const ctx = makeCtx();
+      // Raw D6 dimension is green, but D5 is red so the ladder is broken
+      // below D6 → d6Effective null. The D6 badge must render a real, VISIBLE
+      // not-achieved indicator ("—", gray) — NOT a "?" that the real Badge
+      // hides, and never green; CV stays per-dimension red (diagnostic).
+      const model = makeModel({
+        d3: makeLevel(true, "green"),
+        d4: makeLevel(true, "green"),
+        d5: makeLevel(true, "red"),
+        d6: makeLevel(true, "green"),
+        d6Effective: null,
+        chipColor: "red",
+        achievedDepth: 4,
+      });
+      const { getByTestId } = render(
+        <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
+      );
+
+      // The gated D6 badge is PRESENT (does not vanish) and renders the
+      // em-dash. With the mock honoring the real "?"→null rule, this would
+      // FAIL against a naive "?"-emitting implementation — proving the fix.
+      const d6Badge = getByTestId("mock-badge-D6");
+      expect(d6Badge).toBeInTheDocument();
+      expect(d6Badge.getAttribute("data-tone")).toBe("gray");
+      expect(d6Badge.getAttribute("data-tone")).not.toBe("green");
+      expect(d6Badge.textContent).toContain("—");
+
+      // CV badge still shows the real per-dimension D5 failure (red).
+      expect(getByTestId("mock-badge-CV").getAttribute("data-tone")).toBe(
+        "red",
+      );
+    });
+
+    it("hides the D6 badge entirely when D6 has no data (does not exist)", () => {
+      const ctx = makeCtx();
+      // D6 not mapped/no row → does not exist. Gated rendering must NOT kick
+      // in; the badge is simply absent (no "—" for a non-existent rung).
+      const model = makeModel({
+        d3: makeLevel(true, "green"),
+        d4: makeLevel(true, "green"),
+        d5: makeLevel(true, "green"),
+        d6: makeLevel(false),
+        d6Effective: null,
+        chipColor: "amber",
+        achievedDepth: 5,
+      });
+      const { queryByTestId } = render(
+        <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
+      );
+
+      expect(queryByTestId("mock-badge-D6")).not.toBeInTheDocument();
+    });
+
+    it("renders D6 badge green on a fully-intact ladder (d6Effective green)", () => {
+      const ctx = makeCtx();
+      const model = makeModel({
+        d3: makeLevel(true, "green"),
+        d4: makeLevel(true, "green"),
+        d5: makeLevel(true, "green"),
+        d6: makeLevel(true, "green"),
+        d6Effective: "green",
+        chipColor: "green",
+        achievedDepth: 6,
+      });
+      const { getByTestId } = render(
+        <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
+      );
+
+      expect(getByTestId("mock-badge-D6").getAttribute("data-tone")).toBe(
+        "green",
+      );
+    });
   });
 
   // ── Additional coverage ───────────────────────────────────────────
@@ -425,20 +536,19 @@ describe("UnifiedCell", () => {
       expect(badge.textContent).toContain("✓");
     });
 
-    it("maps null status to gray tone with question mark", () => {
+    it("hides a no-data (null status) rung — the real Badge nulls a '?' label", () => {
       const ctx = makeCtx();
       const model = makeModel({
-        d3: makeLevel(true, null), // exists but no status yet
+        d3: makeLevel(true, null), // exists but no status yet → label "?"
         d4: makeLevel(false),
         d5: makeLevel(false),
       });
-      const { getByTestId } = render(
+      const { queryByTestId } = render(
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const badge = getByTestId("mock-badge-API");
-      expect(badge.getAttribute("data-tone")).toBe("gray");
-      expect(badge.textContent).toContain("?");
+      // A no-data rung emits label "?", which the real Badge hides → no badge.
+      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
     });
   });
 });
