@@ -4,7 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -12,23 +11,18 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import {
-  CopilotKitContext,
-  type CopilotKitContextValue,
-  LicenseContext,
-} from "../context";
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
 export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-  type DebugConfig,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -43,6 +37,8 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import { createA2UIRecoveryRenderer } from "../a2ui/A2UIRecoveryRenderer";
+import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryRenderer";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -197,6 +193,12 @@ export interface CopilotKitProviderProps {
      * schema if configured. Set to false to disable.
      */
     includeSchema?: boolean;
+    /**
+     * Options for the A2UI error-recovery status UI (OSS-162): how long before
+     * the transient "Retrying…" hint appears, after how many attempts, and how
+     * much retry/debug detail to surface. When omitted, sane defaults apply.
+     */
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -354,6 +356,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
         }),
+        // Renders the `a2ui_recovery` status (OSS-162) — retrying hint /
+        // hard-failure — as a pure data contract (no toolkit dependency).
+        createA2UIRecoveryRenderer(a2ui?.recovery),
       );
     }
 
