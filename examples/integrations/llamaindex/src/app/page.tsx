@@ -106,7 +106,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {state.proverbs?.map((proverb, index) => (
+          {state?.proverbs?.map((proverb, index) => (
             <div
               key={index}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
@@ -116,7 +116,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
                 onClick={() =>
                   setState({
                     ...state,
-                    proverbs: state.proverbs?.filter((_, i) => i !== index),
+                    proverbs: state?.proverbs?.filter((_, i) => i !== index),
                   })
                 }
                 className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity 
@@ -127,7 +127,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             </div>
           ))}
         </div>
-        {state.proverbs?.length === 0 && (
+        {state?.proverbs?.length === 0 && (
           <p className="text-center text-white/80 italic my-8">
             No proverbs yet. Ask the assistant to add some!
           </p>
