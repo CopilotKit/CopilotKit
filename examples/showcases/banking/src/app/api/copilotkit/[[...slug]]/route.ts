@@ -3,6 +3,8 @@ import {
   createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
+  CopilotKitIntelligence,
+  type IdentifyUserCallback,
 } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 
@@ -42,10 +44,91 @@ guess at parameter values.`,
   temperature: 0.3,
 });
 
-const runtime = new CopilotRuntime({
-  agents: { default: bankingAgent },
-  runner: new InMemoryAgentRunner(),
-});
+/**
+ * Self-learning backend (Phase C), env-gated.
+ *
+ * When the three Intelligence env vars below are all set, the runtime is built
+ * in Intelligence mode: the local `bankingAgent` still executes here (calling
+ * OpenAI), but every AG-UI event of every run is streamed over a Phoenix
+ * WebSocket to the Intelligence gateway for durable threads + self-learning
+ * ingestion (the `IntelligenceAgentRunner` does both — see
+ * packages/runtime/src/v2/runtime/runner/intelligence.ts). Officer actions the
+ * gateway later distills into `/knowledge` are what a fresh agent reads back to
+ * learn the over-limit unlock unaided.
+ *
+ * When ANY of the three is missing, the runtime falls back to the exact OSS
+ * path: a pure SSE `CopilotRuntime` + `InMemoryAgentRunner`, with no network
+ * dependency on an Intelligence stack. This is the default and must not regress.
+ *
+ *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
+ *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
+ *   INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
+ */
+const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
+const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
+const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+
+const intelligenceEnabled = Boolean(
+  intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
+);
+
+/**
+ * Resolve a stable end-user identity for Intelligence requests.
+ *
+ * The client sends the active member's role via CopilotKit `properties`
+ * ({ userRole }), which the runtime forwards in the request body. We map it to
+ * a stable per-role user id so threads and distilled knowledge are scoped
+ * consistently across runs. If the role can't be read, fall back to a single
+ * stable demo identity rather than minting a random id (random ids would
+ * fragment thread history).
+ */
+const identifyUser: IdentifyUserCallback = async (request: Request) => {
+  let role: string | undefined;
+  try {
+    const cloned = request.clone();
+    const body = (await cloned.json()) as {
+      properties?: { userRole?: string };
+    } | null;
+    role = body?.properties?.userRole;
+  } catch {
+    // Non-JSON body (e.g. GET /info) — fall through to the default identity.
+  }
+
+  const slug = (role ?? "demo-user")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  return {
+    id: `northwind-${slug || "demo-user"}`,
+    name: role ? `Northwind ${role}` : "Northwind Demo User",
+  };
+};
+
+function createRuntime(): CopilotRuntime {
+  if (intelligenceEnabled) {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: intelligenceApiUrl!,
+      wsUrl: intelligenceWsUrl!,
+      apiKey: intelligenceApiKey!,
+    });
+
+    return new CopilotRuntime({
+      agents: { default: bankingAgent },
+      intelligence,
+      identifyUser,
+    });
+  }
+
+  // OSS default — pure SSE, no external Intelligence dependency.
+  return new CopilotRuntime({
+    agents: { default: bankingAgent },
+    runner: new InMemoryAgentRunner(),
+  });
+}
+
+const runtime = createRuntime();
 
 const app = createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" });
 

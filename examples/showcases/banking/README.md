@@ -22,6 +22,66 @@ The demo runs against the workspace versions of `@copilotkit/*` (see the root
 `pnpm-workspace.yaml`). The seed dataset lives in memory and resets every time
 the server restarts.
 
+## Self-learning backend (optional, Phase C)
+
+By default the runtime is pure OSS: a SSE `CopilotRuntime` + `InMemoryAgentRunner`,
+with no external dependency. The agent runs locally against OpenAI and nothing
+is persisted. **This is the default and requires only `OPENAI_API_KEY`.**
+
+The runtime in `src/app/api/copilotkit/[[...slug]]/route.ts` is **env-gated**:
+when the three Intelligence env vars below are all present, it builds the runtime
+in Intelligence mode instead (`CopilotKitIntelligence` + `CopilotRuntime({ intelligence, identifyUser })`).
+The local `bankingAgent` still executes here, but every AG-UI event of every run
+is also streamed over a Phoenix WebSocket to the Intelligence gateway for durable
+threads and self-learning ingestion. If any of the three is unset, the demo falls
+back to the exact OSS path above.
+
+```bash
+# Required for Intelligence mode (all three, or none):
+export INTELLIGENCE_API_URL=http://localhost:4201        # platform REST API
+export INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401    # Phoenix runner/client gateway
+export INTELLIGENCE_API_KEY=cpk_...                       # platform API key
+# Optional — read automatically by the runtime if present:
+export COPILOTKIT_LICENSE_TOKEN=...
+# Model keys the external Intelligence stack needs to run its writer/reader agents:
+export OPENAI_API_KEY=...
+export ANTHROPIC_API_KEY=...
+```
+
+### What the live loop needs (external)
+
+The distillation backend — the `sl-worker`, `app-api`, and `/knowledge`
+endpoints that turn recorded actions into learned procedures — is **not in this
+repo**. It lives in the separate Intelligence stack (the CopilotKit Intelligence
+repo's `./scripts/local-dev.sh`, or a hosted Intelligence deployment). The demo
+can only **connect** to it via the env vars above; it cannot run the loop on its
+own.
+
+### The 4-step payoff walkthrough
+
+1. **Agent fails.** A fresh agent is asked to approve an over-limit transaction
+   and cannot — it has no procedure for unlocking it, so it reports the failure.
+2. **Human unlocks it.** An officer opens and finalizes a policy exception via
+   the transactions UI (`src/components/policy-exception-modal.tsx`). These
+   demonstrated actions are the teaching signal.
+3. **`sl-worker` distills.** The external Intelligence stack ingests the run's
+   event stream, distills the officer's actions, and writes a procedure to
+   `/knowledge`.
+4. **Fresh agent succeeds.** A brand-new agent, asked the same over-limit
+   request, reads the distilled knowledge back and performs the unlock unaided.
+
+### Known gap: client-side action recording
+
+Steps 2→3 are intended to be reinforced by an explicit client-side recording API
+(`useRecordUserActionInCurrentThread` from `@copilotkit/react-core/v2`). **That
+hook does not exist in this OSS react-core/v2 build** (verified against the hooks
+index), so `src/lib/record-user-action.ts` is a no-op shim and the call sites in
+`policy-exception-modal.tsx` / `transactions-list.tsx` record nothing. The
+self-learning loop can still ingest the raw run event stream over the gateway,
+but explicit "demonstrated action" recording from the browser is blocked until a
+react-core build that exports such a hook is available. See the file's header
+comment for details.
+
 ## Architecture at a glance
 
 ```
@@ -39,6 +99,9 @@ the server restarts.
 │  src/app/api/copilotkit/[[...slug]]/route.ts                    │
 │    BuiltInAgent + CopilotRuntime + createCopilotHonoHandler     │
 │    (from @copilotkit/runtime/v2)                                │
+│    env-gated: OSS SSE + InMemoryAgentRunner by default;         │
+│    CopilotKitIntelligence when INTELLIGENCE_* env is set        │
+│    (see "Self-learning backend" below)                          │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
