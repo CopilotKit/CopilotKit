@@ -11,12 +11,14 @@
 import { readThreadTool } from "./read-thread.js";
 import { renderChartTool } from "./render-chart.js";
 import { renderDiagramTool } from "./render-diagram.js";
+import { renderTableTool } from "./render-table.js";
 import type { FrontendTool } from "@copilotkit/slack";
 
 export const appTools: ReadonlyArray<FrontendTool> = [
   readThreadTool,
   renderChartTool,
   renderDiagramTool,
+  renderTableTool,
 ];
 
-export { readThreadTool, renderChartTool, renderDiagramTool };
+export { readThreadTool, renderChartTool, renderDiagramTool, renderTableTool };

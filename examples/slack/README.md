@@ -126,7 +126,7 @@ streamed reply reuses that message (dots → answer); if the first output is a
 card or a confirm picker, the placeholder is removed. It's part of
 `@copilotkit/slack`, on by default.
 
-## Files → charts & diagrams
+## Files → charts, diagrams & tables
 
 Upload a file and the bot analyzes it: images and **PDFs** go straight to the
 model, and CSV/JSON/text are decoded and handed over as text. The SDK is
@@ -138,14 +138,20 @@ multimodal content; the **app** decides what to do.
 > (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
 > An older text-only model will ignore the attached document.
 
-Two app-side tools turn analysis into pictures, rendered **locally** in a
-headless browser (reusing the Playwright dep) and posted back inline:
+Three app-side tools turn the analysis into something visual:
 
-- `render_chart` — the agent emits a Chart.js config; we draw it to a PNG.
-- `render_diagram` — the agent emits Mermaid; we render it to a PNG.
+- `render_chart` — the agent emits a Chart.js config; we draw it to a PNG
+  **locally** in a headless browser (reusing the Playwright dep) and post it
+  inline.
+- `render_diagram` — the agent emits Mermaid; we render it to a PNG the same
+  way.
+- `render_table` — the agent emits columns + rows; we post a native Slack
+  **Table block** (no browser needed), falling back to a column-aligned
+  monospace table if the workspace can't render the native block.
 
-Try it: drop a CSV and say _"chart revenue by month"_, or _"diagram this
-incident flow"_. Requires a Chromium binary for rendering:
+Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident
+flow"_, or _"show the incidents as a table"_. The chart/diagram renderers need
+a Chromium binary:
 
 ```bash
 npx playwright install chromium
