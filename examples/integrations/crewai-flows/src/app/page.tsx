@@ -55,8 +55,6 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
-              disableSystemMessage={true}
-              clickOutsideToClose={false}
               labels={{
                 title: "Popup Assistant",
                 initial: "👋 Hi, there! You're chatting with an agent.",
