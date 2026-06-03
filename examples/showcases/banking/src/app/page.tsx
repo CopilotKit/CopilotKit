@@ -4,7 +4,7 @@ import { useEffect, useReducer, useState } from "react";
 import {
   useAgentContext,
   useHumanInTheLoop,
-  useFrontendTool,
+  useComponent,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
@@ -319,60 +319,59 @@ export default function Page() {
     },
   });
 
-  // Showcase usage of generative UI
-  useFrontendTool({
-    name: "showTransactions",
-    description:
-      "Displays a list of transactions upon request. At least one parameter is required per request",
-    available: PERMISSIONS.SHOW_TRANSACTIONS.includes(currentUser.role),
-    parameters: z.object({
-      card4Digits: z
-        .string()
-        .describe("the last 4 digits of the card")
-        .optional(),
-      policyId: z
-        .string()
-        .describe("the id of the policy (figured out by copilot)")
-        .optional(),
-      transactionTitle: z
-        .string()
-        .describe("the title of the transaction")
-        .optional(),
-    }),
-    handler: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    },
-    render: ({ status, args }) => {
-      const { card4Digits, policyId, transactionTitle } = args;
+  // Showcase usage of generative UI. Display-only components use `useComponent`
+  // (not `useFrontendTool`): its render is unconditional, so the rendered card
+  // persists in the transcript after the tool call completes. A handler-driven
+  // `useFrontendTool` render only shows transiently while executing.
+  useComponent(
+    {
+      name: "showTransactions",
+      description:
+        "Displays a list of transactions upon request. At least one parameter is required per request",
+      parameters: z.object({
+        card4Digits: z
+          .string()
+          .describe("the last 4 digits of the card")
+          .optional(),
+        policyId: z
+          .string()
+          .describe("the id of the policy (figured out by copilot)")
+          .optional(),
+        transactionTitle: z
+          .string()
+          .describe("the title of the transaction")
+          .optional(),
+      }),
+      render: ({ card4Digits, policyId, transactionTitle }) => {
+        let filteredTransactions = transactions;
+        if (card4Digits) {
+          filteredTransactions = filterTransactionsByCardLast4(
+            transactions,
+            cards,
+            card4Digits,
+          );
+        } else if (policyId) {
+          filteredTransactions = filterTransactionsByPolicyId(
+            transactions,
+            policyId,
+          );
+        } else if (transactionTitle) {
+          filteredTransactions = filterTransactionByTitle(
+            transactions,
+            transactionTitle,
+          );
+        }
 
-      let filteredTransactions = transactions;
-      if (card4Digits) {
-        filteredTransactions = filterTransactionsByCardLast4(
-          transactions,
-          cards,
-          card4Digits,
-        );
-      } else if (policyId) {
-        filteredTransactions = filterTransactionsByPolicyId(
-          transactions,
-          policyId,
-        );
-      } else if (transactionTitle) {
-        filteredTransactions = filterTransactionByTitle(
-          transactions,
-          transactionTitle,
-        );
-      }
-
-      if (status === "inProgress") {
-        return "Loading...";
-      } else if (!filteredTransactions) {
-        return "Problem fetching transactions";
-      } else {
+        if (!filteredTransactions) {
+          return <>Problem fetching transactions</>;
+        }
         return <TransactionsList transactions={filteredTransactions} compact />;
-      }
+      },
     },
-  });
+    // Re-register the renderer when the underlying data loads/changes; otherwise
+    // the closure captures the initial empty `transactions`/`cards`.
+    [transactions, cards],
+  );
 
   // Enable pin changing with co pilot
   useHumanInTheLoop({
