@@ -51,13 +51,13 @@ Both paths use the same install commands described below — pick whichever fits
 
 ## Prerequisites
 
-Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
+Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/premium/intelligence-platform) page explains the layering in more depth.
 
 **License and registry access:**
 
 - A valid CopilotKit Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
 - Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/intelligence` (anonymous pulls are allowed for the released chart)
-- The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
+- The latest released chart version. Check the [chart releases](https://github.com/orgs/CopilotKit/packages/container/package/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
 
 **Cluster and tooling:**
 
@@ -600,6 +600,6 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 
 ## Next steps
 
-- **Understand how it works:** [How the Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
+- **Understand how it works:** [How the Intelligence Platform Works](/premium/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
 - **Premium features overview:** [CopilotKit Premium](/premium/overview) — all premium capabilities that require an Intelligence license
 - **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Intelligence Platform you just deployed
