@@ -28,7 +28,6 @@ const IGNORED_ERROR_PATTERNS: RegExp[] = [
   /Failed to load resource/i,
   /net::ERR_/i,
   /Download the React DevTools/i,
-  /Hydration/i, // Next.js dev-only hydration warnings are out of scope
 ];
 
 function isIgnoredError(message: ConsoleMessage): boolean {
@@ -47,11 +46,20 @@ function collectConsoleErrors(page: Page): string[] {
   return errors;
 }
 
+function collectPageErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (err) => {
+    errors.push(err.stack ?? err.message);
+  });
+  return errors;
+}
+
 test.describe("banking showcase smoke", () => {
   test("dashboard renders and popup opens with suggestions", async ({
     page,
   }) => {
     const consoleErrors = collectConsoleErrors(page);
+    const pageErrors = collectPageErrors(page);
 
     await page.goto("/");
 
@@ -96,6 +104,14 @@ test.describe("banking showcase smoke", () => {
     expect(
       consoleErrors,
       `Unexpected console errors:\n${consoleErrors.join("\n")}`,
+    ).toEqual([]);
+
+    // Uncaught exceptions don't always surface as console.error — pageerror is
+    // the canonical "did the app crash?" hook. Any uncaught exception fails
+    // the smoke test (no filtering).
+    expect(
+      pageErrors,
+      `Unexpected uncaught page errors:\n${pageErrors.join("\n")}`,
     ).toEqual([]);
   });
 });
