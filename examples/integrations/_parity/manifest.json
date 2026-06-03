@@ -132,7 +132,10 @@
         "serve.py",
         "scripts/**",
         "src/components/threads-drawer/**",
+        "src/app/layout.tsx",
         "src/app/page.tsx",
+        "src/components/example-layout/index.tsx",
+        "docker-route-override.ts",
         "next.config.ts"
       ],
       "packageJsonOverrides": {
@@ -174,11 +177,16 @@
         "scripts/**",
         "src/components/threads-drawer/**",
         "src/app/page.tsx",
+        "src/components/example-layout/index.tsx",
+        "docker-route-override.ts",
         "next.config.ts"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
-        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\\\setup-agent.bat"
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\\\setup-agent.bat",
+        "dependencies.@copilotkit/react-core": "1.56.5",
+        "dependencies.@copilotkit/runtime": "1.56.5",
+        "dependencies.@copilotkit/a2ui-renderer": "1.56.5"
       }
     }
   }
