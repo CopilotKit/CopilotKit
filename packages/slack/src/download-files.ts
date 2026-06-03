@@ -26,6 +26,12 @@ export type AgentContentPart =
   | {
       type: "image";
       source: { type: "data"; value: string; mimeType: string };
+    }
+  | {
+      // Forwarded to the model as a file part (PDFs). The model reads it
+      // natively — requires a document-capable model (Claude, Gemini).
+      type: "document";
+      source: { type: "data"; value: string; mimeType: string };
     };
 
 /** Tunables for inbound file handling (all optional; sane defaults). */
@@ -62,6 +68,9 @@ function isText(mime: string): boolean {
     TEXT_MIME_EXACT.has(mime)
   );
 }
+function isDocument(mime: string): boolean {
+  return mime === "application/pdf";
+}
 
 /**
  * Download a message's files and turn them into AG-UI content parts. Returns
@@ -93,7 +102,7 @@ export async function buildFileContentParts(
       notes.push(`skipped "${label}": no download URL`);
       continue;
     }
-    if (!isImage(mime) && !isText(mime)) {
+    if (!isImage(mime) && !isText(mime) && !isDocument(mime)) {
       notes.push(
         `skipped "${label}" (${mime || f.filetype || "unknown"}): unsupported type`,
       );
@@ -130,6 +139,17 @@ export async function buildFileContentParts(
     if (isImage(mime)) {
       parts.push({
         type: "image",
+        source: {
+          type: "data",
+          value: bytes.toString("base64"),
+          mimeType: mime,
+        },
+      });
+    } else if (isDocument(mime)) {
+      // PDF → document/file part; the model reads it natively (needs a
+      // document-capable model such as Claude or Gemini).
+      parts.push({
+        type: "document",
         source: {
           type: "data",
           value: bytes.toString("base64"),

@@ -128,10 +128,15 @@ card or a confirm picker, the placeholder is removed. It's part of
 
 ## Files → charts & diagrams
 
-Upload a file and the bot analyzes it: images go straight to the (vision)
+Upload a file and the bot analyzes it: images and **PDFs** go straight to the
 model, and CSV/JSON/text are decoded and handed over as text. The SDK is
 transport-only — it downloads the upload and delivers it to the agent as
 multimodal content; the **app** decides what to do.
+
+> **PDFs (and images) need a vision/document-capable model.** Claude
+> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) read PDFs
+> natively. OpenAI models do **not** read PDFs through this path — set
+> `AGENT_MODEL` to a Claude/Gemini model + its API key to use PDF analysis.
 
 Two app-side tools turn analysis into pictures, rendered **locally** in a
 headless browser (reusing the Playwright dep) and posted back inline:

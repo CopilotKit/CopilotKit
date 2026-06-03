@@ -70,14 +70,34 @@ describe("buildFileContentParts", () => {
     expect(text.length).toBeLessThan(400);
   });
 
-  it("skips unsupported types with a note", async () => {
+  it("turns a PDF into a document part", async () => {
+    const bytes = Buffer.from("%PDF-1.7 ...", "utf8");
     const pdf: SlackFileRef = {
-      name: "a.pdf",
+      name: "report.pdf",
       mimetype: "application/pdf",
+      url_private: "https://files.slack.com/report.pdf",
+    };
+    vi.stubGlobal("fetch", fakeFetch({ [pdf.url_private!]: { bytes } }));
+    const { parts, notes } = await buildFileContentParts([pdf], "tok");
+    expect(notes).toEqual([]);
+    expect(parts[0]).toMatchObject({
+      type: "document",
+      source: {
+        type: "data",
+        mimeType: "application/pdf",
+        value: bytes.toString("base64"),
+      },
+    });
+  });
+
+  it("skips genuinely unsupported types with a note", async () => {
+    const zip: SlackFileRef = {
+      name: "a.zip",
+      mimetype: "application/zip",
       url_private: "u",
     };
     vi.stubGlobal("fetch", fakeFetch({}));
-    const { parts, notes } = await buildFileContentParts([pdf], "tok");
+    const { parts, notes } = await buildFileContentParts([zip], "tok");
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("unsupported");
   });
