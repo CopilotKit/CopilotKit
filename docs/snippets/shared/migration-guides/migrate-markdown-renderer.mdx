@@ -5,6 +5,8 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 CopilotKit no longer bundles [Streamdown](https://www.npmjs.com/package/streamdown) as its markdown engine. Assistant and reasoning messages now render with CopilotKit's own **streaming markdown renderer** — [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) — a zero-dependency, streaming-safe renderer that supports GFM, tables, autolinks, citations, and per-token fade-in animation. It ships with the framework packages and pulls in **no external markdown dependencies**.
 
+This applies across **all CopilotKit framework packages**: `@copilotkit/react-core` (React), `@copilotkit/vue` (Vue 3), and `@copilotkit/react-native` (React Native) all default to the streaming renderer for assistant messages.
+
 If you want richer rendering — syntax highlighting, math, diagrams — you can still plug in your own renderer through the pluggable interface. The built-in renderer does not do syntax highlighting, math, or diagram rendering by default.
 
 <Callout type="info">
@@ -20,6 +22,12 @@ If you want richer rendering — syntax highlighting, math, diagrams — you can
 | Renderer was fixed | Renderer is **pluggable**: set one globally on `CopilotKitProvider`, or per-message via the `markdownRenderer` slot |
 | Vue: `useKatexStyles` composable exported from `@copilotkit/vue` | **Removed** (KaTeX is no longer a dependency) |
 
+The built-in streaming renderer is now the default across **React, Vue, and React Native**:
+
+- **React** (`@copilotkit/react-core`) — uses `@copilotkit/markdown-renderer/react` for assistant messages.
+- **Vue** (`@copilotkit/vue`) — uses `@copilotkit/markdown-renderer/vue` for assistant and reasoning messages.
+- **React Native** (`@copilotkit/react-native`) — `CopilotMarkdown` delegates to `@copilotkit/markdown-renderer/react-native`, which renders GFM into native `<Text>`/`<View>`. It defaults to `segmenter: false` (no `Intl.Segmenter`) so it is safe on Hermes, the default React Native JS engine. Unlike the React and Vue renderers, the React Native renderer renders text directly and does **not** perform per-token fade-in animation.
+
 The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http(s)`, `mailto`, `tel`, relative, and non-SVG `data:image/*` URLs are allowed) to prevent XSS.
 
 ## Minimum Version
@@ -31,7 +39,8 @@ The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http
 
 - **If streaming GFM + animation is enough** (most apps): nothing. Your messages keep rendering with the new built-in streaming renderer — you just lose syntax-highlight colors, KaTeX math, mermaid diagrams, and the table/image/code action buttons that Streamdown provided.
 - **If you relied on syntax highlighting, math, diagrams, or the action buttons:** install your renderer of choice and plug it in (below).
-- **If you want to use the streaming renderer directly** (headless, custom React app): install [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) directly.
+- **React Native — no per-token animation:** unlike Streamdown, the React Native renderer renders text directly without per-token fade-in animation. The `streamingAnimation` prop is accepted for backward compatibility but currently has no visual effect in React Native (it only toggles the parser's `Intl.Segmenter`); leave it `false` (the default) to avoid the extra segmentation cost on Hermes.
+- **If you want to use the streaming renderer directly** (headless, custom context): install [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer) directly.
 
 ## Restoring Streamdown rendering
 
@@ -134,7 +143,7 @@ When CopilotKit renders an assistant message, it picks the renderer in this orde
 2. **Provider renderer** — the `markdownRenderer` set on `CopilotKitProvider`.
 3. **Built-in** — the streaming markdown renderer ([`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer)), when neither is set.
 
-Reasoning messages always use the built-in renderer.
+This resolution order applies equally to React, Vue, and React Native. Reasoning messages always use the built-in renderer.
 
 ## Vue: `useKatexStyles` removed
 

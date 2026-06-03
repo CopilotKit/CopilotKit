@@ -20,6 +20,14 @@
       "import": "./dist/react/index.mjs",
       "require": "./dist/react/index.cjs"
     },
+    "./react-native": {
+      "import": "./dist/react-native/index.mjs",
+      "require": "./dist/react-native/index.cjs"
+    },
+    "./vue": {
+      "import": "./dist/vue/index.mjs",
+      "require": "./dist/vue/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -38,13 +46,21 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "react-native": ">=0.70",
+    "vue": ">=3"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
@@ -53,12 +69,14 @@
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19",
     "@types/node": "^22.15.3",
+    "@vue/test-utils": "^2",
     "jsdom": "^25.0.1",
     "react": "^19",
     "react-dom": "^19",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vue": "^3"
   },
   "engines": {
     "node": ">=18"
