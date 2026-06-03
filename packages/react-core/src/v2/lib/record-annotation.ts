@@ -119,5 +119,17 @@ export async function recordAnnotation(
     );
   }
 
-  return (await response.json()) as RecordAnnotationResult;
+  const text = await response.text();
+  if (!text) {
+    throw new Error(
+      `recordAnnotation: runtime ${runtimeUrl}/annotate returned ${response.status} with an empty body`,
+    );
+  }
+  try {
+    return JSON.parse(text) as RecordAnnotationResult;
+  } catch {
+    throw new Error(
+      `recordAnnotation: runtime ${runtimeUrl}/annotate returned a non-JSON body (status ${response.status})`,
+    );
+  }
 }

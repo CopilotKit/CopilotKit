@@ -15,7 +15,7 @@ export interface UseLearningContainersArgs {
    * The ordered list of learning container identifiers to activate for this
    * thread. Defaults to `["organization"]` on the backend when absent.
    */
-  learningContainers: string[];
+  learningContainers: readonly string[];
 }
 
 /**
@@ -61,7 +61,10 @@ export function useLearningContainers({
    * (fresh array, same values) do not fire a redundant emit.
    * `null` = nothing synced yet (initial state or after a threadId reset).
    */
-  const lastSyncedRef = useRef<string[] | null>(null);
+  const lastSyncedRef = useRef<readonly string[] | null>(null);
+
+  /** Guards the missing-runtimeUrl warning so it fires at most once per hook instance. */
+  const warnedMissingUrlRef = useRef(false);
 
   // Keep a ref to the latest transport values so the cleanup effect can read
   // them without being added to its dep array (which would cause it to re-run
@@ -86,16 +89,31 @@ export function useLearningContainers({
 
     /**
      * Fire-and-forget emit; errors must not surface in render.
+     * Failures are logged as warnings so they are diagnosable without
+     * propagating into the React render cycle.
      */
-    const emit = (containers: string[]): void => {
-      if (!runtimeUrl) return;
+    const emit = (containers: readonly string[]): void => {
+      if (!runtimeUrl) {
+        if (!warnedMissingUrlRef.current) {
+          warnedMissingUrlRef.current = true;
+          console.warn(
+            "useLearningContainers: runtimeUrl not configured; learning-container sync disabled",
+          );
+        }
+        return;
+      }
       recordAnnotation({
         runtimeUrl,
         headers,
         type: "set_learning_containers",
         payload: { containers },
         threadId,
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn(
+          "useLearningContainers: failed to record set_learning_containers",
+          err,
+        );
+      });
     };
 
     if (lastSyncedRef.current === null) {
@@ -137,7 +155,12 @@ export function useLearningContainers({
           type: "set_learning_containers",
           payload: { containers: DEFAULT_CONTAINERS },
           threadId: capturedThreadId,
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn(
+            "useLearningContainers: failed to record set_learning_containers",
+            err,
+          );
+        });
       }
 
       // Reset tracking so the next effect run (new threadId) starts fresh.

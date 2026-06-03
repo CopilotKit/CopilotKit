@@ -229,3 +229,39 @@ it("accepts undefined payload and omits it from the body", async () => {
   expect(calls[0]!.body).not.toHaveProperty("payload");
   expect(calls[0]!.body).not.toHaveProperty("userId");
 });
+
+// ── F1 guard: empty body ───────────────────────────────────────────────────────
+
+it("throws a contextual error when the runtime returns 200 with an empty body", async () => {
+  // Return a Response whose body is the empty string (no JSON).
+  const fakeFetch = vi.fn(async () =>
+    new Response("", { status: 200, headers: { "Content-Type": "application/json" } }),
+  );
+  globalThis.fetch = fakeFetch as unknown as typeof globalThis.fetch;
+
+  await expect(
+    recordAnnotation({
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: {},
+      type: "user_action",
+      threadId: "t",
+    }),
+  ).rejects.toThrow(/empty body/);
+});
+
+it("throws a contextual error when the runtime returns 200 with a non-JSON body", async () => {
+  // Return a Response whose body is non-JSON text.
+  const fakeFetch = vi.fn(async () =>
+    new Response("OK", { status: 200, headers: { "Content-Type": "text/plain" } }),
+  );
+  globalThis.fetch = fakeFetch as unknown as typeof globalThis.fetch;
+
+  await expect(
+    recordAnnotation({
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: {},
+      type: "user_action",
+      threadId: "t",
+    }),
+  ).rejects.toThrow(/non-JSON body/);
+});
