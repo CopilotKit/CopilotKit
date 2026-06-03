@@ -55,35 +55,24 @@ describe("render_chart tool", () => {
     expect(out).toMatchObject({ ok: true, posted: true });
   });
 
-  it("still tolerates a stringified config", async () => {
-    const { ctx } = makeCtx();
+  it("returns ok:false (not a throw) when rendering fails", async () => {
+    const { ctx, postFile } = makeCtx();
+    renderChart.mockRejectedValueOnce(
+      new Error("Chart.js render failed: bad type"),
+    );
     const out = JSON.parse(
       (await renderChartTool.handler(
         {
-          chartSpec: JSON.stringify({
-            type: "line",
-            data: { labels: [], datasets: [] },
-          }),
+          chartSpec: {
+            type: "nope",
+            data: { labels: [], datasets: [{ data: [] }] },
+          },
         },
         ctx,
       )) as string,
     );
-    expect(renderChart).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "line" }),
-    );
-    expect(out).toMatchObject({ ok: true });
-  });
-
-  it("returns an error for an unparseable stringified spec", async () => {
-    const { ctx, postFile } = makeCtx();
-    const out = JSON.parse(
-      (await renderChartTool.handler(
-        { chartSpec: "{not json" },
-        ctx,
-      )) as string,
-    );
     expect(out.ok).toBe(false);
-    expect(renderChart).not.toHaveBeenCalled();
+    expect(out.error).toContain("Chart.js render failed");
     expect(postFile).not.toHaveBeenCalled();
   });
 });
