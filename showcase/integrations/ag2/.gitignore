@@ -2,6 +2,7 @@ node_modules/
 .next/
 .env.local
 .env
+!.env.example
 *.pyc
 __pycache__/
 .venv/

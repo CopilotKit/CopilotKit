@@ -2,11 +2,8 @@
 
 // @region[frontend-tool-registration]
 import React, { useState } from "react";
-import {
-  CopilotKit,
-  CopilotSidebar,
-  useFrontendTool,
-} from "@copilotkit/react-core/v2";
+import { CopilotSidebar, useFrontendTool } from "@copilotkit/react-core/v2";
+import { ShowcaseCopilotKit } from "@/components/showcase-copilotkit";
 import { z } from "zod";
 import { Background, DEFAULT_BACKGROUND } from "./background";
 import { useFrontendToolsSuggestions } from "./suggestions";
@@ -43,8 +40,8 @@ function Chat() {
 
 export default function FrontendToolsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
+    <ShowcaseCopilotKit agentId="frontend_tools">
       <Chat />
-    </CopilotKit>
+    </ShowcaseCopilotKit>
   );
 }

@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
 import {
+  CopilotKitIntelligence,
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  InMemoryAgentRunner,
+  createCopilotEndpoint,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import { handle } from "hono/vercel";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -82,67 +84,33 @@ console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
 
-export const POST = async (req: NextRequest) => {
-  const url = req.url;
-  const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
-
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
-        agents,
+const intelligenceRuntimeConfig = process.env.COPILOTKIT_LICENSE_TOKEN
+  ? {
+      intelligence: new CopilotKitIntelligence({
+        apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+        apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+        wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
       }),
-    });
-
-    const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
-    return response;
-  } catch (error: unknown) {
-    // Log full details server-side (operators grep `errorId` to correlate),
-    // but never echo `err.message` / `err.stack` back to the HTTP client —
-    // that leaks internal paths, dependency versions, and stack traces.
-    const err = error instanceof Error ? error : new Error(String(error));
-    const errorId = crypto.randomUUID();
-    console.error(
-      JSON.stringify({
-        at: new Date().toISOString(),
-        level: "error",
-        scope: "copilotkit/route",
-        errorId,
-        message: err.message,
-        stack: err.stack,
+      identifyUser: async () => ({
+        id: "demo-user",
+        name: "Demo User",
       }),
-    );
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-};
+      licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+    }
+  : { runner: new InMemoryAgentRunner() };
 
-export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+const runtime = new CopilotRuntime({
+  // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+  agents,
+  ...intelligenceRuntimeConfig,
+});
 
-  let agentStatus = "unknown";
-  try {
-    const res = await fetch(`${AGENT_URL}/health`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    agentStatus = res.ok ? "reachable" : `error (${res.status})`;
-  } catch (e: unknown) {
-    agentStatus = `unreachable (${(e as Error).message})`;
-  }
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-  return NextResponse.json({
-    status: "ok",
-    agent_url: AGENT_URL,
-    agent_status: agentStatus,
-    env: {
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-      NODE_ENV: process.env.NODE_ENV,
-    },
-  });
-};
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);

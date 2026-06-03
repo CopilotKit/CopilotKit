@@ -11,23 +11,20 @@
 
 import React, { useEffect } from "react";
 import {
-  CopilotKit,
   CopilotSidebar,
   useAgent,
   UseAgentUpdate,
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
+import { ShowcaseCopilotKit } from "@/components/showcase-copilotkit";
 import { RecipeCard } from "./recipe-card";
-import {
-  INITIAL_RECIPE,
-  type RecipeAgentState,
-  type RecipeData,
-} from "./types";
+import { INITIAL_RECIPE } from "./types";
+import type { RecipeAgentState, RecipeData } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read">
+    <ShowcaseCopilotKit agentId="shared-state-read">
       <div className="min-h-screen w-full bg-gray-50">
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           <Recipe />
@@ -37,7 +34,7 @@ export default function SharedStateReadDemo() {
           labels={{ modalHeaderTitle: "AI Recipe Assistant" }}
         />
       </div>
-    </CopilotKit>
+    </ShowcaseCopilotKit>
   );
 }
 
