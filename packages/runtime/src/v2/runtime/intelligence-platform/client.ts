@@ -1,4 +1,5 @@
 import { logger } from "@copilotkit/shared";
+import { randomUUID } from "crypto";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -199,47 +200,42 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
 }
 
 /**
- * Parameters for recording a user UI interaction via
- * {@link CopilotKitIntelligence.recordUserAction}. The runtime resolves
- * `userId` from the customer's BFF auth before calling this; the
- * platform prefixes it with the project id at write time.
+ * Parameters for annotating a thread event via
+ * {@link CopilotKitIntelligence.annotate}. The runtime resolves `userId`
+ * from the customer's BFF auth before calling this; the platform prefixes
+ * it with the project id at write time.
+ *
+ * Known `type` values and their `payload` shapes:
+ * - `"user_action"` — `{ title?, description?, data? }`
+ * - `"set_learning_containers"` — `{ containers: string[] }`
  */
-export interface RecordUserActionRequest {
-  /** The user the action belongs to. */
+export interface AnnotateParams {
+  /** The user the annotation belongs to. */
   userId: string;
-  /** The thread the action is associated with. May be unknown to the platform. */
+  /** The thread the annotation is associated with. May be unknown to the platform. */
   threadId: string;
-  /** Short, agent-readable summary of what the user did. Optional. */
-  title?: string | null;
-  /** Optional longer explanation. */
-  description?: string | null;
-  /** Free-form JSON-serializable snapshot describing the action. */
-  data?: unknown;
   /**
-   * Learning container(s) for this action. Forwarded verbatim to the
-   * platform, which is the single authoritative validator: well-formed
-   * input is `string | string[]` (non-empty strings, non-empty array);
-   * the platform defaults to `["organization"]` when the field is
-   * omitted entirely, and 400s on malformed values.
+   * Discriminator identifying the annotation type.
+   * Must match a type known to the Intelligence platform
+   * (e.g. `"user_action"`, `"set_learning_containers"`).
    */
-  learningContainer?: unknown;
-  /** Optional caller-defined metadata. Stored verbatim. */
-  metadata?: Record<string, unknown> | null;
+  type: string;
+  /** Type-specific payload. Shape varies by `type`. */
+  payload?: unknown;
+  /**
+   * Caller-supplied idempotency key (any RFC-compliant UUID). When omitted,
+   * a UUID is auto-generated. Every call hits the platform's idempotent
+   * `PUT /connector/annotate/:clientEventId` endpoint; a retry with the
+   * same id collapses to the original row.
+   */
+  clientEventId?: string;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
-  /**
-   * Caller-supplied idempotency key (any RFC-compliant UUID; the
-   * frontend hook `useLearnFromUserAction` auto-generates one per call,
-   * so retries are safe by default). Every call hits the platform's
-   * idempotent PUT endpoint; a retry with the same id collapses to
-   * the original row.
-   */
-  clientEventId: string;
 }
 
-/** Response from {@link CopilotKitIntelligence.recordUserAction}. */
-export interface RecordUserActionResponse {
-  /** Database id of the user-action row (BIGINT, returned as a string). */
+/** Response from {@link CopilotKitIntelligence.annotate}. */
+export interface AnnotateResponse {
+  /** Database id of the annotation row (BIGINT, returned as a string). */
   id: string;
   /**
    * True when the platform recognized the `clientEventId` as a retry of
@@ -764,44 +760,56 @@ export class CopilotKitIntelligence {
   }
 
   /**
-   * Record a user UI interaction in the Intelligence platform's user-actions
-   * stream. Used by the auto-curated knowledge base loop: a background agent
-   * distills these actions (and finished agent runs) into a per-(org, project)
-   * markdown knowledge base.
+   * Annotate a thread event on the Intelligence platform's general annotation
+   * endpoint (`PUT /connector/annotate/:clientEventId`).
+   *
+   * This is the generalized replacement for the old
+   * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
+   * multiple annotation types via the `type` discriminator:
+   * - `"user_action"` — records a user UI interaction for the self-learning loop.
+   * - `"set_learning_containers"` — sets the learning containers for a thread.
    *
    * `userId` must be resolved on the runtime side before calling this — the
    * platform prefixes it with the project id from the API key.
    *
-   * Always hits the idempotent `PUT /connector/user-actions/record/:clientEventId`
+   * Always hits the idempotent `PUT /connector/annotate/:clientEventId`
    * endpoint. A retry with the same `clientEventId` returns
    * `{ id: <original>, duplicate: true }` instead of creating a new row.
-   *
-   * `clientEventId` is also included in the request body for the connector's
-   * URL/body parity check — the platform 400s if the two don't match. Sending
-   * both is intentional, not a redundancy.
+   * When `clientEventId` is omitted, a UUID is auto-generated for this call.
    *
    * @throws {@link PlatformRequestError} on non-2xx responses, OR when the
    *   platform returns an empty 2xx body (which would otherwise corrupt the
    *   caller's typed result).
    */
-  async recordUserAction(
-    params: RecordUserActionRequest,
-  ): Promise<RecordUserActionResponse> {
-    const { clientEventId, ...rest } = params;
-    const path = `/connector/user-actions/record/${encodeURIComponent(clientEventId)}`;
-    const response = await this.#request<
-      RecordUserActionResponse | null | undefined
-    >("PUT", path, { ...rest, clientEventId });
+  async annotate(params: AnnotateParams): Promise<AnnotateResponse> {
+    const clientEventId = params.clientEventId ?? randomUUID();
+    const path = `/connector/annotate/${encodeURIComponent(clientEventId)}`;
+    const body: Record<string, unknown> = {
+      type: params.type,
+      userId: params.userId,
+      threadId: params.threadId,
+    };
+    if (params.payload !== undefined) {
+      body.payload = params.payload;
+    }
+    if (params.occurredAt !== undefined) {
+      body.occurredAt = params.occurredAt;
+    }
+    const response = await this.#request<AnnotateResponse | null | undefined>(
+      "PUT",
+      path,
+      body,
+    );
     // `== null` catches both `undefined` (empty body from `#request`)
     // and JSON `null` (which would otherwise corrupt the typed result
     // and surface as a `TypeError` deep in caller code).
     if (response == null) {
       logger.error(
         { path },
-        "recordUserAction: Intelligence platform returned 200 with empty or null body",
+        "annotate: Intelligence platform returned 200 with empty or null body",
       );
       throw new PlatformRequestError(
-        "recordUserAction: empty or null response body from Intelligence platform",
+        "annotate: empty or null response body from Intelligence platform",
         502,
       );
     }

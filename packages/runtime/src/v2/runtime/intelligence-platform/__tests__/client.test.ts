@@ -599,59 +599,87 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
-  describe("recordUserAction", () => {
+  describe("annotate", () => {
     const validParams = {
       userId: "user-1",
       threadId: "thread-1",
-      title: "Renamed project",
-      data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-      metadata: { source: "settings-page" },
+      type: "user_action",
+      payload: { title: "Renamed project", data: { previous: { name: "Foo" }, next: { name: "Bar" } } },
       clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
     };
 
     it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
 
-      const result = await client.recordUserAction(validParams);
+      const result = await client.annotate(validParams);
 
       expect(result).toEqual({ id: "42", duplicate: false });
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe(
-        "https://api.example.com/connector/user-actions/record/0190a1b2-c3d4-7890-abcd-ef1234567890",
+        "https://api.example.com/connector/annotate/0190a1b2-c3d4-7890-abcd-ef1234567890",
       );
       expect(opts.method).toBe("PUT");
     });
 
-    it("sends clientEventId in the body for the connector's URL/body parity check", async () => {
+    it("auto-generates a clientEventId (UUID) when omitted and includes it in the path", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
-      await client.recordUserAction(validParams);
+      const { clientEventId: _omit, ...paramsWithoutId } = validParams;
+      await client.annotate(paramsWithoutId);
 
-      const [, opts] = fetchMock.mock.calls[0];
-      const body = JSON.parse(opts.body);
-      expect(body.clientEventId).toBe(validParams.clientEventId);
+      const [url] = fetchMock.mock.calls[0];
+      // Path must end with /connector/annotate/<uuid>
+      expect(url).toMatch(
+        /^https:\/\/api\.example\.com\/connector\/annotate\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     });
 
-    it("forwards all action fields verbatim", async () => {
+    it("sends type, payload, userId, threadId in the body", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
-      await client.recordUserAction(validParams);
+      await client.annotate(validParams);
 
       const [, opts] = fetchMock.mock.calls[0];
       expect(JSON.parse(opts.body)).toMatchObject({
+        type: "user_action",
+        payload: { title: "Renamed project", data: { previous: { name: "Foo" }, next: { name: "Bar" } } },
         userId: "user-1",
         threadId: "thread-1",
-        title: "Renamed project",
-        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
-        metadata: { source: "settings-page" },
-        clientEventId: validParams.clientEventId,
       });
+    });
+
+    it("does not send clientEventId in the body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.clientEventId).toBeUndefined();
+    });
+
+    it("forwards occurredAt in the body when provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({ ...validParams, occurredAt: "2026-01-01T00:00:00.000Z" });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBe("2026-01-01T00:00:00.000Z");
+    });
+
+    it("omits occurredAt from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBeUndefined();
     });
 
     it("sends Authorization Bearer with the configured apiKey", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
-      await client.recordUserAction(validParams);
+      await client.annotate(validParams);
 
       const [, opts] = fetchMock.mock.calls[0];
       expect(opts.headers.Authorization).toBe("Bearer test-key");
@@ -661,21 +689,21 @@ describe("CopilotKitIntelligence", () => {
     it("encodes special characters in clientEventId path segments", async () => {
       fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
 
-      await client.recordUserAction({
+      await client.annotate({
         ...validParams,
         clientEventId: "id/with?special&chars",
       });
 
       const [url] = fetchMock.mock.calls[0];
       expect(url).toBe(
-        "https://api.example.com/connector/user-actions/record/id%2Fwith%3Fspecial%26chars",
+        "https://api.example.com/connector/annotate/id%2Fwith%3Fspecial%26chars",
       );
     });
 
     it("throws PlatformRequestError on non-2xx with the platform's status", async () => {
       fetchMock.mockReturnValue(jsonResponse({ error: "bad" }, 400));
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
         status: 400,
       });
     });
@@ -683,7 +711,7 @@ describe("CopilotKitIntelligence", () => {
     it("throws PlatformRequestError 502 when the platform returns an empty body", async () => {
       fetchMock.mockReturnValue(emptyResponse(200));
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
         status: 502,
       });
     });
@@ -703,45 +731,9 @@ describe("CopilotKitIntelligence", () => {
         } as Response),
       );
 
-      await expect(client.recordUserAction(validParams)).rejects.toMatchObject({
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
         status: 502,
       });
-    });
-
-    it("forwards learningContainer (string) verbatim in the request body", async () => {
-      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
-
-      await client.recordUserAction({
-        ...validParams,
-        learningContainer: "user",
-      });
-
-      const [, opts] = fetchMock.mock.calls[0];
-      expect(JSON.parse(opts.body).learningContainer).toBe("user");
-    });
-
-    it("forwards learningContainer (array) verbatim in the request body", async () => {
-      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
-
-      await client.recordUserAction({
-        ...validParams,
-        learningContainer: ["user", "organization"],
-      });
-
-      const [, opts] = fetchMock.mock.calls[0];
-      expect(JSON.parse(opts.body).learningContainer).toEqual([
-        "user",
-        "organization",
-      ]);
-    });
-
-    it("omits learningContainer from the body when not provided", async () => {
-      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
-
-      await client.recordUserAction(validParams);
-
-      const [, opts] = fetchMock.mock.calls[0];
-      expect(JSON.parse(opts.body).learningContainer).toBeUndefined();
     });
   });
 });
