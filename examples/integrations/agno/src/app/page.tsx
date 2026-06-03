@@ -5,14 +5,25 @@ import {
   useFrontendTool,
   useRenderTool,
   CopilotSidebar,
+  CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import React, { useState } from "react";
 import { z } from "zod";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
 import { WeatherCard } from "@/components/weather";
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
+// agno registers a single agent under the key "agno_agent" (see
+// src/app/api/copilotkit/[[...slug]]/route.ts) and CopilotKit is mounted with
+// agent="agno_agent" in layout.tsx, so the threads drawer + chat config provider
+// must address that same agent id.
+const AGENT_ID = "agno_agent";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
@@ -28,43 +39,61 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-      }
-    >
-      <CopilotSidebar
-        clickOutsideToClose={false}
-        defaultOpen={true}
-        // Adds an initial message to the chat
-        labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an Agno agent.",
-        }}
-        // Suggestions for guiding users
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "What's the weather in San Francisco?",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Default Tool Rendering",
-            message: "What's the latest price of Apple stock?",
-          },
-          {
-            title: "Writing Agent State",
-            message: "Add a proverb about AI.",
-          },
-        ]}
-      >
-        {/* Wrapping your content in the sidebar pushes it to the side*/}
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
-    </main>
+    <div className={styles.layout}>
+      {/* Bespoke threads panel, themed in globals.css to match agno's chat. */}
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId={AGENT_ID}
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      {/*
+        Share the active threadId between the threads drawer and the chat. The
+        CopilotSidebar's chat falls back to this provider's threadId when none is
+        passed explicitly, so selecting a thread in the drawer resumes it in the
+        chat.
+      */}
+      <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
+        <main
+          className={styles.mainPanel}
+          style={
+            { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
+          }
+        >
+          <YourMainContent themeColor={themeColor} />
+          <CopilotSidebar
+            defaultOpen={true}
+            // Adds an initial message to the chat
+            labels={{
+              modalHeaderTitle: "Popup Assistant",
+              welcomeMessageText:
+                "👋 Hi, there! You're chatting with an Agno agent.",
+            }}
+            // Suggestions for guiding users
+            suggestions={[
+              {
+                title: "Generative UI",
+                message: "What's the weather in San Francisco?",
+              },
+              {
+                title: "Frontend Tools",
+                message: "Set the theme to green.",
+              },
+              {
+                title: "Default Tool Rendering",
+                message: "What's the latest price of Apple stock?",
+              },
+              {
+                title: "Writing Agent State",
+                message: "Add a proverb about AI.",
+              },
+            ]}
+          />
+          {/* CopilotSidebar self-docks; main content renders as a sibling. */}
+        </main>
+      </CopilotChatConfigurationProvider>
+    </div>
   );
 }
 
