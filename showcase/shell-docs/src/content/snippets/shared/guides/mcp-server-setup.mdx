@@ -8,7 +8,7 @@ development environment, it enables AI assistants to:
 - Give your AI agents a user interface
 - Help you implement CopilotKit features correctly
 
-## Cursor
+### Cursor
 
 [Cursor](https://cursor.sh/) is an AI-powered code editor built for productivity. It features built-in AI assistance and supports MCP for extending AI capabilities with external tools.
 
@@ -56,7 +56,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Claude Web
+### Claude Web
 
 [Claude](https://claude.ai/) is Anthropic's AI assistant accessible through a web interface. It supports MCP integrations, called Connectors, to connect with external tools and services.
 
@@ -76,7 +76,7 @@ development environment, it enables AI assistants to:
   <Step>Click "Add"</Step>
 </Steps>
 
-## Claude Desktop
+### Claude Desktop
 
 [Claude Desktop](https://claude.ai/download) is the desktop application version of Claude, offering the same AI capabilities with local system integration and MCP support.
 
@@ -102,7 +102,7 @@ development environment, it enables AI assistants to:
   <Step>Click "Add"</Step>
 </Steps>
 
-## Claude Code
+### Claude Code
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) is Anthropic's official CLI for Claude. It supports MCP integrations to connect with external tools and services, enhancing AI capabilities with specialized knowledge.
 
@@ -167,7 +167,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Windsurf
+### Windsurf
 
 [Windsurf](https://codeium.com/windsurf) is Codeium's agentic IDE that combines AI-powered coding assistance with traditional development tools. It features the Cascade AI assistant with MCP integration.
 
@@ -283,7 +283,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Cline
+### Cline
 
 [Cline](https://github.com/cline/cline) is a VS Code extension that provides autonomous AI coding assistance. It can perform complex tasks using MCP tools to interact with external systems.
 
@@ -343,7 +343,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## GitHub Copilot
+### GitHub Copilot
 
 [GitHub Copilot](https://github.com/features/copilot) is Microsoft's AI pair programmer integrated into VS Code and other editors. It supports MCP to extend its capabilities with external tools and services.
 
@@ -416,11 +416,11 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Other
+### Other
 
 For MCP-compatible applications not listed above, use these universal integration patterns. MCP (Model Context Protocol) is an open standard that allows AI applications to connect with external tools and data sources.
 
-### Connection Methods
+#### Connection Methods
 
 Most MCP-compatible applications support one or both of these connection methods:
 
@@ -442,13 +442,13 @@ Most MCP-compatible applications support one or both of these connection methods
   </Tab>
 </Tabs>
 
-### Integration Steps
+#### Integration Steps
 
 1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
 2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
 3. **Test Connection** - Restart your application and verify the server appears in available tools
 
-### Common Configuration Patterns
+#### Common Configuration Patterns
 
 <Tabs groupId="config-patterns" items={['JSON Configuration File', 'Application Settings']} default="JSON Configuration File">
   <Tab value="JSON Configuration File">

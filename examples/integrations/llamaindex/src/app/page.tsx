@@ -1,49 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { WeatherCard } from "@/components/WeatherCard";
 
 import {
   useAgent,
   useFrontendTool,
+  CopilotChatConfigurationProvider,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
     name: "change_theme_color",
-    parameters: [
-      {
-        name: "theme_color",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
-    handler({ theme_color }) {
+    parameters: z.object({
+      theme_color: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
+    handler: async ({ theme_color }) => {
       setThemeColor(theme_color);
+      return `Changing background to ${theme_color}`;
     },
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-      }
-    >
-      <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        clickOutsideToClose={false}
-        defaultOpen={true}
-        labels={{
-          title: "Popup Assistant",
-          initial:
-            '👋 Hi, there! You\'re chatting with an agent. This agent comes with a few tools to get you started.\n\nFor example you can try:\n- **Frontend Tools**: "Set the theme to orange"\n- **Shared State**: "Write a proverb about AI"\n- **Generative UI**: "Get the weather in SF"\n\nAs you interact with the agent, you\'ll see the UI update in real-time to reflect the agent\'s **state**, **tool calls**, and **progress**.',
-        }}
-      />
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId="sample_agent"
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        <CopilotChatConfigurationProvider
+          agentId="sample_agent"
+          threadId={threadId}
+        >
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as React.CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              clickOutsideToClose={false}
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  '👋 Hi, there! You\'re chatting with an agent. This agent comes with a few tools to get you started.\n\nFor example you can try:\n- **Frontend Tools**: "Set the theme to orange"\n- **Shared State**: "Write a proverb about AI"\n- **Generative UI**: "Get the weather in SF"\n\nAs you interact with the agent, you\'ll see the UI update in real-time to reflect the agent\'s **state**, **tool calls**, and **progress**.',
+              }}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
 
@@ -54,44 +78,58 @@ type AgentState = {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const { state, setState } = useAgent<AgentState>({
-    name: "sample_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
-  });
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "sample_agent" });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+  const setState = (next: AgentState) => agent.setState(next);
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useFrontendTool({
-    name: "add_proverb",
-    parameters: [
-      {
-        name: "proverb",
-        description: "The proverb to add. Make it witty, short and concise.",
-        required: true,
+  useFrontendTool(
+    {
+      name: "add_proverb",
+      parameters: z.object({
+        proverb: z
+          .string()
+          .describe("The proverb to add. Make it witty, short and concise."),
+      }),
+      handler: async ({ proverb }) => {
+        setState({
+          ...state,
+          proverbs: [...(state?.proverbs || []), proverb],
+        });
+        return `Added proverb: ${proverb}`;
       },
-    ],
-    handler: ({ proverb }) => {
-      setState({
-        ...state,
-        proverbs: [...(state?.proverbs || []), proverb],
-      });
     },
-  });
+    [state],
+  );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useFrontendTool({
-    name: "get_weather",
-    description: "Get the weather for a given location.",
-    available: "disabled",
-    parameters: [{ name: "location", type: "string", required: true }],
-    render: ({ args }) => {
-      return <WeatherCard location={args.location} themeColor={themeColor} />;
+  useFrontendTool(
+    {
+      name: "get_weather",
+      description: "Get the weather for a given location.",
+      available: false,
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ args }) => {
+        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      },
+      followUp: false,
     },
-    followUp: false,
-  });
+    [themeColor],
+  );
 
   return (
     <div

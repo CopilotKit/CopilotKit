@@ -15,13 +15,17 @@
   },
   "dependencies": {
     "@ag-ui/llamaindex": "0.1.5",
-    "@copilotkit/react-core": "1.55.2",
-    "@copilotkit/runtime": "1.55.2",
+    "@copilotkit/react-core": "1.59.1",
+    "@copilotkit/runtime": "1.59.1",
     "@hono/node-server": "^1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "hono": "^4",
+    "lucide-react": "^0.468.0",
     "next": "16.0.8",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tailwind-merge": "^2.5.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {
