@@ -5,12 +5,19 @@ import {
   useFrontendTool,
   useRenderTool,
   CopilotSidebar,
+  CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { CSSProperties, useState } from "react";
+import type { CSSProperties } from "react";
+import { useState } from "react";
 import { z } from "zod";
+
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
@@ -26,43 +33,62 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={{ "--copilot-kit-primary-color": themeColor } as CSSProperties}
-    >
-      <CopilotSidebar
-        disableSystemMessage={true}
-        clickOutsideToClose={false}
-        labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
-        }}
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "Get the weather in San Francisco.",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Write Agent State",
-            message: "Add a proverb about AI.",
-          },
-          {
-            title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
-          },
-          {
-            title: "Read Agent State",
-            message: "What are the proverbs?",
-          },
-        ]}
-      >
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId="sample_agent"
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        <CopilotChatConfigurationProvider
+          agentId="sample_agent"
+          threadId={threadId}
+        >
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              disableSystemMessage={true}
+              clickOutsideToClose={false}
+              labels={{
+                title: "Popup Assistant",
+                initial: "👋 Hi, there! You're chatting with an agent.",
+              }}
+              suggestions={[
+                {
+                  title: "Generative UI",
+                  message: "Get the weather in San Francisco.",
+                },
+                {
+                  title: "Frontend Tools",
+                  message: "Set the theme to green.",
+                },
+                {
+                  title: "Write Agent State",
+                  message: "Add a proverb about AI.",
+                },
+                {
+                  title: "Update Agent State",
+                  message:
+                    "Please remove 1 random proverb from the list if there are any.",
+                },
+                {
+                  title: "Read Agent State",
+                  message: "What are the proverbs?",
+                },
+              ]}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
 
