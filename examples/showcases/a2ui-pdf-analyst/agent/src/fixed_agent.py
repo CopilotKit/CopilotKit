@@ -7,6 +7,7 @@ pass. The dashboard surface includes an interactive scope-chips strip
 that the agent populates from the document. Clicking a chip fires a
 user action back to the agent, which re-renders with the new scope.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

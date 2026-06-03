@@ -201,6 +201,18 @@ export async function boot(opts: BootOptions = {}): Promise<{
       dashboardUrl:
         process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
       repo: process.env.REPO ?? "CopilotKit/CopilotKit",
+      // Source-env label prefixed onto every Slack alert so operators can
+      // tell whether a red probe came from staging or production. Railway
+      // injects RAILWAY_ENVIRONMENT_NAME ("staging" / "production") into
+      // every service at runtime; we prefer an explicit SHOWCASE_ENV
+      // override for local/CI, then fall back to "unknown" (the renderer
+      // surfaces the empty case as `[unknown]` rather than dropping the
+      // tag — a missing env var must look like a visible gap, not a
+      // legacy un-prefixed alert).
+      sourceEnv:
+        process.env.SHOWCASE_ENV ??
+        process.env.RAILWAY_ENVIRONMENT_NAME ??
+        "unknown",
     },
     bootstrapWindowMs: opts.bootstrapWindowMs,
     statusReader,
@@ -296,54 +308,40 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // BrowserPool constructor already reads BROWSER_POOL_BROWSERS / BROWSER_POOL_SIZE /
   // BROWSER_POOL_MAX_CONTEXTS from process.env with parseInt + NaN/>0 guards and
   // sensible defaults, so pass only `logger` and let it own numeric resolution.
-  const browserPool = new BrowserPool({ logger });
+  // Browser-pool health signal writers. Shared by the init()-failure path AND
+  // the BrowserPool's mid-life `onDegraded`/`onRecovered` hooks (fix #2): the
+  // unfixed code emitted the degraded signal ONLY on init() failure, so a
+  // mid-life browser-set death (the staging outage) was SILENT.
+  const {
+    writeDegraded: writeBrowserPoolDegraded,
+    writeHealthy: writeBrowserPoolHealthy,
+  } = createBrowserPoolHealthSignals({ writer, statusReader, logger });
+
+  const browserPool = new BrowserPool({
+    logger,
+    // FIX #2 — wire the pool's mid-life capacity-loss + recovery hooks to the
+    // SAME degraded-signal write path. When the browser set empties mid-life the
+    // pool fires `onDegraded` (red alarm) and self-heals; on a successful
+    // self-heal relaunch it fires `onRecovered` (back to green). The hooks are
+    // synchronous; the async writes are fire-and-forget with their own
+    // error handling.
+    onDegraded: () => {
+      void writeBrowserPoolDegraded("browser pool set emptied mid-life");
+    },
+    onRecovered: () => {
+      void writeBrowserPoolHealthy();
+    },
+  });
   let browserPoolReady = false;
   try {
     await browserPool.init();
     browserPoolReady = true;
-    try {
-      // Only stamp `recovered: true` when a prior degraded (red) state
-      // actually existed — on a cold first boot nothing was recovered, so a
-      // blanket `recovered: true` would misreport a phantom recovery. Probe
-      // for the prior state and emit a neutral healthy signal otherwise.
-      // statusReader failure here must not break the healthy write, so treat
-      // an unreadable prior state as "no prior degraded state".
-      const priorState = await statusReader
-        .getStateByKey("system:browser-pool-degraded")
-        .catch(() => null);
-      const recovered = priorState === "red";
-      await writer.write({
-        key: "system:browser-pool-degraded",
-        state: "green",
-        signal: recovered
-          ? { recovered: true, recoveredAt: new Date().toISOString() }
-          : { healthy: true, healthyAt: new Date().toISOString() },
-        observedAt: new Date().toISOString(),
-      });
-    } catch (writeErr) {
-      // best-effort -- pool is healthy, status write failure is non-critical.
-      // Warn (matching the failure path) instead of swallowing silently.
-      logger.warn("boot.browser-pool-status-write-failed", {
-        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
-      });
-    }
+    await writeBrowserPoolHealthy();
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
-    try {
-      await writer.write({
-        key: "system:browser-pool-degraded",
-        state: "red",
-        signal: {
-          errorMessage: err instanceof Error ? err.message : String(err),
-          degradedSince: new Date().toISOString(),
-        },
-        observedAt: new Date().toISOString(),
-      });
-    } catch (writeErr) {
-      logger.warn("boot.browser-pool-status-write-failed", {
-        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
-      });
-    }
+    await writeBrowserPoolDegraded(
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
   const probeRegistry = createProbeRegistry();
@@ -827,6 +825,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
         err: String(stopErr),
       }),
     );
+    // R2-B.2: init() launched long-lived chromium processes; shutdown() runs
+    // only in the stop() closure a boot rejection never reaches. Tear the pool
+    // down here too so a serve()-throw boot doesn't strand every browser (which
+    // on a restart loop compounds into PID-ceiling exhaustion). Best-effort.
+    if (browserPoolReady) {
+      await browserPool.shutdown().catch((shutErr) =>
+        logger.error("orchestrator.browser-pool-shutdown-after-serve-failure", {
+          err: String(shutErr),
+        }),
+      );
+    }
     schedulerRunning = false;
     throw err;
   }
@@ -864,6 +873,20 @@ export async function boot(opts: BootOptions = {}): Promise<{
           err: String(stopErr),
         }),
       );
+      // R4-A.3: also release the browser pool init() launched, so an async
+      // bind failure (EADDRINUSE) doesn't strand every chromium process. Same
+      // fire-and-forget shape as scheduler.stop() above — operators see the
+      // original bind error, not a shutdown-failure shadow. Best-effort.
+      if (browserPoolReady) {
+        browserPool
+          .shutdown()
+          .catch((shutErr) =>
+            logger.error(
+              "orchestrator.browser-pool-shutdown-after-async-bind-failure",
+              { err: String(shutErr) },
+            ),
+          );
+      }
       reject(err instanceof Error ? err : new Error(String(err)));
     };
     srv.once("listening", onListen);
@@ -1005,6 +1028,131 @@ export function registerAllProbeDrivers(
  * Exported for tests so the key-safety invariant can be asserted
  * without spinning up the full boot path.
  */
+/**
+ * The PB status key the browser-pool capacity-loss signal is written under.
+ * Exported so the boot wiring and the health-signal factory share one source
+ * of truth.
+ */
+export const BROWSER_POOL_DEGRADED_KEY = "system:browser-pool-degraded";
+
+interface BrowserPoolHealthSignalsDeps {
+  writer: { write(result: ProbeResultLike): Promise<unknown> };
+  statusReader: { getStateByKey(key: string): Promise<State | null> };
+  logger: Pick<Logger, "warn">;
+}
+
+interface ProbeResultLike {
+  key: string;
+  state: State;
+  signal: Record<string, unknown>;
+  observedAt: string;
+}
+
+/**
+ * Build the browser-pool degraded/healthy status writers.
+ *
+ * Two correctness properties the inline closures lacked (fix #6):
+ *
+ *  1. **The prior-state read failure is no longer swallowed.** The unfixed
+ *     `writeHealthy` did `.catch(() => null)` on the prior-state read, silently
+ *     coercing a transient PB read error into `null` — which reads as "cold
+ *     boot", so a genuine degraded→recovered transition was MISREPORTED as a
+ *     phantom healthy (never as `recovered`). Now a read failure is logged at
+ *     warn before defaulting, so the misclassification is visible.
+ *
+ *  2. **The degraded↔healthy writes are SERIALIZED + observedAt-monotone.** The
+ *     unfixed hooks fired `void writeDegraded()/writeHealthy()` — unordered
+ *     fire-and-forget. Under flapping (red→green→red in quick succession) the
+ *     two async writes could land at PB out of order, persisting the WRONG final
+ *     state. We chain every write onto a single promise so they apply in call
+ *     order, and stamp each with a monotonically non-decreasing `observedAt` so
+ *     the LAST real transition always wins even if the system clock is coarse.
+ *
+ * Exported for unit tests so the read-error + flap-ordering invariants can be
+ * asserted without the full boot path.
+ */
+export function createBrowserPoolHealthSignals(
+  deps: BrowserPoolHealthSignalsDeps,
+): {
+  writeDegraded: (reason: string) => Promise<void>;
+  writeHealthy: () => Promise<void>;
+} {
+  const { writer, statusReader, logger } = deps;
+  // Serialize writes so the persisted state reflects call ORDER under flapping.
+  let writeChain: Promise<unknown> = Promise.resolve();
+  // Monotonic observedAt: never emit a timestamp <= the previously-emitted one,
+  // so the last real transition wins even when Date.now() is coarse and two
+  // back-to-back writes would otherwise share a timestamp.
+  let lastObservedMs = 0;
+  const nextObservedAt = (): string => {
+    const now = Date.now();
+    lastObservedMs = now > lastObservedMs ? now : lastObservedMs + 1;
+    return new Date(lastObservedMs).toISOString();
+  };
+
+  const enqueue = (task: () => Promise<void>): Promise<void> => {
+    const next = writeChain.then(task, task);
+    writeChain = next.catch(() => undefined);
+    return next;
+  };
+
+  const writeDegraded = (reason: string): Promise<void> =>
+    enqueue(async () => {
+      try {
+        await writer.write({
+          key: BROWSER_POOL_DEGRADED_KEY,
+          state: "red",
+          signal: {
+            errorMessage: reason,
+            degradedSince: new Date().toISOString(),
+          },
+          observedAt: nextObservedAt(),
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+    });
+
+  const writeHealthy = (): Promise<void> =>
+    enqueue(async () => {
+      try {
+        let priorState: State | null;
+        try {
+          priorState = await statusReader.getStateByKey(
+            BROWSER_POOL_DEGRADED_KEY,
+          );
+        } catch (readErr) {
+          // FIX #6 — do NOT silently coerce a read error to null. A swallowed
+          // read failure misclassifies a genuine recovery as a cold boot
+          // (healthy instead of recovered). Log it, then default to null.
+          logger.warn("boot.browser-pool-prior-state-read-failed", {
+            error: readErr instanceof Error ? readErr.message : String(readErr),
+          });
+          priorState = null;
+        }
+        const recovered = priorState === "red";
+        await writer.write({
+          key: BROWSER_POOL_DEGRADED_KEY,
+          state: "green",
+          signal: recovered
+            ? { recovered: true, recoveredAt: new Date().toISOString() }
+            : { healthy: true, healthyAt: new Date().toISOString() },
+          observedAt: nextObservedAt(),
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+    });
+
+  return { writeDegraded, writeHealthy };
+}
+
 export function createStatusReader(pb: {
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
 }): {
