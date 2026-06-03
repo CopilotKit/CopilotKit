@@ -1,0 +1,328 @@
+name: "Showcase: Promote (staging → prod)"
+
+# Promotes the staging-tested digest of one or more services to prod.
+# Workflow_dispatch only. Humans trigger. No automatic prod promotes.
+#
+# Order:
+#   0. resolve-targets              → expand the workflow_dispatch `service`
+#                                     input (SSOT key, dispatch_name, or
+#                                     'all') into the canonical services_csv
+#                                     consumed by every downstream job.
+#   1. verify-staging-precondition  → live-probe staging for the target service(s).
+#                                     Refuse on red (matches bin/railway
+#                                     --require-staging-green default).
+#   2. promote                      → bin/railway promote <service>; runs the
+#                                     spec §7 hardening (P1..P6).
+#   3. verify-prod                  → verify-deploy.ts --env prod for the
+#                                     target service(s). Feature-level probes,
+#                                     not naked 200.
+#   4. notify                       → Slack #oss-alerts on any red. Never #engr.
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to promote (dispatch_name or SSOT key). 'all' = whole fleet. Leave the placeholder to abort."
+        required: true
+        type: choice
+        # >>> BEGIN GENERATED service options (showcase/scripts/sync-promote-service-options.ts) — DO NOT EDIT
+        default: __select_a_service__
+        options:
+          - __select_a_service__
+          - all
+          - ag2
+          - agno
+          - built-in-agent
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - ms-agent-python
+          - pocketbase
+          - pydantic-ai
+          - shell
+          - shell-dashboard
+          - shell-docs
+          - shell-dojo
+          - showcase-aimock
+          - showcase-harness
+          - spring-ai
+          - strands
+          - webhooks
+        # <<< END GENERATED service options
+      digest:
+        description: "Optional digest override (default: snapshot from staging)"
+        required: false
+        type: string
+
+# Serialize ALL promotes on a single input-agnostic group so concurrent runs
+# (e.g. `all` + a single-service promote) can't pin the same Railway service
+# at once; `cancel-in-progress: false` ensures an in-flight prod promote is
+# never cancelled by a newer run queued behind it.
+concurrency:
+  group: showcase-promote
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      services_csv: ${{ steps.resolve.outputs.services_csv }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - name: Generate SSOT artifact
+        working-directory: showcase/scripts
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: Resolve target service set
+        id: resolve
+        env:
+          INPUT: ${{ inputs.service }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          set -euo pipefail
+          GENERATED="showcase/scripts/railway-envs.generated.json"
+          if [ "$INPUT" = "__select_a_service__" ]; then
+            echo "::error::No service selected. Re-run and pick a service (or 'all') from the dropdown."
+            exit 1
+          fi
+          if [ "$INPUT" = "all" ]; then
+            # A single digest identifies at most one service's image, so a
+            # fleet-wide promote pinned to one digest is always wrong. The
+            # per-service promote loop would slip past bin/railway's own
+            # --digest guard (each call passes a positional service), so reject
+            # the combination loud and early here.
+            if [ -n "${DIGEST:-}" ]; then
+              echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
+              exit 1
+            fi
+            CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+          else
+            # Capture the FULL match set (no `head` — that would silently mask
+            # an ambiguous match, and piping jq into head under pipefail can
+            # SIGPIPE jq and abort with no ::error:: annotation). Then count
+            # and branch fail-loud.
+            # Independently enforce prod-eligibility here: the dropdown
+            # advertises a prod-eligible set, but a stale/edited dropdown could
+            # offer a probe.prod:false service. Filtering on probe.prod == true
+            # ensures the single-service path never promotes a non-eligible
+            # service to prod, matching the `all` branch's gate.
+            MATCHES=$(jq -r --arg s "$INPUT" '
+              .services[]
+              | select(.name == $s or .dispatchName == $s)
+              | select(.probe.prod == true)
+              | .name
+            ' "$GENERATED")
+            # `grep -c` on empty input exits 1 under set -e; guard with || true.
+            COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
+            if [ "$COUNT" -eq 0 ]; then
+              echo "::error::Unknown or not prod-eligible service '$INPUT' (not an SSOT key/dispatch_name, or probe.prod is not true)"
+              exit 1
+            elif [ "$COUNT" -gt 1 ]; then
+              LIST=$(printf '%s' "$MATCHES" | tr '\n' ',' | sed 's/,$//')
+              echo "::error::Ambiguous service '$INPUT' matches multiple SSOT entries: $LIST"
+              exit 1
+            fi
+            CSV="$MATCHES"
+          fi
+          echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+
+  verify-staging-precondition:
+    needs: [resolve-targets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: railway
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Live-probe staging for promote precondition
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # Spec §7.2 P3: the live staging probe at promote time is
+          # authoritative. CI verify history is a leading indicator only.
+          npx tsx showcase/scripts/verify-deploy.ts --env staging --services "$SERVICES_CSV"
+
+  promote:
+    needs: [resolve-targets, verify-staging-precondition]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: bin/railway promote
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # The local promote runs each service in turn; bin/railway
+          # handles spec §7 preconditions (P1..P6). --require-staging-green
+          # is default-on; the prior job already established staging is
+          # green but we keep the script-level guard as defense in depth.
+          IFS=',' read -ra SVCS <<< "$SERVICES_CSV"
+          for svc in "${SVCS[@]}"; do
+            args=(promote "$svc" --yes --non-interactive)
+            if [ -n "${DIGEST:-}" ]; then
+              args+=(--digest "$DIGEST")
+            fi
+            echo "==> showcase/bin/railway ${args[*]}"
+            showcase/bin/railway "${args[@]}"
+          done
+
+  verify-prod:
+    needs: [resolve-targets, promote]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Run verify-deploy --env prod
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          npx tsx showcase/scripts/verify-deploy.ts --env prod --services "$SERVICES_CSV"
+
+  notify:
+    # Slack #oss-alerts only. Never #engr (engr is sacred — release alerts only).
+    needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Compute state
+        id: state
+        env:
+          RESOLVE: ${{ needs.resolve-targets.result }}
+          PRE: ${{ needs.verify-staging-precondition.result }}
+          PROMOTE: ${{ needs.promote.result }}
+          PROD: ${{ needs.verify-prod.result }}
+          CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+          INPUT: ${{ inputs.service }}
+        run: |
+          set -euo pipefail
+          if [ "$INPUT" = "__select_a_service__" ]; then
+            # Deliberate no-op abort: a human clicked Run without picking a
+            # service. resolve-targets exits 1 and the downstream jobs skip.
+            # This is NOT a failed promote — emit a neutral state so no red
+            # alert pages #oss-alerts.
+            STATE="aborted"; ICON=":heavy_minus_sign:"
+          elif [ "$PRE" = "success" ] && [ "$PROMOTE" = "success" ] && [ "$PROD" = "success" ]; then
+            STATE="success"; ICON=":white_check_mark:"
+          elif [ "$RESOLVE" = "cancelled" ] || [ "$PRE" = "cancelled" ] || [ "$PROMOTE" = "cancelled" ] || [ "$PROD" = "cancelled" ]; then
+            # A human cancelled the run (e.g. via the Actions UI). This is a
+            # deliberate stop, not a failed promote — emit a neutral state so
+            # no red alert pages #oss-alerts. Cancelling DURING resolve-targets
+            # leaves the three downstream jobs `skipped` (not `cancelled`), so
+            # we must consult RESOLVE here too or the cancel would fall through
+            # to `failure` and fire a false red page.
+            STATE="cancelled"; ICON=":heavy_minus_sign:"
+          else
+            STATE="failure"; ICON=":x:"
+          fi
+          {
+            echo "state=$STATE"
+            echo "icon=$ICON"
+            echo "csv=$CSV"
+          } >> "$GITHUB_OUTPUT"
+      - name: Post to #oss-alerts
+        if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *Showcase Promote Failed*\nServices: `{1}`\nresolve-targets={2} pre-staging={3} promote={4} verify-prod={5}\n<{6}/{7}/actions/runs/{8}|View run>',
+                steps.state.outputs.icon,
+                steps.state.outputs.csv,
+                needs.resolve-targets.result,
+                needs.verify-staging-precondition.result,
+                needs.promote.result,
+                needs.verify-prod.result,
+                github.server_url,
+                github.repository,
+                github.run_id
+              )) }}
+            }
+      - name: Log (no Slack — webhook unset)
+        if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK == ''
+        env:
+          CSV: ${{ steps.state.outputs.csv }}
+        run: |
+          echo "::warning::Showcase promote failed for '$CSV' but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."

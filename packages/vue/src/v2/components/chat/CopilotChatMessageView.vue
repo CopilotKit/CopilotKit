@@ -469,7 +469,7 @@ function resolveToolMessage(
     <slot v-if="showCursor" name="cursor">
       <div
         class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
-        data-testid="copilot-chat-cursor"
+        data-testid="copilot-loading-cursor"
       />
     </slot>
   </div>

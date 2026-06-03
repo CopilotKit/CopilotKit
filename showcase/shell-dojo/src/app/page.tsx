@@ -45,12 +45,38 @@ const FEATURED_DEMO_IDS: readonly string[] = [
   "agentic-chat",
   "chat-customization-css",
   "headless-simple",
-  "gen-ui-tool-based",
   "declarative-gen-ui",
   "mcp-apps",
   "open-gen-ui",
   "frontend-tools",
 ];
+
+// Per-integration extras appended after the base list above.
+// Demos that the integration hasn't wired are silently skipped.
+//
+// `gen-ui-tool-based` (Controlled Generative UI) is scoped here rather than
+// in the global list (OSS-137): the controlled-gen-UI product treatment
+// — reliable sample-data rendering + the "Controlled Generative UI" pill —
+// is only polished for LangGraph Python and Google ADK so far. The other
+// integrations still expose the demo in its category section; it just
+// isn't promoted into Featured until the treatment scales to them.
+const EXTRA_FEATURED_BY_INTEGRATION: Readonly<
+  Record<string, readonly string[]>
+> = {
+  "langgraph-python": [
+    "gen-ui-tool-based",
+    "hitl-in-chat",
+    "hitl-in-app",
+    "gen-ui-interrupt",
+  ],
+  "langgraph-fastapi": ["hitl-in-chat", "hitl-in-app", "gen-ui-interrupt"],
+  "google-adk": [
+    "gen-ui-tool-based",
+    "hitl-in-chat",
+    "hitl-in-app",
+    "gen-ui-interrupt",
+  ],
+};
 
 const FEATURED_CATEGORY: FeatureCategory = {
   id: "__featured__",
@@ -76,9 +102,13 @@ function groupDemosByCategory(
   // Featured comes first. Pull each ID from the current integration's demos,
   // preserving the curated order, and silently skip any the integration hasn't
   // implemented. The same demos still appear in their real category below.
-  const featured = FEATURED_DEMO_IDS.map((id) =>
-    integration.demos.find((d) => d.id === id),
-  ).filter((d): d is Demo => !!d);
+  const featuredIds = [
+    ...FEATURED_DEMO_IDS,
+    ...(EXTRA_FEATURED_BY_INTEGRATION[integration.slug] ?? []),
+  ];
+  const featured = featuredIds
+    .map((id) => integration.demos.find((d) => d.id === id))
+    .filter((d): d is Demo => !!d);
   if (featured.length > 0) {
     groups.push({ category: FEATURED_CATEGORY, demos: featured });
   }

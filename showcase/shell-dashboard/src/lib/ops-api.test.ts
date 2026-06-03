@@ -7,9 +7,10 @@
  *   - GET  <base>/probes/<id>             → { probe, runs }
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse
  *
- * `baseUrl` resolution order is: explicit param → NEXT_PUBLIC_OPS_BASE_URL
- * → fallback `/api/ops` (proxy). The trigger token is supplied per-call;
- * the client just attaches it as a Bearer header.
+ * `baseUrl` resolution order is: explicit param → runtimeConfig.opsBaseUrl
+ * (from `window.__SHOWCASE_CONFIG__`) → fallback `/api/ops` (proxy). The
+ * trigger token is supplied per-call; the client just attaches it as a
+ * Bearer header.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -72,9 +73,11 @@ let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
-  // Reset env across tests so explicit-param vs env-var resolution is
-  // exercised cleanly.
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  // Reset runtime config across tests so explicit-param vs env-var
+  // resolution is exercised cleanly. The runtime config is normally
+  // injected by the root layout into `window.__SHOWCASE_CONFIG__`.
+  delete (window as Window & { __SHOWCASE_CONFIG__?: unknown })
+    .__SHOWCASE_CONFIG__;
 });
 
 afterEach(() => {
@@ -99,12 +102,56 @@ describe("fetchProbes", () => {
     expect(String(url)).toBe("/api/ops/probes");
   });
 
-  it("uses NEXT_PUBLIC_OPS_BASE_URL when explicit param omitted", async () => {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://ops.example.com";
+  it("uses runtimeConfig.opsBaseUrl when explicit param omitted", async () => {
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "https://ops.example.com",
+      };
     fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
     await fetchProbes();
     const [url] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toBe("https://ops.example.com/probes");
+  });
+
+  it("uses same-origin /api/ops when opsBaseUrl is empty (no client-direct override)", async () => {
+    // Regression for the staging no-data bug: when the injected client
+    // config carries an EMPTY opsBaseUrl (the production default — the
+    // server proxy target OPS_BASE_URL is NOT leaked into the client),
+    // the client must fall through to the same-origin /api/ops proxy
+    // rather than fetching the harness cross-origin.
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "",
+      };
+    fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
+    await fetchProbes();
+    const [url] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toBe("/api/ops/probes");
+    // And explicitly NOT the cross-origin harness path.
+    expect(String(url)).not.toMatch(/^https?:\/\//);
+  });
+
+  it("does NOT fetch the harness directly when only the server proxy target is configured", async () => {
+    // The injected client config never carries the harness URL as a
+    // fetch base in production. Simulate the post-fix injection: the
+    // server proxy target lives only in process.env.OPS_BASE_URL (read
+    // by the Route Handler), and the client config's opsBaseUrl stays
+    // empty. The client must hit /api/ops, never the harness origin.
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "",
+      };
+    fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
+    await fetchProbes();
+    const [url] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toBe("/api/ops/probes");
+    expect(String(url)).not.toContain("harness-staging");
   });
 
   it("strips trailing slashes from baseUrl", async () => {

@@ -4,7 +4,7 @@ import yaml from "js-yaml";
 import type { LocalConfig } from "./config.js";
 import { getPackageUrl } from "./config.js";
 
-export type TestLevel = "smoke" | "d4" | "d5" | "all";
+export type TestLevel = "smoke" | "d4" | "d5" | "d6" | "all";
 
 export interface TestTarget {
   slug: string;
@@ -23,6 +23,13 @@ interface Manifest {
   name: string;
   demos: Array<{ id: string; features?: string[] }>;
   features?: string[];
+  /**
+   * Features the integration's framework architecturally cannot support
+   * (e.g. lacks graph-interrupt API). Propagated to D6 driver inputs so
+   * the harness reclassifies probe failures on these features as
+   * `skipped-incapable` instead of counting them as red.
+   */
+  not_supported_features?: string[];
   deployed?: boolean;
 }
 
@@ -75,6 +82,25 @@ export interface DeepInput {
   backendUrl: string;
   name: string;
   demos: string[];
+  shape: "package";
+}
+
+/**
+ * e2e-full (D6) driver input — mirrors the `inputSchema` in
+ * `src/probes/drivers/e2e-full.ts`. Same shape as D5 (uses `demos`
+ * field) and runs ALL features (no sampling).
+ */
+export interface FullInput {
+  key: string;
+  backendUrl: string;
+  name: string;
+  demos: string[];
+  /**
+   * Manifest `not_supported_features` set — forwarded so the driver
+   * reclassifies failing probes on these features as `skipped-incapable`
+   * instead of red. Empty/undefined when the manifest omits the field.
+   */
+  notSupportedFeatures?: string[];
   shape: "package";
 }
 
@@ -165,6 +191,15 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
     );
   }
 
+  if (
+    manifest.not_supported_features !== undefined &&
+    !Array.isArray(manifest.not_supported_features)
+  ) {
+    throw new Error(
+      `Invalid "not_supported_features" in manifest for ${slug}: expected array`,
+    );
+  }
+
   return {
     slug: manifest.slug as string,
     name: (manifest.name as string) ?? slug,
@@ -173,6 +208,9 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
       : [],
     features: Array.isArray(manifest.features)
       ? (manifest.features as string[])
+      : undefined,
+    not_supported_features: Array.isArray(manifest.not_supported_features)
+      ? (manifest.not_supported_features as string[])
       : undefined,
     deployed: manifest.deployed as boolean | undefined,
   };
@@ -275,10 +313,48 @@ export function buildDeepInputs(
       }
 
       return {
-        key: `e2e-deep:${slug}`,
+        key: `d5-single-pill-e2e:${slug}`,
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
+        shape: "package" as const,
+      };
+    })
+    .filter((input) => input.demos.length > 0);
+}
+
+/**
+ * Build e2e-full (D6) driver inputs. Same as D5 but uses the `d6:` key
+ * prefix and passes ALL features (no representative filter). When
+ * `target.demo` is set, filters features to just that demo ID.
+ */
+export function buildFullInputs(
+  target: TestTarget,
+  config: LocalConfig,
+): FullInput[] {
+  const slugs = [target.slug];
+
+  return slugs
+    .map((slug) => {
+      const manifest = loadManifest(slug, config);
+      let features = manifest.features ?? [];
+
+      if (target.demo) {
+        features = features.filter((f) => f === target.demo);
+        if (features.length === 0) {
+          const available = (manifest.features ?? []).join(", ");
+          throw new Error(
+            `Feature "${target.demo}" not found in ${slug}. Available: ${available}`,
+          );
+        }
+      }
+
+      return {
+        key: `d6:${slug}`,
+        backendUrl: getPackageUrl(slug, config),
+        name: manifest.name,
+        demos: features,
+        notSupportedFeatures: manifest.not_supported_features,
         shape: "package" as const,
       };
     })

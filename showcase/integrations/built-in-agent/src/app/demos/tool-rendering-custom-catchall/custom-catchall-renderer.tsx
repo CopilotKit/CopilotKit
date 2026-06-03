@@ -24,7 +24,7 @@ export function CustomCatchallRenderer({
 
   return (
     <div
-      data-testid="custom-catchall-card"
+      data-testid="custom-wildcard-card"
       data-tool-name={name}
       data-status={status}
       className="my-3 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm"
@@ -35,7 +35,7 @@ export function CustomCatchallRenderer({
             Tool
           </span>
           <span
-            data-testid="custom-catchall-tool-name"
+            data-testid="custom-wildcard-tool-name"
             className="font-mono text-sm text-[#010507]"
           >
             {name}
@@ -47,7 +47,7 @@ export function CustomCatchallRenderer({
       <div className="grid gap-3 p-4 text-sm">
         <Section label="Arguments">
           <pre
-            data-testid="custom-catchall-args"
+            data-testid="custom-wildcard-args"
             className="overflow-x-auto rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 font-mono text-xs text-[#010507]"
           >
             {safeStringify(parameters)}
@@ -57,7 +57,7 @@ export function CustomCatchallRenderer({
         <Section label="Result">
           {done ? (
             <pre
-              data-testid="custom-catchall-result"
+              data-testid="custom-wildcard-result"
               className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507]"
             >
               {parsedResult !== undefined
@@ -96,7 +96,7 @@ function StatusBadge({ status }: { status: CatchallToolStatus }) {
   const { label, tone } = describeStatus(status);
   return (
     <span
-      data-testid="custom-catchall-status"
+      data-testid="custom-wildcard-status"
       className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}
     >
       {label}

@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-declarative",
+    "sourceFile": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — emits render_a2ui with Card + Metric components. Must trigger declarative-card and declarative-metric testids.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"title\":\"KPI Dashboard\"},{\"type\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+8%\"},{\"type\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,230\",\"change\":\"+12%\"},{\"type\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_kpi_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — emits render_a2ui with PieChart component. Must trigger declarative-pie-chart testid.",
+      "match": {
+        "userMessage": "Show a pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":42},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":10}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_pie_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Pie chart rendered showing sales distribution across four regions."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — emits render_a2ui with BarChart component. Must trigger declarative-bar-chart testid.",
+      "match": {
+        "userMessage": "Render a bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":340000},{\"label\":\"Q3\",\"value\":390000},{\"label\":\"Q4\",\"value\":450000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_bar_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Bar chart rendered showing quarterly revenue growth from Q1 through Q4."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — emits render_a2ui with StatusBadge component. Must trigger declarative-status-badge testid.",
+      "match": {
+        "userMessage": "Give me a status report on system health",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"label\":\"API\",\"status\":\"healthy\"},{\"type\":\"StatusBadge\",\"label\":\"Database\",\"status\":\"healthy\"},{\"type\":\"StatusBadge\",\"label\":\"Background Workers\",\"status\":\"degraded\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_status_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Status report rendered — API and database are healthy, background workers show degraded performance."
+      }
+    }
+  ]
+}

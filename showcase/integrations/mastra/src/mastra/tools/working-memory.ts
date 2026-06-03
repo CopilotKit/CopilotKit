@@ -232,6 +232,41 @@ export async function writeDelegationsToWorkingMemory(
 }
 
 /**
+ * Replace the `steps` array in the gen-ui-agent's working memory.
+ * Determinism guarantee: the UI's progress card is sourced directly from
+ * this slot, so the write must happen on every `set_steps` tool call.
+ * Each call emits a STATE_SNAPSHOT via the AG-UI Mastra adapter, driving
+ * the live pending -> in_progress -> completed transitions in the UI.
+ */
+export async function writeStepsToWorkingMemory(
+  ctx: MaybeToolExecutionContext,
+  steps: Array<Record<string, unknown>>,
+): Promise<void> {
+  const component = "gen-ui-agent";
+  const agentId = ctx.agent?.agentId ?? "genUiAgent";
+  const resolved = await resolveMemoryAndIds(ctx, agentId, component);
+  if (!resolved) return;
+  try {
+    const existing = await readExistingWorkingMemory(
+      resolved.memory,
+      resolved.threadId,
+      resolved.resourceId,
+    );
+    const merged: Record<string, unknown> = {
+      ...existing,
+      steps,
+    };
+    await resolved.memory.updateWorkingMemory({
+      threadId: resolved.threadId,
+      resourceId: resolved.resourceId,
+      workingMemory: JSON.stringify(merged),
+    });
+  } catch (err) {
+    logWorkingMemoryFailure(component, "updateWorkingMemory threw", err);
+  }
+}
+
+/**
  * Replace the `notes` array in the shared-state-read-write agent's working
  * memory. Determinism guarantee: the UI's notes panel is sourced directly
  * from this slot, so the write must happen on every `set_notes` tool call.

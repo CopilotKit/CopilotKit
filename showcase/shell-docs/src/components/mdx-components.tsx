@@ -1,10 +1,12 @@
 import React from "react";
 import Link from "next/link";
 
-// `Callout` is owned by `docs-callout.tsx` (broader type surface: info |
-// tip | warn | warning | error | danger | note). Re-exported here so
-// historical imports from `@/components/mdx-components` keep working.
-export { Callout } from "@/components/docs-callout";
+// Re-export fumadocs's default `<Callout>` so historical imports from
+// `@/components/mdx-components` keep working. Fumadocs supports the
+// types `info | warn | warning | error | success | idea`, plus the
+// alias `tip` (resolves to info). Other custom types fall back to the
+// default tone.
+export { Callout } from "fumadocs-ui/components/callout";
 
 export function Cards({
   children,

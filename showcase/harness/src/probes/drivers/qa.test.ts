@@ -63,7 +63,7 @@ interface FixtureOpts {
  */
 function makeRepoFixture(opts: FixtureOpts): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "qa-driver-"));
-  const pkgDir = path.join(root, "showcase", "packages", opts.slug);
+  const pkgDir = path.join(root, "showcase", "integrations", opts.slug);
   fs.mkdirSync(pkgDir, { recursive: true });
   const manifestBody =
     opts.manifestBody ??

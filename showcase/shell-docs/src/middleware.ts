@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
+import { stripRouteGroupSegmentsFromPathname } from "@/lib/route-groups";
+import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -58,8 +60,15 @@ for (const entry of seoRedirects) {
 // PostHog tracking via fetch (Edge Runtime compatible — no posthog-node SDK)
 // ---------------------------------------------------------------------------
 
-const POSTHOG_HOST =
-  process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
+// PostHog host is read at REQUEST time from the Edge runtime-config
+// reader (which is the same body as the Node reader but skips the
+// `unstable_noStore()` call that the Edge bundle can't import). This
+// keeps a single built artifact retargetable across Railway envs by
+// changing NEXT_PUBLIC_POSTHOG_HOST. The reader applies the same
+// `https://eu.i.posthog.com` fallback used before.
+function getPosthogHost(): string {
+  return getRuntimeConfigForMiddleware().posthogHost;
+}
 const DISTINCT_ID_COOKIE = "ph_distinct_id";
 // ~2 years — long enough to meaningfully track returning visitors.
 const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
@@ -78,7 +87,7 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
   }
 
   // Fire-and-forget — don't await
-  fetch(`${POSTHOG_HOST}/capture/`, {
+  fetch(`${getPosthogHost()}/capture/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -105,7 +114,7 @@ async function capturePageView(
   }
 
   try {
-    const response = await fetch(`${POSTHOG_HOST}/capture/`, {
+    const response = await fetch(`${getPosthogHost()}/capture/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -172,6 +181,14 @@ export function middleware(
   event: NextFetchEvent,
 ): NextResponse {
   const { pathname } = request.nextUrl;
+
+  const routeGroupFreePath = stripRouteGroupSegmentsFromPathname(pathname);
+  if (routeGroupFreePath !== pathname) {
+    trackRedirect("route-group-strip", pathname, routeGroupFreePath);
+    const url = request.nextUrl.clone();
+    url.pathname = routeGroupFreePath;
+    return NextResponse.redirect(url, 301);
+  }
 
   // 1. Redirect lookup.
   //

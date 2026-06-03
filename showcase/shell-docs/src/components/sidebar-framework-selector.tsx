@@ -9,7 +9,7 @@
 
 import React from "react";
 import { FrameworkSelector } from "./framework-selector";
-import { getIntegrations, getCategoryLabel } from "@/lib/registry";
+import { getCategoryLabel, getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/docs-render";
 
 export function SidebarFrameworkSelector() {
@@ -20,6 +20,12 @@ export function SidebarFrameworkSelector() {
   // renders on builds using different V8 revisions.
   const options = getIntegrations()
     .slice()
+    // Drop frameworks marked `docs_mode: hidden` in their manifest —
+    // they have no docs page in shell-docs, so listing them in the
+    // switcher would let users land on a 404. The framework still
+    // exists in the registry (its demo, manifest, and shell-dojo
+    // surface continue to work); it's just absent from the docs site.
+    .filter((i) => getDocsMode(i.slug) !== "hidden")
     .sort((a, b) => {
       const ao = a.sort_order ?? 999;
       const bo = b.sort_order ?? 999;
@@ -41,8 +47,8 @@ export function SidebarFrameworkSelector() {
 
   return (
     // Sticky so the selector stays visible as the user scrolls long
-    // sidebars. The wrapper bg matches the sidebar surface so the area
-    // surrounding the pill reads as one continuous panel.
+    // sidebars. The wrapper bg keeps nav text from showing through the
+    // sticky header while the sidebar remains visually unframed.
     <div className="sticky top-0 z-10 bg-[var(--bg-surface)] backdrop-blur-lg">
       <FrameworkSelector
         options={options}

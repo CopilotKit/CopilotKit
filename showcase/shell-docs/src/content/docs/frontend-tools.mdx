@@ -2,17 +2,16 @@
 title: Frontend Tools
 icon: "lucide/Wrench"
 description: Let your agent interact with and update your application's UI.
-hideTOC: true
 snippet_cell: frontend-tools
 ---
+
+<InlineDemo demo="frontend-tools" />
 
 ## What is this?
 
 Frontend tools let your agent define and invoke client-side functions that run entirely in the user's browser. Because the handler executes on the frontend, it has direct access to component state, browser APIs, and any third-party UI library the page already uses. That's how an agent can "reach into" the app: update React state, trigger animations, read `localStorage`, pop a toast, or steer the user's view.
 
 This page covers the "agent drives the UI" shape of frontend tools. The same primitive also powers Generative UI and Human-in-the-loop; see those pages for interaction patterns.
-
-<InlineDemo demo="frontend-tools" />
 
 ## When should I use this?
 
@@ -27,6 +26,8 @@ Use frontend tools when your agent needs to:
 
 ## How it works in code
 
+<FrameworkSetup concept="frontend-tools-setup" />
+
 Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
 
 <Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
@@ -37,7 +38,5 @@ is sent back to the agent as the tool result so the model can reason about
 what happened.
 
 <Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
-
-<FeatureIntegrations feature="frontend-tools" />
 
 <IntegrationGrid path="frontend-tools" />

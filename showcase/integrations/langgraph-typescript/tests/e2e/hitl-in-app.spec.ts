@@ -178,7 +178,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
   });
 
   // TODO: re-enable when downgrade flow is fixed (broken upstream as of 2026-05-07)
-  test.skip("downgrade #12346 → approve/reject flow", async () => {
+  test("downgrade #12346 → approve/reject flow", async () => {
     // Intentionally skipped per spec: the downgrade pill exposes a
     // separate upstream bug (ticket-12346 surface) that is out of scope
     // for the genuine-pass rewrite. Re-enable when the upstream demo

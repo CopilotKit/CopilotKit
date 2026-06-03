@@ -4,6 +4,12 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+// `withForwardedHeaders` snapshots inbound x-* headers (e.g.
+// x-aimock-context) into an AsyncLocalStorage scope so the wrapped
+// OpenAI client's custom fetch can re-attach them on every outbound
+// LLM call. Required because `@tanstack/ai-openai`'s `openaiText()`
+// adapter has no per-request header hook of its own.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
   agents: { default: createBuiltInAgent() },
@@ -25,6 +31,9 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
-export const GET = (req: Request) => handler(req);
-export const POST = (req: Request) => withProbeCompat(req);
-export const OPTIONS = (req: Request) => handler(req);
+export const GET = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));
+export const POST = (req: Request) =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+export const OPTIONS = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));

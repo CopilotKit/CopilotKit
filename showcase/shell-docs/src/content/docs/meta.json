@@ -4,7 +4,7 @@
     "---Get Started---",
     "index",
     "quickstart",
-    "coding-agents",
+    "build-with-agents",
     "---Concepts---",
     "...concepts",
     "...agentic-protocols",
@@ -38,6 +38,8 @@
     "threads",
     "---Deploy---",
     "...deploy",
+    "---Platforms---",
+    "react-native",
     "---Other---",
     "...(other)",
     {
@@ -64,7 +66,7 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.8.2"]
+      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
     }
   ]
 }

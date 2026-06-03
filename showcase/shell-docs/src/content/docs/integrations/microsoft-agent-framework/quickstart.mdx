@@ -4,16 +4,6 @@ description: Turn your Microsoft Agent Framework agent into an agent-native appl
 icon: "lucide/Play"
 hideTOC: true
 ---
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-
 ## Prerequisites
 
 Before you begin, you'll need the following:
@@ -366,7 +356,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
+                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
@@ -525,3 +515,12 @@ Now that you have your basic agent setup, explore these advanced features:
   />
 </Cards>
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

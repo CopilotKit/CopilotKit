@@ -21,56 +21,60 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const beautifulChatAgent: AbstractAgent = new HttpAgent({
-  url: `${AGENT_URL}/beautiful_chat`,
-});
-
-const agents: Record<string, AbstractAgent> = {
-  // The page's <CopilotKit agent="beautiful-chat"> resolves here.
-  "beautiful-chat": beautifulChatAgent,
-  // Internal components (headless-chat, example-canvas) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // agent so those component hooks resolve instead of throwing
-  // "Agent 'default' not found". This matches the canonical's
-  // `agents: { default: defaultAgent }` shape.
-  default: beautifulChatAgent,
-};
-
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- see main route.ts
-  agents,
-  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
-  openGenerativeUI: true,
-  a2ui: {
-    // The backend graph has its own `generate_a2ui` tool, so we must NOT
-    // inject the runtime's default A2UI tool on top (that would double-bind
-    // the tool slot and confuse the LLM).
-    injectA2UITool: false,
-  },
-  mcpApps: {
-    servers: [
-      {
-        type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
-        // Stable serverId so persisted threads keep restoring the same MCP
-        // server across URL changes.
-        serverId: "beautiful_chat_mcp",
-      },
-    ],
-  },
-});
-
-const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  endpoint: "/api/copilotkit-beautiful-chat",
-  serviceAdapter: new ExperimentalEmptyAdapter(),
-  runtime,
-});
-
 export const POST = async (req: NextRequest) => {
   try {
+    // Per-request build so inbound `x-aimock-context` reaches the Python
+    // agent_server. See `src/lib/header-forwarding.ts`.
+    const headers = extractForwardedHeaders(req);
+    const beautifulChatAgent: AbstractAgent = new HttpAgent({
+      url: `${AGENT_URL}/beautiful_chat`,
+      headers,
+    });
+
+    const agents: Record<string, AbstractAgent> = {
+      // The page's <CopilotKit agent="beautiful-chat"> resolves here.
+      "beautiful-chat": beautifulChatAgent,
+      // Internal components (headless-chat, example-canvas) call `useAgent()`
+      // with no args, which defaults to agentId "default". Alias to the same
+      // agent so those component hooks resolve instead of throwing
+      // "Agent 'default' not found". This matches the canonical's
+      // `agents: { default: defaultAgent }` shape.
+      default: beautifulChatAgent,
+    };
+
+    const runtime = new CopilotRuntime({
+      agents,
+      // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
+      openGenerativeUI: true,
+      a2ui: {
+        // The backend graph has its own `generate_a2ui` tool, so we must NOT
+        // inject the runtime's default A2UI tool on top (that would double-bind
+        // the tool slot and confuse the LLM).
+        injectA2UITool: false,
+      },
+      mcpApps: {
+        servers: [
+          {
+            type: "http",
+            url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+            // Stable serverId so persisted threads keep restoring the same MCP
+            // server across URL changes.
+            serverId: "beautiful_chat_mcp",
+          },
+        ],
+      },
+    });
+
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit-beautiful-chat",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime,
+    });
+
     return await handleRequest(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };

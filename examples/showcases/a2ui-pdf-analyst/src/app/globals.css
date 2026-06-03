@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "@copilotkit/react-ui/v2/styles.css";
+@import "../a2ui/theme.css";
+
+/* ── CopilotKit brand tokens (from verified brand-rules) ──────── */
+:root {
+  /* Surfaces */
+  --bg: #fafafc;
+  --bg-alt: #ededf5;
+  --surface: #ffffff;
+  --surface-soft: #f7f7f9;
+  --ink: #010507;
+  --ink-2: #2b2b2b;
+  /* WCAG-AA-safe contrast on white. --muted-2 must still be readable as
+   * an eyebrow / caption — the previous #838389 fails contrast. */
+  --muted: #45454a;
+  --muted-2: #5a5a60;
+  --line: #dbdbe5;
+  --line-2: #e9e9ef;
+
+  /* Accents */
+  --lilac: #bec2ff;
+  --lilac-soft: #bec2ff33; /* 20% */
+  --lilac-softer: #bec2ff1a; /* 10% */
+  --mint: #85ecce;
+  --mint-soft: #85ecce4d; /* 30% */
+  --orange: #ffac4d;
+  --orange-soft: #ffac4d33;
+  --yellow: #fff388;
+  --red: #fa5f67;
+
+  /* Brand gradient */
+  --brand-gradient: linear-gradient(
+    90deg,
+    #bec2ff 0%,
+    #85ecce 45.67%,
+    #ffac4d 100%
+  );
+
+  /* Type tokens */
+  --radius: 14px;
+  --radius-lg: 20px;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-alt: var(--bg-alt);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-lilac: var(--lilac);
+  --color-mint: var(--mint);
+  --color-orange: var(--orange);
+  --color-yellow: var(--yellow);
+  --color-red: var(--red);
+  --font-sans:
+    var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono:
+    var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family:
+    var(--font-plus-jakarta),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  letter-spacing: -0.01em;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Mono pills, code-like UI labels, button text per brand */
+.mono {
+  font-family:
+    var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── Brand chrome ────────────────────────────────────────────── */
+.brand-gradient {
+  background: var(--brand-gradient);
+}
+/* Ambient kiss-of-color — peripheral, never behind reading content. */
+.brand-gradient-soft {
+  background: var(--brand-gradient);
+  opacity: 0.1;
+  filter: blur(40px);
+}
+
+/* Subtle dotted texture, faded toward the centre. */
+.dot-grid {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--ink) 5%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: 22px 22px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 90%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 90%);
+}
+
+/* ── Pills (mono per brand) ──────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-family:
+    var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+}
+.pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lilac);
+  box-shadow: 0 0 0 3px var(--lilac-soft);
+}
+
+/* ── Cards / surfaces ────────────────────────────────────────── */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.surface-soft {
+  background: var(--surface-soft);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+}
+
+/* ── CopilotChat surface fixes (match brand) ─────────────────── */
+.copilot-chat-wrapper [class*="bg-white"] {
+  background: var(--surface) !important;
+}
+
+/* Breathing room around the chat input. CopilotChat wraps the input bar
+ * in its `bottomAnchored` container; without padding it sits flush
+ * against the panel edges and the rounded border touches the wall. */
+.copilot-chat-wrapper > div:last-child > :last-child {
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-bottom: 10px;
+}

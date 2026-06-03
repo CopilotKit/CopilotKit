@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / prebuilt-sidebar",
+    "sourceFile": "d5-prebuilt-sidebar.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar \u2014 single turn proving the CopilotSidebar component renders and messages round-trip inside its .copilotKitSidebar root. The probe asserts the sidebar root is visible and the assistant response lands inside it.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "turnIndex": 0,
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Hello from the sidebar \u2014 the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

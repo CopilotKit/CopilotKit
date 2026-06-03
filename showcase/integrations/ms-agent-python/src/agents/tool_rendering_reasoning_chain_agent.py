@@ -104,23 +104,64 @@ def search_flights(
 )
 def get_stock_price(
     ticker: Annotated[str, Field(description="Stock ticker symbol, e.g. AAPL.")],
+    price_usd: Annotated[
+        float | None,
+        Field(default=None, description="Deterministic price; None = random."),
+    ] = None,
+    change_pct: Annotated[
+        float | None,
+        Field(default=None, description="Deterministic change percent; None = random."),
+    ] = None,
 ) -> str:
-    """Return mock stock price data as JSON."""
+    """Return mock stock price data as JSON.
+
+    Mirrors the LangGraph reference's deterministic-`value` pattern: when
+    `price_usd` / `change_pct` are supplied by the aimock fixture, the
+    tool echoes them back verbatim so the e2e spec can assert on a fixed
+    quote. When omitted, the tool returns mock random values.
+    """
     return json.dumps(
         {
             "ticker": ticker.upper(),
-            "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-            "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+            "price_usd": (
+                round(float(price_usd), 2)
+                if price_usd is not None
+                else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+            ),
+            "change_pct": (
+                round(float(change_pct), 2)
+                if change_pct is not None
+                else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+            ),
         }
     )
 
 
 @tool(
+    name="roll_d20",
+    description=(
+        "Roll a 20-sided die. The `value` argument lets the aimock fixture "
+        "script a deterministic roll for testing — when provided in the "
+        "valid range [1, 20], it is echoed back as the result; otherwise "
+        "a random natural d20 is rolled. Mirrors the LangGraph reference."
+    ),
+)
+def roll_d20(
+    value: Annotated[
+        int,
+        Field(description="Deterministic roll value [1..20]; 0 = random."),
+    ] = 0,
+) -> str:
+    """Return a mock d20 roll as JSON, mirroring the LangGraph signature."""
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
+    return json.dumps({"sides": 20, "value": rolled, "result": rolled})
+
+
+@tool(
     name="roll_dice",
     description=(
-        "Roll a single die with the given number of sides. Consider "
-        "rolling twice with different sides so the reply can show a "
-        "contrast."
+        "Compat alias for `roll_d20`. Some fixtures call `roll_dice` with "
+        "a `sides` arg; we route those to a d20 roll for compatibility."
     ),
 )
 def roll_dice(
@@ -159,15 +200,48 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+def _build_reasoning_chain_chat_client() -> BaseChatClient:
+    """Build a Responses-API chat client for reasoning-token streaming.
+
+    Mirrors ``reasoning_agent.py::_build_reasoning_chat_client`` — the model
+    env var defaults to ``OPENAI_REASONING_MODEL`` and then the canonical
+    ``gpt-5.4`` so the fixture's ``response.reasoning_summary_text.delta``
+    events surface as AG-UI ``REASONING_MESSAGE_*`` events.
+    """
+    return OpenAIChatClient(
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+
 def create_tool_rendering_reasoning_chain_agent(
-    chat_client: BaseChatClient,
+    _chat_client_ignored: BaseChatClient,
 ) -> AgentFrameworkAgent:
-    """Instantiate the tool-rendering reasoning-chain demo agent."""
+    """Instantiate the tool-rendering reasoning-chain demo agent.
+
+    The shared ChatCompletions client from ``agent_server.py`` is intentionally
+    ignored — this cell needs the OpenAI Responses API specifically so the
+    fixture's per-leg ``reasoning`` summaries surface as AG-UI
+    ``REASONING_MESSAGE_*`` events (mirrors ``reasoning_agent.py`` and the
+    LGP reference's ``use_responses_api=True`` config). ChatCompletions emits
+    reasoning as ``protected_data`` only — no visible text reaches the
+    ``<CopilotChatReasoningMessage>`` slot, which is the whole point of this
+    cell vs the plain ``tool-rendering`` demo.
+    """
     base_agent = Agent(
-        client=chat_client,
+        client=_build_reasoning_chain_chat_client(),
         name="tool_rendering_reasoning_chain_agent",
         instructions=SYSTEM_PROMPT,
-        tools=[get_weather, search_flights, get_stock_price, roll_dice],
+        tools=[get_weather, search_flights, get_stock_price, roll_d20, roll_dice],
+        # Disable server-side conversation storage so the OpenAI Responses
+        # client sends the full message history (including the original
+        # user prompt) on every leg of a tool-rendering chain instead of
+        # compressing prior context behind ``previous_response_id``. aimock
+        # is stateless and cannot resolve that ID, so chain-leg fixtures
+        # keyed on ``userMessage`` would otherwise miss and the chain would
+        # fall through to the real-OpenAI proxy with a ``ChatClientException``.
+        # Same pattern as ``shared_state_read_write_agent.py``.
+        default_options={"store": False},
     )
 
     return AgentFrameworkAgent(

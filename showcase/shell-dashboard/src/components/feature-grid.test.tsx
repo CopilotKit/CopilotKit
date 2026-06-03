@@ -8,7 +8,9 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { LiveIndicator, computeColumnTally } from "./feature-grid";
+import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
+import type { CellContext, CellRenderer } from "./feature-grid";
+import { urlsFor } from "./cell-pieces";
 import type { Integration, Feature } from "@/lib/registry";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
@@ -37,6 +39,10 @@ describe("LiveIndicator", () => {
   });
 });
 
+// Recent timestamp so green e2e rows are not treated as stale by the
+// staleness downgrade in cell-model.ts (which compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
   return {
     id: key,
@@ -44,12 +50,61 @@ function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
     dimension: dim,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
 }
+
+describe("FeatureGrid: server-threaded shellUrl builds real-host anchors", () => {
+  const REAL_HOST = "https://showcase.staging.copilotkit.ai";
+  const SENTINEL = "ssr-placeholder.invalid";
+
+  // renderCell that surfaces the resolved ctx.shellUrl as a real anchor via
+  // urlsFor — the same builder the production cells use. If FeatureGrid
+  // threads the server `shellUrl` prop into ctx, these anchors carry the
+  // REAL host; if it falls back to the client SSR sentinel, they carry
+  // `ssr-placeholder.invalid`.
+  const renderCell: CellRenderer = (ctx: CellContext) => {
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    return (
+      <>
+        <a data-testid="demo-link" href={demoUrl}>
+          Demo
+        </a>
+        <a data-testid="code-link" href={codeUrl}>
+          Code
+        </a>
+      </>
+    );
+  };
+
+  it("anchors use the real host (NOT the SSR sentinel) when shellUrl prop is provided", () => {
+    const { container } = render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={renderCell}
+        liveStatus={new Map() as LiveStatusMap}
+        connection="live"
+        shellUrl={REAL_HOST}
+      />,
+    );
+    const anchors = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(
+        "a[data-testid='demo-link'], a[data-testid='code-link']",
+      ),
+    );
+    // Real registry has integrations × features wired demos, so the grid
+    // renders many cells. There MUST be at least one anchor to assert on.
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const a of anchors) {
+      const href = a.getAttribute("href") ?? "";
+      expect(href).toContain(REAL_HOST);
+      expect(href).not.toContain(SENTINEL);
+    }
+  });
+});
 
 describe("computeColumnTally", () => {
   const demo = (id: string) => ({
@@ -75,25 +130,26 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("counts by chipColor — green D3 only → green chip", () => {
+  it("counts by chipColor — green D3 only (no D5/D6) → gray chip", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
+    // f1: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling algorithm)
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    // f2: D3=green → achievedDepth=3, ceilingDepth=3 → chipColor=green
+    // f2: D3=green but D5/D6 absent → chipColor=gray
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
-    expect(t).toEqual({ green: 2, amber: 0, red: 0, unknown: false });
+    // D6-ceiling: D3-only green with no D5/D6 → gray → not counted
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
-  it("red D3 → red chip (tests exist but fail), counted as red", () => {
+  it("red D3 → red chip, green D3 without D5/D6 → gray", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=red → achievedDepth=0, ceilingDepth=3 → chipColor=red
+    // f1: D3=red → chipColor=red (d1d4GateFails)
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
-    // f2: D3=green → chipColor=green
+    // f2: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling)
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
-    // f1 red (tests exist but all fail), f2 green
-    expect(t).toEqual({ green: 1, amber: 0, red: 1, unknown: false });
+    // f1 red (gate fail), f2 gray (no D5/D6)
+    expect(t).toEqual({ green: 0, amber: 0, red: 1, unknown: false });
   });
 
   it("health row alone does not contribute to tally", () => {
@@ -114,8 +170,8 @@ describe("computeColumnTally", () => {
       demos: [demo("f1")],
     };
     const t = computeColumnTally(partialInt, features, live);
-    // f1: wired + D3=green → green; f2: unwired → gray (skipped)
-    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+    // f1: wired + D3=green but no D5/D6 → gray; f2: unwired → gray
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
   it("not_supported_features are gray, not counted", () => {
@@ -127,8 +183,8 @@ describe("computeColumnTally", () => {
       not_supported_features: ["f2"],
     };
     const t = computeColumnTally(unsupportedInt, features, live);
-    // f1: green; f2: unsupported → gray (skipped)
-    expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
+    // f1: D3=green but no D5/D6 → gray; f2: unsupported → gray
+    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
   it("returns unknown=true when connection is error", () => {
@@ -145,14 +201,8 @@ describe("computeColumnTally", () => {
     expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
   });
 
-  it("amber chip from D3=green + D4=green + D5 missing (gap=1)", () => {
-    const live: LiveStatusMap = new Map();
-    // f1: D3=green, D4(chat)=green → achievedDepth=4
-    // D5 key mapped but no row → exists=true, status=null → ceilingDepth=5
-    // gap = 5-4 = 1 → amber
-    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    live.set("chat:i1", row("chat:i1", "chat", "green"));
-    // Use a feature ID with a D5 mapping to get ceilingDepth=5
+  it("amber chip when D5=green but D6 absent", () => {
+    // D6-ceiling algorithm: D5=green → amber (awaiting D6 confirmation)
     const mappedFeatures: Feature[] = [
       {
         id: "agentic-chat",
@@ -172,9 +222,13 @@ describe("computeColumnTally", () => {
       row("e2e:i1/agentic-chat", "e2e", "green"),
     );
     mappedLive.set("chat:i1", row("chat:i1", "chat", "green"));
+    // D5 row present and green
+    mappedLive.set(
+      "d5:i1/agentic-chat",
+      row("d5:i1/agentic-chat", "d5", "green"),
+    );
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
-    // D3=green, D4=green (chat only, no tools), D5 mapped but no row →
-    // ceilingDepth=5, achievedDepth=4, gap=1 → amber
+    // D3=green, D4=green, D5=green → amber (D6 not yet green)
     expect(t).toEqual({ green: 0, amber: 1, red: 0, unknown: false });
   });
 });

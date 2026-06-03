@@ -390,6 +390,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       ? baseRunner
       : new TelemetryAgentRunner({ runner: baseRunner });
 
+    // Match license-verifier's env fallback so telemetry attribution
+    // resolves the same way as feature gating — otherwise customers who
+    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
+    // anonymous telemetry. Only used here for the telemetry setter; the
+    // v2 runtime applies the same fallback to runtimeArgs.licenseToken
+    // on its own.
+    const resolvedLicenseToken =
+      params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    if (resolvedLicenseToken) {
+      telemetry.setLicenseToken(resolvedLicenseToken);
+    }
+
     this.runtimeArgs = {
       agents: mergedAgents,
       runner,

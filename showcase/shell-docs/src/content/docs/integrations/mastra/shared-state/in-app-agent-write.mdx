@@ -3,6 +3,9 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
   id="shared-state-write-example"
@@ -14,8 +17,7 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -25,14 +27,13 @@ You can easily write to your agent's state from your native application, allowin
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
 
-```ts
-const runtime = new CopilotRuntime({
-  agents: MastraAgent.getLocalAgents({ mastra }),
-});
-```
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({ mastra }),
+  });
+  ```
 
-This feature will **not work** if you are using a **remote Mastra agent**.
-
+  This feature will **not work** if you are using a **remote Mastra agent**.
 </Callout>
 
 ## When should I use this?
@@ -44,7 +45,7 @@ You can use this when you want to provide user input or control to your agent's 
 <Steps>
   <Step>
     ### Run and connect your agent
-    <RunAndConnect />
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -54,6 +55,11 @@ You can use this when you want to provide user input or control to your agent's 
     Providing working memory to your agent is as simple as providing a Zod schema to your agent.
 
     ```ts title="mastra/agents/language-agent.ts"
+    import { openai } from "@ai-sdk/openai";
+    import { Agent } from "@mastra/core/agent";
+    import { LibSQLStore } from "@mastra/libsql";
+    import { z } from "zod";
+    import { Memory } from "@mastra/memory";
 
     // [!code highlight:4]
     // 1. Define the agent state schema
@@ -81,7 +87,6 @@ You can use this when you want to provide user input or control to your agent's 
       }),
     });
     ```
-
   </Step>
   <Step>
     ### Use the `useAgent` Hook
@@ -89,6 +94,8 @@ You can use this when you want to provide user input or control to your agent's 
     use `agent.setState` to update the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { AgentState } from "@/mastra/agents/language-agent";
 
     function YourMainContent() {
       // [!code highlight:5]
@@ -116,7 +123,6 @@ You can use this when you want to provide user input or control to your agent's 
     <Callout type="info">
       The `agent.setState` function in `useAgent` will update the working memory and trigger a rerender when the state changes.
     </Callout>
-
   </Step>
   <Step>
     ### Give it a try!
@@ -127,6 +133,5 @@ You can use this when you want to provide user input or control to your agent's 
       Shared-state in Mastra is prompt-driven. This means that your Agent's awareness of the shared state will be augmented
       by the instructions you provide to your agent.
     </Callout>
-
   </Step>
 </Steps>

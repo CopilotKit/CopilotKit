@@ -11,6 +11,7 @@ Usage: showcase test <slug> [options]
 Run probe tests against a showcase service (via Docker containers).
 
 Options:
+  --d6             Run D6 (e2e-full) probes only
   --d5             Run D5 (e2e-deep) probes only
   --d4             Run D4 probes only
   --smoke          Run smoke probes only
@@ -25,6 +26,7 @@ Options:
                    (default name: isolate-<PID>). Allows parallel test runs.
 
 Examples:
+  showcase test mastra --d6 --verbose         # D6 probes (full matrix) with verbose output
   showcase test mastra --d5 --verbose         # D5 probes with verbose output
   showcase test mastra --d5 --cycle           # D5 + aimock logs on failure
   showcase test langgraph-python              # all tests for a slug
@@ -44,6 +46,7 @@ cmd_test() {
   # Parse arguments — pass most through to the harness CLI
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --d6)      harness_args+=(--d6);      shift ;;
       --d5)      harness_args+=(--d5);      shift ;;
       --d4)      harness_args+=(--d4);      shift ;;
       --smoke)   harness_args+=(--smoke);   shift ;;
@@ -113,7 +116,7 @@ cmd_test() {
   local filter_desc=""
   for arg in "${harness_args[@]}"; do
     case "$arg" in
-      --d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
+      --d6|--d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
     esac
   done
 

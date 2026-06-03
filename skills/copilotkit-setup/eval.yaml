@@ -1,0 +1,191 @@
+version: "1"
+
+defaults:
+  agent: claude
+  provider: docker
+  trials: 3
+  timeout: 300
+  threshold: 0.8
+  docker:
+    base: node:20-slim
+    setup: |
+      apt-get update && apt-get install -y git jq
+
+tasks:
+  - name: nextjs-app-router-setup
+    instruction: |
+      Create a new Next.js App Router project and add CopilotKit with a basic chat
+      interface using BuiltInAgent. The project should have:
+      - CopilotKit frontend packages (@copilotkit/react, @copilotkit/core)
+      - CopilotKit runtime packages (@copilotkit/runtime, @copilotkit/agent)
+      - A runtime API route at src/app/api/copilotkit/[[...slug]]/route.ts using
+        createCopilotEndpoint with a BuiltInAgent
+      - A page component with CopilotKitProvider wrapping CopilotChat
+      - The @copilotkit/react stylesheet imported
+    graders:
+      - type: deterministic
+        run: |
+          cd /workspace
+          PROJECT_DIR=$(find . -maxdepth 1 -type d ! -name '.' | head -1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo '{"score": 0.0, "details": "No project directory found"}'
+            exit 0
+          fi
+          cd "$PROJECT_DIR"
+
+          CHECKS='[]'
+          add_check() {
+            CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
+          }
+
+          # Check frontend packages
+          if jq -e '.dependencies["@copilotkit/react"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/react installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/react installed" false "Not found in package.json dependencies"
+          fi
+
+          if jq -e '.dependencies["@copilotkit/core"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/core installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/core installed" false "Not found in package.json dependencies"
+          fi
+
+          # Check runtime packages
+          if jq -e '.dependencies["@copilotkit/runtime"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/runtime installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/runtime installed" false "Not found in package.json dependencies"
+          fi
+
+          if jq -e '.dependencies["@copilotkit/agent"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/agent installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/agent installed" false "Not found in package.json dependencies"
+          fi
+
+          # Check runtime route exists
+          ROUTE_FILE=$(find . -path '*/api/copilotkit/*/route.ts' -o -path '*/api/copilotkit/*/route.js' 2>/dev/null | head -1)
+          if [ -n "$ROUTE_FILE" ]; then
+            add_check "Runtime route file exists" true "Found at $ROUTE_FILE"
+          else
+            add_check "Runtime route file exists" false "No copilotkit API route found"
+          fi
+
+          # Check for CopilotKitProvider usage
+          if grep -r "CopilotKitProvider" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
+            add_check "CopilotKitProvider used" true "Found in source files"
+          else
+            add_check "CopilotKitProvider used" false "CopilotKitProvider not found in any source file"
+          fi
+
+          # Check for CopilotChat usage
+          if grep -r "CopilotChat\|CopilotSidebar\|CopilotPopup" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
+            add_check "Chat component used" true "Found chat component in source files"
+          else
+            add_check "Chat component used" false "No CopilotChat/CopilotSidebar/CopilotPopup found"
+          fi
+
+          PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
+          TOTAL=$(echo "$CHECKS" | jq 'length')
+          SCORE=$(echo "scale=2; $PASSED / $TOTAL" | bc)
+
+          echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
+        weight: 0.7
+      - type: llm_rubric
+        rubric: |
+          Evaluate whether this project has a complete, working CopilotKit setup:
+          1. Does it have a CopilotKitProvider wrapping a CopilotChat (or CopilotSidebar/CopilotPopup) component?
+          2. Does the runtime route use createCopilotEndpoint or createCopilotEndpointSingleRoute with a BuiltInAgent?
+          3. Is the @copilotkit/react stylesheet imported (styles.css)?
+          4. Does the provider's runtimeUrl point to the correct API route?
+          5. Is the project structured correctly for Next.js App Router (app/ directory, "use client" directives where needed)?
+        weight: 0.3
+
+  - name: vite-react-setup
+    instruction: |
+      Add CopilotKit to this existing Vite+React project with a chat sidebar and a
+      BuiltInAgent backend. The setup should include:
+      - CopilotKit frontend packages (@copilotkit/react, @copilotkit/core)
+      - CopilotKit runtime packages (@copilotkit/runtime, @copilotkit/agent)
+      - A backend server (Express or Hono) running the CopilotRuntime with a BuiltInAgent
+      - CopilotKitProvider in the React app pointing to the backend URL
+      - A CopilotSidebar component for the chat UI
+      - The @copilotkit/react stylesheet imported
+    workspace:
+      - src: workspace/vite-react
+        dest: /workspace
+    graders:
+      - type: deterministic
+        run: |
+          cd /workspace
+
+          CHECKS='[]'
+          add_check() {
+            CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
+          }
+
+          # Check frontend packages
+          if jq -e '.dependencies["@copilotkit/react"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/react installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/react installed" false "Not found in package.json dependencies"
+          fi
+
+          # Check runtime packages (may be in a separate server directory)
+          RUNTIME_FOUND=false
+          for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' 2>/dev/null); do
+            if jq -e '.dependencies["@copilotkit/runtime"]' "$PKG_FILE" > /dev/null 2>&1; then
+              RUNTIME_FOUND=true
+              break
+            fi
+          done
+          if [ "$RUNTIME_FOUND" = true ]; then
+            add_check "@copilotkit/runtime installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/runtime installed" false "Not found in any package.json"
+          fi
+
+          # Check for CopilotKitProvider
+          if grep -r "CopilotKitProvider" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
+            add_check "CopilotKitProvider used" true "Found in source files"
+          else
+            add_check "CopilotKitProvider used" false "CopilotKitProvider not found"
+          fi
+
+          # Check for CopilotSidebar or other chat component
+          if grep -r "CopilotSidebar\|CopilotChat\|CopilotPopup" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
+            add_check "Chat UI component used" true "Found sidebar/chat/popup component"
+          else
+            add_check "Chat UI component used" false "No chat UI component found"
+          fi
+
+          # Check for BuiltInAgent in backend
+          if grep -r "BuiltInAgent" --include='*.ts' --include='*.js' . > /dev/null 2>&1; then
+            add_check "BuiltInAgent configured" true "Found in backend source"
+          else
+            add_check "BuiltInAgent configured" false "BuiltInAgent not found in any source file"
+          fi
+
+          # Check for stylesheet import
+          if grep -r "styles\.css\|@copilotkit/react/styles" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.css' . > /dev/null 2>&1; then
+            add_check "Stylesheet imported" true "Found styles.css import"
+          else
+            add_check "Stylesheet imported" false "No @copilotkit/react/styles.css import found"
+          fi
+
+          PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
+          TOTAL=$(echo "$CHECKS" | jq 'length')
+          SCORE=$(echo "scale=2; $PASSED / $TOTAL" | bc)
+
+          echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
+        weight: 0.7
+      - type: llm_rubric
+        rubric: |
+          Evaluate whether CopilotKit is properly integrated into this Vite+React project:
+          1. Is CopilotKitProvider set up with a runtimeUrl pointing to the backend server?
+          2. Is there a CopilotSidebar (or equivalent chat component) rendered in the app?
+          3. Does the backend use CopilotRuntime with a BuiltInAgent and an appropriate endpoint factory?
+          4. Is the @copilotkit/react stylesheet imported?
+          5. If the backend is a separate server, does the frontend URL account for the correct port and CORS is handled?
+        weight: 0.3

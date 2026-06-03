@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Rocket, X } from "lucide-react";
+import { GraduationCap, X } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
 // Time in milliseconds before a dismissed banner reappears
@@ -19,11 +19,12 @@ type BannerEntry = {
 
 const bannerContent: BannerEntry[] = [
   {
-    icon: <Rocket className="w-5 h-5 hidden md:block flex-shrink-0" />,
-    mobileText: "CopilotKit fully supports MCP Apps!",
-    desktopText: "Bring MCP Apps interaction to your users with CopilotKit!",
-    buttonText: "See What's New",
-    href: "/generative-ui/mcp-apps",
+    icon: <GraduationCap className="w-5 h-5 hidden md:block flex-shrink-0" />,
+    mobileText: "Free Generative UI course on DeepLearning.AI",
+    desktopText:
+      "Build Interactive Agents with Generative UI: our new free DeepLearning.AI course",
+    buttonText: "Start the course",
+    href: "https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/",
   },
 ];
 
@@ -115,10 +116,10 @@ export function Banners() {
   const content = bannerContent[currentBanner];
 
   return (
-    <div className="w-full px-1 mt-1 xl:px-2 xl:mt-2">
+    <div className="w-full px-[22px] mt-2">
       <div
         id="rotating-banner"
-        className="relative w-full rounded-2xl py-1.5 md:py-2"
+        className="relative w-full max-w-[97rem] mx-auto rounded-2xl py-1.5 md:py-2"
         style={{
           background: "var(--bg-elevated)",
           color: "var(--text-secondary)",
@@ -146,6 +147,12 @@ export function Banners() {
           </div>
           <Link
             href={content.href}
+            target={content.href.startsWith("http") ? "_blank" : undefined}
+            rel={
+              content.href.startsWith("http")
+                ? "noopener noreferrer"
+                : undefined
+            }
             className="text-xs md:text-sm items-center flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap rounded-lg flex-shrink-0 transition-all duration-100"
             style={{
               background: "var(--accent-light, rgba(109, 69, 249, 0.12))",

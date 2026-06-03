@@ -120,6 +120,34 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 ---
 
+## Fixture Authoring Gotchas
+
+**`context` field is required for D4/D6 fixtures.** Context routing (aimock `--context-field`) uses `match.context` to isolate fixtures per integration. Omitting `context` means the fixture matches globally -- every integration hits it, and the first match wins regardless of which integration made the request. Always set `match.context` for any fixture loaded through per-integration routing.
+
+**`match.context` must equal the integration slug.** The slug is the directory name under `showcase/integrations/` (e.g., `langgraph-python`, `mastra`, `spring-ai`). A mismatch between the context value and the slug silently drops the fixture from that integration's match pool -- aimock falls through to the next fixture or returns an unmatched response.
+
+**Never combine `content` and `toolCalls` in a single fixture.** A fixture must return either text (`content`) or tool calls (`toolCalls`), not both. Combining them produces undefined behavior: some providers stream the text, others stream the tool call, and the order is non-deterministic. Split into two fixtures with `sequenceIndex` if you need text followed by a tool call (or vice versa).
+
+**`hasToolResult: false` breaks multi-pill flows.** When a fixture returns `toolCalls` with `hasToolResult: false`, aimock treats the conversation as complete after the tool call -- it will not match a follow-up turn where the client sends back the tool result. In multi-pill flows (D6), the agent cycles through multiple tool calls and text responses. Use `hasToolResult: true` (or omit it, since `true` is the default) so aimock expects the client to send tool results and continues matching subsequent turns.
+
+**MIRROR the canonical (langgraph-python) fixtures — never re-record per-integration.** D6 fixtures must be authored by copying the canonical `aimock/d6/langgraph-python/<cell>.json` (and `langgraph-typescript/`) and re-keying `match.context` to the integration slug. Do NOT run `aimock --record` against an integration to capture its live traffic: the matcher keys mainly on `userMessage` + `context` and does not gate on the system prompt or tool schema, so a recording bakes in whatever (possibly buggy) request the integration sent and replays it green forever. Recording launders request-side bugs; mirroring forces every integration onto one shared contract. (See "What Was Green But Still Wrong" #7.)
+
+**Common fix classes when mirroring (from LGP/LGT/ms-agent-dotnet):** `toolCallId` (2nd-leg) matcher must precede `toolName` (1st-leg); `chunkSize: 9999` for tool args that must JSON-parse in one chunk; inline narration `content` on tool-call fixtures for render/settle races; tighten over-broad d4 catch-alls (e.g. `"summarize"` → `"Summarize the"`); strip spurious `turnIndex: 0` (canonical fixtures have no turnIndex so any turn matches).
+
+---
+
+## Running D6 in Parallel (`--isolate`)
+
+**The shared aimock is NOT a serialization bottleneck.** aimock is stateless and context-keyed (`x-aimock-context: <slug>` per request), so one instance serves many integrations concurrently with zero cross-talk. Many integrations can run D6 at once.
+
+**Use `--isolate <name>` for concurrent fixture-triage runs.** Each isolated stack gets its OWN aimock + pocketbase + dashboard + integration container on offset ports (`(slot+1)*200`, slot auto-claimed 0..45). The key benefit during triage: aimock has no hot-reload, so picking up edited fixtures requires a restart — and restarting a _shared_ aimock would nuke every concurrent run. A per-stack aimock means each run restarts only its own. Template: `bin/showcase test <slug>:<cell> --d6 --isolate iso-<slug>-w1 --verbose`. `<name>` must be lowercase `[a-z0-9_-]+`.
+
+**Stagger concurrent launches 15-20s.** `stageSharedModules`/`restoreSymlinks` mutate `integrations/*/tools` symlinks in-place and `git checkout` them globally — simultaneous harness instances race there. Until per-isolation source-tree copies exist, stagger starts and keep concurrency modest (5-wide is comfortable; 10 is the theoretical ceiling at ~40 containers / 6-8GB).
+
+**Pre-warm `:local` images before fanning out.** The Docker daemon serializes layered builds, so uncached integrations queue and stall the wave. Build (or pull `ghcr.io/copilotkit/showcase-<slug>:latest` and retag) ahead of time.
+
+---
+
 ## What Was "Green" But Still Wrong
 
 1. **18 copies of identical frontend code** — every fix was a blitz. One missed integration = one regression.
@@ -128,3 +156,4 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 4. **Agent name mismatches masked by default fallback** — features passed because the runtime fell back to `"default"`, not because the correct agent was wired.
 5. **Missing testids on custom renderers** — probe assertions were weak enough to pass via fallback selectors.
 6. **`onRunInitialized` shim applied where unnecessary** — worked by coincidence because legacy format round-tripped correctly.
+7. **Re-recorded fixtures launder request-side bugs into green.** Because the aimock matcher keys on `userMessage` + `context` (not the system prompt or tool schema), capturing an integration's live traffic produces a fixture that matches that integration's exact (possibly malformed) request forever — a buggy system prompt or wrong tool name still replays green. The fix is to MIRROR the canonical langgraph-python fixtures, not record per-integration. _Mitigating fact:_ D6 assertions ARE canonical — `bin/showcase test <slug> --d6` runs only the shared `d6-all-pills.ts` driver against one global script registry (`harness/src/probes/scripts/d5-*.ts`) with strict `data-testid` checks; the per-integration `tests/e2e/*.spec.ts` are a separate surface `--d6` never invokes. So "pass D6" means "renders identical to the LGP contract," and a divergent integration (e.g. mastra emitting `custom-catchall-card` vs canonical `custom-wildcard-card`) genuinely fails — it cannot be papered green at the assertion layer, only at the fixture/request layer (hence rule #7).

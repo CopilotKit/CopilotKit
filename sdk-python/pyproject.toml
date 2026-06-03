@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.1.88"
+version = "0.1.93"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
@@ -48,4 +48,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
-dev = ["pytest (>=9.0.2,<10.0.0)"]
+dev = ["pytest (>=9.0.2,<10.0.0)", "pytest-asyncio (>=1.0.0,<2.0.0)"]

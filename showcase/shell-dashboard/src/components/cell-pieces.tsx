@@ -16,9 +16,19 @@ export function urlsFor(ctx: CellContext): {
   codeUrl: string;
   hostedUrl: string;
 } {
+  // Strip any trailing slash from the base before concatenating the
+  // `/integrations/...` path. `readUrl` in runtime-config.ts already
+  // normalizes real shellUrls this way, but the SSR placeholder
+  // (`https://ssr-placeholder.invalid/`, runtime-config.client.ts) carries
+  // a trailing slash and is what the client config reader returns during
+  // server-side render. Without this guard the server-rendered HTML froze
+  // double-slash links (`https://ssr-placeholder.invalid//integrations/...`)
+  // that leaked into the page before hydration. Normalizing here makes the
+  // link builder correct for any base, sentinel or real.
+  const base = ctx.shellUrl.replace(/\/+$/, "");
   return {
-    demoUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
-    codeUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
+    demoUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
+    codeUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
     hostedUrl: ctx.hostedUrl,
   };
 }
@@ -52,11 +62,12 @@ export function DocsRow({
   const shellPath = hasShellOverride
     ? (override?.shell_docs_path ?? undefined)
     : (feature.shell_docs_path ?? undefined);
-  // The shell-docs route handler resolves `/<framework>/<slug>` directly —
-  // the legacy `/<framework>/unselected/<slug>` shape was retired by the
-  // JTBD IA restructure (commit c11976819).
+  // Point at the canonical docs host directly. Pre-cutover this CNAME serves
+  // the Vercel docs site; post-cutover it serves shell-docs on Railway. Both
+  // resolve `/<framework>/<slug>` — `${shellUrl}` no longer serves /docs/**
+  // after PR #4702 moved redirect middleware to shell-docs (2026-05-08).
   const shellHref = shellPath
-    ? `${shellUrl}/${integration.slug}${shellPath}`
+    ? `https://docs.copilotkit.ai/${integration.slug}${shellPath}`
     : undefined;
   // CP5: distinguish the two "missing" sub-cases so the tooltip is honest.
   // The override shape (`og_docs_url: string | null`) lets us tell apart:

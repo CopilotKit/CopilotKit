@@ -10,11 +10,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "next",
-    "@copilotkit/react-core": "next",
+    "@copilotkit/a2ui-renderer": "1.59.2",
+    "@copilotkit/react-core": "1.59.2",
     "@copilotkit/runtime": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/runtime@4482",
-    "@copilotkit/shared": "next",
-    "@copilotkit/voice": "next",
+    "@copilotkit/shared": "1.59.2",
+    "@copilotkit/voice": "1.59.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -26,7 +26,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
-    "zod": "^3.24.0"
+    "zod": "^4.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

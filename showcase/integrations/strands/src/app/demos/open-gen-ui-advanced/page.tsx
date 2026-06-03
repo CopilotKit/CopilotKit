@@ -1,10 +1,16 @@
 "use client";
 
 /**
- * Open-Ended Generative UI — Advanced (Strands, Wave 2).
+ * Open-Ended Generative UI
+ * ------------------------
+ * The agent streams ONE `generateSandboxedUi` tool call; the runtime's
+ * `OpenGenerativeUIMiddleware` (enabled by `openGenerativeUI: { agents: [...] }`
+ * in `api/copilotkit-ogui/route.ts`) converts that stream into
+ * `open-generative-ui` activity events. Passing `openGenerativeUI` to
+ * CopilotKit here activates the built-in `OpenGenerativeUIActivityRenderer`,
+ * which mounts the agent-authored HTML + CSS inside a sandboxed iframe.
  *
- * Adds sandbox functions that the agent-authored iframe can invoke on the
- * host page via `Websandbox.connection.remote.<name>(args)`.
+ * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
 // @region[sandbox-function-registration]

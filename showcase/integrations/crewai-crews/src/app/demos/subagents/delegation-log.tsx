@@ -11,13 +11,13 @@ export interface Delegation {
   id: string;
   sub_agent: SubAgentName;
   task: string;
-  status: "running" | "completed" | "failed";
+  status: "completed";
   result: string;
 }
 
 export interface DelegationLogProps {
   delegations: Delegation[];
-  /** True while the supervisor flow is actively running. */
+  /** True while the supervisor is actively running. */
   isRunning: boolean;
 }
 
@@ -42,23 +42,34 @@ const SUB_AGENT_STYLE: Record<
   },
 };
 
-const STATUS_STYLE: Record<Delegation["status"], string> = {
-  running: "text-[#5C5FE0]",
-  completed: "text-[#189370]",
-  failed: "text-[#FA5F67]",
-};
-
+// @region[delegation-log-frontend]
 /**
  * Live delegation log — renders the `delegations` slot of agent state.
  *
- * Each entry corresponds to one CrewAI sub-crew kickoff. The list
- * grows in real time as the supervisor fans work out to its children
- * (the backend emits a STATE_SNAPSHOT before and after every kickoff).
- * The header shows how many sub-agents have been called and whether
- * the supervisor flow is still running.
+ * Each entry corresponds to one invocation of a sub-agent. The list
+ * grows in real time as the supervisor fans work out to its children.
+ * The parent header shows how many sub-agents have been called and
+ * whether the supervisor is still running.
  */
-// @region[delegation-log-frontend]
+// Fixed list of the three sub-agent roles the supervisor can call.
+// Rendered as always-visible indicator chips at the top of the log
+// (regardless of whether the supervisor has delegated yet) so the user
+// — and the e2e suite — can see at a glance which sub-agents exist and
+// which are currently active.
+const INDICATOR_ROLES: ReadonlyArray<{
+  role: "researcher" | "writer" | "critic";
+  subAgent: SubAgentName;
+}> = [
+  { role: "researcher", subAgent: "research_agent" },
+  { role: "writer", subAgent: "writing_agent" },
+  { role: "critic", subAgent: "critique_agent" },
+];
+
 export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
+  const calledRoles = new Set<SubAgentName>(
+    delegations.map((d) => d.sub_agent),
+  );
+
   return (
     <div
       data-testid="delegation-log"
@@ -87,11 +98,35 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
         </span>
       </div>
 
+      <div
+        data-testid="subagent-indicators"
+        className="flex items-center gap-2 border-b border-[#E9E9EF] bg-white px-6 py-2"
+      >
+        {INDICATOR_ROLES.map(({ role, subAgent }) => {
+          const style = SUB_AGENT_STYLE[subAgent];
+          const fired = calledRoles.has(subAgent);
+          return (
+            <span
+              key={role}
+              data-testid={`subagent-indicator-${role}`}
+              data-role={role}
+              data-fired={fired ? "true" : "false"}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] border ${style.color} ${
+                fired ? "" : "opacity-60"
+              }`}
+            >
+              <span aria-hidden>{style.emoji}</span>
+              <span>{style.label}</span>
+            </span>
+          );
+        })}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {delegations.length === 0 ? (
           <p className="text-[#838389] italic text-sm">
-            Ask the supervisor to complete a task. Every sub-crew it kicks off
-            will appear here.
+            Ask the supervisor to complete a task. Every sub-agent it calls will
+            appear here.
           </p>
         ) : (
           delegations.map((d, idx) => {
@@ -114,10 +149,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                       <span>{style.label}</span>
                     </span>
                   </div>
-                  <span
-                    data-testid="delegation-status"
-                    className={`text-[10px] uppercase tracking-[0.12em] font-semibold ${STATUS_STYLE[d.status]}`}
-                  >
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
                     {d.status}
                   </span>
                 </div>
@@ -125,15 +157,9 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                   <span className="font-semibold text-[#010507]">Task: </span>
                   {d.task}
                 </div>
-                {d.result ? (
-                  <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
-                    {d.result}
-                  </div>
-                ) : (
-                  <div className="text-xs italic text-[#838389]">
-                    Sub-agent running...
-                  </div>
-                )}
+                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
+                  {d.result}
+                </div>
               </div>
             );
           })

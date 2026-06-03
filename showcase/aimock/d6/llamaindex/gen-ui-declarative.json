@@ -1,0 +1,121 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / gen-ui-declarative",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — emit render_a2ui with Card + Metric components. Expected testids: declarative-card, declarative-metric. hasToolResult:false on initial prompt.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"title\":\"Q4 KPI Overview\"},{\"type\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+14%\"},{\"type\":\"Metric\",\"label\":\"Signups\",\"value\":\"3,420\",\"change\":\"+22%\"},{\"type\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — follow-up after render_a2ui.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "KPI dashboard rendered above with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — emit render_a2ui with PieChart component. Expected testid: declarative-pie-chart.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — follow-up.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Pie chart rendered showing sales distribution across North America, Europe, and Asia Pacific."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — emit render_a2ui with BarChart component. Expected testid: declarative-bar-chart.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":820000},{\"label\":\"Q2\",\"value\":950000},{\"label\":\"Q3\",\"value\":1100000},{\"label\":\"Q4\",\"value\":1300000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — follow-up.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Bar chart rendered showing quarterly revenue growth from Q1 through Q4."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — emit render_a2ui with StatusBadge components. Expected testid: declarative-status-badge.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"label\":\"API\",\"status\":\"healthy\",\"uptime\":\"99.97%\"},{\"type\":\"StatusBadge\",\"label\":\"Database\",\"status\":\"healthy\",\"uptime\":\"99.99%\"},{\"type\":\"StatusBadge\",\"label\":\"Background Workers\",\"status\":\"degraded\",\"uptime\":\"98.2%\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — follow-up.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "System health report rendered — API and Database are healthy; Background Workers showing degraded status at 98.2% uptime."
+      }
+    }
+  ]
+}
