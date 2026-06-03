@@ -44,9 +44,11 @@ the server restarts.
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Data layer                                                      │
-│  src/data/seed.json          → seed cards, members, txns        │
+│  src/data/seed.json          → seed cards, team, policies, txns │
 │  src/lib/store.ts            → typed, in-memory store (resets)  │
-│  src/app/api/v1/*            → REST surface (cards, txns, team) │
+│  src/app/api/v1/*            → REST surface                     │
+│                                (cards, transactions,            │
+│                                 users, policies)                │
 │  src/lib/identity.ts         → Northwind branding strings       │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -76,8 +78,9 @@ follow-up paragraph restating the data.
 - `useHumanInTheLoop({ name: "addNewCard", render })` in `src/app/page.tsx`
   shows the "add card" confirmation card directly in chat; the user clicks
   Approve / Cancel and the result is sent back to the agent. The team page
-  (`src/app/team/page.tsx`) uses the same pattern for inviting, editing, and
-  removing members.
+  (`src/app/team/page.tsx`) uses the same pattern for removing a member and
+  changing a member's role or team (inviting a member is a UI-only dialog
+  flow, not an agent tool).
 - `useHumanInTheLoop({ name: "navigateToPageAndPerform" })` in
   `src/components/copilot-context.tsx` is the cross-page fallback: if the user
   asks for an operation that lives on another page (e.g. "change my Visa PIN"
@@ -95,10 +98,11 @@ user (or a hallucinating model) cannot bypass them.
 ## Backend & data
 
 - All read/write goes through `src/lib/store.ts`, which exposes typed helpers
-  (`findCard`, `updateCardPin`, `listTransactions`, etc.) over an in-memory
-  copy of `src/data/seed.json`.
-- The REST endpoints under `src/app/api/v1/*` (cards, transactions, team) are
-  thin handlers around the store and are what the UI uses.
+  — readers like `cards()`, `team()`, `policies()`, `transactions()` and
+  mutators like `findCard`, `updateCardPin`, `assignPolicyToCard`,
+  `updateTransaction` — over an in-memory copy of `src/data/seed.json`.
+- The REST endpoints under `src/app/api/v1/*` (cards, transactions, users,
+  policies) are thin handlers around the store and are what the UI uses.
 - There is no database. State resets on every server restart — this keeps the
   demo deterministic for screenshots, e2e tests, and customer walkthroughs.
 
