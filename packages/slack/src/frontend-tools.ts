@@ -84,6 +84,19 @@ export interface FrontendToolContext {
   conversationKey: string;
   /** Cooperative cancel signal — aborted when the bridge cancels the turn. */
   signal?: AbortSignal;
+  /**
+   * Deliver a file (e.g. a rendered chart/diagram PNG) into the current
+   * thread/DM. The bridge owns the upload mechanics (`files.uploadV2`,
+   * thread targeting); the app just hands over the bytes. Slack renders
+   * uploaded images inline. Always provided by the bridge at runtime;
+   * optional only so lightweight test contexts can omit it.
+   */
+  postFile?(args: {
+    bytes: Uint8Array;
+    filename: string;
+    title?: string;
+    altText?: string;
+  }): Promise<{ ok: boolean; fileId?: string; error?: string }>;
 }
 
 /** AG-UI's `Tool` shape — what we hand off via `runAgent({tools})`. */

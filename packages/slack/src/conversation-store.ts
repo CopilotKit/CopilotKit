@@ -3,6 +3,12 @@ import type { HttpAgent } from "@ag-ui/client";
 import type { WebClient } from "@slack/web-api";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 import { DM_SCOPE } from "./types.js";
+import {
+  buildFileContentParts,
+  type AgentContentPart,
+  type FileDeliveryConfig,
+  type SlackFileRef,
+} from "./download-files.js";
 
 /**
  * One ongoing Slack conversation with the bot. Built fresh per turn from
@@ -30,12 +36,22 @@ export interface AgentSession {
 export class SlackConversationStore {
   private readonly client: WebClient;
   private readonly botUserId: string;
+  /** Bot token used to download uploaded files from their `url_private`. */
+  private readonly botToken: string;
+  private readonly filesConfig: FileDeliveryConfig;
   /** Stable threadIds → conversation keys ("channelId::scope"). */
   private readonly participated = new Set<string>();
 
-  constructor(args: { client: WebClient; botUserId: string }) {
+  constructor(args: {
+    client: WebClient;
+    botUserId: string;
+    botToken: string;
+    files?: FileDeliveryConfig;
+  }) {
     this.client = args.client;
     this.botUserId = args.botUserId;
+    this.botToken = args.botToken;
+    this.filesConfig = args.files ?? {};
   }
 
   private keyOf(k: ConversationKey): string {
@@ -151,7 +167,7 @@ export class SlackConversationStore {
    * and the `_thinking…_` placeholder, and (c) stripping `<@bot>`
    * mention tokens from user text.
    */
-  private translate(messages: RawSlackMsg[]): AgentMessage[] {
+  private async translate(messages: RawSlackMsg[]): Promise<AgentMessage[]> {
     const MENTION_RE = /<@[UW][A-Z0-9]+>/g;
     const isStatusOrPlaceholder = (text: string): boolean =>
       text.startsWith(":wrench:") ||
@@ -161,25 +177,52 @@ export class SlackConversationStore {
 
     const out: AgentMessage[] = [];
     for (const m of messages) {
-      if (m.subtype) continue;
-      if (!m.text) continue;
-      const isBot = m.user === this.botUserId;
-      if (isBot && isStatusOrPlaceholder(m.text)) continue;
-      let content = m.text;
+      if (m.subtype && m.subtype !== "file_share") continue;
+      // Bot's own messages: matched by user id, or by bot_id when the API
+      // omits `user` (legacy bot integrations). A user-token app message has
+      // BOTH user and bot_id — `!m.user` keeps those classified as user.
+      const isBot = m.user === this.botUserId || (!!m.bot_id && !m.user);
+      const hasFiles = !isBot && Array.isArray(m.files) && m.files.length > 0;
+      if (!m.text && !hasFiles) continue;
+      if (isBot && isStatusOrPlaceholder(m.text ?? "")) continue;
+
+      let text = m.text ?? "";
       if (!isBot) {
-        content = content.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
+        text = text.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
       }
-      if (!content) continue;
       const role: "user" | "assistant" = isBot ? "assistant" : "user";
 
-      // Fold consecutive same-role messages — our chunked bot replies are
-      // one assistant turn in AG-UI's model, just rendered as N Slack
-      // messages.
-      const tail = out[out.length - 1];
-      if (tail && tail.role === role) {
-        tail.content = `${tail.content}\n${content}`;
-      } else {
+      // User message with uploaded files → multimodal content (the agent's
+      // model reads the images / decoded text). The bridge only delivers;
+      // the app decides what to do with the bytes.
+      if (hasFiles) {
+        const { parts, notes } = await buildFileContentParts(
+          m.files as SlackFileRef[],
+          this.botToken,
+          this.filesConfig,
+        );
+        const content: AgentContentPart[] = [];
+        if (text) content.push({ type: "text", text });
+        content.push(...parts);
+        if (notes.length > 0) {
+          content.push({
+            type: "text",
+            text: `[attachment notes: ${notes.join("; ")}]`,
+          });
+        }
+        if (content.length === 0) continue; // nothing usable
         out.push({ id: m.ts ?? "", role, content });
+        continue;
+      }
+
+      if (!text) continue;
+      // Fold consecutive same-role *string* messages — our chunked bot
+      // replies are one assistant turn, just rendered as N Slack messages.
+      const tail = out[out.length - 1];
+      if (tail && tail.role === role && typeof tail.content === "string") {
+        tail.content = `${tail.content}\n${text}`;
+      } else {
+        out.push({ id: m.ts ?? "", role, content: text });
       }
     }
     return out;
@@ -189,7 +232,8 @@ export class SlackConversationStore {
 interface AgentMessage {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  /** String for plain turns; multimodal parts when a user attached files. */
+  content: string | AgentContentPart[];
 }
 
 interface RawSlackMsg {
@@ -198,4 +242,5 @@ interface RawSlackMsg {
   bot_id?: string;
   text?: string;
   subtype?: string;
+  files?: SlackFileRef[];
 }

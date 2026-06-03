@@ -9,6 +9,7 @@ import { HttpAgent } from "@ag-ui/client";
 import { SanitizingHttpAgent } from "./sanitizing-http-agent.js";
 import { createHash } from "node:crypto";
 import { SlackConversationStore } from "./conversation-store.js";
+import type { FileDeliveryConfig } from "./download-files.js";
 import { attachSlackListener } from "./slack-listener.js";
 import {
   clickToConversation,
@@ -52,6 +53,13 @@ export interface SlackBridgeConfig {
    * for more aggressive backoff, or pass a custom `RetryOptions`.
    */
   retryConfig?: RetryOptions;
+  /**
+   * Inbound file handling. When a user uploads files, the bridge downloads
+   * them and delivers them to the agent as multimodal content (images as
+   * image parts, CSV/JSON/text decoded as text). Tune the caps here; all
+   * fields default (8 MiB/file, 5 files, 200 KiB of text).
+   */
+  files?: FileDeliveryConfig;
   /**
    * Frontend tools the agent can call against Slack. Apps typically
    * spread `defaultSlackTools` to get `lookup_slack_user`:
@@ -263,6 +271,8 @@ export function createSlackBridge(config: SlackBridgeConfig): SlackBridge {
       const store = new SlackConversationStore({
         client: app.client,
         botUserId,
+        botToken: config.slackBotToken,
+        files: config.files,
       });
       const runTurn = createTurnRunner({
         store,

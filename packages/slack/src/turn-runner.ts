@@ -272,6 +272,30 @@ export function createTurnRunner(config: TurnRunnerConfig) {
             botUserId: config.botUserId ?? "",
             conversationKey: key,
             senderUserId: turn.senderUserId,
+            postFile: async ({ bytes, filename, title, altText }) => {
+              try {
+                // Build args without undefined fields (uploadV2's types
+                // reject `undefined` for optional props).
+                const uploadArgs: Record<string, unknown> = {
+                  channel_id: turn.replyTarget.channel,
+                  file: Buffer.from(bytes),
+                  filename,
+                };
+                if (turn.replyTarget.threadTs)
+                  uploadArgs["thread_ts"] = turn.replyTarget.threadTs;
+                if (title) uploadArgs["title"] = title;
+                if (altText) uploadArgs["alt_text"] = altText;
+                const res = (await client.files.uploadV2(
+                  uploadArgs as unknown as Parameters<
+                    typeof client.files.uploadV2
+                  >[0],
+                )) as { files?: Array<{ id?: string }> };
+                return { ok: true, fileId: res.files?.[0]?.id };
+              } catch (err) {
+                console.error("[turn-runner] postFile failed:", err);
+                return { ok: false, error: (err as Error).message };
+              }
+            },
           },
           isAborted: () => entry.aborted,
           interruptHandlers,

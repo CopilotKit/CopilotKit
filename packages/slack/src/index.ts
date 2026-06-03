@@ -102,3 +102,9 @@ export {
   a2uiSchemaContext,
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
 } from "./a2ui/index.js";
+
+export type {
+  SlackFileRef,
+  AgentContentPart,
+  FileDeliveryConfig,
+} from "./download-files.js";

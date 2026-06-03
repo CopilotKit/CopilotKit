@@ -52,6 +52,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s1 = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -84,6 +85,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -114,6 +116,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -145,6 +148,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -171,6 +175,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -197,6 +202,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "D1", scope: DM_SCOPE },
@@ -221,6 +227,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     // Fresh store, no in-process cache — must hit Slack to discover ownership.
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(true);
@@ -239,6 +246,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
@@ -248,6 +256,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
@@ -261,6 +270,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -277,6 +287,7 @@ describe("SlackConversationStore", () => {
     const store = new SlackConversationStore({
       client: client as never,
       botUserId: BOT,
+      botToken: "xoxb-test",
     });
     expect(() =>
       store.save({ channelId: "C1", scope: "100.0" }, {} as never),

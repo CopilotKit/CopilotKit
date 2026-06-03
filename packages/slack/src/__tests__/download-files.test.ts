@@ -1,0 +1,126 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
+
+function fakeFetch(
+  bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,
+) {
+  return vi.fn(async (url: string) => {
+    const e = bodyByUrl[url];
+    if (!e) return { ok: false, status: 404 } as never;
+    return {
+      ok: e.ok ?? true,
+      status: e.status ?? 200,
+      arrayBuffer: async () =>
+        (e.bytes ?? Buffer.from("")).buffer.slice(
+          (e.bytes ?? Buffer.from("")).byteOffset,
+          (e.bytes ?? Buffer.from("")).byteOffset +
+            (e.bytes ?? Buffer.from("")).byteLength,
+        ),
+    } as never;
+  });
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+const img: SlackFileRef = {
+  name: "shot.png",
+  mimetype: "image/png",
+  url_private: "https://files.slack.com/shot.png",
+};
+const csv: SlackFileRef = {
+  name: "data.csv",
+  mimetype: "text/csv",
+  url_private: "https://files.slack.com/data.csv",
+};
+
+describe("buildFileContentParts", () => {
+  it("turns an image into a base64 image part", async () => {
+    const bytes = Buffer.from([1, 2, 3, 4]);
+    vi.stubGlobal("fetch", fakeFetch({ [img.url_private!]: { bytes } }));
+    const { parts, notes } = await buildFileContentParts([img], "xoxb-tok");
+    expect(notes).toEqual([]);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      type: "image",
+      source: {
+        type: "data",
+        mimeType: "image/png",
+        value: bytes.toString("base64"),
+      },
+    });
+  });
+
+  it("decodes a text/csv file into a text part", async () => {
+    const bytes = Buffer.from("a,b\n1,2\n", "utf8");
+    vi.stubGlobal("fetch", fakeFetch({ [csv.url_private!]: { bytes } }));
+    const { parts } = await buildFileContentParts([csv], "tok");
+    expect(parts[0]?.type).toBe("text");
+    expect((parts[0] as { text: string }).text).toContain("data.csv");
+    expect((parts[0] as { text: string }).text).toContain("a,b");
+  });
+
+  it("truncates large text files", async () => {
+    const bytes = Buffer.from("x".repeat(5000), "utf8");
+    vi.stubGlobal("fetch", fakeFetch({ [csv.url_private!]: { bytes } }));
+    const { parts } = await buildFileContentParts([csv], "tok", {
+      maxTextBytes: 100,
+    });
+    const text = (parts[0] as { text: string }).text;
+    expect(text).toContain("truncated");
+    expect(text.length).toBeLessThan(400);
+  });
+
+  it("skips unsupported types with a note", async () => {
+    const pdf: SlackFileRef = {
+      name: "a.pdf",
+      mimetype: "application/pdf",
+      url_private: "u",
+    };
+    vi.stubGlobal("fetch", fakeFetch({}));
+    const { parts, notes } = await buildFileContentParts([pdf], "tok");
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("unsupported");
+  });
+
+  it("skips files over the size cap (by reported size) without downloading", async () => {
+    const big: SlackFileRef = { ...img, size: 99_999_999 };
+    const fetchSpy = fakeFetch({});
+    vi.stubGlobal("fetch", fetchSpy);
+    const { parts, notes } = await buildFileContentParts([big], "tok", {
+      maxBytesPerFile: 10,
+    });
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("exceeds");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips on a failed download with a note", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ [img.url_private!]: { ok: false, status: 403 } }),
+    );
+    const { parts, notes } = await buildFileContentParts([img], "tok");
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("403");
+  });
+
+  it("caps the number of files processed", async () => {
+    const files = Array.from({ length: 8 }, (_, i) => ({
+      ...csv,
+      url_private: `u${i}`,
+    }));
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(
+        Object.fromEntries(
+          files.map((f) => [f.url_private!, { bytes: Buffer.from("x") }]),
+        ),
+      ),
+    );
+    const { parts, notes } = await buildFileContentParts(files, "tok", {
+      maxFiles: 3,
+    });
+    expect(parts).toHaveLength(3);
+    expect(notes.some((n) => n.includes("first 3 of 8"))).toBe(true);
+  });
+});
