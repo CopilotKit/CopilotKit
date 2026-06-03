@@ -136,6 +136,50 @@ describe("alert-engine", () => {
     expect(tgt.sent).toHaveLength(1);
   });
 
+  it("prefixes a dispatched alert with the staging source-env label", async () => {
+    const e = engine({
+      env: { dashboardUrl: "https://d", repo: "r/r", sourceEnv: "staging" },
+    });
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: probeRes("red"),
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    const text = (tgt.sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("[staging] RED mastra");
+  });
+
+  it("prefixes a dispatched alert with the production source-env label", async () => {
+    const e = engine({
+      env: { dashboardUrl: "https://d", repo: "r/r", sourceEnv: "production" },
+    });
+    e.start();
+    e.reload([baseRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: probeRes("red"),
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    const text = (tgt.sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("[production] RED mastra");
+  });
+
   it("does NOT dispatch unrelated transition", async () => {
     const e = engine();
     e.start();
@@ -349,7 +393,7 @@ describe("alert-engine", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     const payload = (tgt.sent[0] as { payload: { text: string } }).payload.text;
-    expect(payload).toBe("!CH critical");
+    expect(payload).toBe("[unknown] !CH critical");
   });
 
   it("on_error rule fires on transition===error", async () => {
@@ -378,7 +422,7 @@ describe("alert-engine", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "ERR: boom",
+      "[unknown] ERR: boom",
     );
   });
 
@@ -413,7 +457,7 @@ describe("alert-engine", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "MID",
+      "[unknown] MID",
     );
   });
 
@@ -452,7 +496,7 @@ describe("alert-engine", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "1 drifted",
+      "[unknown] 1 drifted",
     );
   });
 
@@ -491,7 +535,7 @@ describe("alert-engine", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "1 unwired",
+      "[unknown] 1 unwired",
     );
   });
 
@@ -542,7 +586,7 @@ describe("alert-engine", () => {
     // must be empty — this is what we're actually testing.
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "",
+      "[unknown] ",
     );
   });
 
@@ -909,7 +953,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "DRIFT 2",
+      "[unknown] DRIFT 2",
     );
   });
 
@@ -1002,7 +1046,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "critical",
+      "[unknown] critical",
     );
   });
 
@@ -1042,7 +1086,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "expected=17 actual=14 drift=3",
+      "[unknown] expected=17 actual=14 drift=3",
     );
   });
 
@@ -1165,7 +1209,7 @@ describe("alert-engine (additional behaviors)", () => {
     expect(tgt.sent).toHaveLength(3);
     for (const s of tgt.sent) {
       expect((s as { payload: { text: string } }).payload.text).toBe(
-        "Ecritical",
+        "[unknown] Ecritical",
       );
     }
   });
@@ -1306,7 +1350,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "ERR",
+      "[unknown] ERR",
     );
   });
 
@@ -1358,7 +1402,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "GATED",
+      "[unknown] GATED",
     );
   });
 
@@ -1425,7 +1469,7 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
     expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "run=https://ci/99 id=99",
+      "[unknown] run=https://ci/99 id=99",
     );
   });
 });
@@ -1568,7 +1612,7 @@ describe("alert-engine isRedTick flag (F1.6)", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe(expected ? "RED" : "NOT");
+    expect(text).toBe(expected ? "[unknown] RED" : "[unknown] NOT");
     e.stop();
   }
 
@@ -1716,7 +1760,7 @@ describe("alert-engine dispatchCronAlert fresh-red + error state (F1.2/F1.3)", (
     // as "green", skipping the error branch). Post-fix: routed via onError.
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe("ERR: GHCR 500");
+    expect(text).toBe("[unknown] ERR: GHCR 500");
     e.stop();
   });
 });
@@ -1784,7 +1828,7 @@ describe("alert-engine set_errored (F4.3)", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "ERR 1",
+      "[unknown] ERR 1",
     );
     e.stop();
   });
@@ -1894,7 +1938,7 @@ describe("alert-engine R7 (A1/A4/A5/A9)", () => {
     });
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
-    expect((sent[0] as { payload: { text: string } }).payload.text).toBe("ERR");
+    expect((sent[0] as { payload: { text: string } }).payload.text).toBe("[unknown] ERR");
     e.stop();
   });
 
@@ -2296,7 +2340,7 @@ describe("alert-engine trigger.isRedTick coverage (HF-A2)", () => {
       await new Promise((r) => setImmediate(r));
       expect(sent).toHaveLength(1);
       expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
-        "RED",
+        "[unknown] RED",
       );
       e.stop();
     });
@@ -2371,7 +2415,7 @@ describe("alert-engine escalation mention threading (HF-A3)", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe("ping @oncall sev=error");
+    expect(text).toBe("[unknown] ping @oncall sev=error");
     e.stop();
   });
 
@@ -2436,7 +2480,7 @@ describe("alert-engine escalation mention threading (HF-A3)", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe("m=[]");
+    expect(text).toBe("[unknown] m=[]");
     e.stop();
   });
 });
@@ -2578,7 +2622,7 @@ describe("alert-engine dispatchCronAlert preserves error state (HF-A6)", () => {
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
     // Routed to onError; main template would print "main".
-    expect(text).toBe("ERR GHCR 500");
+    expect(text).toBe("[unknown] ERR GHCR 500");
     e.stop();
   });
 });
@@ -2643,7 +2687,7 @@ describe("alert-engine dispatchCronAlert onError-only rule", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe("errored! GHCR 500");
+    expect(text).toBe("[unknown] errored! GHCR 500");
     e.stop();
   });
 });
@@ -2860,7 +2904,7 @@ describe("alert-engine R24: dispatchCronAlert bootstrap gate asymmetry", () => {
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
-    expect(text).toBe("drifted 1");
+    expect(text).toBe("[unknown] drifted 1");
     e.stop();
   });
 
@@ -3546,6 +3590,38 @@ describe("alert-engine aggregation ingress (A1)", () => {
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     expect(tgt.sent).toHaveLength(1);
+    e.stop();
+  });
+
+  it("prefixes the fleet aggregation alert with the source-env label", async () => {
+    // The aggregation flush path bypasses renderer.render (it Mustache-renders
+    // the aggregation template directly), so this pins that it still carries
+    // the same source-env prefix as per-key alerts.
+    const e = engine({
+      env: { dashboardUrl: "https://d", repo: "r/r", sourceEnv: "production" },
+    });
+    e.start();
+    e.reload([aggregatedSmokeRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "red",
+        signal: { slug: "mastra", dimension: "smoke" },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    const text = (tgt.sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("[production] <!channel> fleet red 1");
     e.stop();
   });
 });

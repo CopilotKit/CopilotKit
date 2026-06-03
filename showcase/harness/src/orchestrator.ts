@@ -201,6 +201,18 @@ export async function boot(opts: BootOptions = {}): Promise<{
       dashboardUrl:
         process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
       repo: process.env.REPO ?? "CopilotKit/CopilotKit",
+      // Source-env label prefixed onto every Slack alert so operators can
+      // tell whether a red probe came from staging or production. Railway
+      // injects RAILWAY_ENVIRONMENT_NAME ("staging" / "production") into
+      // every service at runtime; we prefer an explicit SHOWCASE_ENV
+      // override for local/CI, then fall back to "unknown" (the renderer
+      // surfaces the empty case as `[unknown]` rather than dropping the
+      // tag — a missing env var must look like a visible gap, not a
+      // legacy un-prefixed alert).
+      sourceEnv:
+        process.env.SHOWCASE_ENV ??
+        process.env.RAILWAY_ENVIRONMENT_NAME ??
+        "unknown",
     },
     bootstrapWindowMs: opts.bootstrapWindowMs,
     statusReader,
