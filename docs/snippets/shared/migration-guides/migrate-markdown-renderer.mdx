@@ -139,11 +139,11 @@ export function App() {
 
 When CopilotKit renders an assistant message, it picks the renderer in this order:
 
-1. **Per-message slot** — a `markdownRenderer` passed directly to `CopilotChatAssistantMessage` wins.
+1. **Per-message slot (React only)** — a `markdownRenderer` passed directly to `CopilotChatAssistantMessage` wins.
 2. **Provider renderer** — the `markdownRenderer` set on `CopilotKitProvider`.
 3. **Built-in** — the streaming markdown renderer ([`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer)), when neither is set.
 
-This resolution order applies equally to React, Vue, and React Native. Reasoning messages always use the built-in renderer.
+The provider renderer and built-in fallback apply equally to React, Vue, and React Native; the per-message slot is currently React-only (Vue and React Native resolve the provider renderer, then the built-in). Reasoning messages always use the built-in renderer.
 
 ## Vue: `useKatexStyles` removed
 

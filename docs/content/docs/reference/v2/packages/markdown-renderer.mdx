@@ -85,7 +85,7 @@ renderAST(state.nodes);
 | `StreamingMarkdownParserState` | The immutable parser state returned by each parse call. Contains `nodes: StreamingMarkdownAstNode[]`. |
 | `StreamingMarkdownParserOptions` | Options passed to `createStreamingMarkdownParserState`. |
 | `StreamingMarkdownAstNode` | A single AST node. Has `type: StreamingMarkdownNodeType` and type-specific fields. |
-| `StreamingMarkdownNodeType` | Union of node type string literals (e.g. `"paragraph"`, `"heading"`, `"codeBlock"`, `"table"`, etc.). |
+| `StreamingMarkdownNodeType` | Union of node type string literals (e.g. `"paragraph"`, `"heading"`, `"code-block"`, `"table"`, etc.). The `nodeRenderers` map keys these by camelCase renderer key (e.g. `"codeBlock"`). |
 | `StreamingMarkdownWarning` | A diagnostic warning produced during parsing. |
 | `CitationDefinition` | A parsed citation reference (URL + optional title). |
 | `CitationState` | Accumulated citation map attached to the parser state. |
@@ -129,16 +129,16 @@ import {
   CSS class applied to the root wrapper element.
 </PropertyReference>
 
-<PropertyReference name="onLinkClick" type="(href: string, event: React.MouseEvent) => void">
+<PropertyReference name="onLinkClick" type="(event: React.MouseEvent<HTMLAnchorElement>, url: string, node: StreamingMarkdownAstNode) => void">
   Called when a rendered link is clicked. Intercepts the default navigation.
 </PropertyReference>
 
-<PropertyReference name="onCitationClick" type="(citation: StreamingMarkdownCitationRenderData) => void">
+<PropertyReference name="onCitationClick" type="(event: React.MouseEvent<HTMLAnchorElement>, citation: StreamingMarkdownCitationRenderData, node: StreamingMarkdownAstNode) => void">
   Called when a rendered citation is clicked.
 </PropertyReference>
 
 <PropertyReference name="nodeRenderers" type="Partial<StreamingMarkdownNodeRenderers>">
-  Custom renderer overrides keyed by `StreamingMarkdownNodeType`. Each renderer receives `{ node, children, defaultNode, citation? }`. Use `createStreamingMarkdownNodeRenderers` to build a type-safe map. The key for code blocks is `"codeBlock"`.
+  Custom renderer overrides keyed by camelCase renderer key (`StreamingMarkdownNodeRendererKey`, e.g. `codeBlock`, `listItem`, `tableRow`) — distinct from the kebab-case `StreamingMarkdownNodeType` values. Each renderer receives `{ node, children, defaultNode, citation? }`. Use `createStreamingMarkdownNodeRenderers` to build a type-safe map.
 </PropertyReference>
 
 ### Usage
@@ -169,7 +169,7 @@ import { codeToHtml } from "shiki";
 const nodeRenderers = createStreamingMarkdownNodeRenderers({
   codeBlock: ({ node, children }) => (
     <pre className="shiki">
-      <code dangerouslySetInnerHTML={{ __html: highlight(node.language, node.value) }} />
+      <code dangerouslySetInnerHTML={{ __html: highlight(node.text, node.info) }} />
     </pre>
   ),
 });
@@ -199,7 +199,7 @@ A lower-level React hook that manages parser state in a component. Returns the c
 import { useStreamingMarkdownParser } from "@copilotkit/markdown-renderer/react";
 
 function CustomRenderer({ content, isComplete }) {
-  const state = useStreamingMarkdownParser(content, { isComplete });
+  const state = useStreamingMarkdownParser(content, undefined, isComplete);
 
   return (
     <div>
@@ -223,7 +223,7 @@ const nodeRenderers = createStreamingMarkdownNodeRenderers({
     <h1 className="my-heading">{children}</h1>
   ),
   codeBlock: ({ node }) => (
-    <pre className="my-code">{node.value}</pre>
+    <pre className="my-code">{node.text}</pre>
   ),
 });
 ```
@@ -240,7 +240,7 @@ const nodeRenderers = createStreamingMarkdownNodeRenderers({
 | `StreamingMarkdownCaret` | Union type for the `caret` prop value. |
 | `StreamingMarkdownCaretRenderProps` | Props passed to a caret render function. |
 | `StreamingMarkdownCaretRenderer` | Type for a caret render function `(props: StreamingMarkdownCaretRenderProps) => ReactNode`. |
-| `StreamingMarkdownNodeRendererKey` | Union of valid `nodeRenderers` keys (matches `StreamingMarkdownNodeType`). |
+| `StreamingMarkdownNodeRendererKey` | Union of valid `nodeRenderers` keys — camelCase (e.g. `codeBlock`, `listItem`, `tableRow`), distinct from the kebab-case `StreamingMarkdownNodeType` values (e.g. `code-block`, `list-item`). |
 
 ## Vue: `StreamingMarkdownRenderer`
 
@@ -421,7 +421,7 @@ function AssistantBubble({ content }: { content: string }) {
 }
 ```
 
-#### Streaming with animation (when Segmenter is available)
+#### Streaming render (finalizing on completion)
 
 ```tsx
 import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react-native";
@@ -561,11 +561,11 @@ export function App() {
 
 The `markdownRenderer` resolution order is:
 
-1. **Per-message slot** — `markdownRenderer` on `CopilotChatAssistantMessage` wins.
-2. **Provider renderer** — `markdownRenderer` on `CopilotKitProvider`.
+1. **Per-message slot (React only)** — `markdownRenderer` on `CopilotChatAssistantMessage` wins.
+2. **Provider renderer** — `markdownRenderer` on `CopilotKitProvider` (React, Vue, React Native).
 3. **Built-in** — `@copilotkit/markdown-renderer` streaming renderer.
 
-`BasicMarkdown` (a lighter marked-based component) is exported from `@copilotkit/vue` and `@copilotkit/react-core/v2` as a simpler alternative if you do not need streaming animation.
+A lighter `marked`-based component is exported as a simpler alternative if you do not need streaming animation — `BasicMarkdownRenderer` from `@copilotkit/react-core/v2` and `BasicMarkdown` from `@copilotkit/vue`.
 
 ## Related
 
