@@ -28,8 +28,9 @@ export type AgentContentPart =
       source: { type: "data"; value: string; mimeType: string };
     }
   | {
-      // Forwarded to the model as a file part (PDFs). The model reads it
-      // natively — requires a document-capable model (Claude, Gemini).
+      // Forwarded to the agent as a document part (PDFs). The agent's model
+      // reads it natively — requires a document-capable model (e.g. gpt-4.1,
+      // Claude, Gemini).
       type: "document";
       source: { type: "data"; value: string; mimeType: string };
     };
