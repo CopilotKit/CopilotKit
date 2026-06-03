@@ -133,10 +133,10 @@ model, and CSV/JSON/text are decoded and handed over as text. The SDK is
 transport-only — it downloads the upload and delivers it to the agent as
 multimodal content; the **app** decides what to do.
 
-> **PDFs (and images) need a vision/document-capable model.** Claude
-> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) read PDFs
-> natively. OpenAI models do **not** read PDFs through this path — set
-> `AGENT_MODEL` to a Claude/Gemini model + its API key to use PDF analysis.
+> **PDFs and images need a vision/document-capable model.** The default
+> `openai/gpt-4.1` reads both natively through this path, as do recent Claude
+> (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
+> An older text-only model will ignore the attached document.
 
 Two app-side tools turn analysis into pictures, rendered **locally** in a
 headless browser (reusing the Playwright dep) and posted back inline:
