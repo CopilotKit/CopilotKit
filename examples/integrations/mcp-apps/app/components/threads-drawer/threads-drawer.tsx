@@ -120,11 +120,14 @@ export default function ThreadsDrawer({
   >({});
 
   useEffect(() => {
+    const entryTimeouts = entryTimeoutsRef.current;
+    const titleTimeouts = titleTimeoutsRef.current;
+
     return () => {
-      for (const timeoutId of entryTimeoutsRef.current.values()) {
+      for (const timeoutId of entryTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
-      for (const timeoutId of titleTimeoutsRef.current.values()) {
+      for (const timeoutId of titleTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
     };
