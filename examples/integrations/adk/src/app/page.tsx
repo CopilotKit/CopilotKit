@@ -68,8 +68,9 @@ export default function CopilotKitPage() {
           <CopilotSidebar
             defaultOpen={true}
             labels={{
-              title: "Popup Assistant",
-              initial: "👋 Hi, there! You're chatting with an agent.",
+              modalHeaderTitle: "Popup Assistant",
+              welcomeMessageText:
+                "👋 Hi, there! You're chatting with an agent.",
             }}
             suggestions={[
               {
