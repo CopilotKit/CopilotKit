@@ -1,61 +1,111 @@
-# CopilotKit Demo App
+# Northwind Finance — CopilotKit v2 Banking Demo
 
-This demo application highlights the capabilities of CopilotKit by demonstrating how to build an app that emphasizes authorization, supports multiple operations, and incorporates generative UI elements. The banking application scenario serves as a practical example of these features in action.
+A customer-ready reference demo showing how to build a SaaS app with an embedded
+AI copilot on top of CopilotKit v2. The app — "Northwind Finance" — models a
+corporate banking dashboard where role-based users can view transactions,
+manage credit cards, and (for admins) manage team members. The copilot is
+wired into the same UI: it reads app context, calls typed tools to render
+generative UI, and asks the user to approve sensitive actions via
+human-in-the-loop.
 
-## Installation and running
-
-To get started, install the package and run the development server:
-
-```bash
-pnpm i
-```
-
-and then
+## Running locally
 
 ```bash
-pnpm dev
+export OPENAI_API_KEY=your-key
+pnpm install   # from the repo root — this demo is a workspace package
+pnpm --filter demo-saas-copilot dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+Then open <http://localhost:3000>.
 
-Please ensure to `export OPENAI_API_KEY=your-key` to enable OpenAI functionality.
+The demo runs against the workspace versions of `@copilotkit/*` (see the root
+`pnpm-workspace.yaml`). The seed dataset lives in memory and resets every time
+the server restarts.
 
-## Key Features and Their Locations
+## Architecture at a glance
 
-### Authorization and Contextualization
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Frontend (Next.js 16, React 19, Tailwind v4)                    │
+│  CopilotKitProvider + CopilotPopup  (@copilotkit/react-core/v2) │
+│  ├── useAgentContext       → share user / page state with agent │
+│  ├── useFrontendTool       → generative UI (showTransactions)   │
+│  └── useHumanInTheLoop     → approval flows (addNewCard, …)     │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │  AG-UI over SSE
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Runtime (Hono, same Next process)                               │
+│  src/app/api/copilotkit/[[...slug]]/route.ts                    │
+│    BuiltInAgent + CopilotRuntime + createCopilotHonoHandler     │
+│    (from @copilotkit/runtime/v2)                                │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Data layer                                                      │
+│  src/data/seed.json          → seed cards, members, txns        │
+│  src/lib/store.ts            → typed, in-memory store (resets)  │
+│  src/app/api/v1/*            → REST surface (cards, txns, team) │
+│  src/lib/identity.ts         → Northwind branding strings       │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-Authorization is key in this app, with users assigned to different departments and roles.
+## Key features and where to find them
 
-Explore how user roles and departments impact the app's behavior. Navigate to the bottom left corner and switch between users. This is done through an app-wide context provided to the co-pilot.<br>
-Implemented in `copilot-context.tsx`, it's a wrapper component that includes `useCopilotReadable` and `useCopilotAction` hooks for anything app-wide.
+### App-wide context for the copilot
 
-### Multiple operations and information
+`src/components/copilot-context.tsx` shares the current user and the current
+page with the agent via `useAgentContext`, so the LLM can adapt its responses
+to the logged-in role and the route the user is on. The Northwind brand and
+assistant greeting are centralized in `src/lib/identity.ts`.
 
-The application offers various operations that can be performed through the co-pilot on different pages. Here are some examples:
+Switch between users from the bottom-left avatar in the sidebar to see how
+role (Admin vs Assistant) changes what the copilot will agree to do.
 
-- On the `/cards` page, you can request the co-pilot to change a credit card's PIN or add a new card. Note that adding a new card may have different outcomes depending on the user's role.
-- On the `/team` page, the co-pilot can assist with inviting a new member, editing a member's role or department, or removing a member.
+### Generative UI — `showTransactions`
 
-### Generative UI
+The cards landing page at `src/app/page.tsx` registers
+`useFrontendTool({ name: "showTransactions", render })`. When you ask the
+copilot something like _"Show me transactions for my card ending 4242"_, the
+LLM calls the tool and the rendered list IS the answer — there is no
+follow-up paragraph restating the data.
 
-The app demonstrates the power of Generative UI through two main examples in `cards/page.tsx`:
+### Human-in-the-loop — `addNewCard` and `navigateToPageAndPerform`
 
-- Transaction Viewing:
-  - The `showTransactions` `useCopilotAction` exemplifies the ability to present information via a component, eliminating the need for additional text or LLM follow-up.
-  - Trigger this feature by requesting the co-pilot to display all transactions for a specific card, identified by its last 4 digits.
-- Transaction Approval:
-  - The `showAndApproveTransactions` `useCopilotAction` demonstrates the capacity to solicit user action, specifically the approval of transactions. This process is done one transaction at a time, ensuring all are resolved.
-  - Engage this feature by asking the co-pilot to display all transactions awaiting approval, such as "Show me all transactions pending my approval".
+- `useHumanInTheLoop({ name: "addNewCard", render })` in `src/app/page.tsx`
+  shows the "add card" confirmation card directly in chat; the user clicks
+  Approve / Cancel and the result is sent back to the agent. The team page
+  (`src/app/team/page.tsx`) uses the same pattern for inviting, editing, and
+  removing members.
+- `useHumanInTheLoop({ name: "navigateToPageAndPerform" })` in
+  `src/components/copilot-context.tsx` is the cross-page fallback: if the user
+  asks for an operation that lives on another page (e.g. "change my Visa PIN"
+  from the team page), the copilot asks for permission to navigate, then
+  redirects with an `?operation=…` query param so the destination page can
+  open the right dialog.
 
-### Handling Unavailable Actions
+### Role-based behaviour
 
-The app handles unsupported actions by redirecting users to the relevant page, optionally starting the task. Explore this on the main page:
+Authorization is communicated to the agent through `useAgentContext` rather
+than enforced on the LLM by prompt alone. The REST handlers in
+`src/app/api/v1/*` enforce the same rules on the server side, so a curious
+user (or a hallucinating model) cannot bypass them.
 
-- Ask the co-pilot to change a card's PIN (e.g., "Let's change the pin for my Visa"), and it will redirect you to the cards page with a change PIN popup.
-- Request assigning a policy to a card, and the co-pilot will acknowledge its inability to assist and offer guidance.
+## Backend & data
 
-This feature is implemented in `copilot-context.tsx` as `navigateToPageAndPerform`.
+- All read/write goes through `src/lib/store.ts`, which exposes typed helpers
+  (`findCard`, `updateCardPin`, `listTransactions`, etc.) over an in-memory
+  copy of `src/data/seed.json`.
+- The REST endpoints under `src/app/api/v1/*` (cards, transactions, team) are
+  thin handlers around the store and are what the UI uses.
+- There is no database. State resets on every server restart — this keeps the
+  demo deterministic for screenshots, e2e tests, and customer walkthroughs.
 
-## Backend and data
+## Tests
 
-The `/api/v1` path serves as the primary endpoint for API requests, handling various routes that interact with the application's data. Notably, the `data.ts` file contains hardcoded data that is utilized throughout the application.
+End-to-end Playwright smoke tests live under `e2e/` and can be run with:
+
+```bash
+pnpm --filter demo-saas-copilot test:e2e
+```
