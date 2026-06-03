@@ -1,12 +1,14 @@
 "use client";
 import { LayoutComponent } from "@/components/layout";
 import {
+  CopilotChatConfigurationProvider,
   CopilotKit,
   CopilotPopup,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import CopilotContext from "@/components/copilot-context";
 import { useAuthContext } from "@/components/auth-context";
+import { useThreadSelection } from "@/components/threads/use-thread-selection";
 import { IDENTITY } from "@/lib/identity";
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
@@ -32,6 +34,7 @@ function BankingSuggestions() {
 
 export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuthContext();
+  const { threadId, selectThread, createThread } = useThreadSelection();
 
   return (
     <CopilotKit
@@ -43,17 +46,37 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
       useSingleEndpoint={false}
       properties={{ userRole: currentUser?.role }}
     >
-      <BankingSuggestions />
-      <LayoutComponent>
-        <CopilotContext>{children}</CopilotContext>
-      </LayoutComponent>
-      <CopilotPopup
-        defaultOpen={false}
-        labels={{
-          modalHeaderTitle: IDENTITY.assistant,
-          welcomeMessageText: IDENTITY.greeting,
-        }}
-      />
+      {/*
+        Anchor the whole chat surface to the actively-selected thread. The
+        agentId is "default" — the runtime registers `agents: { default: ... }`
+        and the SDK's default agentId is also "default" (NOT "bankingAgent").
+        `hasExplicitThreadId` tells the SDK the threadId is a real caller choice
+        so frontend-tool round-trips keep their thread anchor. Side effect: it
+        also suppresses the SDK's built-in welcome screen (acceptable for Phase A).
+      */}
+      <CopilotChatConfigurationProvider
+        agentId="default"
+        threadId={threadId}
+        hasExplicitThreadId
+      >
+        <BankingSuggestions />
+        <LayoutComponent
+          selectedThreadId={threadId}
+          onSelectThread={selectThread}
+          onCreateThread={createThread}
+        >
+          <CopilotContext>{children}</CopilotContext>
+        </LayoutComponent>
+        <CopilotPopup
+          agentId="default"
+          threadId={threadId}
+          defaultOpen={false}
+          labels={{
+            modalHeaderTitle: IDENTITY.assistant,
+            welcomeMessageText: IDENTITY.greeting,
+          }}
+        />
+      </CopilotChatConfigurationProvider>
     </CopilotKit>
   );
 }

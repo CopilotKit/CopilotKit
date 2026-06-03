@@ -13,7 +13,7 @@ import {
 import { useAuthContext } from "@/components/auth-context";
 import type { ExpenseRole } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { TeamPageOperations } from "@/components/copilot-context";
 import { useSearchParams } from "next/navigation";
 import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
@@ -24,47 +24,7 @@ import {
   defaultDialogState,
 } from "@/components/add-or-edit-member-dialog";
 import { RemoveMemberConfirmationDialog } from "@/components/remove-member-dialog";
-
-function ApprovalButtons({
-  onApprove,
-  onDeny,
-  approveLabel = "Approve",
-  denyLabel = "Deny",
-}: {
-  onApprove: () => Promise<void> | void;
-  onDeny: () => void;
-  approveLabel?: string;
-  denyLabel?: string;
-}) {
-  const [responded, setResponded] = useState(false);
-
-  if (responded) {
-    return <p className="text-sm text-gray-500 italic">Response submitted.</p>;
-  }
-
-  return (
-    <div className="flex gap-2">
-      <button
-        className="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        onClick={async () => {
-          setResponded(true);
-          await onApprove();
-        }}
-      >
-        {approveLabel}
-      </button>
-      <button
-        className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-        onClick={() => {
-          setResponded(true);
-          onDeny();
-        }}
-      >
-        {denyLabel}
-      </button>
-    </div>
-  );
-}
+import { ApprovalButtons } from "@/components/approval-buttons";
 
 const dialogStateReducer = (
   state: DialogState,
