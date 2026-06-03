@@ -107,7 +107,7 @@ export default function CopilotKitPage() {
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
-  // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
+  // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
   // V2: useAgent returns the agent; read agent.state and write via agent.setState.
   const { agent } = useAgent({ agentId: "my_agent" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
@@ -124,7 +124,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     }
   }, [agent]);
 
-  //🪁 Generative UI: https://docs.copilotkit.ai/pydantic-ai/generative-ui
+  //🪁 Generative UI: https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui
   useFrontendTool(
     {
       name: "get_weather",
