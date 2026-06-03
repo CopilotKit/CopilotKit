@@ -13,19 +13,10 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
 
   if (process.env.NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED === "true") {
     if (!mounted) {
-      // SSR / first-paint placeholder: reserve the drawer's width, nothing
-      // interactive, light surface so there's no dark flash before mount.
-      return (
-        <div
-          aria-hidden
-          style={{
-            width: "18rem",
-            flexShrink: 0,
-            background: "var(--card)",
-            borderRight: "1px solid var(--border)",
-          }}
-        />
-      );
+      // SSR / first-paint placeholder: matches the open drawer's footprint +
+      // surface (and collapses to nothing on mobile) so the panel doesn't flash
+      // a bare-background column or shift the content when the drawer mounts.
+      return <div className={styles.drawerPlaceholder} aria-hidden />;
     }
     return <>{children}</>;
   }
