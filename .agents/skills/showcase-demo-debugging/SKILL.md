@@ -1,6 +1,8 @@
 ---
 name: showcase-demo-debugging
 description: Build, debug, and regression-test CopilotKit showcase demos. Use when working under showcase/, creating new showcase demos/items/cells/pills, implementing showcase features, investigating showcase demo bugs, D5/e2e-deep failures, aimock fixture gaps, direct-LLM versus aimock behavior, recording fixtures, testing every demo pill/cell, verifying repeated and interleaved suggestion-pill fixture stability, enforcing langgraph-python 1:1 parity, or migrating a demo to the v2 CopilotKit showcase flow.
+metadata:
+  internal: true
 ---
 
 # Showcase Demo Work
