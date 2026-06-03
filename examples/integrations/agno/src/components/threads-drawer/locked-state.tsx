@@ -30,7 +30,7 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col items-center justify-center p-4">
+    <div className="flex w-72 shrink-0 flex-col items-center justify-center p-4 bg-[var(--threads-drawer-bg,var(--card))] border-r border-[var(--threads-drawer-border,var(--border))]">
       <Card className="w-full">
         <CardHeader>
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--secondary)]">
