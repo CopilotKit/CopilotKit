@@ -685,13 +685,20 @@
     flex-direction: row;
     width: auto;
     height: auto;
-    gap: 0.25rem;
-    padding: 0.25rem;
+    gap: 0.125rem;
+    padding: 0.1875rem;
     overflow: visible;
     border-radius: 999px;
     background: var(--threads-drawer-bg, var(--card));
     border: 1px solid var(--threads-drawer-border, var(--border));
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  }
+
+  /* Trim the launcher's icon buttons so the pill's height lines up with the
+     top-right Chat/App toggle instead of towering over it. */
+  .drawerClosed .collapsedRail .iconButton {
+    width: 1.75rem;
+    height: 1.75rem;
   }
 
   /* Open: full-height off-canvas panel from the left, above the chat. */
