@@ -401,9 +401,9 @@
 .tooltip::after {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 0.35rem);
+  top: calc(100% + 0.35rem);
   left: 50%;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(-2px);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);

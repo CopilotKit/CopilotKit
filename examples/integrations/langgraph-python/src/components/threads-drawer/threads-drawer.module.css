@@ -367,9 +367,9 @@
 .tooltip::after {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 0.3rem);
+  top: calc(100% + 0.3rem);
   left: 50%;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(-2px);
   padding: 0.2rem 0.45rem;
   border-radius: var(--threads-tooltip-radius, calc(var(--radius) - 0.45rem));
   border: 1px solid var(--border);

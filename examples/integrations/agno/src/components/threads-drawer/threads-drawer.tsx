@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Rows3,
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -217,7 +216,8 @@ export default function ThreadsDrawer({
         <div className={styles.collapsedRail}>
           <button
             aria-label="Open threads drawer"
-            className={styles.iconButton}
+            data-tooltip="Expand"
+            className={cx(styles.iconButton, styles.tooltip)}
             type="button"
             onClick={() => setIsOpen(true)}
           >
@@ -225,17 +225,13 @@ export default function ThreadsDrawer({
           </button>
           <button
             aria-label="Create thread"
-            className={styles.iconButton}
+            data-tooltip="New thread"
+            className={cx(styles.iconButton, styles.tooltip)}
             type="button"
             onClick={() => onThreadChange(undefined)}
           >
             <Plus size={18} />
           </button>
-          <Rows3
-            aria-hidden
-            size={18}
-            style={{ color: "var(--muted-foreground)" }}
-          />
         </div>
       </aside>
     );
