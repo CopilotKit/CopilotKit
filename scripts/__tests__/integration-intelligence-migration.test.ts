@@ -80,6 +80,18 @@ describe("batch-2 Intelligence integration migration", () => {
       expect(page).toContain("CopilotChatConfigurationProvider");
       expect(page).toContain("threadId");
       expect(page).toContain("onThreadChange={setThreadId}");
+
+      if (integration === "mcp-apps") {
+        expect(page).toContain('key={threadId ?? "new-thread"}');
+        expect(page).toContain("threadId={threadId}");
+
+        const drawer = readIntegrationFile(
+          integration,
+          "app/components/threads-drawer/threads-drawer.tsx",
+        );
+        expect(drawer).toContain("onThreadChange(undefined)");
+        expect(drawer).not.toContain("crypto.randomUUID()");
+      }
     });
 
     it(`${integration} exposes the client-safe threads enabled gate`, () => {

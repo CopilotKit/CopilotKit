@@ -239,7 +239,7 @@ export default function ThreadsDrawer({
             title="New thread"
             className={styles.iconButton}
             type="button"
-            onClick={() => onThreadChange(crypto.randomUUID())}
+            onClick={() => onThreadChange(undefined)}
           >
             <Plus size={18} />
           </button>
@@ -271,7 +271,7 @@ export default function ThreadsDrawer({
                 aria-label="Create thread"
                 className={styles.newThreadButton}
                 type="button"
-                onClick={() => onThreadChange(crypto.randomUUID())}
+                onClick={() => onThreadChange(undefined)}
               >
                 <Plus size={14} />
                 <span>New thread</span>

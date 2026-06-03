@@ -27,7 +27,12 @@ export default function CopilotKitPage() {
       <div className={styles.mainPanel}>
         <CopilotChatConfigurationProvider agentId={agentId} threadId={threadId}>
           <main className="h-screen w-screen flex justify-center items-center">
-            <CopilotChat agentId={agentId} className="w-1/2 h-full" />
+            <CopilotChat
+              key={threadId ?? "new-thread"}
+              agentId={agentId}
+              threadId={threadId}
+              className="w-1/2 h-full"
+            />
           </main>
         </CopilotChatConfigurationProvider>
       </div>
