@@ -191,6 +191,15 @@ export function CopilotChat({
     consumeAttachments,
   } = useAttachments({ config: attachmentsConfig });
 
+  // onSubmitInput awaits an in-flight run before sending the new message, so
+  // it must re-check the "uploading" guard against FRESH state AFTER the await
+  // — the closure-captured `selectedAttachments` is stale across the await
+  // (an upload can start during the wait).
+  const selectedAttachmentsRef = useRef(selectedAttachments);
+  useEffect(() => {
+    selectedAttachmentsRef.current = selectedAttachments;
+  }, [selectedAttachments]);
+
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
 
@@ -288,14 +297,77 @@ export function CopilotChat({
 
   const onSubmitInput = useCallback(
     async (value: string) => {
-      // Block if uploads in progress
-      const hasUploading = selectedAttachments.some(
-        (a) => a.status === "uploading",
-      );
-      if (hasUploading) {
+      // Block if uploads in progress (fast fail against current state before
+      // the value is committed — re-checked against live state after the
+      // await below, since an upload can start during the wait).
+      if (
+        selectedAttachmentsRef.current.some((a) => a.status === "uploading")
+      ) {
         console.error(
-          "[CopilotKit] Cannot send while attachments are uploading",
+          "[CopilotKit] Cannot send while attachments are uploading (pre-await guard)",
         );
+        setTranscriptionError("Cannot send while attachments are uploading.");
+        return;
+      }
+
+      // Clear the input immediately so the composer reflects the accepted send
+      // even though the actual dispatch may be deferred behind the in-flight
+      // run. If the post-await guard later BLOCKS the send (e.g. an upload
+      // starts during the await), the typed text is RESTORED to the composer
+      // below so it is never silently lost.
+      setInputValue("");
+
+      // If a run is already in flight, let it finish before sending the new
+      // message instead of pre-empting it. `copilotkit.runAgent` would
+      // otherwise call `agent.detachActiveRun()` and ABORT the in-flight run.
+      // That abort is harmful when the in-flight run is an interrupt RESUME:
+      // the resume re-enters and completes the paused agent graph, and
+      // aborting it mid-flight leaves the graph paused — so this new message
+      // lands as another resume of the SAME paused graph (re-interrupting
+      // with no fresh payload) instead of starting a clean new turn. This is
+      // the consecutive-interrupt regression: pick turn-1's slot (kicks off
+      // the resume), then immediately send turn-2's message — without waiting,
+      // turn-2 aborts the resume and the 2nd interrupt's card never mounts.
+      // Awaiting the active run's completion serializes the two turns so the
+      // resume finishes (graph completes) before the new message starts a
+      // fresh run.
+      if (
+        agent.isRunning &&
+        "activeRunCompletionPromise" in agent &&
+        (agent as unknown as { activeRunCompletionPromise?: Promise<unknown> })
+          .activeRunCompletionPromise
+      ) {
+        try {
+          await (
+            agent as unknown as {
+              activeRunCompletionPromise?: Promise<unknown>;
+            }
+          ).activeRunCompletionPromise;
+        } catch (error) {
+          // The in-flight run rejected — proceed with the new send anyway,
+          // but log so a chronically-failing in-flight run is observable.
+          console.error(
+            "CopilotChat: in-flight run rejected while queuing send",
+            error,
+          );
+        }
+      }
+
+      // Re-check the uploading guard against LIVE attachment state: an upload
+      // can start (or stay in flight) during the await above, so a snapshot
+      // taken before the await could consume an attachment with an incomplete
+      // source. On block, RESTORE the typed text to the composer (it was
+      // optimistically cleared on accept) so the user's input is not silently
+      // lost, and surface a user-visible banner — console.error alone is
+      // invisible to the user.
+      if (
+        selectedAttachmentsRef.current.some((a) => a.status === "uploading")
+      ) {
+        console.error(
+          "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
+        );
+        setTranscriptionError("Cannot send while attachments are uploading.");
+        setInputValue(value);
         return;
       }
 
@@ -329,8 +401,6 @@ export function CopilotChat({
         });
       }
 
-      // Clear input after submitting
-      setInputValue("");
       try {
         await copilotkit.runAgent({ agent });
       } catch (error) {
@@ -339,7 +409,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [agent, consumeAttachments],
   );
 
   const handleSelectSuggestion = useCallback(

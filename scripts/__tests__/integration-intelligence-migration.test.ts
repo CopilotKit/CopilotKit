@@ -5,7 +5,12 @@ import * as path from "node:path";
 const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-const migratedIntegrations = ["crewai-flows", "llamaindex"] as const;
+const migratedIntegrations = [
+  "crewai-flows",
+  "llamaindex",
+  "langgraph-fastapi",
+  "pydantic-ai",
+] as const;
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
 function readIntegrationFile(
