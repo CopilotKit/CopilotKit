@@ -58,7 +58,7 @@ services:
   # ---------------------------------------------------------------------------
 
   intelligence:
-    image: ghcr.io/copilotkit/intelligence/composite:0.1.0
+    image: ghcr.io/copilotkit/intelligence/composite:0.2.0
     ports:
       - "${APP_API_HOST_PORT:-4201}:4201"
       - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
@@ -69,6 +69,10 @@ services:
       RUNNER_AUTH_SECRET: dev-runner-secret
       SECRET_KEY_BASE: local-realtime-gateway-secret-key-base-at-least-64-bytes-long-for-dev
       DEFAULT_ORGANIZATION_ID: casa-de-erlang
+      # Local dev: the web app runs on http://localhost:<port>, not the gateway's
+      # configured https://localhost, so disable Phoenix origin checking on the
+      # realtime-gateway websocket (otherwise client WS connects get a 403).
+      CHECK_ORIGIN: "false"
       COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
       THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-3}"
       THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
@@ -78,6 +82,34 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - intelligence
+
+  # ---------------------------------------------------------------------------
+  # Demo user provisioning (one-shot)
+  # ---------------------------------------------------------------------------
+  # Ensures the runtime's identifyUser id (COPILOTKIT_DEMO_USER_ID, default
+  # "demo-user") exists in cpki.users so created threads can attach to it.
+  # Idempotent; mirrors the two-row pattern the composite's startup seed uses:
+  # a bare id (membership checks) plus a per-project scoped alias
+  # "<projectId>_<userId>" (the threads_user_id_fkey target). Runs once after the
+  # composite is healthy (schema + org/projects seeded), then exits.
+  provision-user:
+    image: postgres:16-alpine
+    depends_on:
+      intelligence:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: intelligence
+      DEMO_USER_ID: "${COPILOTKIT_DEMO_USER_ID:-demo-user}"
+      ORG_ID: "${COPILOTKIT_ORGANIZATION_ID:-casa-de-erlang}"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -h postgres -U intelligence -d intelligence_app -v ON_ERROR_STOP=1 \
+          -c "INSERT INTO cpki.users (id, organization_id) VALUES ('$$DEMO_USER_ID', '$$ORG_ID') ON CONFLICT (id) DO NOTHING;" \
+          -c "INSERT INTO cpki.users (id, organization_id) SELECT p.id || '_' || '$$DEMO_USER_ID', '$$ORG_ID' FROM cpki.projects p WHERE p.organization_id = '$$ORG_ID' AND p.deleted_at IS NULL ON CONFLICT (id) DO NOTHING;"
+    restart: "no"
     networks:
       - intelligence
 
