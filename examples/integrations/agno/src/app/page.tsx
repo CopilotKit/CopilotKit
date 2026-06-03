@@ -7,6 +7,7 @@ import {
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 import React, { useState } from "react";
+import { z } from "zod";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
 import { WeatherCard } from "@/components/weather";
 
@@ -16,13 +17,11 @@ export default function CopilotKitPage() {
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
     name: "set_theme_color",
-    parameters: [
-      {
-        name: "theme_color",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      theme_color: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler({ theme_color }) {
       setThemeColor(theme_color);
     },
@@ -79,13 +78,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/agno/frontend-tools
   useFrontendTool({
     name: "add_proverb",
-    parameters: [
-      {
-        name: "proverb",
-        description: "The proverb to add. Make it witty, short and concise.",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      proverb: z
+        .string()
+        .describe("The proverb to add. Make it witty, short and concise."),
+    }),
     handler: ({ proverb }) => {
       setState({
         ...state,

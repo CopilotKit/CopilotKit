@@ -22,7 +22,8 @@
     "hono": "^4",
     "next": "15.5.15",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",

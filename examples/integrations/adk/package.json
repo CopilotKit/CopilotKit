@@ -21,7 +21,8 @@
     "next": "16.1.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "shiki": "^3.19.0"
+    "shiki": "^3.19.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
