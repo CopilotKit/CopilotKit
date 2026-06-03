@@ -15,11 +15,10 @@ import { ThreadsDrawer } from "@/components/threads-drawer";
 import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
-// agno registers a single agent under the key "agno_agent" (see
-// src/app/api/copilotkit/[[...slug]]/route.ts) and CopilotKit is mounted with
-// agent="agno_agent" in layout.tsx, so the threads drawer + chat config provider
-// must address that same agent id.
-const AGENT_ID = "agno_agent";
+// agno registers a single agent under the key "default" (see
+// src/app/api/copilotkit/[[...slug]]/route.ts), so the threads drawer + chat
+// config provider must address that same agent id.
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");

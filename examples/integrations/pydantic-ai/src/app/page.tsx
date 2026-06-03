@@ -43,14 +43,14 @@ export default function CopilotKitPage() {
     <div className={`${styles.layout} threadsLayout`}>
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
       </ThreadsPanelGate>
       <div className={styles.mainPanel}>
         <CopilotChatConfigurationProvider
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
         >
           <main
@@ -107,7 +107,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
   const { agent } = useAgent({
-    agentId: "my_agent",
+    agentId: "default",
   });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);

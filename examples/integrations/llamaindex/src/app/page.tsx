@@ -37,14 +37,14 @@ export default function CopilotKitPage() {
     <div className={`${styles.layout} threadsLayout`}>
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="sample_agent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
       </ThreadsPanelGate>
       <div className={styles.mainPanel}>
         <CopilotChatConfigurationProvider
-          agentId="sample_agent"
+          agentId="default"
           threadId={threadId}
         >
           <main
@@ -79,7 +79,7 @@ type AgentState = {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
   // V2: useAgent returns the agent; read agent.state and write via agent.setState.
-  const { agent } = useAgent({ agentId: "sample_agent" });
+  const { agent } = useAgent({ agentId: "default" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);
 

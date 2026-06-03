@@ -19,9 +19,9 @@ import { z } from "zod";
 
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
-// The agent key registered in the runtime route (`agents: { my_agent: ... }`)
-// and the id passed to `useAgent({ agentId: "my_agent" })` below.
-const AGENT_ID = "my_agent";
+// The agent key registered in the runtime route (`agents: { default: ... }`)
+// and the id passed to `useAgent({ agentId: "default" })` below.
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");

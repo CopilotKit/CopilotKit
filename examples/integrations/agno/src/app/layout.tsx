@@ -20,7 +20,6 @@ export default function RootLayout({
         {/* Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev). */}
         <CopilotKit
           runtimeUrl="/api/copilotkit"
-          agent="agno_agent"
           useSingleEndpoint={false}
         >
           {children}
