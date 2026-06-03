@@ -306,8 +306,7 @@ export function CopilotChat({
       // Capture the agent at enqueue time so an agent change mid-send routes to
       // the correct chain.
       const thisAgent = agent;
-      const prior =
-        sendChainsRef.current.get(thisAgent) ?? Promise.resolve();
+      const prior = sendChainsRef.current.get(thisAgent) ?? Promise.resolve();
 
       // Swallow the prior chain's rejection so one failed send never breaks the
       // chain for subsequent sends.
