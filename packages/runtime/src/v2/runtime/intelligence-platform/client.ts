@@ -205,9 +205,11 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
  * from the customer's BFF auth before calling this; the platform prefixes
  * it with the project id at write time.
  *
- * Known `type` values and their `payload` shapes:
- * - `"user_action"` — `{ title?, description?, data? }`
- * - `"set_learning_containers"` — `{ containers: string[] }`
+ * `payload` is the type-specific JSON blob for the annotation (e.g. a
+ * `"user_action"` event carries the recorded fields, a
+ * `"set_learning_containers"` event carries the container list). The exact
+ * shape per type is validated by the Intelligence backend; canonical shapes
+ * are documented on the Intelligence react-core side.
  */
 export interface AnnotateParams {
   /** The user the annotation belongs to. */
