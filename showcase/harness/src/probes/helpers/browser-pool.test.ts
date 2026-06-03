@@ -1594,7 +1594,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
-
   // ── STAGING-OUTAGE REGRESSIONS (PID-ceiling thread exhaustion) ────────────
   // Reproduces the 10:41–10:57Z outage: the container hit `pthread_create:
   // Resource temporarily unavailable (errno 11)` — OS thread/PID-ceiling
