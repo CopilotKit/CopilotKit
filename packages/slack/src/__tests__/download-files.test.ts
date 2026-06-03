@@ -90,6 +90,32 @@ describe("buildFileContentParts", () => {
     });
   });
 
+  it.each([
+    { name: "memo.mp3", mimetype: "audio/mpeg", expected: "audio" },
+    { name: "clip.mp4", mimetype: "video/mp4", expected: "video" },
+  ])(
+    "passes $mimetype through as a $expected part",
+    async ({ name, mimetype, expected }) => {
+      const bytes = Buffer.from([9, 8, 7, 6]);
+      const file: SlackFileRef = {
+        name,
+        mimetype,
+        url_private: `https://files.slack.com/${name}`,
+      };
+      vi.stubGlobal("fetch", fakeFetch({ [file.url_private!]: { bytes } }));
+      const { parts, notes } = await buildFileContentParts([file], "tok");
+      expect(notes).toEqual([]);
+      expect(parts[0]).toMatchObject({
+        type: expected,
+        source: {
+          type: "data",
+          mimeType: mimetype,
+          value: bytes.toString("base64"),
+        },
+      });
+    },
+  );
+
   it("skips genuinely unsupported types with a note", async () => {
     const zip: SlackFileRef = {
       name: "a.zip",

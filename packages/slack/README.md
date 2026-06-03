@@ -31,6 +31,12 @@ The bridge handles:
 - **Interrupt-on-new-message** — a fresh user reply mid-stream aborts
   the in-flight agent run, marks the partial reply
   `_(interrupted)_`, and cancels any pending HITL/interrupt waits.
+- **Inbound files** — uploaded images, audio, video, and PDFs are
+  downloaded and delivered to the agent as AG-UI multimodal content
+  parts; CSV / JSON / text are decoded inline. The bridge is
+  transport-only — the model consumes whatever modalities it supports
+  (most read images and PDFs; far fewer accept audio/video). A tool can
+  post a file back out via `postFile`.
 - **No durable bridge state** — Slack itself is the source of truth.
   Restarts rebuild conversation history from `conversations.replies`
   on the next turn.
@@ -226,6 +232,5 @@ AGENT_AUTH_HEADER=Bearer your-token
 ## What's not here yet
 
 - **Modals / shortcuts / home tab** — Block Kit inside threads only.
-- **File uploads** — both directions, deferred.
 - **Multi-workspace install (OAuth)** — single-workspace bot token today;
   the customer-workspace install/OAuth path is future work.

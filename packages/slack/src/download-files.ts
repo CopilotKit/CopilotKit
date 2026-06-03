@@ -1,8 +1,9 @@
 /**
  * Inbound file transport. Slack messages can carry uploaded `files`; this
  * turns them into AG-UI multimodal message content the agent's model can
- * read — images as `image` parts, text/CSV/JSON as decoded `text` parts —
- * downloading each from its (private) `url_private` with the bot token.
+ * read — images, audio, video, and PDFs as their respective binary parts,
+ * and text/CSV/JSON as decoded `text` parts — downloading each from its
+ * (private) `url_private` with the bot token.
  *
  * The bridge is transport-only: it delivers the bytes/text to the agent and
  * lets the app decide what to do with them. Anything it can't represent is
@@ -20,20 +21,23 @@ export interface SlackFileRef {
   size?: number;
 }
 
-/** AG-UI multimodal content parts (shape the runtime's converter expects). */
+/** A base64 data source, shared by every binary media part. */
+type MediaDataSource = { type: "data"; value: string; mimeType: string };
+
+/**
+ * AG-UI multimodal content parts (shape the runtime's converter expects).
+ *
+ * Binary media (image/audio/video/document) is passed straight through as a
+ * data part; the agent's model decides what it can actually consume. Most
+ * models read images and PDFs; far fewer accept audio or video. The bridge
+ * stays transport-only and does not gate on model capability.
+ */
 export type AgentContentPart =
   | { type: "text"; text: string }
-  | {
-      type: "image";
-      source: { type: "data"; value: string; mimeType: string };
-    }
-  | {
-      // Forwarded to the agent as a document part (PDFs). The agent's model
-      // reads it natively — requires a document-capable model (e.g. gpt-4.1,
-      // Claude, Gemini).
-      type: "document";
-      source: { type: "data"; value: string; mimeType: string };
-    };
+  | { type: "image"; source: MediaDataSource }
+  | { type: "audio"; source: MediaDataSource }
+  | { type: "video"; source: MediaDataSource }
+  | { type: "document"; source: MediaDataSource };
 
 /** Tunables for inbound file handling (all optional; sane defaults). */
 export interface FileDeliveryConfig {
@@ -60,17 +64,27 @@ const TEXT_MIME_EXACT = new Set([
   "application/yaml",
 ]);
 
-function isImage(mime: string): boolean {
-  return mime.startsWith("image/");
-}
 function isText(mime: string): boolean {
   return (
     TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p)) ||
     TEXT_MIME_EXACT.has(mime)
   );
 }
-function isDocument(mime: string): boolean {
-  return mime === "application/pdf";
+
+/**
+ * The AG-UI media part type that carries this MIME, or null if it isn't a
+ * binary medium we pass through. Images/audio/video go by their top-level
+ * type; PDFs map to `document`. Everything else is left to the text path or
+ * skipped.
+ */
+function mediaPartType(
+  mime: string,
+): "image" | "audio" | "video" | "document" | null {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  if (mime === "application/pdf") return "document";
+  return null;
 }
 
 /**
@@ -99,11 +113,12 @@ export async function buildFileContentParts(
   for (const f of considered) {
     const label = f.name ?? f.id ?? "file";
     const mime = (f.mimetype ?? "").toLowerCase();
+    const media = mediaPartType(mime);
     if (!f.url_private) {
       notes.push(`skipped "${label}": no download URL`);
       continue;
     }
-    if (!isImage(mime) && !isText(mime) && !isDocument(mime)) {
+    if (!media && !isText(mime)) {
       notes.push(
         `skipped "${label}" (${mime || f.filetype || "unknown"}): unsupported type`,
       );
@@ -137,20 +152,11 @@ export async function buildFileContentParts(
       continue;
     }
 
-    if (isImage(mime)) {
+    if (media) {
+      // Image/audio/video/PDF → a binary data part the model reads natively
+      // (subject to its modality support). The bridge just delivers it.
       parts.push({
-        type: "image",
-        source: {
-          type: "data",
-          value: bytes.toString("base64"),
-          mimeType: mime,
-        },
-      });
-    } else if (isDocument(mime)) {
-      // PDF → document/file part; the model reads it natively (needs a
-      // document-capable model such as Claude or Gemini).
-      parts.push({
-        type: "document",
+        type: media,
         source: {
           type: "data",
           value: bytes.toString("base64"),
