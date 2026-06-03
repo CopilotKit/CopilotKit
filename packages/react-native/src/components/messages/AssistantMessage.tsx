@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, type ViewStyle } from "react-native";
 import { CopilotMarkdown } from "../Markdown";
-import { useMarkdownRenderer } from "../MarkdownRendererContext";
+import { useMarkdownRenderer, isNativeComponentRenderer } from "../MarkdownRendererContext";
 import { TypingIndicator } from "./TypingIndicator";
 import { formatTimestamp } from "./utils";
 
@@ -40,13 +40,15 @@ export function AssistantMessage({
   // `markdownRenderer` prop), falling back to the built-in CopilotMarkdown.
   // This is the React Native arm of the slot -> provider -> built-in
   // resolution order documented in the migration guide.
-  const ProvidedRenderer = useMarkdownRenderer();
+  const provided = useMarkdownRenderer();
   return (
     <View style={[styles.container, style]}>
       <View style={styles.bubble}>
         {content ? (
-          ProvidedRenderer ? (
-            <ProvidedRenderer content={content} isStreaming={isLoading} />
+          isNativeComponentRenderer(provided) ? (
+            React.createElement(provided, { content, isStreaming: isLoading })
+          ) : provided ? (
+            <CopilotMarkdown content={content} style={provided.style} streamingAnimation={provided.animate} />
           ) : (
             <CopilotMarkdown content={content} />
           )

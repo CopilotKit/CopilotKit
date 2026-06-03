@@ -5,13 +5,13 @@ import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
 } from "@copilotkit/markdown-renderer/react";
-import type { MarkdownRendererProps } from "../../providers/MarkdownRendererContext";
+import type { DefaultMarkdownRendererProps, MarkdownRendererProps } from "../../providers/MarkdownRendererContext";
 
 // Theme code blocks to CopilotKit's readable, theme-aware treatment
 // (light/dark safe). Key is "codeBlock" (camelCase) per NODE_TYPE_TO_RENDERER_KEY.
 // The code-block AST node is a leaf: its raw source text lives in node.text;
 // node.info holds the language/info string (e.g. "ts" from ```ts).
-const nodeRenderers = createStreamingMarkdownNodeRenderers({
+const defaultNodeRenderers = createStreamingMarkdownNodeRenderers({
   codeBlock: ({ node }) => (
     <pre className="cpk:overflow-x-auto cpk:rounded-lg cpk:bg-muted cpk:text-foreground cpk:p-3">
       <code data-code-info={node.info ?? undefined}>{node.text}</code>
@@ -30,14 +30,25 @@ export function StreamingMarkdownDefaultRenderer({
   content,
   isStreaming,
   className,
-}: MarkdownRendererProps) {
+  nodeRenderers,
+  caret,
+  options,
+  onLinkClick,
+  onCitationClick,
+}: MarkdownRendererProps & DefaultMarkdownRendererProps) {
   if (!content) return null;
+  const mergedNodeRenderers = nodeRenderers
+    ? createStreamingMarkdownNodeRenderers({ ...defaultNodeRenderers, ...nodeRenderers })
+    : defaultNodeRenderers;
   return (
     <StreamingMarkdownRenderer
       className={className}
       isComplete={!isStreaming}
-      caret={!!isStreaming}
-      nodeRenderers={nodeRenderers}
+      caret={caret ?? !!isStreaming}
+      nodeRenderers={mergedNodeRenderers}
+      options={options}
+      onLinkClick={onLinkClick}
+      onCitationClick={onCitationClick}
     >
       {content}
     </StreamingMarkdownRenderer>

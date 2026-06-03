@@ -12,7 +12,7 @@ import {
   IconVolume2,
 } from "../icons";
 import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
-import { useMarkdownRenderer } from "../../providers/markdown-renderer";
+import { useMarkdownRenderer, isVueComponentRenderer } from "../../providers/markdown-renderer";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
@@ -127,8 +127,14 @@ const normalizedContent = computed(() =>
 const hasContent = computed(() => normalizedContent.value.trim().length > 0);
 
 const providerMarkdownRenderer = useMarkdownRenderer();
-const ActiveMarkdownRenderer = computed(
-  () => providerMarkdownRenderer ?? StreamingMarkdownDefault,
+const providerIsComponent = computed(() => isVueComponentRenderer(providerMarkdownRenderer));
+const ActiveMarkdownRenderer = computed(() =>
+  providerIsComponent.value ? (providerMarkdownRenderer as any) : StreamingMarkdownDefault,
+);
+const activeMarkdownConfig = computed(() =>
+  providerIsComponent.value || !providerMarkdownRenderer
+    ? {}
+    : (providerMarkdownRenderer as Record<string, unknown>),
 );
 
 function hasListener(listenerName: string) {
@@ -245,6 +251,7 @@ onBeforeUnmount(() => {
           v-if="hasContent"
           :content="normalizedContent"
           :is-streaming="isRunning && isLatestAssistantMessage"
+          v-bind="activeMarkdownConfig"
         />
       </slot>
 

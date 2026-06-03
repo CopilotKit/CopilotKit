@@ -1,5 +1,5 @@
 import { AssistantMessage, Message } from "@ag-ui/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -19,11 +19,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
-import { WithSlots, renderSlot } from "../../lib/slots";
+import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import {
   useMarkdownRenderer,
   type MarkdownRendererProps,
+  type DefaultMarkdownRendererProps,
+  type MarkdownRenderer as MarkdownRendererValue,
 } from "../../providers/MarkdownRendererContext";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
@@ -52,6 +54,18 @@ export type CopilotChatAssistantMessageProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+function resolveMarkdownRenderer(
+  value: MarkdownRendererValue | undefined,
+): React.ComponentType<MarkdownRendererProps> {
+  if (!value) return CopilotChatAssistantMessage.MarkdownRenderer;
+  if (isReactComponentType(value)) return value;
+  const config = value as DefaultMarkdownRendererProps;
+  const ConfiguredRenderer: React.FC<MarkdownRendererProps> = (props) => (
+    <CopilotChatAssistantMessage.MarkdownRenderer {...props} {...config} />
+  );
+  return ConfiguredRenderer;
+}
+
 export function CopilotChatAssistantMessage({
   message,
   messages,
@@ -75,8 +89,10 @@ export function CopilotChatAssistantMessage({
   ...props
 }: CopilotChatAssistantMessageProps) {
   const providerRenderer = useMarkdownRenderer();
-  const DefaultMarkdownRenderer =
-    providerRenderer ?? CopilotChatAssistantMessage.MarkdownRenderer;
+  const DefaultMarkdownRenderer = useMemo(
+    () => resolveMarkdownRenderer(providerRenderer),
+    [providerRenderer],
+  );
 
   // Don't show toolbar if message has no content (only tool calls)
   const hasContent = !!(message.content && message.content.trim().length > 0);
@@ -215,15 +231,17 @@ export function CopilotChatAssistantMessage({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
-  export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+  export const MarkdownRenderer: React.FC<MarkdownRendererProps & DefaultMarkdownRendererProps> = ({
     content,
     isStreaming,
     className,
+    ...config
   }) => (
     <StreamingMarkdownDefaultRenderer
       content={content ?? ""}
       isStreaming={isStreaming}
       className={className}
+      {...config}
     />
   );
 

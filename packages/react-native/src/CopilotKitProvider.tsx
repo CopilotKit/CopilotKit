@@ -11,7 +11,7 @@ import type { DebugConfig } from "@copilotkit/shared";
 import { RenderToolProvider } from "./hooks/RenderToolContext";
 import {
   MarkdownRendererProvider,
-  type NativeMarkdownRenderer,
+  type MarkdownRendererValue,
 } from "./components/MarkdownRendererContext";
 
 export interface CopilotKitNativeProviderProps {
@@ -53,7 +53,7 @@ export interface CopilotKitNativeProviderProps {
    * instead of the built-in token-walking renderer. Receives `content` (markdown
    * string) and optional `isStreaming` flag.
    */
-  markdownRenderer?: NativeMarkdownRenderer;
+  markdownRenderer?: MarkdownRendererValue;
   // Cloud features (publicApiKey, licenseToken) — not yet supported on React Native
 }
 
