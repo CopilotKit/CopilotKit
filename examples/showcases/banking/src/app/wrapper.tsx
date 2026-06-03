@@ -1,7 +1,7 @@
 "use client";
 import { LayoutComponent } from "@/components/layout";
 import {
-  CopilotKitProvider,
+  CopilotKit,
   CopilotPopup,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -34,9 +34,13 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuthContext();
 
   return (
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
+      // The runtime route is the multi-endpoint REST handler
+      // (createCopilotHonoHandler at api/copilotkit/[[...slug]]: /info,
+      // /agent/{id}/run, ...). The default single-endpoint transport POSTs to
+      // /api/copilotkit and 404s against this handler, so opt into REST mode.
+      useSingleEndpoint={false}
       properties={{ userRole: currentUser?.role }}
     >
       <BankingSuggestions />
@@ -50,6 +54,6 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
           welcomeMessageText: IDENTITY.greeting,
         }}
       />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
