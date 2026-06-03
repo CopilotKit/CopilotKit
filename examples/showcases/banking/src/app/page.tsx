@@ -5,6 +5,7 @@ import {
   useAgentContext,
   useHumanInTheLoop,
   useComponent,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
@@ -61,6 +62,8 @@ export default function Page() {
     assignPolicyToCard,
     addNoteToTransaction,
     changeTransactionStatus,
+    openPolicyException,
+    finalizePolicyException,
   } = useCreditCards();
 
   useEffect(() => {
@@ -414,15 +417,25 @@ export default function Page() {
         return <div>No pending transactions</div>;
       }
 
+      // Run the REST mutation and respond with the REAL outcome. With the
+      // hardened caller returning `{ ok, error }`, a rejected over-limit
+      // approval reports the server's failure instead of a false success.
+      // Returns `ok` so the list only records the human action when it took
+      // effect.
       async function handleChangeTransactionStatus({
         id,
         status,
       }: {
         id: string;
         status: Transaction["status"];
-      }) {
-        await changeTransactionStatus({ id, status });
-        respond?.(`transaction ${id} ${status}`);
+      }): Promise<boolean> {
+        const { ok, error } = await changeTransactionStatus({ id, status });
+        if (!ok) {
+          respond?.(`Could not ${status} transaction ${id}: ${error}`);
+        } else {
+          respond?.(`transaction ${id} ${status}`);
+        }
+        return ok;
       }
 
       return (
@@ -430,6 +443,9 @@ export default function Page() {
           transactions={transactions.filter((t) =>
             transactionId.includes(t.id),
           )}
+          policies={policies}
+          openPolicyException={openPolicyException}
+          finalizePolicyException={finalizePolicyException}
           showApprovalInterface
           approvalInterfaceProps={{
             onApprove: (transactionId) =>
@@ -446,6 +462,154 @@ export default function Page() {
         />
       );
     },
+  });
+
+  // Open a draft policy exception against a transaction (human-in-the-loop).
+  // The description is deliberately NEUTRAL: it must not say what opening an
+  // exception accomplishes, must not name any exception code, and must not
+  // describe a sequence. The human picks the code in the modal; the agent
+  // only ever passes through whatever code it was given.
+  useHumanInTheLoop({
+    followUp: false,
+    name: "openPolicyException",
+    description:
+      "Open a draft policy exception against a transaction. Requires human approval.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      transactionId: z.string(),
+      code: z.string(),
+    }),
+    render: ({ args, respond, status }) => {
+      const { transactionId, code } = args;
+
+      if (status === "inProgress") {
+        return <div>Loading...</div>;
+      }
+
+      return (
+        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+          <h3 className="font-semibold text-lg">Open policy exception</h3>
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-gray-500">Transaction:</span> {transactionId}
+            </p>
+            <p>
+              <span className="text-gray-500">Code:</span> {code}
+            </p>
+          </div>
+          <ApprovalButtons
+            onApprove={async () => {
+              if (!transactionId || !code) {
+                respond?.("Missing transaction or exception code");
+                return;
+              }
+              const { ok, error } = await openPolicyException({
+                transactionId,
+                code,
+              });
+              respond?.(
+                ok
+                  ? "Exception opened"
+                  : `Could not open exception: ${error}`,
+              );
+            }}
+            onDeny={() => respond?.("Denied by user")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // Finalize a policy exception (human-in-the-loop). Neutral description —
+  // says nothing about what finalizing accomplishes.
+  useHumanInTheLoop({
+    followUp: false,
+    name: "finalizePolicyException",
+    description: "Finalize a policy exception. Requires human approval.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      exceptionId: z.string(),
+    }),
+    render: ({ args, respond, status }) => {
+      const { exceptionId } = args;
+
+      if (status === "inProgress") {
+        return <div>Loading...</div>;
+      }
+
+      return (
+        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+          <h3 className="font-semibold text-lg">Finalize policy exception</h3>
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-gray-500">Exception:</span> {exceptionId}
+            </p>
+          </div>
+          <ApprovalButtons
+            onApprove={async () => {
+              if (!exceptionId) {
+                respond?.("Missing exception id");
+                return;
+              }
+              const { ok, error } = await finalizePolicyException({
+                exceptionId,
+              });
+              respond?.(
+                ok
+                  ? "Exception finalized"
+                  : `Could not finalize exception: ${error}`,
+              );
+            }}
+            onDeny={() => respond?.("Denied by user")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // Distractors. Plausible card/transaction actions that do NOT solve the
+  // over-limit block. No render — they run immediately and return a
+  // non-erroring success whose `note` makes clear it changed nothing about
+  // the transaction or policy. Their job is to widen the option space.
+  useFrontendTool({
+    name: "sendSpendAlert",
+    description: "Send a spend alert notification for a card.",
+    parameters: z.object({
+      cardId: z.string(),
+      message: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Spend alert sent. Informational only; does not modify any transaction or policy.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "requestCardReplacement",
+    description: "Request a replacement card for an existing card.",
+    parameters: z.object({
+      cardId: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Replacement card requested. Does not affect pending transactions or policy limits.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "flagForReview",
+    description: "Flag a transaction for manual review.",
+    parameters: z.object({
+      transactionId: z.string(),
+      reason: z.string(),
+    }),
+    handler: async ({ transactionId }) => ({
+      ok: true,
+      transactionId,
+      note: "Flagged for manual review. Does not approve or change the transaction.",
+    }),
   });
 
   useAgentContext({
