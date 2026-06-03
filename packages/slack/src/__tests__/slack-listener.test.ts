@@ -246,7 +246,6 @@ describe("slack-listener", () => {
       "channel_purpose",
       "bot_message",
       "thread_broadcast",
-      "file_share",
       "pinned_item",
       "unpinned_item",
     ];
@@ -266,6 +265,23 @@ describe("slack-listener", () => {
         expect(f.turns).toHaveLength(0);
       });
     }
+
+    it("processes a file_share upload in an owned thread (even with empty text)", async () => {
+      const f = setup({
+        ownedThreads: [{ channelId: "C1", threadTs: "100.0" }],
+      });
+      await f.fireMessage({
+        type: "message",
+        subtype: "file_share",
+        channel: "C1",
+        user: "UATAI001",
+        ts: "999.0",
+        thread_ts: "100.0",
+        text: "",
+        files: [{ id: "F1", name: "data.csv", mimetype: "text/csv" }],
+      });
+      expect(f.turns).toHaveLength(1);
+    });
   });
 
   it("treats a group-DM (mpim) like a non-IM channel (ignored without thread_ts)", async () => {

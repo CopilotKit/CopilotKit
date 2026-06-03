@@ -74,7 +74,12 @@ export function attachSlackListener(config: ListenerConfig): void {
   app.event("app_mention", async ({ event, client }) => {
     const threadTs = event.thread_ts ?? event.ts;
     const userText = stripMentions(event.text ?? "");
-    if (!userText) return;
+    const hasFiles =
+      Array.isArray((event as { files?: unknown[] }).files) &&
+      (event as { files: unknown[] }).files.length > 0;
+    // Fire on a mention with an attachment even if the only text is the
+    // mention itself (e.g. "@bot" + a CSV). The store reads the file.
+    if (!userText && !hasFiles) return;
     await onTurn(
       {
         conversation: { channelId: event.channel, scope: threadTs },
@@ -90,7 +95,9 @@ export function attachSlackListener(config: ListenerConfig): void {
     if (!isPlainUserMessage(message, config.botUserId)) return;
 
     const text = (message.text ?? "").trim();
-    if (!text) return;
+    const hasFiles = Array.isArray(message.files) && message.files.length > 0;
+    // A bare file upload has empty text but is still a real turn.
+    if (!text && !hasFiles) return;
 
     const isDM = message.channel_type === "im";
 
@@ -142,6 +149,7 @@ interface PlainUserMessage {
   user?: string;
   thread_ts?: string;
   channel_type?: string;
+  files?: unknown[];
 }
 
 /**
@@ -158,7 +166,9 @@ function isPlainUserMessage(
 ): message is PlainUserMessage {
   if (!message || typeof message !== "object") return false;
   const m = message as Record<string, unknown>;
-  if (m.subtype) return false;
+  // Reject subtyped messages EXCEPT file uploads (`file_share`), which are
+  // real user messages carrying a `files` array we want to deliver.
+  if (m.subtype && m.subtype !== "file_share") return false;
   // Loop guard: skip the bot's own posts (matched by bot user id).
   if (botUserId && m.user === botUserId) return false;
   // Skip messages with NO user (true bot-only / app-only posts). Messages
