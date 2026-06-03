@@ -508,10 +508,10 @@ The streaming renderer is already the built-in default across all CopilotKit fra
 If you want to pass a customized instance of `StreamingMarkdownRenderer` as the renderer (for example to add syntax highlighting via `nodeRenderers` globally), pass it as `markdownRenderer` on the provider:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, type MarkdownRendererProps } from "@copilotkit/react-core/v2";
 import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
 
-function MyRenderer({ content, isStreaming }: { content: string; isStreaming?: boolean }) {
+function MyRenderer({ content, isStreaming }: MarkdownRendererProps) {
   return (
     <StreamingMarkdownRenderer isComplete={!isStreaming} nodeRenderers={myNodeRenderers}>
       {content}
