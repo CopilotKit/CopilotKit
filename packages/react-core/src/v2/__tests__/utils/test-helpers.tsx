@@ -4,25 +4,38 @@ import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject, from, delay } from "rxjs";
-import {
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject, from, delay } from "rxjs";
+import type { RunCompletionAware } from "@copilotkit/core";
+import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
 } from "../../types";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 
 /**
  * A controllable mock agent for deterministic E2E testing.
  * Exposes emit() and complete() methods to drive agent events step-by-step.
+ *
+ * Implements {@link RunCompletionAware} so tests can open the send-serialization
+ * await window (`onSubmitInput`/`handleSelectSuggestion` await this before
+ * dispatching) by assigning a controllable completion promise — without an
+ * `as unknown as` cast.
  */
-export class MockStepwiseAgent extends AbstractAgent {
+export class MockStepwiseAgent
+  extends AbstractAgent
+  implements RunCompletionAware
+{
   private subject = new Subject<BaseEvent>();
+
+  /**
+   * Resolves when the active run's pipeline finalizes; `undefined` between runs.
+   * Tests set this to a controllable promise to exercise the await-then-send
+   * serialization path. Mirrors the real `IntelligenceAgent` contract.
+   */
+  activeRunCompletionPromise?: Promise<void>;
 
   /**
    * Emit a single agent event
