@@ -41,7 +41,7 @@ export default function CopilotKitPage() {
           match the CopilotSidebar chat aesthetic. */}
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
@@ -54,7 +54,7 @@ export default function CopilotKitPage() {
           a thread in the drawer drives the same per-thread agent clone.
         */}
         <CopilotChatConfigurationProvider
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
         >
           <main
@@ -109,7 +109,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
   // V2: useAgent returns the agent; read agent.state and write via agent.setState.
-  const { agent } = useAgent({ agentId: "my_agent" });
+  const { agent } = useAgent({ agentId: "default" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);
 
