@@ -1150,4 +1150,220 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.release(c2!);
     await pool.shutdown();
   });
+
+  // ── BUCKET-D CONCURRENCY-HARDENING REGRESSIONS ────────────────────────────
+  // Three PRE-EXISTING defects in the non-release teardown paths, each driven
+  // by an interleave the sequential cases above never exercised.
+
+  // Internal-state probe: read a private BrowserEntry field for assertions the
+  // public stats() surface does not expose (servedContexts / recyclePending).
+  // The pool keeps these per-entry; the only way to assert the orphan-close
+  // bookkeeping is to read them directly.
+  const entry0 = (
+    pool: BrowserPool,
+  ): {
+    servedContexts: number;
+    recyclePending: boolean;
+    pendingOpens: number;
+  } =>
+    (
+      pool as unknown as {
+        browsers: Array<{
+          servedContexts: number;
+          recyclePending: boolean;
+          pendingOpens: number;
+        }>;
+      }
+    ).browsers[0]!;
+
+  // BUG 1 — a waiter that times out WHILE serveNextWaiter is opening its
+  // context leaks `servedContexts`. openContextOn did servedContexts++ when it
+  // added the never-delivered context; the orphan-close cleanup decrements the
+  // reservation + drops liveContexts but (pre-fix) does NOT decrement
+  // servedContexts. So every timed-out-mid-serve permanently inflates
+  // servedContexts, biasing the hygiene recycle to fire early. The fix mirrors
+  // the increment with a decrement in the orphan-close block.
+  it("BUG1: a waiter that times out mid-serveNextWaiter does NOT inflate servedContexts", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1000, // keep hygiene out of the picture; assert the count
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Fill the cap with one context (parked open → release it).
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+    // One context genuinely served.
+    expect(entry0(pool).servedContexts).toBe(1);
+
+    // Enqueue a waiter with a SHORT timeout — it pends past the cap.
+    let waiterRejected: Error | undefined;
+    const waiterP = pool
+      .acquire(undefined, 20)
+      .catch((e: Error) => (waiterRejected = e));
+    await drainMicrotasks();
+
+    // Release c1 → serveNextWaiter() picks the waiter, calls newContext()
+    // (parked). While that open is in flight, let the 20ms timeout fire.
+    await pool.release(c1);
+    await drainMicrotasks();
+    await new Promise((r) => setTimeout(r, 40)); // waiter times out now
+    expect(waiterRejected).toBeInstanceOf(Error);
+
+    // Let the parked newContext() for the dead waiter resolve → orphan-close.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks();
+    await waiterP;
+
+    // The orphaned serve must NOT count toward servedContexts: the context was
+    // opened (servedContexts++) but never delivered, then closed + rolled back.
+    // Pre-fix: servedContexts stuck at 2 (the orphan inflated it). Fixed: 1.
+    expect(entry0(pool).servedContexts).toBe(1);
+    expect(pool.stats().inUse).toBe(0);
+
+    await pool.shutdown();
+  });
+
+  // BUG 2 — a hygiene recycle deferred via the `shouldRecycle && hadWaiter`
+  // guard sets recyclePending=true, expecting "the next idle release honors it."
+  // But if the just-served waiter's lifecycle ends via a NON-release teardown
+  // (here: the waiter times out mid-serve → serveNextWaiter orphan-close), no
+  // release() ever fires, so the deferred recycle is dropped and the browser
+  // exceeds recycleAfter indefinitely. The fix re-checks the deferred recycle on
+  // the non-release teardown paths.
+  it("BUG2: a deferred hygiene recycle still fires when the just-served waiter ends via a non-release teardown", async () => {
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+    });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1, // eligible after the first served context
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Fill the cap with one context (parked open → release the park).
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+    expect(entry0(pool).servedContexts).toBe(1); // >= recycleAfter
+
+    // Queue a waiter W past the cap with a SHORT timeout.
+    let wRejected: Error | undefined;
+    const wP = pool.acquire(undefined, 20).catch((e: Error) => (wRejected = e));
+    await drainMicrotasks();
+
+    // Release c1: the boundary-crossing release (servedContexts>=recycleAfter,
+    // entry momentarily idle) computes shouldRecycle=true AND has a queued waiter
+    // → it serves W (parks in deferred newContext) and DEFERS the recycle, setting
+    // recyclePending=true. No recycle fires now.
+    await pool.release(c1);
+    await drainMicrotasks();
+    expect(pool.stats().totalRecycles).toBe(0);
+    expect(entry0(pool).recyclePending).toBe(true);
+
+    // W now times out WHILE its serve's newContext() is still parked in flight.
+    await new Promise((r) => setTimeout(r, 40));
+    expect(wRejected).toBeInstanceOf(Error);
+
+    // Resolve the parked open for the dead waiter → serveNextWaiter orphan-close,
+    // a NON-release teardown that returns the entry to idle. Pre-fix: nothing
+    // re-checks the deferred recycle here, so recyclePending stays true forever
+    // and the browser is never recycled (totalRecycles stuck at 0). The fix
+    // re-checks isEntryRecyclable && recyclePending on the orphan-close path and
+    // fires the deferred recycle.
+    launched[0]!.__releaseNewContexts();
+    await wP;
+    await waitFor(() => pool.stats().totalRecycles === 1);
+    expect(pool.stats().totalRecycles).toBe(1);
+    expect(entry0(pool).recyclePending).toBe(false);
+
+    await pool.shutdown();
+  });
+
+  // BUG 3 — when an in-flight open is orphaned by a recycle and rolls back via
+  // releaseReservation(), it does NOT drain the waiter queue. So a queued waiter
+  // can stall with free capacity until the next unrelated release/recycle
+  // handoff. The fix calls scheduleServeNextWaiter() after the rollback so freed
+  // capacity immediately serves the waiter.
+  it("BUG3: an open orphaned by recycle drains a queued waiter from the freed capacity", async () => {
+    // browser0 (init) defers its first newContext so we can park an in-flight
+    // open and orphan it; its relaunch (call 2) does NOT defer, so a waiter
+    // served onto the fresh browser resolves immediately.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 1,
+      recycleAfter: 1000, // hygiene out of the picture
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Acquire A parks in newContext() on browser0 (pendingOpens=1, reservation
+    // held → cap saturated at 1).
+    let aDone = false;
+    const aP = pool
+      .acquire(undefined, 5_000)
+      .then(() => (aDone = true))
+      .catch(() => {});
+    await drainMicrotasks();
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+    expect(pool.stats().inUse).toBe(1);
+
+    // Acquire B pends as a WAITER past the cap (cap=1, A holds the only slot).
+    let b: BrowserContext | undefined;
+    const bP = pool
+      .acquire(undefined, 5_000)
+      .then((c) => (b = c))
+      .catch(() => {});
+    await drainMicrotasks();
+    expect(b).toBeUndefined();
+
+    // CRASH browser0 → recovery recycle reassigns entry.browser to a fresh,
+    // NON-deferring process (call 2). Resolve A's parked open on the ORIGINAL
+    // (now-replaced) browser: the orphan guard closes it and rolls back the
+    // reservation — freeing the only cap slot.
+    launched[0]!.__crash();
+    await waitFor(() => launched.length === 2);
+    launched[0]!.__releaseNewContexts(); // A's open resolves → orphaned + rolled back
+    await drainMicrotasks();
+
+    // BUG3 INVARIANT: the freed slot must immediately serve waiter B from the
+    // rollback's scheduleServeNextWaiter(). Pre-fix the rollback did not drain
+    // the queue, so B stalled with free capacity. The crash-recovery relaunch's
+    // own drain loop would EVENTUALLY serve B, so to isolate the rollback-drain
+    // we assert B resolves promptly after the rollback without any further pool
+    // activity.
+    await waitFor(() => b !== undefined, 1_000);
+    expect(b).toBeDefined();
+    expect(pool.stats().inUse).toBe(1); // exactly B is live
+
+    void aDone;
+    await aP;
+    await bP;
+    await pool.release(b!);
+    await pool.shutdown();
+  });
 });
