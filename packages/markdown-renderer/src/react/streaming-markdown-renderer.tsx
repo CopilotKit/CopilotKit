@@ -5,15 +5,32 @@ import type {
   StreamingMarkdownNodeType,
   StreamingMarkdownParserOptions,
   TextSegment,
-} from '@copilotkit/markdown-renderer';
+} from "@copilotkit/markdown-renderer";
 import {
   Fragment,
   type MouseEvent,
   type ReactNode,
   useMemo,
   useRef,
-} from 'react';
-import { useStreamingMarkdownParser } from './use-streaming-markdown-parser';
+} from "react";
+import { useStreamingMarkdownParser } from "./use-streaming-markdown-parser";
+
+// URL allowlists for link/image rendering — mirrors the Vue renderer so both
+// frameworks honor the documented XSS guarantee (only http(s), mailto, tel,
+// relative, anchor, and non-SVG data:image/* URLs are allowed). Anything else
+// (javascript:, data:text/html, data:image/svg+xml, vbscript:, …) is dropped.
+const SAFE_HREF = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;
+const SAFE_IMG_SRC = /^(https?:|data:image\/(?!svg)|\/|\.\/|\.\.\/)/i;
+
+function sanitizeHref(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  return SAFE_HREF.test(href.trim()) ? href : undefined;
+}
+
+function sanitizeImgSrc(src: string | undefined): string | undefined {
+  if (!src) return undefined;
+  return SAFE_IMG_SRC.test(src.trim()) ? src : undefined;
+}
 
 /**
  * Metadata available when a citation node is rendered.
@@ -155,12 +172,13 @@ export type StreamingMarkdownCaretRenderer = (
  *
  * @public
  */
-export type StreamingMarkdownCaret = boolean | ReactNode | StreamingMarkdownCaretRenderer;
+export type StreamingMarkdownCaret =
+  | boolean
+  | ReactNode
+  | StreamingMarkdownCaretRenderer;
 
-type StreamingMarkdownNodeOfType<TNodeType extends StreamingMarkdownNodeType> = Extract<
-  StreamingMarkdownAstNode,
-  { type: TNodeType }
->;
+type StreamingMarkdownNodeOfType<TNodeType extends StreamingMarkdownNodeType> =
+  Extract<StreamingMarkdownAstNode, { type: TNodeType }>;
 
 /**
  * Supported key names for `nodeRenderers`.
@@ -168,54 +186,54 @@ type StreamingMarkdownNodeOfType<TNodeType extends StreamingMarkdownNodeType> = 
  * @public
  */
 export type StreamingMarkdownNodeRendererKey =
-  | 'node'
-  | 'document'
-  | 'paragraph'
-  | 'heading'
-  | 'blockquote'
-  | 'list'
-  | 'listItem'
-  | 'codeBlock'
-  | 'table'
-  | 'tableRow'
-  | 'tableCell'
-  | 'thematicBreak'
-  | 'text'
-  | 'em'
-  | 'strong'
-  | 'strikethrough'
-  | 'inlineCode'
-  | 'softBreak'
-  | 'hardBreak'
-  | 'image'
-  | 'link'
-  | 'autolink'
-  | 'citation';
+  | "node"
+  | "document"
+  | "paragraph"
+  | "heading"
+  | "blockquote"
+  | "list"
+  | "listItem"
+  | "codeBlock"
+  | "table"
+  | "tableRow"
+  | "tableCell"
+  | "thematicBreak"
+  | "text"
+  | "em"
+  | "strong"
+  | "strikethrough"
+  | "inlineCode"
+  | "softBreak"
+  | "hardBreak"
+  | "image"
+  | "link"
+  | "autolink"
+  | "citation";
 
 type StreamingMarkdownNodeByRendererKey = {
   node: StreamingMarkdownAstNode;
-  document: StreamingMarkdownNodeOfType<'document'>;
-  paragraph: StreamingMarkdownNodeOfType<'paragraph'>;
-  heading: StreamingMarkdownNodeOfType<'heading'>;
-  blockquote: StreamingMarkdownNodeOfType<'blockquote'>;
-  list: StreamingMarkdownNodeOfType<'list'>;
-  listItem: StreamingMarkdownNodeOfType<'list-item'>;
-  codeBlock: StreamingMarkdownNodeOfType<'code-block'>;
-  table: StreamingMarkdownNodeOfType<'table'>;
-  tableRow: StreamingMarkdownNodeOfType<'table-row'>;
-  tableCell: StreamingMarkdownNodeOfType<'table-cell'>;
-  thematicBreak: StreamingMarkdownNodeOfType<'thematic-break'>;
-  text: StreamingMarkdownNodeOfType<'text'>;
-  em: StreamingMarkdownNodeOfType<'em'>;
-  strong: StreamingMarkdownNodeOfType<'strong'>;
-  strikethrough: StreamingMarkdownNodeOfType<'strikethrough'>;
-  inlineCode: StreamingMarkdownNodeOfType<'inline-code'>;
-  softBreak: StreamingMarkdownNodeOfType<'soft-break'>;
-  hardBreak: StreamingMarkdownNodeOfType<'hard-break'>;
-  image: StreamingMarkdownNodeOfType<'image'>;
-  link: StreamingMarkdownNodeOfType<'link'>;
-  autolink: StreamingMarkdownNodeOfType<'autolink'>;
-  citation: StreamingMarkdownNodeOfType<'citation'>;
+  document: StreamingMarkdownNodeOfType<"document">;
+  paragraph: StreamingMarkdownNodeOfType<"paragraph">;
+  heading: StreamingMarkdownNodeOfType<"heading">;
+  blockquote: StreamingMarkdownNodeOfType<"blockquote">;
+  list: StreamingMarkdownNodeOfType<"list">;
+  listItem: StreamingMarkdownNodeOfType<"list-item">;
+  codeBlock: StreamingMarkdownNodeOfType<"code-block">;
+  table: StreamingMarkdownNodeOfType<"table">;
+  tableRow: StreamingMarkdownNodeOfType<"table-row">;
+  tableCell: StreamingMarkdownNodeOfType<"table-cell">;
+  thematicBreak: StreamingMarkdownNodeOfType<"thematic-break">;
+  text: StreamingMarkdownNodeOfType<"text">;
+  em: StreamingMarkdownNodeOfType<"em">;
+  strong: StreamingMarkdownNodeOfType<"strong">;
+  strikethrough: StreamingMarkdownNodeOfType<"strikethrough">;
+  inlineCode: StreamingMarkdownNodeOfType<"inline-code">;
+  softBreak: StreamingMarkdownNodeOfType<"soft-break">;
+  hardBreak: StreamingMarkdownNodeOfType<"hard-break">;
+  image: StreamingMarkdownNodeOfType<"image">;
+  link: StreamingMarkdownNodeOfType<"link">;
+  autolink: StreamingMarkdownNodeOfType<"autolink">;
+  citation: StreamingMarkdownNodeOfType<"citation">;
 };
 
 /**
@@ -234,29 +252,37 @@ export type StreamingMarkdownNodeRenderers = Partial<{
  *
  * @public
  */
-export function createStreamingMarkdownNodeRenderers<T extends StreamingMarkdownNodeRenderers>(
-  renderers: T,
-): T {
+export function createStreamingMarkdownNodeRenderers<
+  T extends StreamingMarkdownNodeRenderers,
+>(renderers: T): T {
   return renderers;
 }
 
 type RenderContext = {
   nodeById: Map<number, StreamingMarkdownAstNode>;
   citations: CitationState;
-  onLinkClickRef: { current: StreamingMarkdownRendererProps['onLinkClick'] };
-  onCitationClickRef: { current: StreamingMarkdownRendererProps['onCitationClick'] };
+  onLinkClickRef: { current: StreamingMarkdownRendererProps["onLinkClick"] };
+  onCitationClickRef: {
+    current: StreamingMarkdownRendererProps["onCitationClick"];
+  };
   nodeRenderers?: StreamingMarkdownNodeRenderers;
   caretTargetNodeId: number | null;
   caretNode: ReactNode;
 };
 
-type StreamingMarkdownTextNode = Extract<StreamingMarkdownAstNode, { type: 'text' }>;
-type StreamingMarkdownCitationNode = Extract<StreamingMarkdownAstNode, { type: 'citation' }>;
+type StreamingMarkdownTextNode = Extract<
+  StreamingMarkdownAstNode,
+  { type: "text" }
+>;
+type StreamingMarkdownCitationNode = Extract<
+  StreamingMarkdownAstNode,
+  { type: "citation" }
+>;
 
-const WORD_JOINER = '\u2060';
-const DEFAULT_ROOT_CLASS = 'cpk-streaming-markdown-root';
-const DEFAULT_CITATION_CLASS = 'cpk-streaming-markdown-citation';
-const DEFAULT_CITATION_LABEL_CLASS = 'cpk-streaming-markdown-citation-label';
+const WORD_JOINER = "\u2060";
+const DEFAULT_ROOT_CLASS = "cpk-streaming-markdown-root";
+const DEFAULT_CITATION_CLASS = "cpk-streaming-markdown-citation";
+const DEFAULT_CITATION_LABEL_CLASS = "cpk-streaming-markdown-citation-label";
 const DEFAULT_STYLES = `
   .${DEFAULT_ROOT_CLASS} .cpk-streaming-markdown-segment {
     opacity: 1;
@@ -318,47 +344,47 @@ const DEFAULT_STYLES_FALLBACK = `
 
 type ContainerNodeType = Extract<
   StreamingMarkdownNodeType,
-  | 'document'
-  | 'paragraph'
-  | 'heading'
-  | 'blockquote'
-  | 'list'
-  | 'list-item'
-  | 'table'
-  | 'table-row'
-  | 'table-cell'
-  | 'em'
-  | 'strong'
-  | 'strikethrough'
-  | 'link'
+  | "document"
+  | "paragraph"
+  | "heading"
+  | "blockquote"
+  | "list"
+  | "list-item"
+  | "table"
+  | "table-row"
+  | "table-cell"
+  | "em"
+  | "strong"
+  | "strikethrough"
+  | "link"
 >;
 
 const NODE_TYPE_TO_RENDERER_KEY: Record<
   StreamingMarkdownNodeType,
   StreamingMarkdownNodeRendererKey
 > = {
-  document: 'document',
-  paragraph: 'paragraph',
-  heading: 'heading',
-  blockquote: 'blockquote',
-  list: 'list',
-  'list-item': 'listItem',
-  'code-block': 'codeBlock',
-  table: 'table',
-  'table-row': 'tableRow',
-  'table-cell': 'tableCell',
-  'thematic-break': 'thematicBreak',
-  text: 'text',
-  em: 'em',
-  strong: 'strong',
-  strikethrough: 'strikethrough',
-  'inline-code': 'inlineCode',
-  'soft-break': 'softBreak',
-  'hard-break': 'hardBreak',
-  image: 'image',
-  link: 'link',
-  autolink: 'autolink',
-  citation: 'citation',
+  document: "document",
+  paragraph: "paragraph",
+  heading: "heading",
+  blockquote: "blockquote",
+  list: "list",
+  "list-item": "listItem",
+  "code-block": "codeBlock",
+  table: "table",
+  "table-row": "tableRow",
+  "table-cell": "tableCell",
+  "thematic-break": "thematicBreak",
+  text: "text",
+  em: "em",
+  strong: "strong",
+  strikethrough: "strikethrough",
+  "inline-code": "inlineCode",
+  "soft-break": "softBreak",
+  "hard-break": "hardBreak",
+  image: "image",
+  link: "link",
+  autolink: "autolink",
+  citation: "citation",
 };
 
 function renderWithOverride<TNode extends StreamingMarkdownAstNode>(
@@ -370,7 +396,9 @@ function renderWithOverride<TNode extends StreamingMarkdownAstNode>(
 ): ReactNode {
   const rendererKey = NODE_TYPE_TO_RENDERER_KEY[node.type];
   const renderer = (context.nodeRenderers?.[rendererKey] ??
-    context.nodeRenderers?.node) as StreamingMarkdownNodeRenderer<TNode> | undefined;
+    context.nodeRenderers?.node) as
+    | StreamingMarkdownNodeRenderer<TNode>
+    | undefined;
 
   if (!renderer) {
     return defaultNode;
@@ -414,13 +442,13 @@ function renderDefaultCaret(): ReactNode {
       className="cpk-streaming-markdown-caret"
       data-streaming-markdown-caret
       style={{
-        display: 'inline-block',
-        width: '0.48em',
-        height: '0.48em',
-        marginInlineStart: '0.08em',
-        verticalAlign: '-0.08em',
-        borderRadius: '999px',
-        backgroundColor: 'currentColor',
+        display: "inline-block",
+        width: "0.48em",
+        height: "0.48em",
+        marginInlineStart: "0.08em",
+        verticalAlign: "-0.08em",
+        borderRadius: "999px",
+        backgroundColor: "currentColor",
         opacity: 0.55,
       }}
     />
@@ -439,7 +467,7 @@ function resolveCaretNode(
     return renderDefaultCaret();
   }
 
-  if (typeof caret === 'function') {
+  if (typeof caret === "function") {
     return caret(props);
   }
 
@@ -506,7 +534,7 @@ function renderDefaultCitation(
   citation: StreamingMarkdownCitationRenderData,
 ): ReactNode {
   const label = String(citation.number);
-  const href = citation.definition?.url;
+  const href = sanitizeHref(citation.definition?.url);
 
   if (!href) {
     return (
@@ -516,10 +544,7 @@ function renderDefaultCitation(
         data-streaming-markdown-node={node.type}
         data-node-open={String(!node.closed)}
       >
-        <span
-          role="doc-noteref"
-          className={DEFAULT_CITATION_LABEL_CLASS}
-        >
+        <span role="doc-noteref" className={DEFAULT_CITATION_LABEL_CLASS}>
           {label}
         </span>
       </sup>
@@ -560,7 +585,7 @@ function renderContainerNode(
     </>
   );
 
-  if (node.type === 'document') {
+  if (node.type === "document") {
     return renderWithOverride(
       node,
       context,
@@ -569,7 +594,7 @@ function renderContainerNode(
     );
   }
 
-  if (node.type === 'paragraph') {
+  if (node.type === "paragraph") {
     const defaultNode = (
       <p
         key={node.id}
@@ -582,10 +607,10 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'heading') {
+  if (node.type === "heading") {
     const headingTag = `h${node.level}` as const;
     const defaultNode =
-      headingTag === 'h1' ? (
+      headingTag === "h1" ? (
         <h1
           key={node.id}
           data-streaming-markdown-node={node.type}
@@ -593,7 +618,7 @@ function renderContainerNode(
         >
           {children}
         </h1>
-      ) : headingTag === 'h2' ? (
+      ) : headingTag === "h2" ? (
         <h2
           key={node.id}
           data-streaming-markdown-node={node.type}
@@ -601,7 +626,7 @@ function renderContainerNode(
         >
           {children}
         </h2>
-      ) : headingTag === 'h3' ? (
+      ) : headingTag === "h3" ? (
         <h3
           key={node.id}
           data-streaming-markdown-node={node.type}
@@ -609,7 +634,7 @@ function renderContainerNode(
         >
           {children}
         </h3>
-      ) : headingTag === 'h4' ? (
+      ) : headingTag === "h4" ? (
         <h4
           key={node.id}
           data-streaming-markdown-node={node.type}
@@ -617,7 +642,7 @@ function renderContainerNode(
         >
           {children}
         </h4>
-      ) : headingTag === 'h5' ? (
+      ) : headingTag === "h5" ? (
         <h5
           key={node.id}
           data-streaming-markdown-node={node.type}
@@ -637,7 +662,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'blockquote') {
+  if (node.type === "blockquote") {
     const defaultNode = (
       <blockquote
         key={node.id}
@@ -650,7 +675,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'list') {
+  if (node.type === "list") {
     if (node.ordered) {
       const defaultNode = (
         <ol
@@ -679,7 +704,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'list-item') {
+  if (node.type === "list-item") {
     const defaultNode = (
       <li
         key={node.id}
@@ -692,7 +717,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'table') {
+  if (node.type === "table") {
     const defaultNode = (
       <table
         key={node.id}
@@ -705,7 +730,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'table-row') {
+  if (node.type === "table-row") {
     const defaultNode = (
       <tr
         key={node.id}
@@ -718,10 +743,10 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'table-cell') {
+  if (node.type === "table-cell") {
     const parent =
       node.parentId == null ? undefined : context.nodeById.get(node.parentId);
-    const isHeaderRow = parent?.type === 'table-row' && parent.isHeader;
+    const isHeaderRow = parent?.type === "table-row" && parent.isHeader;
     if (isHeaderRow) {
       const defaultNode = (
         <th
@@ -747,7 +772,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'em') {
+  if (node.type === "em") {
     const defaultNode = (
       <em
         key={node.id}
@@ -760,7 +785,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'strong') {
+  if (node.type === "strong") {
     const defaultNode = (
       <strong
         key={node.id}
@@ -773,7 +798,7 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'strikethrough') {
+  if (node.type === "strikethrough") {
     const defaultNode = (
       <s
         key={node.id}
@@ -789,7 +814,7 @@ function renderContainerNode(
   const defaultNode = (
     <a
       key={node.id}
-      href={node.url}
+      href={sanitizeHref(node.url)}
       target="_blank"
       rel="noopener noreferrer"
       title={node.title}
@@ -803,26 +828,29 @@ function renderContainerNode(
   return renderWithOverride(node, context, defaultNode, children);
 }
 
-function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): ReactNode {
+function renderNode(
+  node: StreamingMarkdownAstNode,
+  context: RenderContext,
+): ReactNode {
   if (
-    node.type === 'document' ||
-    node.type === 'paragraph' ||
-    node.type === 'heading' ||
-    node.type === 'blockquote' ||
-    node.type === 'list' ||
-    node.type === 'list-item' ||
-    node.type === 'table' ||
-    node.type === 'table-row' ||
-    node.type === 'table-cell' ||
-    node.type === 'em' ||
-    node.type === 'strong' ||
-    node.type === 'strikethrough' ||
-    node.type === 'link'
+    node.type === "document" ||
+    node.type === "paragraph" ||
+    node.type === "heading" ||
+    node.type === "blockquote" ||
+    node.type === "list" ||
+    node.type === "list-item" ||
+    node.type === "table" ||
+    node.type === "table-row" ||
+    node.type === "table-cell" ||
+    node.type === "em" ||
+    node.type === "strong" ||
+    node.type === "strikethrough" ||
+    node.type === "link"
   ) {
     return renderContainerNode(node, context);
   }
 
-  if (node.type === 'code-block') {
+  if (node.type === "code-block") {
     const defaultNode = (
       <pre
         key={node.id}
@@ -838,7 +866,7 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
     return renderWithOverride(node, context, defaultNode);
   }
 
-  if (node.type === 'thematic-break') {
+  if (node.type === "thematic-break") {
     const defaultNode = (
       <hr
         key={node.id}
@@ -849,13 +877,13 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
     return renderWithOverride(node, context, defaultNode);
   }
 
-  if (node.type === 'text') {
+  if (node.type === "text") {
     const children = renderTextSegments(node);
     const defaultNode = <Fragment key={node.id}>{children}</Fragment>;
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'inline-code') {
+  if (node.type === "inline-code") {
     const defaultNode = (
       <code
         key={node.id}
@@ -868,13 +896,13 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
     return renderWithOverride(node, context, defaultNode, node.text);
   }
 
-  if (node.type === 'soft-break') {
-    const children = '\n';
+  if (node.type === "soft-break") {
+    const children = "\n";
     const defaultNode = <Fragment key={node.id}>{children}</Fragment>;
     return renderWithOverride(node, context, defaultNode, children);
   }
 
-  if (node.type === 'hard-break') {
+  if (node.type === "hard-break") {
     const defaultNode = (
       <br
         key={node.id}
@@ -885,11 +913,11 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
     return renderWithOverride(node, context, defaultNode);
   }
 
-  if (node.type === 'image') {
+  if (node.type === "image") {
     const defaultNode = (
       <img
         key={node.id}
-        src={node.url}
+        src={sanitizeImgSrc(node.url)}
         alt={node.alt}
         title={node.title}
         data-streaming-markdown-node={node.type}
@@ -899,11 +927,11 @@ function renderNode(node: StreamingMarkdownAstNode, context: RenderContext): Rea
     return renderWithOverride(node, context, defaultNode);
   }
 
-  if (node.type === 'autolink') {
+  if (node.type === "autolink") {
     const defaultNode = (
       <a
         key={node.id}
-        href={node.url}
+        href={sanitizeHref(node.url)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleLinkClick(context, node, node.url)}
@@ -936,12 +964,12 @@ export function StreamingMarkdownRenderer({
   onCitationClick,
   nodeRenderers,
 }: StreamingMarkdownRendererProps) {
-  const text = children ?? '';
+  const text = children ?? "";
   const parserState = useStreamingMarkdownParser(text, options, isComplete);
   const onLinkClickRef =
-    useRef<StreamingMarkdownRendererProps['onLinkClick']>(onLinkClick);
+    useRef<StreamingMarkdownRendererProps["onLinkClick"]>(onLinkClick);
   const onCitationClickRef =
-    useRef<StreamingMarkdownRendererProps['onCitationClick']>(onCitationClick);
+    useRef<StreamingMarkdownRendererProps["onCitationClick"]>(onCitationClick);
   onLinkClickRef.current = onLinkClick;
   onCitationClickRef.current = onCitationClick;
 
@@ -990,7 +1018,7 @@ export function StreamingMarkdownRenderer({
     ? `${DEFAULT_ROOT_CLASS} ${className}`
     : DEFAULT_ROOT_CLASS;
   const styleText =
-    typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)
+    typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)
       ? DEFAULT_STYLES_FALLBACK
       : DEFAULT_STYLES;
 
@@ -1019,7 +1047,7 @@ function findDeepestOpenRenderableNode(
 ): StreamingMarkdownAstNode | null {
   for (let index = stack.length - 1; index >= 0; index -= 1) {
     const candidate = nodeById.get(stack[index]) ?? null;
-    if (candidate && candidate.type !== 'document') {
+    if (candidate && candidate.type !== "document") {
       return candidate;
     }
   }
