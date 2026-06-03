@@ -1,7 +1,7 @@
 import { randomUUID } from "@copilotkit/shared";
 
 /**
- * The result shape returned by the Intelligence `/connector/annotate` endpoint.
+ * The result shape returned by the CopilotKit runtime `/annotate` endpoint.
  */
 export interface RecordAnnotationResult {
   /** Platform-assigned id of the annotation row. */
@@ -16,12 +16,15 @@ export interface RecordAnnotationResult {
  * The transport dependencies (`runtimeUrl`, `headers`) mirror what the
  * `useLearnFromUserAction` hook reads from `copilotkit` context, so the hook
  * can pass them through without any structural change.
+ *
+ * `userId` is intentionally absent — the runtime resolves the user from BFF
+ * auth server-side and the browser must never send it.
  */
 export interface RecordAnnotationArgs {
   /**
    * Base URL of the customer's CopilotKit runtime
    * (e.g. `https://bff.example.com/api/copilotkit`).
-   * The function appends `/connector/annotate`.
+   * The function appends `/annotate`.
    */
   runtimeUrl: string;
   /**
@@ -41,8 +44,6 @@ export interface RecordAnnotationArgs {
   payload?: unknown;
   /** Thread the annotation is associated with. */
   threadId: string;
-  /** Platform user id. */
-  userId: string;
   /**
    * Caller-supplied idempotency key. When omitted, a UUID is generated so
    * every call is naturally safe against platform-level duplicate processing.
@@ -59,8 +60,8 @@ export interface RecordAnnotationArgs {
 }
 
 /**
- * Low-level function that posts an arbitrary annotation to the Intelligence
- * platform's general annotation endpoint (`POST /connector/annotate`).
+ * Low-level function that posts an arbitrary annotation to the CopilotKit
+ * runtime's general annotation endpoint (`POST /annotate`).
  *
  * This is the single transport entry point for all annotation types. Higher-
  * level hooks (e.g. `useLearnFromUserAction`) build the `type`/`payload` pair
@@ -70,12 +71,13 @@ export interface RecordAnnotationArgs {
  * - `runtimeUrl` from `copilotkit.runtimeUrl` (BFF proxies to the platform)
  * - `headers` from `copilotkit.headers` (customer auth forwarded to BFF)
  * - `clientEventId` auto-generated via `randomUUID()` when omitted
+ * - `userId` is resolved server-side by the runtime; the client never sends it
  * - Errors propagate to the caller (fire-and-propagate, not fire-and-forget)
  *
  * @param args - Transport dependencies plus annotation fields.
  * @returns The platform result containing the annotation row `id` and a
  *          `duplicate` flag.
- * @throws When the network request fails or the platform returns a non-2xx
+ * @throws When the network request fails or the runtime returns a non-2xx
  *         status. Callers that want fire-and-forget behavior should `.catch`
  *         at the call site.
  */
@@ -88,7 +90,6 @@ export async function recordAnnotation(
     type,
     payload,
     threadId,
-    userId,
     occurredAt,
   } = args;
 
@@ -97,13 +98,12 @@ export async function recordAnnotation(
   const body: Record<string, unknown> = {
     type,
     threadId,
-    userId,
     clientEventId,
     ...(payload !== undefined ? { payload } : {}),
     ...(occurredAt !== undefined ? { occurredAt } : {}),
   };
 
-  const response = await fetch(`${runtimeUrl}/connector/annotate`, {
+  const response = await fetch(`${runtimeUrl}/annotate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -55,7 +55,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it("POSTs the correct wire body to ${runtimeUrl}/connector/annotate", async () => {
+it("POSTs the correct wire body to ${runtimeUrl}/annotate", async () => {
   const { calls, fetch } = mockFetch([
     { status: 200, body: { id: "evt-1", duplicate: false } },
   ]);
@@ -67,21 +67,20 @@ it("POSTs the correct wire body to ${runtimeUrl}/connector/annotate", async () =
     type: "user_action",
     payload: { title: "Renamed project", data: { old: "Foo" } },
     threadId: "thread-1",
-    userId: "user-42",
   });
 
   expect(result).toEqual({ id: "evt-1", duplicate: false });
   expect(calls).toHaveLength(1);
   expect(calls[0]!.url).toBe(
-    "https://bff.example.com/api/copilotkit/connector/annotate",
+    "https://bff.example.com/api/copilotkit/annotate",
   );
   expect(calls[0]!.init?.method).toBe("POST");
   expect(calls[0]!.body).toMatchObject({
     type: "user_action",
     payload: { title: "Renamed project", data: { old: "Foo" } },
     threadId: "thread-1",
-    userId: "user-42",
   });
+  expect(calls[0]!.body).not.toHaveProperty("userId");
   expect(typeof calls[0]!.body!.clientEventId).toBe("string");
   expect((calls[0]!.body!.clientEventId as string).length).toBeGreaterThan(0);
 });
@@ -98,11 +97,11 @@ it("uses the caller-supplied clientEventId verbatim when provided", async () => 
     type: "set_learning_containers",
     payload: { containers: ["org", "user"] },
     threadId: "t",
-    userId: "u",
     clientEventId: "my-stable-id",
   });
 
   expect(calls[0]!.body!.clientEventId).toBe("my-stable-id");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
 });
 
 it("auto-generates a distinct clientEventId per call when not supplied", async () => {
@@ -117,7 +116,6 @@ it("auto-generates a distinct clientEventId per call when not supplied", async (
     headers: {},
     type: "user_action",
     threadId: "t",
-    userId: "u",
   } as const;
 
   await recordAnnotation(base);
@@ -125,6 +123,8 @@ it("auto-generates a distinct clientEventId per call when not supplied", async (
 
   expect(calls).toHaveLength(2);
   expect(calls[0]!.body!.clientEventId).not.toBe(calls[1]!.body!.clientEventId);
+  expect(calls[0]!.body).not.toHaveProperty("userId");
+  expect(calls[1]!.body).not.toHaveProperty("userId");
 });
 
 it("forwards the caller-supplied occurredAt in the body", async () => {
@@ -138,11 +138,11 @@ it("forwards the caller-supplied occurredAt in the body", async () => {
     headers: {},
     type: "user_action",
     threadId: "t",
-    userId: "u",
     occurredAt: "2026-01-01T00:00:00.000Z",
   });
 
   expect(calls[0]!.body!.occurredAt).toBe("2026-01-01T00:00:00.000Z");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
 });
 
 it("omits occurredAt from the body when not supplied", async () => {
@@ -156,10 +156,10 @@ it("omits occurredAt from the body when not supplied", async () => {
     headers: {},
     type: "user_action",
     threadId: "t",
-    userId: "u",
   });
 
   expect(calls[0]!.body).not.toHaveProperty("occurredAt");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
 });
 
 it("includes Content-Type and forwards customer headers", async () => {
@@ -173,12 +173,12 @@ it("includes Content-Type and forwards customer headers", async () => {
     headers: { "X-Customer": "tenant-abc" },
     type: "user_action",
     threadId: "t",
-    userId: "u",
   });
 
   const headers = calls[0]!.init?.headers as Record<string, string>;
   expect(headers["Content-Type"]).toBe("application/json");
   expect(headers["X-Customer"]).toBe("tenant-abc");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
 });
 
 it("propagates fetch rejections (network error) to the caller", async () => {
@@ -194,7 +194,6 @@ it("propagates fetch rejections (network error) to the caller", async () => {
       headers: {},
       type: "user_action",
       threadId: "t",
-      userId: "u",
     }),
   ).rejects.toThrow(/network request failed/);
 });
@@ -209,7 +208,6 @@ it("throws with the HTTP status when the response is not ok", async () => {
       headers: {},
       type: "user_action",
       threadId: "t",
-      userId: "u",
     }),
   ).rejects.toThrow(/422/);
 });
@@ -225,9 +223,9 @@ it("accepts undefined payload and omits it from the body", async () => {
     headers: {},
     type: "user_action",
     threadId: "t",
-    userId: "u",
     payload: undefined,
   });
 
   expect(calls[0]!.body).not.toHaveProperty("payload");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
 });
