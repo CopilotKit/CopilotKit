@@ -167,4 +167,4 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ${{ toJSON(format(':x: *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
