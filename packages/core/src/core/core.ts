@@ -1027,6 +1027,28 @@ export class CopilotKitCore {
   }
 
   /**
+   * Get the run-completion promise for an agent, or `undefined` if the agent
+   * has never been run.
+   *
+   * The promise resolves (never rejects) once the agent's most recent
+   * top-level run has fully settled — on success OR on failure, including a
+   * rejection before RUN_STARTED. It is registered synchronously by
+   * `runAgent()` before any await, so a caller can capture this handle
+   * immediately after starting a run and await it to know when the run is
+   * genuinely done.
+   *
+   * The CopilotChat send queue uses this to serialize sends: it holds a slot
+   * until the prior run's completion settles, so the next run's internal
+   * `await agent.detachActiveRun()` is a clean no-op rather than racing the
+   * prior run's event pipeline.
+   */
+  runAgentCompletion(
+    agent: import("@ag-ui/client").AbstractAgent,
+  ): Promise<void> | undefined {
+    return this.runHandler.runCompletion(agent);
+  }
+
+  /**
    * Programmatically execute a registered frontend tool without going through an LLM turn.
    * The handler runs, render components show up in the UI, and both the tool call and
    * result messages are added to `agent.messages`.

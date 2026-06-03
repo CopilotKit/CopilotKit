@@ -92,6 +92,29 @@ export class RunHandler {
   private _runDepth = 0;
 
   /**
+   * Per-agent run-completion promises, keyed by the agent instance.
+   *
+   * The promise resolves (never rejects) once the top-level run for that
+   * agent has fully settled — on success OR on failure, including a
+   * pre-RUN_STARTED rejection. It is registered SYNCHRONOUSLY at the top of
+   * `runAgent()` (before any `await`) by capturing the inner run promise, so
+   * callers can observe completion at the exact moment a run is started.
+   *
+   * This closes the structural seam in `intelligence-agent.ts`, where
+   * `activeRunCompletionPromise` is only assigned AFTER `await onInitialize`
+   * — too late for a serialization queue to gate on. By exposing a
+   * synchronous handle here, the CopilotChat send queue can hold a slot
+   * until the prior run genuinely finishes, so the next run's
+   * `await agent.detachActiveRun()` is a clean no-op.
+   *
+   * A `WeakMap` avoids leaking entries for agents that are garbage
+   * collected. Only top-level runs (`_runDepth === 0`) register here;
+   * recursive follow-up runs (after tool execution) must not overwrite the
+   * top-level entry.
+   */
+  private _runCompletions = new WeakMap<AbstractAgent, Promise<void>>();
+
+  /**
    * Tracks the threadId of the most recent `connectAgent` call so we
    * can distinguish a fresh thread restore (different threadId than
    * last time — chat is rebuilding state from scratch, must clear
@@ -281,9 +304,54 @@ export class RunHandler {
   }
 
   /**
-   * Run an agent
+   * Run an agent.
+   *
+   * This is a thin SYNCHRONOUS wrapper around `_runAgentInner`. Before any
+   * `await` runs, it captures the inner run promise so that — for top-level
+   * runs only — it can register a normalized completion promise in
+   * `_runCompletions`. Callers can then observe completion synchronously via
+   * `runCompletion(agent)` (surfaced as `CopilotKitCore.runAgentCompletion`).
+   *
+   * Splitting the method is what makes the completion handle observable at
+   * the moment the run starts: an `async` method's body does not begin
+   * executing until the first `await`, but the wrapper's synchronous prologue
+   * (capturing `runPromise` and registering it) runs immediately on call.
    */
-  async runAgent({
+  runAgent(params: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+    // `_runDepth` is incremented INSIDE `_runAgentInner`, so at this point it
+    // still reflects the caller's depth. Depth 0 means this is a top-level
+    // run (not a recursive follow-up from `processAgentResult`); only those
+    // register a fresh completion handle.
+    const isTopLevel = this._runDepth === 0;
+
+    const runPromise = this._runAgentInner(params);
+
+    if (isTopLevel) {
+      // Normalize to a promise that always RESOLVES (never rejects) once the
+      // run settles either way. `_runAgentInner` already funnels errors
+      // through `emitError` and resolves, but we also guard against a
+      // pre-RUN_STARTED rejection (the seam in intelligence-agent.ts) by
+      // swallowing rejections here too.
+      const completion = runPromise.then(
+        () => undefined,
+        () => undefined,
+      );
+      this._runCompletions.set(params.agent, completion);
+    }
+
+    return runPromise;
+  }
+
+  /**
+   * Get the run-completion promise for an agent, or `undefined` if the agent
+   * has never been run. The promise resolves once the top-level run settles
+   * (success or failure). See `_runCompletions` for details.
+   */
+  runCompletion(agent: AbstractAgent): Promise<void> | undefined {
+    return this._runCompletions.get(agent);
+  }
+
+  private async _runAgentInner({
     agent,
     forwardedProps,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {

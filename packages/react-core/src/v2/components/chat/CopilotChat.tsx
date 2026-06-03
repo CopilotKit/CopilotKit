@@ -286,6 +286,54 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
+  // Per-agent send-serialization queue.
+  //
+  // A bare `await copilotkit.runAgent()` does NOT serialize sends against the
+  // prior run's full lifecycle: in `intelligence-agent.ts` the run-completion
+  // promise is only assigned AFTER `await onInitialize`, so a second send can
+  // begin (add its message, kick a new run) while the prior run's event
+  // pipeline is still mid-flight — the source of the gen-ui / event-timing
+  // races. We serialize per agent: each send chains off the previous send for
+  // the SAME agent and holds its slot until the prior run's completion handle
+  // settles. Keying by the agent instance means switching agents starts a
+  // fresh, independent chain (a new agent is a new WeakMap key).
+  const sendChainsRef = useRef<WeakMap<AbstractAgent, Promise<void>>>(
+    new WeakMap(),
+  );
+
+  const enqueueSend = useCallback(
+    (doSend: () => void): Promise<void> => {
+      // Capture the agent at enqueue time so an agent change mid-send routes to
+      // the correct chain.
+      const thisAgent = agent;
+      const prior = sendChainsRef.current.get(thisAgent) ?? Promise.resolve();
+
+      // Swallow the prior chain's rejection so one failed send never breaks the
+      // chain for subsequent sends.
+      const next = prior
+        .catch(() => undefined)
+        .then(async () => {
+          // Add the user message, then kick (or observe) the run and hold the
+          // slot until the run genuinely completes.
+          doSend();
+          // `runAgent` registers the completion handle synchronously, but call
+          // it to actually start the run if it isn't already in flight, then
+          // prefer the synchronously-registered completion handle.
+          const runPromise = copilotkit.runAgent({ agent: thisAgent });
+          const completion =
+            copilotkit.runAgentCompletion(thisAgent) ?? runPromise;
+          // Never reject — a failed run still releases the slot.
+          await completion.catch(() => undefined);
+        });
+
+      sendChainsRef.current.set(thisAgent, next);
+      return next;
+    },
+    // copilotkit is intentionally excluded — it is a stable ref that never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agent],
+  );
+
   const onSubmitInput = useCallback(
     async (value: string) => {
       // Block if uploads in progress
@@ -301,57 +349,65 @@ export function CopilotChat({
 
       const readyAttachments = consumeAttachments();
 
-      if (readyAttachments.length > 0) {
-        const contentParts: InputContent[] = [];
-        if (value.trim()) {
-          contentParts.push({ type: "text", text: value });
+      // Build the user message now (while attachments/value are in scope), but
+      // defer adding it + running until the per-agent queue releases the slot,
+      // so concurrent sends serialize against the prior run's completion.
+      const doSend = () => {
+        if (readyAttachments.length > 0) {
+          const contentParts: InputContent[] = [];
+          if (value.trim()) {
+            contentParts.push({ type: "text", text: value });
+          }
+          for (const att of readyAttachments) {
+            contentParts.push({
+              type: att.type,
+              source: att.source,
+              metadata: {
+                ...(att.filename ? { filename: att.filename } : {}),
+                ...att.metadata,
+              },
+            } as InputContent);
+          }
+          agent.addMessage({
+            id: randomUUID(),
+            role: "user",
+            content: contentParts,
+          });
+        } else {
+          agent.addMessage({
+            id: randomUUID(),
+            role: "user",
+            content: value,
+          });
         }
-        for (const att of readyAttachments) {
-          contentParts.push({
-            type: att.type,
-            source: att.source,
-            metadata: {
-              ...(att.filename ? { filename: att.filename } : {}),
-              ...att.metadata,
-            },
-          } as InputContent);
-        }
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: contentParts,
-        });
-      } else {
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: value,
-        });
-      }
+      };
 
       // Clear input after submitting
       setInputValue("");
       try {
-        await copilotkit.runAgent({ agent });
+        await enqueueSend(doSend);
       } catch (error) {
         console.error("CopilotChat: runAgent failed", error);
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [agent, selectedAttachments, consumeAttachments, enqueueSend],
   );
 
   const handleSelectSuggestion = useCallback(
     async (suggestion: Suggestion) => {
-      agent.addMessage({
-        id: randomUUID(),
-        role: "user",
-        content: suggestion.message,
-      });
-
+      // Route through the same per-agent queue as text sends so a suggestion
+      // click that lands while a prior run is still in flight serializes
+      // instead of racing it.
       try {
-        await copilotkit.runAgent({ agent });
+        await enqueueSend(() => {
+          agent.addMessage({
+            id: randomUUID(),
+            role: "user",
+            content: suggestion.message,
+          });
+        });
       } catch (error) {
         console.error(
           "CopilotChat: runAgent failed after selecting suggestion",
@@ -360,7 +416,7 @@ export function CopilotChat({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, enqueueSend],
   );
 
   const stopCurrentRun = useCallback(() => {

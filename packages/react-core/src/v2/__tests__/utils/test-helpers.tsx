@@ -75,6 +75,168 @@ export class MockStepwiseAgent extends AbstractAgent {
 }
 
 /**
+ * A tiny externally-resolvable promise. Lets a test hold a gate closed and
+ * open it (resolve) / fail it (reject) at a precise moment.
+ */
+export class Deferred<T = void> {
+  public readonly promise: Promise<T>;
+  public resolve!: (value: T) => void;
+  public reject!: (reason?: unknown) => void;
+  private _settled = false;
+
+  constructor() {
+    this.promise = new Promise<T>((resolve, reject) => {
+      this.resolve = (value: T) => {
+        this._settled = true;
+        resolve(value);
+      };
+      this.reject = (reason?: unknown) => {
+        this._settled = true;
+        reject(reason);
+      };
+    });
+  }
+
+  get settled(): boolean {
+    return this._settled;
+  }
+}
+
+/**
+ * A mock agent that reproduces the real run lifecycle's controllable timing,
+ * which the Subject-based {@link MockStepwiseAgent} cannot.
+ *
+ * It overrides `runAgent` (the method `CopilotKitCore` / `RunHandler` await)
+ * directly, rather than emitting through `run()`/a Subject. This lets a test
+ * independently control:
+ *   - WHEN the run "starts" (gateRunStarted) — i.e. when RUN_STARTED-equivalent
+ *     side effects happen and `isRunning` flips true.
+ *   - WHEN the run completes (gateCompletion) — i.e. when the `runAgent` promise
+ *     resolves and the completion handle settles.
+ *   - Whether the run FAILS before starting (failBeforeStart) — reproducing a
+ *     pre-RUN_STARTED rejection.
+ *
+ * It also records the order of `runAgent` invocations and the messages present
+ * at each invocation, so tests can assert serialization (no overlap) and that
+ * each send's message was added before its run started.
+ */
+export class MockRunLifecycleAgent extends AbstractAgent {
+  /** Records, in order, each runAgent invocation with a snapshot of messages. */
+  public readonly runLog: Array<{
+    index: number;
+    messageCount: number;
+    messageContents: string[];
+  }> = [];
+
+  /** Number of runAgent calls currently in flight (must never exceed 1 when serialized). */
+  public concurrentRuns = 0;
+  public maxConcurrentRuns = 0;
+
+  // Per-run controllable gates. Each runAgent call shifts the next gate off
+  // these queues; if none is queued, a fresh open gate is created so the run
+  // proceeds immediately.
+  private _startGates: Deferred[] = [];
+  private _completionGates: Deferred[] = [];
+  private _failBeforeStartFlags: boolean[] = [];
+  private _runIndex = 0;
+
+  /**
+   * Queue a controllable lifecycle for the NEXT runAgent call.
+   * Returns the gates so the test can open them at the right moment.
+   */
+  enqueueRun(opts?: { failBeforeStart?: boolean }): {
+    gateRunStarted: Deferred;
+    gateCompletion: Deferred;
+  } {
+    const gateRunStarted = new Deferred();
+    const gateCompletion = new Deferred();
+    this._startGates.push(gateRunStarted);
+    this._completionGates.push(gateCompletion);
+    this._failBeforeStartFlags.push(opts?.failBeforeStart ?? false);
+    return { gateRunStarted, gateCompletion };
+  }
+
+  override async runAgent(): Promise<any> {
+    const index = this._runIndex++;
+    this.concurrentRuns++;
+    this.maxConcurrentRuns = Math.max(
+      this.maxConcurrentRuns,
+      this.concurrentRuns,
+    );
+
+    this.runLog.push({
+      index,
+      messageCount: this.messages.length,
+      messageContents: this.messages.map((m) =>
+        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      ),
+    });
+
+    const startGate = this._startGates.shift();
+    const completionGate = this._completionGates.shift();
+    const failBeforeStart = this._failBeforeStartFlags.shift() ?? false;
+
+    try {
+      if (failBeforeStart) {
+        // Reject BEFORE RUN_STARTED — isRunning never flips true.
+        if (startGate) await startGate.promise;
+        throw new Error("run failed before RUN_STARTED");
+      }
+
+      // Wait for the test to open the start gate (or proceed immediately if
+      // none was queued), then flip running on. State changes are wrapped in
+      // `act()` so React flushes the resulting re-render inside an act scope —
+      // exactly like MockStepwiseAgent. Tests must enable React's act
+      // environment (`IS_REACT_ACT_ENVIRONMENT = true`); otherwise these
+      // microtask-deferred updates leak past the test boundary and wedge the
+      // renderer for subsequent tests.
+      if (startGate) await startGate.promise;
+      act(() => {
+        this.isRunning = true;
+      });
+
+      // Hold until the test opens the completion gate.
+      if (completionGate) await completionGate.promise;
+
+      act(() => {
+        this.isRunning = false;
+      });
+      return { newMessages: [] };
+    } finally {
+      this.concurrentRuns--;
+    }
+  }
+
+  override clone(): this {
+    const cloned = new (this
+      .constructor as new () => MockRunLifecycleAgent)() as this;
+    cloned.agentId = this.agentId;
+    // Share mutable controller state so the test's original reference keeps
+    // driving the agent even after CopilotKitCore clones it.
+    const shared = this as unknown as MockRunLifecycleAgent;
+    const target = cloned as unknown as MockRunLifecycleAgent;
+    (target as any).runLog = shared.runLog;
+    (target as any)._startGates = shared._startGates;
+    (target as any)._completionGates = shared._completionGates;
+    (target as any)._failBeforeStartFlags = shared._failBeforeStartFlags;
+    // _runIndex / concurrency counters live on the instance actually invoked;
+    // tests read them off whichever instance runs. Mirror via getters is
+    // overkill — RunHandler invokes the stored agent instance directly.
+    return cloned;
+  }
+
+  // No-op: there is no Subject/pipeline to tear down. Returning a resolved
+  // promise also models the "clean no-op detach" the completion-gated queue
+  // relies on.
+  override async detachActiveRun(): Promise<void> {}
+
+  override run(_input: RunAgentInput): Observable<BaseEvent> {
+    // Not used — runAgent is overridden directly — but AbstractAgent requires it.
+    return new Subject<BaseEvent>().asObservable();
+  }
+}
+
+/**
  * A mock agent that supports both run() and connect() for testing reconnection scenarios.
  * On run(), emits events and stores them.
  * On connect(), replays stored events (simulating thread history replay).
