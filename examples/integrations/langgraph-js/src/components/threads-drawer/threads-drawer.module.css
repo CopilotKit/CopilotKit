@@ -656,27 +656,55 @@
   }
 }
 
-@media (max-width: 900px) {
+/* Tablet + phone: the threads panel goes off-canvas so the content and the
+   (full-screen) chat get the whole width instead of squeezing into a column. */
+@media (max-width: 1024px) {
   .layout {
     position: relative;
     isolation: isolate;
-    grid-template-columns: 3.5rem minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .drawerOpen {
-    position: absolute;
+  /* Collapsed: a small floating launcher pinned top-left, above the full-screen
+     mobile chat (z-index 1200) so threads stay reachable over it. */
+  .drawer.drawerClosed {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    height: auto;
+    /* Override the base drawer's full-viewport height + chrome so the closed
+       state shrinks to a small floating launcher. */
+    min-height: 0;
+    border-right: 0;
+    background: transparent;
+    z-index: 1300;
+  }
+
+  .drawerClosed .collapsedRail {
+    flex-direction: row;
+    width: auto;
+    height: auto;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    overflow: visible;
+    border-radius: 999px;
+    background: var(--threads-drawer-bg, var(--card));
+    border: 1px solid var(--threads-drawer-border, var(--border));
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  }
+
+  /* Open: full-height off-canvas panel from the left, above the chat. */
+  .drawer.drawerOpen {
+    position: fixed;
     inset: 0 auto 0 0;
-    z-index: 100;
-    width: min(16rem, calc(100vw - 1rem));
-  }
-
-  .drawerClosed {
-    position: relative;
-    z-index: 2;
+    z-index: 1300;
+    width: min(20rem, 92vw);
+    box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
   }
 
   .mainPanel {
-    grid-column: 2;
+    grid-column: 1;
     position: relative;
     z-index: 1;
   }
