@@ -117,6 +117,14 @@ jobs:
               exit 1
             fi
             CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+            # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression
+            # dropped every probe.prod entry). An empty CSV would otherwise
+            # propagate downstream with exit 0; mirror the single-service
+            # branch's fail-loud style.
+            if [ -z "$CSV" ]; then
+              echo "::error::'all' resolved to zero prod-eligible services"
+              exit 1
+            fi
           else
             # Capture the FULL match set (no `head` — that would silently mask
             # an ambiguous match, and piping jq into head under pipefail can
@@ -178,12 +186,31 @@ jobs:
 
   promote:
     needs: [resolve-targets, verify-staging-precondition]
+    # Do NOT hard-depend on verify-staging-precondition's RESULT. That job
+    # probes the FULL requested set all-or-nothing, so a single staging-red
+    # service (e.g. a chronically-broken integration in `all`) fails it and
+    # — under the default `if: success()` — would SKIP promote entirely,
+    # re-blocking the whole fleet. bin/railway enforces staging-green
+    # PER-SERVICE (spec §7 P2 = latest staging deploy must be SUCCESS, P3 =
+    # live staging probe, default-on), so a red service is refused on its own
+    # and lands in promote-fleet.sh's failed set (reds the run) without
+    # taking the greens down with it. verify-staging-precondition therefore
+    # stays as an advisory early signal surfaced in the notify payload, not a
+    # hard blocker. `!cancelled()` keeps a human-cancelled run from promoting;
+    # mirrors the verify-prod gate idiom below.
+    if: ${{ !cancelled() && needs.resolve-targets.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: railway
     permissions:
       contents: read
       packages: read
+    outputs:
+      # CSV of the services that ACTUALLY promoted (best-effort: a partial
+      # failure still exposes the succeeded subset). verify-prod scopes its
+      # prod verification to exactly this set so a single failed service can't
+      # red the verification of the services that did promote.
+      succeeded_csv: ${{ steps.promote.outputs.succeeded_csv }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -200,6 +227,7 @@ jobs:
           npm ci
           npx tsx emit-railway-envs-json.ts
       - name: bin/railway promote
+        id: promote
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -211,22 +239,30 @@ jobs:
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
           fi
-          # The local promote runs each service in turn; bin/railway
-          # handles spec §7 preconditions (P1..P6). --require-staging-green
-          # is default-on; the prior job already established staging is
-          # green but we keep the script-level guard as defense in depth.
-          IFS=',' read -ra SVCS <<< "$SERVICES_CSV"
-          for svc in "${SVCS[@]}"; do
-            args=(promote "$svc" --yes --non-interactive)
-            if [ -n "${DIGEST:-}" ]; then
-              args+=(--digest "$DIGEST")
-            fi
-            echo "==> showcase/bin/railway ${args[*]}"
-            showcase/bin/railway "${args[@]}"
-          done
+          # promote-fleet.sh runs each service in turn BEST-EFFORT: a single
+          # red service (e.g. a chronically-broken integration in the `all`
+          # set) must not abort promotion of the rest of the fleet. The script
+          # attempts every service, aggregates the succeeded/failed sets, emits
+          # a step summary, and exits non-zero iff ANY service failed (so the
+          # notify job still fires) — but only AFTER attempting all of them.
+          # bin/railway itself handles spec §7 preconditions (P1..P6);
+          # --require-staging-green is default-on and the prior job already
+          # established staging is green (defense in depth). We deliberately do
+          # NOT pass --confirm-divergence: WARN-divergence refusals are a real
+          # signal that must fail the run.
+          RAILWAY_BIN="showcase/bin/railway" \
+            showcase/scripts/promote-fleet.sh
 
   verify-prod:
     needs: [resolve-targets, promote]
+    # Run whenever promote actually RAN — success OR partial failure — so the
+    # services that DID promote still get prod verification. `!cancelled()`
+    # excludes a human-cancelled run; `needs.promote.result != 'skipped'`
+    # excludes the case where promote never ran (e.g. an upstream abort/skip).
+    # Under the default `if: success()` this job was SKIPPED on any partial
+    # promote failure, leaving the promoted services with zero prod
+    # verification — that is the bug this gate fixes.
+    if: ${{ !cancelled() && needs.promote.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: railway
@@ -244,11 +280,26 @@ jobs:
       - name: Run verify-deploy --env prod
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+          # Scope verification to the services that ACTUALLY promoted (from the
+          # promote job's best-effort succeeded set), NOT the full requested set
+          # (resolve-targets) — verifying a service that failed to promote would
+          # guarantee a red verify and mask the health of the ones that did
+          # promote.
+          SERVICES_CSV: ${{ needs.promote.outputs.succeeded_csv }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
+          fi
+          # If NOTHING promoted (every requested service failed, so the
+          # succeeded set is empty), there is nothing to verify — skip with a
+          # clear log line rather than calling verify-deploy.ts with an empty
+          # --services (which would either error or vacuously pass). The promote
+          # job already exited non-zero in that case, so the overall run is red
+          # via the notify state machine regardless.
+          if [ -z "$SERVICES_CSV" ]; then
+            echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
+            exit 0
           fi
           npx tsx showcase/scripts/verify-deploy.ts --env prod --services "$SERVICES_CSV"
 
@@ -264,6 +315,17 @@ jobs:
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
+      # Best-effort promote invariant (do NOT reintroduce a PRE gate below):
+      #   resolve-targets              = HARD precondition (must succeed).
+      #   verify-staging-precondition  = ADVISORY only — surfaced in the Slack
+      #                                  payload (`pre-staging`), never gates
+      #                                  promote or run success. bin/railway
+      #                                  enforces staging-green per-service, so
+      #                                  PRE is a leading indicator, not a gate.
+      #   promote                      = best-effort (exits non-zero iff a
+      #                                  service failed).
+      #   verify-prod                  = verifies the succeeded subset.
+      #   run success                  = PROMOTE == success AND PROD == success.
       - name: Compute state
         id: state
         env:
@@ -281,7 +343,12 @@ jobs:
             # This is NOT a failed promote — emit a neutral state so no red
             # alert pages #oss-alerts.
             STATE="aborted"; ICON=":heavy_minus_sign:"
-          elif [ "$PRE" = "success" ] && [ "$PROMOTE" = "success" ] && [ "$PROD" = "success" ]; then
+          elif [ "$PROMOTE" = "success" ] && [ "$PROD" = "success" ]; then
+            # PRE (verify-staging-precondition) is ADVISORY and intentionally
+            # NOT in this gate: bin/railway enforces staging-green per-service,
+            # so a service that was staging-red at precondition time but still
+            # promoted+verified cleanly must not red the run. PRE remains
+            # surfaced in the Slack payload as the `pre-staging` field.
             STATE="success"; ICON=":white_check_mark:"
           elif [ "$RESOLVE" = "cancelled" ] || [ "$PRE" = "cancelled" ] || [ "$PROMOTE" = "cancelled" ] || [ "$PROD" = "cancelled" ]; then
             # A human cancelled the run (e.g. via the Actions UI). This is a
