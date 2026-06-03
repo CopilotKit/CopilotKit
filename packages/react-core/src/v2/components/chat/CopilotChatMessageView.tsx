@@ -25,7 +25,10 @@ import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import { IntelligenceIndicator } from "../intelligence-indicator";
+import {
+  IntelligenceIndicator,
+  getIntelligenceTurnAnchors,
+} from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
@@ -376,6 +379,10 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+// Stable empty map for the (common) non-intelligence case, so the anchors memo
+// doesn't churn its identity when intelligence mode is off.
+const EMPTY_TURN_ANCHORS: ReadonlyMap<string, string> = new Map();
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -537,6 +544,18 @@ export function CopilotChatMessageView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldVirtualize, firstMessageId]);
 
+  // Map each Intelligence-using turn's anchor message → stable turn id. One
+  // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
+  // moves with the anchor without remounting. Computed over the deduplicated
+  // messages we actually render.
+  const intelligenceTurnAnchors = useMemo(
+    () =>
+      copilotkit.intelligence !== undefined
+        ? getIntelligenceTurnAnchors(deduplicatedMessages)
+        : EMPTY_TURN_ANCHORS,
+    [copilotkit.intelligence, deduplicatedMessages],
+  );
+
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
@@ -609,17 +628,17 @@ export function CopilotChatMessageView({
       );
     }
 
-    // Auto-mount the IntelligenceIndicator on assistant message slots
-    // when the runtime is in intelligence mode. The component self-gates
-    // further (latest matching-assistant slot, pending tool-call grace
-    // window) so only one pill renders at a time — mounting only for
-    // assistant messages avoids the per-slot `useAgent` subscription
-    // and four effects on user/reasoning/activity slots that would just
-    // return null at the role gate anyway.
-    if (copilotkit.intelligence !== undefined && message.role === "assistant") {
+    // Auto-mount the IntelligenceIndicator once per Intelligence-using turn,
+    // at that turn's anchor message (its last bash-using assistant), keyed by
+    // the stable turn id. Keying by turn (not message) means the indicator
+    // moves with the anchor across a hand-off without remounting, and past
+    // turns keep their own indicator. `getIntelligenceTurnAnchors` already
+    // gated on intelligence mode (empty map when off).
+    const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
+    if (intelligenceTurnId !== undefined) {
       elements.push(
         <IntelligenceIndicator
-          key={`${message.id}-intelligence`}
+          key={`intelligence-${intelligenceTurnId}`}
           message={message}
           agentId={config?.agentId ?? DEFAULT_AGENT_ID}
           intelligenceIndicator={intelligenceIndicator}

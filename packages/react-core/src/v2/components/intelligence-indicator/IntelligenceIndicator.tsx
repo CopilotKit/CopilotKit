@@ -72,6 +72,49 @@ const messageHasMatchingToolCall = (m: Message): boolean => {
 };
 
 /**
+ * Stable turn id for the messages that precede the first user message (a turn
+ * with no opening user message of its own). Used as the React key so the
+ * indicator for that turn never collides with a real user-message id.
+ */
+export const INTELLIGENCE_TURN_HEAD = "__cpk_turn_head__";
+
+/**
+ * Map each Intelligence-using turn to its anchor message — the FIRST bash-using
+ * assistant message of the turn — and a stable turn id (the id of the user
+ * message that opened the turn, or {@link INTELLIGENCE_TURN_HEAD} for the
+ * pre-first-user turn). Returns `Map<anchorMessageId, turnId>`.
+ *
+ * Anchoring to the FIRST (not last) bash-using message keeps the indicator
+ * fixed in place for the whole turn: later bash steps don't reposition it, so
+ * the spinner never abruptly jumps mid-turn (bug 1). `CopilotChatMessageView`
+ * emits exactly one `IntelligenceIndicator` per entry, keyed by the turn id and
+ * positioned at the anchor; the per-turn key also lets every past turn keep its
+ * own indicator in scroll-back.
+ */
+export function getIntelligenceTurnAnchors(
+  messages: readonly Message[],
+): Map<string, string> {
+  const anchors = new Map<string, string>();
+  let turnId = INTELLIGENCE_TURN_HEAD;
+  let anchorId: string | null = null;
+  const commit = (): void => {
+    if (anchorId !== null) anchors.set(anchorId, turnId);
+    anchorId = null;
+  };
+  for (const m of messages) {
+    if (m.role === "user") {
+      commit();
+      turnId = m.id;
+      continue;
+    }
+    // First bash-using message of the turn wins; later ones don't move it.
+    if (anchorId === null && messageHasMatchingToolCall(m)) anchorId = m.id;
+  }
+  commit();
+  return anchors;
+}
+
+/**
  * "Tool-call-like" messages do NOT count as a real follow-up: tool
  * result messages, assistant messages that carry tool calls, and
  * empty-content assistant messages (which some providers emit as a
@@ -92,28 +135,26 @@ const isToolCallLikeMessage = (m: Message): boolean => {
 
 /**
  * The "Using CopilotKit Intelligence" indicator brain. Auto-mounted by
- * `CopilotChatMessageView` for every assistant message slot when
- * `copilotkit.intelligence` is configured — callers do not register
- * this themselves. It owns all orchestration (run subscription, gating,
- * and the phase machine) and renders its swappable face via the
- * `intelligenceIndicator` slot.
+ * `CopilotChatMessageView` — once per Intelligence-using turn, at that
+ * turn's anchor message and keyed by the turn id (see
+ * {@link getIntelligenceTurnAnchors}). Callers do not register this
+ * themselves. It owns the run subscription and the phase machine and
+ * renders its swappable face via the `intelligenceIndicator` slot.
+ *
+ * Placement (which message anchors the turn) is decided by the view, so
+ * this component does not self-gate "am I last-in-turn"; it only derives
+ * in-progress/finished for the turn it was mounted on.
  *
  * Render gates (all must hold):
  *   1. `copilotkit.intelligence !== undefined`
- *   2. The message is an assistant message with at least one tool call
- *      whose name matches {@link DEFAULT_TOOL_PATTERNS}.
- *   3. The message is the *last bash-using assistant message in its
- *      turn*. A turn is bounded by user messages: walking forward from
- *      this message, hitting another bash-using assistant before a
- *      user message (or the end of `agent.messages`) means we are NOT
- *      last-in-turn and must return `null`.
- *   4. The phase machine is past `hidden`.
+ *   2. The (anchor) message is an assistant message with at least one
+ *      tool call whose name matches {@link DEFAULT_TOOL_PATTERNS}.
+ *   3. The phase machine is past `hidden`.
  *
- * Per-turn semantics ensure that every prior agent turn that used
- * Intelligence keeps its own persistent indicator in chat history —
- * they never disappear when a new turn starts, because each anchors
- * to a different assistant message that remains last-in-turn for its
- * respective turn.
+ * Because the view keys each indicator by its turn id, the instance moves
+ * with the anchor across a hand-off (no remount, no spinner restart), and
+ * every prior Intelligence-using turn keeps its own persistent indicator
+ * in chat history.
  *
  * Phase machine (per-instance, all timers local):
  *   - Starts in `hidden`, unless the message mounts onto an
@@ -240,18 +281,11 @@ export function IntelligenceIndicator(
   if (message.role !== "assistant") return null;
   if (!messageHasMatchingToolCall(message)) return null;
 
-  // Per-turn last-in-turn gate. Walk forward from this message; if we
-  // hit a user message (turn boundary) before encountering another
-  // bash-using assistant message, this message is the last-in-turn
-  // and the indicator renders here. Otherwise a later assistant in
-  // the same turn owns the indicator and we return `null`.
-  const idx = agent.messages.findIndex((m) => m.id === message.id);
-  if (idx < 0) return null;
-  for (let i = idx + 1; i < agent.messages.length; i += 1) {
-    const m = agent.messages[i]!;
-    if (m.role === "user") break;
-    if (messageHasMatchingToolCall(m)) return null;
-  }
+  // Placement (which message anchors this turn's indicator) is decided by
+  // `CopilotChatMessageView` via `getIntelligenceTurnAnchors`, which mounts
+  // exactly one instance per turn keyed by the turn id. The brain therefore
+  // no longer self-gates "am I the last-in-turn message"; it only owns the
+  // run-status → in-progress/finished derivation for the turn it anchors.
 
   // ─── Render the (swappable) face ──────────────────────────────────────
 

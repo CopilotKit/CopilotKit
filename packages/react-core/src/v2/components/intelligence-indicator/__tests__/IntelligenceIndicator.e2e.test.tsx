@@ -281,13 +281,13 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
 
   /**
    * Within a single turn (no user message between assistant messages),
-   * the indicator anchors to the LAST bash-using assistant message and
-   * moves as later bash-using messages arrive — there is exactly one
-   * indicator visible per turn at any time. After the turn finishes the
-   * indicator settles into its persistent finished state on the final
-   * bash-using message of that turn.
+   * the indicator anchors to the FIRST bash-using assistant message and
+   * STAYS there — later bash-using messages in the same turn do not move
+   * it. Keeping the anchor fixed means the spinner never abruptly jumps
+   * position mid-turn. After the turn finishes it settles into its
+   * persistent finished state on that same first message.
    */
-  it("within a single turn: anchors to the last bash-using assistant; settles to finished", async () => {
+  it("within a single turn: anchors to the first bash-using assistant and stays put; settles to finished", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -304,18 +304,19 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
     await waitFor(() => expectIndicatorOn("m_a1"));
     expectIndicatorCount(1);
 
-    // A second bash-using assistant in the same turn takes over the slot.
+    // A second bash-using assistant in the same turn must NOT move the anchor.
     emitAssistantMessageWithToolCalls(agent, "m_a2", [
       { id: "tc_a2", arg: '{"cmd":"echo a2"}' },
     ]);
-    await waitFor(() => expectIndicatorOn("m_a2"));
-    await waitFor(() => expectNoIndicatorOn("m_a1"));
+    await new Promise((r) => setTimeout(r, 120));
+    expectIndicatorOn("m_a1");
+    expectNoIndicatorOn("m_a2");
     expectIndicatorCount(1);
 
-    // Turn finishes → indicator settles on m_a2 in finished state.
+    // Turn finishes → indicator settles on m_a1 (the first) in finished state.
     agent.emit(runFinishedEvent());
-    await waitFor(() => expectIndicatorStatus("m_a2", "finished"));
-    expectIndicatorOn("m_a2");
+    await waitFor(() => expectIndicatorStatus("m_a1", "finished"));
+    expectIndicatorOn("m_a1");
     expectIndicatorCount(1);
   });
 
@@ -363,10 +364,11 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
   });
 
   /**
-   * Within a turn, an earlier bash-using assistant must NOT keep the
-   * indicator once a later bash-using assistant arrives.
+   * Within a turn, the indicator stays anchored to the FIRST bash-using
+   * assistant and never jumps to a later one — only one indicator renders
+   * per turn, and it does not move.
    */
-  it("condition (last-in-turn): never renders on a non-last bash-using assistant of the turn", async () => {
+  it("condition (first-in-turn): stays on the first bash-using assistant; never moves to a later one", async () => {
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -376,19 +378,16 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
     emitAssistantMessageWithToolCalls(agent, "m_first", [
       { id: "tc_first", arg: "{}" },
     ]);
-    // Wait for m_first to render the indicator while it is still the
-    // last in the turn. Without this gate, both messages would land
-    // synchronously and m_first's renderer would never have been
-    // invoked while it was the last — turning a reactive assertion
-    // into a first-render correctness test by accident.
     await waitFor(() => expectIndicatorOn("m_first"));
 
     emitAssistantMessageWithToolCalls(agent, "m_second", [
       { id: "tc_second", arg: "{}" },
     ]);
 
-    await waitFor(() => expectIndicatorOn("m_second"));
-    expectNoIndicatorOn("m_first");
+    // The anchor does not move to the later bash-using message.
+    await new Promise((r) => setTimeout(r, 120));
+    expectIndicatorOn("m_first");
+    expectNoIndicatorOn("m_second");
     expectIndicatorCount(1);
   });
 
@@ -534,9 +533,10 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
     expectIndicatorCount(1);
   });
 
-  it("multi-step: indicator stays continuously across tool-result interleaving", async () => {
-    // Tool result arrives, then a second assistant message with bash.
-    // Within the same turn, the slot moves from m_step1 to m_step2.
+  it("multi-step: indicator stays continuously on the first bash message across tool-result interleaving", async () => {
+    // Tool result arrives, then a second assistant message with bash. Within
+    // the same turn the anchor stays fixed on the first bash message — it
+    // does not move to the second.
     const agent = makeAgent();
     renderForIndicator(agent);
     await screen.findByTestId("trigger-run");
@@ -555,13 +555,14 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
     expectIndicatorOn("m_step1");
     expectIndicatorCount(1);
 
-    // Second assistant message with bash arrives. Slot moves; old
-    // instance stops rendering (no longer the last-in-turn).
+    // Second assistant message with bash arrives — the anchor stays on the
+    // first bash message; it does not jump to m_step2.
     emitAssistantMessageWithToolCalls(agent, "m_step2", [
       { id: "tc_step2", arg: '{"cmd":"pwd"}' },
     ]);
-    await waitFor(() => expectIndicatorOn("m_step2"));
-    expectNoIndicatorOn("m_step1");
+    await new Promise((r) => setTimeout(r, 150));
+    expectIndicatorOn("m_step1");
+    expectNoIndicatorOn("m_step2");
     expectIndicatorCount(1);
   });
 
@@ -587,6 +588,57 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
 
     await waitFor(() => expectIndicatorStatus("m_tool", "finished"));
     expectIndicatorCount(1);
+  });
+
+  it("bug 1 (no remount): the face is not torn down across an anchor hand-off within a turn", async () => {
+    // Within one turn the anchor moves from the first bash-using assistant
+    // message to a later one. The indicator is keyed by turn (not by message),
+    // so the SAME face instance moves with the anchor — no unmount, no remount,
+    // no spinner restart. A remount here is exactly bug 1's flicker. (Under the
+    // old per-message keying this counted two mounts + one unmount.)
+    let mountCount = 0;
+    let unmountCount = 0;
+    const Tracking = ({
+      status,
+      label,
+    }: IntelligenceIndicatorViewProps): React.ReactElement => {
+      React.useEffect(() => {
+        mountCount += 1;
+        return () => {
+          unmountCount += 1;
+        };
+      }, []);
+      return (
+        <div data-testid="tracking-indicator" data-custom-status={status}>
+          {label}
+        </div>
+      );
+    };
+
+    const agent = makeAgent();
+    renderForIndicator(agent, { intelligenceIndicator: Tracking });
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+
+    emitAssistantMessageWithToolCalls(agent, "m_a1", [
+      { id: "tc_a1", arg: '{"cmd":"ls"}' },
+    ]);
+    // Face mounts exactly once, after the grace window.
+    await waitFor(() => expect(mountCount).toBe(1));
+
+    // A later bash-using assistant in the SAME turn takes over the anchor.
+    emitAssistantMessageWithToolCalls(agent, "m_a2", [
+      { id: "tc_a2", arg: '{"cmd":"pwd"}' },
+    ]);
+    // Allow React to reconcile and any (incorrect) remount to surface.
+    await new Promise((r) => setTimeout(r, 150));
+
+    // The instance moved with the anchor — it was never torn down.
+    expect(mountCount).toBe(1);
+    expect(unmountCount).toBe(0);
+    expect(screen.getAllByTestId("tracking-indicator")).toHaveLength(1);
   });
 
   // ─── Slot customization (the three SlotValue tiers) ──────────────────
