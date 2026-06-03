@@ -27,8 +27,8 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler: async ({ themeColor }) => {
-      setThemeColor(themeColor);
+    handler: async ({ themeColor: nextThemeColor }) => {
+      setThemeColor(nextThemeColor);
     },
   });
 
@@ -90,11 +90,6 @@ export default function CopilotKitPage() {
   );
 }
 
-// State of the agent, make sure this aligns with your agent's state.
-type AgentState = {
-  proverbs: string[];
-};
-
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
   const { agent } = useAgent({
@@ -102,25 +97,22 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-actions
-  useFrontendTool(
-    {
-      name: "updateProverb",
-      parameters: z.object({
-        proverbs: z
-          .array(z.string())
-          .describe(
-            "The proverbs to be committed into state. Make them witty, short and concise.",
-          ),
-      }),
-      handler: async ({ proverbs }) => {
-        agent.setState({
-          ...agent.state,
-          proverbs: [...proverbs],
-        });
-      },
+  useFrontendTool({
+    name: "updateProverb",
+    parameters: z.object({
+      proverbs: z
+        .array(z.string())
+        .describe(
+          "The proverbs to be committed into state. Make them witty, short and concise.",
+        ),
+    }),
+    handler: async ({ proverbs }) => {
+      agent.setState({
+        ...agent.state,
+        proverbs: [...proverbs],
+      });
     },
-    [agent],
-  );
+  });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
   useRenderTool({
