@@ -1249,15 +1249,35 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               if (transport) {
-                const mcpClient = await createMCPClient({ transport });
+                // A single MCP server being unavailable (down, 5xx, timeout,
+                // bad auth) must NOT fail the whole run — skip it and continue
+                // with the healthy servers and the agent's own tools. The run
+                // degrades gracefully instead of erroring out.
+                let mcpClient;
+                try {
+                  mcpClient = await createMCPClient({ transport });
+                } catch (err) {
+                  console.error(
+                    `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
+                    err,
+                  );
+                  continue;
+                }
+                // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
-
-                // Get tools from this MCP server and merge with existing tools
-                const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = {
-                  ...streamTextParams.tools,
-                  ...mcpTools,
-                } as ToolSet;
+                try {
+                  // Get tools from this MCP server and merge with existing tools
+                  const mcpTools = await mcpClient.tools();
+                  streamTextParams.tools = {
+                    ...streamTextParams.tools,
+                    ...mcpTools,
+                  } as ToolSet;
+                } catch (err) {
+                  console.error(
+                    `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
+                    err,
+                  );
+                }
               }
             }
           }
