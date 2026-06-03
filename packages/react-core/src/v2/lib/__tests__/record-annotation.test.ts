@@ -1,0 +1,233 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { recordAnnotation } from "../record-annotation";
+
+// Override randomUUID with a counter so each call produces a distinct,
+// predictable value (mirrors the pattern used in the hook tests).
+let uuidCounter = 0;
+vi.mock("@copilotkit/shared", async () => {
+  const actual =
+    await vi.importActual<Record<string, unknown>>("@copilotkit/shared");
+  return {
+    ...actual,
+    randomUUID: vi.fn(() => `uuid-${++uuidCounter}`),
+  };
+});
+
+interface FetchCall {
+  url: string;
+  init: RequestInit | undefined;
+  body: Record<string, unknown> | null;
+}
+
+const mockFetch = (
+  responses: Array<{ status: number; body: unknown }>,
+): { calls: FetchCall[]; fetch: typeof globalThis.fetch } => {
+  const calls: FetchCall[] = [];
+  let index = 0;
+  const fetch = vi.fn(async (url, init) => {
+    let parsedBody: Record<string, unknown> | null = null;
+    if (init?.body && typeof init.body === "string") {
+      try {
+        parsedBody = JSON.parse(init.body);
+      } catch {
+        parsedBody = null;
+      }
+    }
+    calls.push({ url: String(url), init, body: parsedBody });
+    const response = responses[index++] ?? responses[responses.length - 1]!;
+    return new Response(JSON.stringify(response.body), {
+      status: response.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  return { calls, fetch: fetch as unknown as typeof globalThis.fetch };
+};
+
+let originalFetch: typeof globalThis.fetch;
+
+beforeEach(() => {
+  originalFetch = globalThis.fetch;
+  uuidCounter = 0;
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  vi.clearAllMocks();
+});
+
+it("POSTs the correct wire body to ${runtimeUrl}/connector/annotate", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "evt-1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  const result = await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    payload: { title: "Renamed project", data: { old: "Foo" } },
+    threadId: "thread-1",
+    userId: "user-42",
+  });
+
+  expect(result).toEqual({ id: "evt-1", duplicate: false });
+  expect(calls).toHaveLength(1);
+  expect(calls[0]!.url).toBe(
+    "https://bff.example.com/api/copilotkit/connector/annotate",
+  );
+  expect(calls[0]!.init?.method).toBe("POST");
+  expect(calls[0]!.body).toMatchObject({
+    type: "user_action",
+    payload: { title: "Renamed project", data: { old: "Foo" } },
+    threadId: "thread-1",
+    userId: "user-42",
+  });
+  expect(typeof calls[0]!.body!.clientEventId).toBe("string");
+  expect((calls[0]!.body!.clientEventId as string).length).toBeGreaterThan(0);
+});
+
+it("uses the caller-supplied clientEventId verbatim when provided", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "evt-2", duplicate: true } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "set_learning_containers",
+    payload: { containers: ["org", "user"] },
+    threadId: "t",
+    userId: "u",
+    clientEventId: "my-stable-id",
+  });
+
+  expect(calls[0]!.body!.clientEventId).toBe("my-stable-id");
+});
+
+it("auto-generates a distinct clientEventId per call when not supplied", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+    { status: 200, body: { id: "2", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  const base = {
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+    userId: "u",
+  } as const;
+
+  await recordAnnotation(base);
+  await recordAnnotation(base);
+
+  expect(calls).toHaveLength(2);
+  expect(calls[0]!.body!.clientEventId).not.toBe(calls[1]!.body!.clientEventId);
+});
+
+it("forwards the caller-supplied occurredAt in the body", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+    userId: "u",
+    occurredAt: "2026-01-01T00:00:00.000Z",
+  });
+
+  expect(calls[0]!.body!.occurredAt).toBe("2026-01-01T00:00:00.000Z");
+});
+
+it("omits occurredAt from the body when not supplied", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+    userId: "u",
+  });
+
+  expect(calls[0]!.body).not.toHaveProperty("occurredAt");
+});
+
+it("includes Content-Type and forwards customer headers", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: { "X-Customer": "tenant-abc" },
+    type: "user_action",
+    threadId: "t",
+    userId: "u",
+  });
+
+  const headers = calls[0]!.init?.headers as Record<string, string>;
+  expect(headers["Content-Type"]).toBe("application/json");
+  expect(headers["X-Customer"]).toBe("tenant-abc");
+});
+
+it("propagates fetch rejections (network error) to the caller", async () => {
+  globalThis.fetch = vi
+    .fn()
+    .mockRejectedValue(
+      new TypeError("network request failed"),
+    ) as unknown as typeof globalThis.fetch;
+
+  await expect(
+    recordAnnotation({
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: {},
+      type: "user_action",
+      threadId: "t",
+      userId: "u",
+    }),
+  ).rejects.toThrow(/network request failed/);
+});
+
+it("throws with the HTTP status when the response is not ok", async () => {
+  const { fetch } = mockFetch([{ status: 422, body: { error: "bad input" } }]);
+  globalThis.fetch = fetch;
+
+  await expect(
+    recordAnnotation({
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: {},
+      type: "user_action",
+      threadId: "t",
+      userId: "u",
+    }),
+  ).rejects.toThrow(/422/);
+});
+
+it("accepts undefined payload and omits it from the body", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+    userId: "u",
+    payload: undefined,
+  });
+
+  expect(calls[0]!.body).not.toHaveProperty("payload");
+});
