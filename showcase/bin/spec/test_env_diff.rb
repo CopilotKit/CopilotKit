@@ -94,9 +94,12 @@ class EnvDiffTest < Minitest::Test
         assert missing, "expected 'extra-svc missing in production', got: #{drift.inspect}"
     end
 
-    # A snapshot lacking a "services" key must not raise NoMethodError — every
-    # accessor in diff_services must guard with `|| []`. Without the guard this
-    # raises before returning, failing the test loudly.
+    # A snapshot lacking a "services" key must not raise NoMethodError. NOTE:
+    # because the missing "services" key makes find_service return nil for the
+    # one service that exists only in snap_b, this case exercises ONLY the
+    # top-level `["services"] || []` guard and the missing-service branch — it
+    # `next`s before ever reaching the env_keys / custom_domains comparison.
+    # The env_keys/custom_domains accessors are pinned separately below.
     def test_snapshot_without_services_key_does_not_crash
         snap_a = {} # no "services" key at all
         snap_b = {
@@ -109,5 +112,61 @@ class EnvDiffTest < Minitest::Test
         drift = cmd.diff_services(snap_a, snap_b, "staging", "production")
         missing = drift.find { |l| l.include?("showcase-shell") && l.include?("missing in staging") }
         assert missing, "expected 'showcase-shell missing in staging', got: #{drift.inspect}"
+    end
+
+    # A service present in BOTH snapshots where one side OMITS "env_keys"
+    # (e.g. a v1/partial/hand-edited snapshot read from a git SHA) must not
+    # raise NoMethodError. This genuinely reaches the env_keys comparison
+    # branch (find_service returns the service on both sides, so the method
+    # does NOT `next`). Without an `|| []` guard, `sa["env_keys"] - sb[...]`
+    # raises `undefined method '-' for nil`.
+    def test_service_without_env_keys_does_not_crash
+        snap_a = {
+            "services" => [
+                # No "env_keys" key at all on this side.
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "custom_domains" => [] },
+            ],
+        }
+        snap_b = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT NODE_ENV],
+                  "custom_domains" => [] },
+            ],
+        }
+        cmd = Railway::EnvDiffCommand.new(%w[staging production])
+        drift = cmd.diff_services(snap_a, snap_b, "staging", "production")
+        # snap_a is missing both keys present in snap_b, so they must be
+        # reported as "missing in staging" (the a-side env).
+        missing_in_a = drift.find { |l| l.include?("env keys missing in staging") }
+        assert missing_in_a, "expected an 'env keys missing in staging' finding, got: #{drift.inspect}"
+        assert_includes missing_in_a, "PORT"
+        assert_includes missing_in_a, "NODE_ENV"
+    end
+
+    # Symmetric to the env_keys case: a service present in BOTH snapshots where
+    # one side OMITS "custom_domains" must not raise NoMethodError when the
+    # other side has domains to diff against. Pins the custom_domains guard at
+    # the comparison branch (not just the missing-service branch).
+    def test_service_without_custom_domains_does_not_crash
+        snap_a = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT] },
+            ],
+        }
+        snap_b = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT],
+                  "custom_domains" => ["shell.copilotkit.ai"] },
+            ],
+        }
+        cmd = Railway::EnvDiffCommand.new(%w[staging production])
+        drift = cmd.diff_services(snap_a, snap_b, "staging", "production")
+        missing_in_a = drift.find { |l| l.include?("custom domains missing in staging") }
+        assert missing_in_a, "expected a 'custom domains missing in staging' finding, got: #{drift.inspect}"
+        assert_includes missing_in_a, "shell.copilotkit.ai"
     end
 end

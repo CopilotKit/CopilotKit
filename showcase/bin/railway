@@ -1815,8 +1815,10 @@ module Railway
                 if sa["start_command"] != sb["start_command"]
                     drift << "service #{name}: startCommand differs"
                 end
-                missing_in_b = sa["env_keys"] - sb["env_keys"]
-                missing_in_a = sb["env_keys"] - sa["env_keys"]
+                env_keys_a = sa["env_keys"] || []
+                env_keys_b = sb["env_keys"] || []
+                missing_in_b = env_keys_a - env_keys_b
+                missing_in_a = env_keys_b - env_keys_a
                 drift << "service #{name}: env keys missing in #{b}: #{missing_in_b.join(', ')}" unless missing_in_b.empty?
                 drift << "service #{name}: env keys missing in #{a}: #{missing_in_a.join(', ')}" unless missing_in_a.empty?
 
