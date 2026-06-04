@@ -2015,6 +2015,215 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
+  // MULTI-BROWSER (shortfall > 1) breaker pacing. Every prior breaker test runs
+  // browsers:1, leaving the multi-browser pacing of consecutiveFailures /
+  // consecutiveHardRecoveries unverified. Here browsers:2: the set empties, the
+  // heal loop must top BOTH back up. We let it revive ONE browser (partial
+  // success) while the second relaunch in the SAME shortfall pass fails — the
+  // partial success must RESET the consecutive-failure counter so the breaker
+  // does NOT trip a premature hard recovery, then the loop tops up the second
+  // browser on a later iteration and recovers to full strength.
+  it("MULTI-BROWSER: a partial revive resets the breaker's consecutive-failure counter (no premature hard recovery)", async () => {
+    // init launches 2 (calls 1,2). Crash both → set empties → heal loop runs.
+    // Shape the launcher so the heal sequence is: fail, fail, fail (trip toward
+    // threshold) … then SUCCEED once (partial revive — must reset the counter) …
+    // then succeed again (full strength). If the counter did NOT reset on the
+    // partial success, a hard recovery (purge) would fire; we assert it does NOT.
+    let purgeCalls = 0;
+    let recovered = 0;
+    const { logger, events } = makeLeveledLogger();
+
+    // Custom launcher: init's 2 launches succeed; the next `failStreak` relaunch
+    // attempts fail; everything after succeeds. With threshold=4 and a 3-failure
+    // streak BEFORE the first success, the breaker must NOT trip (3 < 4), and the
+    // success resets the streak so the remaining top-up never trips it either.
+    let call = 0;
+    const failStreak = 3;
+    const initLaunches = 2;
+    const launched: FakeBrowser[] = [];
+    const launchBrowser: LaunchBrowser = async () => {
+      call++;
+      if (call > initLaunches && call <= initLaunches + failStreak) {
+        throw new Error(
+          "browserType.launch: Target page, context or browser has been closed",
+        );
+      }
+      const b = makeFakeBrowser({});
+      launched.push(b);
+      return b as unknown as Browser;
+    };
+
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 4,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 4,
+      selfHealMaxHardRecoveries: 3,
+      purgeProfileDirs: async () => {
+        purgeCalls++;
+        return 0;
+      },
+      onRecovered: () => {
+        recovered++;
+      },
+    });
+    await pool.init();
+    expect(launched.length).toBe(2);
+
+    // Crash both → both recycle relaunches fail (in the failStreak window) → set
+    // empties → heal loop begins, burns the rest of the streak, then revives.
+    launched[0]!.__crash();
+    launched[1]!.__crash();
+
+    // The pool comes back to FULL strength (2 browsers) and fires onRecovered.
+    await waitFor(() => recovered >= 1, 5_000);
+
+    // The breaker NEVER tripped a hard recovery: the 3-failure streak stayed
+    // below the threshold of 4, and the partial revive reset the counter so the
+    // second top-up launch could not push a stale counter over the line.
+    expect(purgeCalls).toBe(0);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(false);
+    // Full strength restored.
+    expect(pool.stats().size).toBe(4); // maxContexts is the reported size
+    const live = launched.filter((b) => b.isConnected());
+    expect(live.length).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // LATCH SECOND-EPISODE (the silent-spin the breaker exists to kill). The give-up
+  // path must be able to fire its alarm on EACH distinct degraded episode. The
+  // unfixed code latched `this.unrecoverable` after the first give-up and cleared
+  // it ONLY on a successful launch, so a pool that gave up, briefly revived, then
+  // re-wedged into a SECOND give-up was silent on the second episode under any
+  // ordering where the latch outlived the episode boundary. The fix removes the
+  // instance latch (the loop-local consecutiveHardRecoveries guard already gives
+  // once-per-episode), so each fresh self-heal spawn can alarm.
+  //
+  // This drives TWO distinct degraded episodes on ONE permanently-wedged pool.
+  // Episode 1: the set empties and the breaker gives up (alarm #1), then the
+  // heal loop EXITS (by design — `pool-unrecoverable (and stops)` asserts this).
+  // Episode 2: the set is STILL wedged and empties AGAIN (the fresh degraded
+  // episode the comment on `onBrowserSetEmpty` describes: "set empties AGAIN
+  // while degraded is still true but NO heal loop is running"). That re-spawns a
+  // fresh heal loop which must be able to fire its OWN alarm (#2). The unfixed
+  // instance latch (`this.unrecoverable`, set on the first give-up and cleared
+  // ONLY by a successful launch — which never happens while wedged) made the
+  // second give-up SILENT. We trigger the second episode via the private
+  // empty-set entrypoint, the same call the recycle-eviction path makes.
+  it("LATCH: a second degraded episode ALSO fires onUnrecoverable (not silenced by a stale latch)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    const infos: Array<{ browserCount: number; maxHardRecoveries: number }> =
+      [];
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      purgeProfileDirs: async () => 0, // never heals — forces a give-up
+      onUnrecoverable: (info) => {
+        unrecoverableCalls++;
+        infos.push({
+          browserCount: info.browserCount,
+          maxHardRecoveries: info.maxHardRecoveries,
+        });
+      },
+    });
+    await pool.init();
+
+    // Private hooks: the empty-set entrypoint + the selfHealing guard so we can
+    // wait for episode 1's loop to fully EXIT before triggering episode 2 (the
+    // recycle path itself calls onBrowserSetEmpty when browsers.length===0).
+    const priv = pool as unknown as {
+      onBrowserSetEmpty(): void;
+      selfHealing: boolean;
+    };
+
+    // EPISODE 1: crash the only browser → wedged → breaker gives up (#1) → loop
+    // exits (selfHealing flips back to false).
+    launcher.launched[0]!.__crash();
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    await waitFor(() => priv.selfHealing === false, 5_000);
+
+    // EPISODE 2: the container is STILL wedged and the set empties AGAIN. This is
+    // the fresh degraded episode — re-spawn the heal loop via the same empty-set
+    // entrypoint the recycle-eviction path uses. The breaker must be able to fire
+    // its alarm a SECOND time (the stale latch previously silenced it).
+    priv.onBrowserSetEmpty();
+    await waitFor(() => unrecoverableCalls >= 2, 8_000);
+    expect(unrecoverableCalls).toBe(2);
+    // The alarm carried the breaker counters both times.
+    expect(infos.every((i) => i.browserCount === 1)).toBe(true);
+    expect(
+      events.filter((e) => e.event === "browser-pool.pool-unrecoverable")
+        .length,
+    ).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // FOOTGUN CLAMP. The breaker guards are `> 0`, so a `selfHealHardRecovery
+  // Threshold` / `selfHealMaxHardRecoveries` of 0 (a config typo) would silently
+  // DISABLE both the hard recovery AND the give-up — reverting to the infinite
+  // silent spin this PR fixes. The fix CLAMPS resolved thresholds up to >= 1, so
+  // a 0 can't disable the safety net. With both passed as 0 (→ clamped to 1) a
+  // permanently-wedged pool MUST still hard-recover and then give up loudly.
+  it("FOOTGUN: a 0 breaker threshold is clamped to 1 (breaker stays armed, not silently disabled)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    let purgeCalls = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // The footgun: 0 would disable the `> 0` guards under the unfixed code.
+      selfHealHardRecoveryThreshold: 0,
+      selfHealMaxHardRecoveries: 0,
+      purgeProfileDirs: async () => {
+        purgeCalls++;
+        return 0;
+      },
+      onUnrecoverable: () => {
+        unrecoverableCalls++;
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // Clamped to 1: the breaker hard-recovers AND gives up loudly instead of
+    // spinning forever. Without the clamp, neither would fire (silent spin).
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    expect(purgeCalls).toBeGreaterThanOrEqual(1);
+    expect(
+      events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
+    ).toBe(true);
+
+    await pool.shutdown();
+  });
+
   // ── CR-FIX BUCKET A: crash-recovery / self-heal / accounting bugs ──────────
 
   // FIX #5 — pickLeastLoaded must rank by liveContexts.size + pendingOpens, not
