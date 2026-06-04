@@ -13,6 +13,7 @@ const migratedIntegrations = [
   "mcp-apps",
   "agent-spec",
   "strands-python",
+  "crewai-crews",
 ] as const;
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
@@ -24,6 +25,7 @@ const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
   "mcp-apps": "app",
   "agent-spec": "src/app",
   "strands-python": "src/app",
+  "crewai-crews": "src/app",
 };
 
 function readIntegrationFile(
