@@ -78,6 +78,16 @@ export const DIMENSIONS = [
   // `<level>` suffix (`starter:langgraph-python/agent`) — disjoint key
   // spaces because the dimension prefix differs. Informational only; like
   // d5/d6/qa it must NOT contribute to the feature-cell rollup.
+  //
+  // `starter_smoke` is the probe KIND literal (`kind: starter_smoke` in
+  // config/probes/starter_smoke.yml, and the `kind` the starterSmokeDriver
+  // registers under), distinct from the `starter` EMIT-prefix dimension
+  // above — the same kind/emit-prefix split as e2e_d6/d6, e2e_deep/d5, and
+  // e2e_demos/e2e. Without this closed-enum slot the probe-loader's Zod
+  // `kind` enum rejects starter_smoke.yml at parse time (union failure
+  // surfacing as "Unrecognized key(s): 'discovery'"), so the probe never
+  // loads and probe-loader.test.ts's shipped-config check fails.
+  "starter_smoke",
   "starter",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
