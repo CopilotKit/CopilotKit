@@ -378,7 +378,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: "Declarative UI: Dynamic A2UI"
-    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
+    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui

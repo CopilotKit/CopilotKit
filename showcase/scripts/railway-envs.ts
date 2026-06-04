@@ -281,11 +281,17 @@ export const SERVICES: Record<
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
     prodInstanceId: "1ee376e2-13f2-4464-801e-d0aa0bf76532",
     stagingInstanceId: "0bc7db7b-5a43-4b33-af46-d07fb53c8610",
-    // pocketbase is a first-party ghcr.io/copilotkit/ image, but its
-    // GHCR repo name is `showcase-pocketbase` (NOT `pocketbase`), and
-    // it is built by a separate release workflow — not showcase_build.yml.
-    ciBuilt: false,
+    // pocketbase is a first-party ghcr.io/copilotkit/ image whose GHCR
+    // repo name is `showcase-pocketbase` (NOT `pocketbase`). It is now
+    // built+pushed by showcase_build.yml (the `pocketbase` matrix slot,
+    // gated to `showcase/pocketbase/**` changes) so PB hook + migration
+    // changes ship via CI instead of an ad-hoc manual build. ciBuilt:true
+    // also puts it in the default staging-redeploy scope, but the build's
+    // redeploy step only touches the matrix∩build-success intersection,
+    // so pocketbase only redeploys when its own files change.
+    ciBuilt: true,
     gateValidated: true,
+    dispatchName: "showcase-pocketbase",
     repoNameOverride: {
       prod: "showcase-pocketbase",
       staging: "showcase-pocketbase",
@@ -601,9 +607,10 @@ export function listServiceNames(): string[] {
 
 /**
  * The subset of SERVICES that `showcase_build.yml` actually builds and
- * pushes. Excludes `pocketbase` and `webhooks` (released by their own
- * repos). Default target set for `redeploy-env.ts <env>` when no
- * explicit `--services` list is provided.
+ * pushes. Excludes `webhooks` (released by its own repo's workflow).
+ * pocketbase IS CI-built (its matrix slot is gated to
+ * `showcase/pocketbase/**` changes). Default target set for
+ * `redeploy-env.ts <env>` when no explicit `--services` list is provided.
  */
 export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
   Object.entries(SERVICES)

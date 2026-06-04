@@ -58,12 +58,13 @@ import {
   handleGetThreadEvents,
   handleGetThreadState,
 } from "../handlers/handle-threads";
+import { handleAnnotate } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
   createJsonRequest,
   expectString,
-  type MethodCall,
 } from "../endpoints/single-route-helpers";
+import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
 
@@ -360,6 +361,8 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
+    case "annotate":
+      return handleAnnotate({ runtime, request });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
   }

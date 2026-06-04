@@ -52,6 +52,7 @@ on:
           - shell-docs
           - showcase-harness
           - showcase-aimock
+          - showcase-pocketbase
           - webhooks
           # Per-starter image builds (model B, §b stage 1). These map to the
           # build-starters job below, NOT the showcase `build` job. "all"
@@ -175,6 +176,13 @@ jobs:
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
+            pocketbase:
+              # PB image is self-contained: PB binary + pb_migrations +
+              # pb_hooks + Dockerfile. No shared-module copy, so the slot
+              # is gated purely to its own subtree — it does NOT rebuild
+              # on every showcase push, only when migrations/hooks/Dockerfile
+              # change.
+              - 'showcase/pocketbase/**'
             webhooks:
               # Sentinel pattern that cannot match any in-tree path.
               # The webhooks GHCR image is built by the showcase-eval-webhook
@@ -228,6 +236,7 @@ jobs:
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
             {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
           ]'
 
@@ -865,8 +874,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*\nstaging unchanged (no redeploy)\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
   notify:
     name: Notify on failure
@@ -907,8 +921,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7

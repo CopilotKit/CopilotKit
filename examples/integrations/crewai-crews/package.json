@@ -20,7 +20,7 @@
     "clsx": "^2.1.1",
     "hono": "^4",
     "lucide-react": "^0.525.0",
-    "next": "16.0.8",
+    "next": "16.2.7",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwind-merge": "^3.5.0",
