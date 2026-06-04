@@ -77,7 +77,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/adk/shared-state
   const { agent } = useAgent({
-    agentId: "my_agent",
+    agentId: "default",
   });
   const state = (agent.state ?? {
     proverbs: [

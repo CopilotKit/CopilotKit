@@ -83,7 +83,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
   const { state, setState } = useAgent<AgentState>({
-    name: "my_agent",
+    name: "default",
     initialState: {
       proverbs: [
         "CopilotKit may be new, but its the best thing since sliced bread.",
