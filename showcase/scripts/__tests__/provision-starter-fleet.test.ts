@@ -15,6 +15,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   deriveStarterTargets,
   fetchExistingServices,
+  parseArgs,
   provisionStarterFleet,
   resolveRegistryCredentials,
   STARTER_FLEET_PREFIX,
@@ -191,6 +192,10 @@ function makeMockGql(
 
       if (query.includes("serviceInstanceUpdate(")) {
         return { serviceInstanceUpdate: true } as T;
+      }
+
+      if (query.includes("serviceInstanceRedeploy(")) {
+        return { serviceInstanceRedeploy: true } as T;
       }
 
       if (query.includes("serviceDomainCreate(")) {
@@ -409,6 +414,9 @@ describe("provisionStarterFleet — create path", () => {
           }
           return { serviceInstanceUpdate: true } as T;
         }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
         if (query.includes("serviceDomainCreate(")) {
           return {
             serviceDomainCreate: { domain: "new-1.up.railway.app" },
@@ -558,6 +566,228 @@ describe("provisionStarterFleet — dry run", () => {
     expect(
       calls.filter((c) => c.query.includes("serviceInstanceUpdate(")),
     ).toHaveLength(0);
+    expect(
+      calls.filter((c) => c.query.includes("serviceInstanceRedeploy(")),
+    ).toHaveLength(0);
     expect(summary.records).toHaveLength(2);
+  });
+
+  it("reports a NEW service's domain as 'would-create' (faithful preview, not 'skipped')", async () => {
+    // A real run creates a domain for a new service, so dry-run must preview
+    // that as "would-create" rather than the misleading "skipped".
+    const { gql } = makeMockGql();
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: TWO_TARGETS,
+      dryRun: true,
+    });
+    expect(
+      summary.records.every((r) => r.domainAction === "would-create"),
+    ).toBe(true);
+  });
+
+  it("reports an EXISTING already-domained service as 'existing' in dry-run", async () => {
+    const { gql } = makeMockGql([
+      {
+        id: "existing-mastra",
+        name: "starter-mastra",
+        stagingDomain: "starter-mastra.up.railway.app",
+      },
+    ]);
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: [TWO_TARGETS[0]],
+      dryRun: true,
+    });
+    expect(summary.records[0].domainAction).toBe("existing");
+  });
+});
+
+// ── provisionStarterFleet: redeploy (image must actually run) ────────────
+
+describe("provisionStarterFleet — redeploy", () => {
+  it("triggers serviceInstanceRedeploy after configuring a NEW service so the image actually runs", async () => {
+    // serviceCreate + serviceInstanceUpdate(source.image) pins the image but
+    // does NOT start a deployment (auto-updates only fire on a NEW digest
+    // push; bin/railway documents update+redeploy as the canonical pattern).
+    // Without an explicit redeploy the service never runs and starter_smoke
+    // would never find it up.
+    const { gql, calls } = makeMockGql();
+    await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: TWO_TARGETS,
+    });
+    const redeploys = calls.filter((c) =>
+      c.query.includes("serviceInstanceRedeploy("),
+    );
+    expect(redeploys).toHaveLength(2);
+    for (const r of redeploys) {
+      expect(r.variables.environmentId).toBe(STAGING_ENV_ID);
+      expect(r.variables.environmentId).not.toBe(PRODUCTION_ENV_ID);
+    }
+  });
+
+  it("triggers serviceInstanceRedeploy on the update path (re-asserted image must run)", async () => {
+    const { gql, calls } = makeMockGql([
+      {
+        id: "existing-mastra",
+        name: "starter-mastra",
+        stagingDomain: "starter-mastra.up.railway.app",
+      },
+    ]);
+    await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: [TWO_TARGETS[0]],
+    });
+    const redeploys = calls.filter((c) =>
+      c.query.includes("serviceInstanceRedeploy("),
+    );
+    expect(redeploys).toHaveLength(1);
+    expect(redeploys[0].variables.serviceId).toBe("existing-mastra");
+  });
+
+  it("sends NO redeploy in dry-run mode", async () => {
+    const { gql, calls } = makeMockGql();
+    await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: TWO_TARGETS,
+      dryRun: true,
+    });
+    expect(
+      calls.filter((c) => c.query.includes("serviceInstanceRedeploy(")),
+    ).toHaveLength(0);
+  });
+});
+
+// ── provisionStarterFleet: idempotent domain re-create (partial failure) ─
+
+describe("provisionStarterFleet — domain already-exists is a benign no-op", () => {
+  it("treats a 'domain already exists' error as existing and CONTINUES the fleet (does not abort)", async () => {
+    // Partial-failure re-run: the start-of-run snapshot missed the domain
+    // (Railway eventual consistency / a run that died mid-fleet), so the
+    // provisioner re-issues serviceDomainCreate and Railway rejects it with a
+    // NON-transient "already exists" error. This must converge (mark existing,
+    // keep going), not abort the remaining fleet.
+    let domainAttempts = 0;
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(
+        query: string,
+        variables: Record<string, unknown> = {},
+      ): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          const input = variables.input as { name: string };
+          return {
+            serviceCreate: { id: `svc-${input.name}`, name: input.name },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
+        if (query.includes("serviceDomainCreate(")) {
+          domainAttempts += 1;
+          // First target's domain create rejects as already-existing.
+          if (domainAttempts === 1) {
+            throw new Error(
+              "Railway GraphQL errors:\n  - A domain already exists for this service",
+            );
+          }
+          return {
+            serviceDomainCreate: { domain: "svc.up.railway.app" },
+          } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: TWO_TARGETS,
+      sleepMs: NO_SLEEP,
+    });
+    // Both targets processed — the fleet did NOT abort.
+    expect(summary.records).toHaveLength(2);
+    // The duplicate-domain target is marked existing (benign no-op).
+    expect(summary.records[0].domainAction).toBe("existing");
+    // The second target's domain succeeded normally.
+    expect(summary.records[1].domainAction).toBe("created");
+  });
+
+  it("still ABORTS on a genuine non-transient domain-create error", async () => {
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "svc-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
+        if (query.includes("serviceDomainCreate(")) {
+          throw new Error("Railway GraphQL errors:\n  - Unauthorized");
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/Unauthorized/);
+  });
+});
+
+// ── parseArgs: argv validation ───────────────────────────────────────────
+
+describe("parseArgs", () => {
+  it("parses known flags", () => {
+    expect(parseArgs(["--dry-run"])).toEqual({
+      help: false,
+      list: false,
+      dryRun: true,
+    });
+    expect(parseArgs(["--list"])).toMatchObject({ list: true });
+    expect(parseArgs(["--help"])).toMatchObject({ help: true });
+    expect(parseArgs([])).toEqual({ help: false, list: false, dryRun: false });
+  });
+
+  it("REJECTS an unrecognized flag (mistyped --dry-rn must not silently run live)", () => {
+    expect(() => parseArgs(["--dry-rn"])).toThrow(/unknown|unrecognized/i);
+  });
+
+  it("rejects any unrecognized dash-prefixed argument", () => {
+    expect(() => parseArgs(["--list", "--bogus"])).toThrow(
+      /unknown|unrecognized/i,
+    );
+    expect(() => parseArgs(["-x"])).toThrow(/unknown|unrecognized/i);
   });
 });
