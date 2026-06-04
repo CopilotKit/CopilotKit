@@ -73,12 +73,16 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   />
   ```
 
-  To apply a renderer to every message at once, set it on the provider instead:
+  To apply a renderer to every message at once, set it on the provider instead (define it outside render so its identity is stable):
   ```tsx
-  <CopilotKitProvider markdownRenderer={({ content }) => <Streamdown>{content}</Streamdown>}>
+  import { StreamdownRenderer } from "./markdown-renderer";
+
+  <CopilotKitProvider markdownRenderer={StreamdownRenderer}>
     {/* ... */}
   </CopilotKitProvider>
   ```
+
+  For a full walkthrough of all three approaches (keep the default, configure it, or replace it) across React, Vue, and React Native, see the [Markdown Rendering](/markdown-rendering) guide.
 </PropertyReference>
 
 <PropertyReference name="toolbar" type="SlotProp<typeof CopilotChatAssistantMessage.Toolbar>">

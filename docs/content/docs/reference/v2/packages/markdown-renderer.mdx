@@ -495,6 +495,10 @@ function MarkdownMessage({ content }: { content: string }) {
 
 ## Using as the CopilotKit renderer
 
+<Callout type="info">
+  For a walkthrough of all three approaches — keep the default, configure it, or replace it — with framework-specific examples, see the [Markdown Rendering](/markdown-rendering) guide. The reference below covers the API details; the [`examples/v2/react-router`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/react-router) example toggles all three live.
+</Callout>
+
 The streaming renderer is already the built-in default across all CopilotKit framework packages:
 
 - **React** — `@copilotkit/react-core` uses `@copilotkit/markdown-renderer/react` for `CopilotChatAssistantMessage`. No configuration needed.
