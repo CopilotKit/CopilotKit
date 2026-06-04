@@ -46,6 +46,20 @@ export const D4_STALE_AFTER_MS = 60 * 60 * 1000;
 export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
 
 /**
+ * Staleness window for the `starter` dimension (`starter:<column>/<level>`
+ * rows written by the harness `starter_smoke` probe family). Per spec §d, the
+ * window is derived from the probe cadence and MUST be strictly greater than
+ * two probe periods, so a single late/missed/slow-wake tick stays green and
+ * only two consecutive misses flip amber. The probe ships on a 6h cadence
+ * (mirroring the retired `test_smoke-starter.yml` cron the live signal
+ * replaces); 13h is > 2×6h with headroom to absorb the scale-to-zero
+ * cold-start latency (§c) folded into a single tick. Keep this in lockstep
+ * with S2's `starter_smoke.yml` `schedule` — if the cadence changes, this
+ * window must be re-derived (> 2× the new period). Not env-tunable.
+ */
+export const STARTER_STALE_AFTER_MS = 13 * 60 * 60 * 1000;
+
+/**
  * Determine whether a row's `observed_at` is older than `maxAgeMs` relative
  * to `now`. An unparseable/missing timestamp is treated as NOT stale —
  * staleness must be a positive signal, never inferred from bad data.
