@@ -358,10 +358,23 @@ module Railway
                     http_get(url, headers: headers)
                 end
 
-            return nil if resp[:status] >= 400
-            JSON.parse(resp[:body])["token"]
-        rescue StandardError
-            nil
+            status = resp[:status]
+            if status >= 400
+                # A token WAS supplied but the exchange failed: surface it. The
+                # caller must NOT silently downgrade to an anonymous manifest
+                # read (that conflates "no token" with "supplied token failed").
+                raise Error, "GHCR /token exchange failed (#{status}) for #{org}/#{name}" if @token && !@token.empty?
+
+                # No token supplied: a non-2xx is the legitimate signal that the
+                # package is not anonymously pullable. The caller handles nil.
+                return nil
+            end
+
+            begin
+                JSON.parse(resp[:body])["token"]
+            rescue JSON::ParserError => e
+                raise Error, "GHCR /token returned unparseable body for #{org}/#{name}: #{e.message}"
+            end
         end
 
         def http_get(url, headers: {})

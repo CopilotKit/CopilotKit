@@ -34,11 +34,19 @@ class GHCRDigestTest < Minitest::Test
         assert_equal "sha256:def", p3[:digest]
     end
 
+    # bearer_for ALWAYS performs the /token exchange now, so every fake that
+    # reaches a manifest HEAD must also model a successful exchange.
+    TOKEN_URL = "https://ghcr.io/token?service=ghcr.io&scope=repository:copilotkit/showcase-shell:pull"
+
+    def token_ok
+        { TOKEN_URL => { status: 200, headers: {}, body: %({"token":"minted"}) } }
+    end
+
     def test_resolve_digest_returns_digest_from_header
         url = "https://ghcr.io/v2/copilotkit/showcase-shell/manifests/latest"
-        fake = FakeHTTP.new(
+        fake = FakeHTTP.new(token_ok.merge(
             url => { status: 200, headers: { "docker-content-digest" => "sha256:beefcafe" }, body: "" },
-        )
+        ))
         g = Railway::GHCR.new(token: "x", http: fake)
         assert_equal "sha256:beefcafe", g.resolve_digest("ghcr.io/copilotkit/showcase-shell:latest")
     end
@@ -52,14 +60,14 @@ class GHCRDigestTest < Minitest::Test
 
     def test_resolve_digest_returns_nil_on_404
         url = "https://ghcr.io/v2/copilotkit/showcase-shell/manifests/nope"
-        fake = FakeHTTP.new(url => { status: 404, headers: {}, body: "" })
+        fake = FakeHTTP.new(token_ok.merge(url => { status: 404, headers: {}, body: "" }))
         g = Railway::GHCR.new(token: "x", http: fake)
         assert_nil g.resolve_digest("ghcr.io/copilotkit/showcase-shell:nope")
     end
 
     def test_resolve_digest_raises_on_5xx
         url = "https://ghcr.io/v2/copilotkit/showcase-shell/manifests/latest"
-        fake = FakeHTTP.new(url => { status: 500, headers: {}, body: "boom" })
+        fake = FakeHTTP.new(token_ok.merge(url => { status: 500, headers: {}, body: "boom" }))
         g = Railway::GHCR.new(token: "x", http: fake)
         assert_raises(Railway::GHCR::Error) do
             g.resolve_digest("ghcr.io/copilotkit/showcase-shell:latest")

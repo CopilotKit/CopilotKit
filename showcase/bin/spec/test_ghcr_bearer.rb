@@ -83,4 +83,41 @@ class GHCRBearerTest < Minitest::Test
         manifest_call = http.calls.find { |c| c[:method] == :head && c[:url] == MANIFEST }
         assert_equal "Bearer #{MINTED}", manifest_call[:headers]["Authorization"]
     end
+
+    # When a token WAS supplied and the /token exchange returns a non-2xx,
+    # that is a real failure (bad/insufficient token), NOT a license to fall
+    # back to an anonymous manifest read. bearer_for must RAISE GHCR::Error so
+    # manifest_exists's documented raise-on-failure contract holds.
+    def test_token_present_exchange_401_raises
+        http = fakes(TOKEN_URL => { status: 401, headers: {}, body: "unauthorized" })
+        g = Railway::GHCR.new(token: RAW_TOKEN, http: http)
+
+        err = assert_raises(Railway::GHCR::Error) { g.manifest_exists(REF) }
+        assert_match(/token exchange failed/i, err.message)
+    end
+
+    # A 200 with a body that is not parseable JSON is a broken exchange, not a
+    # usable bearer. bearer_for must RAISE rather than swallow JSON::ParserError.
+    def test_token_present_malformed_body_raises
+        http = fakes(TOKEN_URL => { status: 200, headers: {}, body: "<html>not json</html>" })
+        g = Railway::GHCR.new(token: RAW_TOKEN, http: http)
+
+        err = assert_raises(Railway::GHCR::Error) { g.manifest_exists(REF) }
+        assert_match(/unparseable/i, err.message)
+    end
+
+    # Regression guard: when a token was supplied and the exchange failed, the
+    # manifest HEAD must NEVER be sent — and certainly never anonymously. The
+    # old swallow-to-nil behavior issued an anonymous HEAD, conflating "no
+    # token" with "supplied token failed to exchange".
+    def test_token_present_exchange_failure_never_does_anonymous_manifest_read
+        http = fakes(TOKEN_URL => { status: 403, headers: {}, body: "forbidden" })
+        g = Railway::GHCR.new(token: RAW_TOKEN, http: http)
+
+        assert_raises(Railway::GHCR::Error) { g.manifest_exists(REF) }
+
+        manifest_call = http.calls.find { |c| c[:method] == :head && c[:url] == MANIFEST }
+        assert_nil manifest_call,
+            "no manifest HEAD must be issued when a supplied token fails the /token exchange"
+    end
 end
