@@ -17,9 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={"antialiased"}>
+        {/* Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev). */}
         <CopilotKit
           runtimeUrl="/api/copilotkit"
-          agent="my_agent"
           useSingleEndpoint={false}
         >
           {children}

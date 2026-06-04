@@ -24,39 +24,25 @@ npx copilotkit auth
 4. The CLI receives the license key and prints it to stdout:
    ```
    Successfully authenticated!
-   Your license key: ck_abc123...
+   Your license key: <your-license-key>
    ```
 
 If the browser does not open automatically, the CLI prints a URL you can copy-paste manually.
 
 ## Where to put the license key
 
-### Option A: Inline in CopilotKitProvider
-
-Pass the key directly as a prop:
-
-```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" licenseKey="ck_abc123...">
-  {children}
-</CopilotKitProvider>
-```
-
-This is the simplest approach for quick prototyping but exposes the key in source code.
-
-### Option B: Environment variable (recommended)
-
-Add the key to your environment file:
+Store the key in an environment variable. Add it to your environment file:
 
 **Next.js** (`.env.local`):
 
 ```
-NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=ck_abc123...
+NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
 ```
 
 **Vite** (`.env`):
 
 ```
-VITE_COPILOTKIT_LICENSE_KEY=ck_abc123...
+VITE_COPILOTKIT_LICENSE_KEY=<your-license-key>
 ```
 
 Then reference it in the provider:

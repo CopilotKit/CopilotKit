@@ -174,4 +174,12 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # Railway shutdown). The fallback `|| true` keeps boot resilient if the runtime
 # forbids raising the soft limit (it is then governed solely by the cgroup
 # pids limit, which is still the dominant control).
-CMD ["/bin/sh", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]
+#
+# MUST run under bash, NOT the default `/bin/sh`. On this image (node:22-
+# bookworm-slim) `/bin/sh` is dash, whose builtin `ulimit` does NOT support the
+# `-u` (max-user-processes / nproc) flag — it errors `ulimit: Illegal option -u`,
+# which the `2>/dev/null || true` then SILENTLY swallows. The intended PID
+# protection therefore never applied. bash IS present (/usr/bin/bash) and its
+# `ulimit -u` works: verified under `--ulimit nproc=512:4096` the soft limit is
+# raised 512 → 4096 (the hard ceiling) under bash, while dash leaves it untouched.
+CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]
