@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Browser, BrowserContext } from "playwright";
 
 /**
@@ -63,6 +66,79 @@ const MAX_TRANSIENT_SERVE_RETRIES = 1;
  * waiters) or the pool shuts down.
  */
 const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
+
+/**
+ * Self-heal CIRCUIT-BREAKER policy. The OUTAGE this guards (verified from live
+ * staging logs — the RECURRING BrowserPool collapse #5185/#5221/#5225 each
+ * chipped at but never killed): after the long-lived harness container runs
+ * ~hours under sustained d6 cron load, chromium enters a LAUNCH crash-loop —
+ * every `chromium.launch()` throws `browserType.launch: Target page, context or
+ * browser has been closed`. The set empties, `startSelfHeal()` kicks in, and its
+ * loop just RELAUNCHES into the SAME wedged state over and over
+ * (`self-heal-launch-failed` repeating, 28× in ~19s observed) — backing off
+ * `selfHealIntervalMs` between identical attempts but NEVER doing anything
+ * different to escape (stale `/tmp/playwright_*` profile dirs / accumulated
+ * FD-shm pressure on the long-lived container persist across every relaunch).
+ * `acquire()` therefore has no contexts forever → blocks to timeout fleet-wide.
+ * Only a container RESTART cleared it — reactive, not durable.
+ *
+ * The breaker makes the self-heal loop ESCAPE: after
+ * `selfHealHardRecoveryThreshold` CONSECUTIVE self-heal launch failures, instead
+ * of looping another identical relaunch the pool performs a HARD recovery —
+ * purges the stale `/tmp/playwright_*` profile/temp dirs the wedged chromium
+ * processes left behind (the FD-shm/profile pressure that keeps every fresh
+ * launch crashing) — then cold-launches fresh. Any successful launch resets the
+ * consecutive counter. If `selfHealMaxHardRecoveries` consecutive HARD
+ * recoveries ALSO fail to revive a single browser, the pool surfaces a LOUD
+ * `browser-pool.pool-unrecoverable` alarm (via `onUnrecoverable`) and stops the
+ * heal loop rather than silently spinning forever — the operator signal that a
+ * redeploy is genuinely required.
+ *
+ * Tunable on staging via env (BROWSER_POOL_SELF_HEAL_* ) without a code change.
+ */
+const DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD = 4;
+const DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES = 3;
+
+/**
+ * Glob-free prefix of the per-launch profile/temp dirs Playwright's chromium
+ * leaves under the OS temp dir. The default chromium launcher does not pin a
+ * `userDataDir`, so each launch creates an ephemeral `playwright_*` (and
+ * related `playwright-artifacts-*`) directory; a crash-looping container
+ * accumulates these and the FD/shm/inode pressure keeps every fresh launch
+ * crashing. The hard-recovery purge removes them so a cold launch starts clean.
+ */
+const PLAYWRIGHT_TMP_PREFIXES = ["playwright_", "playwright-artifacts-"];
+
+/**
+ * Default profile/temp-dir purge used by the self-heal hard-recovery path.
+ * Best-effort: removes every `${tmpdir()}/playwright_*` (and
+ * `playwright-artifacts-*`) directory the wedged chromium processes left behind.
+ * Injectable via `BrowserPoolOptions.purgeProfileDirs` so tests can drive the
+ * breaker without touching the real filesystem and assert it fired. A failure to
+ * read the temp dir or unlink an entry is swallowed (the dir may not exist, or
+ * be owned by another process) — the purge is a hygiene best-effort, not a
+ * correctness dependency.
+ */
+async function defaultPurgeProfileDirs(): Promise<number> {
+  const dir = tmpdir();
+  let removed = 0;
+  let entries: string[];
+  try {
+    entries = await fs.readdir(dir);
+  } catch {
+    return 0;
+  }
+  for (const name of entries) {
+    if (!PLAYWRIGHT_TMP_PREFIXES.some((p) => name.startsWith(p))) continue;
+    try {
+      await fs.rm(join(dir, name), { recursive: true, force: true });
+      removed++;
+    } catch {
+      // best-effort: another process may own it, or it vanished mid-purge.
+    }
+  }
+  return removed;
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -152,6 +228,15 @@ interface PoolLogger {
 export type LaunchBrowser = () => Promise<Browser>;
 
 /**
+ * Purges the stale per-launch profile/temp dirs a crash-looping chromium leaves
+ * behind, returning the count removed. The default implementation removes
+ * `${tmpdir()}/playwright_*`. Tests inject a fake so the self-heal
+ * circuit-breaker's hard-recovery path is exercisable without touching the real
+ * filesystem (and so the test can assert the purge fired).
+ */
+export type PurgeProfileDirs = () => Promise<number>;
+
+/**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
  * this — the hot path (`acquire`/`release`) opens and closes CONTEXTS on an
  * already-running browser and never forks a process. A browser is only
@@ -230,6 +315,20 @@ export interface BrowserPoolOptions {
    *  emptied. Default 2000 (env BROWSER_POOL_SELF_HEAL_INTERVAL_MS). Tests pass
    *  a small value. */
   selfHealIntervalMs?: number;
+  /** Number of CONSECUTIVE self-heal launch failures after which the loop stops
+   *  retrying the identical relaunch and performs a HARD recovery (purge stale
+   *  profile/temp dirs, then cold-launch). Default 4 (env
+   *  BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD). Tests pass a small value to
+   *  trip the breaker deterministically. */
+  selfHealHardRecoveryThreshold?: number;
+  /** Number of CONSECUTIVE HARD recoveries that may fail to revive any browser
+   *  before the pool gives up and fires the `pool-unrecoverable` alarm (instead
+   *  of spinning forever). Default 3 (env
+   *  BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES). */
+  selfHealMaxHardRecoveries?: number;
+  /** Injected profile/temp-dir purge (tests). Defaults to removing
+   *  `${tmpdir()}/playwright_*`. Invoked by the self-heal hard-recovery path. */
+  purgeProfileDirs?: PurgeProfileDirs;
   /**
    * Mid-life capacity-loss alarm hook. Invoked when the browser set EMPTIES
    * (every entry evicted) — the silent-outage gap the original code had, where
@@ -245,6 +344,16 @@ export interface BrowserPoolOptions {
    * clear the degraded signal back to green.
    */
   onRecovered?: () => void;
+  /**
+   * Unrecoverable-alarm hook. Invoked when the self-heal circuit-breaker has
+   * exhausted `selfHealMaxHardRecoveries` consecutive HARD recoveries (purge +
+   * cold-launch) WITHOUT reviving a single browser — i.e. the wedge survived
+   * even a profile-dir purge, so a redeploy is genuinely required. The
+   * orchestrator wires this to a LOUD operator alert (the signal the old
+   * silent-spin path never sent). Best-effort: a throwing hook is caught +
+   * logged, never crashes the pool.
+   */
+  onUnrecoverable?: () => void;
 }
 
 /**
@@ -283,8 +392,20 @@ export class BrowserPool {
   private readonly relaunchMaxRetries: number;
   private readonly relaunchBackoffMs: number;
   private readonly selfHealIntervalMs: number;
+  // Self-heal circuit-breaker (the durable fix for the RECURRING wedge): trip a
+  // HARD recovery (profile-dir purge + cold-launch) after this many consecutive
+  // self-heal launch failures, and give up (loud alarm) after this many
+  // consecutive failed HARD recoveries.
+  private readonly selfHealHardRecoveryThreshold: number;
+  private readonly selfHealMaxHardRecoveries: number;
+  private readonly purgeProfileDirs: PurgeProfileDirs;
   private readonly onDegraded?: () => void;
   private readonly onRecovered?: () => void;
+  private readonly onUnrecoverable?: () => void;
+  // Latched once the circuit-breaker has fired `onUnrecoverable` so the alarm is
+  // emitted exactly once per unrecoverable episode and the heal loop does not
+  // re-enter the give-up path. Cleared when a hard recovery later succeeds.
+  private unrecoverable = false;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
   // succeeds. Guards against firing the degraded alarm / spawning a second
   // self-heal loop repeatedly.
@@ -390,8 +511,30 @@ export class BrowserPool {
       process.env.BROWSER_POOL_SELF_HEAL_INTERVAL_MS,
       DEFAULT_SELF_HEAL_INTERVAL_MS,
     );
+    this.selfHealHardRecoveryThreshold = resolveNonNegative(
+      options.selfHealHardRecoveryThreshold,
+      process.env.BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
+      DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
+    );
+    this.selfHealMaxHardRecoveries = resolveNonNegative(
+      options.selfHealMaxHardRecoveries,
+      process.env.BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES,
+      DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES,
+    );
+    // Purge resolution: an explicit injected purge wins. Otherwise, when a fake
+    // `launchBrowser` is injected (tests — the browsers are fakes, so there are
+    // NO real `/tmp/playwright_*` dirs to scan/remove), default to a hermetic
+    // no-op so the breaker's hard-recovery path never touches the real
+    // filesystem under test. Only the production path (real chromium launcher,
+    // no injected launcher) gets the real `${tmpdir()}/playwright_*` purge.
+    this.purgeProfileDirs =
+      options.purgeProfileDirs ??
+      (this.injectedLaunchBrowser
+        ? async (): Promise<number> => 0
+        : defaultPurgeProfileDirs);
     this.onDegraded = options.onDegraded;
     this.onRecovered = options.onRecovered;
+    this.onUnrecoverable = options.onUnrecoverable;
   }
 
   async init(): Promise<void> {
@@ -1585,11 +1728,29 @@ export class BrowserPool {
    * `selfHealIntervalMs` and retries, until success or shutdown. On recovery it
    * clears `degraded` and fires `onRecovered`. Guarded by `selfHealing` so only
    * one loop runs at a time.
+   *
+   * CIRCUIT-BREAKER (the durable fix for the RECURRING wedge): the unfixed loop
+   * just RELAUNCHED into the same wedged state forever — when chromium is in a
+   * launch-crash-loop (`browserType.launch: ...has been closed`) every relaunch
+   * throws identically and the loop never escapes (the stale `/tmp/playwright_*`
+   * profile dirs / FD-shm pressure persist across every attempt). Now, after
+   * `selfHealHardRecoveryThreshold` CONSECUTIVE launch failures, the loop stops
+   * looping identical relaunches and performs a HARD recovery — purges the stale
+   * profile/temp dirs — then cold-launches fresh. A single successful launch
+   * resets the failure counter. If `selfHealMaxHardRecoveries` consecutive HARD
+   * recoveries ALSO revive nothing, it fires the LOUD `pool-unrecoverable` alarm
+   * and stops (a redeploy is genuinely required) rather than spinning silently.
    */
   private startSelfHeal(): void {
     if (this.selfHealing) return;
     this.selfHealing = true;
     const loop = (async () => {
+      // Circuit-breaker counters, carried ACROSS iterations: consecutive launch
+      // failures (reset by ANY successful launch) trip the hard recovery;
+      // consecutive failed hard recoveries (reset by any successful launch) trip
+      // the unrecoverable alarm.
+      let consecutiveFailures = 0;
+      let consecutiveHardRecoveries = 0;
       // Keep iterating until the set is restored to FULL strength
       // (`browserCount`), not merely non-empty. The unfixed loop broke + fired
       // onRecovered the instant ONE browser revived, even though the pool target
@@ -1602,6 +1763,28 @@ export class BrowserPool {
         const shortfall = this.browserCount - this.browsers.length;
         for (let i = 0; i < shortfall; i++) {
           if (this.isShutdown) break;
+          // BREAKER: before attempting another identical relaunch, check whether
+          // we have already failed `selfHealHardRecoveryThreshold` times in a
+          // row. If so, escape the relaunch-into-the-same-wedge loop and HARD
+          // recover (purge stale profile/temp dirs) so the NEXT launch is cold.
+          if (
+            this.selfHealHardRecoveryThreshold > 0 &&
+            consecutiveFailures >= this.selfHealHardRecoveryThreshold
+          ) {
+            consecutiveFailures = 0;
+            consecutiveHardRecoveries++;
+            await this.hardRecover(consecutiveHardRecoveries);
+            if (this.isShutdown) break;
+            // Even the purge could not break the wedge after K tries — give up
+            // LOUDLY rather than spinning forever.
+            if (
+              this.selfHealMaxHardRecoveries > 0 &&
+              consecutiveHardRecoveries >= this.selfHealMaxHardRecoveries
+            ) {
+              this.fireUnrecoverable();
+              return;
+            }
+          }
           try {
             const fresh = await this.launchBrowser();
             if (this.isShutdown) {
@@ -1620,6 +1803,12 @@ export class BrowserPool {
             this.browsers.push(revived);
             this.attachDisconnectHandler(revived, fresh);
             launchedAny = true;
+            // A launch succeeded — the wedge (if any) is broken. Reset BOTH
+            // breaker counters and clear the unrecoverable latch so a future
+            // re-empty starts the breaker fresh.
+            consecutiveFailures = 0;
+            consecutiveHardRecoveries = 0;
+            this.unrecoverable = false;
             // Drain queued waiters onto the revived browser as capacity returns.
             while (
               this.waiters.length > 0 &&
@@ -1631,8 +1820,11 @@ export class BrowserPool {
               if (this.waiters.length >= before) break;
             }
           } catch (err) {
+            consecutiveFailures++;
             this.logger?.warn?.("browser-pool.self-heal-launch-failed", {
               attemptIndex: i,
+              consecutiveFailures,
+              hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
               error: err instanceof Error ? err.message : String(err),
             });
           }
@@ -1685,9 +1877,68 @@ export class BrowserPool {
   }
 
   /**
-   * Invoke a best-effort lifecycle hook (`onDegraded` / `onRecovered`) without
-   * letting a throwing hook crash the pool. A hook failure is logged, not
-   * propagated.
+   * CIRCUIT-BREAKER hard-recovery step. Invoked by the self-heal loop after
+   * `selfHealHardRecoveryThreshold` consecutive launch failures — the signal
+   * that the loop is stuck relaunching into a wedged chromium (every
+   * `chromium.launch()` throwing `...has been closed`). Purges the stale
+   * `/tmp/playwright_*` profile/temp dirs the crash-looping processes left
+   * behind (the FD-shm/profile pressure that keeps every fresh launch crashing)
+   * so the next launch starts cold and clean. Best-effort: a purge failure is
+   * logged, not thrown — the cold-launch retry still proceeds. The
+   * `delayOrShutdown` after the purge paces the next attempt and stays promptly
+   * cancellable on shutdown.
+   */
+  private async hardRecover(attempt: number): Promise<void> {
+    if (this.isShutdown) return;
+    this.logger?.error?.("browser-pool.self-heal-hard-recovery", {
+      attempt,
+      maxHardRecoveries: this.selfHealMaxHardRecoveries,
+      hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
+    });
+    try {
+      const removed = await this.purgeProfileDirs();
+      this.logger?.info("browser-pool.self-heal-profile-purge", {
+        attempt,
+        removed,
+      });
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.self-heal-profile-purge-failed", {
+        attempt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    // Pace the cold-launch retry into the (hopefully now-unwedged) kernel.
+    if (!this.isShutdown && this.selfHealIntervalMs > 0) {
+      await this.delayOrShutdown(this.selfHealIntervalMs);
+    }
+  }
+
+  /**
+   * CIRCUIT-BREAKER give-up step. Invoked when `selfHealMaxHardRecoveries`
+   * consecutive HARD recoveries (purge + cold-launch) have ALL failed to revive
+   * a single browser — the wedge survived even a profile-dir purge, so a
+   * redeploy is genuinely required. Emits the LOUD `pool-unrecoverable` alarm
+   * (the operator signal the old silent-spin path never sent) exactly once per
+   * episode (latched via `unrecoverable`) and lets the heal loop exit instead of
+   * spinning forever. A later set-empty event re-spawns the heal loop
+   * (`onBrowserSetEmpty` is unconditional); the latch is cleared by the first
+   * successful launch so a subsequent genuine recovery re-arms the breaker.
+   */
+  private fireUnrecoverable(): void {
+    if (this.unrecoverable) return;
+    this.unrecoverable = true;
+    this.logger?.error?.("browser-pool.pool-unrecoverable", {
+      browserCount: this.browserCount,
+      waiters: this.waiters.length,
+      maxHardRecoveries: this.selfHealMaxHardRecoveries,
+    });
+    this.safeHook(this.onUnrecoverable, "onUnrecoverable");
+  }
+
+  /**
+   * Invoke a best-effort lifecycle hook (`onDegraded` / `onRecovered` /
+   * `onUnrecoverable`) without letting a throwing hook crash the pool. A hook
+   * failure is logged, not propagated.
    */
   private safeHook(hook: (() => void) | undefined, name: string): void {
     if (!hook) return;
