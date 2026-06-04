@@ -569,30 +569,6 @@ export class BrowserPool {
   }
 
   /**
-   * Fire-and-forget orphan close that shutdown() still WAITS for. The orphan
-   * guard in openContextOn closes a just-opened context that straddled a recycle
-   * OR a shutdown; under shutdown that close is fire-and-forget and tracked by
-   * NEITHER drain set, so shutdown() could resolve while it is still in flight —
-   * violating the "shutdown resolved ⇒ everything closed" contract the
-   * pendingLaunches / inFlightRecycles drains uphold. Register the close promise
-   * in `inFlightRecycles` (the same set shutdown's drain loop re-snapshots until
-   * empty) so a close registered while shutdown is still draining is awaited too;
-   * self-remove on settle. Reuses the existing tracked-set mechanism — no new
-   * machinery. (Outside shutdown the add/delete is a harmless no-op: only
-   * shutdown's drain loop ever reads the set.)
-   */
-  private closeContextTracked(
-    context: BrowserContext,
-    browserIndex: number,
-  ): void {
-    const tracked = this.closeContext(context, browserIndex);
-    this.inFlightRecycles.add(tracked);
-    void tracked.finally(() => {
-      this.inFlightRecycles.delete(tracked);
-    });
-  }
-
-  /**
    * Pick the least-loaded live browser entry to open the next context on.
    * Skips entries that are recycling or whose browser has disconnected —
    * acquire() must never open a context on a dying browser. "Load" is measured
@@ -773,11 +749,7 @@ export class BrowserPool {
       !browserBefore.isConnected()
     ) {
       rollbackPendingOpen();
-      // Track the orphan close so shutdown() awaits it (the shutdown-straddle
-      // case): a fire-and-forget close on a tearing-down pool would otherwise let
-      // shutdown() resolve with a context still closing. closeContextTracked
-      // registers it in inFlightRecycles, which shutdown's drain loop awaits.
-      this.closeContextTracked(context, this.browsers.indexOf(entry));
+      void this.closeContext(context, this.browsers.indexOf(entry));
       this.logger?.warn?.("browser-pool.open-orphaned-by-recycle", {
         browserIndex: this.browsers.indexOf(entry),
       });
@@ -1259,7 +1231,7 @@ export class BrowserPool {
 
     // Reject any queued waiters.
     for (const waiter of this.waiters) {
-      waiter.reject(new Error("BrowserPool is shutting down"));
+      waiter.reject(new Error("BrowserPool is shut down"));
     }
     this.waiters = [];
 
