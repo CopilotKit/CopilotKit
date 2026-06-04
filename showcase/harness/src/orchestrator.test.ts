@@ -963,6 +963,70 @@ describe("orchestrator.createBrowserPoolHealthSignals — writeUnrecoverable (te
     );
   });
 
+  it("NAMES the cgroup pids signal in the Slack/alarm message when pids are present (>=0)", async () => {
+    // slot-6 F1: when the give-up snapshot measured the cgroup PID ceiling
+    // (cgroupPidsCurrent >= 0), the alarm must NAME it — pids.current/pids.max +
+    // threads — so the operator sees the PROVEN wedge cause, not just the
+    // abstract breaker counters. Off-Linux (-1 sentinel) the clause is omitted.
+    const { writes, writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async (_url: string, _init: { body: string }) => ({
+      ok: true,
+      status: 200,
+    }));
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable({
+      ...counters,
+      cgroupPidsCurrent: 998,
+      cgroupPidsMax: 1000,
+      treeThreadCount: 950,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse(init.body) as { text: string };
+    expect(body.text).toContain("pids.current=998/pids.max=1000");
+    expect(body.text).toContain("threads=950");
+    // The headline gauges are also persisted on the terminal health signal.
+    const terminal = writes.find(
+      (w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY,
+    );
+    expect(terminal!.signal.cgroupPidsCurrent).toBe(998);
+    expect(terminal!.signal.cgroupPidsMax).toBe(1000);
+    expect(terminal!.signal.treeThreadCount).toBe(950);
+  });
+
+  it("OMITS the pids clause when pids are unavailable (-1 sentinel, off-Linux)", async () => {
+    const { writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async (_url: string, _init: { body: string }) => ({
+      ok: true,
+      status: 200,
+    }));
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable({
+      ...counters,
+      cgroupPidsCurrent: -1,
+      cgroupPidsMax: -1,
+      treeThreadCount: -1,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse(init.body) as { text: string };
+    expect(body.text).not.toContain("pids.current");
+  });
+
   it("a failing Slack post never prevents the (unconditional) health-signal write", async () => {
     const { writes, writer, statusReader, testLogger } = makeHarness();
     const fetchImpl = vi.fn(async () => {
