@@ -184,5 +184,12 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n" instead of a line break. Inject real newlines via
+          # `fromJSON('"\n"')` ({6}) so `toJSON` encodes them as a single `\n`
+          # that Slack honors. The code-fence delimiters sit on their own lines
+          # so the summary renders as a proper code block.
           payload: |
-            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter smoke test failing: {0}*{6}<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>{6}```{6}{5}{6}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary, fromJSON('"\n"'))) }} }
