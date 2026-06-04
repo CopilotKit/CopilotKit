@@ -24,16 +24,18 @@ export function useSendMessage() {
     async (message: string) => {
       // Open the chat popup when sending a message
       config?.setModalOpen(true);
-      // Add the user message to the chat
-      agent.addMessage({ id: randomUUID(), role: "user", content: message });
+      
       try {
-        // Run the agent to process the message
-        await copilotkit.runAgent({ agent });
+        // Atomic run: adds the message and starts the agent in one operation
+        await copilotkit.runAgent({ 
+          agentId: agent.id,
+          input: message 
+        });
       } catch (error) {
         console.error("Failed to run agent:", error);
       }
     },
-    [agent, copilotkit, config],
+    [agent.id, copilotkit, config],
   );
 
   return { sendMessage };

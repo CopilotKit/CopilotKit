@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardMiniPreview } from "@/components/dashboard/dashboard-mini-preview";
@@ -228,9 +227,9 @@ function DetailView({
 
 export default function DashboardsPage() {
   return (
-    <Shell>
+    <>
       <DashboardsContent />
-    </Shell>
+    </>
   );
 }
 

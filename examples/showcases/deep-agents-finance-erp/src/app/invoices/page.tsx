@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shell } from "@/components/layout/shell";
 import { Header } from "@/components/layout/header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -13,6 +12,8 @@ import { invoices } from "@/lib/data";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import type { Invoice } from "@/types/erp";
+import * as React from "react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 export default function InvoicesPage() {
   return (
@@ -43,8 +44,15 @@ function InvoicesContent() {
     (inv) => inv.status === "overdue",
   ).length;
 
+  const [selectedInvoice, setSelectedInvoice] = React.useState<Invoice | null>(null);
+
+  useAgentContext({
+    description: "The invoice currently selected by the user in the UI.",
+    value: selectedInvoice as any,
+  });
+
   return (
-    <Shell>
+    <>
       <Header title="Invoices" subtitle="Manage billing and payments" />
 
       <div className="space-y-6 p-8">
@@ -159,10 +167,12 @@ function InvoicesContent() {
                 },
               ]}
               data={filtered}
+              onRowClick={setSelectedInvoice}
+              selectedRowKey={selectedInvoice?.id}
             />
           </CardContent>
         </Card>
       </div>
-    </Shell>
+    </>
   );
 }

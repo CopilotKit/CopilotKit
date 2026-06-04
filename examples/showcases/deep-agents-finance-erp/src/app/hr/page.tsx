@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shell } from "@/components/layout/shell";
 import { Header } from "@/components/layout/header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +38,7 @@ function HRContent() {
     .reduce((sum, e) => sum + e.salary, 0);
 
   return (
-    <Shell>
+    <>
       <Header title="Human Resources" subtitle="Team management and payroll" />
 
       <div className="space-y-6 p-8">
@@ -160,6 +159,6 @@ function HRContent() {
           ))}
         </div>
       </div>
-    </Shell>
+    </>
   );
 }

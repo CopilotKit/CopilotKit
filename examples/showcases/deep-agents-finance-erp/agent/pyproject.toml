@@ -2,7 +2,7 @@
 name = "finance-erp-agent"
 version = "0.1.0"
 description = "Finance ERP deep agent powered by LangGraph and CopilotKit"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
   "copilotkit[langgraph]>=0.1.0",
   "deepagents>=0.1.0",

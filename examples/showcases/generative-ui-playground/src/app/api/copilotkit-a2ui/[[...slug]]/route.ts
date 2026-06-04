@@ -9,7 +9,7 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
@@ -25,7 +25,7 @@ const a2uiAgent = new A2AAgent({ a2aClient });
 // Create CopilotKit runtime with A2UI agent as default
 const runtime = new CopilotRuntime({
   agents: {
-    default: a2uiAgent,
+    // default: a2uiAgent,
   },
   runner: new InMemoryAgentRunner(),
 });

@@ -12,15 +12,16 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { BasicAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
 
 // Use OpenAI gpt-5.2 as specified in project requirements
 const MODEL = "openai/gpt-5.2";
+export const maxDuration = 300; // 5 minutes timeout for long UI generations
 
 /**
  * "default" Agent: BasicAgent with MCPAppsMiddleware
@@ -29,7 +30,7 @@ const MODEL = "openai/gpt-5.2";
  * - Static GenUI tools (get_weather, get_stock, approve_task)
  * - MCP Apps (flights, hotels, trading, kanban, calculator, todo)
  */
-const defaultAgent = new BasicAgent({
+const defaultAgent = new BuiltInAgent({
   model: MODEL,
   prompt: `You are an AI assistant that demonstrates different types of Generative UI.
 
@@ -78,7 +79,6 @@ You also have access to 6 interactive apps that render in the chat:
 - When users need task approval, use the approve_task tool
 - When users want interactive apps (flights, hotels, etc.), use the MCP tools
 - Be helpful and guide users through the features`,
-  temperature: 0.7,
 }).use(
   new MCPAppsMiddleware({
     mcpServers: [
@@ -100,18 +100,26 @@ You also have access to 6 interactive apps that render in the chat:
  * Handles:
  * - Restaurant finding and booking with rich UI
  */
-const a2aClient = new A2AClient(
-  process.env.A2A_AGENT_URL || "http://localhost:10002",
-);
-const a2uiAgent = new A2AAgent({ a2aClient });
+/**
+ * "opengenui" Agent: BuiltInAgent with OpenGenerativeUIMiddleware capabilities
+ */
+const openGenUIAgent = new BuiltInAgent({
+  model: MODEL,
+  prompt: `You are a world-class UI engineer. 
+When asked for a UI, use generateSandboxedUi to build it using Tailwind CSS (via CDN) and Chart.js.
+Keep the code concise but polished. Focus on one main dashboard view.
+After calling generateSandboxedUi, stop immediately. Do not explain the code unless asked.`,
+});
 
-// Create CopilotKit runtime with both agents
+// Create CopilotKit runtime with all agents
 const runtime = new CopilotRuntime({
   agents: {
     default: defaultAgent, // Static GenUI + MCP Apps
-    a2ui: a2uiAgent, // A2UI with Python A2A server
+    opengenui: openGenUIAgent, // Open Generative UI
+    // a2ui: a2uiAgent, // Disabled because Python server is not running
   },
   runner: new InMemoryAgentRunner(),
+  openGenerativeUI: true, // Enable for the whole runtime
 });
 
 // Create Hono endpoint

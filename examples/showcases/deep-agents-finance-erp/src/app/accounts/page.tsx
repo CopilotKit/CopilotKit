@@ -1,6 +1,5 @@
 "use client";
 
-import { Shell } from "@/components/layout/shell";
 import { Header } from "@/components/layout/header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -26,7 +25,7 @@ export default function AccountsPage() {
     .reduce((sum, a) => sum + a.balance, 0);
 
   return (
-    <Shell>
+    <>
       <Header title="Accounts" subtitle="Chart of accounts and transactions" />
 
       <div className="space-y-6 p-8">
@@ -161,6 +160,6 @@ export default function AccountsPage() {
           </CardContent>
         </Card>
       </div>
-    </Shell>
+    </>
   );
 }

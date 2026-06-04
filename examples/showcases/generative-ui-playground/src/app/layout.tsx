@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./a2ui-theme.css";
 
 export const metadata: Metadata = {
   title: "UI Protocols Demo - CopilotKit Generative UI Playground",

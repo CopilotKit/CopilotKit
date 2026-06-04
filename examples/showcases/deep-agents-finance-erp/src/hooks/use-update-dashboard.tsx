@@ -80,8 +80,7 @@ function DashboardUpdater({
               order,
               config: config as any,
             }),
-            { config: config as any, colSpan },
-          );
+            { config: config as any, colSpan } as any);
         }
       }
     });
@@ -104,17 +103,15 @@ function DashboardUpdater({
 }
 
 export function useUpdateDashboard() {
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "update_dashboard",
-      render: ({ args, status, result }) => (
+      render: ({ args , status, result  }: any) => (
         <DashboardUpdater
           widgets={args?.widgets ?? []}
           status={status}
           result={result}
         />
       ),
-    },
-    [],
-  );
+    } as any, []);
 }

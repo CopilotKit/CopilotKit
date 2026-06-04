@@ -5,10 +5,10 @@ import { InlineChatChart } from "@/components/chat/inline-chart";
 import { CashPositionCard } from "@/components/chat/cash-position-card";
 
 export function useRenderChatVisual() {
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "render_chat_visual",
-      render: ({ args, status }) => {
+      render: ({ args , status  }: any) => {
         if (args?.type === "cash_position") {
           return (
             <CashPositionCard
@@ -34,7 +34,5 @@ export function useRenderChatVisual() {
           />
         );
       },
-    },
-    [],
-  );
+    } as any, []);
 }

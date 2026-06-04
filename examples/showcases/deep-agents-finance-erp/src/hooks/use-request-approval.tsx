@@ -34,6 +34,8 @@ type InterruptValue = {
     action?: string;
     args?: ApprovalArgs;
   };
+  action?: string;
+  args?: ApprovalArgs;
 };
 
 // `event.value` arrives as a JSON-encoded string from the runtime, not an
@@ -52,17 +54,17 @@ function parseInterruptValue(raw: unknown): InterruptValue | undefined {
 }
 
 export function useRequestApproval() {
-  // Suppress the wildcard `useRenderTool({ name: "*" })` from rendering a generic
-  // ToolCard for `request_approval`. The actual approval UI is handled by
-  // useInterrupt below — the agent's `copilotkit_interrupt(action="request_approval", ...)`
-  // pauses the LangGraph run and emits an `on_interrupt` custom event, not a
+  // Suppress the wildcard useRenderTool({ name: "*" }) from rendering a generic
+  // ToolCard for request_approval. The actual approval UI is handled by
+  // useInterrupt below — the agent's copilotkit_interrupt(action="request_approval", ...)
+  // pauses the LangGraph run and emits an on_interrupt custom event, not a
   // normal tool execution.
   useRenderTool(
     {
       name: "request_approval",
-      render: () => null,
-    },
-    [],
+      render: () => <></>,
+    } as any,
+    []
   );
 
   useInterrupt({
@@ -70,13 +72,14 @@ export function useRequestApproval() {
     enabled: (event) => {
       const value = parseInterruptValue(event.value);
       return (
-        value?.__copilotkit_interrupt_value__?.action === "request_approval"
+        value?.__copilotkit_interrupt_value__?.action === "request_approval" ||
+        value?.action === "request_approval"
       );
     },
     render: ({ event, resolve }) => {
       const value = parseInterruptValue(event.value);
-      const args = value?.__copilotkit_interrupt_value__?.args;
-      if (!args) return null;
+      const args = value?.__copilotkit_interrupt_value__?.args || value?.args;
+      if (!args) return <></>;
 
       const respond = async (result: unknown) => {
         resolve(result);

@@ -23,6 +23,13 @@ import { useSaveDashboard } from "@/hooks/use-save-dashboard";
 import { useDashboard } from "@/context/dashboard-context";
 import { Sidebar } from "./sidebar";
 import { kpis } from "@/lib/data";
+import { useRenderWhatIfSlider } from "@/hooks/use-render-what-if";
+import { useSemanticHighlight } from "@/hooks/use-semantic-highlight";
+import { useRenderAnomalyCard } from "@/hooks/use-render-anomaly";
+import { useRenderComparison } from "@/hooks/use-render-comparison";
+import { useRenderRiskScorecard } from "@/hooks/use-render-risk-scorecard";
+import { useRenderInvoiceForm } from "@/hooks/use-render-invoice-form";
+import { useRenderBudgetWizard } from "@/hooks/use-render-budget-wizard";
 
 const demoSuggestions = [
   {
@@ -35,27 +42,25 @@ const demoSuggestions = [
     message: "Show me all overdue invoices",
   },
   {
-    title: "Cash Flow Chart",
-    message: "Give me a visual cash flow projection for the next 4 quarters",
-  },
-  {
     title: "Approve Payments",
     message: "Process payment for all overdue invoices",
   },
   {
-    title: "Reorder Inventory",
-    message:
-      "Check inventory levels and reorder anything that needs restocking",
+    title: "Anomaly Scan",
+    message: "Scan our recent spending for any anomalies or unusual patterns and show me visual evidence",
+  },
+  {
+    title: "Q3 vs Q4 Compare",
+    message: "Compare Q3 2025 vs Q4 2025 revenue and expenses side by side",
+  },
+  {
+    title: "Risk Scorecard",
+    message: "Run a full financial health check and show me a risk scorecard",
   },
   {
     title: "Cash Flow Dashboard",
     message:
       "Build me a dashboard focused on cash flow risk — show AR aging, overdue invoices at the top, and a quarterly cash projection",
-  },
-  {
-    title: "Cost Control Dashboard",
-    message:
-      "I'm concerned about the Marketing overspend — set up a cost control view with budget tracking and spending trends",
   },
 ];
 
@@ -196,14 +201,14 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   // Lightweight context — detailed data is available via backend research tools
   useAgentContext({
     description: "Key performance indicators for the company",
-    value: kpis,
+    value: kpis as any,
   });
 
   // Dashboard layout context — agent uses this to know current widget IDs and configuration
   useAgentContext({
     description:
       "Current dashboard layout — list of widgets with their IDs, types, column spans, order, and configuration. Use widget IDs when removing or updating widgets.",
-    value: widgets,
+    value: widgets as any,
   });
 
   // Saved dashboards context — agent can reference when loading saved layouts
@@ -247,6 +252,13 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   useUpdateDashboard(); // Add/update dashboard widgets (batch)
   useManageDashboard(); // Reset/remove/reorder dashboard
   useSaveDashboard(); // Save/load dashboard configurations
+  useRenderWhatIfSlider(); // Bi-directional generative UI slider
+  useSemanticHighlight(); // Semantic UI highlighting
+  useRenderAnomalyCard(); // Anomaly detection with sparkline charts
+  useRenderComparison(); // Interactive side-by-side comparison table
+  useRenderRiskScorecard(); // Financial health risk scorecard
+  useRenderInvoiceForm(); // Inline invoice creation form
+  useRenderBudgetWizard(); // Multi-step budget planning wizard
 
   return (
     <div className="flex h-screen bg-muted">
@@ -260,7 +272,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           assistantMessage:
             HoverToolbarAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
         }}
-        instructions="You are the FinanceOS AI assistant. Always use do_research for data queries and do_projections for forecasts. Prefer rendering rich UI components (charts, cards, dashboard widgets) over plain text whenever possible."
         labels={{
           modalHeaderTitle: "FinanceOS AI",
           welcomeMessageText: "Ask about invoices, accounts, inventory, or HR.",

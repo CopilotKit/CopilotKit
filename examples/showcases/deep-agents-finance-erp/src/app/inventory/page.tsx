@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shell } from "@/components/layout/shell";
 import { Header } from "@/components/layout/header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -41,7 +40,7 @@ function InventoryContent() {
   const totalSKUs = inventoryItems.length;
 
   return (
-    <Shell>
+    <>
       <Header title="Inventory" subtitle="Stock management and tracking" />
 
       <div className="space-y-6 p-8">
@@ -175,6 +174,6 @@ function InventoryContent() {
           </CardContent>
         </Card>
       </div>
-    </Shell>
+    </>
   );
 }

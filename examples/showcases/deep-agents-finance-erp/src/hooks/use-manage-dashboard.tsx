@@ -85,10 +85,10 @@ function DashboardManager({
 }
 
 export function useManageDashboard() {
-  useRenderTool(
-    {
+  useRenderTool({
+
       name: "manage_dashboard",
-      render: ({ args, status, result }) => (
+      render: ({ args , status, result  }: any) => (
         <DashboardManager
           action={args?.action ?? ""}
           widgetId={args?.widgetId}
@@ -97,7 +97,5 @@ export function useManageDashboard() {
           result={result}
         />
       ),
-    },
-    [],
-  );
+    } as any, []);
 }
