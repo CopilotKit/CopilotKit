@@ -2916,9 +2916,10 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     expect(pool.stats().inUse).toBe(1); // reservation held by the parked open
 
     // Flip shutdown WHILE the open is parked. No parked relaunch here, so the
-    // drain loop is empty and shutdown proceeds to its close-pass — but it must
-    // still AWAIT the orphan close registered when the open settles into the
-    // guard. Kick shutdown without awaiting so we can settle the open first.
+    // drain loop is empty and shutdown proceeds to its close-pass; the orphan
+    // opened-then-straddled here is closed by openContextOn's fire-and-forget
+    // orphan guard, not awaited by shutdown. Kick shutdown without awaiting so
+    // the straddled open settles into the guard first.
     const shutdownP = pool.shutdown();
     await drainMicrotasks();
 
