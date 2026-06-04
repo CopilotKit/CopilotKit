@@ -83,7 +83,10 @@ routerUse((next) => {
       c.response().header().set("Vary", "Origin");
       c.response()
         .header()
-        .set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+        .set(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PATCH, DELETE, OPTIONS",
+        );
       c.response()
         .header()
         .set(
