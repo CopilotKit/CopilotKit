@@ -201,7 +201,9 @@ describe("starterSmokeDriver", () => {
     expect(r.signal.failed).toEqual(["agent"]);
     expect(r.signal.errorClass).toBe("smoke-failed");
 
-    const agentRow = sideRows(writes).find((w) => w.key === "starter:agno/agent")!;
+    const agentRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/agent",
+    )!;
     expect(agentRow.state).toBe("red");
     expect(agentRow.signal.errorClass).toBe("smoke-failed");
     expect(agentRow.signal.errorDesc).toContain("404");
@@ -210,18 +212,17 @@ describe("starterSmokeDriver", () => {
   it("chat with empty body → chat red (smoke-failed)", async () => {
     const { writer, writes } = mkWriter();
     const driver = createStarterSmokeDriver();
-    const r = (await driver.run(
-      mkCtx(fakeFetch({ chatBody: "   " }), writer),
-      {
-        key: "starter_smoke:starter-agno",
-        name: "starter-agno",
-        publicUrl: "https://starter-agno.up.railway.app",
-      },
-    )) as ProbeResult<StarterSmokeAggregateSignal>;
+    const r = (await driver.run(mkCtx(fakeFetch({ chatBody: "   " }), writer), {
+      key: "starter_smoke:starter-agno",
+      name: "starter-agno",
+      publicUrl: "https://starter-agno.up.railway.app",
+    })) as ProbeResult<StarterSmokeAggregateSignal>;
 
     expect(r.state).toBe("red");
     expect(r.signal.failed).toEqual(["chat"]);
-    const chatRow = sideRows(writes).find((w) => w.key === "starter:agno/chat")!;
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/chat",
+    )!;
     expect(chatRow.state).toBe("red");
     expect(chatRow.signal.errorDesc).toContain("empty response");
   });

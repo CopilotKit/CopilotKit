@@ -45,7 +45,9 @@ const EXCLUDED_STARTERS: ReadonlySet<string> = new Set<string>();
 /** Parse the `slug:` values out of the `STARTERS` array in the smoke spec. */
 function parseSmokeMatrixSlugs(): string[] {
   const src = readFileSync(STARTER_SPEC_FILE, "utf8");
-  const block = src.match(/const STARTERS:\s*Starter\[\]\s*=\s*\[([\s\S]+?)\n\];/);
+  const block = src.match(
+    /const STARTERS:\s*Starter\[\]\s*=\s*\[([\s\S]+?)\n\];/,
+  );
   if (!block || !block[1]) {
     throw new Error(
       "drift parser: could not locate `STARTERS` array in starter-smoke.spec.ts — " +
@@ -104,8 +106,9 @@ describe("starter-mapping-drift", () => {
     const both = Object.keys(STARTER_TO_COLUMN).filter((s) =>
       EXCLUDED_STARTERS.has(s),
     );
-    expect(both, `starters both mapped and excluded: ${JSON.stringify(both)}`).toEqual(
-      [],
-    );
+    expect(
+      both,
+      `starters both mapped and excluded: ${JSON.stringify(both)}`,
+    ).toEqual([]);
   });
 });
