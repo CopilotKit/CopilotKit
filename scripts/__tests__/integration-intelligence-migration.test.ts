@@ -314,3 +314,89 @@ test("a2a-a2ui Next config enables the Threads feature flag", () => {
     "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.COPILOTKIT_LICENSE_TOKEN",
   );
 });
+
+const agentcoreRoot = path.join(integrationsDir, "agentcore");
+
+function readAgentcoreFile(pathFromRoot: string): string {
+  return fs.readFileSync(path.join(agentcoreRoot, pathFromRoot), "utf8");
+}
+
+describe("agentcore Intelligence integration migration", () => {
+  it("gates the Hono runtime bridge with CopilotKit Intelligence", () => {
+    const runtime = readAgentcoreFile(
+      "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
+    );
+
+    expect(runtime).toContain("CopilotKitIntelligence");
+    expect(runtime).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
+    expect(runtime).toContain("process.env.INTELLIGENCE_API_KEY");
+    expect(runtime).toContain("process.env.INTELLIGENCE_API_URL");
+    expect(runtime).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
+    expect(runtime).toContain(
+      "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
+    );
+    expect(runtime).toContain('id: "demo-user"');
+    expect(runtime).toContain(": { runner: new AgentCoreRunner() }");
+    expect(runtime).toContain('basePath: "/copilotkit"');
+  });
+
+  it("forces REST transport and threads context in the Vite frontend", () => {
+    const chat = readAgentcoreFile(
+      "frontend/src/components/chat/CopilotKit/index.tsx",
+    );
+
+    expect(chat).toContain("useSingleEndpoint={false}");
+    expect(chat).toContain("ThreadsDrawer");
+    expect(chat).toContain("ThreadsPanelGate");
+    expect(chat).toContain("CopilotChatConfigurationProvider");
+    expect(chat).toContain("const [threadId, setThreadId]");
+    expect(chat).toContain("threadId={threadId}");
+    expect(chat).toContain("runtimeUrl={runtimeUrl}");
+    expect(chat).toContain("headers={headers}");
+  });
+
+  it("exposes the client-safe threads enabled gate for Vite", () => {
+    const viteConfig = readAgentcoreFile("frontend/vite.config.ts");
+    const lockedState = readAgentcoreFile(
+      "frontend/src/components/threads-drawer/locked-state.tsx",
+    );
+
+    expect(viteConfig).toContain("VITE_COPILOTKIT_THREADS_ENABLED");
+    expect(viteConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
+    expect(lockedState).toContain(
+      "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED",
+    );
+  });
+
+  it("documents and wires local Intelligence environment variables", () => {
+    const dockerEnv = readAgentcoreFile("docker/.env.example");
+    const compose = readAgentcoreFile("docker/docker-compose.yml");
+
+    for (const envName of [
+      "COPILOTKIT_LICENSE_TOKEN",
+      "INTELLIGENCE_API_KEY",
+      "INTELLIGENCE_API_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ]) {
+      expect(dockerEnv).toContain(envName);
+      expect(compose).toContain(envName);
+    }
+  });
+
+  it("pins AgentCore frontend and runtime packages to threads-capable versions", () => {
+    const frontendPackageJson = JSON.parse(
+      readAgentcoreFile("frontend/package.json"),
+    ) as { dependencies?: Record<string, string> };
+    const runtimePackageJson = JSON.parse(
+      readAgentcoreFile("infra-cdk/lambdas/copilotkit-runtime/package.json"),
+    ) as { dependencies?: Record<string, string> };
+
+    expect(frontendPackageJson.dependencies?.["@copilotkit/react-core"]).toBe(
+      "1.59.3",
+    );
+    expect(runtimePackageJson.dependencies?.["@copilotkit/runtime"]).toBe(
+      "1.59.3",
+    );
+    expect(runtimePackageJson.dependencies?.["@ag-ui/client"]).toBe("0.0.53");
+  });
+});
