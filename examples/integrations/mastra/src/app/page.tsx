@@ -71,6 +71,7 @@ export default function CopilotKitPage() {
     >
       <YourMainContent themeColor={themeColor} />
       <CopilotSidebar
+        defaultOpen={true}
         labels={{
           modalHeaderTitle: "Popup Assistant",
           welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
