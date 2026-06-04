@@ -8,13 +8,10 @@ import {
   useAgent,
   useFrontendTool,
   useHumanInTheLoop,
-  useRenderToolCall,
-} from "@copilotkit/react-core/v2";
-import {
-  CopilotKitCSSProperties,
+  useRenderTool,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 export default function CopilotKitPage() {
@@ -28,79 +25,59 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler({ themeColor }) {
+    handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
+      return `Set theme color to ${themeColor}`;
     },
   });
 
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
+      <YourMainContent themeColor={themeColor} />
       <CopilotSidebar
-        disableSystemMessage={true}
-        clickOutsideToClose={false}
+        defaultOpen={true}
         labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
         }}
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "Get the weather in San Francisco.",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Human In the Loop",
-            message: "Please go to the moon.",
-          },
-          {
-            title: "Write Agent State",
-            message: "Add a proverb about AI.",
-          },
-          {
-            title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
-          },
-          {
-            title: "Read Agent State",
-            message: "What are the proverbs?",
-          },
-        ]}
-      >
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
+      />
     </main>
   );
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
-  const { state, setState } = useAgent<AgentState>({
-    name: "my_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
-  });
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "default" });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+  const setState = (next: AgentState) => agent.setState(next);
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   //🪁 Generative UI: https://docs.copilotkit.ai/pydantic-ai/generative-ui
-  useRenderToolCall(
+  useRenderTool(
     {
       name: "get_weather",
-      description: "Get the weather for a given location.",
       parameters: z.object({
         location: z.string(),
       }),
-      render: ({ args, result }) => {
-        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      render: ({ parameters }) => {
+        return (
+          <WeatherCard location={parameters.location} themeColor={themeColor} />
+        );
       },
     },
     [themeColor],
