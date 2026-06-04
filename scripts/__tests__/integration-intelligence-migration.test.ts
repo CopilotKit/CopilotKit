@@ -12,6 +12,7 @@ const migratedIntegrations = [
   "pydantic-ai",
   "mcp-apps",
   "agent-spec",
+  "strands-python",
 ] as const;
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
@@ -22,6 +23,7 @@ const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
   "pydantic-ai": "src/app",
   "mcp-apps": "app",
   "agent-spec": "src/app",
+  "strands-python": "src/app",
 };
 
 function readIntegrationFile(
