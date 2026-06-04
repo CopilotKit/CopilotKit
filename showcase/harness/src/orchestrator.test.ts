@@ -1047,6 +1047,59 @@ describe("orchestrator.createBrowserPoolHealthSignals — writeUnrecoverable (te
     );
     expect(writes.some((w) => w.key === BROWSER_POOL_DEGRADED_KEY)).toBe(true);
   });
+
+  it("a HUNG Slack webhook is ABORTED at the timeout so the serialized health-signal chain is not stalled", async () => {
+    // A hung webhook fetch must not stall the SERIALIZED degraded↔healthy↔
+    // unrecoverable write chain indefinitely: the ping is aborted at
+    // BROWSER_POOL_SLACK_TIMEOUT_MS, logged best-effort, and the write resolves.
+    vi.useFakeTimers();
+    try {
+      const { writes, logs, writer, statusReader, testLogger } = makeHarness();
+      // fetch hangs until its AbortSignal fires, then rejects like a real abort.
+      const fetchImpl = vi.fn(
+        (_url: string, init: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () =>
+              reject(
+                Object.assign(new Error("The operation was aborted"), {
+                  name: "AbortError",
+                }),
+              ),
+            );
+          }),
+      );
+      const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+        writer,
+        statusReader,
+        logger: testLogger,
+        env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      const done = writeUnrecoverable(counters);
+      // Advance past the Slack timeout — the abort fires and the ping rejects.
+      await vi.advanceTimersByTimeAsync(5_000);
+      // The chain resolves (not stalled) within the bound.
+      await expect(done).resolves.toBeUndefined();
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      // The hung ping was aborted + logged best-effort.
+      expect(
+        logs.some(
+          (l) => l.msg === "boot.browser-pool-unrecoverable-slack-failed",
+        ),
+      ).toBe(true);
+      // The (unconditional) health-signal writes still landed.
+      expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+        true,
+      );
+      expect(writes.some((w) => w.key === BROWSER_POOL_DEGRADED_KEY)).toBe(
+        true,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 /**
