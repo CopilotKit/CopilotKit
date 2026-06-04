@@ -8,7 +8,7 @@ import { CellMatrix } from "../cell-matrix";
 import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
-import { E2E_STALE_AFTER_MS } from "@/lib/staleness";
+import { E2E_STALE_AFTER_MS, STARTER_STALE_AFTER_MS } from "@/lib/staleness";
 
 // Mock localStorage
 const storageMap = new Map<string, string>();
@@ -710,5 +710,90 @@ describe("CellMatrix", () => {
     } finally {
       nowSpy.mockRestore();
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d)                                         */
+/* ------------------------------------------------------------------ */
+
+describe("CellMatrix — Starter row-group", () => {
+  // agno is a MAPPED starter column; ag2 is one of the 7 NOT-supported columns.
+  const starterIntegrations: IntegrationInfo[] = [
+    { slug: "agno", name: "Agno", tier: "at_parity" },
+    { slug: "ag2", name: "AG2", tier: "partial" },
+  ];
+
+  const renderMatrix = (live: LiveStatusMap) =>
+    render(
+      <CellMatrix
+        cells={[]}
+        categories={[]}
+        features={[]}
+        integrations={starterIntegrations}
+        liveStatus={live}
+        defaultOpenCategories={new Set()}
+        filter="all"
+        referenceSlug="agno"
+      />,
+    );
+
+  it("renders the Starter header and four fixed sub-rows", () => {
+    const { getByText, getByTestId } = renderMatrix(new Map());
+    expect(getByText("Starter")).toBeDefined();
+    for (const level of ["health", "agent", "chat", "interaction"]) {
+      expect(getByTestId(`starter-row-${level}`)).toBeDefined();
+    }
+  });
+
+  it("✓ green for a passing mapped starter cell", () => {
+    const live = mapOf([row("starter:agno/health", "starter", "green")]);
+    const { getByTestId } = renderMatrix(live);
+    const cell = getByTestId("starter-cell-agno-health");
+    expect(cell.textContent).toContain("✓");
+  });
+
+  it("red ✗ for a failed mapped starter cell", () => {
+    const live = mapOf([row("starter:agno/chat", "starter", "red")]);
+    const { getByTestId } = renderMatrix(live);
+    const cell = getByTestId("starter-cell-agno-chat");
+    expect(cell.textContent).toContain("✗");
+  });
+
+  it("gray ? for a mapped column with no row yet (not-yet-run)", () => {
+    const { getByTestId } = renderMatrix(new Map());
+    const cell = getByTestId("starter-cell-agno-agent");
+    expect(cell.textContent).toContain("?");
+  });
+
+  it("not-supported ✗ for an unmapped column, tooltip 'no starter for this integration'", () => {
+    const { getByTestId } = renderMatrix(new Map());
+    const cell = getByTestId("starter-cell-ag2-health");
+    // grey/hollow ✗ — the chip carries the tooltip title.
+    expect(cell.textContent).toContain("✗");
+    const chip = cell.querySelector("[title]");
+    expect(chip?.getAttribute("title")).toBe("no starter for this integration");
+  });
+
+  it("~ stale: a frozen-green starter row downgrades to amber ~", () => {
+    const staleAt = new Date(
+      Date.now() - STARTER_STALE_AFTER_MS - 1,
+    ).toISOString();
+    const live = mapOf([
+      {
+        id: "id-stale",
+        key: "starter:agno/interaction",
+        dimension: "starter",
+        state: "green" as const,
+        signal: {},
+        observed_at: staleAt,
+        transitioned_at: staleAt,
+        fail_count: 0,
+        first_failure_at: null,
+      },
+    ]);
+    const { getByTestId } = renderMatrix(live);
+    const cell = getByTestId("starter-cell-agno-interaction");
+    expect(cell.textContent).toContain("~");
   });
 });

@@ -1,14 +1,23 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   CATALOG_TO_D5_KEY,
+  STARTER_COLUMNS,
+  STARTER_LEVELS,
+  buildStarterBadge,
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveStarterRow,
+  starterIsSupported,
   upsertByKey,
 } from "./live-status";
-import type { LiveStatusMap, StatusRow } from "./live-status";
+import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
 import { formatTs } from "./format-ts";
-import { E2E_STALE_AFTER_MS, LIVENESS_STALE_AFTER_MS } from "./staleness";
+import {
+  E2E_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
+} from "./staleness";
 
 // A recent timestamp so green rows are not treated as stale by the
 // staleness downgrade in resolveCell (which compares against Date.now()).
@@ -834,5 +843,186 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
   it("connection=error + null row: plain offline tooltip", () => {
     const c = resolveCell(mapOf([]), "a", "b", { connection: "error" });
     expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d / §a)                                    */
+/* ------------------------------------------------------------------ */
+
+const NOW = Date.now();
+
+describe("STARTER_COLUMNS (§a 12-mapped / 7-not-supported split)", () => {
+  it("contains exactly the 12 mapped columns", () => {
+    // 12 mapped + 7 not-supported = 19 columns. Guards the dashboard's copy
+    // of the harness STARTER_TO_COLUMN value set against silent rot.
+    expect(STARTER_COLUMNS.size).toBe(12);
+  });
+
+  it("includes the 5 drift columns and 7 direct columns", () => {
+    for (const col of [
+      "google-adk",
+      "langgraph-typescript",
+      "strands",
+      "ms-agent-dotnet",
+      "ms-agent-python",
+      "crewai-crews",
+      "langgraph-fastapi",
+      "langgraph-python",
+      "agno",
+      "llamaindex",
+      "mastra",
+      "pydantic-ai",
+    ]) {
+      expect(starterIsSupported(col)).toBe(true);
+    }
+  });
+
+  it("treats the 7 unmapped columns as not supported", () => {
+    for (const col of [
+      "ag2",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+      "langroid",
+      "spring-ai",
+      "built-in-agent",
+      "ms-agent-harness-dotnet",
+    ]) {
+      expect(starterIsSupported(col)).toBe(false);
+    }
+  });
+});
+
+describe("resolveStarterRow", () => {
+  it("looks up the flat starter:<col>/<level> key", () => {
+    const r = row("starter:agno/health", "starter", "green");
+    const live = mapOf([r]);
+    expect(resolveStarterRow(live, "agno", "health")).toBe(r);
+  });
+
+  it("returns null for a column/level with no row (not-yet-run)", () => {
+    expect(resolveStarterRow(mapOf([]), "agno", "chat")).toBeNull();
+  });
+
+  it("does not cross-contaminate levels", () => {
+    const live = mapOf([row("starter:agno/agent", "starter", "red")]);
+    expect(resolveStarterRow(live, "agno", "agent")?.state).toBe("red");
+    expect(resolveStarterRow(live, "agno", "health")).toBeNull();
+  });
+});
+
+describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
+  it("✓ healthy: green row → green ✓", () => {
+    const b = buildStarterBadge(
+      "health",
+      true,
+      row("starter:agno/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("red ✗ smoke-failed: red row → red ✗", () => {
+    const b = buildStarterBadge(
+      "chat",
+      true,
+      row("starter:agno/chat", "starter", "red"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("~ stale: green row older than STARTER_STALE_AFTER_MS downgrades to amber ~", () => {
+    const stale = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS - 1).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, stale, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    // The downgraded effective row's state agrees with the tone.
+    expect(b.row?.state).toBe("degraded");
+  });
+
+  it("~ stale boundary: green row EXACTLY at the window is NOT stale (strict >)", () => {
+    const atBoundary = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, atBoundary, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("gray ?: supported column, no row yet → gray ? (not-yet-run)", () => {
+    const b = buildStarterBadge("interaction", true, null, NOW, "live");
+    expect(b.tone).toBe("gray");
+    expect(b.label).toBe("?");
+  });
+
+  it("not-supported ✗: unmapped column → gray ✗, mapping-derived (not data-derived)", () => {
+    // Keyed off isSupported=false, NOT off a missing row — so it is visually
+    // distinct from the gray `?` not-yet-run state (same tone, different glyph)
+    // AND from the red smoke-failed ✗ (different tone).
+    const b = buildStarterBadge("health", false, null, NOW, "live");
+    expect(b.tone).toBe("gray");
+    expect(b.label).toBe("✗");
+    expect(b.tooltip).toBe("no starter for this integration");
+    expect(b.row).toBeNull();
+  });
+
+  it("not-supported ✗ is independent of any row data (mapping wins)", () => {
+    // Even if a stray row existed, an unmapped column must still render the
+    // not-supported state — the caller passes row=null for unmapped columns,
+    // but assert buildStarterBadge ignores row entirely when !isSupported.
+    const b = buildStarterBadge(
+      "health",
+      false,
+      row("starter:ag2/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.label).toBe("✗");
+    expect(b.tone).toBe("gray");
+  });
+
+  it("tooltip carries the per-level descriptor for data-bearing states", () => {
+    const expected: Record<StarterLevel, string> = {
+      health: "health endpoint responded",
+      agent: "agent endpoint reachable (non-404)",
+      chat: "chat round-trip via aimock returned a response",
+      interaction: "UI interactions work, no console errors",
+    };
+    for (const level of STARTER_LEVELS) {
+      const b = buildStarterBadge(
+        level,
+        true,
+        row(`starter:agno/${level}`, "starter", "green"),
+        NOW,
+        "live",
+      );
+      expect(b.tooltip).toContain(expected[level]);
+    }
+  });
+});
+
+describe("starter rows are informational — excluded from resolveCell rollup", () => {
+  it("a red starter row does NOT make the feature-cell rollup red", () => {
+    // resolveCell only reads health + e2e (+ informational badges). A starter
+    // row sharing the slug must never leak into the rollup.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("e2e:agno/agentic-chat", "e2e", "green"),
+      // A red starter row for the same integration:
+      row("starter:agno/health", "starter", "red"),
+      row("starter:agno/chat", "starter", "red"),
+    ]);
+    const cell = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    // Rollup stays green (or whatever health+e2e dictate) — NOT red.
+    expect(cell.rollup).not.toBe("red");
+    // And the CellState shape exposes no starter contributor.
+    expect(Object.keys(cell)).not.toContain("starter");
   });
 });
