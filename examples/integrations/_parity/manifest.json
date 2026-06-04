@@ -151,7 +151,10 @@
         "src/app/api/copilotkit/**",
         "docker/Dockerfile.agent",
         "docker-compose.test.yml",
-        "scripts/**"
+        "scripts/**",
+        "src/components/threads-drawer/**",
+        "src/app/page.tsx",
+        "next.config.ts"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "cd agent && uv run main.py",
