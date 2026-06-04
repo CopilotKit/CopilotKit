@@ -363,7 +363,7 @@ describe("wrapper CLI end-to-end message rendering (subprocess)", () => {
     // the build job is `skipped` on a non-release merge (no release/publish/*
     // ref) → MODE/SCOPE come back empty and no Python intent signal is set.
     // The notifier must stay completely silent — neither a success nor a
-    // failure line — so a routine docs/feature merge never pages #oss-alerts.
+    // failure line — so a routine docs/feature merge never pages #engr.
     const out = path.join(tmpDir, "gho.txt");
     fs.writeFileSync(out, "");
     const { code } = runWrapper({

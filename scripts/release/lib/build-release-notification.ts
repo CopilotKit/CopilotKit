@@ -1,5 +1,5 @@
 /**
- * Pure message-builder for the post-release #oss-alerts Slack notification.
+ * Pure message-builder for the post-release #engr Slack notification.
  *
  * This is the load-bearing truth table for what (if anything) gets posted to
  * Slack after the publish-release.yml workflow runs. It is deliberately a PURE
@@ -163,7 +163,7 @@ function pluralizePackages(count: number): string {
 }
 
 /**
- * Build the #oss-alerts Slack message for a release run. Pure function: same
+ * Build the #engr Slack message for a release run. Pure function: same
  * inputs always produce the same output.
  */
 export function buildReleaseNotification(

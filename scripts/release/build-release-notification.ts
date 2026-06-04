@@ -1,5 +1,5 @@
 /**
- * CLI wrapper for the post-release #oss-alerts Slack notification builder.
+ * CLI wrapper for the post-release #engr Slack notification builder.
  *
  * Thin glue around the pure buildReleaseNotification() function in
  * ./lib/build-release-notification.ts. The truth-table logic lives (and is

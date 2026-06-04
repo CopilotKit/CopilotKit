@@ -636,16 +636,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ===========================================================================
-  # Slack #oss-alerts notification
+  # Slack #engr notification
   #
-  # A single concise post to #oss-alerts when a release publishes (or fails).
+  # A single concise post to #engr when a release publishes (or fails).
   # Runs after both lanes regardless of their outcome (`if: always()`). The
   # load-bearing truth table lives in the unit-tested pure builder at
   # scripts/release/lib/build-release-notification.ts; this job only feeds it the
   # needs.* signals and posts what it returns. Suppressed entirely for canaries
   # (mode=prerelease) and dry-runs — the builder returns should_post=false there.
   # Webhook empty-guard mirrors showcase_validate.yml so an unset
-  # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red this step.
+  # SLACK_WEBHOOK_ENGR secret does not break the shell or red this step.
   # ===========================================================================
   notify:
     needs: [build, publish, build-python, publish-python]
@@ -661,7 +661,7 @@ jobs:
     permissions:
       contents: read
     env:
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
     steps:
       # Determine release intent IN THIS JOB, from the github.event payload +
       # the PR changed-files API — NOT from needs.build*/needs.build-python
@@ -790,11 +790,11 @@ jobs:
           PY_URL: ${{ needs.build-python.outputs.version && format('https://pypi.org/project/copilotkit/{0}/', needs.build-python.outputs.version) || 'https://pypi.org/project/copilotkit/' }}
         run: pnpm tsx scripts/release/build-release-notification.ts
 
-      - name: Post to #oss-alerts
+      - name: Post to #engr
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
           payload: |
             {
@@ -804,7 +804,7 @@ jobs:
       - name: Log (no Slack — webhook unset)
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK == '' }}
         run: |
-          echo "::warning::A release notification was ready to post but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+          echo "::warning::A release notification was ready to post but SLACK_WEBHOOK_ENGR is not set; no Slack notification sent."
 
       # Self-watchdog: if any earlier step in THIS job failed (e.g. the
       # dependency install or the builder crashed), the notifier itself is the
@@ -837,7 +837,7 @@ jobs:
         if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
           payload: |
             {
