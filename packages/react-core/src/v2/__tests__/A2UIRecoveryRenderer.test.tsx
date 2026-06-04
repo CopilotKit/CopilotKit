@@ -92,4 +92,21 @@ describe("createA2UIRecoveryRenderer", () => {
     expect(container.textContent).toContain("Couldn't generate");
     expect(container.querySelector("details")).toBeNull();
   });
+
+  it("lets server-stamped content.debugExposure override the client option (OSS-162)", () => {
+    // The A2UI middleware stamps recovery.debugExposure onto the activity so the
+    // server (covering Python + TS agents alike) can drive exposure end-to-end.
+    // It must win over the client-side factory option.
+    const container = renderRecovery(
+      {
+        status: "failed",
+        error: "boom",
+        attempts: [{ attempt: 1, ok: false }],
+        debugExposure: "hidden",
+      },
+      { debugExposure: "verbose" },
+    );
+    expect(container.textContent).toContain("Couldn't generate");
+    expect(container.querySelector("details")).toBeNull();
+  });
 });

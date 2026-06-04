@@ -38,6 +38,9 @@ const RecoveryContentSchema = z
     error: z.string().optional(),
     errors: z.array(z.any()).optional(),
     attempts: z.array(z.any()).optional(),
+    // Server-side knob (stamped onto the activity by the A2UI middleware) for how
+    // much retry/error detail this renderer surfaces. (OSS-162)
+    debugExposure: z.enum(["hidden", "collapsed", "verbose"]).optional(),
   })
   .passthrough();
 
@@ -46,13 +49,16 @@ export function createA2UIRecoveryRenderer(
 ): ReactActivityMessageRenderer<any> {
   const showAfterMs = options.showAfterMs ?? 2000;
   const showAfterAttempts = options.showAfterAttempts ?? 2;
-  const debugExposure = options.debugExposure ?? "collapsed";
+  const optionDebugExposure = options.debugExposure ?? "collapsed";
 
   return {
     activityType: "a2ui_recovery",
     content: RecoveryContentSchema,
     render: ({ content }) => {
       const status = content?.status;
+      // Server-configured debugExposure (stamped onto the activity by the A2UI
+      // middleware) wins; else the client option; else the "collapsed" default. (OSS-162)
+      const debugExposure = content?.debugExposure ?? optionDebugExposure;
       if (status === "failed") {
         return (
           <A2UIRecoveryFailure
