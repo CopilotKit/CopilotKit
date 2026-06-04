@@ -88,7 +88,7 @@ export function DefaultToolComponent({
       </div>
 
       {/* Arguments */}
-      {parameters &&
+      {!!parameters &&
         typeof parameters === "object" &&
         Object.keys(parameters as Record<string, unknown>).length > 0 && (
           <div className="mb-3">

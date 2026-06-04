@@ -7,12 +7,16 @@ import {
   boot,
   buildCronProbeResolver,
   createStatusReader,
+  createBrowserPoolHealthSignals,
+  BROWSER_POOL_DEGRADED_KEY,
   diffCronSchedules,
   envForCfg,
   createRailwayAdapter,
   registerAllProbeDrivers,
   hydrateProbeLastRuns,
 } from "./orchestrator.js";
+import type { State } from "./types/index.js";
+import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
@@ -189,6 +193,47 @@ describe("orchestrator /health wiring (F1.1)", () => {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+    }
+  });
+
+  // R2-B.2 / R4-A.3: a boot that successfully init()s the browser pool but
+  // then FAILS TO BIND (sync serve() throw OR async EADDRINUSE) must tear down
+  // the pool, not just the scheduler. The pool launches long-lived chromium
+  // processes in init(); browserPool.shutdown() only runs in the returned
+  // stop() closure, which a boot rejection never reaches. So a leaked boot
+  // strands every chromium process — on a restart loop this compounds into the
+  // PID-ceiling exhaustion the pool hardening exists to prevent.
+  it("R4-A.3: a boot that inits the pool then fails to bind shuts the pool down (no chromium leak)", async () => {
+    // Stub init() so the pool reports ready WITHOUT launching real chromium,
+    // and spy shutdown() so we can assert the boot-failure path tears it down.
+    const initSpy = vi
+      .spyOn(BrowserPool.prototype, "init")
+      .mockResolvedValue(undefined);
+    const shutdownSpy = vi
+      .spyOn(BrowserPool.prototype, "shutdown")
+      .mockResolvedValue(undefined);
+
+    // Occupy `port` so boot()'s serve() bind fails with EADDRINUSE — the async
+    // 'error' path that only called scheduler.stop(). boot() passes no
+    // hostname to serve(), so it binds the wildcard; the blocker must also bind
+    // the wildcard (no hostname) to guarantee the conflict on macOS.
+    const blocker = net.createServer();
+    await new Promise<void>((resolve, reject) => {
+      blocker.once("error", reject);
+      blocker.listen(port, () => resolve());
+    });
+
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow();
+      // init() ran (pool launched), so the boot-failure path MUST shut it down.
+      expect(initSpy).toHaveBeenCalled();
+      expect(shutdownSpy).toHaveBeenCalled();
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+      initSpy.mockRestore();
+      shutdownSpy.mockRestore();
     }
   });
 
@@ -680,6 +725,121 @@ describe("orchestrator.createStatusReader key safety (R28-slot1-A10)", () => {
     expect(getFirst.mock.calls[0]![0]).toBe("status");
     // Filter string quotes the key via JSON.stringify.
     expect(getFirst.mock.calls[0]![1]).toBe(`key = "smoke:langchain"`);
+  });
+});
+
+/**
+ * CR-FIX #6: createBrowserPoolHealthSignals must (a) log a prior-state READ
+ * failure at warn instead of silently coercing it to null (which misreports a
+ * recovery as a cold boot), and (b) SERIALIZE the degraded↔healthy writes with
+ * monotonic observedAt so a flap converges to the correct final persisted
+ * state.
+ */
+describe("orchestrator.createBrowserPoolHealthSignals (CR-FIX #6)", () => {
+  interface CapturedWrite {
+    state: State;
+    signal: Record<string, unknown>;
+    observedAt: string;
+  }
+
+  function makeHarness(opts?: {
+    priorState?: State | null;
+    readThrows?: boolean;
+  }) {
+    const writes: CapturedWrite[] = [];
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const writer = {
+      write: vi.fn(async (result: CapturedWrite & { key: string }) => {
+        writes.push({
+          state: result.state,
+          signal: result.signal,
+          observedAt: result.observedAt,
+        });
+        return {};
+      }),
+    };
+    const statusReader = {
+      getStateByKey: vi.fn(async (_key: string): Promise<State | null> => {
+        if (opts?.readThrows) throw new Error("PB read boom");
+        return opts?.priorState ?? null;
+      }),
+    };
+    const testLogger = {
+      warn: (msg: string, meta?: Record<string, unknown>) =>
+        warns.push({ msg, meta }),
+    };
+    return { writes, warns, writer, statusReader, testLogger };
+  }
+
+  it("logs (does not swallow) a prior-state read failure and still reports a transition", async () => {
+    const { writes, warns, writer, statusReader, testLogger } = makeHarness({
+      readThrows: true,
+    });
+    const { writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+    });
+
+    await writeHealthy();
+
+    // The read failure was LOGGED at warn (not silently swallowed).
+    expect(
+      warns.some((w) => w.msg === "boot.browser-pool-prior-state-read-failed"),
+    ).toBe(true);
+    // A green write still landed (best-effort) under the read failure.
+    expect(writes.length).toBe(1);
+    expect(writes[0]!.state).toBe("green");
+  });
+
+  it("stamps `recovered` when the prior persisted state was red", async () => {
+    const { writes, writer, statusReader, testLogger } = makeHarness({
+      priorState: "red",
+    });
+    const { writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+    });
+    await writeHealthy();
+    expect(writes[0]!.state).toBe("green");
+    expect(writes[0]!.signal.recovered).toBe(true);
+  });
+
+  it("serializes a rapid degraded→healthy→degraded flap to the correct final persisted state with monotonic observedAt", async () => {
+    const { writes, writer, statusReader, testLogger } = makeHarness({
+      priorState: "red",
+    });
+    const { writeDegraded, writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+    });
+
+    // Fire three transitions back-to-back WITHOUT awaiting in between (the
+    // fire-and-forget flap the unfixed `void write...()` hooks produced). The
+    // serialization chain must apply them IN ORDER so the last one wins.
+    const p1 = writeDegraded("first red");
+    const p2 = writeHealthy();
+    const p3 = writeDegraded("second red");
+    await Promise.all([p1, p2, p3]);
+
+    // All three writes landed in call order: red, green, red.
+    expect(writes.map((w) => w.state)).toEqual(["red", "green", "red"]);
+    // The persisted FINAL state is the last transition (red).
+    expect(writes[writes.length - 1]!.state).toBe("red");
+    // observedAt is strictly increasing so a coarse clock can never let an
+    // earlier write appear "newer" than a later one.
+    const stamps = writes.map((w) => Date.parse(w.observedAt));
+    for (let i = 1; i < stamps.length; i++) {
+      expect(stamps[i]!).toBeGreaterThan(stamps[i - 1]!);
+    }
+    // Sanity: the key written is the shared degraded key.
+    expect(
+      writer.write.mock.calls.every(
+        (c) => c[0].key === BROWSER_POOL_DEGRADED_KEY,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -1808,6 +1968,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "qa",
         "redirect_decommission",
         "smoke",
+        "starter_smoke",
         "version_drift",
       ].sort(),
     );

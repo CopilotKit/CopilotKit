@@ -11,7 +11,18 @@ import type {
   Demo,
   FeatureCategory,
 } from "@/lib/registry";
-import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
+import type {
+  ConnectionStatus,
+  LiveStatusMap,
+  StarterLevel,
+} from "@/lib/live-status";
+import {
+  resolveStarterRow,
+  buildStarterBadge,
+  starterIsSupported,
+  STARTER_LEVELS,
+} from "@/lib/live-status";
+import { ToneChip } from "@/components/badges";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
@@ -422,6 +433,122 @@ const CategorySection = React.memo(
 );
 
 /* ------------------------------------------------------------------ */
+/*  StarterSection — the "Starter" pseudo-category row-group (spec §d)  */
+/* ------------------------------------------------------------------ */
+
+/** Human-readable label per starter sub-row, in STARTER_LEVELS order. */
+const STARTER_LEVEL_LABEL: Record<StarterLevel, string> = {
+  health: "Health",
+  agent: "Agent",
+  chat: "Chat",
+  interaction: "Interaction",
+};
+
+interface StarterSectionProps {
+  integrations: Integration[];
+  liveStatus: LiveStatusMap;
+  connection: ConnectionStatus;
+  /** Shared frozen reference time — see FeatureGridProps.now. */
+  now: number;
+  /** Feature column + integrations + optional ref-depth (same as categories). */
+  categoryColSpan: number;
+  /** Whether the parity ref-depth spacer column is present. */
+  showRefDepth: boolean;
+}
+
+/**
+ * The "Starter" row-group: four fixed sub-rows (health/agent/chat/interaction)
+ * keyed to the integration columns. Rendered like a `CategorySection`, but the
+ * cells resolve via `resolveStarterRow` + `buildStarterBadge` (the full 5-state
+ * §d vocabulary) instead of the depth model.
+ *
+ * INFORMATIONAL ONLY: this group never calls `renderCell`/`buildCellModel`, so
+ * starter rows cannot contribute to any feature-cell rollup or column tally
+ * (spec §d) — the exclusion is structural, not a filter. Ported from the dead
+ * `CellMatrix.StarterSection` so it actually renders in the live FeatureGrid.
+ */
+function StarterSection({
+  integrations,
+  liveStatus,
+  connection,
+  now,
+  categoryColSpan,
+  showRefDepth,
+}: StarterSectionProps) {
+  const { isOpen, toggle } = useCollapsible({
+    name: "Starter",
+    defaultOpen: true,
+  });
+
+  const supportedCount = integrations.filter((int) =>
+    starterIsSupported(int.slug),
+  ).length;
+
+  return (
+    <Fragment>
+      <CategoryHeaderRow
+        name="Starter"
+        count={`${supportedCount}/${integrations.length}`}
+        colSpan={categoryColSpan}
+        isOpen={isOpen}
+        onToggle={toggle}
+      />
+      {isOpen &&
+        STARTER_LEVELS.map((level) => (
+          <tr
+            key={level}
+            data-testid={`starter-row-${level}`}
+            className="grid-row border-t border-[var(--border)]"
+          >
+            <td
+              className="sticky left-0 z-10 px-1 py-1 border-r border-[var(--border)] align-middle min-w-[160px]"
+              style={SURFACE_STYLE}
+            >
+              <span className="text-xs font-medium text-[var(--text)]">
+                {STARTER_LEVEL_LABEL[level]}
+              </span>
+            </td>
+            {showRefDepth && (
+              <td
+                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
+                style={{ backgroundColor: "#f5f0ff" }}
+              >
+                <span className="text-[var(--text-muted)] text-[10px]">--</span>
+              </td>
+            )}
+            {integrations.map((integration) => {
+              const isSupported = starterIsSupported(integration.slug);
+              const starterRow = isSupported
+                ? resolveStarterRow(liveStatus, integration.slug, level)
+                : null;
+              const badge = buildStarterBadge(
+                level,
+                isSupported,
+                starterRow,
+                now,
+                connection,
+              );
+              return (
+                <td
+                  key={integration.slug}
+                  data-testid={`starter-cell-${integration.slug}-${level}`}
+                  className="border-l border-[var(--border)] px-1 py-1 align-middle text-center"
+                >
+                  <ToneChip
+                    tone={badge.tone}
+                    label={badge.label}
+                    title={badge.tooltip}
+                  />
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+    </Fragment>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  FeatureGrid                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -732,6 +859,22 @@ export function FeatureGrid({
                 categoryColSpan={categoryColSpan}
               />
             ))}
+            {/*
+             * "Starter" pseudo-category row-group (spec §d). Informational
+             * smoke-health for the deployed starter services — rendered after
+             * the feature categories, never contributing to any feature cell's
+             * rollup or column tally (it does not call renderCell/buildCellModel).
+             * Shown across all overlay modes since it is a health surface, not a
+             * feature-coverage row.
+             */}
+            <StarterSection
+              integrations={integrations}
+              liveStatus={liveStatus}
+              connection={connection}
+              now={now}
+              categoryColSpan={categoryColSpan}
+              showRefDepth={showRefDepth}
+            />
           </tbody>
         </table>
       </div>

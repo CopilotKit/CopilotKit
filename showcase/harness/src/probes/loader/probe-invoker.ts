@@ -634,6 +634,30 @@ export function buildProbeInvoker(
           state: result.state,
           durationMs: Date.now() - targetStart,
         });
+        // ORDER MATTERS (orphan-window guard): commit the detail/status row
+        // FIRST, then advance the durable run-row counter. The partial-rollup
+        // `runWriter.update` below bumps `probe_runs.summary.{passed,failed}`,
+        // and `writer.write` persists this target's `status`/`status_history`
+        // detail row. If the counter were stamped BEFORE the detail write (the
+        // prior ordering) and that write then failed — its error is swallowed
+        // here so a single writer hiccup never tanks sibling targets — the
+        // run-row would report `failed: N` for a target whose detail row was
+        // never durably written: the "run-row-orphan" / stale-red ingestion
+        // artifact. Writing the detail row first means the persisted counter
+        // can never outrun its backing detail row.
+        try {
+          await writer.write(result);
+        } catch (err) {
+          // Writer failures are already surfaced by status-writer's own
+          // `writer.failed` bus emission. We log here for probe-side
+          // correlation — don't re-throw, one writer hiccup mustn't
+          // take down sibling targets in the same tick.
+          logErrorWithStack(logger, "probe.writer-failed", err, {
+            probeId: cfg.id,
+            kind: cfg.kind,
+            key,
+          });
+        }
         // Partial-rollup persistence: stamp the running partial tally onto
         // the probe_runs row as each target completes so an orphaned row
         // (process killed mid-run during a pool-churn burst) reflects real
@@ -654,19 +678,6 @@ export function buildProbeInvoker(
               err: err instanceof Error ? err.message : String(err),
             });
           }
-        }
-        try {
-          await writer.write(result);
-        } catch (err) {
-          // Writer failures are already surfaced by status-writer's own
-          // `writer.failed` bus emission. We log here for probe-side
-          // correlation — don't re-throw, one writer hiccup mustn't
-          // take down sibling targets in the same tick.
-          logErrorWithStack(logger, "probe.writer-failed", err, {
-            probeId: cfg.id,
-            kind: cfg.kind,
-            key,
-          });
         }
       }
     };

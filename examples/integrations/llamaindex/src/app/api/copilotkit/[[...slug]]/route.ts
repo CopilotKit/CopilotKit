@@ -8,8 +8,10 @@ import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    sample_agent: new LlamaIndexAgent({
-      url: (process.env.AGENT_URL || "http://127.0.0.1:9000") + "/run",
+    default: new LlamaIndexAgent({
+      url:
+        (process.env.AGENT_URL || "http://127.0.0.1:9000").replace(/\/$/, "") +
+        "/run",
     }),
   },
   runner: new InMemoryAgentRunner(),

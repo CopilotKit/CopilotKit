@@ -8,8 +8,10 @@ import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    agno_agent: new HttpAgent({
-      url: (process.env.AGENT_URL || "http://localhost:8000") + "/agui",
+    default: new HttpAgent({
+      url:
+        (process.env.AGENT_URL || "http://localhost:8000").replace(/\/$/, "") +
+        "/agui",
     }),
   },
   runner: new InMemoryAgentRunner(),
