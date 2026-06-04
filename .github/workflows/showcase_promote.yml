@@ -47,7 +47,6 @@ on:
           - ms-agent-dotnet
           - ms-agent-harness-dotnet
           - ms-agent-python
-          - pocketbase
           - pydantic-ai
           - shell
           - shell-dashboard
@@ -55,6 +54,7 @@ on:
           - shell-dojo
           - showcase-aimock
           - showcase-harness
+          - showcase-pocketbase
           - spring-ai
           - strands
           - webhooks

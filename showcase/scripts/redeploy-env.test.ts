@@ -29,7 +29,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default scope (no --services) targets the 25 CI-built services, NOT all 27", async () => {
+  it("default scope (no --services) targets the 26 CI-built services (incl. pocketbase), NOT all 27", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -49,24 +49,27 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.attempted).toBe(25);
-    expect(result.succeeded).toBe(25);
-    expect(redeploy).toHaveBeenCalledTimes(25);
-    expect(seenNames).not.toContain("pocketbase");
+    expect(result.attempted).toBe(26);
+    expect(result.succeeded).toBe(26);
+    expect(redeploy).toHaveBeenCalledTimes(26);
+    // pocketbase is now CI-built, so it IS in the default redeploy scope.
+    expect(seenNames).toContain("pocketbase");
+    // webhooks remains out-of-band.
     expect(seenNames).not.toContain("webhooks");
   });
 
-  it("default whole-env staging redeploy NEVER bounces pocketbase or webhooks", async () => {
-    // Explicit anti-regression test: this exact assertion exists
-    // because the v1 of this script iterated all 27 SERVICES.
+  it("default whole-env staging redeploy NEVER bounces webhooks (out-of-band)", async () => {
+    // Anti-regression: webhooks is released by its own repo's workflow
+    // and must stay out of the default redeploy scope. pocketbase, by
+    // contrast, is now CI-built and IS legitimately in the default scope.
     const seenIds = new Set<string>();
     const redeploy = vi.fn(async (serviceId: string) => {
       seenIds.add(serviceId);
       return { ok: true as const };
     });
     await runRedeploy({ env: "staging", redeploy, appendSummary });
-    expect(seenIds.has(SERVICES.pocketbase.serviceId)).toBe(false);
     expect(seenIds.has(SERVICES.webhooks.serviceId)).toBe(false);
+    expect(seenIds.has(SERVICES.pocketbase.serviceId)).toBe(true);
   });
 
   it("explicit --services list targets exactly that subset", async () => {
@@ -249,8 +252,10 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    expect(resolved.length).toBe(25);
-    expect(resolved).not.toContain("pocketbase");
+    expect(resolved.length).toBe(26);
+    // pocketbase is now CI-built and part of the default scope.
+    expect(resolved).toContain("pocketbase");
+    // webhooks remains out-of-band.
     expect(resolved).not.toContain("webhooks");
   });
 });
