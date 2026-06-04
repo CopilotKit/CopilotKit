@@ -1151,6 +1151,14 @@ interface ProbeResultLike {
  * Exported for unit tests so the read-error + flap-ordering invariants can be
  * asserted without the full boot path.
  */
+/**
+ * Abort the best-effort Slack ping after this long. The health-signal writes
+ * are SERIALIZED (writeChain), so a hung webhook fetch would otherwise stall
+ * the whole degraded↔healthy↔unrecoverable write chain indefinitely. The ping
+ * is best-effort, so a timeout just logs and moves on.
+ */
+const BROWSER_POOL_SLACK_TIMEOUT_MS = 5_000;
+
 export function createBrowserPoolHealthSignals(
   deps: BrowserPoolHealthSignalsDeps,
 ): {
@@ -1324,11 +1332,19 @@ export function createBrowserPoolHealthSignals(
         });
         return;
       }
+      // Timeout the ping so a hung webhook can't stall the serialized
+      // health-signal write chain. Best-effort: an abort just logs + returns.
+      const slackAbort = new AbortController();
+      const slackTimer = setTimeout(
+        () => slackAbort.abort(),
+        BROWSER_POOL_SLACK_TIMEOUT_MS,
+      );
       try {
         const res = await fetchImpl(webhookUrl, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ text: `:rotating_light: ${message}` }),
+          signal: slackAbort.signal,
         });
         if (!res.ok) {
           logger.warn("boot.browser-pool-unrecoverable-slack-failed", {
@@ -1340,6 +1356,8 @@ export function createBrowserPoolHealthSignals(
           error:
             slackErr instanceof Error ? slackErr.message : String(slackErr),
         });
+      } finally {
+        clearTimeout(slackTimer);
       }
     });
 
