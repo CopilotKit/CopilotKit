@@ -52,6 +52,7 @@ on:
           - shell-docs
           - showcase-harness
           - showcase-aimock
+          - showcase-pocketbase
           - webhooks
           # Per-starter image builds (model B, §b stage 1). These map to the
           # build-starters job below, NOT the showcase `build` job. "all"
@@ -175,6 +176,13 @@ jobs:
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
+            pocketbase:
+              # PB image is self-contained: PB binary + pb_migrations +
+              # pb_hooks + Dockerfile. No shared-module copy, so the slot
+              # is gated purely to its own subtree — it does NOT rebuild
+              # on every showcase push, only when migrations/hooks/Dockerfile
+              # change.
+              - 'showcase/pocketbase/**'
             webhooks:
               # Sentinel pattern that cannot match any in-tree path.
               # The webhooks GHCR image is built by the showcase-eval-webhook
@@ -228,6 +236,7 @@ jobs:
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
             {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
           ]'
 
