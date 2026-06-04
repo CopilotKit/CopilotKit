@@ -373,27 +373,52 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         return None
 
+    @staticmethod
+    def _a2ui_inject_decision(state: dict) -> "bool | str | None":
+        """Return the A2UI ``injectA2UITool`` decision, or ``None``.
+
+        The ``@ag-ui/a2ui-middleware`` forwards its ``injectA2UITool`` setting on
+        ``forwardedProps``, which ``ag-ui-langgraph`` surfaces into agent state at
+        ``state["ag-ui"]["inject_a2ui_tool"]`` — present only when the host turned
+        the runtime A2UI tool on (truthy or a custom tool-name string). ``None``
+        means no signal at all (off, or no A2UI middleware in the pipeline), in
+        which case we do not auto-inject.
+        """
+        return (state.get("ag-ui") or {}).get("inject_a2ui_tool")
+
     def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
         """Build a ``generate_a2ui`` tool bound to the agent's own model when
-        the frontend has registered an A2UI catalog — wherever it was passed.
+        A2UI tool injection is turned on for this run.
 
-        The catalog's presence is the signal that the client can actually render
-        A2UI surfaces, so agents whose frontend has no catalog never see the
-        tool (we never advertise a tool that would render nowhere) while the
-        feature stays fully zero-config: the developer only uses the middleware.
+        Gating, in order:
 
-        The model is inferred from ``request.model`` (the bound agent model);
-        the component schema and catalog id come from the registered catalog so
-        the subagent composes the right components and surfaces bind to the
-        frontend's catalog. The built tool is stashed for the tool-call hook to
-        execute. Returns the tool or ``None`` when A2UI is not applicable.
+        1. **Opt-in.** Only inject when the A2UI ``injectA2UITool`` flag is
+           truthy (forwarded by ``@ag-ui/a2ui-middleware`` and surfaced at
+           ``state["ag-ui"]["inject_a2ui_tool"]``). No flag → no injection. This
+           is the whole contract: "no injectA2UITool, no A2UI tool injection."
+        2. **No double-inject.** If the agent already exposes a tool with the
+           same name (e.g. a backend-defined ``generate_a2ui``), don't inject —
+           the host owns it, and a duplicate would show the model two tools with
+           one name.
+
+        The model is inferred from ``request.model`` (the bound agent model); the
+        component schema and catalog id come from the registered catalog (when
+        present) so the subagent composes the right components and surfaces bind
+        to the frontend's catalog — otherwise the toolkit's basic catalog is
+        used. The built tool is stashed for the tool-call hook to execute.
+        Returns the tool or ``None`` when A2UI is not applicable.
         """
         if get_a2ui_tools is None:
             return None
-        resolved = self._resolve_a2ui_catalog(request.state or {})
-        if resolved is None:
+        state = request.state or {}
+
+        # (1) Opt-in: only inject when the host turned the A2UI tool on.
+        if not self._a2ui_inject_decision(state):
             return None
-        component_schema, catalog_id = resolved
+
+        # Bind to the frontend's catalog when one was registered (optional).
+        resolved = self._resolve_a2ui_catalog(state)
+        component_schema, catalog_id = resolved if resolved else (None, None)
 
         kwargs: dict[str, Any] = {}
         if catalog_id:
@@ -404,6 +429,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             kwargs["composition_guide"] = component_schema
 
         tool = get_a2ui_tools(request.model, **kwargs)
+
+        # (2) Don't double-inject if the agent already defines this tool.
+        existing_names = {getattr(t, "name", None) for t in (request.tools or [])}
+        if tool.name in existing_names:
+            return None
+
         _a2ui_tools_by_thread[_current_thread_id() or _DEFAULT_THREAD_KEY] = tool
         return tool
 
@@ -419,6 +450,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        if a2ui_tool is not None:
+            # Our generate_a2ui replaces the runtime's render tool — don't
+            # advertise both. Drop the render tool the A2UI middleware injected.
+            decision = self._a2ui_inject_decision(request.state or {})
+            drop = decision if isinstance(decision, str) else "render_a2ui"
+            frontend_tools = [
+                t
+                for t in frontend_tools
+                if ((t.get("function") or {}).get("name") or t.get("name")) != drop
+            ]
 
         if not frontend_tools and a2ui_tool is None:
             return handler(request)
@@ -612,6 +653,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
         frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        if a2ui_tool is not None:
+            # Our generate_a2ui replaces the runtime's render tool — don't
+            # advertise both. Drop the render tool the A2UI middleware injected.
+            decision = self._a2ui_inject_decision(request.state or {})
+            drop = decision if isinstance(decision, str) else "render_a2ui"
+            frontend_tools = [
+                t
+                for t in frontend_tools
+                if ((t.get("function") or {}).get("name") or t.get("name")) != drop
+            ]
 
         if not frontend_tools and a2ui_tool is None:
             return await handler(request)

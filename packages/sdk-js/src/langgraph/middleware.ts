@@ -58,6 +58,16 @@ const resolveA2uiCatalog = (
   return null;
 };
 
+/**
+ * The A2UI `injectA2UITool` decision. The `@ag-ui/a2ui-middleware` forwards it on
+ * `forwardedProps`, which `ag-ui-langgraph` surfaces into agent state at
+ * `state["ag-ui"].inject_a2ui_tool` — present only when the host turned the
+ * runtime A2UI tool on (truthy or a custom tool-name string). `undefined` means
+ * no signal (off, or no A2UI middleware in the pipeline) → no auto-injection.
+ */
+const a2uiInjectDecision = (state: any): boolean | string | undefined =>
+  state?.["ag-ui"]?.inject_a2ui_tool;
+
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
       "~standard": S &
@@ -373,29 +383,40 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
       };
     }
 
-    // Auto-inject generate_a2ui when the frontend has registered an A2UI
-    // catalog — sourced wherever the FE passed it (CopilotKit runtime proxy via
-    // copilotkit.context, or AG-UI native via ag-ui.a2ui_schema). The catalog's
-    // presence is the signal that the client can render A2UI surfaces, so this
-    // never advertises a tool that would render nowhere while staying fully
-    // zero-config. The model is inferred from request.model; the catalog id
-    // binds surfaces to the FE's catalog; the built tool is stashed for
-    // wrapToolCall to execute.
+    // Opt-in auto-injection of generate_a2ui:
+    // (1) only inject when the A2UI injectA2UITool flag is truthy (forwarded by
+    //     @ag-ui/a2ui-middleware and surfaced at state["ag-ui"].inject_a2ui_tool);
+    // (2) don't double-inject if the agent already defines this tool.
+    // The catalog (when present) only binds surfaces to the FE's catalog; it is
+    // not the gate. The model is inferred from request.model; the built tool is
+    // stashed for wrapToolCall to execute.
     let a2uiTool: any = null;
-    const a2uiCatalog =
-      typeof getA2UITools === "function"
-        ? resolveA2uiCatalog(request.state)
-        : null;
-    if (a2uiCatalog) {
+    const decision = a2uiInjectDecision(request.state);
+    if (typeof getA2UITools === "function" && decision) {
+      const catalog = resolveA2uiCatalog(request.state);
       const opts: { defaultCatalogId?: string; compositionGuide?: string } = {};
-      if (a2uiCatalog.catalogId) opts.defaultCatalogId = a2uiCatalog.catalogId;
-      if (a2uiCatalog.compositionGuide)
-        opts.compositionGuide = a2uiCatalog.compositionGuide;
-      a2uiTool = getA2UITools(request.model, opts);
-      a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
+      if (catalog?.catalogId) opts.defaultCatalogId = catalog.catalogId;
+      if (catalog?.compositionGuide)
+        opts.compositionGuide = catalog.compositionGuide;
+      const candidate = getA2UITools(request.model, opts);
+      const existingNames = new Set(
+        (request.tools || []).map((t: any) => t?.name),
+      );
+      if (!existingNames.has(candidate.name)) {
+        a2uiTool = candidate;
+        a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
+      }
     }
 
-    const frontendTools = request.state["copilotkit"]?.actions ?? [];
+    let frontendTools = request.state["copilotkit"]?.actions ?? [];
+    if (a2uiTool) {
+      // Our generate_a2ui replaces the runtime's render tool — don't advertise
+      // both. Drop the render tool the A2UI middleware injected.
+      const drop = typeof decision === "string" ? decision : "render_a2ui";
+      frontendTools = frontendTools.filter(
+        (t: any) => (t?.function?.name ?? t?.name) !== drop,
+      );
+    }
 
     if (frontendTools.length === 0 && !a2uiTool) {
       return handler(request);

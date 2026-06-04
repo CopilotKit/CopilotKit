@@ -1111,7 +1111,13 @@ def _run_wrap_tool(middleware: CopilotKitMiddleware, request: ToolCallRequest):
     return handler.received
 
 
-_A2UI_STATE = {"messages": [], "ag-ui": {"a2ui_schema": "<components/>"}}
+# A2UI is opt-in: injection requires the inject_a2ui_tool flag (forwarded by the
+# A2UI middleware and surfaced into ag-ui state). The catalog/schema only binds
+# generated surfaces; it is not the gate.
+_A2UI_STATE = {
+    "messages": [],
+    "ag-ui": {"a2ui_schema": "<components/>", "inject_a2ui_tool": True},
+}
 
 
 @_a2ui_unavailable
@@ -1121,7 +1127,7 @@ class TestAutoA2UI:
         # unit tests, so all calls share _DEFAULT_THREAD_KEY).
         _a2ui_tools_by_thread.clear()
 
-    def test_not_injected_without_catalog(self):
+    def test_not_injected_without_flag(self):
         middleware = CopilotKitMiddleware()
         request = _make_request(state={"messages": []}, tools=[{"name": "backend"}])
 
@@ -1129,7 +1135,19 @@ class TestAutoA2UI:
 
         assert [t["name"] for t in seen.tools] == ["backend"]
 
-    def test_injected_when_catalog_present(self):
+    def test_not_injected_when_flag_absent_even_with_catalog(self):
+        """Opt-in: a catalog alone never triggers injection without the flag."""
+        middleware = CopilotKitMiddleware()
+        state = {"messages": [], "ag-ui": {"a2ui_schema": "<components/>"}}
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" not in names
+        assert "backend" in names
+
+    def test_injected_when_flag_present(self):
         middleware = CopilotKitMiddleware()
         request = _make_request(state=dict(_A2UI_STATE), tools=[{"name": "backend"}])
 
@@ -1176,10 +1194,12 @@ class TestAutoA2UI:
     # --- catalog sourced from wherever the frontend passed it ----------------
 
     def test_injected_from_copilotkit_context(self):
-        """CopilotKit runtime-proxy path: catalog arrives as a context entry."""
+        """CopilotKit runtime-proxy path: catalog arrives as a context entry
+        (the flag still gates injection)."""
         middleware = CopilotKitMiddleware()
         state = {
             "messages": [],
+            "ag-ui": {"inject_a2ui_tool": True},
             "copilotkit": {
                 "context": [
                     {
@@ -1229,3 +1249,46 @@ class TestAutoA2UI:
 
     def test_resolve_catalog_none_when_absent(self):
         assert CopilotKitMiddleware._resolve_a2ui_catalog({"messages": []}) is None
+
+    # --- A2UI injectA2UITool flag (forwarded → ag-ui state) ------------------
+
+    def test_inject_decision_reads_ag_ui_flag(self):
+        read = CopilotKitMiddleware._a2ui_inject_decision
+        assert read({"ag-ui": {"inject_a2ui_tool": True}}) is True
+        assert read({"ag-ui": {"inject_a2ui_tool": "render_x"}}) == "render_x"
+        assert read({"ag-ui": {"inject_a2ui_tool": False}}) is False
+        # No flag at all → None (opt-in: no injection).
+        assert read({"ag-ui": {}}) is None
+        assert read({"messages": []}) is None
+
+    def test_render_tool_dropped_when_ours_injected(self):
+        """When we inject generate_a2ui, the runtime's render_a2ui (forwarded as
+        a frontend action) is not advertised — the model sees one A2UI tool."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            **_A2UI_STATE,
+            "copilotkit": {
+                "actions": [{"name": "render_a2ui"}, {"name": "fe_tool"}],
+            },
+        }
+        request = _make_request(state=state, tools=[])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "fe_tool" in names
+        assert "render_a2ui" not in names
+
+    def test_not_injected_when_agent_already_defines_tool(self):
+        """Agent already exposes generate_a2ui → don't double-inject."""
+        middleware = CopilotKitMiddleware()
+        existing = MagicMock()
+        existing.name = "generate_a2ui"
+        request = _make_request(state=dict(_A2UI_STATE), tools=[existing])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        # Only the agent's own tool — no second generate_a2ui appended.
+        assert names.count("generate_a2ui") == 1

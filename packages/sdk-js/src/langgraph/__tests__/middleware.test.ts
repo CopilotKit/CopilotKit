@@ -519,7 +519,7 @@ async function runWrapTool(middleware: any, request: any) {
 }
 
 describe("auto-A2UI injection", () => {
-  it("does NOT advertise generate_a2ui when there is no A2UI catalog", async () => {
+  it("does NOT advertise generate_a2ui when the inject flag is absent", async () => {
     const request = makeRequest({
       state: { messages: [], thread_id: "a2ui-off" },
       tools: [{ name: "backend" }],
@@ -530,12 +530,29 @@ describe("auto-A2UI injection", () => {
     expect(received.tools.map((t: any) => t.name)).toEqual(["backend"]);
   });
 
-  it("advertises generate_a2ui (alongside existing tools) when a catalog is present", async () => {
+  it("does NOT advertise generate_a2ui when a catalog is present but the flag is absent (opt-in)", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-noflag",
+        "ag-ui": { a2ui_schema: "<components/>" },
+      },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const names = received.tools.map((t: any) => t.name);
+    expect(names).not.toContain("generate_a2ui");
+    expect(names).toContain("backend");
+  });
+
+  it("advertises generate_a2ui (alongside existing tools) when the flag is on", async () => {
     const request = makeRequest({
       state: {
         messages: [],
         thread_id: "a2ui-on",
-        "ag-ui": { a2ui_schema: "<components/>" },
+        "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
       },
       tools: [{ name: "backend" }],
     });
@@ -547,11 +564,12 @@ describe("auto-A2UI injection", () => {
     expect(names).toContain("generate_a2ui");
   });
 
-  it("advertises generate_a2ui when the catalog arrives via copilotkit.context (runtime-proxy path)", async () => {
+  it("binds to the catalog from copilotkit.context when the flag is on (runtime-proxy path)", async () => {
     const request = makeRequest({
       state: {
         messages: [],
         thread_id: "a2ui-ctx",
+        "ag-ui": { inject_a2ui_tool: true },
         copilotkit: {
           context: [
             {
@@ -577,7 +595,7 @@ describe("auto-A2UI injection", () => {
     const state = {
       messages: [],
       thread_id: "a2ui-exec",
-      "ag-ui": { a2ui_schema: "<components/>" },
+      "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
     };
     // First the model call infers the model + stashes the built tool.
     await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
@@ -597,7 +615,7 @@ describe("auto-A2UI injection", () => {
     const state = {
       messages: [],
       thread_id: "a2ui-other",
-      "ag-ui": { a2ui_schema: "<components/>" },
+      "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
     };
     await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
 
@@ -616,7 +634,7 @@ describe("auto-A2UI injection", () => {
     const state = {
       messages: [],
       thread_id: "a2ui-clean",
-      "ag-ui": { a2ui_schema: "<components/>" },
+      "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
     };
     await runWrap(copilotkitMiddleware, makeRequest({ state, tools: [] }));
     copilotkitMiddleware.afterAgent(state, {} as any);
@@ -629,6 +647,79 @@ describe("auto-A2UI injection", () => {
     });
 
     expect(received.tool).toBeUndefined();
+  });
+
+  // --- A2UI injectA2UITool flag (forwarded → ag-ui state) ------------------
+
+  it("does NOT advertise generate_a2ui when inject_a2ui_tool is false", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-optout",
+        "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: false },
+      },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const names = received.tools.map((t: any) => t.name);
+    expect(names).not.toContain("generate_a2ui");
+    expect(names).toContain("backend");
+  });
+
+  it("advertises generate_a2ui when inject_a2ui_tool is true", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-optin",
+        "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
+      },
+      tools: [{ name: "backend" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    expect(received.tools.map((t: any) => t.name)).toContain("generate_a2ui");
+  });
+
+  it("drops the runtime's render_a2ui when injecting our generate_a2ui", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-drop",
+        "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
+        copilotkit: {
+          actions: [{ name: "render_a2ui" }, { name: "fe_tool" }],
+        },
+      },
+      tools: [],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const names = received.tools.map((t: any) => t.name);
+    expect(names).toContain("generate_a2ui");
+    expect(names).toContain("fe_tool");
+    expect(names).not.toContain("render_a2ui");
+  });
+
+  it("does NOT double-inject when the agent already defines generate_a2ui", async () => {
+    const request = makeRequest({
+      state: {
+        messages: [],
+        thread_id: "a2ui-dup",
+        "ag-ui": { a2ui_schema: "<components/>", inject_a2ui_tool: true },
+      },
+      tools: [{ name: "generate_a2ui" }],
+    });
+
+    const { received } = await runWrap(copilotkitMiddleware, request);
+
+    const count = received.tools.filter(
+      (t: any) => t.name === "generate_a2ui",
+    ).length;
+    expect(count).toBe(1);
   });
 });
 
