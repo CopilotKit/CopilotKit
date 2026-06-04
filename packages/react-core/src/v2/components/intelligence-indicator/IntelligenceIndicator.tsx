@@ -34,10 +34,42 @@ const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
 
 /**
  * Phase machine. Once `finished` is reached the indicator persists
- * indefinitely; supersession across messages is handled by the
- * structural last-in-turn gate, not by this machine.
+ * indefinitely; placement (one indicator per turn, at the turn's first
+ * bash-using message) is owned by `getIntelligenceTurnAnchors`, not by
+ * this machine.
  */
-type Phase = "hidden" | "spinner" | "finished";
+export type Phase = "hidden" | "spinner" | "finished";
+
+/**
+ * Phase to start in when an indicator first mounts. A turn that is already
+ * complete at mount jumps straight to `finished` — no `hidden` flash, no
+ * spinner blip — which is what makes scrolled-back / replayed history render
+ * its indicators directly in the finished state.
+ *
+ * Pure and timing-free on purpose: the grace window ({@link
+ * PENDING_THRESHOLD_MS}) only controls *when* the live transition is applied;
+ * these functions decide *what* it resolves to, so the decision can be unit
+ * tested deterministically without any timers.
+ */
+export function initialIndicatorPhase(turnComplete: boolean): Phase {
+  return turnComplete ? "finished" : "hidden";
+}
+
+/**
+ * Phase the grace window resolves to once it elapses:
+ *   - completed turn → `finished` (replay-flash suppression: a tool whose
+ *     result lands within the window skips the spinner entirely),
+ *   - a still-pending matching tool call → `spinner`,
+ *   - otherwise stay `hidden` (the matching tool call hasn't landed yet).
+ */
+export function resolveGracePhase(
+  turnComplete: boolean,
+  hasPending: boolean,
+): Phase {
+  if (turnComplete) return "finished";
+  if (hasPending) return "spinner";
+  return "hidden";
+}
 
 export interface IntelligenceIndicatorProps {
   /** The message this indicator is attached to. */
@@ -142,7 +174,7 @@ const isToolCallLikeMessage = (m: Message): boolean => {
  * renders its swappable face via the `intelligenceIndicator` slot.
  *
  * Placement (which message anchors the turn) is decided by the view, so
- * this component does not self-gate "am I last-in-turn"; it only derives
+ * this component does not self-gate its own placement; it only derives
  * in-progress/finished for the turn it was mounted on.
  *
  * Render gates (all must hold):
@@ -244,20 +276,17 @@ export function IntelligenceIndicator(
   // already completed (e.g. history replay finished before mount),
   // skip directly to `finished` — no `hidden` flash, no spinner blip.
   const [phase, setPhase] = useState<Phase>(() =>
-    turnComplete ? "finished" : "hidden",
+    initialIndicatorPhase(turnComplete),
   );
 
-  // hidden → spinner OR hidden → finished (after grace window).
+  // hidden → spinner OR hidden → finished (after grace window). The grace
+  // window only controls the *timing*; `resolveGracePhase` owns the decision.
+  // Resolving back to `hidden` (matching tool call not landed yet) is a
+  // no-op `setPhase`, preserving the "only leave hidden once decided" rule.
   useEffect(() => {
     if (phase !== "hidden") return undefined;
     const t = setTimeout(() => {
-      if (turnComplete) {
-        setPhase("finished");
-      } else if (hasPending) {
-        setPhase("spinner");
-      }
-      // else: stay hidden — turn is still live but no pending work
-      // matched yet (e.g. waiting for the tool call chunk to land).
+      setPhase(resolveGracePhase(turnComplete, hasPending));
     }, PENDING_THRESHOLD_MS);
     return () => clearTimeout(t);
   }, [phase, hasPending, turnComplete]);
@@ -284,8 +313,8 @@ export function IntelligenceIndicator(
   // Placement (which message anchors this turn's indicator) is decided by
   // `CopilotChatMessageView` via `getIntelligenceTurnAnchors`, which mounts
   // exactly one instance per turn keyed by the turn id. The brain therefore
-  // no longer self-gates "am I the last-in-turn message"; it only owns the
-  // run-status → in-progress/finished derivation for the turn it anchors.
+  // does not decide its own placement; it only owns the run-status →
+  // in-progress/finished derivation for the turn it anchors.
 
   // ─── Render the (swappable) face ──────────────────────────────────────
 

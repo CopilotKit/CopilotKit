@@ -379,10 +379,6 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
-// Stable empty map for the (common) non-intelligence case, so the anchors memo
-// doesn't churn its identity when intelligence mode is off.
-const EMPTY_TURN_ANCHORS: ReadonlyMap<string, string> = new Map();
-
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -546,14 +542,13 @@ export function CopilotChatMessageView({
 
   // Map each Intelligence-using turn's anchor message → stable turn id. One
   // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
-  // moves with the anchor without remounting. Computed over the deduplicated
-  // messages we actually render.
+  // moves with the anchor without remounting. `getIntelligenceTurnAnchors`
+  // only yields anchors for turns that invoked the knowledge-base tool, so
+  // non-Intelligence turns naturally produce an empty map (and the indicator
+  // itself also hard-gates on intelligence mode).
   const intelligenceTurnAnchors = useMemo(
-    () =>
-      copilotkit.intelligence !== undefined
-        ? getIntelligenceTurnAnchors(deduplicatedMessages)
-        : EMPTY_TURN_ANCHORS,
-    [copilotkit.intelligence, deduplicatedMessages],
+    () => getIntelligenceTurnAnchors(deduplicatedMessages),
+    [deduplicatedMessages],
   );
 
   // ---------------------------------------------------------------------------
@@ -629,11 +624,10 @@ export function CopilotChatMessageView({
     }
 
     // Auto-mount the IntelligenceIndicator once per Intelligence-using turn,
-    // at that turn's anchor message (its last bash-using assistant), keyed by
+    // at that turn's anchor message (its first bash-using assistant), keyed by
     // the stable turn id. Keying by turn (not message) means the indicator
     // moves with the anchor across a hand-off without remounting, and past
-    // turns keep their own indicator. `getIntelligenceTurnAnchors` already
-    // gated on intelligence mode (empty map when off).
+    // turns keep their own indicator.
     const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
     if (intelligenceTurnId !== undefined) {
       elements.push(
