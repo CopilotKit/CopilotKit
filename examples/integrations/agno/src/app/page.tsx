@@ -1,13 +1,15 @@
 "use client";
 
 import {
+  useAgent,
+  useConfigureSuggestions,
   useDefaultRenderTool,
   useFrontendTool,
   useRenderTool,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { z } from "zod";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
 import { WeatherCard } from "@/components/weather";
@@ -15,11 +17,10 @@ import { ThreadsDrawer } from "@/components/threads-drawer";
 import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
-// agno registers a single agent under the key "agno_agent" (see
-// src/app/api/copilotkit/[[...slug]]/route.ts) and CopilotKit is mounted with
-// agent="agno_agent" in layout.tsx, so the threads drawer + chat config provider
-// must address that same agent id.
-const AGENT_ID = "agno_agent";
+// agno registers a single agent under the key "default" (see
+// src/app/api/copilotkit/[[...slug]]/route.ts), so the threads drawer + chat
+// config provider must address that same agent id.
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -33,9 +34,33 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler({ theme_color }) {
+    handler: async ({ theme_color }) => {
       setThemeColor(theme_color);
+      return `Changing theme color to ${theme_color}`;
     },
+  });
+
+  // 🪁 Suggestions: https://docs.copilotkit.ai/guides/suggestions
+  useConfigureSuggestions({
+    available: "always",
+    suggestions: [
+      {
+        title: "Generative UI",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Frontend Tools",
+        message: "Set the theme to green.",
+      },
+      {
+        title: "Default Tool Rendering",
+        message: "What's the latest price of Apple stock?",
+      },
+      {
+        title: "Writing Agent State",
+        message: "Add a proverb about AI.",
+      },
+    ],
   });
 
   return (
@@ -70,25 +95,6 @@ export default function CopilotKitPage() {
               welcomeMessageText:
                 "👋 Hi, there! You're chatting with an Agno agent.",
             }}
-            // Suggestions for guiding users
-            suggestions={[
-              {
-                title: "Generative UI",
-                message: "What's the weather in San Francisco?",
-              },
-              {
-                title: "Frontend Tools",
-                message: "Set the theme to green.",
-              },
-              {
-                title: "Default Tool Rendering",
-                message: "What's the latest price of Apple stock?",
-              },
-              {
-                title: "Writing Agent State",
-                message: "Add a proverb about AI.",
-              },
-            ]}
           />
           {/* CopilotSidebar self-docks; main content renders as a sibling. */}
         </main>
@@ -97,12 +103,28 @@ export default function CopilotKitPage() {
   );
 }
 
+// State of the agent, make sure this aligns with your agent's state.
+type AgentState = {
+  proverbs: string[];
+};
+
 function YourMainContent({ themeColor }: { themeColor: string }) {
-  const [state, setState] = useState<{ proverbs: string[] }>({
-    proverbs: [
-      "CopilotKit may be new, but its the best thing since sliced bread.",
-    ],
-  });
+  // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "default" });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+  const setState = (next: AgentState) => agent.setState(next);
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/agno/frontend-tools
   useFrontendTool({
@@ -112,11 +134,16 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         .string()
         .describe("The proverb to add. Make it witty, short and concise."),
     }),
-    handler: ({ proverb }) => {
-      setState({
-        ...state,
-        proverbs: [...state.proverbs, proverb],
+    handler: async ({ proverb }) => {
+      // Read agent.state at call time so rapid successive adds don't drop
+      // earlier proverbs via a stale closure over `state`.
+      agent.setState({
+        proverbs: [
+          ...((agent.state as AgentState | undefined)?.proverbs ?? []),
+          proverb,
+        ],
       });
+      return `Added proverb: ${proverb}`;
     },
   });
 
@@ -124,7 +151,12 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   useRenderTool(
     {
       name: "get_weather",
-      render: (props) => <WeatherCard themeColor={themeColor} {...props} />,
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ parameters }) => (
+        <WeatherCard themeColor={themeColor} location={parameters.location} />
+      ),
     },
     [themeColor],
   );
