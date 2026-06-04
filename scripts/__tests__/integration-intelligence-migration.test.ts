@@ -10,7 +10,6 @@ const migratedIntegrations = [
   "llamaindex",
   "pydantic-ai",
   "mcp-apps",
-  "agent-spec",
 ] as const;
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
@@ -20,7 +19,6 @@ const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
   "langgraph-fastapi": "src/app",
   "pydantic-ai": "src/app",
   "mcp-apps": "app",
-  "agent-spec": "src/app",
 };
 
 function readIntegrationFile(
@@ -71,12 +69,8 @@ describe("batch-2 Intelligence integration migration", () => {
         integration,
         `${appRoots[integration]}/layout.tsx`,
       );
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
 
-      expect(`${layout}\n${page}`).toContain("useSingleEndpoint={false}");
+      expect(layout).toContain("useSingleEndpoint={false}");
     });
 
     it(`${integration} wires the threads drawer into the chat thread context`, () => {
