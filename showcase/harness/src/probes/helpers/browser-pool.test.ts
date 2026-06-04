@@ -1830,6 +1830,191 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
+  // ── SELF-HEAL CIRCUIT-BREAKER (durable fix for the RECURRING wedge) ─────────
+  //
+  // The RECURRING staging BrowserPool collapse (#5185/#5221/#5225 each chipped
+  // at it but it kept recurring): after the long-lived harness container runs
+  // ~hours under sustained d6 cron load, chromium enters a LAUNCH crash-loop —
+  // every `chromium.launch()` throws `browserType.launch: Target page, context
+  // or browser has been closed`. The set empties, `startSelfHeal()` kicks in,
+  // and its loop just RELAUNCHES into the SAME wedged state forever
+  // (`self-heal-launch-failed` repeating) — backing off between identical
+  // attempts but NEVER escaping (the stale `/tmp/playwright_*` profile dirs /
+  // FD-shm pressure persist across every relaunch). acquire() therefore has no
+  // contexts forever → blocks to timeout fleet-wide. Only a container RESTART
+  // cleared it (reactive). The circuit-breaker makes the loop ESCAPE: after N
+  // consecutive launch failures it HARD-recovers (purge stale profile dirs +
+  // cold-launch); if even K hard recoveries fail it fires a LOUD
+  // pool-unrecoverable alarm instead of spinning silently.
+
+  // RED (pre-breaker) → GREEN (post-breaker): chromium is wedged (every launch
+  // throws "...has been closed"). PRE-breaker the self-heal loop relaunches
+  // identically forever and acquire() never gets a context (wedged). POST-breaker
+  // the breaker trips at the threshold, the HARD recovery PURGES the stale
+  // profile dirs — modeled here by the purge "unwedging" the launcher — and the
+  // pool cold-launches fresh, so acquire() succeeds again.
+  it("OUTAGE: circuit-breaker hard-recovers (purge + cold-launch) out of a chromium launch-crash-loop the plain self-heal could not escape", async () => {
+    // init launches 1 browser (call 1). Everything AFTER call 1 throws the
+    // "...has been closed" launch-crash-loop error — modeling the wedged
+    // container. The PURGE is what breaks the wedge: when the breaker fires the
+    // hard recovery, the injected purge flips the launcher healthy so the
+    // subsequent COLD launch succeeds. Without the breaker the purge never runs,
+    // launches stay wedged, and the pool is dead forever.
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let purgeCalls = 0;
+    let recovered = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // Trip the hard recovery after 3 consecutive self-heal launch failures.
+      selfHealHardRecoveryThreshold: 3,
+      selfHealMaxHardRecoveries: 3,
+      // The purge models clearing stale /tmp/playwright_* profile dirs. Doing so
+      // "unwedges" chromium — the proof that the hard recovery (not another
+      // identical relaunch) is what escapes the loop.
+      purgeProfileDirs: async () => {
+        purgeCalls++;
+        launcher.setFailAfter(undefined);
+        return 2;
+      },
+      onRecovered: () => {
+        recovered++;
+      },
+    });
+    await pool.init();
+    expect(launcher.launched.length).toBe(1);
+
+    // Crash the only browser → crash recycle's relaunch throws (wedged) → set
+    // empties → self-heal begins, but every relaunch keeps throwing the
+    // "...has been closed" error. The plain self-heal would loop here forever.
+    launcher.launched[0]!.__crash();
+
+    // BREAKER PROOF: after the threshold of consecutive failures the hard
+    // recovery fires — the purge runs (clears the wedge) and the cold launch
+    // succeeds, reviving the pool to full strength and firing onRecovered.
+    await waitFor(() => recovered >= 1, 5_000);
+    expect(purgeCalls).toBeGreaterThanOrEqual(1);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(true);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-profile-purge"),
+    ).toBe(true);
+
+    // The pool is alive again: a fresh acquire succeeds (no timeout, no wedge).
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(ctx);
+    await pool.shutdown();
+  });
+
+  // PROOF the breaker fires AT the threshold, not before. With threshold=3 the
+  // first 3 consecutive failures must NOT trigger a hard recovery; only the
+  // attempt past the threshold does.
+  it("circuit-breaker: fires the hard recovery only AFTER the consecutive-failure threshold is reached", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let purgeCalls = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 3,
+      selfHealMaxHardRecoveries: 5,
+      purgeProfileDirs: async () => {
+        purgeCalls++;
+        // Do NOT heal — keep the wedge so we can count failures BEFORE the first
+        // purge fired.
+        return 0;
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // Wait until the first hard recovery has fired.
+    await waitFor(() => purgeCalls >= 1, 5_000);
+
+    // At the moment the FIRST purge fired, at least `threshold` consecutive
+    // self-heal launch failures must have been logged first (the breaker does
+    // not fire early).
+    const failuresBeforeFirstPurge = events.filter(
+      (e) => e.event === "browser-pool.self-heal-launch-failed",
+    ).length;
+    expect(failuresBeforeFirstPurge).toBeGreaterThanOrEqual(3);
+
+    await pool.shutdown();
+  });
+
+  // RED (pre-breaker, silent spin) → GREEN: if even the HARD recovery cannot
+  // break the wedge (the purge does not help — e.g. a genuinely broken
+  // container), the breaker gives up LOUDLY after K hard recoveries with a
+  // `pool-unrecoverable` alarm and stops the heal loop, rather than spinning
+  // self-heal-launch-failed forever with no operator signal.
+  it("OUTAGE: circuit-breaker surfaces a loud pool-unrecoverable alarm (and stops) when even hard recovery cannot escape the wedge", async () => {
+    // Permanently wedged: launches throw forever and the purge never heals.
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    let purgeCalls = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      purgeProfileDirs: async () => {
+        purgeCalls++;
+        // Purge cannot fix it — the wedge survives even the profile-dir clear.
+        return 0;
+      },
+      onUnrecoverable: () => {
+        unrecoverableCalls++;
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // The breaker hard-recovers twice (each preceded by `threshold` failures),
+    // both fail, and then it gives up LOUDLY.
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    expect(purgeCalls).toBeGreaterThanOrEqual(2);
+    expect(
+      events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
+    ).toBe(true);
+
+    // The heal loop has STOPPED (not spinning) — the failure count stabilizes.
+    const failuresAtGiveUp = events.filter(
+      (e) => e.event === "browser-pool.self-heal-launch-failed",
+    ).length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const failuresAfter = events.filter(
+      (e) => e.event === "browser-pool.self-heal-launch-failed",
+    ).length;
+    expect(failuresAfter).toBe(failuresAtGiveUp);
+
+    await pool.shutdown();
+  });
+
   // ── CR-FIX BUCKET A: crash-recovery / self-heal / accounting bugs ──────────
 
   // FIX #5 — pickLeastLoaded must rank by liveContexts.size + pendingOpens, not
