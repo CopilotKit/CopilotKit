@@ -110,34 +110,108 @@ const DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES = 3;
 const PLAYWRIGHT_TMP_PREFIXES = ["playwright_", "playwright-artifacts-"];
 
 /**
- * Default profile/temp-dir purge used by the self-heal hard-recovery path.
- * Best-effort: removes every `${tmpdir()}/playwright_*` (and
- * `playwright-artifacts-*`) directory the wedged chromium processes left behind.
- * Injectable via `BrowserPoolOptions.purgeProfileDirs` so tests can drive the
- * breaker without touching the real filesystem and assert it fired. A failure to
- * read the temp dir or unlink an entry is swallowed (the dir may not exist, or
- * be owned by another process) — the purge is a hygiene best-effort, not a
- * correctness dependency.
+ * Minimum age (ms) a `playwright_*` dir must be before the purge removes it.
+ * Bounds the blast radius: a browser launching CONCURRENTLY with the purge
+ * (the cold-launch the hard recovery is about to fire, or a sibling pool) has a
+ * fresh `playwright_*` dir; recursively deleting it out from under an in-flight
+ * launch would re-wedge the very launch we are trying to revive. Only dirs whose
+ * mtime is older than this — i.e. left behind by the PRIOR wedged generation —
+ * are purged. 60s comfortably exceeds a single launch/heal cycle.
  */
-async function defaultPurgeProfileDirs(): Promise<number> {
-  const dir = tmpdir();
+export const PURGE_MIN_AGE_MS = 60_000;
+
+/**
+ * Default profile/temp-dir purge used by the self-heal hard-recovery path.
+ * Best-effort: removes the `${tmpdir()}/playwright_*` (and
+ * `playwright-artifacts-*`) directories the wedged chromium processes left
+ * behind. Injectable via `BrowserPoolOptions.purgeProfileDirs` so tests can
+ * drive the breaker without touching the real filesystem and assert it fired.
+ *
+ * SAFETY (the temp dir is world-writable `/tmp`, so an attacker — or a stray
+ * tool — can plant entries there):
+ *  - SYMLINKS are SKIPPED. `readdir(..., {withFileTypes:true})` lets us reject a
+ *    `playwright_*` SYMLINK whose target is some other path; a blind
+ *    `rm(recursive)` would follow it and recursively delete the target's
+ *    contents. Only entries that are themselves real DIRECTORIES are eligible.
+ *  - Entries younger than `PURGE_MIN_AGE_MS` are LEFT ALONE so a concurrently
+ *    launching browser's fresh dir is never nuked (see `PURGE_MIN_AGE_MS`).
+ *  - The realpath is verified to still resolve UNDER `tmpdir()` before removal,
+ *    a belt-and-suspenders guard against a TOCTOU race / nested symlink.
+ *
+ * A failure to read the temp dir, stat an entry, or unlink it is swallowed (the
+ * dir may not exist, be owned by another process, or vanish mid-purge) — the
+ * purge is a hygiene best-effort, not a correctness dependency. The returned
+ * count is LOG-ONLY (surfaced in `self-heal-profile-purge`), not load-bearing.
+ */
+export async function defaultPurgeProfileDirs(
+  dir: string = tmpdir(),
+): Promise<number> {
   let removed = 0;
-  let entries: string[];
+  let entries: import("node:fs").Dirent[];
   try {
-    entries = await fs.readdir(dir);
+    entries = await fs.readdir(dir, { withFileTypes: true });
   } catch {
     return 0;
   }
-  for (const name of entries) {
+  // Resolve the canonical (symlink-free) form of the scan dir ONCE so the
+  // per-entry containment check is robust to platform-level symlinks in the
+  // temp path itself (e.g. macOS `/var` → `/private/var`). A realpath failure
+  // falls back to the raw dir.
+  let realDir: string;
+  try {
+    realDir = await fs.realpath(dir);
+  } catch {
+    realDir = dir;
+  }
+  const now = Date.now();
+  for (const entry of entries) {
+    const name = entry.name;
     if (!PLAYWRIGHT_TMP_PREFIXES.some((p) => name.startsWith(p))) continue;
+    // Skip symlinks (do NOT follow a planted `playwright_*` symlink) and any
+    // non-directory entry. Only real directories the wedged chromium left
+    // behind are purge candidates.
+    if (entry.isSymbolicLink() || !entry.isDirectory()) continue;
+    const full = join(dir, name);
     try {
-      await fs.rm(join(dir, name), { recursive: true, force: true });
+      // lstat (no symlink follow) for the age check; a directory entry that
+      // isn't a symlink resolves to itself.
+      const stat = await fs.lstat(full);
+      if (stat.isSymbolicLink()) continue; // TOCTOU: became a symlink post-readdir.
+      if (now - stat.mtimeMs < PURGE_MIN_AGE_MS) continue; // too fresh — skip.
+      // Belt-and-suspenders: confirm the realpath stays under the scan dir
+      // before a recursive remove, so a nested-symlink trick can't escape it.
+      const real = await fs.realpath(full);
+      if (real !== join(realDir, name) && !real.startsWith(realDir + "/")) {
+        continue;
+      }
+      await fs.rm(full, { recursive: true, force: true });
       removed++;
     } catch {
       // best-effort: another process may own it, or it vanished mid-purge.
     }
   }
   return removed;
+}
+
+/**
+ * Resolve a STRICTLY-POSITIVE numeric tunable with explicit-arg > env > default
+ * precedence, then CLAMP the result to `>= 1`. Used for the circuit-breaker
+ * thresholds (`selfHealHardRecoveryThreshold` / `selfHealMaxHardRecoveries`)
+ * whose guards are `> 0`: a `0` (from either source, or a config typo) would
+ * silently DISABLE both the hard-recovery escape AND the give-up alarm, sending
+ * the loop right back to the infinite-silent-spin this breaker exists to kill.
+ * Unlike `resolveNonNegative` (where an explicit `0` legitimately disables
+ * retries/backoff), a `0` here is a footgun, so it is clamped up to the minimum
+ * safe value of 1 rather than honored. Mirrors `resolveNonNegative`'s
+ * precedence; differs only in the floor.
+ */
+function resolvePositive(
+  explicit: number | undefined,
+  envRaw: string | undefined,
+  fallback: number,
+): number {
+  const resolved = resolveNonNegative(explicit, envRaw, fallback);
+  return resolved < 1 ? 1 : resolved;
 }
 
 function delay(ms: number): Promise<void> {

@@ -1,6 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Browser, BrowserContext } from "playwright";
-import { BrowserPool } from "./browser-pool.js";
+import {
+  BrowserPool,
+  defaultPurgeProfileDirs,
+  PURGE_MIN_AGE_MS,
+} from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
 
 /**
@@ -3335,5 +3342,96 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     );
     expect(openButNotClosed.length).toBe(0);
     expect(internals(pool).contextToBrowser.size).toBe(0);
+  });
+});
+
+// ── CR-FIX: defaultPurgeProfileDirs safety (symlink-safe + age-scoped) ────────
+//
+// The self-heal hard-recovery purge runs against the WORLD-WRITABLE OS temp dir.
+// The unfixed implementation did a blind `readdir` (no withFileTypes) + `rm(...,
+// {recursive:true,force:true})` on every `playwright_*` entry, so:
+//   (a) a planted `playwright_*` SYMLINK had its TARGET recursively deleted, and
+//   (b) a browser launching CONCURRENTLY with the purge had its FRESH profile dir
+//       nuked out from under it (re-wedging the very launch being revived).
+// The fix reads dirents, SKIPS symlinks + non-directories, and only removes dirs
+// older than `PURGE_MIN_AGE_MS`. These tests had ZERO coverage before (the pool
+// tests inject a no-op purge), so they pin the real implementation.
+describe("defaultPurgeProfileDirs — symlink-safe + age-scoped purge", () => {
+  let root: string;
+
+  async function makeAgedDir(name: string): Promise<string> {
+    const p = join(root, name);
+    await fs.mkdir(p, { recursive: true });
+    // Drop a file inside so we can prove a recursive delete removed contents.
+    await fs.writeFile(join(p, "sentinel"), "x");
+    // Backdate mtime well past the purge age threshold so it is eligible.
+    const old = new Date(Date.now() - (PURGE_MIN_AGE_MS + 60_000));
+    await fs.utimes(p, old, old);
+    return p;
+  }
+
+  beforeEach(async () => {
+    root = await fs.mkdtemp(join(tmpdir(), "purge-fixture-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true }).catch(() => undefined);
+  });
+
+  it("removes OLD playwright_* and playwright-artifacts-* dirs, leaves non-matching dirs", async () => {
+    const pwOld = await makeAgedDir("playwright_abc123");
+    const artifactsOld = await makeAgedDir("playwright-artifacts-xyz");
+    const unrelated = await makeAgedDir("some-other-dir");
+
+    const removed = await defaultPurgeProfileDirs(root);
+
+    expect(removed).toBe(2);
+    await expect(fs.stat(pwOld)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.stat(artifactsOld)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    // The non-matching dir is LEFT ALONE.
+    await expect(fs.stat(unrelated)).resolves.toBeDefined();
+  });
+
+  it("SKIPS a playwright_* SYMLINK and never deletes its target's contents", async () => {
+    // A real victim dir the symlink points at — must survive untouched.
+    const victim = join(root, "victim-target");
+    await fs.mkdir(victim, { recursive: true });
+    await fs.writeFile(join(victim, "precious"), "do-not-delete");
+    // Backdate the victim so it CANNOT be excused by the age guard.
+    const old = new Date(Date.now() - (PURGE_MIN_AGE_MS + 60_000));
+    await fs.utimes(victim, old, old);
+
+    // The planted symlink matches the prefix but is a SYMLINK, not a real dir.
+    const planted = join(root, "playwright_evil");
+    await fs.symlink(victim, planted);
+    await fs.lutimes?.(planted, old, old).catch(() => undefined);
+
+    const removed = await defaultPurgeProfileDirs(root);
+
+    // The symlink was skipped (not counted, target untouched).
+    expect(removed).toBe(0);
+    await expect(fs.stat(join(victim, "precious"))).resolves.toBeDefined();
+    // The symlink itself is left in place (we never followed/removed it).
+    await expect(fs.lstat(planted)).resolves.toBeDefined();
+  });
+
+  it("LEAVES too-fresh playwright_* dirs (a concurrently-launching browser's dir)", async () => {
+    const fresh = join(root, "playwright_fresh");
+    await fs.mkdir(fresh, { recursive: true });
+    // mtime = now → younger than PURGE_MIN_AGE_MS → must be skipped.
+
+    const removed = await defaultPurgeProfileDirs(root);
+
+    expect(removed).toBe(0);
+    await expect(fs.stat(fresh)).resolves.toBeDefined();
+  });
+
+  it("swallows a missing temp dir (ENOENT) and returns 0", async () => {
+    const removed = await defaultPurgeProfileDirs(
+      join(root, "does-not-exist-subdir"),
+    );
+    expect(removed).toBe(0);
   });
 });
