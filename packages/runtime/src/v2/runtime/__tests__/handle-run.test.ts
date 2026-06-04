@@ -944,6 +944,11 @@ describe("handleRunAgent", () => {
               role: "assistant",
               content: '{"title":"**Order refund** status"}',
             },
+            {
+              id: "tool-1",
+              role: "tool",
+              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
+            },
           ],
         }),
       } as unknown as AbstractAgent;

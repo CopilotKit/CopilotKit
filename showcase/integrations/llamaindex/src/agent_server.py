@@ -16,6 +16,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. LlamaIndex's ``llama_index.llms.openai.OpenAI`` constructs its
+# httpx client at agent-module import time.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 from agents.agent import agent_router
 from agents.voice_agent import voice_router
 from agents.a2ui_dynamic import a2ui_dynamic_router
@@ -24,6 +34,7 @@ from agents.agent_config_agent import agent_config_router
 from agents.beautiful_chat_agent import beautiful_chat_router
 from agents.byoc_hashbrown_agent import byoc_hashbrown_router
 from agents.byoc_json_render_agent import byoc_json_render_router
+from agents.gen_ui_agent import gen_ui_agent_router
 from agents.gen_ui_tool_based_agent import gen_ui_tool_based_router
 from agents.hitl_in_app_agent import hitl_in_app_router
 from agents.hitl_in_chat_agent import hitl_in_chat_router
@@ -57,6 +68,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(HealthMiddleware)
 
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -83,6 +100,7 @@ app.include_router(open_gen_ui_router, prefix="/open-gen-ui")
 app.include_router(open_gen_ui_advanced_router, prefix="/open-gen-ui-advanced")
 app.include_router(mcp_apps_router, prefix="/mcp-apps")
 app.include_router(gen_ui_tool_based_router, prefix="/gen-ui-tool-based")
+app.include_router(gen_ui_agent_router, prefix="/gen-ui-agent")
 app.include_router(beautiful_chat_router, prefix="/beautiful-chat")
 app.include_router(hitl_in_chat_router, prefix="/hitl-in-chat")
 app.include_router(hitl_in_app_router, prefix="/hitl-in-app")

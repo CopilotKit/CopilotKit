@@ -105,7 +105,7 @@ export default defineConfig([
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,
-    target: "es2018",
+    target: "es2020",
     outDir: "dist",
     external: [
       "react",
@@ -143,7 +143,7 @@ export default defineConfig([
     format: ["umd"],
     globalName: "CopilotKitReactCoreV2",
     sourcemap: true,
-    target: "es2018",
+    target: "es2020",
     outDir: "dist/v2",
     external: [
       "react",

@@ -10,9 +10,8 @@
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
-    "sync-qa": "tsx sync-qa-to-notion.ts",
-    "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
+    "bundle-setup-content": "tsx bundle-setup-content.ts",
     "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",
     "test:watch": "vitest"

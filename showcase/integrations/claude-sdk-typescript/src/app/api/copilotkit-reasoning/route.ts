@@ -1,6 +1,6 @@
 /**
  * Dedicated runtime for reasoning demos
- * (`agentic-chat-reasoning`, `reasoning-default-render`,
+ * (`reasoning-default`, `reasoning-custom`,
  * `tool-rendering-reasoning-chain`).
  *
  * Proxies to the Claude agent_server's `/reasoning` endpoint, which enables
@@ -24,8 +24,8 @@ function createReasoningAgent() {
 }
 
 const agents: Record<string, AbstractAgent> = {
-  "agentic-chat-reasoning": createReasoningAgent(),
-  "reasoning-default-render": createReasoningAgent(),
+  "reasoning-default": createReasoningAgent(),
+  "reasoning-custom": createReasoningAgent(),
   "tool-rendering-reasoning-chain": createReasoningAgent(),
   default: createReasoningAgent(),
 };

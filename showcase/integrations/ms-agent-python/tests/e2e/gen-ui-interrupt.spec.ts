@@ -23,7 +23,20 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
+    // Wait for the CopilotKit runtime info response to complete before
+    // interacting. Without this, messages sent before the runtime
+    // connects are silently dropped because the agent reference used by
+    // CopilotChat's submit handler is a provisional stub whose
+    // onMessagesChanged subscribers are replaced when the real agent
+    // arrives — orphaning the in-flight run's state updates.
+    const runtimeReady = page.waitForResponse(
+      (res) =>
+        res.url().includes("/api/copilotkit") &&
+        res.request().method() === "POST" &&
+        res.status() === 200,
+    );
     await page.goto("/demos/gen-ui-interrupt");
+    await runtimeReady;
   });
 
   test("page loads with chat input and no picker rendered", async ({
@@ -45,12 +58,6 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  // The MS Agent Framework port renders the picker via
-  // `useHumanInTheLoop({ name: "schedule_meeting" })` because MAF has no
-  // `interrupt()` primitive — the agent emits a regular tool call instead.
-  // Skip rationale from the LGP version (Railway flakiness on the
-  // langgraph-interrupt path) does not apply here; the deterministic aimock
-  // tool-call fixture makes the picker land reliably.
   test("picking a slot transitions the card to the picked state", async ({
     page,
   }) => {

@@ -38,6 +38,14 @@
   }
 }
 
+/* BrandNav's desktop surface uses the same 97rem track as the Fumadocs
+ * docs grid plus Chromium's 11px `scrollbar-width: thin` gutter. Keep this
+ * as ordinary CSS: Tailwind does not emit the equivalent calc/var arbitrary
+ * max-width utility, which would leave the header full-width on wide screens. */
+.shell-docs-brand-nav-inner {
+  max-width: calc(97rem + 11px);
+}
+
 /* shell-docs sidebar overrides.
  *
  * Fumadocs's DocsLayout sidebar reserves a header row with the home
@@ -46,13 +54,12 @@
  * empty home-link `<a>` still occupies space at the top of the sidebar
  * column. Hide it so the framework selector (rendered via the `banner`
  * slot) sits flush at the top. */
-/* Sidebar banner (holds the framework picker). Top/horizontal padding
- * at 1rem matches the sidebar's outer 0.75rem inset visually. Bottom
- * padding is zeroed so the gap between the picker and the first nav
- * link in the scroll viewport is governed entirely by the viewport's
- * top padding (also 1rem) — keeping above/below the picker symmetric. */
+/* Sidebar banner (holds the framework picker). Keep horizontal padding at
+ * zero so the picker edge aligns with BrandNav's visible surface. The gap
+ * between the picker and the first nav link is governed by the scroll
+ * viewport's top padding below. */
 .shell-docs-sidebar > div:first-child {
-  padding: 1rem 1rem 0 1rem !important;
+  padding: 0 !important;
 }
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
@@ -72,6 +79,16 @@
 #nd-sidebar [data-folder] > [data-folder-trigger] {
   padding-top: 0.375rem;
   padding-bottom: 0.375rem;
+}
+
+/* Fumadocs animates collapsible folder panels after mount. Because
+ * shell-docs currently mounts DocsLayout per page, route changes can
+ * replay those "open" animations for folders that are already open.
+ * SidebarFolderStatePreserver marks route-mounted panels with this
+ * attribute and removes it before a real folder-toggle click, so user
+ * interactions keep the default animation while navigation stays calm. */
+.shell-docs-sidebar [data-shell-docs-skip-initial-animation] {
+  animation: none !important;
 }
 
 /* Sidebar section headers (PageTree `separator` nodes). Fumadocs defaults
@@ -241,6 +258,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 @media (max-width: 767px) {
   #nd-docs-layout {
     padding-top: var(--fd-nav-height) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 
@@ -359,64 +377,23 @@ figure.shiki > div:first-child[class*="border-b"] {
 @media (max-width: 767px) {
   .docs-inner-content {
     grid-column: 1 / -1;
+    max-width: 100%;
   }
 }
 
-/* Sidebar — float as a card panel inset from all four viewport edges,
- * matching the canonical "DocsLayout sidebar in a card" treatment. The
- * fumadocs aside is `fixed; left: 0; top: var(--fd-sidebar-top);
- * bottom: var(--fd-sidebar-margin)` by default — we override `left` and
- * tighten top/bottom so the panel floats with even breathing room. */
+/* Sidebar — keep the navigation unframed at every viewport width. */
 .shell-docs-sidebar {
-  /* In v16 the aside sits inside a sticky grid-area wrapper whose
-   * horizontal position is already driven by `<main className="mx-3">`
-   * — matching BrandNav's `px-3` (12px) so the sidebar pill's left
-   * edge lines up with BrandNav's left card. The previous
-   * `left: 0.75rem !important` was a v15-era leftover that added an
-   * extra 12px inset on top of main's margin, breaking that column
-   * alignment. */
-  /* Tailwind's `border-[var(--border)]` arbitrary-value class loses to
-   * the bare `border` utility's `currentColor` default in v4's cascade
-   * order — leading to a near-black outline against the white panel.
-   * Force the token explicitly. */
-  border-color: var(--border) !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-/* Sidebar scroll viewport — 1rem padding on all sides matches the
- * sidebar's outer inset and produces a symmetric gap between the
- * picker (banner bottom: 0) and the first nav link. */
+/* Sidebar scroll viewport — keep vertical padding for the gap below the
+ * picker, but remove horizontal padding so the nav content uses the
+ * same full column width as the framework picker. */
 .shell-docs-sidebar [data-radix-scroll-area-viewport] {
-  padding: 1rem !important;
-}
-
-/* Banner width: in fumadocs v16 the aside applies
- * `*:w-(--fd-sidebar-width)` to every direct child, so the banner
- * already matches the nav links underneath (268px). The previous
- * `width: 100%` override forced it to fill the aside, which at wide
- * viewports made the framework-picker stretch beyond the rest of the
- * sidebar. Removing that override is intentional.
- *
- * Pill chrome (the rounded card around the sidebar):
- *   • Below 2xl (≤1535px): keep the rounded card. Fumadocs's aside
- *     fills the sticky grid-area wrapper (`inset-y-0`) which is
- *     `100dvh - --fd-docs-row-1` tall. We leave this alone so the
- *     internal scroll viewport stays bounded and the footer
- *     (GitHub + Discord + theme toggle) pins to the bottom of the
- *     visible pill instead of being pushed below the viewport.
- *   • 2xl+ (≥1536px): drop the rounded/border/bg/shadow. At this
- *     point the sidebar grid-area widens past `--fd-sidebar-width`
- *     because the grid's outer 1fr columns gain horizontal space, so
- *     the pill would frame empty whitespace. The nav items
- *     (right-aligned via `items-end`) read better unframed. The
- *     `2xl` Tailwind breakpoint (1536px) lines up with fumadocs's
- *     `--fd-layout-width: 97rem` (1552px). */
-@media (min-width: 1536px) {
-  .shell-docs-sidebar {
-    background-color: transparent !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-  }
+  padding: 1rem 0 !important;
 }
 
 /* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
@@ -629,6 +606,16 @@ samp {
   color: var(--text-secondary);
   line-height: 1.7;
   margin-bottom: 1rem;
+}
+
+/* prose-no-margin (used by fumadocs Callout and Table) lives in @layer utilities,
+ * which always loses to unlayered styles like .reference-content p above.
+ * Mirror its intent here at (0,2,1) specificity so the layered utility wins. */
+.reference-content .prose-no-margin > :first-child {
+  margin-top: 0;
+}
+.reference-content .prose-no-margin > :last-child {
+  margin-bottom: 0;
 }
 
 .reference-content ul,

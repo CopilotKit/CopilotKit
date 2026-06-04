@@ -55,18 +55,30 @@ export const DIMENSIONS = [
   // here for probe-config + rule-YAML validation at load time.
   "e2e_deep",
   "d5",
-  // D6 — parity-vs-reference driver. The `e2e_parity` dimension is the
-  // primary `kind:` literal in `config/probes/e2e-parity.yml`; the driver
-  // emits per-feature side rows under `d6:<slug>/<featureType>` keys
-  // (same `status` collection as D5, distinguished only by the `d6:`
-  // prefix per Q5 of the D5-D6 spec) so both the YAML kind and the
-  // side-row dimension need closed-enum slots here.
-  "e2e_parity",
+  // D6 — full end-to-end driver. `e2e_d6` is the primary `kind:` literal
+  // in `config/probes/e2e-d6.yml`; the driver emits aggregate rows under
+  // this dimension while per-feature side rows use the `d6:` prefix
+  // (same pattern as e2e_demos/e2e).
+  "e2e_d6",
   "d6",
   // System-level dimension. The `system` dimension covers infrastructure-
   // level signals (e.g. discovery auth status) that are not tied to any
   // specific probe driver but need closed-enum validation in rule YAMLs.
   "system",
+  // Starter-smoke dimension. The `starter_smoke` probe family fans out
+  // across the deployed per-starter Railway services and side-emits one
+  // row per smoke level: `starter:<column-slug>/<level>` where level ∈
+  // {health,agent,chat,interaction}, plus an aggregate `starter:<col>`
+  // primary. The starter slug is remapped to the dashboard COLUMN slug
+  // (see probes/helpers/starter-mapping.ts) before emit so the dashboard
+  // only ever sees column slugs. The per-level sub-key does NOT collide
+  // with the `agent`/`chat`/`tools` depth dimensions above: those are
+  // separate dimensions keyed `<dim>:<slug>` (e.g. `agent:langgraph-python`),
+  // whereas the starter levels live UNDER the `starter` dimension as the
+  // `<level>` suffix (`starter:langgraph-python/agent`) — disjoint key
+  // spaces because the dimension prefix differs. Informational only; like
+  // d5/d6/qa it must NOT contribute to the feature-cell rollup.
+  "starter",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
@@ -249,7 +261,17 @@ export interface TemplateContext {
     runUrl?: string;
     jobUrl?: string;
   };
-  env: { dashboardUrl: string; repo: string };
+  // `sourceEnv` labels the deploy environment the alerting harness is
+  // running in ("staging" / "production" / "unknown"). Threaded so the
+  // renderer can prefix every alert with a source-env tag — operators
+  // triaging a red probe need to know whether staging or production is
+  // affected, which the raw probe text never carried. Derived in the
+  // orchestrator from RAILWAY_ENVIRONMENT_NAME (see AlertEngineDeps.env).
+  // `sourceEnv` is optional at the type boundary so the many test fixtures
+  // constructing a context need not all set it; production always supplies
+  // it (orchestrator.ts), and the renderer defaults a missing/empty value
+  // to `[unknown]` rather than dropping the tag.
+  env: { dashboardUrl: string; repo: string; sourceEnv?: string };
   lastAlertAgeMin?: number;
 }
 

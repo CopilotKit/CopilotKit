@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
-import { CellStatus, DocsRow } from "./cell-pieces";
+import { CellStatus, DocsRow, urlsFor } from "./cell-pieces";
 import type { Integration, Feature } from "@/lib/registry";
 import type { CellContext } from "./feature-grid";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
@@ -21,8 +21,8 @@ const mockState = {
   fetchCount: 0,
 };
 
-vi.mock("../lib/pb", () => ({
-  pb: {
+vi.mock("../lib/pb", () => {
+  const pb = {
     filter: (raw: string) => raw,
     collection: () => ({
       getList: vi.fn(async () => {
@@ -30,10 +30,13 @@ vi.mock("../lib/pb", () => ({
         return { items: mockState.history.slice(0, 1), totalItems: 1 };
       }),
     }),
-  },
-  pbIsMisconfigured: false,
-  PB_MISCONFIG_MESSAGE: "",
-}));
+  };
+  return {
+    getPb: () => pb,
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "",
+  };
+});
 
 beforeEach(() => {
   mockState.history = [];
@@ -95,6 +98,29 @@ function redE2eRow(): StatusRow {
 }
 
 /**
+ * A FRESH green D5 (conversation) row for `test/agentic-chat`, keyed exactly
+ * as `CellStatus` looks it up (`d5:<slug>/<featureId>`). `observed_at` is
+ * `now` so the stale-green downgrade window (E2E_STALE_AFTER_MS) does NOT fire
+ * — the CV badge resolves to a real green label and therefore RENDERS (a "?"
+ * label would make `Badge` return null, which is exactly the tautology the CP8
+ * test must avoid).
+ */
+function greenD5Row(): StatusRow {
+  const nowIso = new Date().toISOString();
+  return {
+    id: "d5-1",
+    key: "d5:test/agentic-chat",
+    dimension: "d5",
+    state: "green",
+    signal: null,
+    observed_at: nowIso,
+    transitioned_at: nowIso,
+    fail_count: 0,
+    first_failure_at: null,
+  };
+}
+
+/**
  * Find the inner Badge span for a given badge name (D4 / D5 / D6) inside
  * a CellStatus render. The Badge renders `<span title>...<span>name</span>
  * <span>label</span></span>`, so we locate the parent span whose first
@@ -134,12 +160,20 @@ describe("CP1: tooltipOpen resets on mouseleave/blur", () => {
     await Promise.resolve();
     expect(mockState.fetchCount).toBeGreaterThanOrEqual(1);
 
-    // CP1 wrapper: `onMouseLeave` on the outer span resets `tooltipOpen`.
-    // We verify the handler is wired by triggering it on the wrapper
-    // (parent of rtBadge in the DOM tree) without exception.
+    // CP1 wrapper: `onMouseLeave` on the outer span resets `tooltipOpen` to
+    // false. Observable consequence: leaving does not itself fire a fetch (the
+    // gate closes, it does not re-trigger), and the badge stays rendered. This
+    // is the reset's actual effect — distinct from the prior no-op
+    // `expect(container).toBeTruthy()` which asserted nothing about the reset.
     const wrapper = rtBadge.parentElement!;
+    const countAfterEnter = mockState.fetchCount;
     fireEvent.mouseLeave(wrapper);
-    expect(container).toBeTruthy();
+    await Promise.resolve();
+    // Leaving must not trigger a new fetch (the lazy fetch is one-shot/cached
+    // and gated on open, never on close).
+    expect(mockState.fetchCount).toBe(countAfterEnter);
+    // The badge remains in the document after the reset.
+    expect(findBadgeByName(container, "RT")).toBeInTheDocument();
   });
 });
 
@@ -161,10 +195,12 @@ describe("CP2: transitionLine discriminates first/error", () => {
     const { container } = render(<CellStatus ctx={ctx} />);
     const rtBadge = findBadgeByName(container, "RT");
     fireEvent.mouseEnter(rtBadge);
-    // Wait for the lazy fetch + state update.
-    await new Promise((r) => setTimeout(r, 10));
-    const updated = findBadgeByName(container, "RT");
-    expect(updated.getAttribute("title")).toContain("(initial: green)");
+    // Wait for the lazy fetch + state update (waitFor, not a fixed sleep, to
+    // avoid flakiness — mirrors the sibling first/error/green_to_red cases).
+    await waitFor(() => {
+      const el = findBadgeByName(container, "RT");
+      expect(el.getAttribute("title")).toContain("(initial: green)");
+    });
   });
 
   it("renders `(error → <state>)` for transition === 'error'", async () => {
@@ -264,17 +300,69 @@ describe("CP5: missing-state tooltip distinguishes opt-out vs absent", () => {
   });
 });
 
-describe("CP8: CV badges hidden for testing-kind features", () => {
-  it("hides CV LiveBadge when feature.kind === 'testing'", () => {
+describe("urlsFor: trailing-slash normalization (SSR placeholder leak)", () => {
+  it("does NOT emit a double slash when shellUrl has a trailing slash", () => {
+    // The SSR placeholder (runtime-config.client.ts) is
+    // `https://ssr-placeholder.invalid/` WITH a trailing slash. During SSR
+    // the client config reader returns that placeholder, and the raw
+    // server-rendered HTML froze links like
+    // `https://ssr-placeholder.invalid//integrations/<slug>/<feature>/preview`.
+    // urlsFor must normalize the base so concatenation never yields `//`.
     const ctx = makeCtx({
-      feature: makeFeature({ kind: "testing" }),
+      shellUrl: "https://ssr-placeholder.invalid/",
+      integration: makeIntegration({ slug: "langgraph-fastapi" }),
+      feature: makeFeature({ id: "hitl-in-app" }),
     });
-    const { container } = render(<CellStatus ctx={ctx} />);
-    const text = container.textContent ?? "";
-    // All badges return null when label is "?" (no live status data).
-    // With an empty liveStatus map, no badge text appears in the DOM.
-    // The key assertion: CV is not present (testing-kind hides it).
-    expect(text).not.toContain("CV");
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    expect(demoUrl).toBe(
+      "https://ssr-placeholder.invalid/integrations/langgraph-fastapi/hitl-in-app/preview",
+    );
+    expect(codeUrl).toBe(
+      "https://ssr-placeholder.invalid/integrations/langgraph-fastapi/hitl-in-app/code",
+    );
+    expect(demoUrl).not.toContain(".invalid//");
+  });
+
+  it("builds correct links for a normal (no trailing slash) shellUrl", () => {
+    const ctx = makeCtx({
+      shellUrl: "https://showcase.staging.copilotkit.ai",
+      integration: makeIntegration({ slug: "mastra" }),
+      feature: makeFeature({ id: "beautiful-chat" }),
+    });
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    expect(demoUrl).toBe(
+      "https://showcase.staging.copilotkit.ai/integrations/mastra/beautiful-chat/preview",
+    );
+    expect(codeUrl).toBe(
+      "https://showcase.staging.copilotkit.ai/integrations/mastra/beautiful-chat/code",
+    );
+  });
+});
+
+describe("CP8: CV badges hidden for testing-kind features", () => {
+  it("renders CV for a primary feature but hides it for a testing-kind feature (same green D5 row)", () => {
+    // Non-tautological setup: a FRESH green D5 row is present, so the CV badge
+    // resolves to a real (non-"?") label and WOULD render for a `primary`
+    // feature. If CP8 regressed, the testing-kind cell would also render "CV".
+    const liveStatus = new Map([
+      [greenD5Row().key, greenD5Row()],
+    ]) as LiveStatusMap;
+
+    // Control: a primary feature with the same row DOES render "CV".
+    const primary = render(
+      <CellStatus
+        ctx={makeCtx({ feature: makeFeature({ kind: "primary" }), liveStatus })}
+      />,
+    );
+    expect(primary.container.textContent ?? "").toContain("CV");
+
+    // Subject: a testing-kind feature with the SAME green D5 row hides "CV".
+    const testing = render(
+      <CellStatus
+        ctx={makeCtx({ feature: makeFeature({ kind: "testing" }), liveStatus })}
+      />,
+    );
+    expect(testing.container.textContent ?? "").not.toContain("CV");
   });
 
   it("renders badge container for primary features (badges null for '?' labels)", () => {

@@ -61,7 +61,7 @@ import {
   isD5FeatureType,
   type D5FeatureType,
 } from "../src/probes/helpers/d5-registry.js";
-import { defaultScriptLoader } from "../src/probes/drivers/e2e-deep.js";
+import { defaultScriptLoader } from "../src/probes/drivers/d5-single-pill.js";
 import type { ProbeContext } from "../src/types/index.js";
 
 interface Args {

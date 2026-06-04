@@ -36,6 +36,17 @@ import json
 import sys
 from typing import Any
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# (and before crewai / litellm / openai) imports. CrewAI / litellm
+# construct httpx clients per-call; this patch ensures every new client
+# auto-attaches the forwarded-header hook on construction.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 from ag_ui_crewai.endpoint import (
     add_crewai_crew_fastapi_endpoint,
     add_crewai_flow_fastapi_endpoint,
@@ -52,6 +63,7 @@ from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
 from agents.mcp_apps_agent import MCPApps
 from agents.interrupt_crew import InterruptScheduling
+from agents.gen_ui_agent import gen_ui_agent_flow
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
 
@@ -379,6 +391,12 @@ class ForwardedPropsASGIMiddleware:
 app.add_middleware(HealthMiddleware)
 app.add_middleware(ForwardedPropsASGIMiddleware)
 
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
+
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
 # (or :8123 inside a generated starter container) and is reached ONLY by the
@@ -417,6 +435,7 @@ add_crewai_flow_fastapi_endpoint(
     app, shared_state_read_write_flow, "/shared-state-read-write"
 )
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
+add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
 

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { pb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
+import { getPb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
 import type {
   BaselineCell,
   BaselineStatus,
@@ -61,13 +61,14 @@ export function useBaseline(): UseBaselineResult {
   }, [cells]);
 
   useEffect(() => {
-    if (pbIsMisconfigured) {
+    if (pbIsMisconfigured()) {
       setCells(new Map());
       setStatus("error");
       setError(PB_MISCONFIG_MESSAGE);
       return;
     }
 
+    const pb = getPb();
     let alive = true;
     let attempts = 0;
     let cancel: (() => void) | null = null;
@@ -249,6 +250,7 @@ export function useBaseline(): UseBaselineResult {
       });
 
       try {
+        const pb = getPb();
         await pb.collection("baseline").update(current.id, {
           status: newStatus,
           tags: newTags,

@@ -4,6 +4,7 @@ import { checkInlineDemoRefs } from "./verify-shell-docs.js";
 import { checkSnippetRegions } from "./verify-shell-docs.js";
 import { checkInternalLinks } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
+import { checkComponentImports } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -184,6 +185,44 @@ describe("checkImportPaths", () => {
     ];
     const existsOnDisk = (_p: string) => true;
     const result = checkImportPaths({ pages, existsOnDisk });
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("checkComponentImports", () => {
+  it("fails when a snippet component is used with props but no import", () => {
+    const pages = [
+      {
+        path: "agno/prebuilt-components.mdx",
+        body: '<PrebuiltComponents components={props.components} framework="agno" />',
+      },
+    ];
+    const result = checkComponentImports({ pages });
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("PrebuiltComponents");
+  });
+
+  it("passes when a snippet component has an explicit import", () => {
+    const pages = [
+      {
+        path: "agno/prebuilt-components.mdx",
+        body:
+          'import PrebuiltComponents from "@/snippets/shared/basics/prebuilt-components.mdx";\n\n' +
+          '<PrebuiltComponents components={props.components} framework="agno" />',
+      },
+    ];
+    const result = checkComponentImports({ pages });
+    expect(result.status).toBe("pass");
+  });
+
+  it("passes when a bare component is used without props or import", () => {
+    const pages = [
+      {
+        path: "some-page.mdx",
+        body: "<PrebuiltComponents />",
+      },
+    ];
+    const result = checkComponentImports({ pages });
     expect(result.status).toBe("pass");
   });
 });

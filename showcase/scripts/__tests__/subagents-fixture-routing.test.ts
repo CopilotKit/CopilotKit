@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
+import { globSync } from "glob";
 import { loadFixtureFile, matchFixture } from "@copilotkit/aimock";
 import type {
   ChatCompletionRequest,
@@ -9,29 +10,57 @@ import type {
 } from "@copilotkit/aimock";
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const AIMOCK_DIR = path.join(REPO_ROOT, "showcase", "aimock");
-const FIXTURE_FILES = ["d5-all.json", "smoke.json", "feature-parity.json"];
 
+// Load fixtures for a single integration (langgraph-python, the reference
+// integration) plus shared. At runtime each integration only sees its own
+// scoped fixtures via X-AIMock-Context, so loading a single integration's
+// fixture set is the correct simulation — loading all 18 integrations'
+// fixtures would produce first-match collisions across identical prompts.
 function loadBundledFixtures(): Fixture[] {
-  return FIXTURE_FILES.flatMap((f) =>
-    loadFixtureFile(path.join(AIMOCK_DIR, f)),
-  );
+  const fixtureFiles = [
+    ...globSync("showcase/aimock/shared/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d4/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d6/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+  ];
+  return fixtureFiles.flatMap((f) => loadFixtureFile(f));
 }
 
+// D6 subagent fixtures use turnIndex-based chaining instead of toolCallId.
+// Each turn in the conversation increments the turn index, and the fixture
+// matches on the combination of userMessage + turnIndex + toolName.
+//
+// Turn 0: initial request → emits research_agent tool call
+// Turn 1: after research result → emits writing_agent tool call
+// Turn 2: after writing result → emits critique_agent tool call
+// Turn 3: after critique result → emits final content
 function buildRequest(opts: {
   userMessage: string;
+  turnCount?: number;
+  toolName?: string;
   toolResultCallId?: string;
 }): ChatCompletionRequest {
   const messages: ChatCompletionRequest["messages"] = [
     { role: "user", content: opts.userMessage },
   ];
-  if (opts.toolResultCallId) {
+  // Add assistant+tool turn pairs to reach the desired turnIndex.
+  // Each pair simulates the agent calling a sub-agent tool and getting a result.
+  const turns = opts.turnCount ?? 0;
+  for (let i = 0; i < turns; i++) {
     messages.push({
       role: "assistant",
       content: "",
       tool_calls: [
         {
-          id: opts.toolResultCallId,
+          id: `call_turn_${i}`,
           type: "function",
           function: { name: "sub_agent", arguments: "{}" },
         },
@@ -40,12 +69,15 @@ function buildRequest(opts: {
     messages.push({
       role: "tool",
       content: "ok",
-      tool_call_id: opts.toolResultCallId,
+      tool_call_id: `call_turn_${i}`,
     });
   }
   return {
     model: "gpt-5.4",
     messages,
+    // D6 fixtures use match.context for per-integration scoping; aimock's
+    // matchFixture checks req._context against it.
+    _context: "langgraph-python",
     tools: [
       {
         type: "function",
@@ -72,7 +104,7 @@ function buildRequest(opts: {
         },
       },
     ],
-  };
+  } as ChatCompletionRequest;
 }
 
 const CHAINS = [
@@ -101,12 +133,13 @@ const CHAINS = [
 ] as const;
 
 describe("subagents bundled fixture routing", () => {
-  it("each pill chains research -> writing -> critique -> final via toolCallId", () => {
+  it("each pill chains research -> writing -> critique -> final via turnIndex", () => {
     const fixtures = loadBundledFixtures();
     for (const chain of CHAINS) {
+      // Turn 0: initial request → research_agent
       const first = matchFixture(
         fixtures,
-        buildRequest({ userMessage: chain.prompt }),
+        buildRequest({ userMessage: chain.prompt, turnCount: 0 }),
       );
       expect(first, `${chain.title}: first leg should match`).not.toBeNull();
       expect(
@@ -116,13 +149,15 @@ describe("subagents bundled fixture routing", () => {
         name: "research_agent",
       });
 
+      // Turn 1: after research → writing_agent
       const second = matchFixture(
         fixtures,
-        buildRequest({
-          userMessage: chain.prompt,
-          toolResultCallId: chain.research,
-        }),
+        buildRequest({ userMessage: chain.prompt, turnCount: 1 }),
       );
+      expect(
+        second,
+        `${chain.title}: second leg (turnIndex=1) should match`,
+      ).not.toBeNull();
       expect(
         (second!.response as ToolCallResponse).toolCalls?.[0],
       ).toMatchObject({
@@ -130,13 +165,15 @@ describe("subagents bundled fixture routing", () => {
         name: "writing_agent",
       });
 
+      // Turn 2: after writing → critique_agent
       const third = matchFixture(
         fixtures,
-        buildRequest({
-          userMessage: chain.prompt,
-          toolResultCallId: chain.writing,
-        }),
+        buildRequest({ userMessage: chain.prompt, turnCount: 2 }),
       );
+      expect(
+        third,
+        `${chain.title}: third leg (turnIndex=2) should match`,
+      ).not.toBeNull();
       expect(
         (third!.response as ToolCallResponse).toolCalls?.[0],
       ).toMatchObject({
@@ -144,13 +181,15 @@ describe("subagents bundled fixture routing", () => {
         name: "critique_agent",
       });
 
+      // Turn 3: after critique → final content
       const final = matchFixture(
         fixtures,
-        buildRequest({
-          userMessage: chain.prompt,
-          toolResultCallId: chain.critique,
-        }),
+        buildRequest({ userMessage: chain.prompt, turnCount: 3 }),
       );
+      expect(
+        final,
+        `${chain.title}: final leg (turnIndex=3) should match`,
+      ).not.toBeNull();
       expect((final!.response as TextResponse).content).toContain(
         "after research",
       );

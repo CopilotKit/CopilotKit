@@ -163,6 +163,7 @@
         "Dockerfile",
         "docker/Dockerfile.agent",
         "docker-compose.test.yml",
+        "entrypoint.sh",
         "serve.py",
         "scripts/**"
       ],

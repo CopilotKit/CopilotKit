@@ -65,6 +65,16 @@ from tools import (
     build_a2ui_operations_from_tool_call,
 )
 
+# gen-ui-agent specialization (set_steps tool + state hook + prompt addendum).
+# The shared Strands backend serves every demo; this module lives in its own
+# file so the gen-ui-agent surface area is reviewable in isolation, matching
+# the wave-2 BYOC pattern (byoc_hashbrown.py / byoc_json_render.py).
+from agents.gen_ui_agent import (
+    GEN_UI_AGENT_PROMPT,
+    set_steps,
+    steps_state_from_args,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -1436,6 +1446,9 @@ SYSTEM_PROMPT = (
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "- Plan and execute multi-step tasks with a live progress card by "
+    "calling `set_steps` on every status transition (see planner mode "
+    "instructions below)\n"
     "- Remember things the user tells you by calling `set_notes` with the FULL "
     "updated list of short note strings (existing notes + new). The UI "
     "renders these in a notes panel.\n"
@@ -1448,7 +1461,8 @@ SYSTEM_PROMPT = (
     "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
     "mentioning, updating, or discussing todos with the user.\n"
     "When the user shares preferences (name, tone, language, interests), they will be "
-    "supplied in a system-style block at the top of every turn — respect them."
+    "supplied in a system-style block at the top of every turn — respect them.\n\n"
+    + GEN_UI_AGENT_PROMPT
 )
 
 
@@ -1489,6 +1503,14 @@ def build_showcase_agent(
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
             ),
+            # gen-ui-agent — the planner writes the full step list to
+            # `state["steps"]` via `set_steps` on every transition. Emit a
+            # snapshot the moment the tool fires so the UI's progress card
+            # re-renders pending → in_progress → completed in-place without
+            # waiting for the text response to stream.
+            "set_steps": ToolBehavior(
+                state_from_args=steps_state_from_args,
+            ),
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
             # `state_from_args` so the entry carries the sub-agent's
@@ -1519,6 +1541,7 @@ def build_showcase_agent(
             generate_a2ui,
             set_theme_color,
             set_notes,
+            set_steps,
             research_agent,
             writing_agent,
             critique_agent,

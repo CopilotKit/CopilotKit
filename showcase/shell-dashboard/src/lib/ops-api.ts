@@ -10,18 +10,21 @@
  *
  * `baseUrl` resolution order (per call):
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
- *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` — opt-in escape hatch for
- *      direct cross-origin calls; production does NOT use this because
- *      showcase-harness has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
- *      into the client bundle at build time, but this module ALSO runs in
- *      SSR + tests where `process.env` is read live at call time — so
- *      `delete process.env.NEXT_PUBLIC_OPS_BASE_URL` in a test does take
- *      effect on subsequent `resolveBaseUrl()` calls.
- *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
- *      `next.config.ts`. This is the production contract, not a guess: the
- *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
- *      on the server side, so the browser only ever sees same-origin calls
- *      and `OPS_BASE_URL` stays out of the client bundle.
+ *   2. `runtimeConfig.opsBaseUrl` (read from `window.__SHOWCASE_CONFIG__`,
+ *      populated at request time by the root layout's inline <script>) —
+ *      opt-in escape hatch for direct cross-origin calls, sourced from the
+ *      client-intended `NEXT_PUBLIC_OPS_DIRECT_BASE_URL` env var. This is
+ *      DISTINCT from the server proxy target `OPS_BASE_URL` (read only by
+ *      the Route Handler). It defaults to "" — including in production —
+ *      so the client falls through to step 3; the harness URL is never
+ *      injected into the client bundle (showcase-harness has no CORS
+ *      allowlist, so a direct cross-origin call would be blocked).
+ *   3. `/api/ops` — same-origin path served by the Route Handler in
+ *      `src/app/api/ops/[...path]/route.ts`. This is the production
+ *      contract, not a guess: the handler forwards `/api/ops/<path>` to
+ *      `${OPS_BASE_URL}/api/<path>` on the server side (reading
+ *      `OPS_BASE_URL` at request time), so the browser only ever sees
+ *      same-origin calls and `OPS_BASE_URL` stays out of the client bundle.
  *
  * The trigger token is supplied by the caller (typically read from
  * `process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN` at the React layer).
@@ -135,22 +138,43 @@ export interface TriggerResponse {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
+import { getRuntimeConfig } from "./runtime-config.client";
+
 const FALLBACK_BASE_URL = "/api/ops";
 
 /**
- * Resolve the API base URL with the precedence documented at the top of
- * this module. Trailing slashes are stripped so callers don't end up with
- * a double-slash like `http://host//probes` that some servers reject.
+ * Resolve the API base URL with this precedence:
+ *  1. explicit `baseUrl` param — used in tests + SSR.
+ *  2. `runtimeConfig.opsBaseUrl` — the client DIRECT override, sourced
+ *     from `NEXT_PUBLIC_OPS_DIRECT_BASE_URL`, for deploys that want
+ *     direct cross-origin calls (e.g. local dev hitting a remote
+ *     harness). Production leaves this empty (it is NOT the server proxy
+ *     target `OPS_BASE_URL`) so the call stays same-origin via step 3.
+ *  3. `/api/ops` — same-origin path served by the Route Handler, which
+ *     forwards to `${OPS_BASE_URL}/api/<path>` server-side.
  *
- * `NEXT_PUBLIC_OPS_BASE_URL` is treated as missing when it is undefined,
- * empty, or whitespace-only. `??` only falls through on `null`/`undefined`,
- * so without this an env var set to `""` would silently produce
- * `baseUrl === ""` and URLs like `"/probes"` (no `/api/ops` prefix) — a
- * silent failure mode where the dashboard hits its own origin and 404s.
+ * Whitespace-only and empty values are treated as missing — the same
+ * defensive trim as the prior `process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim()`
+ * pattern, preserving the "do not silently 404 against own origin" guard.
  */
 function resolveBaseUrl(explicit?: string): string {
-  const envBase = process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim();
-  const raw = explicit ?? (envBase || undefined) ?? FALLBACK_BASE_URL;
+  // On the server (SSR) there is no window. `getRuntimeConfig` (client
+  // variant) throws in that case — we MUST fall back to the same-origin
+  // path or the explicit override. In a browser the root layout's
+  // inline <script> populates `window.__SHOWCASE_CONFIG__` before any
+  // client code runs; if it's missing (wiring bug, or a test that
+  // forgot to set it) we treat that as "no override" rather than
+  // throwing here, since the same-origin rewrite is the safe default.
+  let envBase: string | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const trimmed = getRuntimeConfig().opsBaseUrl?.trim();
+      if (trimmed && trimmed.length > 0) envBase = trimmed;
+    } catch {
+      // window.__SHOWCASE_CONFIG__ missing — fall through to FALLBACK_BASE_URL.
+    }
+  }
+  const raw = explicit ?? envBase ?? FALLBACK_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
 

@@ -14,6 +14,7 @@ import {
 // NOTE: useCopilotChat has no v2 equivalent; kept on v1 import path
 import { useCopilotChat } from "@copilotkit/react-core";
 import "@copilotkit/react-core/v2/styles.css";
+import { z } from "zod";
 import { MessageToA2A } from "./a2a/MessageToA2A";
 import { MessageFromA2A } from "./a2a/MessageFromA2A";
 
@@ -89,18 +90,12 @@ const ChatInner = ({ onResearchUpdate, onAnalysisUpdate }: ChatProps) => {
     name: "send_message_to_a2a_agent",
     description: "Sends a message to an A2A agent",
     available: "frontend",
-    parameters: [
-      {
-        name: "agentName",
-        type: "string",
-        description: "The name of the A2A agent to send the message to",
-      },
-      {
-        name: "task",
-        type: "string",
-        description: "The message to send to the A2A agent",
-      },
-    ],
+    parameters: z.object({
+      agentName: z
+        .string()
+        .describe("The name of the A2A agent to send the message to"),
+      task: z.string().describe("The message to send to the A2A agent"),
+    }),
     render: (actionRenderProps) => {
       return (
         <>

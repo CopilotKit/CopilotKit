@@ -10,6 +10,24 @@ aimock ([`@copilotkit/aimock`](https://www.npmjs.com/package/@copilotkit/aimock)
 
 The showcase deployment runs aimock in proxy mode — `--proxy-only` with real upstream URLs configured for each provider. Unmatched requests are forwarded to the real API; matched requests short-circuit with the fixture response. This makes the sidecar safe to deploy as a general-purpose smoke-test aid: tests that hit fixture-matched prompts get deterministic responses, and anything else just falls through.
 
+## Directory Structure
+
+```
+showcase/aimock/
+  shared/              Fixtures loaded by ALL integrations (smoke, universal prompts)
+  d4/                  D4-depth fixtures — per-integration, single-demo coverage
+    <slug>/            One directory per integration slug (e.g. langgraph-python/)
+  d6/                  D6-depth fixtures — per-integration, all-pills coverage
+    <slug>/            One directory per integration slug
+  feature-parity.json  Legacy flat fixture file (pre-context-routing)
+  smoke.json           Minimal smoke fixture
+  README.md            This file
+```
+
+**Context routing.** D4 and D6 fixtures use aimock's `--context-field` flag to scope fixture matching by integration. Each integration's dev server passes its slug as the `context` value in LLM requests (via `X-AIMock-Context` header or request body field). Aimock only considers fixtures whose `match.context` equals the incoming context value, so `d4/langgraph-python/` fixtures never interfere with `d4/mastra/` fixtures even if they share the same `userMessage` pattern.
+
+**Per-integration isolation.** Every `<slug>/` directory contains fixtures specific to that integration. This prevents cross-contamination: if `mastra` needs a different tool name than `langgraph-python` for the same demo, each has its own fixture file. The `shared/` directory holds fixtures that apply regardless of context (e.g., smoke checks, universal greeting prompts).
+
 ## Fixtures in this directory
 
 - **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `test_e2e-showcase-on-demand` Playwright suites and loaded at Railway boot via GitHub raw URL.

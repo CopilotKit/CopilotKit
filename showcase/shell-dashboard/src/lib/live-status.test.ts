@@ -1,12 +1,28 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  CATALOG_TO_D5_KEY,
+  STARTER_COLUMNS,
+  STARTER_LEVELS,
+  buildStarterBadge,
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveStarterRow,
+  starterIsSupported,
   upsertByKey,
 } from "./live-status";
-import type { LiveStatusMap, StatusRow } from "./live-status";
+import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
 import { formatTs } from "./format-ts";
+import {
+  E2E_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
+} from "./staleness";
+
+// A recent timestamp so green rows are not treated as stale by the
+// staleness downgrade in resolveCell (which compares against Date.now()).
+// Mirrors the FRESH_OBSERVED_AT pattern in compute-tally-detail.test.tsx.
+const FRESH_OBSERVED_AT = new Date().toISOString();
 
 function row(
   key: string,
@@ -20,10 +36,10 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: state === "red" ? 1 : 0,
-    first_failure_at: state === "red" ? "2026-04-20T00:00:00Z" : null,
+    first_failure_at: state === "red" ? FRESH_OBSERVED_AT : null,
     ...overrides,
   };
 }
@@ -44,13 +60,26 @@ describe("keyFor", () => {
     );
     expect(keyFor("e2e", "agno", "agentic-chat")).toBe("e2e:agno/agentic-chat");
   });
-  it("d5 / d6 dimensions follow the same per-feature key shape", () => {
-    // Drivers `e2e-deep` (B2) and `e2e-parity` (B13) emit side rows under
-    // exactly these keys — the dashboard MUST match the producer shape.
+  it("d5 uses per-feature key shape", () => {
+    // Driver `e2e-deep` emits per-feature rows under these keys —
+    // the dashboard MUST match the producer shape.
     expect(keyFor("d5", "agno", "agentic-chat")).toBe("d5:agno/agentic-chat");
+  });
+  it("d6 uses the per-cell key shape production reads", () => {
+    // Driver `e2e-parity` emits one `d6:<slug>/<featureType>` row per cell
+    // (the same featureType keyspace D5 uses, mapped via CATALOG_TO_D5_KEY),
+    // and the dashboard resolves D6 PER-CELL against that key — see
+    // resolveD6Row. This is the shape per-cell rendering actually looks up.
     expect(keyFor("d6", "agno", "tool-rendering")).toBe(
       "d6:agno/tool-rendering",
     );
+  });
+  it("d6 aggregate key shape still exists but is NOT what per-cell rendering reads", () => {
+    // keyFor CAN still produce the bare `d6:<slug>` aggregate key, and the
+    // `e2e-parity` driver still emits a single aggregate row that is red
+    // whenever ANY cell fails. But resolveD6Row never reads it — per-cell
+    // badges resolve the mapped `d6:<slug>/<featureType>` row instead.
+    expect(keyFor("d6", "agno")).toBe("d6:agno");
   });
   it("throws when slug contains ':' (lookup-map collision guard)", () => {
     expect(() => keyFor("smoke", "bad:slug")).toThrow(/must not contain/);
@@ -61,6 +90,21 @@ describe("keyFor", () => {
   it("throws when featureId contains ':' or '/'", () => {
     expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
     expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
+  });
+  it("every CATALOG_TO_D5_KEY mapping value is delimiter-free (keyFor feeds these as featureId)", () => {
+    // resolveD5Row/resolveD6Row pass each mapping value into keyFor as the
+    // featureId segment. keyFor's guard protects slug + the caller-supplied
+    // featureId, but NOT the mapping values themselves — a ':' or '/' smuggled
+    // into a mapping value would produce an ambiguous/colliding key. Assert the
+    // table is clean so the guard's coverage is complete.
+    for (const [feature, d5Keys] of Object.entries(CATALOG_TO_D5_KEY)) {
+      for (const d5Key of d5Keys) {
+        expect(
+          d5Key.includes(":") || d5Key.includes("/"),
+          `CATALOG_TO_D5_KEY["${feature}"] value "${d5Key}" must not contain ':' or '/'`,
+        ).toBe(false);
+      }
+    }
   });
 });
 
@@ -119,6 +163,19 @@ describe("mergeRowsToMap", () => {
       [row("e2e:a/b", "e2e", "red")],
     );
     expect(map.size).toBe(2);
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it("does NOT warn on identical-content rows with different references (no false collision)", () => {
+    // The same producer row re-allocated across two groups (different object
+    // reference, identical key/state/observed_at/transitioned_at) is NOT a
+    // genuine invariant violation. Pre-fix the reference-based `prior !== r`
+    // check fired a noisy false warning here.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const a = row("dup:k", "smoke", "green");
+    const aClone = row("dup:k", "smoke", "green"); // distinct object, same content
+    expect(a).not.toBe(aClone);
+    const map = mergeRowsToMap([a], [aClone]);
+    expect(map.get("dup:k")?.state).toBe("green");
     expect(warn).not.toHaveBeenCalled();
   });
   it("warns on collision but still applies last-wins (disjoint-key invariant guard)", () => {
@@ -306,8 +363,14 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("resolves d5 / d6 per-feature rows when present", () => {
+    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), both
+    // mapped from catalog featureId via CATALOG_TO_D5_KEY. The aggregate
+    // `d6:<slug>` here (green) must NOT be read — the per-cell row wins.
     const live = mapOf([
       row("d5:agno/agentic-chat", "d5", "green"),
+      // aggregate green distractor — not consulted:
+      row("d6:agno", "d6", "green"),
+      // per-cell red is what the badge surfaces:
       row("d6:agno/agentic-chat", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "agentic-chat");
@@ -338,20 +401,25 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Note: with LS1 in force, health-only does NOT roll up to green
     // (e2e is also required); rollup is "gray" and the red d5/d6 rows
     // must not promote it to red.
+    // D5 AND D6 use per-feature keys (`<dim>:<slug>/<featureType>`), mapped
+    // via CATALOG_TO_D5_KEY. `agentic-chat` is a real single-key family;
+    // both its d5/d6 rows resolve through the mapped per-cell path.
     const live = mapOf([
       row("health:agno", "health", "green"),
-      row("d5:agno/ac", "d5", "red"),
-      row("d6:agno/ac", "d6", "red"),
+      row("d5:agno/agentic-chat", "d5", "red"),
+      row("d6:agno/agentic-chat", "d6", "red"),
     ]);
-    const c = resolveCell(live, "agno", "ac");
+    const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.rollup).toBe("gray");
     expect(c.d5.tone).toBe("red");
     expect(c.d6.tone).toBe("red");
   });
 
   it("d5 degraded renders amber tone with '~' label (not green check)", () => {
-    const live = mapOf([row("d5:agno/ac", "d5", "degraded")]);
-    const c = resolveCell(live, "agno", "ac");
+    // `agentic-chat` is a mapped single-key D5 family; a degraded sub-row
+    // folds through resolveD5Row's worst-state path to amber.
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", "degraded")]);
+    const c = resolveCell(live, "agno", "agentic-chat");
     expect(c.d5.tone).toBe("amber");
     expect(c.d5.label).toBe("~");
   });
@@ -372,9 +440,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   // red > degraded > green — so a single amber pill turns the badge
   // amber instead of staying green behind a co-iterated green sibling.
   it("d5 multi-key fan-out: red beats green when red comes after green", () => {
+    // All 5 mapped sub-rows present so the worst-state fold — not STRICT
+    // missing handling — is what credits red. (A red still dominates a
+    // missing sub-row, but emitting the full family pins the fold ordering.)
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat");
     expect(c.d5.tone).toBe("red");
@@ -382,9 +456,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("d5 multi-key fan-out: red beats green when red comes BEFORE green", () => {
+    // All 5 mapped sub-rows present so the worst-state fold — not STRICT
+    // missing handling — is what credits red, with red listed FIRST to pin
+    // order-independence of the fold.
     const live = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "red"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     const c = resolveCell(live, "agno", "beautiful-chat");
     expect(c.d5.tone).toBe("red");
@@ -394,9 +474,15 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Pre-fix regression: only `red` could replace `worst`, so a degraded
     // row encountered after a green row was silently dropped and the
     // badge stayed green. With the fix, degraded > green wins.
+    // All 5 mapped sub-rows are present (STRICT requires a full family before
+    // a non-red fold is credited) so the fold — not missing handling — is
+    // what's under test.
     const liveGreenFirst = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "degraded"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(liveGreenFirst, "agno", "beautiful-chat").d5.tone).toBe(
       "amber",
@@ -405,6 +491,9 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     const liveDegradedFirst = mapOf([
       row("d5:agno/beautiful-chat-toggle-theme", "d5", "degraded"),
       row("d5:agno/beautiful-chat-pie-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green"),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green"),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(
       resolveCell(liveDegradedFirst, "agno", "beautiful-chat").d5.tone,
@@ -428,6 +517,244 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green"),
     ]);
     expect(resolveCell(live, "agno", "beautiful-chat").d5.tone).toBe("green");
+  });
+
+  // ── STRICT missing-sub-row handling (mirrors cell-model.ts resolveD5) ──
+  // A multi-key family is credited green ONLY when EVERY mapped sub-row is
+  // present and (post-stale) green. A missing mapped sub-row makes the family
+  // unverified → no-data (gray "?"), NOT a green badge. A present red still
+  // dominates no-data and surfaces red. This matches buildCellModel's D5.
+  it("d5 multi-key fan-out: one present-green + missing sub-rows → NOT green (gray no-data)", () => {
+    // beautiful-chat maps to 5 sub-keys; emit only 1 (one present-green,
+    // four missing). Pre-fix this rendered a false-green d5 badge while
+    // buildCellModel's D5 rendered gray.
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      // pie-chart, bar-chart, search-flights, schedule-meeting omitted.
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d5.row).toBeNull();
+  });
+
+  it("d5 multi-key fan-out: present-red + a missing sub-row → red (red dominates no-data)", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "red"),
+      // bar-chart, search-flights, schedule-meeting omitted.
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.tone).toBe("red");
+    expect(c.d5.label).toBe("✗");
+  });
+
+  // ── unmapped feature: no direct-key fallback (mirrors cell-model.ts
+  //    resolveD5 / depth-utils.ts isD5Green) ──
+  // A feature NOT in CATALOG_TO_D5_KEY has no CV test, so its D5 badge must
+  // be gray "?" even when a direct `d5:<slug>/<featureId>` row exists in the
+  // map. Pre-fix, resolveD5Row fell back to the direct key and rendered the
+  // row's tone (green), contradicting the coverage chip (resolveD5 returns
+  // exists:false) and deriveDepth (isD5Green returns false). The fallback was
+  // removed from isD5Green because it "could resolve true from stale/shared
+  // PB rows, granting D5 to cells without CV tests" — resolveD5Row must match.
+  it("d5 unmapped feature: present direct-key row does NOT render green (matches chip)", () => {
+    // `some-unmapped-feature` is intentionally absent from CATALOG_TO_D5_KEY.
+    const live = mapOf([row("d5:agno/some-unmapped-feature", "d5", "green")]);
+    const c = resolveCell(live, "agno", "some-unmapped-feature");
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d5.row).toBeNull();
+  });
+
+  it("d5 multi-key fan-out: stale-green sub-row listed FIRST folds to amber (order-independent)", () => {
+    // Mirrors cell-model.test.ts's staleFirst coverage to pin order-
+    // independence of the stale fold. A stale-green sub-row listed FIRST must
+    // still force the full (otherwise-fresh-green) family to amber — the fold
+    // does not depend on CATALOG_TO_D5_KEY order. All 5 sub-rows present so
+    // STRICT missing handling is satisfied and the fold is what's exercised.
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const staleAt = new Date(
+      NOW - (E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+    ).toISOString();
+    const freshAt = new Date(NOW).toISOString();
+    const live = mapOf([
+      // Stale-green listed FIRST.
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
+        observed_at: staleAt,
+      }),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green", {
+        observed_at: freshAt,
+      }),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green", {
+        observed_at: freshAt,
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
+    expect(c.d5.tone).not.toBe("green");
+    expect(c.d5.tone).toBe("amber");
+  });
+});
+
+describe("resolveCell — staleness downgrade (unification A)", () => {
+  // A fixed `now` so the stale/fresh boundary is deterministic.
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const freshAt = (ageMs: number): string =>
+    new Date(NOW - ageMs).toISOString();
+
+  it("stale-green e2e → rollup not-green + e2e badge amber", () => {
+    // e2e uses the 6h window. A green e2e row older than that must downgrade
+    // to amber so the frozen-green driver no longer credits D3.
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).not.toBe("green");
+    expect(c.rollup).toBe("amber");
+    expect(c.e2e.tone).toBe("amber");
+  });
+
+  it("fresh-green e2e + fresh-green health → stays green", () => {
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).toBe("green");
+    expect(c.e2e.tone).toBe("green");
+    expect(c.health.tone).toBe("green");
+  });
+
+  it("stale-green health → rollup not-green + health badge amber (45m window)", () => {
+    // health uses the tighter liveness window. A green health row just past
+    // 45m downgrades; an e2e row inside its 6h window stays green.
+    const live = mapOf([
+      row("health:agno", "health", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).not.toBe("green");
+    expect(c.rollup).toBe("amber");
+    expect(c.health.tone).toBe("amber");
+  });
+
+  it("per-dimension windows: e2e green at 1h is NOT stale (under 6h)", () => {
+    // 1h is well within the e2e window — must stay green.
+    const live = mapOf([
+      row("health:agno", "health", "green", { observed_at: freshAt(0) }),
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.rollup).toBe("green");
+    expect(c.e2e.tone).toBe("green");
+  });
+
+  it("per-dimension windows: health green at 1h IS stale (over 45m)", () => {
+    // 1h exceeds the liveness window — health must downgrade even though the
+    // same age would be fresh for e2e.
+    const live = mapOf([
+      row("health:agno", "health", "green", {
+        observed_at: freshAt(60 * 60 * 1000),
+      }),
+      row("e2e:agno/ac", "e2e", "green", { observed_at: freshAt(0) }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.health.tone).toBe("amber");
+    expect(c.rollup).toBe("amber");
+  });
+
+  it("stale-green d5 badge downgrades to amber (per-sub-row fold, 6h window)", () => {
+    // resolveD5Row applies the per-sub-row stale fold BEFORE worst-state, so
+    // any stale-green sub-row forces the family amber. All 5 mapped sub-rows
+    // are present so STRICT missing handling is satisfied and the stale fold
+    // is what's under test.
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-pie-chart", "d5", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+      row("d5:agno/beautiful-chat-bar-chart", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-search-flights", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+      row("d5:agno/beautiful-chat-schedule-meeting", "d5", "green", {
+        observed_at: freshAt(0),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat", { now: NOW });
+    expect(c.d5.tone).toBe("amber");
+  });
+
+  it("stale-green d6 badge downgrades to amber (6h window)", () => {
+    // D6 is per-cell (d6:<slug>/<featureType>), so use a mapped feature.
+    const live = mapOf([
+      row("d6:agno/agentic-chat", "d6", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    expect(c.d6.tone).toBe("amber");
+  });
+
+  it("stale-green smoke / d2 badges downgrade to amber (45m window)", () => {
+    const live = mapOf([
+      row("smoke:agno", "smoke", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+      row("agent:agno", "agent", "green", {
+        observed_at: freshAt(LIVENESS_STALE_AFTER_MS + 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.smoke.tone).toBe("amber");
+    expect(c.d2.tone).toBe("amber");
+  });
+
+  it("stale-green badge returns the EFFECTIVE (downgraded) row, not the raw green row", () => {
+    // buildBadge must return row: effRow so .row.state agrees with .tone.
+    // Pre-fix the badge had tone:"amber" while badge.row.state==="green" —
+    // a latent false-green any consumer reading .row.state would hit.
+    const live = mapOf([
+      row("e2e:agno/ac", "e2e", "green", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.e2e.tone).toBe("amber");
+    expect(c.e2e.row?.state).toBe("degraded");
+    expect(c.e2e.row?.state).not.toBe("green");
+    // Drilldown metadata preserved by the spread.
+    expect(c.e2e.row?.key).toBe("e2e:agno/ac");
+  });
+
+  it("stale RED row is left as-is (only green is downgraded)", () => {
+    const live = mapOf([
+      row("e2e:agno/ac", "e2e", "red", {
+        observed_at: freshAt(E2E_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "ac", { now: NOW });
+    expect(c.e2e.tone).toBe("red");
+    expect(c.rollup).toBe("red");
   });
 });
 
@@ -516,5 +843,216 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
   it("connection=error + null row: plain offline tooltip", () => {
     const c = resolveCell(mapOf([]), "a", "b", { connection: "error" });
     expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d / §a)                                    */
+/* ------------------------------------------------------------------ */
+
+const NOW = Date.now();
+
+describe("STARTER_COLUMNS (§a 12-mapped / 7-not-supported split)", () => {
+  it("contains exactly the 12 mapped columns", () => {
+    // 12 mapped + 7 not-supported = 19 columns. Guards the dashboard's copy
+    // of the harness STARTER_TO_COLUMN value set against silent rot.
+    expect(STARTER_COLUMNS.size).toBe(12);
+  });
+
+  it("includes the 5 drift columns and 7 direct columns", () => {
+    for (const col of [
+      "google-adk",
+      "langgraph-typescript",
+      "strands",
+      "ms-agent-dotnet",
+      "ms-agent-python",
+      "crewai-crews",
+      "langgraph-fastapi",
+      "langgraph-python",
+      "agno",
+      "llamaindex",
+      "mastra",
+      "pydantic-ai",
+    ]) {
+      expect(starterIsSupported(col)).toBe(true);
+    }
+  });
+
+  it("treats the 7 unmapped columns as not supported", () => {
+    for (const col of [
+      "ag2",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+      "langroid",
+      "spring-ai",
+      "built-in-agent",
+      "ms-agent-harness-dotnet",
+    ]) {
+      expect(starterIsSupported(col)).toBe(false);
+    }
+  });
+});
+
+describe("resolveStarterRow", () => {
+  it("looks up the flat starter:<col>/<level> key", () => {
+    const r = row("starter:agno/health", "starter", "green");
+    const live = mapOf([r]);
+    expect(resolveStarterRow(live, "agno", "health")).toBe(r);
+  });
+
+  it("returns null for a column/level with no row (not-yet-run)", () => {
+    expect(resolveStarterRow(mapOf([]), "agno", "chat")).toBeNull();
+  });
+
+  it("does not cross-contaminate levels", () => {
+    const live = mapOf([row("starter:agno/agent", "starter", "red")]);
+    expect(resolveStarterRow(live, "agno", "agent")?.state).toBe("red");
+    expect(resolveStarterRow(live, "agno", "health")).toBeNull();
+  });
+});
+
+describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
+  it("✓ healthy: green row → green ✓", () => {
+    const b = buildStarterBadge(
+      "health",
+      true,
+      row("starter:agno/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("red ✗ smoke-failed: red row → red ✗", () => {
+    const b = buildStarterBadge(
+      "chat",
+      true,
+      row("starter:agno/chat", "starter", "red"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("~ stale: green row older than STARTER_STALE_AFTER_MS downgrades to amber ~", () => {
+    const stale = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS - 1).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, stale, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    // The downgraded effective row's state agrees with the tone.
+    expect(b.row?.state).toBe("degraded");
+  });
+
+  it("~ stale boundary: green row EXACTLY at the window is NOT stale (strict >)", () => {
+    const atBoundary = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, atBoundary, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  // Hourly-cadence derivation (starter_smoke.yml `schedule: "40 * * * *"`,
+  // 1h probe period; STARTER_STALE_AFTER_MS = 2.5h). These pin the window to
+  // the hourly basis: a single missed tick (last row ~2h old) MUST stay green;
+  // two consecutive misses (last row ~3h old) MUST flip amber.
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
+  it("window is strictly > 2 hourly probe periods and < 3 (derived 2.5h)", () => {
+    expect(STARTER_STALE_AFTER_MS).toBeGreaterThan(2 * ONE_HOUR_MS);
+    expect(STARTER_STALE_AFTER_MS).toBeLessThan(3 * ONE_HOUR_MS);
+  });
+
+  it("single missed hourly tick (~2h old) stays green", () => {
+    const oneMiss = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 2 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, oneMiss, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("two consecutive missed hourly ticks (~3h old) flip amber ~", () => {
+    const twoMisses = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 3 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, twoMisses, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    expect(b.row?.state).toBe("degraded");
+  });
+
+  it("gray ?: supported column, no row yet → gray ? (not-yet-run)", () => {
+    const b = buildStarterBadge("interaction", true, null, NOW, "live");
+    expect(b.tone).toBe("gray");
+    expect(b.label).toBe("?");
+  });
+
+  it("not-supported ✗: unmapped column → gray ✗, mapping-derived (not data-derived)", () => {
+    // Keyed off isSupported=false, NOT off a missing row — so it is visually
+    // distinct from the gray `?` not-yet-run state (same tone, different glyph)
+    // AND from the red smoke-failed ✗ (different tone).
+    const b = buildStarterBadge("health", false, null, NOW, "live");
+    expect(b.tone).toBe("gray");
+    expect(b.label).toBe("✗");
+    expect(b.tooltip).toBe("no starter for this integration");
+    expect(b.row).toBeNull();
+  });
+
+  it("not-supported ✗ is independent of any row data (mapping wins)", () => {
+    // Even if a stray row existed, an unmapped column must still render the
+    // not-supported state — the caller passes row=null for unmapped columns,
+    // but assert buildStarterBadge ignores row entirely when !isSupported.
+    const b = buildStarterBadge(
+      "health",
+      false,
+      row("starter:ag2/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.label).toBe("✗");
+    expect(b.tone).toBe("gray");
+  });
+
+  it("tooltip carries the per-level descriptor for data-bearing states", () => {
+    const expected: Record<StarterLevel, string> = {
+      health: "health endpoint responded",
+      agent: "agent endpoint reachable (non-404)",
+      chat: "chat round-trip via aimock returned a response",
+      interaction: "UI interactions work, no console errors",
+    };
+    for (const level of STARTER_LEVELS) {
+      const b = buildStarterBadge(
+        level,
+        true,
+        row(`starter:agno/${level}`, "starter", "green"),
+        NOW,
+        "live",
+      );
+      expect(b.tooltip).toContain(expected[level]);
+    }
+  });
+});
+
+describe("starter rows are informational — excluded from resolveCell rollup", () => {
+  it("a red starter row does NOT make the feature-cell rollup red", () => {
+    // resolveCell only reads health + e2e (+ informational badges). A starter
+    // row sharing the slug must never leak into the rollup.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("e2e:agno/agentic-chat", "e2e", "green"),
+      // A red starter row for the same integration:
+      row("starter:agno/health", "starter", "red"),
+      row("starter:agno/chat", "starter", "red"),
+    ]);
+    const cell = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    // Rollup stays green (or whatever health+e2e dictate) — NOT red.
+    expect(cell.rollup).not.toBe("red");
+    // And the CellState shape exposes no starter contributor.
+    expect(Object.keys(cell)).not.toContain("starter");
   });
 });

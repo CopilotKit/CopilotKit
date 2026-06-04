@@ -181,7 +181,7 @@ export const MCPAppsActivityContentSchema = z.object({
   // Optional stable server ID from config (takes precedence over serverHash)
   serverId: z.string().optional(),
   // Original tool input arguments
-  toolInput: z.record(z.unknown()).optional(),
+  toolInput: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type MCPAppsActivityContent = z.infer<

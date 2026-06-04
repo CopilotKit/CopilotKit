@@ -1,38 +1,138 @@
-// Shared helpers for walking the `src/content/reference/` tree. Used by
-// both /reference (index page) and /reference/[...slug] so the two stay
-// in sync: same subdirs, same recursive traversal, same gray-matter
-// handling, same caching behavior.
+// Shared helpers for walking and resolving the `src/content/reference/`
+// tree. The v2 reference lives at the root for backwards-compatible
+// `/reference/<slug>` URLs and is also exposed as `/reference/v2/<slug>`.
+// Every other SDK is nested under its own folder: the v1 React reference
+// under `src/content/reference/v1`, the `@copilotkit/core` TypeScript
+// reference under `src/content/reference/core`, and so on. Adding a new
+// SDK is a matter of appending a version id below + a content folder.
 
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import type * as PageTree from "fumadocs-core/page-tree";
+import { safeExistsSync, safeReadFileSync } from "@/lib/safe-fs";
 
 export const REFERENCE_CONTENT_DIR = path.join(
   process.cwd(),
   "src/content/reference",
 );
 
-// Top-level reference categories we index. Anything outside this list is
-// ignored (e.g. a stray snippet file at the root).
-export const REFERENCE_SUBDIRS = ["components", "hooks"] as const;
-export type ReferenceSubdir = (typeof REFERENCE_SUBDIRS)[number];
+// `v2` is the root SDK (React, latest). Every other id nests under a
+// folder of the same name. To add a new SDK: append an id here, add a
+// `VERSION_SUBDIRS` entry, add a `VERSION_LABELS` entry in
+// `reference-version-selector.tsx` (a `Record<ReferenceVersion, string>`,
+// so a missing label is a compile error), and create a
+// `src/content/reference/<id>/` folder.
+export const REFERENCE_VERSIONS = ["v2", "v1", "core"] as const;
+export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
+
+/** The root SDK whose content lives directly under `reference/`. */
+const ROOT_VERSION: ReferenceVersion = "v2";
+
+export const REFERENCE_CATEGORIES = [
+  "Components",
+  "Hooks",
+  "Classes",
+  "Types",
+  "Enums",
+  "SDKs",
+] as const;
+export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
+
+type ReferenceSubdir =
+  | "components"
+  | "hooks"
+  | "classes"
+  | "types"
+  | "enums"
+  | "sdk";
+
+const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
+  v2: ["components", "hooks", "sdk"],
+  v1: ["components", "hooks", "classes", "sdk"],
+  core: ["classes", "types", "enums"],
+};
+
+const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
+  components: "Components",
+  hooks: "Hooks",
+  classes: "Classes",
+  types: "Types",
+  enums: "Enums",
+  sdk: "SDKs",
+};
 
 export type ReferenceItem = {
-  /** subdir-relative slug, e.g. `components/chat` or `components/inputs/textarea`. */
+  /** Version-relative slug, e.g. `components/chat` or `hooks/useAgent`. */
   slug: string;
   title: string;
   description?: string;
-  category: "Components" | "Hooks";
+  category: ReferenceCategory;
+  version: ReferenceVersion;
+  url: string;
 };
 
-function categoryFor(subdir: ReferenceSubdir): "Components" | "Hooks" {
-  return subdir === "components" ? "Components" : "Hooks";
+export type ResolvedReferencePage = {
+  version: ReferenceVersion;
+  pageSlug: string;
+  contentSlug: string;
+  raw: string;
+};
+
+function isProd(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function versionDir(version: ReferenceVersion): string {
+  return version === ROOT_VERSION
+    ? REFERENCE_CONTENT_DIR
+    : path.join(REFERENCE_CONTENT_DIR, version);
+}
+
+function versionRelativePrefix(version: ReferenceVersion): string {
+  return version === ROOT_VERSION ? "" : `${version}/`;
+}
+
+export function referenceHref(
+  version: ReferenceVersion,
+  pageSlug?: string,
+): string {
+  const cleanSlug = pageSlug?.replace(/^\/+|\/+$/g, "");
+  const suffix = cleanSlug ? `/${cleanSlug}` : "";
+  return `/reference/${version}${suffix}`;
+}
+
+function contentSlugForPage(
+  version: ReferenceVersion,
+  pageSlug: string,
+): string {
+  const prefix = versionRelativePrefix(version);
+  return `${prefix}${pageSlug || "index"}`;
+}
+
+function pageExists(version: ReferenceVersion, pageSlug: string): boolean {
+  const contentSlug = contentSlugForPage(version, pageSlug);
+  return (
+    safeExistsSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ||
+    safeExistsSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`)
+  );
+}
+
+export function referenceVersionHref(
+  version: ReferenceVersion,
+  currentPageSlug?: string,
+): string {
+  const cleanSlug = currentPageSlug?.replace(/^\/+|\/+$/g, "") ?? "";
+  return referenceHref(
+    version,
+    cleanSlug && pageExists(version, cleanSlug) ? cleanSlug : undefined,
+  );
 }
 
 /**
- * Recursively collect all `.mdx` files under `dir` and return their paths
- * relative to `dir` (without the `.mdx` extension). Silently skips
- * unreadable subdirectories so a single EACCES doesn't break the build.
+ * Recursively collect `.mdx` files under `dir` and return paths relative
+ * to `dir` without the `.mdx` extension. Directory index pages are kept
+ * as `folder/index` here and normalized later.
  */
 function walkMdx(dir: string, prefix: string = ""): string[] {
   let entries: fs.Dirent[];
@@ -42,9 +142,10 @@ function walkMdx(dir: string, prefix: string = ""): string[] {
     console.error(`[reference-items] Failed to read dir ${dir}:`, err);
     return [];
   }
+
   const out: string[] = [];
   for (const entry of entries) {
-    if (entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
     const childAbs = path.join(dir, entry.name);
     const childRel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
@@ -56,17 +157,32 @@ function walkMdx(dir: string, prefix: string = ""): string[] {
   return out;
 }
 
-/**
- * Load items from a single reference subdir, recursing into subfolders.
- * Malformed frontmatter on any file is logged and skipped — we never
- * crash the whole index just because one page has a bad YAML block.
- */
-function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
-  const dir = path.join(REFERENCE_CONTENT_DIR, subdir);
+function normalizeRouteSlug(subdir: ReferenceSubdir, relSlug: string): string {
+  const normalized = relSlug.endsWith("/index")
+    ? relSlug.slice(0, -"/index".length)
+    : relSlug;
+  return normalized === "index" ? subdir : `${subdir}/${normalized}`;
+}
+
+function fallbackTitle(routeSlug: string): string {
+  return routeSlug.split("/").filter(Boolean).pop() ?? routeSlug;
+}
+
+function loadSubdirItems(
+  version: ReferenceVersion,
+  subdir: ReferenceSubdir,
+): ReferenceItem[] {
+  const dir = path.join(versionDir(version), subdir);
   if (!fs.existsSync(dir)) return [];
 
   const items: ReferenceItem[] = [];
+  const seenSlugs = new Set<string>();
+
   for (const relSlug of walkMdx(dir)) {
+    const routeSlug = normalizeRouteSlug(subdir, relSlug);
+    if (seenSlugs.has(routeSlug)) continue;
+    seenSlugs.add(routeSlug);
+
     const filePath = path.join(dir, `${relSlug}.mdx`);
     let raw: string;
     try {
@@ -75,6 +191,7 @@ function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
       console.error(`[reference-items] Failed to read ${filePath}:`, err);
       continue;
     }
+
     let data: Record<string, unknown> = {};
     try {
       ({ data } = matter(raw));
@@ -85,50 +202,126 @@ function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
       );
       continue;
     }
-    const fallbackTitle = relSlug.split("/").pop() ?? relSlug;
+
     items.push({
-      slug: `${subdir}/${relSlug}`,
+      slug: routeSlug,
       title:
         typeof data.title === "string" && data.title.length > 0
           ? data.title
-          : fallbackTitle,
+          : fallbackTitle(routeSlug),
       description:
         typeof data.description === "string" ? data.description : undefined,
-      category: categoryFor(subdir),
+      category: CATEGORY_BY_SUBDIR[subdir],
+      version,
+      url: referenceHref(version, routeSlug),
     });
   }
+
   return items;
 }
 
-// In-memory cache — keyed by subdir, rebuilt once per process in prod. In
-// dev we skip the cache so MDX edits show up without a server restart.
-const __itemsCache = new Map<ReferenceSubdir, ReferenceItem[]>();
-function isProd(): boolean {
-  return process.env.NODE_ENV === "production";
-}
+const itemsCache = new Map<string, ReferenceItem[]>();
 
-export function loadReferenceItems(subdir: ReferenceSubdir): ReferenceItem[] {
+export function loadReferenceItems(
+  version: ReferenceVersion,
+  subdir: ReferenceSubdir,
+): ReferenceItem[] {
+  const cacheKey = `${version}:${subdir}`;
   if (isProd()) {
-    const cached = __itemsCache.get(subdir);
+    const cached = itemsCache.get(cacheKey);
     if (cached) return cached;
   }
-  const items = loadSubdirItems(subdir);
-  if (isProd()) __itemsCache.set(subdir, items);
+
+  const items = loadSubdirItems(version, subdir);
+  if (isProd()) itemsCache.set(cacheKey, items);
   return items;
 }
 
-export function loadAllReferenceItems(): ReferenceItem[] {
-  return REFERENCE_SUBDIRS.flatMap((s) => loadReferenceItems(s));
+export function loadReferenceVersionItems(
+  version: ReferenceVersion,
+): ReferenceItem[] {
+  return VERSION_SUBDIRS[version].flatMap((subdir) =>
+    loadReferenceItems(version, subdir),
+  );
 }
 
-/**
- * For `generateStaticParams`: return every reference page as its Next.js
- * catch-all slug array. Recursive (unlike the previous one-level-only
- * implementation), so subfolder docs like `components/inputs/textarea`
- * are statically generated too.
- */
+export function buildReferencePageTree(
+  version: ReferenceVersion,
+): PageTree.Root {
+  const allItems = loadReferenceVersionItems(version);
+  return {
+    name: "Reference",
+    children: REFERENCE_CATEGORIES.flatMap((category) => {
+      const categoryItems = allItems.filter(
+        (item) => item.category === category,
+      );
+      if (categoryItems.length === 0) return [];
+      return [
+        { type: "separator" as const, name: category },
+        ...categoryItems.map(
+          (item): PageTree.Item => ({
+            type: "page",
+            name: item.title,
+            url: item.url,
+          }),
+        ),
+      ];
+    }),
+  };
+}
+
+function splitVersionedSlug(slugPath: string): {
+  version: ReferenceVersion;
+  pageSlug: string;
+} {
+  for (const version of REFERENCE_VERSIONS) {
+    if (slugPath === version || slugPath.startsWith(`${version}/`)) {
+      // Strip the version id by length (slice), not a RegExp built from the
+      // id, so a future id with a regex-special char can't corrupt the match.
+      // The trailing `replace(/^\//, "")` is a fixed pattern just trimming the
+      // separator, so it's safe.
+      return {
+        version,
+        pageSlug: slugPath.slice(version.length).replace(/^\//, ""),
+      };
+    }
+  }
+  // Unprefixed slugs (`/reference/<slug>`) resolve against the root SDK.
+  return { version: ROOT_VERSION, pageSlug: slugPath };
+}
+
+export function resolveReferencePage(
+  slug: string[],
+): ResolvedReferencePage | null {
+  const slugPath = slug.join("/");
+  const { version, pageSlug } = splitVersionedSlug(slugPath);
+  const contentSlug = contentSlugForPage(version, pageSlug);
+  const raw =
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ??
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`);
+
+  if (raw === null) return null;
+  return {
+    version,
+    pageSlug,
+    contentSlug,
+    raw,
+  };
+}
+
 export function referenceStaticParams(): { slug: string[] }[] {
-  return loadAllReferenceItems().map((item) => ({
-    slug: item.slug.split("/"),
-  }));
+  const params = new Map<string, string[]>();
+  const add = (slug: string[]) => params.set(slug.join("/"), slug);
+
+  for (const version of REFERENCE_VERSIONS) {
+    add([version]);
+    for (const item of loadReferenceVersionItems(version)) {
+      add([version, ...item.slug.split("/")]);
+      if (version === ROOT_VERSION) {
+        add(item.slug.split("/"));
+      }
+    }
+  }
+
+  return [...params.values()].map((slug) => ({ slug }));
 }

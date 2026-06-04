@@ -2,7 +2,10 @@
 // @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { openai } from "@ai-sdk/openai";
+// Use the header-forwarding `openai` so backend tool LLM calls (e.g.
+// generateText inside generateA2ui) carry the inbound aimock context
+// headers. See `_header_forwarding.ts`.
+import { openai } from "@/mastra/_header_forwarding";
 import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
@@ -18,6 +21,7 @@ import {
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
 export { setNotesTool } from "./shared-state-read-write";
+export { setStepsTool } from "./gen-ui-agent";
 export {
   researchAgentTool,
   writingAgentTool,

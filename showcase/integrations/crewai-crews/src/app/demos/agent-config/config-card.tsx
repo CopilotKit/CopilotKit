@@ -27,10 +27,10 @@ export function ConfigCard({
   return (
     <div
       data-testid="agent-config-card"
-      className="flex flex-col gap-2 rounded-md border border-gray-200 bg-white p-4 text-sm"
+      className="flex flex-col gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] p-4 text-sm"
     >
       <h2 className="text-sm font-semibold">Agent Config</h2>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[var(--text-muted)]">
         Change these and send a message to see the agent adapt.
       </p>
       <div className="flex flex-wrap gap-3">
@@ -42,7 +42,7 @@ export function ConfigCard({
             onChange={(e: ChangeEvent<HTMLSelectElement>) =>
               onToneChange(e.target.value as Tone)
             }
-            className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm"
+            className="rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-1 text-sm"
           >
             {TONE_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -59,7 +59,7 @@ export function ConfigCard({
             onChange={(e: ChangeEvent<HTMLSelectElement>) =>
               onExpertiseChange(e.target.value as Expertise)
             }
-            className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm"
+            className="rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-1 text-sm"
           >
             {EXPERTISE_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -76,7 +76,7 @@ export function ConfigCard({
             onChange={(e: ChangeEvent<HTMLSelectElement>) =>
               onResponseLengthChange(e.target.value as ResponseLength)
             }
-            className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-sm"
+            className="rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-1 text-sm"
           >
             {RESPONSE_LENGTH_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>

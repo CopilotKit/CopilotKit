@@ -249,6 +249,9 @@ export function useOverlays(): UseOverlaysReturn {
       setActiveTabRaw(tab);
       setSelectedProbeIdRaw(null);
       writeHash(tab, overlays, null, true);
+      // Persist the current overlay set for symmetry with toggle/updateOverlays
+      // so the user's overlay selection survives across tab switches + reloads.
+      saveToStorage(overlays);
     },
     [overlays],
   );

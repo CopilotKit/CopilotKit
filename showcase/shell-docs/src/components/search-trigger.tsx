@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Command, Search } from "lucide-react";
 import { SearchModal } from "./search-modal";
+
+const TOGGLE_SEARCH_EVENT = "shell-docs:toggle-search";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -12,23 +16,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return false;
 }
 
-export function SearchTrigger({
-  iconOnly = false,
-}: { iconOnly?: boolean } = {}) {
-  // Start as null so SSR output matches the initial client render; resolve
-  // after mount to avoid hydration mismatch flashing ⌘K → Ctrl+K on non-Mac.
-  const [isMac, setIsMac] = useState<boolean | null>(null);
+export function ShellSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const mac =
-      typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
-    setIsMac(mac);
-  }, []);
+  const closeSearch = useCallback(() => setOpen(false), []);
+  const toggleSearch = useCallback(() => setOpen((prev) => !prev), []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         // Don't hijack Cmd/Ctrl+K when the user is typing in an unrelated
         // input / textarea / contenteditable — only steal the shortcut when
         // focus is outside an editable element or already inside our own
@@ -39,38 +34,56 @@ export function SearchTrigger({
         if (isEditableTarget(target) && !insideSearchModal) return;
 
         e.preventDefault();
-        setOpen((prev) => !prev);
+        e.stopPropagation();
+        toggleSearch();
       }
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeSearch();
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener(TOGGLE_SEARCH_EVENT, toggleSearch);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener(TOGGLE_SEARCH_EVENT, toggleSearch);
+    };
+  }, [closeSearch, toggleSearch]);
+
+  return (
+    <>
+      {children}
+      {open && <SearchModalWrapper onClose={closeSearch} />}
+    </>
+  );
+}
+
+function toggleShellSearch() {
+  window.dispatchEvent(new Event(TOGGLE_SEARCH_EVENT));
+}
+
+export function SearchTrigger({
+  iconOnly = false,
+}: { iconOnly?: boolean } = {}) {
+  // Start as null so SSR output matches the initial client render; resolve
+  // after mount to avoid hydration mismatch flashing ⌘K → Ctrl+K on non-Mac.
+  const [isMac, setIsMac] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mac =
+      typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
+    setIsMac(mac);
   }, []);
 
   if (iconOnly) {
     return (
-      <>
-        <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
-          aria-label="Search"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </button>
-        {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
-      </>
+      <button
+        onClick={toggleShellSearch}
+        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+        aria-label="Search"
+        title="Search"
+      >
+        <Search className="h-4 w-4" aria-hidden="true" />
+      </button>
     );
   }
 
@@ -79,49 +92,34 @@ export function SearchTrigger({
   return (
     <>
       <button
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={toggleShellSearch}
         aria-label="Search"
-        className="-ml-2 lg:ml-0 lg:min-w-[260px] xl:min-w-[320px] flex gap-2 items-center px-3 h-11 rounded-lg cursor-pointer bg-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+        className="flex h-9 w-9 cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 20 20"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            d="M9.16667 15.8333C12.8486 15.8333 15.8333 12.8486 15.8333 9.16667C15.8333 5.48477 12.8486 2.5 9.16667 2.5C5.48477 2.5 2.5 5.48477 2.5 9.16667C2.5 12.8486 5.48477 15.8333 9.16667 15.8333Z"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M17.5 17.5L13.875 13.875"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
 
         <span className="hidden flex-1 text-left text-sm font-medium lg:block">
-          Search...
+          Search
         </span>
 
         <span
-          className="hidden xl:inline-flex items-center justify-center font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded text-[var(--text-faint)] bg-[var(--bg-surface)]"
+          className="hidden xl:inline-flex items-center justify-center gap-1 font-mono text-[11px] border border-[var(--border)] px-1.5 py-0.5 rounded-md text-[var(--text-faint)] bg-[var(--bg-surface)]"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
-          style={{ minWidth: "2.5rem" }}
+          style={{ minWidth: "3.25rem" }}
           suppressHydrationWarning
         >
-          {isMac === null ? " " : isMac ? "⌘K" : "Ctrl+K"}
+          {isMac === null ? (
+            "\u00a0"
+          ) : isMac ? (
+            <>
+              <Command className="h-3 w-3" aria-hidden="true" />K
+            </>
+          ) : (
+            "Ctrl K"
+          )}
         </span>
       </button>
-      {open && <SearchModalWrapper onClose={() => setOpen(false)} />}
     </>
   );
 }

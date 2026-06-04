@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / gen-ui-custom (pie chart path)",
+    "sourceFile": "harness/fixtures/d5/gen-ui-custom.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-custom pie chart — first leg: emit render_pie_chart tool call. hasToolResult:false ensures this only matches when there's no prior tool result in the conversation. Includes narration content (with 'pie chart' tokens) inline so the D5 probe's last-assistant-text assertion passes even when the LGP runtime does not re-invoke the LLM after a frontend tool result returns (the second-leg fixture below remains a safety net for runtimes that DO loop back). chunkSize: 9999 guards against the @ag-ui/langgraph 0.0.34 partial-tool-call JSON.parse class — the render_pie_chart args are large enough to otherwise stream across multiple chunks and trip RUN_ERROR.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books.",
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-custom pie chart — second leg: narration after the pie chart tool result lands. Kept as a safety net when the LGP runtime DOES loop back to the LLM. The follow-up text contains 'pie' and 'chart' tokens — the D5 probe asserts their presence.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

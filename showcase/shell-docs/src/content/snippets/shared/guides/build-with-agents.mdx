@@ -1,0 +1,51 @@
+AI coding agents may not have up-to-date knowledge of CopilotKit's APIs, patterns, and best practices. The resources on this page give them accurate, current knowledge directly in their context.
+
+## CopilotKit Skills
+
+Skills are folders of instructions, references, and scripts that coding agents can discover and use to work with CopilotKit accurately. Installing them gives your agent authoritative guidance on setup, development, debugging, integration, and upgrades — without relying on potentially outdated training data.
+
+<Callout type="info">
+  Skills are the recommended way to give your agent CopilotKit knowledge. They work natively in Claude Code, Cursor, Codex, Gemini CLI, and any tool supporting the [agentskills.io](https://agentskills.io) standard.
+</Callout>
+
+Most of these skills help you **build with** CopilotKit. If you're just getting started, these three cover the most common tasks:
+
+| Skill | Use it to |
+| --- | --- |
+| `copilotkit-setup` | Add CopilotKit to a project and get a chat working |
+| `copilotkit-develop` | Build AI features — chat UI, frontend tools, and shared agent context |
+| `copilotkit-integrations` | Connect an agent framework (LangGraph, CrewAI, Mastra, and more) |
+
+The full [skills directory](https://github.com/CopilotKit/CopilotKit/tree/main/skills) adds more for specific tasks — like `copilotkit-debug` and `copilotkit-upgrade` — plus `copilotkit-contribute`, which is for working on the CopilotKit project itself rather than building with it. You don't need to memorize the list; your agent discovers the installed skills and picks the right one for each task.
+
+<Steps>
+  <Step>
+    ### Install the skills
+
+    Run this from the root of the project you're building in:
+
+    ```bash
+    npx skills add CopilotKit/CopilotKit/skills -y
+    ```
+
+    This installs the skills into your project, where any coding agent working there (Claude Code, Codex, Cursor, or Gemini CLI) discovers them automatically. There's no per-agent configuration to do.
+
+    <Callout type="info">
+      Want to choose what gets installed? Run `npx skills add CopilotKit/CopilotKit/skills` without `-y` to pick specific skills, target agents, and scope interactively — or add `-g` to install globally for every project.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Start building
+
+    Open a new agent session and use a starter prompt to put the skills to work:
+
+    ```
+    Help me build a CopilotKit app. Use the copilotkit-setup skill to get started.
+    ```
+
+    Your agent will discover the installed skills and use the right one for each task — setup, development, debugging, or integration.
+  </Step>
+</Steps>
+
+<MCPSetup />

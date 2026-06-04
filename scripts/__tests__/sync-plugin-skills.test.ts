@@ -31,11 +31,11 @@ async function makeRepo(root: string) {
     join(pkgRoot, "a2ui-renderer/skills/a2ui-renderer/SKILL.md"),
     "---\nname: a2ui-renderer\n---\n# A2UI\n",
   );
-  // Pre-existing lifecycle skill at the mirror root — must be left alone.
-  await mkdir(join(root, "skills/0-to-working-chat"), { recursive: true });
+  // Pre-existing standalone skill at the mirror root — must be left alone.
+  await mkdir(join(root, "skills/copilotkit-setup"), { recursive: true });
   await writeFile(
-    join(root, "skills/0-to-working-chat/SKILL.md"),
-    "---\nname: 0-to-working-chat\n---\n# Lifecycle\n",
+    join(root, "skills/copilotkit-setup/SKILL.md"),
+    "---\nname: copilotkit-setup\n---\n# Setup\n",
   );
 }
 
@@ -74,23 +74,23 @@ describe("syncPluginSkills", () => {
     expect(a2uiSkill).toBe("---\nname: a2ui-renderer\n---\n# A2UI\n");
   });
 
-  it("does not modify pre-existing lifecycle skills", async () => {
+  it("does not modify pre-existing standalone skills", async () => {
     await makeRepo(repo);
     await syncPluginSkills({ cwd: repo, mode: "write" });
-    const lifecycle = await readFile(
-      join(repo, "skills/0-to-working-chat/SKILL.md"),
+    const standalone = await readFile(
+      join(repo, "skills/copilotkit-setup/SKILL.md"),
       "utf8",
     );
-    expect(lifecycle).toBe("---\nname: 0-to-working-chat\n---\n# Lifecycle\n");
+    expect(standalone).toBe("---\nname: copilotkit-setup\n---\n# Setup\n");
   });
 
   it("errors with exit code 2 if a package skill collides with a reserved lifecycle slug", async () => {
     const pkgRoot = join(repo, "packages");
-    await mkdir(join(pkgRoot, "rogue/skills/0-to-working-chat"), {
+    await mkdir(join(pkgRoot, "rogue/skills/copilotkit-setup"), {
       recursive: true,
     });
     await writeFile(
-      join(pkgRoot, "rogue/skills/0-to-working-chat/SKILL.md"),
+      join(pkgRoot, "rogue/skills/copilotkit-setup/SKILL.md"),
       "collision\n",
     );
     const result = await syncPluginSkills({ cwd: repo, mode: "write" });
@@ -130,9 +130,9 @@ describe("syncPluginSkills", () => {
   });
 
   it("exports the reserved lifecycle slug set", () => {
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("0-to-working-chat");
-    expect(RESERVED_LIFECYCLE_SLUGS).toContain("v1-to-v2-migration");
-    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(6);
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-setup");
+    expect(RESERVED_LIFECYCLE_SLUGS).toContain("copilotkit-self-update");
+    expect(RESERVED_LIFECYCLE_SLUGS.size).toBe(8);
   });
 
   // Version sync — the plugin version tracks packages/runtime/package.json.

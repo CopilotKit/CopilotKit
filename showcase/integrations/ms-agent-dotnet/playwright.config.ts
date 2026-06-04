@@ -20,6 +20,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
+    extraHTTPHeaders: {
+      "X-AIMock-Context": "ms-agent-dotnet",
+    },
   },
   projects: [
     {

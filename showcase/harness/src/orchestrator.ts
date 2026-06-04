@@ -8,7 +8,8 @@ import {
   assertSafeKey,
 } from "./storage/alert-state-store.js";
 import { createEventBus } from "./events/event-bus.js";
-import { createRuleLoader, type CompiledRule } from "./rules/rule-loader.js";
+import { createRuleLoader } from "./rules/rule-loader.js";
+import type { CompiledRule } from "./rules/rule-loader.js";
 import { createRenderer } from "./render/renderer.js";
 import { createAlertEngine } from "./alerts/alert-engine.js";
 import { createScheduler } from "./scheduler/scheduler.js";
@@ -42,7 +43,7 @@ import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
   createPooledE2eSmokeLauncher,
-} from "./probes/drivers/e2e-chat-tools.js";
+} from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   e2eReadinessDriver,
   createE2eDemosDriver,
@@ -52,14 +53,16 @@ import {
   e2eDeepDriver,
   createE2eDeepDriver,
   createPooledE2eDeepLauncher,
-} from "./probes/drivers/e2e-deep.js";
+} from "./probes/drivers/d5-single-pill.js";
 import {
-  e2eParityDriver,
-  createE2eParityDriver,
-  createPooledE2eParityLauncher,
-} from "./probes/drivers/e2e-parity.js";
+  e2eFullDriver,
+  createE2eFullDriver,
+  createPooledE2eFullLauncher,
+} from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
+import { createResourceSnapshotWriter } from "./probes/helpers/resource-snapshot-writer.js";
 import { qaDriver } from "./probes/drivers/qa.js";
+import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
@@ -200,6 +203,18 @@ export async function boot(opts: BootOptions = {}): Promise<{
       dashboardUrl:
         process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
       repo: process.env.REPO ?? "CopilotKit/CopilotKit",
+      // Source-env label prefixed onto every Slack alert so operators can
+      // tell whether a red probe came from staging or production. Railway
+      // injects RAILWAY_ENVIRONMENT_NAME ("staging" / "production") into
+      // every service at runtime; we prefer an explicit SHOWCASE_ENV
+      // override for local/CI, then fall back to "unknown" (the renderer
+      // surfaces the empty case as `[unknown]` rather than dropping the
+      // tag — a missing env var must look like a visible gap, not a
+      // legacy un-prefixed alert).
+      sourceEnv:
+        process.env.SHOWCASE_ENV ??
+        process.env.RAILWAY_ENVIRONMENT_NAME ??
+        "unknown",
     },
     bootstrapWindowMs: opts.bootstrapWindowMs,
     statusReader,
@@ -282,41 +297,87 @@ export async function boot(opts: BootOptions = {}): Promise<{
     });
   }
 
-  const poolSize = process.env.BROWSER_POOL_SIZE
-    ? parseInt(process.env.BROWSER_POOL_SIZE, 10) || 4
-    : 4;
-  const browserPool = new BrowserPool(poolSize, undefined, logger);
+  // Context-pooled BrowserPool: a fixed small set of long-lived browser
+  // PROCESSES (browsers) with a global cap on concurrently-live CONTEXTS
+  // (maxContexts). BROWSER_POOL_BROWSERS is the process count (legacy
+  // BROWSER_POOL_SIZE retained as a fallback, but its meaning shifts from
+  // "concurrent browsers" to "base browser process count"); deploy env should
+  // move to BROWSER_POOL_BROWSERS=3 + BROWSER_POOL_MAX_CONTEXTS=24.
+  // Do NOT pre-parse the env here with Number(...): Number("abc") is NaN, and
+  // because NaN is not nullish the constructor's `options.browsers ?? <env/default>`
+  // would keep NaN — yielding browserCount = NaN, so init()'s `for (i=0; i<NaN; ...)`
+  // never iterates and ZERO browsers launch (every acquire then times out). The
+  // BrowserPool constructor already reads BROWSER_POOL_BROWSERS / BROWSER_POOL_SIZE /
+  // BROWSER_POOL_MAX_CONTEXTS from process.env with parseInt + NaN/>0 guards and
+  // sensible defaults, so pass only `logger` and let it own numeric resolution.
+  // Browser-pool health signal writers. Shared by the init()-failure path AND
+  // the BrowserPool's mid-life `onDegraded`/`onRecovered` hooks (fix #2): the
+  // unfixed code emitted the degraded signal ONLY on init() failure, so a
+  // mid-life browser-set death (the staging outage) was SILENT.
+  const {
+    writeDegraded: writeBrowserPoolDegraded,
+    writeHealthy: writeBrowserPoolHealthy,
+    writeUnrecoverable: writeBrowserPoolUnrecoverable,
+  } = createBrowserPoolHealthSignals({ writer, statusReader, logger });
+
+  // DURABLE forensic snapshot writer: persists the pool's OS resource gauges to
+  // the `resource_snapshots` PB collection so the history survives the
+  // container RESTART that ends every browser-pool wedge (Railway stdout rolls
+  // off; in-memory is cleared on restart — durable PB is the only
+  // post-wedge-retrievable trail). Reuses the SAME `pb` client the rest of the
+  // harness uses. Writes are best-effort (the writer swallows PB errors so a
+  // missing migration / PB hiccup never breaks the pool) with ring-style
+  // retention to bound growth.
+  const resourceSnapshotWriter = createResourceSnapshotWriter({ pb, logger });
+
+  const browserPool = new BrowserPool({
+    logger,
+    // DURABLE forensic logging: fire-and-forget the full gauge snapshot to PB on
+    // every meaningful pool condition + the periodic heartbeat. The hook is
+    // synchronous; the write is async + best-effort (never throws back here).
+    onSnapshot: (snapshot) => {
+      void resourceSnapshotWriter.write(
+        snapshot.event,
+        snapshot.gauges,
+        snapshot.stats,
+        snapshot.perBrowser,
+      );
+    },
+    // FIX #2 — wire the pool's mid-life capacity-loss + recovery hooks to the
+    // SAME degraded-signal write path. When the browser set empties mid-life the
+    // pool fires `onDegraded` (red alarm) and self-heals; on a successful
+    // self-heal relaunch it fires `onRecovered` (back to green). The hooks are
+    // synchronous; the async writes are fire-and-forget with their own
+    // error handling.
+    onDegraded: () => {
+      void writeBrowserPoolDegraded("browser pool set emptied mid-life");
+    },
+    onRecovered: () => {
+      void writeBrowserPoolHealthy();
+    },
+    // FIX (headline) — wire the TERMINAL alarm. When the self-heal
+    // circuit-breaker exhausts every hard recovery and gives up, write a DISTINCT
+    // `system:browser-pool-unrecoverable` health signal (and escalate the shared
+    // degraded key to critical/terminal) so a give-up is distinguishable from a
+    // transient self-heal-degraded, and best-effort ping Slack (guarded on the
+    // SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE env var — unset by default so the
+    // code deploys before the URL is wired). Without this, the breaker's give-up
+    // was a production NO-OP: the mechanism stopped spinning but NO operator was
+    // ever told a redeploy is required.
+    onUnrecoverable: (info) => {
+      void writeBrowserPoolUnrecoverable(info);
+    },
+  });
   let browserPoolReady = false;
   try {
     await browserPool.init();
     browserPoolReady = true;
-    try {
-      await writer.write({
-        key: "system:browser-pool-degraded",
-        state: "green",
-        signal: { recovered: true, recoveredAt: new Date().toISOString() },
-        observedAt: new Date().toISOString(),
-      });
-    } catch {
-      // best-effort -- pool is healthy, status write failure is non-critical
-    }
+    await writeBrowserPoolHealthy();
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
-    try {
-      await writer.write({
-        key: "system:browser-pool-degraded",
-        state: "red",
-        signal: {
-          errorMessage: err instanceof Error ? err.message : String(err),
-          degradedSince: new Date().toISOString(),
-        },
-        observedAt: new Date().toISOString(),
-      });
-    } catch (writeErr) {
-      logger.warn("boot.browser-pool-status-write-failed", {
-        error: writeErr instanceof Error ? writeErr.message : String(writeErr),
-      });
-    }
+    await writeBrowserPoolDegraded(
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
   const probeRegistry = createProbeRegistry();
@@ -800,6 +861,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
         err: String(stopErr),
       }),
     );
+    // R2-B.2: init() launched long-lived chromium processes; shutdown() runs
+    // only in the stop() closure a boot rejection never reaches. Tear the pool
+    // down here too so a serve()-throw boot doesn't strand every browser (which
+    // on a restart loop compounds into PID-ceiling exhaustion). Best-effort.
+    if (browserPoolReady) {
+      await browserPool.shutdown().catch((shutErr) =>
+        logger.error("orchestrator.browser-pool-shutdown-after-serve-failure", {
+          err: String(shutErr),
+        }),
+      );
+    }
     schedulerRunning = false;
     throw err;
   }
@@ -837,6 +909,20 @@ export async function boot(opts: BootOptions = {}): Promise<{
           err: String(stopErr),
         }),
       );
+      // R4-A.3: also release the browser pool init() launched, so an async
+      // bind failure (EADDRINUSE) doesn't strand every chromium process. Same
+      // fire-and-forget shape as scheduler.stop() above — operators see the
+      // original bind error, not a shutdown-failure shadow. Best-effort.
+      if (browserPoolReady) {
+        browserPool
+          .shutdown()
+          .catch((shutErr) =>
+            logger.error(
+              "orchestrator.browser-pool-shutdown-after-async-bind-failure",
+              { err: String(shutErr) },
+            ),
+          );
+      }
       reject(err instanceof Error ? err : new Error(String(err)));
     };
     srv.once("listening", onListen);
@@ -939,7 +1025,9 @@ export function registerAllProbeDrivers(
 
   if (pool) {
     probeRegistry.register(
-      createE2eSmokeDriver({ launcher: createPooledE2eSmokeLauncher(pool) }),
+      createE2eSmokeDriver({
+        launcher: createPooledE2eSmokeLauncher(pool, logger),
+      }),
     );
     probeRegistry.register(
       createE2eDemosDriver({
@@ -952,16 +1040,19 @@ export function registerAllProbeDrivers(
       }),
     );
     probeRegistry.register(
-      createE2eParityDriver({ launcher: createPooledE2eParityLauncher(pool) }),
+      createE2eFullDriver({
+        launcher: createPooledE2eFullLauncher(pool, logger),
+      }),
     );
   } else {
     probeRegistry.register(e2eChatToolsDriver);
     probeRegistry.register(e2eReadinessDriver);
     probeRegistry.register(e2eDeepDriver);
-    probeRegistry.register(e2eParityDriver);
+    probeRegistry.register(e2eFullDriver);
   }
 
   probeRegistry.register(qaDriver);
+  probeRegistry.register(starterSmokeDriver);
 }
 
 /**
@@ -974,6 +1065,305 @@ export function registerAllProbeDrivers(
  * Exported for tests so the key-safety invariant can be asserted
  * without spinning up the full boot path.
  */
+/**
+ * The PB status key the browser-pool capacity-loss signal is written under.
+ * Exported so the boot wiring and the health-signal factory share one source
+ * of truth.
+ */
+export const BROWSER_POOL_DEGRADED_KEY = "system:browser-pool-degraded";
+
+/**
+ * Distinct PB status key the TERMINAL (give-up) browser-pool signal is written
+ * under. Kept SEPARATE from `BROWSER_POOL_DEGRADED_KEY` so the dashboard /
+ * alerting can distinguish a TRANSIENT self-heal-degraded (red, expected to
+ * recover on its own) from an UNRECOVERABLE give-up (the breaker exhausted every
+ * hard recovery — a redeploy is genuinely required). The terminal signal also
+ * carries `severity: "critical"` + `terminal: true` so a consumer keying off the
+ * degraded key alone still sees the escalation.
+ */
+export const BROWSER_POOL_UNRECOVERABLE_KEY =
+  "system:browser-pool-unrecoverable";
+
+/**
+ * Env var holding the Slack incoming-webhook URL the TERMINAL browser-pool alarm
+ * posts to. Intentionally UNSET by default (alerting discipline: deploy the code
+ * first, wire the URL separately) — when unset the Slack post is skipped and
+ * only the (unconditional) PB health-signal write fires. A `system:`-prefixed
+ * health key drives the dashboard regardless; the Slack ping is a best-effort
+ * operator nudge on top.
+ */
+export const BROWSER_POOL_ALERT_WEBHOOK_ENV =
+  "SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE";
+
+/** Breaker counters + resource gauges surfaced in the terminal alarm so an
+ *  operator sees how hard the pool tried before giving up AND the PROVEN wedge
+ *  signal (the cgroup PID/thread ceiling) that caused it. */
+export interface BrowserPoolBreakerCounters {
+  browserCount: number;
+  waiters: number;
+  maxHardRecoveries: number;
+  /** cgroup `pids.current` at give-up — the measured PID/thread count against
+   *  the ceiling. -1 off-Linux / when the cgroup PID controller is unreadable. */
+  cgroupPidsCurrent?: number;
+  /** cgroup `pids.max` ceiling at give-up (-1 = unbounded / unavailable). */
+  cgroupPidsMax?: number;
+  /** Process-tree thread count at give-up (demand against `pids.max`). */
+  treeThreadCount?: number;
+}
+
+interface BrowserPoolHealthSignalsDeps {
+  writer: { write(result: ProbeResultLike): Promise<unknown> };
+  statusReader: { getStateByKey(key: string): Promise<State | null> };
+  logger: Pick<Logger, "warn"> & Partial<Pick<Logger, "error" | "info">>;
+  /** Env source (defaults to process.env) — injectable for tests. */
+  env?: Readonly<Record<string, string | undefined>>;
+  /** fetch impl (defaults to globalThis.fetch) — injectable for tests. */
+  fetchImpl?: typeof fetch;
+}
+
+interface ProbeResultLike {
+  key: string;
+  state: State;
+  signal: Record<string, unknown>;
+  observedAt: string;
+}
+
+/**
+ * Build the browser-pool degraded/healthy status writers.
+ *
+ * Two correctness properties the inline closures lacked (fix #6):
+ *
+ *  1. **The prior-state read failure is no longer swallowed.** The unfixed
+ *     `writeHealthy` did `.catch(() => null)` on the prior-state read, silently
+ *     coercing a transient PB read error into `null` — which reads as "cold
+ *     boot", so a genuine degraded→recovered transition was MISREPORTED as a
+ *     phantom healthy (never as `recovered`). Now a read failure is logged at
+ *     warn before defaulting, so the misclassification is visible.
+ *
+ *  2. **The degraded↔healthy writes are SERIALIZED + observedAt-monotone.** The
+ *     unfixed hooks fired `void writeDegraded()/writeHealthy()` — unordered
+ *     fire-and-forget. Under flapping (red→green→red in quick succession) the
+ *     two async writes could land at PB out of order, persisting the WRONG final
+ *     state. We chain every write onto a single promise so they apply in call
+ *     order, and stamp each with a monotonically non-decreasing `observedAt` so
+ *     the LAST real transition always wins even if the system clock is coarse.
+ *
+ * Exported for unit tests so the read-error + flap-ordering invariants can be
+ * asserted without the full boot path.
+ */
+/**
+ * Abort the best-effort Slack ping after this long. The health-signal writes
+ * are SERIALIZED (writeChain), so a hung webhook fetch would otherwise stall
+ * the whole degraded↔healthy↔unrecoverable write chain indefinitely. The ping
+ * is best-effort, so a timeout just logs and moves on.
+ */
+const BROWSER_POOL_SLACK_TIMEOUT_MS = 5_000;
+
+export function createBrowserPoolHealthSignals(
+  deps: BrowserPoolHealthSignalsDeps,
+): {
+  writeDegraded: (reason: string) => Promise<void>;
+  writeHealthy: () => Promise<void>;
+  writeUnrecoverable: (counters: BrowserPoolBreakerCounters) => Promise<void>;
+} {
+  const { writer, statusReader, logger } = deps;
+  const env = deps.env ?? process.env;
+  const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  // Serialize writes so the persisted state reflects call ORDER under flapping.
+  let writeChain: Promise<unknown> = Promise.resolve();
+  // Monotonic observedAt: never emit a timestamp <= the previously-emitted one,
+  // so the last real transition wins even when Date.now() is coarse and two
+  // back-to-back writes would otherwise share a timestamp.
+  let lastObservedMs = 0;
+  const nextObservedAt = (): string => {
+    const now = Date.now();
+    lastObservedMs = now > lastObservedMs ? now : lastObservedMs + 1;
+    return new Date(lastObservedMs).toISOString();
+  };
+
+  const enqueue = (task: () => Promise<void>): Promise<void> => {
+    const next = writeChain.then(task, task);
+    writeChain = next.catch(() => undefined);
+    return next;
+  };
+
+  const writeDegraded = (reason: string): Promise<void> =>
+    enqueue(async () => {
+      try {
+        await writer.write({
+          key: BROWSER_POOL_DEGRADED_KEY,
+          state: "red",
+          signal: {
+            errorMessage: reason,
+            degradedSince: new Date().toISOString(),
+          },
+          observedAt: nextObservedAt(),
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+    });
+
+  const writeHealthy = (): Promise<void> =>
+    enqueue(async () => {
+      try {
+        let priorState: State | null;
+        try {
+          priorState = await statusReader.getStateByKey(
+            BROWSER_POOL_DEGRADED_KEY,
+          );
+        } catch (readErr) {
+          // FIX #6 — do NOT silently coerce a read error to null. A swallowed
+          // read failure misclassifies a genuine recovery as a cold boot
+          // (healthy instead of recovered). Log it, then default to null.
+          logger.warn("boot.browser-pool-prior-state-read-failed", {
+            error: readErr instanceof Error ? readErr.message : String(readErr),
+          });
+          priorState = null;
+        }
+        const recovered = priorState === "red";
+        await writer.write({
+          key: BROWSER_POOL_DEGRADED_KEY,
+          state: "green",
+          signal: recovered
+            ? { recovered: true, recoveredAt: new Date().toISOString() }
+            : { healthy: true, healthyAt: new Date().toISOString() },
+          observedAt: nextObservedAt(),
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+    });
+
+  /**
+   * TERMINAL alarm: the self-heal circuit-breaker exhausted every hard recovery
+   * and gave up. This is the headline operator signal the PR's breaker mechanism
+   * produces — distinct from a transient degraded.
+   *
+   * Two-part, with deliberately ASYMMETRIC guarantees:
+   *  1. The PB health-signal write is UNCONDITIONAL (best-effort, errors logged):
+   *     it writes a DISTINCT `system:browser-pool-unrecoverable` key (red) AND
+   *     escalates the shared degraded key with `severity: "critical"` +
+   *     `terminal: true`, so a give-up is distinguishable from a self-heal
+   *     degraded regardless of which key a consumer watches. Redeploy guidance
+   *     and the breaker counters are embedded so the operator knows what to do.
+   *  2. The Slack ping is BEST-EFFORT and GUARDED on
+   *     `SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE` being set (alerting discipline:
+   *     ship the code with the URL unset; wire the URL separately). When unset we
+   *     skip it loudly-in-logs but never fail the health-signal write.
+   */
+  const writeUnrecoverable = (
+    counters: BrowserPoolBreakerCounters,
+  ): Promise<void> =>
+    enqueue(async () => {
+      // Name the PROVEN wedge signal (cgroup PID/thread-ceiling exhaustion) in
+      // the alert when it was measured, so the operator sees the real cause
+      // rather than just the abstract breaker counters.
+      const pidsClause =
+        counters.cgroupPidsCurrent !== undefined &&
+        counters.cgroupPidsCurrent >= 0
+          ? `, pids.current=${counters.cgroupPidsCurrent}/pids.max=${counters.cgroupPidsMax}, threads=${counters.treeThreadCount}`
+          : "";
+      const message =
+        "browser pool UNRECOVERABLE — self-heal circuit-breaker gave up after " +
+        `${counters.maxHardRecoveries} hard recoveries; a REDEPLOY is required ` +
+        `(browserCount=${counters.browserCount}, waiters=${counters.waiters}${pidsClause})`;
+      const observedAt = nextObservedAt();
+      // (1) UNCONDITIONAL health-signal writes — distinct terminal key + escalate
+      //     the shared degraded key to critical/terminal.
+      try {
+        await writer.write({
+          key: BROWSER_POOL_UNRECOVERABLE_KEY,
+          state: "red",
+          signal: {
+            terminal: true,
+            severity: "critical",
+            errorMessage: message,
+            redeployRequired: true,
+            browserCount: counters.browserCount,
+            waiters: counters.waiters,
+            maxHardRecoveries: counters.maxHardRecoveries,
+            cgroupPidsCurrent: counters.cgroupPidsCurrent,
+            cgroupPidsMax: counters.cgroupPidsMax,
+            treeThreadCount: counters.treeThreadCount,
+            unrecoverableSince: new Date().toISOString(),
+          },
+          observedAt,
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          key: BROWSER_POOL_UNRECOVERABLE_KEY,
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+      try {
+        await writer.write({
+          key: BROWSER_POOL_DEGRADED_KEY,
+          state: "red",
+          signal: {
+            errorMessage: message,
+            severity: "critical",
+            terminal: true,
+            redeployRequired: true,
+            degradedSince: new Date().toISOString(),
+          },
+          observedAt: nextObservedAt(),
+        });
+      } catch (writeErr) {
+        logger.warn("boot.browser-pool-status-write-failed", {
+          key: BROWSER_POOL_DEGRADED_KEY,
+          error:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
+      // (2) BEST-EFFORT, GUARDED Slack ping — only if the webhook URL is set.
+      const webhookUrl = env[BROWSER_POOL_ALERT_WEBHOOK_ENV];
+      if (!webhookUrl) {
+        logger.info?.("boot.browser-pool-unrecoverable-slack-skipped", {
+          reason: "webhook-env-unset",
+          envVar: BROWSER_POOL_ALERT_WEBHOOK_ENV,
+        });
+        return;
+      }
+      // Timeout the ping so a hung webhook can't stall the serialized
+      // health-signal write chain. Best-effort: an abort just logs + returns.
+      const slackAbort = new AbortController();
+      const slackTimer = setTimeout(
+        () => slackAbort.abort(),
+        BROWSER_POOL_SLACK_TIMEOUT_MS,
+      );
+      try {
+        const res = await fetchImpl(webhookUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text: `:rotating_light: ${message}` }),
+          signal: slackAbort.signal,
+        });
+        if (!res.ok) {
+          logger.warn("boot.browser-pool-unrecoverable-slack-failed", {
+            status: res.status,
+          });
+        }
+      } catch (slackErr) {
+        logger.warn("boot.browser-pool-unrecoverable-slack-failed", {
+          error:
+            slackErr instanceof Error ? slackErr.message : String(slackErr),
+        });
+      } finally {
+        clearTimeout(slackTimer);
+      }
+    });
+
+  return { writeDegraded, writeHealthy, writeUnrecoverable };
+}
+
 export function createStatusReader(pb: {
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
 }): {
@@ -1238,7 +1628,7 @@ export function buildCronProbeResolver(
 /**
  * Minimal Railway GraphQL adapter used by the aimock-wiring probe.
  * Lists services in a project and fetches per-service env-var values
- * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
+ * for a given environment. Endpoint: https://backboard.railway.app/graphql/v2.
  *
  * Routes through the shared `makeGql` helper exported from
  * `probes/discovery/railway-services.ts` so error taxonomy (Auth /

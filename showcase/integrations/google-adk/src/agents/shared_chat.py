@@ -5,18 +5,18 @@ tools — appropriate for any demo whose only customisation is on the frontend
 (prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css,
 headless-simple, headless-complete, voice, frontend-tools, agentic-chat).
 
-`build_thinking_chat_agent` uses Gemini 2.5 Flash with the thinking_config
+`build_thinking_chat_agent` uses Gemini 3.1 Flash-Lite with the thinking_config
 exposed so reasoning is streamed back as `thought` parts; the v2 React core
 renders these via CopilotChatReasoningMessage.
 
 `get_model` returns a `Gemini` instance configured with the aimock proxy
 endpoint when `GOOGLE_GEMINI_BASE_URL` is set, or the default model string
 otherwise. All agent modules should call `get_model()` instead of
-hard-coding `"gemini-2.5-flash"` so Railway deployments route through
+hard-coding `"gemini-3.1-flash-lite"` so Railway deployments route through
 aimock.
 
 `stop_on_terminal_text` is the canonical after_model_callback shared by every
-registered LlmAgent. Gemini 2.5-flash does not naturally end its agentic
+registered LlmAgent. Gemini 3.1 Flash-Lite does not naturally end its agentic
 loop after a successful tool call — it keeps re-issuing the same tool. The
 callback inspects each non-partial model response and, when it contains
 text with no pending function_call, sets `_invocation_context.end_invocation
@@ -37,9 +37,11 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 from ag_ui_adk import AGUIToolset
 
+from agents._header_forwarding import install_httpx_hook
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 
 def stop_on_terminal_text(
@@ -56,7 +58,7 @@ def stop_on_terminal_text(
        in `entrypoint.sh`).
     2. Only terminate when the final non-partial response contains TEXT
        and NO pending function_call — mixed text+function_call responses
-       (a known Gemini 2.5-flash quirk) must NOT terminate.
+       (a known Gemini Flash quirk) must NOT terminate.
     3. `_invocation_context` is an ADK private attribute; if it disappears
        in a future ADK release, log-and-degrade rather than crash the
        callback (which would stall the request).
@@ -131,7 +133,12 @@ def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
     """
     base_url = os.environ.get("GOOGLE_GEMINI_BASE_URL")
     if base_url:
-        return Gemini(model=model, base_url=base_url)
+        gemini = Gemini(model=model, base_url=base_url)
+        # Walk Gemini's ``._client`` chain and attach the request hook so
+        # inbound x-* headers (e.g. ``x-aimock-context``) ride along on
+        # outbound calls to the aimock proxy.
+        install_httpx_hook(gemini)
+        return gemini
     return model
 
 

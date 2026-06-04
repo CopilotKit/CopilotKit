@@ -1,0 +1,163 @@
+[
+  {
+    "id": "root",
+    "component": "Stack",
+    "gap": "lg",
+    "children": [
+      "header-card",
+      "scope-chips",
+      "kpi-grid",
+      "charts-grid",
+      "table-section"
+    ]
+  },
+
+  {
+    "id": "header-card",
+    "component": "Card",
+    "child": "header-stack"
+  },
+  {
+    "id": "header-stack",
+    "component": "Stack",
+    "gap": "sm",
+    "children": ["header-eyebrow", "header-heading", "header-text"]
+  },
+  {
+    "id": "header-eyebrow",
+    "component": "Overline",
+    "text": { "path": "/eyebrow" }
+  },
+  {
+    "id": "header-heading",
+    "component": "Heading",
+    "level": "1",
+    "text": { "path": "/title" }
+  },
+  {
+    "id": "header-text",
+    "component": "Text",
+    "tone": "muted",
+    "text": { "path": "/subtitle" }
+  },
+
+  {
+    "id": "scope-chips",
+    "component": "ChoiceChips",
+    "label": "Scope",
+    "value": { "path": "/scope/selected" },
+    "options": { "path": "/scope/options" }
+  },
+
+  {
+    "id": "kpi-grid",
+    "component": "Grid",
+    "columns": 4,
+    "gap": "md",
+    "children": ["kpi-1", "kpi-2", "kpi-3", "kpi-4"]
+  },
+  {
+    "id": "kpi-1",
+    "component": "StatCard",
+    "label": { "path": "/kpis/0/label" },
+    "value": { "path": "/kpis/0/value" },
+    "delta": { "path": "/kpis/0/delta" },
+    "deltaTone": "positive",
+    "caption": { "path": "/kpis/0/caption" }
+  },
+  {
+    "id": "kpi-2",
+    "component": "StatCard",
+    "label": { "path": "/kpis/1/label" },
+    "value": { "path": "/kpis/1/value" },
+    "delta": { "path": "/kpis/1/delta" },
+    "deltaTone": "positive",
+    "caption": { "path": "/kpis/1/caption" }
+  },
+  {
+    "id": "kpi-3",
+    "component": "StatCard",
+    "label": { "path": "/kpis/2/label" },
+    "value": { "path": "/kpis/2/value" },
+    "delta": { "path": "/kpis/2/delta" },
+    "deltaTone": "positive",
+    "caption": { "path": "/kpis/2/caption" }
+  },
+  {
+    "id": "kpi-4",
+    "component": "StatCard",
+    "label": { "path": "/kpis/3/label" },
+    "value": { "path": "/kpis/3/value" },
+    "delta": { "path": "/kpis/3/delta" },
+    "deltaTone": "negative",
+    "caption": { "path": "/kpis/3/caption" }
+  },
+
+  {
+    "id": "charts-grid",
+    "component": "Grid",
+    "columns": 2,
+    "gap": "md",
+    "children": ["trend-section", "share-section"]
+  },
+  {
+    "id": "trend-section",
+    "component": "Section",
+    "eyebrow": "TREND",
+    "title": "Monthly performance",
+    "child": "trend-card"
+  },
+  {
+    "id": "trend-card",
+    "component": "Card",
+    "child": "trend-chart"
+  },
+  {
+    "id": "trend-chart",
+    "component": "LineChart",
+    "height": 240,
+    "data": { "path": "/trend" }
+  },
+  {
+    "id": "share-section",
+    "component": "Section",
+    "eyebrow": "SHARE OF TOTAL",
+    "title": "Breakdown",
+    "child": "share-card"
+  },
+  {
+    "id": "share-card",
+    "component": "Card",
+    "child": "share-chart"
+  },
+  {
+    "id": "share-chart",
+    "component": "DonutChart",
+    "height": 240,
+    "data": { "path": "/share" }
+  },
+
+  {
+    "id": "table-section",
+    "component": "Section",
+    "eyebrow": "DETAIL",
+    "title": "Top rows",
+    "child": "table-card"
+  },
+  {
+    "id": "table-card",
+    "component": "Card",
+    "child": "table"
+  },
+  {
+    "id": "table",
+    "component": "DataTable",
+    "columns": [
+      { "key": "name", "label": "Name", "align": "left" },
+      { "key": "category", "label": "Category", "align": "left" },
+      { "key": "value", "label": "Value", "align": "right" },
+      { "key": "delta", "label": "Δ", "align": "right" }
+    ],
+    "rows": { "path": "/rows" }
+  }
+]

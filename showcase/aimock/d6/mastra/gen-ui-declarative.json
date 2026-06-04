@@ -1,0 +1,190 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-declarative (declarative-gen-ui demo)",
+    "sourceFile": "harness/fixtures/d5/gen-ui-declarative.json",
+    "created": "2026-05-22",
+    "note": "ported from gen-ui-declarative (langgraph-python); context rewritten to mastra"
+  },
+  "fixtures": [
+    {
+      "_comment": "pill 1 KPI \u2014 inner secondary LLM (tools=[_design_a2ui_surface], tool_choice forced) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\",\"m-mrr\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"8,420\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"},{\"id\":\"m-mrr\",\"component\":\"Metric\",\"label\":\"MRR\",\"value\":\"$98K\",\"trend\":\"up\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 1 KPI \u2014 outer agent narration after generate_a2ui returns.",
+      "match": {
+        "context": "mastra",
+        "toolCallId": "call_d6_decl_kpi_outer_001"
+      },
+      "response": {
+        "content": "KPI dashboard rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 1 KPI \u2014 outer agent emits generate_a2ui (no args).",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 2 pie chart \u2014 inner secondary LLM emits PieChart catalog component.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":18},{\"label\":\"Other\",\"value\":9}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 2 pie chart \u2014 outer agent narration.",
+      "match": {
+        "context": "mastra",
+        "toolCallId": "call_d6_decl_pie_outer_001"
+      },
+      "response": {
+        "content": "Pie chart rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 2 pie chart \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 3 bar chart \u2014 inner secondary LLM emits BarChart catalog component.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":310000},{\"label\":\"Q3\",\"value\":295000},{\"label\":\"Q4\",\"value\":340000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 3 bar chart \u2014 outer agent narration.",
+      "match": {
+        "context": "mastra",
+        "toolCallId": "call_d6_decl_bar_outer_001"
+      },
+      "response": {
+        "content": "Bar chart rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 3 bar chart \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 4 status report \u2014 inner secondary LLM emits StatusBadges grouped in a root Column.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_design_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy (p99 42ms)\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy (replication lag 0.2s)\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded (queue depth 1247)\",\"variant\":\"warning\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 4 status report \u2014 outer agent narration.",
+      "match": {
+        "context": "mastra",
+        "toolCallId": "call_d6_decl_status_outer_001"
+      },
+      "response": {
+        "content": "System health status rendered."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill 4 status report \u2014 outer agent emits generate_a2ui.",
+      "match": {
+        "userMessage": "status report on system health",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    }
+  ]
+}
