@@ -350,10 +350,24 @@ export interface BrowserPoolOptions {
    * cold-launch) WITHOUT reviving a single browser — i.e. the wedge survived
    * even a profile-dir purge, so a redeploy is genuinely required. The
    * orchestrator wires this to a LOUD operator alert (the signal the old
-   * silent-spin path never sent). Best-effort: a throwing hook is caught +
-   * logged, never crashes the pool.
+   * silent-spin path never sent). The breaker counters are passed so the alarm
+   * can report how hard the pool tried before giving up. Best-effort: a throwing
+   * hook is caught + logged, never crashes the pool.
    */
-  onUnrecoverable?: () => void;
+  onUnrecoverable?: (info: BrowserPoolUnrecoverableInfo) => void;
+}
+
+/**
+ * Breaker counters handed to the `onUnrecoverable` hook so the operator alarm
+ * can describe how hard the pool tried before giving up.
+ */
+export interface BrowserPoolUnrecoverableInfo {
+  /** Target browser-process count the pool could not revive a single one of. */
+  browserCount: number;
+  /** Acquire waiters still blocked at the moment of give-up. */
+  waiters: number;
+  /** Consecutive failed HARD recoveries that tripped the give-up. */
+  maxHardRecoveries: number;
 }
 
 /**
@@ -401,11 +415,9 @@ export class BrowserPool {
   private readonly purgeProfileDirs: PurgeProfileDirs;
   private readonly onDegraded?: () => void;
   private readonly onRecovered?: () => void;
-  private readonly onUnrecoverable?: () => void;
-  // Latched once the circuit-breaker has fired `onUnrecoverable` so the alarm is
-  // emitted exactly once per unrecoverable episode and the heal loop does not
-  // re-enter the give-up path. Cleared when a hard recovery later succeeds.
-  private unrecoverable = false;
+  private readonly onUnrecoverable?: (
+    info: BrowserPoolUnrecoverableInfo,
+  ) => void;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
   // succeeds. Guards against firing the degraded alarm / spawning a second
   // self-heal loop repeatedly.
@@ -511,12 +523,16 @@ export class BrowserPool {
       process.env.BROWSER_POOL_SELF_HEAL_INTERVAL_MS,
       DEFAULT_SELF_HEAL_INTERVAL_MS,
     );
-    this.selfHealHardRecoveryThreshold = resolveNonNegative(
+    // Breaker thresholds are CLAMPED to >= 1 (not merely non-negative): a `0`
+    // would disable the `> 0` guards on the hard-recovery escape AND the give-up
+    // alarm, reverting to the infinite-silent-spin this breaker fixes. A config
+    // typo (or an explicit 0) can't silently disable the safety net.
+    this.selfHealHardRecoveryThreshold = resolvePositive(
       options.selfHealHardRecoveryThreshold,
       process.env.BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
       DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
     );
-    this.selfHealMaxHardRecoveries = resolveNonNegative(
+    this.selfHealMaxHardRecoveries = resolvePositive(
       options.selfHealMaxHardRecoveries,
       process.env.BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES,
       DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES,
@@ -1804,11 +1820,9 @@ export class BrowserPool {
             this.attachDisconnectHandler(revived, fresh);
             launchedAny = true;
             // A launch succeeded — the wedge (if any) is broken. Reset BOTH
-            // breaker counters and clear the unrecoverable latch so a future
-            // re-empty starts the breaker fresh.
+            // breaker counters so a future re-empty starts the breaker fresh.
             consecutiveFailures = 0;
             consecutiveHardRecoveries = 0;
-            this.unrecoverable = false;
             // Drain queued waiters onto the revived browser as capacity returns.
             while (
               this.waiters.length > 0 &&
@@ -1918,27 +1932,46 @@ export class BrowserPool {
    * consecutive HARD recoveries (purge + cold-launch) have ALL failed to revive
    * a single browser — the wedge survived even a profile-dir purge, so a
    * redeploy is genuinely required. Emits the LOUD `pool-unrecoverable` alarm
-   * (the operator signal the old silent-spin path never sent) exactly once per
-   * episode (latched via `unrecoverable`) and lets the heal loop exit instead of
-   * spinning forever. A later set-empty event re-spawns the heal loop
-   * (`onBrowserSetEmpty` is unconditional); the latch is cleared by the first
-   * successful launch so a subsequent genuine recovery re-arms the breaker.
+   * (the operator signal the old silent-spin path never sent) and lets the heal
+   * loop exit instead of spinning forever.
+   *
+   * ONCE-PER-EPISODE is guaranteed STRUCTURALLY, not by an instance latch: each
+   * distinct degraded episode spawns its OWN self-heal loop (`startSelfHeal` is
+   * gated only by `selfHealing`, which the prior loop clears on exit), the
+   * loop-local `consecutiveHardRecoveries` counter resets per spawn, and the
+   * loop `return`s the instant this fires — so it cannot double-fire within one
+   * loop, and a later set re-empty re-spawns a loop that can fire its OWN alarm.
+   * A prior buggy instance latch (`this.unrecoverable`, cleared ONLY on a
+   * successful launch) silenced every SUBSEQUENT episode of a permanently-wedged
+   * container that re-emptied after the first give-up — the exact silent-spin
+   * this breaker exists to kill. The latch was removed so each episode alarms.
    */
   private fireUnrecoverable(): void {
-    if (this.unrecoverable) return;
-    this.unrecoverable = true;
-    this.logger?.error?.("browser-pool.pool-unrecoverable", {
+    const info: BrowserPoolUnrecoverableInfo = {
       browserCount: this.browserCount,
       waiters: this.waiters.length,
       maxHardRecoveries: this.selfHealMaxHardRecoveries,
-    });
-    this.safeHook(this.onUnrecoverable, "onUnrecoverable");
+    };
+    this.logger?.error?.("browser-pool.pool-unrecoverable", { ...info });
+    // Best-effort hook (mirrors safeHook) — passes the breaker counters so the
+    // operator alarm can describe how hard the pool tried before giving up.
+    if (this.onUnrecoverable) {
+      try {
+        this.onUnrecoverable(info);
+      } catch (err) {
+        this.logger?.error?.("browser-pool.hook-failed", {
+          hook: "onUnrecoverable",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   /**
-   * Invoke a best-effort lifecycle hook (`onDegraded` / `onRecovered` /
-   * `onUnrecoverable`) without letting a throwing hook crash the pool. A hook
-   * failure is logged, not propagated.
+   * Invoke a best-effort lifecycle hook (`onDegraded` / `onRecovered`) without
+   * letting a throwing hook crash the pool. A hook failure is logged, not
+   * propagated. (`onUnrecoverable` is invoked inline in `fireUnrecoverable`
+   * because it takes a counters argument.)
    */
   private safeHook(hook: (() => void) | undefined, name: string): void {
     if (!hook) return;
