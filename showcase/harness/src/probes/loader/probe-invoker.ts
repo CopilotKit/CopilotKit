@@ -10,6 +10,38 @@ import type { StatusWriter } from "../../writers/status-writer.js";
 import { truncateUtf8 } from "../../render/filters.js";
 import { ProbeRunTracker } from "../run-tracker.js";
 import type { ProbeRunWriter, ProbeRunSummary } from "../run-history.js";
+import {
+  sampleResourceGauges,
+  formatGauges,
+} from "../helpers/resource-gauges.js";
+
+/**
+ * EARLY-WARNING INSTRUMENTATION: sample + log the OS resource gauges at a probe
+ * tick boundary. A probe tick is exactly when the browser pool sees its launch /
+ * context-open burst, so sampling here (start + end) makes a burst approaching
+ * the cgroup `pids.max` ceiling — the PROVEN browser-pool wedge — observable in
+ * the per-tick logs. The headline `pids.current`/`pids.max`/thread fields lead
+ * the structured payload and the compact `gauges` summary line. Best-effort: a
+ * sampling failure (or non-Linux host, where the gauges degrade to -1) is
+ * swallowed and never disrupts the tick.
+ */
+function logTickGauges(
+  logger: Logger,
+  boundary: "tick-start" | "tick-complete",
+  probeId: string,
+): void {
+  try {
+    const g = sampleResourceGauges();
+    logger.info("probe.resource-gauges", {
+      probeId,
+      boundary,
+      gauges: formatGauges(g, boundary),
+      ...g,
+    });
+  } catch {
+    // gauge sampling is best-effort early-warning logging — never disrupt a tick.
+  }
+}
 
 /**
  * Bound the size of any string flowing into a synthetic-error ProbeResult.
@@ -339,6 +371,10 @@ export function buildProbeInvoker(
       discoveryOk: resolved.ok,
       triggered,
     });
+    // EARLY WARNING: snapshot the OS resource gauges at the tick boundary so a
+    // launch/context-open burst approaching the cgroup pids.max ceiling (the
+    // proven browser-pool wedge) is observable per tick.
+    logTickGauges(logger, "tick-start", cfg.id);
 
     // CR-A1.1: thread the trigger's slug filter end-to-end. Discover the
     // FULL roster (so logs/diagnostics still see what the source returned)
@@ -802,6 +838,10 @@ export function buildProbeInvoker(
         durationMs: Date.now() - tickStart,
         discoveryFailed: summary.discoveryFailed ?? false,
       });
+      // EARLY WARNING: snapshot the OS resource gauges at the tick-end boundary
+      // so post-burst PID/thread demand (and any failure to reclaim it) is
+      // observable alongside tick-start.
+      logTickGauges(logger, "tick-complete", cfg.id);
       // Structured per-service run summary — a single log line carrying
       // every target's outcome so Railway logs give a complete picture
       // without needing PocketBase.
