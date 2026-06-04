@@ -6,8 +6,6 @@ export interface ProverbsCardProps {
 }
 
 export function ProverbsCard({ state, setState }: ProverbsCardProps) {
-  // `state` is undefined until the agent syncs (V2 useAgent), so guard it.
-  const proverbs = state?.proverbs ?? [];
   return (
     <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-2xl w-full">
       <h1 className="text-4xl font-bold text-white mb-2 text-center">
@@ -18,7 +16,7 @@ export function ProverbsCard({ state, setState }: ProverbsCardProps) {
       </p>
       <hr className="border-white/20 my-6" />
       <div className="flex flex-col gap-3">
-        {proverbs.map((proverb, index) => (
+        {state.proverbs?.map((proverb, index) => (
           <div
             key={index}
             className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
@@ -28,7 +26,7 @@ export function ProverbsCard({ state, setState }: ProverbsCardProps) {
               onClick={() =>
                 setState({
                   ...state,
-                  proverbs: proverbs.filter((_, i) => i !== index),
+                  proverbs: state.proverbs?.filter((_, i) => i !== index),
                 })
               }
               className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity 
@@ -39,7 +37,7 @@ export function ProverbsCard({ state, setState }: ProverbsCardProps) {
           </div>
         ))}
       </div>
-      {proverbs.length === 0 && (
+      {state.proverbs?.length === 0 && (
         <p className="text-center text-white/80 italic my-8">
           No proverbs yet. Ask the assistant to add some!
         </p>
