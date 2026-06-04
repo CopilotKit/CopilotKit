@@ -2582,11 +2582,13 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     contextToBrowser: Map<unknown, unknown>;
     liveContextCount: number;
     browsers: Array<{ liveContexts: Set<unknown> }>;
+    waiters: unknown[];
   } =>
     pool as unknown as {
       contextToBrowser: Map<unknown, unknown>;
       liveContextCount: number;
       browsers: Array<{ liveContexts: Set<unknown> }>;
+      waiters: unknown[];
     };
 
   // RACE 1 (post-shutdown context leak) — a serveNextWaiter() that shifted a
@@ -2697,22 +2699,25 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     expect(internals(pool).liveContextCount).toBe(0);
   });
 
-  // RACE 2 (acquire transient-retry cap-overshoot) — REGRESSION GUARD. acquire()'s
-  // transient retry path: a connected browser throws transiently, acquire()
-  // re-reserves and retries openContextOn(); the retry parks in newContext(); a
-  // CONCURRENT crash recycles the entry; the parked retry then hits
-  // openContextOn()'s orphan-by-recycle guard. The accounting invariant ("every
-  // reserveSlot matched by EXACTLY ONE trackOpenedContext OR releaseReservation")
-  // must hold across that straddle: the crash teardown rolls back the in-flight
-  // re-reservation against the OLD generation + bumps the generation, so the late
-  // settle's own `rollbackPendingOpen` is generation-guarded into a no-op — the
-  // reservation is rolled back EXACTLY ONCE (no overshoot, no double-rollback).
+  // RACE 2 (acquire transient-retry cap-overshoot) — REGRESSION LOCK FOR A
+  // PRE-EXISTING INVARIANT, NOT a shutdown-race proof. This test does NOT exercise
+  // any code added by the shutdown-leak fix and passes against main UNCHANGED; it
+  // is here purely to pin the generation-guarded exactly-once-rollback invariant
+  // that the transient-retry / orphan-by-recycle straddle already relied on, so a
+  // future edit to that interleaving regresses loudly.
   //
-  // This invariant is currently UPHELD by the generation guard (verified: the
-  // accounting is balanced — liveContextCount returns to 0 after the orphan).
-  // The test LOCKS it in so a future change to the transient-retry / orphan-guard
-  // interleaving that breaks the exactly-once rollback regresses loudly.
-  it("RACE2: transient-retry whose retry is orphaned by a concurrent recycle keeps accounting balanced (no overshoot)", async () => {
+  // The scenario: acquire()'s transient retry path — a connected browser throws
+  // transiently, acquire() re-reserves and retries openContextOn(); the retry
+  // parks in newContext(); a CONCURRENT crash recycles the entry; the parked retry
+  // then hits openContextOn()'s orphan-by-recycle guard. The accounting invariant
+  // ("every reserveSlot matched by EXACTLY ONE trackOpenedContext OR
+  // releaseReservation") must hold across that straddle: the crash teardown rolls
+  // back the in-flight re-reservation against the OLD generation + bumps the
+  // generation, so the late settle's own `rollbackPendingOpen` is
+  // generation-guarded into a no-op — the reservation is rolled back EXACTLY ONCE
+  // (no overshoot, no double-rollback). This invariant is UPHELD by the
+  // pre-existing generation guard; the shutdown fix neither created nor altered it.
+  it("RACE2 (pre-existing-invariant lock, NOT a shutdown-race proof): transient-retry orphaned by a concurrent recycle keeps accounting balanced (no overshoot)", async () => {
     // browser0 (init) defers every newContext so the transient-retry's open can
     // be parked across a concurrent crash.
     const { launchBrowser, launched } = makeFakeLauncher({
@@ -2789,5 +2794,151 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await acquireP;
     expect(acquireSettled).toBe(true);
     await pool.shutdown();
+  });
+
+  // RACE 3 (shutdown-straddle caller settlement) — covers the two REACHABLE
+  // shutdown branches RACE1 does NOT: (3a) serveNextWaiter()'s post-open
+  // `if (this.isShutdown) waiter.reject(...)` leg, and (3b) acquire()'s OUTER-catch
+  // `if (this.isShutdown) throw` leg. In both, an open is in flight when
+  // shutdown() flips isShutdown and clears `this.waiters`; when the open then
+  // settles, openContextOn's orphan guard closes+rolls-back+throws, and the
+  // straddle branch must settle the CALLER with the shutdown sentinel — NOT
+  // re-enqueue onto the cleared `waiters` (where it would hang until its acquire
+  // timeout). Reverting either source guard makes the corresponding caller hang
+  // (RED); with the guard present the caller rejects promptly (GREEN).
+  it("RACE3a: a shifted waiter whose serve open straddles shutdown REJECTS (not enqueued, not hung)", async () => {
+    // Same two-browser drain-held setup as RACE1, but here we assert the WAITER's
+    // fate: it must reject with the shutdown sentinel, settled WELL BEFORE its
+    // (long) acquire timeout — proving serveNextWaiter's straddle reject ran and
+    // it was not stranded on the cleared queue.
+    const launcher = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+      parkLaunchForCalls: [3], // browser1's relaunch parks → drain stays open
+    });
+    const { launchBrowser, launched } = launcher;
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 1, // cap=1 so a single waiter queues behind c1
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Fill the single cap slot on browser0.
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Enqueue a waiter past the cap with a LONG timeout — if the straddle reject
+    // does NOT fire, the only way this settles is the timeout, so a prompt
+    // rejection proves the reject branch ran.
+    let waiterErr: Error | undefined;
+    const waiterP = pool.acquire(undefined, 30_000).catch((e: Error) => {
+      waiterErr = e;
+    });
+    await drainMicrotasks();
+
+    // CRASH browser1 → its recycle relaunch (call 3) PARKS, holding shutdown's
+    // drain loop open.
+    launched[1]!.__crash();
+    await waitFor(() => launcher.__parkedLaunches > 0);
+
+    // Release c1 → serveNextWaiter() shifts the waiter, reserves, parks its open
+    // in browser0's deferred newContext(). The waiter is now OFF this.waiters.
+    await pool.release(c1);
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+
+    // Shutdown — isShutdown flips synchronously, this.waiters (now empty, the
+    // waiter was shifted) is cleared; drain loop blocks on the parked relaunch.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Settle the parked serve open: openContextOn's orphan guard fires (isShutdown
+    // term), throws; serveNextWaiter's straddle branch must REJECT the shifted
+    // waiter.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks(20);
+
+    // The waiter settled by REJECTION (not hung, not enqueued).
+    expect(waiterErr).toBeDefined();
+    expect(waiterErr!.message).toBe("BrowserPool is shut down");
+    // It must NOT be sitting on the (cleared) waiters queue.
+    expect(internals(pool).waiters.length).toBe(0);
+
+    // Release the parked relaunch so shutdown completes.
+    launcher.__releaseParkedLaunches();
+    await shutdownP;
+    await waiterP;
+    // shutdown() awaited the orphan close: the straddled context is closed.
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+  });
+
+  it("RACE3b: an acquire whose open straddles shutdown REJECTS via the outer catch (not enqueued, not hung)", async () => {
+    // Single browser, cap large enough that the acquire opens directly (no waiter
+    // path). browser0 defers its newContext so we can park the acquire's open in
+    // flight, flip shutdown, then settle the open into the orphan guard. acquire()
+    // takes the OUTER catch's `if (this.isShutdown) throw` leg.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 4,
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Start an acquire whose open parks in the deferred newContext().
+    let acquireErr: Error | undefined;
+    const acquireP = pool.acquire(undefined, 30_000).catch((e: Error) => {
+      acquireErr = e;
+    });
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    expect(pool.stats().inUse).toBe(1); // reservation held by the parked open
+
+    // Flip shutdown WHILE the open is parked. No parked relaunch here, so the
+    // drain loop is empty and shutdown proceeds to its close-pass — but it must
+    // still AWAIT the orphan close registered when the open settles into the
+    // guard. Kick shutdown without awaiting so we can settle the open first.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Settle the parked open: orphan guard (isShutdown term) closes+rolls-back+
+    // throws; acquire()'s outer catch `if (this.isShutdown) throw` must reject.
+    launched[0]!.__releaseNewContexts();
+
+    await acquireP;
+    expect(acquireErr).toBeDefined();
+    expect(acquireErr!.message).toBe("BrowserPool is shut down");
+    // No waiter was created (the acquire rejected, did not enqueue).
+    expect(internals(pool).waiters.length).toBe(0);
+
+    await shutdownP;
+    // The straddled orphan context was closed and the pool is clean (item-2:
+    // shutdown awaited the tracked orphan close before resolving).
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+    expect(internals(pool).liveContextCount).toBe(0);
   });
 });
