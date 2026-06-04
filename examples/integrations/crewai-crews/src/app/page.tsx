@@ -25,7 +25,7 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   const { agent } = useAgent({
-    agentId: "starterAgent",
+    agentId: "default",
   });
 
   useEffect(() => {
