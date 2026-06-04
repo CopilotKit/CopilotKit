@@ -60,6 +60,7 @@ import {
   createPooledE2eFullLauncher,
 } from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
+import { createResourceSnapshotWriter } from "./probes/helpers/resource-snapshot-writer.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
@@ -319,8 +320,29 @@ export async function boot(opts: BootOptions = {}): Promise<{
     writeUnrecoverable: writeBrowserPoolUnrecoverable,
   } = createBrowserPoolHealthSignals({ writer, statusReader, logger });
 
+  // DURABLE forensic snapshot writer: persists the pool's OS resource gauges to
+  // the `resource_snapshots` PB collection so the history survives the
+  // container RESTART that ends every browser-pool wedge (Railway stdout rolls
+  // off; in-memory is cleared on restart — durable PB is the only
+  // post-wedge-retrievable trail). Reuses the SAME `pb` client the rest of the
+  // harness uses. Writes are best-effort (the writer swallows PB errors so a
+  // missing migration / PB hiccup never breaks the pool) with ring-style
+  // retention to bound growth.
+  const resourceSnapshotWriter = createResourceSnapshotWriter({ pb, logger });
+
   const browserPool = new BrowserPool({
     logger,
+    // DURABLE forensic logging: fire-and-forget the full gauge snapshot to PB on
+    // every meaningful pool condition + the periodic heartbeat. The hook is
+    // synchronous; the write is async + best-effort (never throws back here).
+    onSnapshot: (snapshot) => {
+      void resourceSnapshotWriter.write(
+        snapshot.event,
+        snapshot.gauges,
+        snapshot.stats,
+        snapshot.perBrowser,
+      );
+    },
     // FIX #2 — wire the pool's mid-life capacity-loss + recovery hooks to the
     // SAME degraded-signal write path. When the browser set empties mid-life the
     // pool fires `onDegraded` (red alarm) and self-heals; on a successful
