@@ -33,6 +33,7 @@ export function StreamdownRenderer({ content }: { content: string }) {
  * get this custom treatment; everything else keeps the built-in rendering.
  */
 export const customMarkdownConfig: DefaultMarkdownRendererProps = {
+  caret: false,
   nodeRenderers: {
     codeBlock: ({ node }) => (
       <div className="my-2 overflow-hidden rounded-lg border border-emerald-500/40 bg-zinc-900">
