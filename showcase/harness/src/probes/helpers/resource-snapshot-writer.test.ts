@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   createResourceSnapshotWriter,
   RESOURCE_SNAPSHOTS_COLLECTION,
@@ -379,6 +379,378 @@ describe("resource-snapshot-writer", () => {
     expect(row.threads).toBeNull();
     expect(row.fd_count).toBeNull();
     expect(row.procs).toBe(60);
+  });
+
+  it("IN-FLIGHT CAP: a write over the cap is DROPPED (emits dropped-over-inflight) and the in-flight counter does NOT leak", async () => {
+    // item #1 (drop seam): with maxInFlight=1 and a never-resolving create, a
+    // SECOND concurrent write must be dropped (warn), and once the hung write
+    // resolves/frees its slot a LATER write must be admitted — proving the
+    // in-flight counter didn't leak.
+    let releaseFirst: (() => void) | undefined;
+    const createCalls: string[] = [];
+    let resolveCount = 0;
+    const pb: SnapshotPbClient = {
+      async create(_collection, record) {
+        createCalls.push(String(record.event));
+        // First create hangs until released; subsequent creates resolve.
+        if (releaseFirst === undefined) {
+          await new Promise<void>((r) => {
+            releaseFirst = r;
+          });
+        }
+        resolveCount += 1;
+        return {} as never;
+      },
+      async list() {
+        return { totalItems: 0, items: [] };
+      },
+      async deleteByFilter() {
+        return 0;
+      },
+    };
+    const { logger, logs } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxInFlightWrites: 1,
+      // Disable the write timeout so the hang is what occupies the slot (not a
+      // timer firing); we free it manually.
+      writeTimeoutMs: 0,
+    });
+
+    // First write hangs (occupies the only in-flight slot).
+    const firstWrite = writer.write("hung", makeGauges(), STATS);
+    // Let the hung create register.
+    await Promise.resolve();
+    expect(createCalls).toEqual(["hung"]);
+
+    // Second concurrent write is DROPPED — the cap (1) is saturated.
+    await writer.write("dropped", makeGauges(), STATS);
+    const dropLog = logs.find(
+      (l) => l.event === "resource-snapshot.dropped-over-inflight",
+    );
+    expect(dropLog).toBeDefined();
+    expect(dropLog?.level).toBe("warn");
+    // The dropped write never reached create.
+    expect(createCalls).toEqual(["hung"]);
+
+    // Release the hung write — the slot frees.
+    releaseFirst?.();
+    await firstWrite;
+    expect(resolveCount).toBe(1);
+
+    // A LATER write is now ADMITTED (counter did not leak above the cap).
+    await writer.write("after", makeGauges(), STATS);
+    expect(createCalls).toEqual(["hung", "after"]);
+    expect(resolveCount).toBe(2);
+  });
+
+  it("DROP (healthy backpressure): a drop while a write SUCCEEDS does NOT escalate", async () => {
+    // item #2 (no false-positive): a single hung write that later succeeds is
+    // healthy backpressure, not a systematic outage. A concurrent drop while
+    // that write is in flight must NOT escalate once the write completes.
+    let release: (() => void) | undefined;
+    const pb: SnapshotPbClient = {
+      async create() {
+        if (release === undefined) {
+          await new Promise<void>((r) => {
+            release = r;
+          });
+        }
+        return {} as never;
+      },
+      async list() {
+        return { totalItems: 0, items: [] };
+      },
+      async deleteByFilter() {
+        return 0;
+      },
+    };
+    const { logger, logs } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxInFlightWrites: 1,
+      writeTimeoutMs: 0,
+      failureEscalationThreshold: 2,
+    });
+
+    const first = writer.write("slow", makeGauges(), STATS);
+    await Promise.resolve();
+    // A couple of drops occur while the first write is briefly in flight.
+    await writer.write("drop", makeGauges(), STATS);
+    await writer.write("drop", makeGauges(), STATS);
+    // The slow write SUCCEEDS — proving the cap wasn't hung.
+    release?.();
+    await first;
+
+    // No systematic-failure escalation (healthy backpressure, writes succeed).
+    expect(
+      logs.filter(
+        (l) => l.event === "resource-snapshot.write-failing-systematically",
+      ),
+    ).toHaveLength(0);
+  });
+
+  describe("with fake timers", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("WRITE-TIMEOUT → failure → escalation: a hung create times out, counts as a failure, and escalates after the threshold", async () => {
+      // item #1 (timeout seam) + #2: a hung pb.create must hit the write
+      // timeout, be counted as a FAILURE, and after the threshold escalate to
+      // the loud `write-failing-systematically` error.
+      vi.useFakeTimers();
+      const pb: SnapshotPbClient = {
+        async create() {
+          // Never resolves — only the write timeout frees the slot.
+          await new Promise<void>(() => {});
+          return {} as never;
+        },
+        async list() {
+          return { totalItems: 0, items: [] };
+        },
+        async deleteByFilter() {
+          return 0;
+        },
+      };
+      const { logger, logs } = makeLogger();
+      const writer = createResourceSnapshotWriter({
+        pb,
+        logger,
+        writeTimeoutMs: 1_000,
+        failureEscalationThreshold: 3,
+        maxInFlightWrites: 8,
+      });
+
+      // Fire 3 writes; each hangs, then its 1s timeout fires → 3 failures.
+      for (let i = 0; i < 3; i++) {
+        const p = writer.write("heartbeat", makeGauges(), STATS);
+        await vi.advanceTimersByTimeAsync(1_000);
+        await p;
+      }
+
+      // The timeout was counted as a write failure and escalated once.
+      const errs = logs.filter(
+        (l) =>
+          l.level === "error" &&
+          l.event === "resource-snapshot.write-failing-systematically",
+      );
+      expect(errs).toHaveLength(1);
+      // The failure record names the timeout (proves the timeout→failure seam).
+      const failLog = logs.find(
+        (l) => l.event === "resource-snapshot.write-failed",
+      );
+      expect(String(failLog?.meta?.error)).toContain("timed out");
+    });
+
+    it("DROP→ESCALATION: once writes are timing out, concurrent drops against the saturated cap CONTRIBUTE to the systematic-failure escalation", async () => {
+      // item #2: with PB hung the in-flight cap saturates with timing-out
+      // writes, so new snapshots increasingly hit the DROP path. A drop that
+      // co-occurs with writes already FAILING (the hung writes have begun
+      // timing out) must contribute to the failure signal so the loud
+      // `write-failing-systematically` error is not delayed/dodged by the DROP
+      // path. maxInFlightWrites:1 → after the first write hangs+times out
+      // (failure #1), each subsequent drop while the cap is held escalates the
+      // count, reaching the threshold via DROPS rather than only timeouts.
+      vi.useFakeTimers();
+      const pb: SnapshotPbClient = {
+        async create() {
+          await new Promise<void>(() => {}); // hung PB — only the timeout frees
+          return {} as never;
+        },
+        async list() {
+          return { totalItems: 0, items: [] };
+        },
+        async deleteByFilter() {
+          return 0;
+        },
+      };
+      const { logger, logs } = makeLogger();
+      const writer = createResourceSnapshotWriter({
+        pb,
+        logger,
+        maxInFlightWrites: 1,
+        writeTimeoutMs: 1_000,
+        failureEscalationThreshold: 4,
+      });
+
+      // Write A hangs and occupies the only slot; time it out → failure #1.
+      const a = writer.write("hung", makeGauges(), STATS);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await a;
+
+      // Write B now hangs and re-occupies the slot. With consecutiveFailures>0,
+      // concurrent DROPS contribute to escalation (not just future timeouts).
+      const b = writer.write("hung", makeGauges(), STATS);
+      await Promise.resolve();
+      // 3 drops while B holds the slot → failures 2,3,4 → escalation fires.
+      for (let i = 0; i < 3; i++) {
+        await writer.write("drop", makeGauges(), STATS);
+      }
+
+      const errs = logs.filter(
+        (l) =>
+          l.level === "error" &&
+          l.event === "resource-snapshot.write-failing-systematically",
+      );
+      expect(errs).toHaveLength(1);
+      // A drop carried the escalating failure (proves the drop→escalation seam).
+      const dropFail = logs.find(
+        (l) =>
+          l.event === "resource-snapshot.write-failed" &&
+          l.meta?.event === "drop",
+      );
+      expect(String(dropFail?.meta?.error)).toContain("cap saturated");
+
+      // Free B so no promise dangles past the test.
+      await vi.advanceTimersByTimeAsync(1_000);
+      await b;
+    });
+  });
+
+  it("PRUNE no-progress backoff: a deleteByFilter that returns 0 while over cap does NOT sweep on every insert (gated by interval)", async () => {
+    // item #1b: when deletes structurally make no progress (PB delete-rule 403,
+    // filter 400, or 0 matched) while still over cap, the safety valve must NOT
+    // let knownOverCap re-arm a full list-probe + sweep on EVERY subsequent
+    // insert. The prune must back off to once-per-interval.
+    const created: Array<Record<string, unknown>> = [];
+    let seq = 0;
+    let listCalls = 0;
+    const pb: SnapshotPbClient = {
+      async create(_c, record) {
+        const row = { id: `row-${seq}`, __seq: seq, ...record };
+        seq += 1;
+        created.push(row);
+        return row as never;
+      },
+      async list(_c, opts) {
+        listCalls += 1;
+        const sorted = [...created];
+        const perPage = opts?.perPage ?? 30;
+        return {
+          totalItems: created.length,
+          items: sorted.slice(0, perPage) as never[],
+        };
+      },
+      // Delete ALWAYS fails to make progress (returns 0) — simulates a PB
+      // delete-rule 403 / filter that matches nothing while still over cap.
+      async deleteByFilter() {
+        return 0;
+      },
+    };
+    const { logger } = makeLogger();
+    let clock = 1_000_000;
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxRows: 3,
+      pruneIntervalMs: 60_000,
+      now: () => clock,
+    });
+
+    // Fill past the cap so prune engages and hits the no-progress backoff.
+    for (let i = 0; i < 6; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
+    }
+    const listsAfterFill = listCalls;
+
+    // Now insert MANY more within the SAME frozen instant (clock not advanced).
+    // If the backoff works, NONE of these re-probe (no list calls) — the prune
+    // is suppressed until the interval elapses, NOT re-armed per insert.
+    for (let i = 6; i < 30; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
+    }
+    expect(listCalls).toBe(listsAfterFill); // no per-insert re-probe
+
+    // After the interval elapses, the rate-limit gate opens and ONE retry sweep
+    // runs (head-probe + oldest-list), then backs off again. The point is the
+    // retry is gated to the interval — it did not fire on any of the 24
+    // intervening inserts.
+    clock += 60_001;
+    await writer.write("heartbeat", makeGauges({ ts: "t30" }), STATS);
+    const listsAfterRetry = listCalls;
+    expect(listsAfterRetry).toBeGreaterThan(listsAfterFill);
+
+    // And it backs off AGAIN: further same-instant inserts do not re-probe.
+    for (let i = 31; i < 40; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
+    }
+    expect(listCalls).toBe(listsAfterRetry);
+  });
+
+  it("PRUNE batch cap: a cold start far over cap deletes in BOUNDED batches (not a thousands-row list/filter)", async () => {
+    // item #1a: surplus can be thousands on a cold start over a large backlog;
+    // using it directly as perPage + a one-clause-per-row id filter builds a
+    // giant request URL that PB rejects (400/414). Each sweep must list/delete
+    // at most a bounded batch (200) and rely on knownOverCap to drain the rest.
+    const created: Array<Record<string, unknown>> = [];
+    let seq = 0;
+    const listPerPages: number[] = [];
+    const deleteClauseCounts: number[] = [];
+    // Seed 1500 rows directly (cold-start backlog) before the writer attaches.
+    for (let i = 0; i < 1500; i++) {
+      created.push({ id: `seed-${i}`, __seq: seq, observed_at: `s${i}` });
+      seq += 1;
+    }
+    const pb: SnapshotPbClient = {
+      async create(_c, record) {
+        const row = { id: `row-${seq}`, __seq: seq, ...record };
+        seq += 1;
+        created.push(row);
+        return row as never;
+      },
+      async list(_c, opts) {
+        if (opts?.perPage !== undefined && opts.sort === "observed_at") {
+          listPerPages.push(opts.perPage);
+        }
+        const perPage = opts?.perPage ?? 30;
+        const page = opts?.page ?? 1;
+        const start = (page - 1) * perPage;
+        return {
+          totalItems: created.length,
+          items: created.slice(start, start + perPage) as never[],
+        };
+      },
+      async deleteByFilter(_c, filter) {
+        const ids = new Set(
+          Array.from(filter.matchAll(/id = "([^"]+)"/g)).map((m) => m[1]),
+        );
+        deleteClauseCounts.push(ids.size);
+        const before = created.length;
+        for (let i = created.length - 1; i >= 0; i--) {
+          if (ids.has(String(created[i].id))) created.splice(i, 1);
+        }
+        return before - created.length;
+      },
+    };
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxRows: 5,
+      pruneIntervalMs: 0,
+    });
+
+    // One insert triggers the first (bounded) sweep.
+    await writer.write("heartbeat", makeGauges({ ts: "x0" }), STATS);
+
+    // Every prune list used a BOUNDED perPage (<= 200), never the ~1495 surplus.
+    expect(listPerPages.length).toBeGreaterThan(0);
+    for (const pp of listPerPages) {
+      expect(pp).toBeLessThanOrEqual(200);
+    }
+    // Every delete filter had a BOUNDED clause count (<= 200).
+    for (const cc of deleteClauseCounts) {
+      expect(cc).toBeLessThanOrEqual(200);
+    }
+
+    // knownOverCap drains the rest across subsequent inserts; converges to cap.
+    for (let i = 1; i < 20; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `x${i}` }), STATS);
+    }
+    expect(created.length).toBeLessThanOrEqual(5);
   });
 
   it("uses the documented collection name", () => {
