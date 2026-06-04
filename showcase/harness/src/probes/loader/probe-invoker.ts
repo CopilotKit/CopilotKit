@@ -56,8 +56,8 @@ const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
  * probe like d6-all-pills-e2e fans `max_concurrency` workers out across
  * its discovered services in the same JS tick, each worker
  * immediately drives a `pool.acquire()` that launches a Chromium
- * (~50 threads/procs each). With 8 simultaneous workers the kernel
- * sees ~400 thread spawns inside a 4ms window on top of an already-
+ * (~50 threads/procs each). With 5 simultaneous workers the kernel
+ * sees ~250 thread spawns inside a few-ms window on top of an already-
  * warm 10-browser pool, and the container hits its PID/thread ceiling
  * — fork/pthread_create returns EAGAIN, Chromium processes die, and
  * per-feature `browser.newContext()` fails with "Target page, context
@@ -73,8 +73,8 @@ const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
  * Env-overridable: `SERVICE_STARTUP_STAGGER_MS` (parsed as int; non-finite
  * or negative values fall through to the default). Set to `0` to disable.
  *
- * Default chosen to spread 8 workers across ~2.1s — small relative to
- * the 10-minute D6 budget but large enough that each Chromium's
+ * Default chosen to spread 5 workers across ~1.2s — small relative to
+ * the 20-minute D6 budget but large enough that each Chromium's
  * thread-spawn burst (~150ms in practice) is done before the next
  * starts.
  */
