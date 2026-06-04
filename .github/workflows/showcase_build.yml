@@ -262,10 +262,23 @@ jobs:
           # done — a common "did my dispatch deploy?" footgun. The `all` and
           # empty (push-event) modes legitimately produce [] when there are
           # no changes and must still succeed.
-          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
-            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
-            exit 1
-          fi
+          #
+          # The `starter-*` namespace is OWNED by the detect-starter-changes
+          # job (which scopes its OWN fail-loud to `starter-*`). A
+          # `service=starter-<slug>` dispatch legitimately yields [] here
+          # (no showcase service is named `starter-*`), so it must SKIP — an
+          # empty showcase matrix, NOT a fail-loud exit 1. Mirrors how the
+          # starter job scopes its fail-loud to the `starter-*` namespace.
+          case "$DISPATCH" in
+            starter-*) ;; # starter namespace → empty showcase matrix + skip
+            "" | "all") ;; # push / full-fleet → [] is legitimate
+            *)
+              if [ "$MATRIX" = "[]" ]; then
+                echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+                exit 1
+              fi
+              ;;
+          esac
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
