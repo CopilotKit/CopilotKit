@@ -260,6 +260,79 @@ describe("fetchExistingServices", () => {
     ).rejects.toThrow(/returned null/);
   });
 
+  it("tolerates a service node with null serviceInstances (transitional service)", async () => {
+    // A service in a transitional state can return a null serviceInstances
+    // connection (or null .edges). An unguarded `.edges.find(...)` throws a
+    // TypeError that aborts the ENTIRE fetch — before any starter is touched.
+    // The fetch must coalesce and treat such a node as having no staging
+    // instance / no domain rather than crash.
+    const gql: RailwayGqlFn = vi.fn(async () => ({
+      project: {
+        services: {
+          edges: [
+            {
+              node: {
+                id: "svc-null-instances",
+                name: "starter-mastra",
+                serviceInstances: null,
+              },
+            },
+            {
+              node: {
+                id: "svc-null-edges",
+                name: "starter-adk",
+                serviceInstances: { edges: null },
+              },
+            },
+          ],
+        },
+      },
+    })) as never;
+
+    const map = await fetchExistingServices(gql, PROJECT, STAGING_ENV_ID);
+    expect(map.get("starter-mastra")).toEqual({
+      id: "svc-null-instances",
+      hasStagingDomain: false,
+    });
+    expect(map.get("starter-adk")).toEqual({
+      id: "svc-null-edges",
+      hasStagingDomain: false,
+    });
+  });
+
+  it("FAILS LOUD when the page-drain loop is truncated (hasNextPage still true at the bound)", async () => {
+    // If the defensive page bound is reached while pageInfo.hasNextPage is
+    // STILL true, the byName map is a TRUNCATED snapshot. Returning it
+    // silently would feed erroneous create-vs-update decisions (a service on
+    // an undrained page looks absent → CREATE → "already exists"). Refuse to
+    // provision against a truncated snapshot.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(): Promise<T> =>
+        ({
+          project: {
+            services: {
+              edges: [
+                {
+                  node: {
+                    id: "svc-loop",
+                    name: "starter-loop",
+                    serviceInstances: { edges: [] },
+                  },
+                },
+              ],
+              // Always more pages, never a usable cursor advance → the loop
+              // exhausts its bound with hasNextPage still true.
+              pageInfo: { hasNextPage: true, endCursor: "stuck-cursor" },
+            },
+          },
+        }) as T,
+    ) as RailwayGqlFn;
+
+    await expect(
+      fetchExistingServices(gql, PROJECT, STAGING_ENV_ID),
+    ).rejects.toThrow(/truncated/i);
+  });
+
   it("paginates the Relay ServiceConnection — services on page 2 are NOT truncated", async () => {
     // Railway's `project.services` is a Relay connection that page-limits.
     // With ~27 SSOT + 12 starter services in staging, a single un-paginated
@@ -550,6 +623,206 @@ describe("provisionStarterFleet — create path", () => {
     expect(summary.records[0].action).toBe("created");
   });
 
+  it("THROWS when serviceCreate returns no id (silent-success guard)", async () => {
+    // serviceCreate must yield a non-empty service id. A null/empty id means
+    // the create silently failed — every downstream mutation would target an
+    // invalid service. Fail loud, naming the service.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return { serviceCreate: { id: "", name: "starter-mastra" } } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/serviceCreate.*starter-mastra/i);
+  });
+
+  it("THROWS when serviceInstanceUpdate returns false (settings NOT applied)", async () => {
+    // serviceInstanceUpdate returns Boolean! — a `false` return means
+    // sleepApplication/healthcheck/image/creds were NOT applied. Reporting
+    // success here would run the service WITHOUT sleep. Fail loud.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: false } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/serviceInstanceUpdate.*starter-mastra/i);
+  });
+
+  it("does NOT log 'configured ...' before the update result is verified", async () => {
+    // The "configured ..." log line must come AFTER the update result is
+    // verified — a false return must throw without ever claiming the settings
+    // were configured.
+    const logs: string[] = [];
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: false } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+        log: (line) => logs.push(line),
+      }),
+    ).rejects.toThrow();
+    expect(logs.some((l) => l.includes("configured"))).toBe(false);
+  });
+
+  it("THROWS when serviceDomainCreate returns no domain on the create path", async () => {
+    // serviceDomainCreate must yield a domain on the create path. A
+    // null/empty domain means the create silently failed.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
+        if (query.includes("serviceDomainCreate(")) {
+          return { serviceDomainCreate: { domain: "" } } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/serviceDomainCreate.*starter-mastra/i);
+  });
+
+  it("absorbs a serviceCreate 'already exists' rejection → falls to update, fleet continues", async () => {
+    // A snapshot-miss (Railway eventual consistency) makes a service look
+    // absent → CREATE path. If serviceCreate then rejects with a non-transient
+    // "already exists", the script must NOT abort: it re-fetches the service
+    // id by name and falls through to the UPDATE path so the fleet converges.
+    let createAttempts = 0;
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(
+        query: string,
+        variables: Record<string, unknown> = {},
+      ): Promise<T> => {
+        if (query.includes("project(id:")) {
+          // First snapshot is empty (miss). A re-fetch by name must surface
+          // the now-visible service so the update path can use its id.
+          if (createAttempts === 0) {
+            return { project: { services: { edges: [] } } } as T;
+          }
+          return {
+            project: {
+              services: {
+                edges: [
+                  {
+                    node: {
+                      id: "found-mastra",
+                      name: "starter-mastra",
+                      serviceInstances: { edges: [] },
+                    },
+                  },
+                ],
+              },
+            },
+          } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          createAttempts += 1;
+          const input = variables.input as { name: string };
+          throw new Error(
+            `Railway GraphQL errors:\n  - Service ${input.name} already exists`,
+          );
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
+        if (query.includes("serviceDomainCreate(")) {
+          return {
+            serviceDomainCreate: { domain: "found-mastra.up.railway.app" },
+          } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: [TWO_TARGETS[0]],
+      sleepMs: NO_SLEEP,
+    });
+    // Did not abort: the target was processed via the update path with the
+    // re-fetched id.
+    expect(summary.records).toHaveLength(1);
+    expect(summary.records[0].action).toBe("updated");
+    expect(summary.records[0].serviceId).toBe("found-mastra");
+  });
+
   it("does NOT retry a non-transient error (fails loud)", async () => {
     const gql: RailwayGqlFn = vi.fn(
       async <T = unknown>(query: string): Promise<T> => {
@@ -577,6 +850,92 @@ describe("provisionStarterFleet — create path", () => {
         sleepMs: NO_SLEEP,
       }),
     ).rejects.toThrow(/Unauthorized/);
+  });
+
+  it("does NOT treat a newline-joined multi-error blob as transient (no cross-line bridge)", async () => {
+    // The transient regex must not bridge "Service" on one error line to
+    // "not found" on a DIFFERENT line of a newline-joined GraphQL error blob.
+    // Railway interpolates the id on a SINGLE line ("Service <id> not found"),
+    // which never contains a newline. A blob that pairs an unrelated "Service
+    // ..." line with a "... not found" line is NOT the eventual-consistency
+    // signal and must fail loud immediately (no wasted retries).
+    let updateAttempts = 0;
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          updateAttempts += 1;
+          throw new Error(
+            "Railway GraphQL errors:\n  - Service config invalid\n  - Volume not found",
+          );
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/config invalid/);
+    // Failed loud on the first attempt — not retried as transient.
+    expect(updateAttempts).toBe(1);
+  });
+
+  it("wraps the rethrow with retry-exhaustion context when the schedule is exhausted", async () => {
+    // When every transient retry is exhausted, the final rethrow must carry
+    // context (how many retries, that the error was transient) with the
+    // original error as `cause`.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          // Always transient → exhausts the schedule.
+          throw new Error(
+            "Railway GraphQL errors:\n  - ServiceInstance not found",
+          );
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    let caught: unknown;
+    try {
+      await provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toMatch(/exhausted.*retries.*transient/i);
+    // The original transient error is preserved as the cause.
+    expect((caught as Error).cause).toBeInstanceOf(Error);
+    expect(((caught as Error).cause as Error).message).toMatch(
+      /ServiceInstance not found/,
+    );
   });
 });
 
