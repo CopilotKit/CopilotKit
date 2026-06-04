@@ -107,7 +107,9 @@ export function A2UIRetryingState({
 
   // Not yet perceptible → indistinguishable from normal building.
   if (!revealed) {
-    return <A2UIGeneratingSkeleton label="Building interface" tokens={tokens} />;
+    return (
+      <A2UIGeneratingSkeleton label="Building interface" tokens={tokens} />
+    );
   }
 
   const label =
@@ -329,7 +331,9 @@ export function A2UIDebugDetails({
 }) {
   return (
     <details open={open} className="cpk:mt-2 cpk:text-xs">
-      <summary className="cpk:cursor-pointer cpk:text-gray-500">{label}</summary>
+      <summary className="cpk:cursor-pointer cpk:text-gray-500">
+        {label}
+      </summary>
       <pre
         className="cpk:mt-1 cpk:overflow-auto cpk:rounded cpk:bg-gray-100 cpk:p-2 cpk:text-gray-700"
         style={{ fontSize: 11 }}

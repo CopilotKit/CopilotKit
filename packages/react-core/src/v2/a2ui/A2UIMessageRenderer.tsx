@@ -130,10 +130,16 @@ export function createA2UIMessageRenderer(
         // share this activity's messageId, so the painted surface below replaces
         // them in place once operations arrive.
         const status = content?.status;
-        const debugExposure = resolveDebugExposure(content, optionDebugExposure);
+        const debugExposure = resolveDebugExposure(
+          content,
+          optionDebugExposure,
+        );
         if (status === "failed") {
           return (
-            <A2UIRecoveryFailure content={content} debugExposure={debugExposure} />
+            <A2UIRecoveryFailure
+              content={content}
+              debugExposure={debugExposure}
+            />
           );
         }
         if (status === "retrying") {

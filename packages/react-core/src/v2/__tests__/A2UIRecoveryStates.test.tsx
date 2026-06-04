@@ -15,13 +15,17 @@ afterEach(() => {
 describe("A2UI lifecycle states (OSS-162)", () => {
   describe("building", () => {
     it("shows the 'Building interface' skeleton", () => {
-      const { container } = render(<A2UIBuildingState content={{ status: "building" }} />);
+      const { container } = render(
+        <A2UIBuildingState content={{ status: "building" }} />,
+      );
       expect(container.textContent).toContain("Building interface");
     });
 
     it("shows a live token count when progressTokens is present", () => {
       const { container } = render(
-        <A2UIBuildingState content={{ status: "building", progressTokens: 97 }} />,
+        <A2UIBuildingState
+          content={{ status: "building", progressTokens: 97 }}
+        />,
       );
       expect(container.textContent).toContain("Building interface");
       expect(container.textContent).toContain("97 tokens");
@@ -29,7 +33,9 @@ describe("A2UI lifecycle states (OSS-162)", () => {
 
     it("omits the token count when progressTokens is absent or zero", () => {
       const { container } = render(
-        <A2UIBuildingState content={{ status: "building", progressTokens: 0 }} />,
+        <A2UIBuildingState
+          content={{ status: "building", progressTokens: 0 }}
+        />,
       );
       expect(container.textContent).not.toContain("tokens");
     });
@@ -122,7 +128,13 @@ describe("A2UI lifecycle states (OSS-162)", () => {
           content={{
             status: "failed",
             error: "Failed to generate valid A2UI after 3 attempt(s)",
-            attempts: [{ attempt: 1, ok: false, errors: [{ code: "missing_required_prop" }] }],
+            attempts: [
+              {
+                attempt: 1,
+                ok: false,
+                errors: [{ code: "missing_required_prop" }],
+              },
+            ],
           }}
           debugExposure="collapsed"
         />,
@@ -137,7 +149,11 @@ describe("A2UI lifecycle states (OSS-162)", () => {
     it("hides developer detail entirely when debugExposure is 'hidden'", () => {
       const { container } = render(
         <A2UIRecoveryFailure
-          content={{ status: "failed", error: "boom", attempts: [{ attempt: 1, ok: false }] }}
+          content={{
+            status: "failed",
+            error: "boom",
+            attempts: [{ attempt: 1, ok: false }],
+          }}
           debugExposure="hidden"
         />,
       );
@@ -160,7 +176,9 @@ describe("A2UI lifecycle states (OSS-162)", () => {
 
   describe("resolveDebugExposure precedence", () => {
     it("server-stamped content.debugExposure wins over the client option", () => {
-      expect(resolveDebugExposure({ debugExposure: "hidden" }, "verbose")).toBe("hidden");
+      expect(resolveDebugExposure({ debugExposure: "hidden" }, "verbose")).toBe(
+        "hidden",
+      );
     });
     it("falls back to the client option when content has none", () => {
       expect(resolveDebugExposure({}, "verbose")).toBe("verbose");
