@@ -1,9 +1,17 @@
 name: test / smoke / starter
 
+# Reduced to a PR build-sanity gate (model B, §e / Phase 5). The 6h
+# `schedule` cron was DROPPED: the live dashboard signal for starter health
+# now comes from the harness HTTP-probing the deployed (sleepable) Railway
+# starter services, and the harness alert path (alerts/alert-engine.ts →
+# #oss-alerts) carries the scheduled-failure Slack signal that used to fire
+# from this cron. What remains is the fast pre-merge build-sanity gate: the
+# `pull_request` trigger on examples/integrations/** still builds + smoke-
+# tests each starter offline against aimock on every starter change. The
+# post-merge GHCR `:latest` publish that feeds the Railway services lives in
+# showcase_build.yml's build-starters job (push:main, §b stage 1), so it is
+# intentionally NOT duplicated here.
 on:
-  schedule:
-    # Every 6 hours — catches floating dep breakage
-    - cron: "0 */6 * * *"
   workflow_run:
     workflows: ["publish / release"]
     types: [completed]
