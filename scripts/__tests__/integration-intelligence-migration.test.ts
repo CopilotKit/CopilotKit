@@ -5,11 +5,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-const migratedIntegrations = [
-  "crewai-flows",
-  "llamaindex",
-  "pydantic-ai",
-] as const;
+const migratedIntegrations = ["crewai-flows", "llamaindex"] as const;
 
 function readIntegrationFile(
   integration: string,
