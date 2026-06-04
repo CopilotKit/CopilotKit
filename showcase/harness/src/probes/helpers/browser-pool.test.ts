@@ -3454,4 +3454,142 @@ describe("BrowserPool — resource-gauge instrumentation (PID-ceiling early warn
 
     await pool.shutdown();
   });
+
+  // ── DURABLE FORENSIC SNAPSHOTS: onSnapshot hook + heartbeat ─────────────────
+  //
+  // The wedge ends in a container restart that clears in-memory state, and the
+  // Railway stdout window rolls off — so the gauge history MUST be persisted
+  // durably (PB) to survive. The pool fires `onSnapshot` (full gauge sample +
+  // stats + per-browser breakdown) on every meaningful transition AND on a
+  // periodic heartbeat. These tests assert: (a) a snapshot fires on the
+  // degraded + unrecoverable transitions; (b) the heartbeat samples
+  // periodically; (c) BEST-EFFORT — a throwing onSnapshot never breaks the pool.
+
+  // RED (pre-wiring): no onSnapshot → no forensic capture at the degraded
+  // transition. GREEN: the moment the set empties, a `degraded` snapshot fires.
+  it("SNAPSHOT: fires a forensic snapshot on the degraded transition", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 2 });
+    const snapshots: string[] = [];
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 4,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 5,
+      heartbeatMs: 0, // isolate the transition snapshot from the heartbeat
+      onSnapshot: (s) => {
+        snapshots.push(s.event);
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+    launcher.launched[1]!.__crash();
+
+    await waitFor(() => snapshots.includes("degraded"), 5_000);
+    expect(snapshots).toContain("degraded");
+    // The init snapshot also fired (baseline at boot).
+    expect(snapshots).toContain("init");
+
+    await pool.shutdown();
+  });
+
+  // GREEN: the TERMINAL give-up fires an `unrecoverable` snapshot — the single
+  // most important forensic row (pool dead, redeploy required).
+  it("SNAPSHOT: fires a forensic snapshot on the unrecoverable give-up", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const snapshots: Array<{ event: string; pidsMax: number }> = [];
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      heartbeatMs: 0,
+      onSnapshot: (s) => {
+        snapshots.push({ event: s.event, pidsMax: s.gauges.cgroupPidsMax });
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    await waitFor(
+      () => snapshots.some((s) => s.event === "unrecoverable"),
+      5_000,
+    );
+    expect(snapshots.some((s) => s.event === "unrecoverable")).toBe(true);
+    // The snapshot carried a real gauge sample (pidsMax is a number, -1 off-Linux).
+    const unrec = snapshots.find((s) => s.event === "unrecoverable")!;
+    expect(typeof unrec.pidsMax).toBe("number");
+
+    await pool.shutdown();
+  });
+
+  // GREEN: the periodic heartbeat fires baseline snapshots between events so a
+  // slow PID creep is visible even when no transition fires.
+  it("SNAPSHOT: heartbeat fires periodic baseline snapshots", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    let heartbeats = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+      heartbeatMs: 10, // tiny so the test observes several beats quickly
+      onSnapshot: (s) => {
+        if (s.event === "heartbeat") heartbeats++;
+      },
+    });
+    await pool.init();
+
+    await waitFor(() => heartbeats >= 2, 5_000);
+    expect(heartbeats).toBeGreaterThanOrEqual(2);
+
+    await pool.shutdown();
+
+    // After shutdown the heartbeat loop stops — no further beats accrue.
+    const afterShutdown = heartbeats;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(heartbeats).toBe(afterShutdown);
+  });
+
+  // BEST-EFFORT: a throwing onSnapshot hook is caught + logged and NEVER breaks
+  // the pool — acquire/release keep working. Mirrors the safeHook doctrine.
+  it("SNAPSHOT: a throwing onSnapshot hook does NOT break the pool (best-effort)", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+      heartbeatMs: 0,
+      onSnapshot: () => {
+        throw new Error("snapshot writer exploded");
+      },
+    });
+    // init() fires the "init" snapshot → the hook throws → must NOT reject init.
+    await expect(pool.init()).resolves.toBeUndefined();
+    // The throw was caught + logged, not propagated.
+    expect(
+      events.some(
+        (e) =>
+          e.event === "browser-pool.hook-failed" &&
+          e.meta?.hook === "onSnapshot",
+      ),
+    ).toBe(true);
+
+    // The pool is fully functional despite the throwing hook.
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+    await pool.release(ctx);
+
+    await pool.shutdown();
+  });
 });

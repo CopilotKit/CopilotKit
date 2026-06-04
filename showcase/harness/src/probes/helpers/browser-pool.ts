@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext } from "playwright";
-import { sampleResourceGauges } from "./resource-gauges";
+import { sampleResourceGauges, readCgroupPids } from "./resource-gauges";
+import type { ResourceGauges } from "./resource-gauges";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium
@@ -96,6 +97,17 @@ const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
  */
 const DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD = 4;
 const DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES = 3;
+
+/**
+ * Default heartbeat interval (ms) for the periodic baseline gauge snapshot. A
+ * ~45s cadence gives a baseline PID/thread trend BETWEEN lifecycle events — so
+ * a slow creep toward the cgroup `pids.max` ceiling (the proven wedge) is
+ * visible in the durable history even when no transition fired in the window.
+ * Cheap enough at this cadence (a handful of /proc reads + two short `df`
+ * execs); the hot acquire/release path uses only a cheap subset, never a full
+ * sample. Tunable on staging via BROWSER_POOL_HEARTBEAT_MS; 0 disables it.
+ */
+const DEFAULT_HEARTBEAT_MS = 45_000;
 
 /**
  * Resolve a STRICTLY-POSITIVE numeric tunable with explicit-arg > env > default
@@ -326,6 +338,51 @@ export interface BrowserPoolOptions {
    * hook is caught + logged, never crashes the pool.
    */
   onUnrecoverable?: (info: BrowserPoolUnrecoverableInfo) => void;
+  /**
+   * DURABLE forensic snapshot hook. Invoked with a FULL gauge sample + pool
+   * stats + per-browser breakdown on every MEANINGFUL pool condition
+   * (heartbeat + degraded/unrecoverable/launch-fail/crash transitions). The
+   * orchestrator wires this to the `resource_snapshots` PB writer so the gauge
+   * history survives the container RESTART that ends a wedge (Railway stdout
+   * rolls off; in-memory is cleared on restart — durable PB is the only
+   * post-wedge-retrievable trail). Best-effort: a throwing hook is caught +
+   * logged, never crashes the pool, and the snapshot writer itself swallows PB
+   * errors. Synchronous from the pool's perspective — the writer does its own
+   * fire-and-forget async persistence.
+   */
+  onSnapshot?: (snapshot: BrowserPoolSnapshot) => void;
+  /**
+   * Heartbeat interval (ms) for the periodic baseline gauge sample/snapshot.
+   * Default 45000 (env BROWSER_POOL_HEARTBEAT_MS). A heartbeat gives a baseline
+   * trend BETWEEN transition events so a slow PID-ceiling creep is visible even
+   * when no lifecycle event fires. 0 disables the heartbeat (tests). Driven by
+   * a self-rescheduling loop gated on the shutdown signal — NOT a raw
+   * setInterval (which would leak a timer past shutdown).
+   */
+  heartbeatMs?: number;
+}
+
+/**
+ * Full forensic snapshot handed to `onSnapshot`. Bundles the OS gauges, the
+ * pool's capacity stats, the per-browser breakdown, and the naming `event` so
+ * the durable writer can persist one row without re-sampling.
+ */
+export interface BrowserPoolSnapshot {
+  /** Pool condition that triggered the snapshot (`heartbeat`, `degraded`,
+   *  `unrecoverable`, `launch-fail`, `crash`, ...). */
+  event: string;
+  gauges: ResourceGauges;
+  stats: BrowserPoolStats;
+  perBrowser: BrowserPoolPerBrowserSnapshot[];
+}
+
+/** Per-browser breakdown entry in a {@link BrowserPoolSnapshot}. Pure counters
+ *  — no secrets — safe for the public-read PB collection. */
+export interface BrowserPoolPerBrowserSnapshot {
+  index: number;
+  liveContexts: number;
+  servedContexts: number;
+  recycling: boolean;
 }
 
 /**
@@ -399,6 +456,14 @@ export class BrowserPool {
   private readonly onUnrecoverable?: (
     info: BrowserPoolUnrecoverableInfo,
   ) => void;
+  // DURABLE forensic snapshot hook + heartbeat. The hook persists a full gauge
+  // sample to PocketBase (survives the wedge→restart); the heartbeat gives a
+  // baseline trend between transition events. The heartbeat is a
+  // self-rescheduling loop gated on `shutdownSignal` (NOT a raw setInterval) so
+  // it never leaks a timer past shutdown.
+  private readonly onSnapshot?: (snapshot: BrowserPoolSnapshot) => void;
+  private readonly heartbeatMs: number;
+  private heartbeatRunning = false;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
   // succeeds. Guards against firing the degraded alarm / spawning a second
   // self-heal loop repeatedly.
@@ -524,6 +589,12 @@ export class BrowserPool {
     this.onDegraded = options.onDegraded;
     this.onRecovered = options.onRecovered;
     this.onUnrecoverable = options.onUnrecoverable;
+    this.onSnapshot = options.onSnapshot;
+    this.heartbeatMs = resolveNonNegative(
+      options.heartbeatMs,
+      process.env.BROWSER_POOL_HEARTBEAT_MS,
+      DEFAULT_HEARTBEAT_MS,
+    );
   }
 
   /**
@@ -549,6 +620,116 @@ export class BrowserPool {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  /**
+   * Build the per-browser breakdown for a forensic snapshot. Pure counters
+   * (index / live-context count / served count / recycling flag) — no secrets —
+   * safe for the public-read `resource_snapshots` PB collection.
+   */
+  private perBrowserSnapshot(): BrowserPoolPerBrowserSnapshot[] {
+    return this.browsers.map((entry, index) => ({
+      index,
+      liveContexts: entry.liveContexts.size,
+      servedContexts: entry.servedContexts,
+      recycling: entry.recycling,
+    }));
+  }
+
+  /**
+   * FULL forensic snapshot of a MEANINGFUL pool condition: sample the OS gauges
+   * ONCE, log them with the event label, and fire the durable `onSnapshot` hook
+   * (which persists to PocketBase so the trail survives the wedge→restart). Use
+   * this on the meaningful transitions (degraded/unrecoverable/launch-fail/
+   * crash/recycle/heartbeat/init/shutdown), NOT on the hot acquire/release path
+   * — a full sample is a handful of /proc reads + two `df` execs, too costly per
+   * acquire. The hot path uses `logHotGauges` (a cheap cgroup-PID-only subset).
+   *
+   * Best-effort throughout: a gauge-sampling failure logs at warn and skips the
+   * snapshot; a throwing `onSnapshot` hook is caught + logged. Neither ever
+   * propagates into the pool's lifecycle paths.
+   */
+  private snapshot(event: string): void {
+    let gauges: ResourceGauges;
+    try {
+      gauges = sampleResourceGauges();
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.resource-gauges-failed", {
+        label: event,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+    this.logger?.info("browser-pool.resource-gauges", {
+      label: event,
+      ...gauges,
+    });
+    if (!this.onSnapshot) return;
+    try {
+      this.onSnapshot({
+        event,
+        gauges,
+        stats: this.stats(),
+        perBrowser: this.perBrowserSnapshot(),
+      });
+    } catch (err) {
+      this.logger?.error?.("browser-pool.hook-failed", {
+        hook: "onSnapshot",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * CHEAP gauge log for the HOT acquire/release path. Reads ONLY the cgroup PID
+   * counters (two small file reads — `pids.current`/`pids.max`) plus the pool's
+   * own in-memory context counts. Deliberately does NOT walk /proc or exec `df`
+   * (the costly part of a full sample) so logging on every acquire/release stays
+   * negligible. This gives a high-resolution view of the headline wedge signal
+   * (`pids.current` vs `pids.max`) on the busiest path without the full-sample
+   * cost, and does NOT fire the durable snapshot hook (the heartbeat + the
+   * transitions own durable persistence). Best-effort: a read failure degrades
+   * to -1 and is swallowed.
+   */
+  private logHotGauges(event: string): void {
+    try {
+      const pids = readCgroupPids();
+      this.logger?.info("browser-pool.hot-gauges", {
+        event,
+        pidsCurrent: pids.current,
+        pidsMax: pids.max,
+        inUse: this.liveContextCount,
+        available: this.maxContexts - this.liveContextCount,
+      });
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.hot-gauges-failed", {
+        event,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Periodic baseline heartbeat: a self-rescheduling loop that fires a FULL
+   * forensic snapshot every `heartbeatMs`. Gated on `shutdownSignal` (the same
+   * proven mechanism the self-heal loop uses) so it aborts PROMPTLY on shutdown
+   * and never leaks a timer — a raw `setInterval` would keep firing after
+   * shutdown and pin a handle. Idempotent via `heartbeatRunning`. The heartbeat
+   * is what makes a slow PID-ceiling creep visible in the durable history even
+   * when no lifecycle event fires in the window.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatMs <= 0) return;
+    if (this.heartbeatRunning) return;
+    this.heartbeatRunning = true;
+    void (async () => {
+      while (!this.isShutdown) {
+        await this.delayOrShutdown(this.heartbeatMs);
+        if (this.isShutdown) break;
+        this.snapshot("heartbeat");
+      }
+      this.heartbeatRunning = false;
+    })();
   }
 
   async init(): Promise<void> {
@@ -579,6 +760,10 @@ export class BrowserPool {
         this.browsers.push(entry);
         this.attachDisconnectHandler(entry, browser);
       }
+      // Baseline forensic snapshot the instant the fixed set is warm, then kick
+      // the periodic heartbeat so the durable history has a trend from boot.
+      this.snapshot("init");
+      this.startHeartbeat();
     } catch (err) {
       // A mid-fill launch failure (the PID-ceiling pthread_create EAGAIN /
       // "Zygote could not fork" this gate exists to survive) must not leak the
@@ -973,6 +1158,11 @@ export class BrowserPool {
         available: this.maxContexts - this.liveContextCount,
         inUse: this.liveContextCount,
       });
+      // HOT-PATH gauge: cheap cgroup-PID-only sample (no /proc walk, no df) so
+      // the headline wedge signal is visible at acquire resolution without the
+      // full-sample cost. Durable persistence is owned by the heartbeat +
+      // transitions, not this line.
+      this.logHotGauges("acquire");
       return context;
     } catch (err) {
       // SHUTDOWN STRADDLE: the pool shut down WHILE this open was in flight —
@@ -1307,6 +1497,10 @@ export class BrowserPool {
       available: this.maxContexts - this.liveContextCount,
       inUse: this.liveContextCount,
     });
+    // HOT-PATH gauge: cheap cgroup-PID-only subset (see acquire). Cheap enough
+    // to fire on every release; full samples are reserved for transitions +
+    // heartbeat.
+    this.logHotGauges("release");
 
     // Hygiene-recycle intent, LATCHED synchronously: the instant this browser
     // has served >= recycleAfter contexts, mark `recyclePending`. This is a
@@ -1387,6 +1581,11 @@ export class BrowserPool {
   }
 
   async shutdown(): Promise<void> {
+    // FULL durable snapshot before teardown — captures the final resource state
+    // while the browser set is still populated (the per-browser breakdown is
+    // meaningful only pre-teardown). Sampled BEFORE flipping isShutdown so the
+    // snapshot's `onSnapshot` write is not racing the post-shutdown drain.
+    this.snapshot("shutdown");
     this.isShutdown = true;
     // Wake any racing self-heal / backoff delay so it aborts promptly instead of
     // stalling shutdown for up to selfHealIntervalMs / relaunchBackoffMs.
@@ -1478,6 +1677,10 @@ export class BrowserPool {
       this.logger?.info("browser-pool.disconnected", {
         browserIndex: this.browsers.indexOf(entry),
       });
+      // A browser crashed/disconnected mid-life — capture a FULL durable
+      // snapshot so the resource state at the crash (esp. pids.current vs
+      // pids.max) is reconstructable post-restart.
+      this.snapshot("crash");
       this.recycleBrowser(entry);
     });
   }
@@ -1521,10 +1724,14 @@ export class BrowserPool {
     const browserIdx = this.browsers.indexOf(entry);
     this.logger?.info("browser-pool.recycle", {
       browserIndex: browserIdx,
+      reason,
       servedContexts: entry.servedContexts,
       recycleAfter: this.recycleAfter,
       totalRecycles: this.totalRecycles,
     });
+    // FULL durable snapshot at recycle start (crash OR hygiene): a recycle
+    // relaunches a chromium process — the PID-demand moment the wedge exploits.
+    this.snapshot(`recycle-${reason}`);
 
     // Drop the abandoned live contexts from the global lookup + count so a
     // later release() of a stale reference is a no-op and the cap accounting
@@ -1627,6 +1834,10 @@ export class BrowserPool {
           browserIndex: this.browsers.indexOf(entry),
           error: err instanceof Error ? err.message : String(err),
         });
+        // FULL durable snapshot: the relaunch retries are exhausted — a
+        // launch-fail transition. Capture the resource state so a `pthread_create`
+        // EAGAIN at the PID ceiling is correlatable post-restart.
+        this.snapshot("launch-fail");
         const idx = this.browsers.indexOf(entry);
         if (idx !== -1) this.browsers.splice(idx, 1);
         // FIX #2 — self-heal + alarm on empty browser set. The unfixed code
@@ -1733,6 +1944,11 @@ export class BrowserPool {
         waiters: this.waiters.length,
         browserCount: this.browserCount,
       });
+      // FULL durable snapshot at the degraded transition — the headline
+      // forensic moment. This MUST land in PB: the wedge ends in a restart that
+      // clears in-memory state, so the degraded-instant gauges are otherwise
+      // unretrievable.
+      this.snapshot("degraded");
       this.safeHook(this.onDegraded, "onDegraded");
     }
     this.startSelfHeal();
@@ -1845,11 +2061,13 @@ export class BrowserPool {
               hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
               error: err instanceof Error ? err.message : String(err),
             });
-            // EARLY WARNING: a self-heal launch just failed — capture the OS
-            // gauges so a `pthread_create` EAGAIN at this point correlates to a
-            // measured `pids.current` near `pids.max` (the proven wedge), making
-            // the thread-ceiling exhaustion visible in the logs as it happens.
-            this.logGauges("self-heal-launch-failed");
+            // EARLY WARNING: a self-heal launch just failed — capture a FULL
+            // DURABLE snapshot so a `pthread_create` EAGAIN at this point
+            // correlates to a measured `pids.current` near `pids.max` (the
+            // proven wedge) AND survives the wedge→restart in PB. This is the
+            // repeating signal (28× in ~19s observed) that is most often lost to
+            // the Railway stdout window — durable persistence is the point.
+            this.snapshot("self-heal-launch-failed");
           }
         }
         if (this.browsers.length >= this.browserCount) {
@@ -1880,6 +2098,10 @@ export class BrowserPool {
           browserCount: this.browserCount,
           waiters: this.waiters.length,
         });
+        // FULL durable snapshot at the recovered transition — bookends the
+        // degraded snapshot so the resource delta across the recovery window is
+        // reconstructable.
+        this.snapshot("recovered");
         this.safeHook(this.onRecovered, "onRecovered");
       }
       this.selfHealing = false;
@@ -1968,6 +2190,11 @@ export class BrowserPool {
       treeThreadCount,
     };
     this.logger?.error?.("browser-pool.pool-unrecoverable", { ...info });
+    // FULL durable snapshot at the TERMINAL give-up — the single most important
+    // forensic row. The pool is dead and a redeploy is required; this MUST be in
+    // PB because the redeploy clears everything in-memory and the stdout window
+    // will have long rolled off by the time an operator looks.
+    this.snapshot("unrecoverable");
     // Best-effort hook (mirrors safeHook) — passes the breaker counters so the
     // operator alarm can describe how hard the pool tried before giving up.
     if (this.onUnrecoverable) {
