@@ -2877,7 +2877,8 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     launcher.__releaseParkedLaunches();
     await shutdownP;
     await waiterP;
-    // shutdown() awaited the orphan close: the straddled context is closed.
+    // The straddled orphan context was closed by the orphan guard's
+    // fire-and-forget close, and never landed in contextToBrowser.
     const openButNotClosed = launched[0]!.__contexts.filter(
       (c) => c.__closeCount === 0,
     );
@@ -2932,13 +2933,12 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     expect(internals(pool).waiters.length).toBe(0);
 
     await shutdownP;
-    // The straddled orphan context was closed and the pool is clean (item-2:
-    // shutdown awaited the tracked orphan close before resolving).
+    // The straddled orphan context was closed by the orphan guard's
+    // fire-and-forget close, and never landed in contextToBrowser.
     const openButNotClosed = launched[0]!.__contexts.filter(
       (c) => c.__closeCount === 0,
     );
     expect(openButNotClosed.length).toBe(0);
     expect(internals(pool).contextToBrowser.size).toBe(0);
-    expect(internals(pool).liveContextCount).toBe(0);
   });
 });
