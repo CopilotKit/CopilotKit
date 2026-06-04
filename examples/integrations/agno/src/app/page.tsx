@@ -104,9 +104,10 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         .describe("The proverb to add. Make it witty, short and concise."),
     }),
     handler: async ({ proverb }) => {
-      setState({
-        ...state,
-        proverbs: [...(state?.proverbs || []), proverb],
+      // Read agent.state at call time so rapid successive adds don't drop
+      // earlier proverbs via a stale closure over `state`.
+      agent.setState({
+        proverbs: [...((agent.state as AgentState | undefined)?.proverbs ?? []), proverb],
       });
       return `Added proverb: ${proverb}`;
     },
