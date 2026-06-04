@@ -10,10 +10,7 @@ import type { StatusWriter } from "../../writers/status-writer.js";
 import { truncateUtf8 } from "../../render/filters.js";
 import { ProbeRunTracker } from "../run-tracker.js";
 import type { ProbeRunWriter, ProbeRunSummary } from "../run-history.js";
-import {
-  sampleResourceGauges,
-  formatGauges,
-} from "../helpers/resource-gauges.js";
+import { sampleResourceGauges } from "../helpers/resource-gauges.js";
 
 /**
  * EARLY-WARNING INSTRUMENTATION: sample + log the OS resource gauges at a probe
@@ -21,9 +18,10 @@ import {
  * context-open burst, so sampling here (start + end) makes a burst approaching
  * the cgroup `pids.max` ceiling — the PROVEN browser-pool wedge — observable in
  * the per-tick logs. The headline `pids.current`/`pids.max`/thread fields lead
- * the structured payload and the compact `gauges` summary line. Best-effort: a
- * sampling failure (or non-Linux host, where the gauges degrade to -1) is
- * swallowed and never disrupts the tick.
+ * the structured payload (the full gauge set is spread in directly, so every
+ * field stays queryable rather than buried in a pre-formatted string).
+ * Best-effort: a sampling failure (or non-Linux host, where the gauges degrade
+ * to -1) is swallowed and never disrupts the tick.
  */
 function logTickGauges(
   logger: Logger,
@@ -35,7 +33,6 @@ function logTickGauges(
     logger.info("probe.resource-gauges", {
       probeId,
       boundary,
-      gauges: formatGauges(g, boundary),
       ...g,
     });
   } catch {

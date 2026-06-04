@@ -643,7 +643,8 @@ export class BrowserPool {
    * this on the meaningful transitions (degraded/unrecoverable/launch-fail/
    * crash/recycle/heartbeat/init/shutdown), NOT on the hot acquire/release path
    * — a full sample is a handful of /proc reads + two `df` execs, too costly per
-   * acquire. The hot path uses `logHotGauges` (a cheap cgroup-PID-only subset).
+   * acquire. The hot path uses `readHotGauges` (a cheap cgroup-PID-only subset
+   * folded into the existing acquire/release log line).
    *
    * Best-effort throughout: a gauge-sampling failure logs at warn and skips the
    * snapshot; a throwing `onSnapshot` hook is caught + logged. Neither ever
@@ -681,31 +682,23 @@ export class BrowserPool {
   }
 
   /**
-   * CHEAP gauge log for the HOT acquire/release path. Reads ONLY the cgroup PID
-   * counters (two small file reads — `pids.current`/`pids.max`) plus the pool's
-   * own in-memory context counts. Deliberately does NOT walk /proc or exec `df`
-   * (the costly part of a full sample) so logging on every acquire/release stays
-   * negligible. This gives a high-resolution view of the headline wedge signal
-   * (`pids.current` vs `pids.max`) on the busiest path without the full-sample
-   * cost, and does NOT fire the durable snapshot hook (the heartbeat + the
-   * transitions own durable persistence). Best-effort: a read failure degrades
-   * to -1 and is swallowed.
+   * CHEAP gauge read for the HOT acquire/release path. Reads ONLY the cgroup PID
+   * counters (two small file reads — `pids.current`/`pids.max`). Deliberately
+   * does NOT walk /proc or exec `df` (the costly part of a full sample) so
+   * sampling on every acquire/release stays negligible. The two counters are
+   * folded into the existing `browser-pool.acquire`/`browser-pool.release` log
+   * line (one line, not a duplicate second log) so the headline wedge signal
+   * (`pids.current` vs `pids.max`) is visible at acquire/release resolution
+   * without the full-sample cost; this does NOT fire the durable snapshot hook
+   * (the heartbeat + transitions own durable persistence). Best-effort: a read
+   * failure degrades to -1 and is swallowed.
    */
-  private logHotGauges(event: string): void {
+  private readHotGauges(): { pidsCurrent: number; pidsMax: number } {
     try {
       const pids = readCgroupPids();
-      this.logger?.info("browser-pool.hot-gauges", {
-        event,
-        pidsCurrent: pids.current,
-        pidsMax: pids.max,
-        inUse: this.liveContextCount,
-        available: this.maxContexts - this.liveContextCount,
-      });
-    } catch (err) {
-      this.logger?.warn?.("browser-pool.hot-gauges-failed", {
-        event,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      return { pidsCurrent: pids.current, pidsMax: pids.max };
+    } catch {
+      return { pidsCurrent: -1, pidsMax: -1 };
     }
   }
 
@@ -1154,15 +1147,15 @@ export class BrowserPool {
 
     try {
       const context = await this.openContextOn(entry, options);
+      // HOT-PATH gauge: cheap cgroup-PID-only sample (no /proc walk, no df)
+      // folded INTO this acquire line so the headline wedge signal is visible at
+      // acquire resolution without the full-sample cost and without a duplicate
+      // log. Durable persistence is owned by the heartbeat + transitions.
       this.logger?.info("browser-pool.acquire", {
         available: this.maxContexts - this.liveContextCount,
         inUse: this.liveContextCount,
+        ...this.readHotGauges(),
       });
-      // HOT-PATH gauge: cheap cgroup-PID-only sample (no /proc walk, no df) so
-      // the headline wedge signal is visible at acquire resolution without the
-      // full-sample cost. Durable persistence is owned by the heartbeat +
-      // transitions, not this line.
-      this.logHotGauges("acquire");
       return context;
     } catch (err) {
       // SHUTDOWN STRADDLE: the pool shut down WHILE this open was in flight —
@@ -1493,14 +1486,14 @@ export class BrowserPool {
     entry.liveContexts.delete(context);
     this.releaseReservation();
 
+    // HOT-PATH gauge: cheap cgroup-PID-only subset (see acquire) folded INTO
+    // this release line — cheap enough to read on every release, one log line.
+    // Full samples are reserved for transitions + heartbeat.
     this.logger?.info("browser-pool.release", {
       available: this.maxContexts - this.liveContextCount,
       inUse: this.liveContextCount,
+      ...this.readHotGauges(),
     });
-    // HOT-PATH gauge: cheap cgroup-PID-only subset (see acquire). Cheap enough
-    // to fire on every release; full samples are reserved for transitions +
-    // heartbeat.
-    this.logHotGauges("release");
 
     // Hygiene-recycle intent, LATCHED synchronously: the instant this browser
     // has served >= recycleAfter contexts, mark `recyclePending`. This is a
