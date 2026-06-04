@@ -528,6 +528,35 @@ jobs:
         run: |
           echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
 
+  shell-script-tests:
+    name: Shell script tests (bats + shellcheck)
+    # Separate job (mirrors python-unit-tests) so the showcase shell-script
+    # regression suite runs independently of the JS/TS validate job. Runs on
+    # ubuntu-latest where shellcheck is preinstalled; bats is apt-installed.
+    # These tests gate the promote-fleet.sh best-effort loop + succeeded_csv
+    # export that the promote → verify-prod handoff depends on.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Shellcheck promote-fleet.sh
+        # shellcheck is preinstalled on ubuntu-latest.
+        run: shellcheck showcase/scripts/promote-fleet.sh
+
+      - name: Run bats suite
+        run: bats showcase/scripts/__tests__/
+
   python-unit-tests:
     name: Python unit tests (${{ matrix.python-version }})
     # Separate job so pre-existing `validate-parity` failures don't mask new
@@ -641,11 +670,12 @@ jobs:
     # red runs surface uniformly across the showcase pipeline. The validate
     # job has its own inline (and richer) push-only notifier that extracts
     # the failing step + error excerpt; this job is the workflow-level
-    # safety net that also covers the python-unit-tests matrix job — which
-    # otherwise had no Slack signal at all. Webhook empty-guard mirrors
-    # promote.yml so an unset SLACK_WEBHOOK_OSS_ALERTS secret does not
-    # break the shell or red the workflow on this step.
-    needs: [validate, python-unit-tests]
+    # safety net that also covers the python-unit-tests matrix job and the
+    # shell-script-tests job — which otherwise had no Slack signal at all.
+    # Webhook empty-guard mirrors promote.yml so an unset
+    # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red the
+    # workflow on this step.
+    needs: [validate, python-unit-tests, shell-script-tests]
     if: always() && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -660,9 +690,10 @@ jobs:
         env:
           VALIDATE: ${{ needs.validate.result }}
           PYTEST: ${{ needs.python-unit-tests.result }}
+          SHELL: ${{ needs.shell-script-tests.result }}
         run: |
           set -euo pipefail
-          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ]; then
+          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ] && [ "$SHELL" = "success" ]; then
             STATE="success"; ICON=":white_check_mark:"
           else
             STATE="failure"; ICON=":x:"
@@ -680,11 +711,12 @@ jobs:
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *showcase_validate failed on {1}*\nvalidate={2} python-unit-tests={3}\n<{4}/{5}/actions/runs/{6}|View run>',
+                '{0} *showcase_validate failed on {1}*\nvalidate={2} python-unit-tests={3} shell-script-tests={4}\n<{5}/{6}/actions/runs/{7}|View run>',
                 steps.state.outputs.icon,
                 github.ref,
                 needs.validate.result,
                 needs.python-unit-tests.result,
+                needs.shell-script-tests.result,
                 github.server_url,
                 github.repository,
                 github.run_id
