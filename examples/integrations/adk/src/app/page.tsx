@@ -2,8 +2,6 @@
 
 import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
 import { AgentState } from "@/lib/types";
 import {
   useAgent,
@@ -12,20 +10,12 @@ import {
   useHumanInTheLoop,
   useRenderTool,
   CopilotSidebar,
-  CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import React, { useState } from "react";
 import { z } from "zod";
 
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
-
-// The agent key registered in the runtime route (`agents: { default: ... }`)
-// and the id passed to `useAgent({ agentId: "default" })` below.
-const AGENT_ID = "default";
-
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/adk/frontend-actions
   useFrontendTool({
@@ -41,71 +31,53 @@ export default function CopilotKitPage() {
   });
 
   return (
-    // Share the active threadId with the chat + agent. `useAgent()` and the
-    // CopilotSidebar fall back to this provider's threadId when called without
-    // an explicit one, so selecting a thread in the drawer drives the chat.
-    <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
-      <div className={styles.layout}>
-        {/* In-flow left threads panel, themed to match adk's chat (see globals.css). */}
-        <div className={`threads-theme ${styles.threadsThemeRoot}`}>
-          <ThreadsPanelGate>
-            <ThreadsDrawer
-              agentId={AGENT_ID}
-              threadId={threadId}
-              onThreadChange={setThreadId}
-            />
-          </ThreadsPanelGate>
-        </div>
-
-        {/* adk's demo content, verbatim, in the main panel. */}
-        <main
-          className={styles.mainPanel}
-          style={
-            { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-          }
-        >
-          <YourMainContent themeColor={themeColor} />
-          <CopilotSidebar
-            defaultOpen={true}
-            labels={{
-              modalHeaderTitle: "Popup Assistant",
-              welcomeMessageText:
-                "👋 Hi, there! You're chatting with an agent.",
-            }}
-            suggestions={[
-              {
-                title: "Generative UI",
-                message: "Get the weather in San Francisco.",
-              },
-              {
-                title: "Frontend Tools",
-                message: "Set the theme to green.",
-              },
-              {
-                title: "Write Agent State",
-                message: "Add a proverb about AI.",
-              },
-              {
-                title: "Update Agent State",
-                message:
-                  "Please remove 1 random proverb from the list if there are any.",
-              },
-              {
-                title: "Read Agent State",
-                message: "What are the proverbs?",
-              },
-            ]}
-          />
-        </main>
-      </div>
-    </CopilotChatConfigurationProvider>
+    <main
+      style={
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
+      }
+    >
+      <CopilotSidebar
+        disableSystemMessage={true}
+        clickOutsideToClose={false}
+        defaultOpen={true}
+        labels={{
+          title: "Popup Assistant",
+          initial: "👋 Hi, there! You're chatting with an agent.",
+        }}
+        suggestions={[
+          {
+            title: "Generative UI",
+            message: "Get the weather in San Francisco.",
+          },
+          {
+            title: "Frontend Tools",
+            message: "Set the theme to green.",
+          },
+          {
+            title: "Write Agent State",
+            message: "Add a proverb about AI.",
+          },
+          {
+            title: "Update Agent State",
+            message:
+              "Please remove 1 random proverb from the list if there are any.",
+          },
+          {
+            title: "Read Agent State",
+            message: "What are the proverbs?",
+          },
+        ]}
+      >
+        <YourMainContent themeColor={themeColor} />
+      </CopilotSidebar>
+    </main>
   );
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/adk/shared-state
   const { agent } = useAgent({
-    agentId: AGENT_ID,
+    agentId: "my_agent",
   });
   const state = (agent.state ?? {
     proverbs: [

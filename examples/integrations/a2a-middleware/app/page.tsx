@@ -2,13 +2,6 @@
 
 import { useState } from "react";
 import Chat from "@/components/chat";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
 export type ResearchData = {
   topic: string;
@@ -31,15 +24,12 @@ export type AnalysisData = {
   conclusion: string;
 };
 
-// Disable static optimization for this page
-export const dynamic = "force-dynamic";
-
-function ResearchAssistant() {
+export default function Home() {
   const [researchData, setResearchData] = useState<ResearchData | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
 
   return (
-    <div className="relative flex min-h-dvh overflow-hidden bg-[#DEDEE9] p-2">
+    <div className="relative flex h-screen overflow-hidden bg-[#DEDEE9] p-2">
       {/* Background blur circles - Creating the gradient effect */}
       <div
         className="absolute w-[445px] h-[445px] left-[1040px] top-[11px] rounded-full z-0"
@@ -61,8 +51,8 @@ function ResearchAssistant() {
         }}
       />
 
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto z-10 lg:flex-row lg:overflow-hidden">
-        <div className="flex min-h-[calc(100dvh-1rem)] w-full flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 border-white bg-white/50 shadow-elevation-lg backdrop-blur-md lg:w-[450px]">
+      <div className="flex flex-1 overflow-hidden z-10 gap-2">
+        <div className="w-[450px] flex-shrink-0 border-2 border-white bg-white/50 backdrop-blur-md shadow-elevation-lg flex flex-col rounded-lg overflow-hidden">
           <div className="p-6 border-b border-[#DBDBE5]">
             <h1 className="text-2xl font-semibold text-[#010507] mb-1">
               Research Assistant
@@ -86,8 +76,8 @@ function ResearchAssistant() {
           </div>
         </div>
 
-        <div className="min-h-[520px] flex-1 overflow-y-auto rounded-lg bg-white/30 backdrop-blur-sm lg:min-h-0">
-          <div className="mx-auto p-4 sm:p-8">
+        <div className="flex-1 overflow-y-auto rounded-lg bg-white/30 backdrop-blur-sm">
+          <div className="mx-auto p-8">
             <div className="mb-8">
               <h2 className="text-3xl font-semibold text-[#010507] mb-2">
                 Research Results
@@ -114,7 +104,7 @@ function ResearchAssistant() {
               </div>
             )}
 
-            <div className="flex flex-col gap-2 items-stretch xl:flex-row">
+            <div className="flex flex-row gap-2 items-stretch">
               {researchData && (
                 <div className="flex-1 bg-white/60 backdrop-blur-md rounded-xl border-2 border-[#DBDBE5] shadow-elevation-md p-6">
                   <div className="flex flex-col gap-0 mb-4">
@@ -197,35 +187,5 @@ function ResearchAssistant() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function Home() {
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
-
-  return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
-      useSingleEndpoint={false}
-    >
-      <div className={`${styles.layout} threadsLayout`}>
-        <ThreadsPanelGate>
-          <ThreadsDrawer
-            agentId="a2a_chat"
-            threadId={threadId}
-            onThreadChange={setThreadId}
-          />
-        </ThreadsPanelGate>
-        <div className={styles.mainPanel}>
-          <CopilotChatConfigurationProvider
-            agentId="a2a_chat"
-            threadId={threadId}
-          >
-            <ResearchAssistant />
-          </CopilotChatConfigurationProvider>
-        </div>
-      </div>
-    </CopilotKitProvider>
   );
 }

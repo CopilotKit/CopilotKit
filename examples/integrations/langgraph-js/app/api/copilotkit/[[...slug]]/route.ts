@@ -3,15 +3,20 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { CrewAIAgent } from "@ag-ui/crewai";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { handle } from "hono/vercel";
 
-// 1. Create the CopilotRuntime instance and utilize the CrewAI AG-UI
+// 1. Create the CopilotRuntime instance and utilize the LangGraph AG-UI
 //    integration to setup the connection.
 const runtime = new CopilotRuntime({
   agents: {
-    starterAgent: new CrewAIAgent({
-      url: process.env.AGENT_URL || "http://localhost:8000/",
+    starterAgent: new LangGraphAgent({
+      deploymentUrl:
+        process.env.AGENT_URL ||
+        process.env.LANGGRAPH_DEPLOYMENT_URL ||
+        "http://localhost:8123",
+      graphId: "starterAgent",
+      langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
     }),
   },
   runner: new InMemoryAgentRunner(),

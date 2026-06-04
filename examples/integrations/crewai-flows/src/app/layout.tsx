@@ -1,19 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -27,18 +16,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Force REST (path-based) transport so runtime-info and the threads
-            REST API both hit the multi-route endpoint. Auto-detect probes
-            GET /info first, which races the lazily-compiled API route in
-            `next dev` and can fall back to single-route (no threads support). */}
-        <CopilotKit
-          runtimeUrl="/api/copilotkit"
-          agent="sample_agent"
-          useSingleEndpoint={false}
-        >
+      <body className={"antialiased"}>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
           {children}
         </CopilotKit>
       </body>

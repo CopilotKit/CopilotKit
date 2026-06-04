@@ -33,10 +33,6 @@
       "src/components/generative-ui/meeting-time-picker.tsx",
       "src/components/headless-chat.tsx",
       "src/components/tool-rendering.tsx",
-      "src/components/threads-drawer/index.tsx",
-      "src/components/threads-drawer/locked-state.tsx",
-      "src/components/threads-drawer/threads-drawer.module.css",
-      "src/components/threads-drawer/threads-drawer.tsx",
       "src/components/ui/badge.tsx",
       "src/components/ui/button.tsx",
       "src/components/ui/card.tsx",
@@ -130,10 +126,7 @@
         "docker-compose.test.yml",
         "entrypoint.sh",
         "serve.py",
-        "scripts/**",
-        "src/components/threads-drawer/**",
-        "src/app/page.tsx",
-        "next.config.ts"
+        "scripts/**"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
@@ -151,10 +144,7 @@
         "src/app/api/copilotkit/**",
         "docker/Dockerfile.agent",
         "docker-compose.test.yml",
-        "scripts/**",
-        "src/components/threads-drawer/**",
-        "src/app/page.tsx",
-        "next.config.ts"
+        "scripts/**"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "cd agent && uv run main.py",
@@ -174,10 +164,7 @@
         "docker/Dockerfile.agent",
         "docker-compose.test.yml",
         "serve.py",
-        "scripts/**",
-        "src/components/threads-drawer/**",
-        "src/app/page.tsx",
-        "next.config.ts"
+        "scripts/**"
       ],
       "packageJsonOverrides": {
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
