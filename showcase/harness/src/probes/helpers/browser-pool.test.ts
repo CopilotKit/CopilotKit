@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { promises as fsp } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Browser, BrowserContext } from "playwright";
-import { BrowserPool } from "./browser-pool.js";
+import { BrowserPool, defaultSweepStaleProfileDirs } from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
 
 /**
@@ -2941,5 +2944,242 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     );
     expect(openButNotClosed.length).toBe(0);
     expect(internals(pool).contextToBrowser.size).toBe(0);
+  });
+});
+
+describe("BrowserPool — PREVENTION: proactive stale-profile-dir sweep (durable root-cause fix)", () => {
+  // The RECURRING wedge: a long-lived harness container launches chromium
+  // repeatedly (init fill, hygiene recycles, crash-recovery relaunches); EVERY
+  // launch leaves a `/tmp/playwright_*` profile dir + `playwright-artifacts-*`
+  // dir whose Playwright close-time cleanup is BEST-EFFORT (logged-and-swallowed
+  // on failure). Over hours the orphans accumulate MONOTONICALLY until `/tmp`
+  // exhausts inodes/space — then every `chromium.launch()` throws "Target page,
+  // context or browser has been closed" and the pool wedges permanently (only a
+  // restart, which gives a fresh `/tmp`, clears it). The PREVENTION sweeps the
+  // age-gated stale dirs PROACTIVELY on a cadence (init + every recycle), keeping
+  // `/tmp` bounded so the exhaustion never happens. These tests assert the
+  // cadence fires (RED without the wiring) and that the real sweep is age-gated
+  // so it can never delete a dir still in use.
+
+  const poolInternals = (
+    pool: BrowserPool,
+  ): { browsers: Array<{ browser: { __crash(): void } }> } =>
+    pool as unknown as {
+      browsers: Array<{ browser: { __crash(): void } }>;
+    };
+
+  it("RED→GREEN: fires the stale-profile sweep once at init()", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const sweepCalls: number[] = [];
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 8,
+      recycleAfter: 1000,
+      launchBrowser,
+      launchStaggerMs: 0,
+      staleProfileDirTtlMs: 60_000,
+      // Inject so we can assert the cadence WITHOUT touching the real FS. (An
+      // injected launcher would otherwise default the sweep to a hermetic no-op.)
+      sweepStaleProfileDirs: async (ttlMs) => {
+        sweepCalls.push(ttlMs);
+        return 0;
+      },
+    });
+    await pool.init();
+    await drainMicrotasks();
+
+    // Without the init() sweep wiring this is 0 (RED). With it, exactly one
+    // sweep fired, carrying the configured TTL.
+    expect(sweepCalls.length).toBe(1);
+    expect(sweepCalls[0]).toBe(60_000);
+
+    await pool.shutdown();
+  });
+
+  it("RED→GREEN: fires the stale-profile sweep on EVERY recycle (crash + hygiene)", async () => {
+    // browser0 crashes → crash recycle; browser1 hits recycleAfter=1 → hygiene
+    // recycle. Each replacement must fire the sweep (the cadence that reclaims
+    // the orphans each chromium replacement would otherwise leave to accumulate).
+    const { launchBrowser, launched } = makeFakeLauncher();
+    const sweepCalls: string[] = [];
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 8,
+      recycleAfter: 1, // first served context makes the entry hygiene-eligible
+      relaunchBackoffMs: 0,
+      launchBrowser,
+      launchStaggerMs: 0,
+      staleProfileDirTtlMs: 0,
+      sweepStaleProfileDirs: async () => {
+        sweepCalls.push("sweep");
+        return 0;
+      },
+    });
+    await pool.init();
+    await drainMicrotasks();
+
+    const initSweeps = sweepCalls.length; // 1 (init)
+    expect(initSweeps).toBe(1);
+
+    // Crash browser0 → crash recycle → relaunch → sweep.
+    launched[0]!.__crash();
+    await waitFor(() => sweepCalls.length >= initSweeps + 1);
+
+    // Drive a hygiene recycle on a surviving/relaunched browser: acquire+release
+    // once (recycleAfter=1) so the next idle release fires a hygiene recycle.
+    const ctx = await pool.acquire();
+    await pool.release(ctx);
+    await waitFor(() => sweepCalls.length >= initSweeps + 2);
+
+    // Each recycle (crash AND hygiene) fired its own sweep on top of init's.
+    // Without the recycle-cadence wiring sweepCalls would stay at initSweeps (RED).
+    expect(sweepCalls.length).toBeGreaterThanOrEqual(initSweeps + 2);
+
+    await pool.shutdown();
+  });
+
+  it("BOUNDED ACCUMULATION: across N recycle cycles the sweep keeps the orphan dir count from growing without bound", async () => {
+    // Model the production accumulation: each launch "creates" 2 orphan dirs in a
+    // simulated `/tmp`; Playwright's close-time cleanup is modeled as FAILING
+    // (the swallowed-failure case that causes the real leak), so WITHOUT a sweep
+    // the count grows by 2 per recycle forever. The injected sweep removes the
+    // age-gated stale entries on the recycle cadence, so the simulated `/tmp`
+    // stays BOUNDED across many cycles instead of growing monotonically.
+    // Model the simulated container `/tmp` as a map of dirName → owning launch
+    // seq. Each launch adds 2 dirs (profile + artifacts) tagged with its seq. A
+    // LIVE browser's dir is "in use"; when a browser is replaced (recycle) the
+    // OLD seq's dirs become orphans Playwright's best-effort cleanup left behind
+    // (the swallowed-failure leak). The age-gated sweep reclaims dirs whose seq
+    // is no longer live — i.e. exactly the orphans, never an in-use dir.
+    const fakeTmp = new Map<string, number>(); // dirName -> launchSeq
+    let launchSeq = 0;
+    const liveSeqs = new Set<number>(); // seqs whose browser is currently live
+
+    const customLauncher: LaunchBrowser = async () => {
+      const seq = launchSeq++;
+      fakeTmp.set(`playwright_chromiumdev_profile-${seq}`, seq);
+      fakeTmp.set(`playwright-artifacts-${seq}`, seq);
+      liveSeqs.add(seq);
+      const b = makeFakeBrowser();
+      // When this browser is closed (recycle teardown calls browser.close()),
+      // its seq stops being live — its dirs become orphans (NOT cleaned, modeling
+      // the real leak). The age gate is modeled by "only non-live seqs are stale".
+      const origClose = b.close.bind(b);
+      b.close = async () => {
+        liveSeqs.delete(seq);
+        await origClose();
+      };
+      return b as unknown as Browser;
+    };
+
+    // Age-gated sweep: removes ONLY dirs whose owning seq is no longer live (the
+    // orphans). An in-use (live) browser's dir is never removed — the age gate's
+    // real-world analogue (a live browser touches its dir, mtime ~now < cutoff).
+    const sweep = async (): Promise<number> => {
+      let removed = 0;
+      for (const [name, seq] of [...fakeTmp]) {
+        if (!liveSeqs.has(seq)) {
+          fakeTmp.delete(name);
+          removed++;
+        }
+      }
+      return removed;
+    };
+
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 8,
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      launchBrowser: customLauncher,
+      launchStaggerMs: 0,
+      staleProfileDirTtlMs: 0,
+      sweepStaleProfileDirs: sweep,
+    });
+    await pool.init();
+    await drainMicrotasks();
+    // After init the 2 live browsers' dirs are present (4 entries); none are
+    // orphans yet, so the init sweep removed nothing.
+    expect(fakeTmp.size).toBe(4);
+
+    const poolBrowsers = poolInternals(pool).browsers as unknown as Array<{
+      browser: { __crash(): void };
+    }>;
+
+    // Drive MANY crash→recycle cycles. Each crash orphans the old browser's 2
+    // dirs and the relaunch adds 2 new live dirs; the recycle-cadence sweep
+    // reclaims the orphans. WITHOUT the sweep, fakeTmp would grow by 2 per cycle
+    // (unbounded → exhaustion → the production wedge). WITH it, it stays bounded
+    // at ~2 * browserCount (only the live browsers' dirs).
+    const CYCLES = 30;
+    for (let i = 0; i < CYCLES; i++) {
+      const launchSeqBefore = launchSeq;
+      poolBrowsers[0]!.browser.__crash();
+      await waitFor(
+        () =>
+          launchSeq > launchSeqBefore &&
+          poolInternals(pool).browsers.length === 2,
+      );
+    }
+    // The orphan-producing launch count grew linearly with CYCLES.
+    expect(launchSeq).toBeGreaterThanOrEqual(CYCLES + 2);
+    // Let the fire-and-forget cadence sweeps settle.
+    await waitFor(
+      () => liveSeqs.size === 2 && fakeTmp.size <= 2 * 2 + 2,
+      5_000,
+    );
+
+    // BOUNDED: `/tmp` holds only the live browsers' dirs (≤ 2*browsers) plus at
+    // most one in-flight cycle's slack — NOT 2 * (CYCLES + browsers). A no-sweep
+    // run would leave ~2 * (CYCLES + 2) = 64 entries here.
+    expect(fakeTmp.size).toBeLessThanOrEqual(2 * 2 + 2);
+
+    await pool.shutdown();
+  });
+
+  it("AGE GATE (real FS): defaultSweepStaleProfileDirs removes OLD orphans but NEVER a fresh in-use dir", async () => {
+    // The safety property the whole prevention rests on: the sweep must never
+    // delete a dir for a launch in flight / a live browser. Those are touched
+    // continuously (mtime ~now), so the age gate must skip them. Create a "fresh"
+    // dir (mtime now) and an "old" orphan (mtime far in the past) and assert the
+    // sweep removes ONLY the old one. Also assert a non-playwright dir is never
+    // touched (prefix gate).
+    const tag = `${process.pid}-${Date.now()}`;
+    const freshDir = join(
+      tmpdir(),
+      `playwright_chromiumdev_profile-fresh-${tag}`,
+    );
+    const oldDir = join(tmpdir(), `playwright-artifacts-old-${tag}`);
+    const unrelatedDir = join(tmpdir(), `not-playwright-${tag}`);
+    await fsp.mkdir(freshDir, { recursive: true });
+    await fsp.mkdir(oldDir, { recursive: true });
+    await fsp.mkdir(unrelatedDir, { recursive: true });
+    // Back-date the "old" orphan an hour so it is older than any sane TTL.
+    const oldTime = new Date(Date.now() - 3_600_000);
+    await fsp.utimes(oldDir, oldTime, oldTime);
+
+    try {
+      // TTL = 5 min: the fresh dir (mtime now) is YOUNGER than the TTL and must
+      // be skipped; the hour-old orphan is OLDER and must be removed.
+      const removed = await defaultSweepStaleProfileDirs(5 * 60_000);
+      expect(removed).toBeGreaterThanOrEqual(1);
+
+      const exists = async (p: string): Promise<boolean> =>
+        fsp
+          .stat(p)
+          .then(() => true)
+          .catch(() => false);
+
+      // The in-use (fresh) dir survives — the age gate protected it.
+      expect(await exists(freshDir)).toBe(true);
+      // The old orphan was reclaimed.
+      expect(await exists(oldDir)).toBe(false);
+      // A non-playwright dir is never touched (prefix gate).
+      expect(await exists(unrelatedDir)).toBe(true);
+    } finally {
+      await fsp.rm(freshDir, { recursive: true, force: true });
+      await fsp.rm(oldDir, { recursive: true, force: true });
+      await fsp.rm(unrelatedDir, { recursive: true, force: true });
+    }
   });
 });

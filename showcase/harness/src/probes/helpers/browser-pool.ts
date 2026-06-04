@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Browser, BrowserContext } from "playwright";
 
 /**
@@ -63,6 +66,97 @@ const MAX_TRANSIENT_SERVE_RETRIES = 1;
  * waiters) or the pool shuts down.
  */
 const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
+
+/**
+ * PREVENTION (the durable root-cause fix for the RECURRING wedge — distinct from
+ * the after-the-fact circuit-breaker ESCAPE). The OUTAGE this PREVENTS, verified
+ * from the recurring staging collapse: the long-lived harness container runs a
+ * single Node process that launches chromium repeatedly under sustained d6 cron
+ * load (init fill, hygiene recycles, crash-recovery relaunches). EVERY
+ * `chromium.launch()` Playwright performs creates TWO ephemeral directories
+ * under the OS temp dir — a `playwright_chromium*dev_profile-*` userDataDir AND a
+ * `playwright-artifacts-*` dir. With `--disable-dev-shm-usage` (passed by the
+ * harness AND a Playwright default) chromium ALSO routes its shared-memory /
+ * cache I/O into that profile dir under `/tmp` instead of `/dev/shm`.
+ *
+ * Playwright removes those dirs in the child process's `close` handler, but the
+ * removal is BEST-EFFORT — `processLauncher` logs-and-swallows any `removeFolders`
+ * failure (ENOSPC, EBUSY, a hung close on a wedged chromium, or the Node process
+ * itself being signalled). Over HOURS the orphaned `playwright_*` dirs accumulate
+ * MONOTONICALLY in the container's `/tmp` until the filesystem exhausts
+ * inodes/space — at which point chromium can no longer create its profile dir
+ * and dies INSTANTLY on startup, so EVERY launch throws `browserType.launch:
+ * Target page, context or browser has been closed`. The set empties, self-heal
+ * relaunches into the SAME exhausted `/tmp`, and the pool wedges PERMANENTLY —
+ * only a container restart (which gives a fresh `/tmp`) clears it.
+ *
+ * The PREVENTION sweeps stale `${tmpdir()}/playwright_*` (and
+ * `playwright-artifacts-*`) dirs PROACTIVELY on a cadence — once at `init()` and
+ * on EVERY recycle relaunch — so `/tmp` never reaches exhaustion in the first
+ * place. The sweep is AGE-GATED (only dirs whose mtime is older than
+ * `staleProfileDirTtlMs`): a dir belonging to a launch in flight or a live
+ * browser is touched continuously and is far younger than the TTL, so the sweep
+ * can NEVER delete a dir still in use. This is orthogonal to the circuit-breaker
+ * (which purges UNCONDITIONALLY only AFTER the wedge has already taken the fleet
+ * down): the sweep stops the accumulation, the breaker escapes it if it ever
+ * still happens.
+ *
+ * Tunable on staging via env (BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS) without a
+ * code change.
+ */
+const DEFAULT_STALE_PROFILE_DIR_TTL_MS = 5 * 60_000;
+
+/**
+ * Glob-free prefixes of the per-launch profile/artifact dirs Playwright's
+ * chromium leaves under the OS temp dir. The default chromium launcher pins no
+ * `userDataDir`, so every launch mkdtemp's a `playwright_*` profile dir and a
+ * `playwright-artifacts-*` dir; a long-lived container accumulates the orphans
+ * that escaped Playwright's best-effort close-time cleanup.
+ */
+const PLAYWRIGHT_TMP_PREFIXES = ["playwright_", "playwright-artifacts-"];
+
+/**
+ * Default proactive stale-profile-dir sweep used by the prevention path.
+ * Best-effort: removes every `${tmpdir()}/playwright_*` (and
+ * `playwright-artifacts-*`) directory whose mtime is older than `ttlMs` — i.e.
+ * dirs that no live browser / in-flight launch is still touching, so they are
+ * orphans from launches whose Playwright close-time cleanup failed. Returns the
+ * count removed. Injectable via `BrowserPoolOptions.sweepStaleProfileDirs` so
+ * tests drive the cadence without touching the real filesystem. A failure to
+ * read the temp dir, stat an entry, or unlink one is swallowed (the dir may not
+ * exist, be owned by another process, or vanish mid-sweep) — the sweep is
+ * hygiene, never a correctness dependency.
+ */
+export async function defaultSweepStaleProfileDirs(
+  ttlMs: number,
+): Promise<number> {
+  const dir = tmpdir();
+  const cutoff = Date.now() - ttlMs;
+  let removed = 0;
+  let entries: string[];
+  try {
+    entries = await fs.readdir(dir);
+  } catch {
+    return 0;
+  }
+  for (const name of entries) {
+    if (!PLAYWRIGHT_TMP_PREFIXES.some((p) => name.startsWith(p))) continue;
+    const full = join(dir, name);
+    try {
+      // AGE GATE: only sweep dirs older than the TTL. A dir for a launch in
+      // flight or a live browser is touched continuously (mtime ~now), so it is
+      // never older than the TTL and is never swept. Stat failure → skip (it may
+      // have vanished mid-sweep).
+      const stat = await fs.stat(full);
+      if (stat.mtimeMs > cutoff) continue;
+      await fs.rm(full, { recursive: true, force: true });
+      removed++;
+    } catch {
+      // best-effort: another process may own it, or it vanished mid-sweep.
+    }
+  }
+  return removed;
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -152,6 +246,17 @@ interface PoolLogger {
 export type LaunchBrowser = () => Promise<Browser>;
 
 /**
+ * Proactively sweeps stale per-launch profile/artifact dirs Playwright's
+ * chromium leaves under the OS temp dir, returning the count removed. Given the
+ * age TTL so it removes ONLY dirs older than `ttlMs` (orphans no live browser /
+ * in-flight launch is still touching). The default removes
+ * `${tmpdir()}/playwright_*` older than the TTL. Tests inject a fake so the
+ * prevention cadence (init + each recycle relaunch) is exercisable without
+ * touching the real filesystem (and so the test can assert the sweep fired).
+ */
+export type SweepStaleProfileDirs = (ttlMs: number) => Promise<number>;
+
+/**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
  * this — the hot path (`acquire`/`release`) opens and closes CONTEXTS on an
  * already-running browser and never forks a process. A browser is only
@@ -230,6 +335,18 @@ export interface BrowserPoolOptions {
    *  emptied. Default 2000 (env BROWSER_POOL_SELF_HEAL_INTERVAL_MS). Tests pass
    *  a small value. */
   selfHealIntervalMs?: number;
+  /** Age (ms) a `${tmpdir()}/playwright_*` profile/artifact dir must EXCEED
+   *  before the proactive sweep removes it. The age gate guarantees the sweep
+   *  never deletes a dir for a launch in flight or a live browser (those are
+   *  touched continuously, so their mtime is ~now). Default 300000 (5 min; env
+   *  BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS). Tests pass 0 to sweep every
+   *  matching dir deterministically. */
+  staleProfileDirTtlMs?: number;
+  /** Injected proactive stale-profile-dir sweep (tests). Defaults to removing
+   *  `${tmpdir()}/playwright_*` older than `staleProfileDirTtlMs`. Invoked once
+   *  at init() and on every recycle relaunch — the PREVENTION cadence that keeps
+   *  `/tmp` from accumulating to exhaustion. */
+  sweepStaleProfileDirs?: SweepStaleProfileDirs;
   /**
    * Mid-life capacity-loss alarm hook. Invoked when the browser set EMPTIES
    * (every entry evicted) — the silent-outage gap the original code had, where
@@ -283,6 +400,11 @@ export class BrowserPool {
   private readonly relaunchMaxRetries: number;
   private readonly relaunchBackoffMs: number;
   private readonly selfHealIntervalMs: number;
+  // PREVENTION: proactive stale-profile-dir sweep policy. The age TTL gates the
+  // sweep so it never removes a dir still in use; the sweep itself runs at init
+  // and on every recycle relaunch to keep `/tmp` from accumulating to exhaustion.
+  private readonly staleProfileDirTtlMs: number;
+  private readonly sweepStaleProfileDirs: SweepStaleProfileDirs;
   private readonly onDegraded?: () => void;
   private readonly onRecovered?: () => void;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
@@ -390,8 +512,52 @@ export class BrowserPool {
       process.env.BROWSER_POOL_SELF_HEAL_INTERVAL_MS,
       DEFAULT_SELF_HEAL_INTERVAL_MS,
     );
+    this.staleProfileDirTtlMs = resolveNonNegative(
+      options.staleProfileDirTtlMs,
+      process.env.BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS,
+      DEFAULT_STALE_PROFILE_DIR_TTL_MS,
+    );
+    // Sweep resolution mirrors the launcher resolution: an explicit injected
+    // sweep wins. Otherwise, when a fake `launchBrowser` is injected (tests — the
+    // browsers are fakes, so there are NO real `/tmp/playwright_*` dirs to
+    // scan/remove), default to a hermetic no-op so the prevention cadence never
+    // touches the real filesystem under test. Only the production path (real
+    // chromium launcher, no injected launcher) gets the real sweep.
+    this.sweepStaleProfileDirs =
+      options.sweepStaleProfileDirs ??
+      (this.injectedLaunchBrowser
+        ? async (): Promise<number> => 0
+        : defaultSweepStaleProfileDirs);
     this.onDegraded = options.onDegraded;
     this.onRecovered = options.onRecovered;
+  }
+
+  /**
+   * PREVENTION: fire the proactive stale-profile-dir sweep without awaiting it
+   * (fire-and-forget — the sweep is hygiene, never on the critical path of a
+   * launch). Routes a removed-count to the structured log and any unexpected
+   * throw to the logger. Called once at init() and on every recycle relaunch so
+   * orphaned `/tmp/playwright_*` dirs are reclaimed on a cadence — keeping the
+   * container's `/tmp` from accumulating to the exhaustion that wedges every
+   * future `chromium.launch()`.
+   */
+  private fireStaleProfileSweep(reason: "init" | "recycle"): void {
+    void this.sweepStaleProfileDirs(this.staleProfileDirTtlMs)
+      .then((removed) => {
+        if (removed > 0) {
+          this.logger?.info("browser-pool.stale-profile-sweep", {
+            reason,
+            removed,
+            ttlMs: this.staleProfileDirTtlMs,
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        this.logger?.warn?.("browser-pool.stale-profile-sweep-failed", {
+          reason,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
   }
 
   async init(): Promise<void> {
@@ -406,6 +572,13 @@ export class BrowserPool {
           args: ["--no-sandbox", "--disable-dev-shm-usage"],
         });
     }
+
+    // PREVENTION: sweep any stale `/tmp/playwright_*` orphans BEFORE the init
+    // fill. A long-lived container that was redeployed in place (or whose prior
+    // process left orphans) starts with a `/tmp` that may already carry dirs
+    // whose owning processes are long gone; reclaiming them up front keeps the
+    // baseline low. Fire-and-forget — never block the init fill on hygiene.
+    this.fireStaleProfileSweep("init");
 
     try {
       for (let i = 0; i < this.browserCount; i++) {
@@ -1396,6 +1569,17 @@ export class BrowserPool {
       await this.closeBrowser(oldBrowser, browserIdx);
 
       if (this.isShutdown) return;
+
+      // PREVENTION: sweep stale `/tmp/playwright_*` orphans on the recycle
+      // cadence. Each recycle (crash recovery OR hygiene) is a chromium
+      // replacement — exactly the point in the long-lived container's life where
+      // orphaned profile/artifact dirs accumulate. Sweeping the AGE-GATED stale
+      // dirs here (after the old browser has been closed, before the fresh one
+      // launches) reclaims the orphans Playwright's best-effort close-time
+      // cleanup left behind, keeping `/tmp` bounded across hours of cron load so
+      // a future launch never hits the exhaustion that wedges the whole pool.
+      // Fire-and-forget — the relaunch never waits on hygiene.
+      this.fireStaleProfileSweep("recycle");
 
       try {
         // FIX #1 — PID-ceiling backpressure: retry the relaunch with backoff
