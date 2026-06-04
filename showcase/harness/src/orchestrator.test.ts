@@ -1968,6 +1968,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "qa",
         "redirect_decommission",
         "smoke",
+        "starter_smoke",
         "version_drift",
       ].sort(),
     );
