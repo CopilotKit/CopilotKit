@@ -7,10 +7,13 @@
 
 import React, { useEffect } from "react";
 import {
-  useAgent,
+  CopilotKit,
   useFrontendTool,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
+// NOTE: useCopilotChat has no v2 equivalent; kept on v1 import path
+import { useCopilotChat } from "@copilotkit/react-core";
+import "@copilotkit/react-core/v2/styles.css";
 import { z } from "zod";
 import { MessageToA2A } from "./a2a/MessageToA2A";
 import { MessageFromA2A } from "./a2a/MessageFromA2A";
@@ -34,27 +37,27 @@ type ChatProps = {
   onAnalysisUpdate: (data: AnalysisData | null) => void;
 };
 
-export default function Chat({
-  onResearchUpdate,
-  onAnalysisUpdate,
-}: ChatProps) {
-  const { agent } = useAgent({ agentId: "a2a_chat" });
+const ChatInner = ({ onResearchUpdate, onAnalysisUpdate }: ChatProps) => {
+  const { visibleMessages } = useCopilotChat();
 
   // Extract structured JSON from A2A agent responses and pass to parent
   useEffect(() => {
     const extractDataFromMessages = () => {
-      for (const message of agent.messages) {
+      for (const message of visibleMessages) {
         const msg = message as any;
 
-        if (msg.role === "tool" && typeof msg.content !== "undefined") {
+        if (
+          msg.type === "ResultMessage" &&
+          msg.actionName === "send_message_to_a2a_agent"
+        ) {
           try {
-            const result = msg.content;
+            const result = msg.result;
             let parsed;
 
             if (typeof result === "string") {
               let cleanResult = result;
               if (result.startsWith("A2A Agent Response: ")) {
-                cleanResult = result.slice("A2A Agent Response: ".length);
+                cleanResult = result.substring("A2A Agent Response: ".length);
               }
               try {
                 parsed = JSON.parse(cleanResult);
@@ -80,13 +83,13 @@ export default function Chat({
     };
 
     extractDataFromMessages();
-  }, [agent.messages, onResearchUpdate, onAnalysisUpdate]);
+  }, [visibleMessages, onResearchUpdate, onAnalysisUpdate]);
 
   // Register action to render A2A message flow visualization
   useFrontendTool({
     name: "send_message_to_a2a_agent",
     description: "Sends a message to an A2A agent",
-    available: true,
+    available: "frontend",
     parameters: z.object({
       agentName: z
         .string()
@@ -106,11 +109,25 @@ export default function Chat({
   return (
     <CopilotChat
       labels={{
-        modalHeaderTitle: "Research Assistant",
-        welcomeMessageText:
+        title: "Research Assistant",
+        initial:
           '👋 Hi! I\'m your research assistant. I can help you research any topic.\n\nFor example, try:\n- "Research quantum computing"\n- "Tell me about artificial intelligence"\n- "Research renewable energy"\n\nI\'ll coordinate with specialized agents to gather information and provide insights!',
       }}
       className="h-full"
     />
+  );
+};
+
+export default function Chat({
+  onResearchUpdate,
+  onAnalysisUpdate,
+}: ChatProps) {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="a2a_chat">
+      <ChatInner
+        onResearchUpdate={onResearchUpdate}
+        onAnalysisUpdate={onAnalysisUpdate}
+      />
+    </CopilotKit>
   );
 }
