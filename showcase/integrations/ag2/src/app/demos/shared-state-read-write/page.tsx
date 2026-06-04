@@ -1,13 +1,10 @@
 "use client";
 
 import React, { useEffect } from "react";
-import {
-  CopilotKit,
-  useAgent,
-  UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { ShowcaseCopilotKit } from "@/components/showcase-copilotkit";
 
-import { Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
@@ -29,9 +26,9 @@ interface RWAgentState {
 
 export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
+    <ShowcaseCopilotKit agentId="shared-state-read-write">
       <DemoContent />
-    </CopilotKit>
+    </ShowcaseCopilotKit>
   );
 }
 

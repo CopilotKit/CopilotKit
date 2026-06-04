@@ -1,0 +1,11 @@
+.layout {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.content {
+  min-height: 100vh;
+  width: 100%;
+}
