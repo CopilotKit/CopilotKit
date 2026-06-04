@@ -158,7 +158,12 @@ export function createA2UIMessageRenderer(
       // exactly what was on screen (building skeleton w/ its count, or the retry
       // status) instead of flickering to a generic one.
       const lastLoaderContentRef = useRef<any>(null);
-      if (!hasOps) lastLoaderContentRef.current = content;
+      // Track from the CONTENT (not the lagging operations state) so a paint
+      // snapshot never clobbers the last genuine pre-paint snapshot.
+      const contentHasOps =
+        Array.isArray(content?.[A2UI_OPERATIONS_KEY]) &&
+        content[A2UI_OPERATIONS_KEY].length > 0;
+      if (!contentHasOps) lastLoaderContentRef.current = content;
 
       // Cross-over: when operations first arrive, the A2UIProvider needs a couple
       // ticks to process them and paint. Hold the loader in-flow (it defines the
@@ -197,23 +202,30 @@ export function createA2UIMessageRenderer(
         </div>
       );
 
-      if (surfaceReady) return surfaces;
-
-      // Surface mounts/paints offscreen behind the still-visible loader.
+      // Stable tree: ReactSurfaceHost stays MOUNTED in the same position across
+      // the hold→ready swap (only its wrapper styling toggles), so the surface
+      // painted OFFSCREEN during the hold is preserved — not remounted, which
+      // would reintroduce the very gap we're closing. The loader sits on top
+      // until ready, then is removed and the surface drops into normal flow.
       return (
         <div style={{ position: "relative" }}>
           <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              inset: 0,
-              opacity: 0,
-              pointerEvents: "none",
-            }}
+            aria-hidden={!surfaceReady}
+            style={
+              surfaceReady
+                ? undefined
+                : {
+                    position: "absolute",
+                    inset: 0,
+                    opacity: 0,
+                    pointerEvents: "none",
+                  }
+            }
           >
             {surfaces}
           </div>
-          {renderLifecycle(lastLoaderContentRef.current ?? content)}
+          {!surfaceReady &&
+            renderLifecycle(lastLoaderContentRef.current ?? content)}
         </div>
       );
     },
