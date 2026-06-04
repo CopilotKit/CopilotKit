@@ -165,7 +165,6 @@ function Chat({
       name: z.string(),
     }),
     handler: async ({ name }) => {
-      alert(`Hello ${name}`);
       return `Hello ${name}`;
     },
   });

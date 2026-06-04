@@ -1,6 +1,6 @@
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
-import { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
-import { Message } from "@ag-ui/core";
+import type { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
+import type { Message } from "@ag-ui/core";
 
 interface UseRenderCustomMessagesParams {
   message: Message;
@@ -29,10 +29,11 @@ export function useRenderCustomMessages() {
       return aHasAgent ? -1 : 1;
     });
 
+  if (!customMessageRenderers.length) {
+    return null;
+  }
+
   return function (params: UseRenderCustomMessagesParams) {
-    if (!customMessageRenderers.length) {
-      return null;
-    }
     const { message, position } = params;
     const resolvedRunId =
       copilotkit.getRunIdForMessage(agentId, threadId, message.id) ??

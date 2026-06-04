@@ -187,6 +187,148 @@ describe("CopilotChat frontend tool round trips without explicit threadId (ENT-3
 });
 
 describe("CopilotChat frontend tool round trips with explicit threadId (ENT-657)", () => {
+  class ThreadSwitchAgent extends MockStepwiseAgent {
+    connectInputs: RunAgentInput[] = [];
+    runInputs: RunAgentInput[] = [];
+
+    connect(input: RunAgentInput): Observable<BaseEvent> {
+      this.connectInputs.push(input);
+      return EMPTY;
+    }
+
+    run(input: RunAgentInput): Observable<BaseEvent> {
+      this.runInputs.push(input);
+      return new Observable<BaseEvent>((subscriber) => {
+        queueMicrotask(() => {
+          subscriber.next(runStartedEvent());
+          subscriber.next(textChunkEvent("thread-a-response", "Hello Alice"));
+          subscriber.next(runFinishedEvent());
+          subscriber.complete();
+        });
+      });
+    }
+  }
+
+  function createMessageCountProbe(messageCounts: number[]) {
+    function MessageCountProbe({ messages }: CopilotChatMessageViewProps) {
+      messageCounts.push(messages?.length ?? 0);
+      return (
+        <div data-testid="thread-message-count">
+          {String(messages?.length ?? 0)}
+        </div>
+      );
+    }
+    return MessageCountProbe;
+  }
+
+  function ThreadedChat({
+    MessageCountProbe,
+    threadId,
+  }: {
+    MessageCountProbe: React.ComponentType<CopilotChatMessageViewProps>;
+    threadId?: string;
+  }) {
+    return (
+      <CopilotChatConfigurationProvider
+        threadId={threadId}
+        hasExplicitThreadId={threadId !== undefined}
+      >
+        <CopilotChat
+          key={threadId ?? "stateless"}
+          welcomeScreen={false}
+          messageView={MessageCountProbe}
+          threadId={threadId}
+        />
+      </CopilotChatConfigurationProvider>
+    );
+  }
+
+  async function sendThreadAMessage(agent: ThreadSwitchAgent) {
+    await waitFor(() => {
+      expect(agent.connectInputs.map((input) => input.threadId)).toContain(
+        "thread-a",
+      );
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, {
+      target: {
+        value: "Call the sayHello frontend tool with name Alice",
+      },
+    });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("thread-message-count").textContent).toBe("2");
+    });
+  }
+
+  it("does not leak explicit-thread history into stateless mode", async () => {
+    const agent = new ThreadSwitchAgent();
+    const messageCounts: number[] = [];
+    const MessageCountProbe = createMessageCountProbe(messageCounts);
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <ThreadedChat
+          MessageCountProbe={MessageCountProbe}
+          threadId="thread-a"
+        />
+      </CopilotKitProvider>,
+    );
+
+    await sendThreadAMessage(agent);
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <ThreadedChat MessageCountProbe={MessageCountProbe} />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("thread-message-count").textContent).toBe("0");
+    });
+    expect(
+      messageCounts.slice(messageCounts.findIndex((count) => count > 0)),
+    ).toContain(0);
+  });
+
+  it("does not leak explicit-thread history into another explicit thread", async () => {
+    const agent = new ThreadSwitchAgent();
+    const messageCounts: number[] = [];
+    const MessageCountProbe = createMessageCountProbe(messageCounts);
+    const { rerender } = render(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <ThreadedChat
+          MessageCountProbe={MessageCountProbe}
+          threadId="thread-a"
+        />
+      </CopilotKitProvider>,
+    );
+
+    await sendThreadAMessage(agent);
+
+    rerender(
+      <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+        <ThreadedChat
+          MessageCountProbe={MessageCountProbe}
+          threadId="thread-b"
+        />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(agent.connectInputs.map((input) => input.threadId)).toContain(
+        "thread-b",
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("thread-message-count").textContent).toBe("0");
+    });
+    expect(
+      messageCounts.slice(messageCounts.findIndex((count) => count > 0)),
+    ).toContain(0);
+  });
+
   it("keeps explicit-thread messages mounted through frontend tool follow-up runs", async () => {
     class FrontendToolRoundTripAgent extends MockStepwiseAgent {
       runInputs: RunAgentInput[] = [];

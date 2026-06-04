@@ -108,6 +108,7 @@ export class RunHandler {
    * inspector and intermittent "Message not found" toasts.
    */
   private _lastConnectedThreadId: string | null = null;
+  private _connectSequence = 0;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -213,8 +214,10 @@ export class RunHandler {
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
+      const connectSequence = ++this._connectSequence;
       const incomingThreadId = agent.threadId ?? null;
-      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
+      const previousConnectedThreadId = this._lastConnectedThreadId;
+      const isFreshRestore = incomingThreadId !== previousConnectedThreadId;
       this._lastConnectedThreadId = incomingThreadId;
 
       // Detach any active run before connecting to avoid previous runs
@@ -222,6 +225,10 @@ export class RunHandler {
       // churn re-connects need the previous socket torn down before a new
       // one can open.
       await agent.detachActiveRun();
+
+      if (connectSequence !== this._connectSequence) {
+        return { result: undefined, newMessages: [] };
+      }
 
       // State reset + replay-cursor clear are gated on actually moving
       // to a different thread. On same-thread churn, the local
@@ -276,7 +283,7 @@ export class RunHandler {
           context,
         });
       }
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     }
   }
 
@@ -363,7 +370,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     } finally {
       this._runDepth--;
       // Restore original abortRun when the entire chain (including

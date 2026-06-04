@@ -379,6 +379,15 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+function isDefaultRenderableMessage(message: Message): boolean {
+  return (
+    message.role === "assistant" ||
+    message.role === "user" ||
+    message.role === "activity" ||
+    message.role === "reasoning"
+  );
+}
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -506,14 +515,21 @@ export function CopilotChatMessageView({
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
   // messageElements flat for that case.
+  const virtualizedMessages = useMemo(
+    () =>
+      renderCustomMessage
+        ? deduplicatedMessages
+        : deduplicatedMessages.filter(isDefaultRenderableMessage),
+    [deduplicatedMessages, renderCustomMessage],
+  );
   const shouldVirtualize =
     !!scrollElement &&
     !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+    virtualizedMessages.length > VIRTUALIZE_THRESHOLD;
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? deduplicatedMessages.length : 0,
+    count: shouldVirtualize ? virtualizedMessages.length : 0,
     getScrollElement: () => scrollElement,
     // Conservative height estimate. Items are measured by ResizeObserver after
     // first render so the estimate only affects the initial total height.
@@ -526,15 +542,15 @@ export function CopilotChatMessageView({
   });
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
-  // (detected by the first message ID changing). For streaming new messages,
+  // (detected by the first renderable message ID changing). For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
-  // deduplicatedMessages.length here would forcibly yank the user to the bottom
+  // virtualizedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const firstMessageId = deduplicatedMessages[0]?.id;
+  const firstMessageId = virtualizedMessages[0]?.id;
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !deduplicatedMessages.length) return;
-    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+    if (!shouldVirtualize || !virtualizedMessages.length) return;
+    virtualizer.scrollToIndex(virtualizedMessages.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -682,7 +698,7 @@ export function CopilotChatMessageView({
           style={{ height: virtualizer.getTotalSize(), position: "relative" }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = deduplicatedMessages[virtualItem.index]!;
+            const message = virtualizedMessages[virtualItem.index]!;
             return (
               <div
                 key={message.id}

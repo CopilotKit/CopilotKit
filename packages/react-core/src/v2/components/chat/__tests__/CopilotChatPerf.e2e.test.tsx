@@ -13,7 +13,7 @@ import { CopilotChat } from "../CopilotChat";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import CopilotChatMessageView from "../CopilotChatMessageView";
 import { ScrollElementContext } from "../scroll-element-context";
-import type { Message } from "@ag-ui/core";
+import type { Message, ToolMessage } from "@ag-ui/core";
 
 // ---------------------------------------------------------------------------
 // Spy component — must be module-level so its reference is stable across
@@ -94,6 +94,33 @@ async function emitBatch(agent: MockStepwiseAgent, n: number) {
     },
     { timeout: 10_000 },
   );
+}
+
+function createMeasuredScrollElement() {
+  // Create a fake scroll element that passes two jsdom guards:
+  // 1. clientHeight > 0 — our guard in CopilotChatMessageView
+  // 2. getBoundingClientRect().height > 0 — TanStack Virtual calls this
+  //    immediately in observeElementRect() to set the viewport size. Without
+  //    this, it overrides initialRect with { height: 0 } and renders no items.
+  const fakeScrollEl = document.createElement("div");
+  Object.defineProperty(fakeScrollEl, "clientHeight", {
+    get: () => 600,
+    configurable: true,
+  });
+  fakeScrollEl.getBoundingClientRect = () =>
+    ({
+      height: 600,
+      width: 800,
+      top: 0,
+      left: 0,
+      bottom: 600,
+      right: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
+
+  return fakeScrollEl;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,28 +268,7 @@ describe("CopilotChat perf — re-render regression", () => {
   it("virtual path: renders only a window of messages above VIRTUALIZE_THRESHOLD", async () => {
     const TOTAL = 60; // above VIRTUALIZE_THRESHOLD (50)
 
-    // Create a fake scroll element that passes two jsdom guards:
-    // 1. clientHeight > 0 — our guard in CopilotChatMessageView
-    // 2. getBoundingClientRect().height > 0 — TanStack Virtual calls this
-    //    immediately in observeElementRect() to set the viewport size. Without
-    //    this, it overrides initialRect with { height: 0 } and renders no items.
-    const fakeScrollEl = document.createElement("div");
-    Object.defineProperty(fakeScrollEl, "clientHeight", {
-      get: () => 600,
-      configurable: true,
-    });
-    fakeScrollEl.getBoundingClientRect = () =>
-      ({
-        height: 600,
-        width: 800,
-        top: 0,
-        left: 0,
-        bottom: 600,
-        right: 800,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      }) as DOMRect;
+    const fakeScrollEl = createMeasuredScrollElement();
 
     const messages: Message[] = Array.from({ length: TOTAL }, (_, i) => ({
       id: `virt-msg-${i}`,
@@ -298,6 +304,54 @@ describe("CopilotChat perf — re-render regression", () => {
     // Drain pending animation frames before unmounting. TanStack Virtual
     // schedules rAF callbacks for measurement; if they fire after jsdom tears
     // down (window === null) they produce a spurious uncaught exception.
+    await act(async () => {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    });
+    unmount();
+  });
+
+  it("virtual path: excludes non-rendered tool messages from default height estimation", async () => {
+    const RENDERED_TOTAL = 60;
+    const fakeScrollEl = createMeasuredScrollElement();
+    const messages: Message[] = Array.from(
+      { length: RENDERED_TOTAL },
+      (_, i) => {
+        const assistantMessage: Message = {
+          id: `assistant-${i}`,
+          role: "assistant" as const,
+          content: `Message ${i}`,
+        };
+        const toolMessage: ToolMessage = {
+          id: `tool-${i}`,
+          role: "tool",
+          content: `Result ${i}`,
+          toolCallId: `tc-${i}`,
+        };
+        return [assistantMessage, toolMessage];
+      },
+    ).flat();
+
+    const { unmount } = renderWithCopilotKit({
+      children: (
+        <ScrollElementContext.Provider value={fakeScrollEl}>
+          <div style={{ height: 600 }}>
+            <CopilotChatMessageView messages={messages} />
+          </div>
+        </ScrollElementContext.Provider>
+      ),
+    });
+
+    await waitFor(() => {
+      const virtualContainer = document.querySelector<HTMLElement>(
+        '[data-testid="copilot-message-list"] > div[style*="position: relative"]',
+      );
+      expect(virtualContainer).not.toBeNull();
+      const virtualHeight = Number.parseInt(virtualContainer!.style.height, 10);
+      expect(virtualHeight).toBeLessThanOrEqual(RENDERED_TOTAL * 100);
+      expect(virtualHeight).toBeGreaterThan(0);
+    });
+
     await act(async () => {
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
       await new Promise<void>((r) => requestAnimationFrame(() => r()));

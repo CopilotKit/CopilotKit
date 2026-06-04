@@ -239,7 +239,7 @@ export class AgentRegistry {
       runtimeUrl: this._runtimeUrl,
       agentId,
       runtimeAgentId,
-      transport: this._runtimeTransport,
+      transport: this.runtimeTransport,
       credentials: friends.credentials,
       // If runtime info has already synced, mirror its mode/intelligence so
       // the proxy doesn't have to re-resolve. Otherwise stay "pending" until
@@ -394,7 +394,7 @@ export class AgentRegistry {
               runtimeUrl: this.runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
               description: description,
-              transport: this._runtimeTransport,
+              transport: this.runtimeTransport,
               credentials,
               runtimeMode: runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE,
               intelligence: runtimeInfoResponse.intelligence,
@@ -517,7 +517,8 @@ export class AgentRegistry {
 
   /**
    * Auto-detect transport by trying REST first, then falling back to single-endpoint.
-   * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
+   * Caches the resolved transport separately from the requested mode so provider
+   * prop syncs of `auto` do not look like transport changes.
    */
   private async fetchRuntimeInfoAutoDetect(
     headers: Record<string, string>,

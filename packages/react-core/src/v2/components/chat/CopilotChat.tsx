@@ -229,6 +229,7 @@ export function CopilotChat({
   useEffect(() => {
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
+    const previousThreadId = agent.threadId ?? null;
     agent.threadId = resolvedThreadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
@@ -236,7 +237,13 @@ export function CopilotChat({
     // ThreadsProvider). The backend has never seen it, so /connect would
     // always 404 — skip the call. A real thread is only created once the
     // user runs the agent for the first time.
-    if (!hasExplicitThreadId) return;
+    if (!hasExplicitThreadId) {
+      if (previousThreadId && previousThreadId !== resolvedThreadId) {
+        agent.setMessages([]);
+        agent.setState({});
+      }
+      return;
+    }
 
     let detached = false;
 

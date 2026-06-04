@@ -48,8 +48,24 @@ function deduplicateToolCalls(toolCalls: ToolCall[]): ToolCall[] {
   const uniqueToolCalls = new Map<string, ToolCall>();
 
   for (const toolCall of toolCalls) {
-    uniqueToolCalls.set(toolCall.id, toolCall);
+    const existingToolCall = uniqueToolCalls.get(toolCall.id);
+    if (
+      !existingToolCall ||
+      isMoreCompleteToolCall(toolCall, existingToolCall)
+    ) {
+      uniqueToolCalls.set(toolCall.id, toolCall);
+    }
   }
 
   return [...uniqueToolCalls.values()];
+}
+
+function isMoreCompleteToolCall(
+  nextToolCall: ToolCall,
+  currentToolCall: ToolCall,
+): boolean {
+  return (
+    nextToolCall.function.arguments.trim().length >
+    currentToolCall.function.arguments.trim().length
+  );
 }
