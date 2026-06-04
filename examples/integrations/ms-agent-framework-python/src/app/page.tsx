@@ -91,10 +91,7 @@ export default function CopilotKitPage() {
           provider's threadId when called without an explicit one, so selecting
           a thread in the drawer drives the same per-thread agent clone.
         */}
-        <CopilotChatConfigurationProvider
-          agentId="default"
-          threadId={threadId}
-        >
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
           <main
             style={
               {

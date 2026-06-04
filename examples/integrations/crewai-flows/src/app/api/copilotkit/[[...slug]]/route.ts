@@ -12,7 +12,10 @@ import { handle } from "hono/vercel";
 const runtime = new CopilotRuntime({
   agents: {
     default: new HttpAgent({
-      url: (process.env.AGENT_URL || "http://localhost:8000").replace(/\/$/, ""),
+      url: (process.env.AGENT_URL || "http://localhost:8000").replace(
+        /\/$/,
+        "",
+      ),
     }),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---

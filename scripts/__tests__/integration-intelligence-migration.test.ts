@@ -130,9 +130,9 @@ describe("batch-2 Intelligence integration migration", () => {
       ) as { dependencies?: Record<string, string> };
 
       expect(packageJson.dependencies?.["@copilotkit/react-core"]).toBe(
-        "1.59.1",
+        "1.59.3",
       );
-      expect(packageJson.dependencies?.["@copilotkit/runtime"]).toBe("1.59.1");
+      expect(packageJson.dependencies?.["@copilotkit/runtime"]).toBe("1.59.3");
     });
   }
 });
@@ -217,8 +217,8 @@ test("a2a-middleware package is pinned to the Intelligence-ready CopilotKit SDK"
     dependencies: Record<string, string>;
   };
 
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.1");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.1");
+  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.3");
+  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.3");
   expect(packageJson.dependencies["lucide-react"]).toBeDefined();
 });
 
