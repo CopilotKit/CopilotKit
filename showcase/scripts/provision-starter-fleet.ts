@@ -151,16 +151,20 @@ interface ProjectServicesResult {
         node: {
           id: string;
           name: string;
-          serviceInstances: {
-            edges: Array<{
+          // A transitional service can return a null serviceInstances
+          // connection (or null .edges) — both fields are optional/nullable
+          // so the drain loop can coalesce instead of throwing a TypeError
+          // that would abort the entire fetch.
+          serviceInstances?: {
+            edges?: Array<{
               node: {
                 environmentId: string;
                 domains?: {
                   serviceDomains?: Array<{ domain: string }>;
                 } | null;
               };
-            }>;
-          };
+            }> | null;
+          } | null;
         };
       }>;
       pageInfo?: {
@@ -192,6 +196,46 @@ interface ServiceDomainResult {
  */
 interface ServiceInstanceRedeployResult {
   serviceInstanceRedeploy: boolean | null;
+}
+
+/**
+ * `serviceInstanceUpdate` returns a Boolean! in Railway's schema — `true`
+ * once the instance config (sleepApplication / healthcheck / image / region /
+ * registryCredentials) is applied. Same precedent as serviceInstanceRedeploy
+ * (redeploy-env.ts / bin/railway treat the scalar as a bare boolean). A
+ * `false`/`null` return means the config was NOT applied — e.g. the service
+ * would run WITHOUT sleep — so it must be asserted, never discarded.
+ */
+interface ServiceInstanceUpdateResult {
+  serviceInstanceUpdate: boolean | null;
+}
+
+/**
+ * Uniform Railway-mutation-result guard: a single chokepoint so no mutation's
+ * result can be silently discarded (the "mutation result not validated" defect
+ * class). `ok` extracts the meaningful field from the result; when it is
+ * falsy (empty string, false, null, undefined) we throw, naming the mutation
+ * and service so the failure is forensic rather than a silent success.
+ *
+ * Returns the (now-verified) result for fluent use at the call site.
+ */
+function assertMutationOk<T>(
+  result: T,
+  ok: (r: T) => unknown,
+  mutation: string,
+  serviceName: string,
+  serviceId: string,
+  note = "mutation did not take effect; refusing to report success.",
+): T {
+  const value = ok(result);
+  if (!value) {
+    throw new Error(
+      `${mutation} returned ${JSON.stringify(
+        value,
+      )} for ${serviceName} (${serviceId}) — ${note}`,
+    );
+  }
+  return result;
 }
 
 /** Existing-service lookup result: id + whether it already has a staging domain. */
@@ -255,7 +299,10 @@ export async function fetchExistingServices(
 
     for (const edge of data.project.services.edges) {
       const svc = edge.node;
-      const stagingInstance = svc.serviceInstances.edges.find(
+      // A transitional service can surface a null serviceInstances connection
+      // (or null .edges); coalesce so an unguarded `.find` can't throw a
+      // TypeError that aborts the entire fetch before any starter is touched.
+      const stagingInstance = (svc.serviceInstances?.edges ?? []).find(
         (e) => e.node.environmentId === stagingEnvId,
       );
       const hasStagingDomain =
@@ -264,10 +311,19 @@ export async function fetchExistingServices(
     }
 
     const pageInfo = data.project.services.pageInfo;
-    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) {
+      return byName;
+    }
     after = pageInfo.endCursor;
   }
-  return byName;
+  // Reaching the defensive page bound while pageInfo.hasNextPage is STILL true
+  // means the snapshot is TRUNCATED — services on undrained pages look absent,
+  // which would feed erroneous CREATE decisions (and a non-transient "already
+  // exists" abort). Refuse to provision against a partial snapshot: fail loud
+  // rather than return the truncated map.
+  throw new Error(
+    `fetchExistingServices drained ${byName.size} services across the page bound but Railway still reports more pages (hasNextPage) — refusing to provision against a truncated service snapshot.`,
+  );
 }
 
 export interface ProvisionOptions {
@@ -304,12 +360,14 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
  * Railway INTERPOLATES the service id into the second form — the real message
  * is "Service <id> not found" (e.g. "Service abc-123 not found"), NOT the
  * contiguous "Service not found". So the pattern matches "Service" followed by
- * "not found" with anything (the id) in between; the `(Instance)?` alternation
- * still covers the literal "ServiceInstance not found" form. `[\s\S]*?` is a
- * non-greedy any-char (incl. newline) bridge so the id between the two anchors
- * never blocks the match.
+ * "not found" with the id in between; the `(Instance)?` alternation still
+ * covers the literal "ServiceInstance not found" form. The bridge is `[^\n]*?`
+ * (NOT `[\s\S]*?`) — the interpolated id never contains a newline, so keeping
+ * the match SINGLE-LINE prevents a multi-error newline-joined GraphQL blob
+ * from bridging an unrelated "Service ..." line to a "... not found" line and
+ * mis-classifying a non-transient failure as the eventual-consistency signal.
  */
-const TRANSIENT_ERROR_RE = /Service(Instance)?\b[\s\S]*?not found/i;
+const TRANSIENT_ERROR_RE = /Service(Instance)?\b[^\n]*?not found/i;
 
 /**
  * Retry a Railway mutation that can transiently fail while the env-scoped
@@ -337,18 +395,28 @@ async function withRetry<T>(
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
   }
-  throw lastErr;
+  // Schedule exhausted on a transient error: wrap the rethrow with context
+  // (how many retries, that it was transient) so the operator sees WHY the
+  // run failed, preserving the original error as `cause`.
+  const lastMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new Error(
+    `Exhausted ${RETRY_DELAYS_MS.length} retries for transient Railway error: ${lastMsg}`,
+    { cause: lastErr },
+  );
 }
 
 /**
- * A serviceDomainCreate that rejects because a domain ALREADY exists is a
- * benign no-op on a partial-failure re-run (the start-of-run snapshot missed
- * the domain due to Railway eventual consistency, or a prior run died
- * mid-fleet). We converge by treating it as "existing" rather than aborting
- * the remaining fleet. This is NOT a transient/retryable error — matching it
- * here would waste the retry schedule on a permanent condition.
+ * An "already exists"-class rejection. Two call sites converge on it rather
+ * than abort, on a partial-failure re-run (the start-of-run snapshot missed
+ * the resource due to Railway eventual consistency, or a prior run died
+ * mid-fleet):
+ *   - serviceDomainCreate: treat as the domain already existing (benign no-op);
+ *   - serviceCreate: re-fetch the now-visible service by name and fall through
+ *     to the UPDATE path instead of aborting the whole fleet.
+ * This is NOT a transient/retryable error — matching it in the retry predicate
+ * would waste the retry schedule on a permanent condition.
  */
-const DOMAIN_ALREADY_EXISTS_RE = /(already\s+exists|duplicate)/i;
+const ALREADY_EXISTS_RE = /(already\s+exists|duplicate)/i;
 
 export interface ProvisionRecord {
   slug: string;
@@ -439,15 +507,51 @@ export async function provisionStarterFleet(
       if (registryCredentials) {
         createInput.registryCredentials = registryCredentials;
       }
-      const created = await gql<ServiceCreateResult>(
-        `mutation serviceCreate($input: ServiceCreateInput!) {
-          serviceCreate(input: $input) { id name }
-        }`,
-        { input: createInput },
-      );
-      serviceId = created.serviceCreate.id;
-      action = "created";
-      log(`+ ${target.serviceName} created (${serviceId})`);
+      try {
+        const created = await gql<ServiceCreateResult>(
+          `mutation serviceCreate($input: ServiceCreateInput!) {
+            serviceCreate(input: $input) { id name }
+          }`,
+          { input: createInput },
+        );
+        assertMutationOk(
+          created,
+          (r) => r.serviceCreate?.id,
+          "serviceCreate",
+          target.serviceName,
+          "<creating>",
+        );
+        serviceId = created.serviceCreate.id;
+        action = "created";
+        log(`+ ${target.serviceName} created (${serviceId})`);
+      } catch (e) {
+        // A snapshot-miss (Railway eventual consistency) can make a service
+        // look absent → CREATE path → a non-transient "already exists"
+        // rejection. That must NOT abort the whole fleet: re-fetch the now-
+        // visible service id by name and fall through to the UPDATE path so
+        // the run converges. Any other error still fails loud.
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!ALREADY_EXISTS_RE.test(msg)) throw e;
+        const refetched = await fetchExistingServices(
+          gql,
+          projectId,
+          stagingEnvId,
+        );
+        const found = refetched.get(target.serviceName);
+        if (!found) {
+          // The create said "already exists" but a re-fetch can't find it —
+          // genuinely inconsistent; fail loud rather than guess.
+          throw new Error(
+            `serviceCreate for ${target.serviceName} rejected as already-existing, but a re-fetch could not find it by name — refusing to proceed against an inconsistent snapshot.`,
+            { cause: e },
+          );
+        }
+        serviceId = found.id;
+        action = "updated";
+        log(
+          `↻ ${target.serviceName} already exists (re-fetched ${serviceId}) — updating: ${msg}`,
+        );
+      }
     }
 
     // Apply sleep + healthcheck + region (+ creds) against staging on BOTH
@@ -469,9 +573,9 @@ export async function provisionStarterFleet(
       // race it ("ServiceInstance not found"). Retry briefly so a fresh
       // create converges. Existing services (update path) hit this on the
       // first try.
-      await withRetry(
+      const updated = await withRetry(
         () =>
-          gql(
+          gql<ServiceInstanceUpdateResult>(
             `mutation serviceInstanceUpdate($serviceId: String!, $environmentId: String!, $input: ServiceInstanceUpdateInput!) {
               serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: $input)
             }`,
@@ -482,6 +586,17 @@ export async function provisionStarterFleet(
             },
           ),
         sleepMs,
+      );
+      // serviceInstanceUpdate returns Boolean! — a `false`/`null` return means
+      // sleepApplication/healthcheck/image/creds were NOT applied (the service
+      // would run WITHOUT sleep) while the script reports success. Assert the
+      // result and only log "configured ..." AFTER it is verified.
+      assertMutationOk(
+        updated,
+        (r) => r.serviceInstanceUpdate,
+        "serviceInstanceUpdate",
+        target.serviceName,
+        serviceId,
       );
       log(
         `  configured sleep=true, healthcheck=${STARTER_HEALTHCHECK_PATH}, region=${STARTER_REGION}${
@@ -506,15 +621,17 @@ export async function provisionStarterFleet(
       // serviceInstanceRedeploy returns Boolean! (see the result-type comment
       // for the verified contract + sources). A `false`/`null` return means
       // Railway did NOT enqueue a deployment, so the image would never run —
-      // fail loud rather than report success. Accept any truthy value
-      // defensively in case the contract ever widens to a richer result.
-      if (!redeployed.serviceInstanceRedeploy) {
-        throw new Error(
-          `serviceInstanceRedeploy returned ${JSON.stringify(
-            redeployed.serviceInstanceRedeploy,
-          )} for ${target.serviceName} (${serviceId}) — image will not run.`,
-        );
-      }
+      // fail loud rather than report success. Routed through the same uniform
+      // mutation-result guard as serviceCreate / serviceInstanceUpdate; any
+      // truthy value is accepted defensively in case the contract ever widens.
+      assertMutationOk(
+        redeployed,
+        (r) => r.serviceInstanceRedeploy,
+        "serviceInstanceRedeploy",
+        target.serviceName,
+        serviceId,
+        "image will not run.",
+      );
       log(`  redeployed — image now running`);
     }
 
@@ -544,6 +661,15 @@ export async function provisionStarterFleet(
             ),
           sleepMs,
         );
+        // Assert the create actually yielded a domain — a null/empty domain
+        // is a silent-success the script must not report as created.
+        assertMutationOk(
+          domainResult,
+          (r) => r.serviceDomainCreate?.domain,
+          "serviceDomainCreate",
+          target.serviceName,
+          serviceId,
+        );
         domain = domainResult.serviceDomainCreate.domain;
         domainAction = "created";
         log(`  domain: https://${domain}`);
@@ -555,7 +681,7 @@ export async function provisionStarterFleet(
         // KEEP GOING rather than aborting the remaining fleet. Any other
         // error still aborts (fail loud).
         const msg = e instanceof Error ? e.message : String(e);
-        if (!DOMAIN_ALREADY_EXISTS_RE.test(msg)) throw e;
+        if (!ALREADY_EXISTS_RE.test(msg)) throw e;
         domainAction = "existing";
         // Include the ACTUAL matched Railway message for a forensic trail —
         // so a re-run log shows exactly which "already exists" wording was
