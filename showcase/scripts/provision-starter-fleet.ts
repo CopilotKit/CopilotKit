@@ -40,8 +40,11 @@
  * does NOT trip the CI image-ref gate / skip the showcase build.
  *
  * IDEMPOTENT: a starter-* service that already exists in staging is UPDATED
- * (instance settings re-applied; a domain created only if none exists) rather
- * than duplicated or errored.
+ * (instance settings re-applied; a domain created only if none exists, and an
+ * "already exists" rejection on re-create is absorbed as a no-op) rather than
+ * duplicated or errored. The pinned image is always (re)deployed via
+ * serviceInstanceRedeploy so it actually runs — serviceInstanceUpdate alone
+ * only pins the image ref.
  *
  * Usage:
  *   npx tsx showcase/scripts/provision-starter-fleet.ts            # provision all 12
@@ -172,6 +175,10 @@ interface ServiceDomainResult {
   serviceDomainCreate: { domain: string };
 }
 
+interface ServiceInstanceRedeployResult {
+  serviceInstanceRedeploy: boolean;
+}
+
 /** Existing-service lookup result: id + whether it already has a staging domain. */
 export interface ExistingService {
   id: string;
@@ -251,14 +258,29 @@ export interface ProvisionOptions {
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
 
 /**
- * Retry a Railway mutation that can transiently fail with "ServiceInstance
- * not found" while the env-scoped instance is still materializing after
- * serviceCreate. Re-throws non-transient errors immediately and re-throws
- * the last transient error once the schedule is exhausted.
+ * The Railway eventual-consistency error classes that warrant a retry: the
+ * env-scoped serviceInstance is materialized asynchronously after
+ * serviceCreate, so both serviceInstanceUpdate AND serviceDomainCreate /
+ * serviceInstanceRedeploy issued too eagerly can race it. The instance is
+ * surfaced either as "ServiceInstance not found" or (for the domain create)
+ * as a generic "Service ... not found" while the instance is still settling.
+ * NOTE: an "already exists" domain error is NON-transient and is handled
+ * separately (caught as a benign no-op) — it must NOT match here.
+ */
+const TRANSIENT_ERROR_RE = /(ServiceInstance not found|Service not found)/i;
+
+/**
+ * Retry a Railway mutation that can transiently fail while the env-scoped
+ * instance is still materializing after serviceCreate. Re-throws
+ * non-transient errors immediately and re-throws the last transient error
+ * once the schedule is exhausted. The transient predicate is overridable
+ * per-call so callers with a different eventual-consistency signature can
+ * supply their own.
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
   sleep: (ms: number) => Promise<void>,
+  isTransient: (msg: string) => boolean = (msg) => TRANSIENT_ERROR_RE.test(msg),
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -267,14 +289,24 @@ async function withRetry<T>(
     } catch (e) {
       lastErr = e;
       const msg = e instanceof Error ? e.message : String(e);
-      // Only retry the known eventual-consistency error.
-      if (!/ServiceInstance not found/i.test(msg)) throw e;
+      // Only retry the known eventual-consistency errors.
+      if (!isTransient(msg)) throw e;
       if (attempt === RETRY_DELAYS_MS.length) break;
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
   }
   throw lastErr;
 }
+
+/**
+ * A serviceDomainCreate that rejects because a domain ALREADY exists is a
+ * benign no-op on a partial-failure re-run (the start-of-run snapshot missed
+ * the domain due to Railway eventual consistency, or a prior run died
+ * mid-fleet). We converge by treating it as "existing" rather than aborting
+ * the remaining fleet. This is NOT a transient/retryable error — matching it
+ * here would waste the retry schedule on a permanent condition.
+ */
+const DOMAIN_ALREADY_EXISTS_RE = /(already\s+exists|duplicate)/i;
 
 export interface ProvisionRecord {
   slug: string;
@@ -283,7 +315,7 @@ export interface ProvisionRecord {
   serviceId: string;
   action: "created" | "updated";
   domain?: string;
-  domainAction: "created" | "existing" | "skipped";
+  domainAction: "created" | "existing" | "skipped" | "would-create";
 }
 
 export interface ProvisionSummary {
@@ -298,8 +330,23 @@ export interface ProvisionSummary {
  *     sleepApplication: true + healthcheckPath + region + (optional) GHCR
  *     registryCredentials — applied on BOTH the create and update paths so a
  *     re-run converges drifted settings;
+ *   - serviceInstanceRedeploy so the pinned image ACTUALLY RUNS. A
+ *     serviceCreate + serviceInstanceUpdate(source.image) only pins the image
+ *     ref; it does NOT start a deployment. Railway's image auto-updates fire
+ *     only when a NEW digest is pushed to the tag, so a freshly-provisioned
+ *     service whose :latest digest already exists would sit with no running
+ *     deployment (and the starter_smoke probe would never find it up) without
+ *     this explicit redeploy. This mirrors the documented update+redeploy
+ *     pattern in bin/railway (RestoreCommand / pin_and_verify) and the
+ *     explicit serviceInstanceRedeploy that showcase_deploy.yml issues after
+ *     every GHCR push (see showcase/RAILWAY.md). The update path re-asserts
+ *     source.image too, so it also redeploys to run the (re-)pinned image.
  *   - serviceDomainCreate for the staging env, but ONLY when the service has
- *     no staging domain yet (so re-runs don't pile up domains).
+ *     no staging domain yet (so re-runs don't pile up domains). A
+ *     serviceDomainCreate that rejects with an "already exists" error (the
+ *     snapshot missed the domain due to eventual consistency, or a prior run
+ *     died mid-fleet) is caught as a benign no-op so the re-run converges
+ *     instead of aborting the remaining fleet.
  *
  * Pure w.r.t. I/O: every Railway interaction goes through the injected `gql`.
  */
@@ -399,32 +446,74 @@ export async function provisionStarterFleet(
           registryCredentials ? ", registry creds" : ""
         }`,
       );
+
+      // Redeploy so the pinned image ACTUALLY RUNS. serviceInstanceUpdate
+      // only pins source.image; without this the service has no running
+      // deployment and starter_smoke would never find it up. Wrapped in
+      // withRetry for the same instance-materialization race as the update.
+      const redeployed = await withRetry(
+        () =>
+          gql<ServiceInstanceRedeployResult>(
+            `mutation serviceInstanceRedeploy($serviceId: String!, $environmentId: String!) {
+              serviceInstanceRedeploy(serviceId: $serviceId, environmentId: $environmentId)
+            }`,
+            { serviceId, environmentId: stagingEnvId },
+          ),
+        sleepMs,
+      );
+      if (redeployed.serviceInstanceRedeploy !== true) {
+        throw new Error(
+          `serviceInstanceRedeploy returned ${JSON.stringify(
+            redeployed.serviceInstanceRedeploy,
+          )} for ${target.serviceName} (${serviceId}) — image will not run.`,
+        );
+      }
+      log(`  redeployed — image now running`);
     }
 
     // Domain: create only when none exists yet (idempotent).
     let domain: string | undefined;
-    let domainAction: "created" | "existing" | "skipped";
+    let domainAction: "created" | "existing" | "skipped" | "would-create";
     if (prior?.hasStagingDomain) {
       domainAction = "existing";
       log(`  staging domain already present — skipping create`);
     } else if (dryRun) {
-      domainAction = "skipped";
+      // Faithful preview: a real run WOULD create a domain here (the service
+      // has none yet), so report "would-create" rather than the misleading
+      // "skipped".
+      domainAction = "would-create";
+      log(`  domain: would create (none present)`);
     } else {
-      const domainResult = await withRetry(
-        () =>
-          gql<ServiceDomainResult>(
-            `mutation serviceDomainCreate($input: ServiceDomainCreateInput!) {
-              serviceDomainCreate(input: $input) { domain }
-            }`,
-            {
-              input: { serviceId, environmentId: stagingEnvId },
-            },
-          ),
-        sleepMs,
-      );
-      domain = domainResult.serviceDomainCreate.domain;
-      domainAction = "created";
-      log(`  domain: https://${domain}`);
+      try {
+        const domainResult = await withRetry(
+          () =>
+            gql<ServiceDomainResult>(
+              `mutation serviceDomainCreate($input: ServiceDomainCreateInput!) {
+                serviceDomainCreate(input: $input) { domain }
+              }`,
+              {
+                input: { serviceId, environmentId: stagingEnvId },
+              },
+            ),
+          sleepMs,
+        );
+        domain = domainResult.serviceDomainCreate.domain;
+        domainAction = "created";
+        log(`  domain: https://${domain}`);
+      } catch (e) {
+        // Idempotent convergence on a partial-failure re-run: if the domain
+        // already exists (the start-of-run snapshot missed it, or a prior run
+        // died mid-fleet), Railway rejects the create with a non-transient
+        // "already exists" error. That is benign — treat it as existing and
+        // KEEP GOING rather than aborting the remaining fleet. Any other
+        // error still aborts (fail loud).
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!DOMAIN_ALREADY_EXISTS_RE.test(msg)) throw e;
+        domainAction = "existing";
+        log(
+          `  staging domain already exists (per Railway) — treating as no-op`,
+        );
+      }
     }
 
     records.push({
@@ -443,27 +532,30 @@ export async function provisionStarterFleet(
 
 // ── Live GraphQL caller ─────────────────────────────────────────────────
 
-let cachedToken: string | undefined;
-function getToken(): string {
-  if (cachedToken) return cachedToken;
+/**
+ * Resolve the Railway token, normalizing the typed RailwayTokenError into a
+ * plain Error so main().catch owns the process exit (rather than a deep
+ * process.exit(1) inside the GraphQL boundary). main() validates this UP
+ * FRONT — before any provisioning — so a missing token fails fast instead of
+ * mid-mutation.
+ */
+function resolveTokenOrThrow(): string {
   try {
-    cachedToken = resolveRailwayToken().token;
-    return cachedToken;
+    return resolveRailwayToken().token;
   } catch (e) {
     if (e instanceof RailwayTokenError) {
-      console.error(e.message);
-      process.exit(1);
+      throw new Error(e.message, { cause: e });
     }
     throw e;
   }
 }
 
-function makeLiveGql(): RailwayGqlFn {
+/** Build a live GraphQL caller bound to a single, already-resolved token. */
+function makeLiveGql(token: string): RailwayGqlFn {
   return async function railwayGql<T = unknown>(
     query: string,
     variables: Record<string, unknown> = {},
   ): Promise<T> {
-    const token = getToken();
     const res = await fetch(RAILWAY_API, {
       method: "POST",
       headers: {
@@ -508,35 +600,70 @@ async function listStarterServices(gql: RailwayGqlFn): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-
-  if (args.includes("--help")) {
-    console.log(`Usage:
+const USAGE = `Usage:
   npx tsx showcase/scripts/provision-starter-fleet.ts            Provision all 12 starter-* services in staging
   npx tsx showcase/scripts/provision-starter-fleet.ts --list     List starter-* services in staging
   npx tsx showcase/scripts/provision-starter-fleet.ts --dry-run  Plan only (no mutations)
-`);
-    process.exit(0);
+`;
+
+export interface ParsedArgs {
+  help: boolean;
+  list: boolean;
+  dryRun: boolean;
+}
+
+/** The flags this script recognizes. */
+const KNOWN_FLAGS = new Set(["--help", "--list", "--dry-run"]);
+
+/**
+ * Parse argv into the recognized flags, REJECTING any unrecognized argument.
+ * Without this, a mistyped flag (e.g. `--dry-rn`) is silently ignored and —
+ * because dryRun stays false — the script proceeds to REAL live provisioning,
+ * the exact opposite of the operator's intent. Throws on any unknown arg so
+ * main().catch aborts before any mutation.
+ *
+ * Exported pure for unit testing.
+ */
+export function parseArgs(args: string[]): ParsedArgs {
+  for (const arg of args) {
+    if (!KNOWN_FLAGS.has(arg)) {
+      throw new Error(`Unknown argument: ${arg}\n${USAGE}`);
+    }
+  }
+  return {
+    help: args.includes("--help"),
+    list: args.includes("--list"),
+    dryRun: args.includes("--dry-run"),
+  };
+}
+
+async function main(): Promise<void> {
+  const parsed = parseArgs(process.argv.slice(2));
+
+  if (parsed.help) {
+    console.log(USAGE);
+    return;
   }
 
-  const gql = makeLiveGql();
+  // Validate the Railway token UP FRONT — before any provisioning — so a
+  // missing/unreadable token fails fast (and main().catch owns the exit)
+  // rather than blowing up mid-mutation on the first GraphQL call.
+  const token = resolveTokenOrThrow();
+  const gql = makeLiveGql(token);
 
-  if (args.includes("--list")) {
+  if (parsed.list) {
     await listStarterServices(gql);
     return;
   }
 
-  const dryRun = args.includes("--dry-run");
+  const dryRun = parsed.dryRun;
   const targets = deriveStarterTargets();
 
-  let registryCredentials: RegistryCredentials | undefined;
-  try {
-    registryCredentials = resolveRegistryCredentials();
-  } catch (e) {
-    console.error((e as Error).message);
-    process.exit(1);
-  }
+  // Validate registry credentials UP FRONT too (mirrors the existing
+  // resolveRegistryCredentials validation) so a token-without-username
+  // misconfig fails before any mutation. The throw propagates to
+  // main().catch — no deep process.exit here.
+  const registryCredentials = resolveRegistryCredentials();
   if (!registryCredentials) {
     console.warn(
       "\n  WARNING: GITHUB_TOKEN not set. Registry credentials will NOT be configured — Railway cannot pull the private GHCR starter images until creds are added.\n",
