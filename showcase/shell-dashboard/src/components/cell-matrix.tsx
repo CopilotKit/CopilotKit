@@ -15,23 +15,12 @@ import { DepthChip } from "./depth-chip";
 import { CellDrilldown } from "./cell-drilldown";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
-import { ToneChip } from "./badges";
 import { buildCellModel } from "@/lib/cell-model";
 import type { CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
-import {
-  resolveCell,
-  resolveStarterRow,
-  buildStarterBadge,
-  starterIsSupported,
-  STARTER_LEVELS,
-} from "@/lib/live-status";
-import type {
-  LiveStatusMap,
-  ConnectionStatus,
-  StarterLevel,
-} from "@/lib/live-status";
+import { resolveCell } from "@/lib/live-status";
+import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
 
 /** Identifies a selected cell for drilldown. */
@@ -229,105 +218,6 @@ function CategorySection({
 }
 
 /* ------------------------------------------------------------------ */
-/*  StarterSection — the "Starter" pseudo-category row-group (spec §d)  */
-/* ------------------------------------------------------------------ */
-
-/** Human-readable label per starter sub-row, in STARTER_LEVELS order. */
-const STARTER_LEVEL_LABEL: Record<StarterLevel, string> = {
-  health: "Health",
-  agent: "Agent",
-  chat: "Chat",
-  interaction: "Interaction",
-};
-
-interface StarterSectionProps {
-  visibleIntegrations: IntegrationInfo[];
-  liveStatus: LiveStatusMap;
-  defaultOpen: boolean;
-  connection: ConnectionStatus;
-  now: number;
-}
-
-/**
- * The "Starter" row-group: four fixed sub-rows (health/agent/chat/interaction)
- * keyed to the integration columns. Rendered like a `CategorySection`, but the
- * cells resolve via `resolveStarterRow` + `buildStarterBadge` (the full 5-state
- * §d vocabulary) instead of the depth model.
- *
- * INFORMATIONAL ONLY: this group never calls `resolveCell`, so starter rows
- * cannot contribute to the feature-cell `rollup` (spec §d) — the exclusion is
- * structural, not a filter.
- */
-function StarterSection({
-  visibleIntegrations,
-  liveStatus,
-  defaultOpen,
-  connection,
-  now,
-}: StarterSectionProps) {
-  const { isOpen, toggle } = useCollapsible({
-    name: "Starter",
-    defaultOpen,
-  });
-
-  const supportedCount = visibleIntegrations.filter((int) =>
-    starterIsSupported(int.slug),
-  ).length;
-
-  return (
-    <>
-      <CategoryHeaderRow
-        name="Starter"
-        count={`${supportedCount}/${visibleIntegrations.length}`}
-        colSpan={visibleIntegrations.length + 1}
-        isOpen={isOpen}
-        onToggle={toggle}
-      />
-      {isOpen &&
-        STARTER_LEVELS.map((level) => (
-          <tr
-            key={level}
-            data-testid={`starter-row-${level}`}
-            className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
-          >
-            <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-1.5 border-r border-[var(--border)] align-middle min-w-[200px]">
-              <span className="text-xs text-[var(--text)]">
-                {STARTER_LEVEL_LABEL[level]}
-              </span>
-            </td>
-            {visibleIntegrations.map((int) => {
-              const isSupported = starterIsSupported(int.slug);
-              const row = isSupported
-                ? resolveStarterRow(liveStatus, int.slug, level)
-                : null;
-              const badge = buildStarterBadge(
-                level,
-                isSupported,
-                row,
-                now,
-                connection,
-              );
-              return (
-                <td
-                  key={int.slug}
-                  data-testid={`starter-cell-${int.slug}-${level}`}
-                  className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
-                >
-                  <ToneChip
-                    tone={badge.tone}
-                    label={badge.label}
-                    title={badge.tooltip}
-                  />
-                </td>
-              );
-            })}
-          </tr>
-        ))}
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  CellMatrix                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -515,20 +405,6 @@ export function CellMatrix({
               />
             );
           })}
-          {/*
-           * "Starter" pseudo-category row-group (spec §d). Informational
-           * smoke-health for the deployed starter services — rendered after
-           * the feature categories, never contributing to any feature cell's
-           * rollup (it does not call resolveCell). Shown across all filter
-           * modes since it is a health surface, not a feature-coverage row.
-           */}
-          <StarterSection
-            visibleIntegrations={visibleIntegrations}
-            liveStatus={liveStatus}
-            defaultOpen
-            connection={connection}
-            now={now}
-          />
         </tbody>
       </table>
     </div>
