@@ -332,15 +332,49 @@ module Railway
             h
         end
 
+        # Mint the bearer used for manifest reads via GHCR's /token exchange.
+        #
+        # GHCR's OCI manifest endpoint rejects a RAW GitHub/Actions token sent as
+        # `Authorization: Bearer <token>` with HTTP 403 — the token must first be
+        # exchanged for a short-lived registry bearer. So we ALWAYS hit /token,
+        # even when a token is present (the previous "return @token raw" path was
+        # the bug that made every `docs` promote 403 in CI).
+        #
+        # When a token is present we authenticate the exchange with Basic auth:
+        # base64("x-access-token:<token>") — the username is arbitrary, the token
+        # is the password. For public packages the exchange also succeeds
+        # anonymously, so a missing token still yields a usable bearer.
         def bearer_for(org, name)
-            return @token if @token && !@token.empty?
-            # Public images: anonymous token from /token endpoint.
             url = "https://ghcr.io/token?service=ghcr.io&scope=repository:#{org}/#{name}:pull"
-            resp = http_get(url, headers: {})
-            return nil if resp[:status] >= 400
-            JSON.parse(resp[:body])["token"]
-        rescue StandardError
-            nil
+            headers = {}
+            if @token && !@token.empty?
+                headers["Authorization"] = "Basic " + ["x-access-token:#{@token}"].pack("m0")
+            end
+
+            resp =
+                if @http
+                    @http.call(method: :get, url: url, headers: headers)
+                else
+                    http_get(url, headers: headers)
+                end
+
+            status = resp[:status]
+            if status >= 400
+                # A token WAS supplied but the exchange failed: surface it. The
+                # caller must NOT silently downgrade to an anonymous manifest
+                # read (that conflates "no token" with "supplied token failed").
+                raise Error, "GHCR /token exchange failed (#{status}) for #{org}/#{name}" if @token && !@token.empty?
+
+                # No token supplied: a non-2xx is the legitimate signal that the
+                # package is not anonymously pullable. The caller handles nil.
+                return nil
+            end
+
+            begin
+                JSON.parse(resp[:body])["token"]
+            rescue JSON::ParserError => e
+                raise Error, "GHCR /token returned unparseable body for #{org}/#{name}: #{e.message}"
+            end
         end
 
         def http_get(url, headers: {})

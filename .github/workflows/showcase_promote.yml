@@ -17,6 +17,7 @@ name: "Showcase: Promote (staging → prod)"
 #                                     target service(s). Feature-level probes,
 #                                     not naked 200.
 #   4. notify                       → Slack #oss-alerts on any red. Never #engr.
+#                                     success → #team-showcase.
 
 on:
   workflow_dispatch:
@@ -314,6 +315,7 @@ jobs:
       actions: read
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+      SLACK_WEBHOOK_TS: ${{ secrets.SLACK_WEBHOOK_TEAM_SHOWCASE }}
     steps:
       # Best-effort promote invariant (do NOT reintroduce a PRE gate below):
       #   resolve-targets              = HARD precondition (must succeed).
@@ -387,9 +389,33 @@ jobs:
                 github.run_id
               )) }}
             }
+      - name: Post to #team-showcase
+        if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_TEAM_SHOWCASE }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *Showcase Promoted to Prod*\nServices: `{1}`\n<{2}/{3}/actions/runs/{4}|View run>',
+                steps.state.outputs.icon,
+                steps.state.outputs.csv,
+                github.server_url,
+                github.repository,
+                github.run_id
+              )) }}
+            }
       - name: Log (no Slack — webhook unset)
         if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK == ''
         env:
           CSV: ${{ steps.state.outputs.csv }}
         run: |
           echo "::warning::Showcase promote failed for '$CSV' but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+      - name: Log (no Slack — team-showcase webhook unset)
+        if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS == ''
+        env:
+          CSV: ${{ steps.state.outputs.csv }}
+          ICON: ${{ steps.state.outputs.icon }}
+        run: |
+          echo "::notice::$ICON Showcase promoted to prod for '$CSV' but SLACK_WEBHOOK_TEAM_SHOWCASE is not set; no #team-showcase notification sent."
