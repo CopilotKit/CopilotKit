@@ -299,6 +299,21 @@ export class BrowserPool {
   private readonly launchStaggerMs: number;
   private launchChain: Promise<unknown> = Promise.resolve();
 
+  // In-flight launches. Every `launchBrowser()` registers its launch promise
+  // here BEFORE awaiting `rawLaunchBrowser()` and removes it on settle. This is
+  // the atomicity fix for the close-during-launch teardown race: a browser that
+  // is mid-`launch()` is NOT yet in `this.browsers` and has NO disconnect
+  // handler, so it is invisible to every teardown path (shutdown's close pass,
+  // recycle, the disconnect handler). Under the self-heal/relaunch storm a
+  // teardown therefore raced an in-flight launch — closing the browser
+  // underneath it (`browserType.launch: Target page ... has been closed`,
+  // SIGTRAP) or leaking it entirely. shutdown() now DRAINS this set (so it waits
+  // for every in-flight launch to settle before its close pass), and
+  // `launchBrowser` re-checks `isShutdown` the instant a launch settles: if a
+  // shutdown intervened it closes the freshly-launched browser cleanly THEN,
+  // exactly once, instead of leaving it for a teardown that already ran.
+  private pendingLaunches = new Set<Promise<unknown>>();
+
   constructor(options: BrowserPoolOptions = {}) {
     this.logger = options.logger;
     this.injectedLaunchBrowser = options.launchBrowser;
@@ -446,15 +461,56 @@ export class BrowserPool {
    * receives the rejection via the returned `result`. The stagger applies
    * whether the launch resolved or threw — a failed launch is just as
    * PID-costly to retry.
+   *
+   * ATOMIC vs TEARDOWN: the launch promise is registered in `pendingLaunches`
+   * BEFORE it is awaited and removed when it settles, so `shutdown()` can DRAIN
+   * every in-flight launch before its close pass — a launch can no longer escape
+   * teardown accounting (the close-during-launch race). And the instant a launch
+   * settles, if a `shutdown()` raced in while it was in flight, this seam closes
+   * the freshly-launched browser cleanly THEN (exactly once) and re-throws a
+   * shutdown sentinel: the caller's launch then "fails" into its normal
+   * error/abort path rather than registering (and leaking) a browser into a pool
+   * that is going away. Callers must NOT separately close a browser this seam
+   * returned on the shutdown path — the throw means there is no browser to close.
    */
   private launchBrowser = (): Promise<Browser> => {
     const gate = this.launchChain;
-    const result = gate.then(() => this.rawLaunchBrowser());
-    this.launchChain = result
+    const raw = gate.then(() => this.rawLaunchBrowser());
+    // Gate the NEXT launch off the RAW result (pre-shutdown-handling) so the
+    // stagger/queue semantics are unchanged by the teardown guard below.
+    this.launchChain = raw
       .catch(() => undefined)
       .then(() =>
         this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
       );
+
+    const result = raw.then((browser) => {
+      // The launch settled. If a shutdown raced in while it was in flight, this
+      // freshly-launched browser would otherwise be invisible to the close pass
+      // that already ran (it was never in `this.browsers`). Close it cleanly here
+      // — exactly once — and surface a shutdown sentinel so the caller does not
+      // register it into a pool that is tearing down.
+      if (this.isShutdown) {
+        // The launching browser is by definition not yet registered in
+        // `this.browsers`, so there is no meaningful index — log it as -1.
+        return this.closeBrowser(browser, -1).then((): Browser => {
+          throw new Error("BrowserPool shut down during launch");
+        });
+      }
+      return browser;
+    });
+
+    // Track the in-flight launch so shutdown() drains it before closing. Use a
+    // catch-swallowed handle so a rejected launch (failure OR the shutdown
+    // sentinel above) still settles the drain without surfacing an unhandled
+    // rejection on the tracking copy; the caller still receives the real
+    // rejection via `result`.
+    const tracked = result.catch(() => undefined);
+    this.pendingLaunches.add(tracked);
+    void tracked.finally(() => {
+      this.pendingLaunches.delete(tracked);
+    });
+
     return result;
   };
 
@@ -1127,17 +1183,27 @@ export class BrowserPool {
     }
     this.waiters = [];
 
-    // Drain in-flight recycles + self-heal loops in a LOOP, re-snapshotting each
-    // pass. A ONE-TIME snapshot is racy: a self-heal iteration (or an
-    // in-flight-recovery relaunch) can register a NEW promise in
+    // Drain in-flight recycles + self-heal loops AND in-flight launches in a
+    // LOOP, re-snapshotting each pass. A ONE-TIME snapshot is racy: a self-heal
+    // iteration (or an in-flight-recovery relaunch) can register a NEW promise in
     // `inFlightRecycles` AFTER the snapshot — and that late iteration may launch
     // a fresh chromium AFTER shutdown returned, leaking the process. Loop until
-    // the set is genuinely empty (each settled loop/recycle has dropped its
-    // handle), so we await every late-registered iteration too. The loops all
+    // BOTH sets are genuinely empty (each settled loop/recycle/launch has dropped
+    // its handle), so we await every late-registered iteration too.
+    //
+    // `pendingLaunches` is the close-during-launch fix: an init/recycle/self-heal
+    // launch that is mid-`launch()` is NOT yet in `this.browsers`, so the close
+    // pass below cannot see it. Draining it here makes shutdown WAIT for every
+    // in-flight launch to settle; the launch seam itself (`launchBrowser`) then
+    // observes `isShutdown` on settle and closes the freshly-launched browser
+    // cleanly — so it is neither closed mid-launch nor leaked. The loops all
     // check `isShutdown` and the delays abort via the shutdown signal, so this
     // converges promptly.
-    while (this.inFlightRecycles.size > 0) {
-      await Promise.allSettled(Array.from(this.inFlightRecycles));
+    while (this.inFlightRecycles.size > 0 || this.pendingLaunches.size > 0) {
+      await Promise.allSettled([
+        ...Array.from(this.inFlightRecycles),
+        ...Array.from(this.pendingLaunches),
+      ]);
     }
 
     // Close every live context, then every browser. Route through the close

@@ -183,6 +183,14 @@ interface FakeLauncher {
    *  undefined) to "heal" the simulated thread-exhausted kernel so subsequent
    *  relaunches succeed. */
   setFailAfter(threshold: number | undefined): void;
+  /** Number of launchBrowser() calls currently PARKED mid-launch (the
+   *  `parkLaunchForCalls` set), awaiting __releaseParkedLaunches(). Models a real
+   *  chromium.launch() that has not yet resolved — its browser object exists but
+   *  is not yet registered in the pool's `this.browsers`. */
+  readonly __parkedLaunches: number;
+  /** Resolve ALL parked launches, returning the FakeBrowsers they resolve to (so
+   *  a test can assert on / crash them). */
+  __releaseParkedLaunches(): FakeBrowser[];
 }
 
 function makeFakeLauncher(opts?: {
@@ -200,10 +208,18 @@ function makeFakeLauncher(opts?: {
    *  recovery storm (init succeeds, all subsequent relaunches fail). Mutable
    *  via the returned `setFailAfter` so a test can "heal" the kernel mid-run. */
   failAfterCall?: number;
+  /** 1-based launch-call indices whose launchBrowser() PARKS — the FakeBrowser is
+   *  created but the launch promise does not resolve until
+   *  __releaseParkedLaunches() is called. Models a real chromium.launch() that is
+   *  mid-startup: the browser object exists (and can be closed!) but is not yet
+   *  registered in the pool's `this.browsers`. Drives the close-during-launch
+   *  teardown race. */
+  parkLaunchForCalls?: number[];
 }): FakeLauncher {
   const launched: FakeBrowser[] = [];
   let callCount = 0;
   let failAfter = opts?.failAfterCall;
+  const parkedReleases: Array<() => void> = [];
   const launchBrowser = async (): Promise<Browser> => {
     callCount++;
     if (opts?.failAtCalls?.includes(callCount)) {
@@ -219,6 +235,18 @@ function makeFakeLauncher(opts?: {
       deferNewContext: opts?.deferNewContextForCalls?.includes(callCount),
     });
     launched.push(b);
+    if (opts?.parkLaunchForCalls?.includes(callCount)) {
+      // The browser object exists but the launch is still "in flight": park the
+      // resolve so a concurrent teardown can run while the launch is mid-startup.
+      // A real chromium.launch() that has its target/browser closed underneath it
+      // rejects with "Target page, context or browser has been closed".
+      await new Promise<void>((resolve) => parkedReleases.push(resolve));
+      if (!b.isConnected()) {
+        throw new Error(
+          "browserType.launch: Target page, context or browser has been closed",
+        );
+      }
+    }
     return b as unknown as Browser;
   };
   return {
@@ -226,6 +254,14 @@ function makeFakeLauncher(opts?: {
     launched,
     setFailAfter(threshold) {
       failAfter = threshold;
+    },
+    get __parkedLaunches() {
+      return parkedReleases.length;
+    },
+    __releaseParkedLaunches() {
+      const toRelease = parkedReleases.splice(0, parkedReleases.length);
+      for (const r of toRelease) r();
+      return launched;
     },
   };
 }
@@ -2443,5 +2479,88 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
 
     await pool.release(served);
     await pool.shutdown();
+  });
+
+  // ===========================================================================
+  // FIX#13 — close-during-launch teardown race (the staging outage).
+  //
+  // A browser that is mid-`launch()` (the launch promise has not yet resolved,
+  // so it is NOT yet in `this.browsers` and has NOT yet had a disconnect handler
+  // attached) can be closed by a concurrent teardown path BEFORE the launch
+  // resolves. In production this manifested as the self-heal loop's
+  // `chromium.launch()` itself rejecting with
+  //   `browserType.launch: Target page, context or browser has been closed`
+  // (SIGTRAP — the browser was killed mid-startup). 336 such
+  // `self-heal-launch-failed` events in 4 min wedged the pool: every relaunch
+  // hit the same race, so the set never refilled.
+  //
+  // RED (pre-fix): `shutdown()` flips `isShutdown` and immediately closes every
+  // browser in `this.browsers`, but it has NO knowledge of a launch that is
+  // IN FLIGHT (created but not yet pushed). When the in-flight launch finally
+  // settles the pool either (a) hands the fresh browser out / leaves it leaked,
+  // or — modeled here — (b) the launch itself rejects because the browser was
+  // closed underneath it. The fix registers a "launching" marker BEFORE the
+  // await so shutdown awaits it instead of closing the browser mid-startup, and
+  // the launching path re-checks `isShutdown` AFTER the await to close cleanly
+  // ONLY then.
+  // GREEN: no `Target page, context or browser has been closed` rejection
+  // surfaces; the in-flight launch is either cleanly registered or cleanly
+  // closed exactly once after it settles.
+  // ===========================================================================
+  it("FIX#13: shutdown during an in-flight init launch waits for + cleanly closes the launching browser (no leak)", async () => {
+    // The init() fill loop launches the fixed set one browser at a time. A
+    // launch that is IN FLIGHT (the launch promise has not resolved) has its
+    // FakeBrowser created but is NOT yet in `this.browsers` and has NO disconnect
+    // handler. A concurrent shutdown() has no marker for this in-flight launch:
+    //   - shutdown's `inFlightRecycles` drain does NOT track init,
+    //   - shutdown closes only the browsers already in `this.browsers`.
+    // So pre-fix, shutdown returns while init's launch is still in flight; when
+    // the launch finally resolves it pushes a live browser that NOTHING ever
+    // closes — a permanently leaked chromium process (the steady-state form of
+    // the staging wedge: launches that escape teardown accounting).
+    //
+    // Drive it: browsers:2 so init does call 1 (resolves) then call 2 (PARKS).
+    const launcher = makeFakeLauncher({
+      parkLaunchForCalls: [2],
+    });
+    const { launchBrowser, launched } = launcher;
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 4,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+
+    const rejections: string[] = [];
+    const onRej = (e: unknown): void => {
+      rejections.push(e instanceof Error ? e.message : String(e));
+    };
+    process.on("unhandledRejection", onRej);
+
+    // Kick init() but do NOT await — its second launch (call 2) parks in flight.
+    const initP = pool.init();
+    await waitFor(() => launcher.__parkedLaunches > 0);
+    expect(launched.length).toBe(2);
+
+    // Concurrent teardown WHILE init's 2nd launch is in flight.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Release the parked launch so init can finish.
+    launcher.__releaseParkedLaunches();
+    await Promise.allSettled([initP, shutdownP]);
+    await drainMicrotasks(20);
+    await new Promise((r) => setTimeout(r, 20));
+    process.off("unhandledRejection", onRej);
+
+    // INVARIANT 1: no close-during-launch rejection escaped.
+    expect(
+      rejections.some((m) => m.includes("Target page, context or browser")),
+    ).toBe(false);
+    // INVARIANT 2: BOTH launched browsers were closed on shutdown — the
+    // in-flight one (launched[1]) is NOT leaked. Pre-fix shutdown returns before
+    // launched[1] registers, so it is never closed (__closeCount === 0).
+    expect(launched[0]!.__closeCount).toBeGreaterThanOrEqual(1);
+    expect(launched[1]!.__closeCount).toBeGreaterThanOrEqual(1);
   });
 });
