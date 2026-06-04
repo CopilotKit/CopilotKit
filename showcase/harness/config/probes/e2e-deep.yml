@@ -63,7 +63,10 @@
 # 4 services (max_concurrency) × FEATURE_CONCURRENCY(2) features per
 # service = up to 8 concurrent chromium contexts. Those contexts are drawn
 # from the 3 shared chromium processes (BROWSER_POOL_BROWSERS=3) under the
-# global BROWSER_POOL_MAX_CONTEXTS=40 cap (D6 peak 32 + this D5 peak 8).
+# global BROWSER_POOL_MAX_CONTEXTS=24 cap (D6 peak now 5×4=20 + this D5 peak
+# 8 = 28 > 24, so a d6+d5 OVERLAP serializes against the global cap — that
+# back-pressure is intended: it is the demand-side lever that keeps the
+# simultaneous-renderer count off the cgroup pids.max=1000 ceiling).
 # Each context resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production
 # memory headroom on the orchestrator's Railway footprint has been measured
 # and can sustain this — the binding constraint is the PID ceiling of 1000,

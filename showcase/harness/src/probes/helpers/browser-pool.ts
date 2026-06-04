@@ -76,17 +76,18 @@ const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
  * loop just RELAUNCHES into the SAME wedged state over and over
  * (`self-heal-launch-failed` repeating, 28× in ~19s observed) — backing off
  * `selfHealIntervalMs` between identical attempts but NEVER doing anything
- * different to escape (stale `/tmp/playwright_*` profile dirs / accumulated
- * FD-shm pressure on the long-lived container persist across every relaunch).
+ * different to escape (the wedge is the cgroup PID/thread ceiling — a
+ * platform-fixed, demand-side ceiling that an immediate relaunch only re-pins).
  * `acquire()` therefore has no contexts forever → blocks to timeout fleet-wide.
  * Only a container RESTART cleared it — reactive, not durable.
  *
  * The breaker makes the self-heal loop ESCAPE: after
  * `selfHealHardRecoveryThreshold` CONSECUTIVE self-heal launch failures, instead
- * of looping another identical relaunch the pool performs a HARD recovery —
- * purges the stale `/tmp/playwright_*` profile/temp dirs the wedged chromium
- * processes left behind (the FD-shm/profile pressure that keeps every fresh
- * launch crashing) — then cold-launches fresh. Any successful launch resets the
+ * of looping another identical relaunch the pool performs a HARD recovery — a
+ * PACED cold relaunch that backs the loop off to give the thread-exhausted
+ * kernel time to relax before the next cold launch (NO `/tmp` purge — the wedge
+ * is the cgroup pids ceiling, mitigated demand-side, not a stale-profile-dir
+ * problem). Any successful launch resets the
  * consecutive counter. If `selfHealMaxHardRecoveries` consecutive HARD
  * recoveries ALSO fail to revive a single browser, the pool surfaces a LOUD
  * `browser-pool.pool-unrecoverable` alarm (via `onUnrecoverable`) and stops the
@@ -329,9 +330,9 @@ export interface BrowserPoolOptions {
   onRecovered?: () => void;
   /**
    * Unrecoverable-alarm hook. Invoked when the self-heal circuit-breaker has
-   * exhausted `selfHealMaxHardRecoveries` consecutive HARD recoveries (purge +
-   * cold-launch) WITHOUT reviving a single browser — i.e. the wedge survived
-   * even a profile-dir purge, so a redeploy is genuinely required. The
+   * exhausted `selfHealMaxHardRecoveries` consecutive HARD recoveries (paced
+   * cold relaunches) WITHOUT reviving a single browser — i.e. the wedge survived
+   * every paced relaunch, so a redeploy is genuinely required. The
    * orchestrator wires this to a LOUD operator alert (the signal the old
    * silent-spin path never sent). The breaker counters are passed so the alarm
    * can report how hard the pool tried before giving up. Best-effort: a throwing
@@ -1961,11 +1962,12 @@ export class BrowserPool {
    * CIRCUIT-BREAKER (the durable fix for the RECURRING wedge): the unfixed loop
    * just RELAUNCHED into the same wedged state forever — when chromium is in a
    * launch-crash-loop (`browserType.launch: ...has been closed`) every relaunch
-   * throws identically and the loop never escapes (the stale `/tmp/playwright_*`
-   * profile dirs / FD-shm pressure persist across every attempt). Now, after
+   * throws identically and the loop never escapes (the wedge is the cgroup
+   * PID/thread ceiling, which an immediate relaunch only re-pins). Now, after
    * `selfHealHardRecoveryThreshold` CONSECUTIVE launch failures, the loop stops
-   * looping identical relaunches and performs a HARD recovery — purges the stale
-   * profile/temp dirs — then cold-launches fresh. A single successful launch
+   * looping identical relaunches and performs a HARD recovery — a PACED cold
+   * relaunch (NO `/tmp` purge — see hardRecover) — then cold-launches fresh into
+   * a kernel given time to relax. A single successful launch
    * resets the failure counter. If `selfHealMaxHardRecoveries` consecutive HARD
    * recoveries ALSO revive nothing, it fires the LOUD `pool-unrecoverable` alarm
    * and stops (a redeploy is genuinely required) rather than spinning silently.
@@ -1995,7 +1997,8 @@ export class BrowserPool {
           // BREAKER: before attempting another identical relaunch, check whether
           // we have already failed `selfHealHardRecoveryThreshold` times in a
           // row. If so, escape the relaunch-into-the-same-wedge loop and HARD
-          // recover (purge stale profile/temp dirs) so the NEXT launch is cold.
+          // recover (paced cold relaunch — give the kernel time to relax; NO
+          // /tmp purge) so the NEXT launch is cold.
           if (
             this.selfHealHardRecoveryThreshold > 0 &&
             consecutiveFailures >= this.selfHealHardRecoveryThreshold
@@ -2004,8 +2007,8 @@ export class BrowserPool {
             consecutiveHardRecoveries++;
             await this.hardRecover(consecutiveHardRecoveries);
             if (this.isShutdown) break;
-            // Even the purge could not break the wedge after K tries — give up
-            // LOUDLY rather than spinning forever.
+            // Even the paced cold relaunch could not break the wedge after K
+            // tries — give up LOUDLY rather than spinning forever.
             if (
               this.selfHealMaxHardRecoveries > 0 &&
               consecutiveHardRecoveries >= this.selfHealMaxHardRecoveries

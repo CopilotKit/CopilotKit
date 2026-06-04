@@ -1839,20 +1839,22 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
   // or browser has been closed`. The set empties, `startSelfHeal()` kicks in,
   // and its loop just RELAUNCHES into the SAME wedged state forever
   // (`self-heal-launch-failed` repeating) — backing off between identical
-  // attempts but NEVER escaping (the stale `/tmp/playwright_*` profile dirs /
-  // FD-shm pressure persist across every relaunch). acquire() therefore has no
+  // attempts but NEVER escaping (the wedge is the cgroup PID/thread ceiling, a
+  // platform-fixed demand-side ceiling an immediate relaunch only re-pins).
+  // acquire() therefore has no
   // contexts forever → blocks to timeout fleet-wide. Only a container RESTART
   // cleared it (reactive). The circuit-breaker makes the loop ESCAPE: after N
-  // consecutive launch failures it HARD-recovers (purge stale profile dirs +
-  // cold-launch); if even K hard recoveries fail it fires a LOUD
+  // consecutive launch failures it HARD-recovers (a PACED cold relaunch — gives
+  // the thread-exhausted kernel time to relax; NO /tmp purge); if even K hard
+  // recoveries fail it fires a LOUD
   // pool-unrecoverable alarm instead of spinning silently.
 
   // RED (pre-breaker) → GREEN (post-breaker): chromium is wedged (every launch
   // throws "...has been closed"). PRE-breaker the self-heal loop relaunches
   // identically forever and acquire() never gets a context (wedged). POST-breaker
-  // the breaker trips at the threshold, the HARD recovery PURGES the stale
-  // profile dirs — modeled here by the purge "unwedging" the launcher — and the
-  // pool cold-launches fresh, so acquire() succeeds again.
+  // the breaker trips at the threshold, the HARD recovery PACES a cold relaunch
+  // (gives the kernel time to relax — modeled here by the pacing "unwedging" the
+  // launcher) and the pool cold-launches fresh, so acquire() succeeds again.
   it("OUTAGE: circuit-breaker hard-recovers (paced cold relaunch) out of a chromium launch-crash-loop the plain self-heal could not escape", async () => {
     // init launches 1 browser (call 1). Everything AFTER call 1 throws the
     // "...has been closed" launch-crash-loop error — modeling the wedged
