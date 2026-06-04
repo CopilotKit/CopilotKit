@@ -40,9 +40,7 @@ const HARNESS_MAPPING_FILE = resolve(
  */
 function parseHarnessColumnSlugs(): string[] {
   const src = readFileSync(HARNESS_MAPPING_FILE, "utf8");
-  const block = src.match(
-    /STARTER_TO_COLUMN[^=]*=\s*\{([\s\S]+?)\n\};/,
-  );
+  const block = src.match(/STARTER_TO_COLUMN[^=]*=\s*\{([\s\S]+?)\n\};/);
   if (!block || !block[1]) {
     throw new Error(
       "equality parser: could not locate `STARTER_TO_COLUMN` object literal in " +
