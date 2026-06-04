@@ -1,0 +1,1014 @@
+using System.ClientModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using OpenAI;
+
+namespace MsAgentHarnessControlRoom.Agent;
+
+/// <summary>
+/// Builds the Control Room agent on top of the Microsoft Agent Harness, wired to
+/// OpenAI's Responses API. Harness pre-configures the AgentMode, Todo,
+/// FileAccess, FileMemory, ToolApproval, and AgentSkills providers — so this
+/// factory supplies the chat client, workspace-oriented instructions, and one
+/// approval-gated `pnpm_run` workspace command tool.
+/// </summary>
+internal sealed class ControlRoomAgentFactory
+{
+    private const string AgentName = "control_room_agent";
+    private const string DefaultModelId = "gpt-5.4";
+    private const int MaxContextWindowTokens = 200_000;
+    private const int DefaultMaxOutputTokens = 2_048;
+    private const ReasoningEffort DefaultReasoningEffort = ReasoningEffort.None;
+
+    private readonly IConfiguration _configuration;
+
+    internal ControlRoomAgentFactory(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
+    public AIAgent CreateControlRoomAgent()
+    {
+        var apiKey = _configuration["OPENAI_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            ?? throw new InvalidOperationException(
+                "OPENAI_API_KEY not found. Set it in .env at the example root " +
+                "(see .env.example) so docker compose injects it into the agent container.");
+
+        var modelId = _configuration["OPENAI_MODEL_ID"]
+            ?? Environment.GetEnvironmentVariable("OPENAI_MODEL_ID")
+            ?? DefaultModelId;
+        var maxOutputTokens = ResolveMaxOutputTokens(_configuration);
+        var reasoningEffort = ResolveReasoningEffort(_configuration);
+
+        // Use OpenAI's public Responses API directly — Wesley's Harness samples
+        // funnel through Azure AI Foundry, but Harness's IChatClient pipeline is
+        // provider-agnostic and the user's key already speaks gpt-5.x via /v1/responses.
+        var openAiClient = new OpenAIClient(new ApiKeyCredential(apiKey));
+
+        // Wrap the chat client so AG-UI `forwardedProps.responseFormat`
+        // directives from the frontend are promoted into per-call
+        // `ChatOptions.ResponseFormat`. See
+        // `docs/superpowers/investigations/2026-05-26-structured-output-on-demand.md`
+        // for why this glue lives in the app rather than upstream MAF.
+        IChatClient chatClient = new ForwardedPropsResponseFormatPromoter(
+            openAiClient.GetResponsesClient().AsIChatClient(modelId));
+
+        // The demo workspace lives in the container's writable layer; Harness's
+        // FileMemoryProvider gets its own subdirectory so memory survives
+        // separately from the working repo.
+        var fixtureRoot = ResolveFixtureRoot();
+        var memoryRoot = Path.Combine(AppContext.BaseDirectory, "agent-files");
+        Directory.CreateDirectory(memoryRoot);
+
+        // Harness's `ShellExecutor` is intentionally null in this build —
+        // see docs/superpowers/gap-analysis/2026-05-26-ag-ui-harness-gap.md
+        // for why. To keep the demo runnable end-to-end we register a single
+        // narrow AIFunction that runs approved workspace pnpm scripts inside
+        // the container. The function is registered on ChatOptions.Tools, so
+        // the agent invokes it like any tool call; Harness's ToolApproval
+        // wrapper still gates it.
+        var pnpmTool = AIFunctionFactory.Create(
+            (string command, CancellationToken ct) => RunPnpmCommand(fixtureRoot, command, ct),
+            new AIFunctionFactoryOptions
+            {
+                Name = "pnpm_run",
+                Description =
+                    "Run one approved pnpm command inside the demo workspace: " +
+                    "install, test, test:coverage, typecheck, or data:summary. Returns exit code + stdout + stderr.",
+            });
+
+        // Gate every pnpm_run invocation through Harness's ToolApprovalAgent.
+        // The wrapper makes the function emit a ToolApprovalRequestContent on
+        // each call; our ApprovalContentWireBridge converts that into a
+        // synthetic `request_approval` tool call so it crosses the
+        // AG-UI wire and a Harness approval card renders in the cockpit.
+        var gatedPnpmTool = new ApprovalRequiredAIFunction(pnpmTool);
+        var a2uiTool = AIFunctionFactory.Create(
+            RenderA2UI,
+            new AIFunctionFactoryOptions
+            {
+                Name = "render_control_room_a2ui",
+                Description =
+                    "Render one composed A2UI surface from the local dynamic catalog as the final display action. " +
+                    "Pass a flat components array with root id 'root'; containers reference child ids via children arrays. " +
+                    "Use this for dashboards, charts, forms, tables, and cards. Returns A2UI operations for the local catalog.",
+            });
+
+        var harnessAgent = chatClient.AsHarnessAgent(
+            MaxContextWindowTokens,
+            maxOutputTokens,
+            new HarnessAgentOptions
+            {
+                Name = AgentName,
+                Description =
+                    "Control Room agent — answers workspace questions, reads code and data, plans work, " +
+                    "and uses HITL-approved commands when execution is requested.",
+                // Sandbox file access to the fixture root. FileAccessProvider rejects
+                // reads and writes outside this directory.
+                FileAccessStore = new FileSystemAgentFileStore(fixtureRoot),
+                // File memory lives in a separate directory so it survives
+                // fixture resets and the agent can carry forward notes across
+                // sessions.
+                FileMemoryStore = new FileSystemAgentFileStore(memoryRoot),
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = BuildInstructions(),
+                    // Keep stage-demo tool flow legible and prevent frontend
+                    // display components from being batched with pending
+                    // Harness tool calls.
+                    AllowMultipleToolCalls = false,
+                    MaxOutputTokens = maxOutputTokens,
+                    Reasoning = new ReasoningOptions { Effort = reasoningEffort },
+                    Tools = [gatedPnpmTool, a2uiTool],
+                },
+            });
+
+        // Outermost wrapper: app-owned content-bridge that converts
+        // ToolApprovalRequestContent ↔ a synthetic `request_approval`
+        // function-call so the AG-UI wire (which only serialises function-
+        // calls + text) can carry the approval flow end-to-end.
+        return new ApprovalContentWireBridge(harnessAgent);
+    }
+
+    private static int ResolveMaxOutputTokens(IConfiguration configuration)
+    {
+        var raw = configuration["CONTROL_ROOM_MAX_OUTPUT_TOKENS"]
+            ?? Environment.GetEnvironmentVariable("CONTROL_ROOM_MAX_OUTPUT_TOKENS");
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultMaxOutputTokens;
+        }
+
+        if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0)
+        {
+            return value;
+        }
+
+        throw new InvalidOperationException(
+            "CONTROL_ROOM_MAX_OUTPUT_TOKENS must be a positive integer when set.");
+    }
+
+    private static ReasoningEffort ResolveReasoningEffort(IConfiguration configuration)
+    {
+        var raw = configuration["CONTROL_ROOM_REASONING_EFFORT"]
+            ?? Environment.GetEnvironmentVariable("CONTROL_ROOM_REASONING_EFFORT");
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultReasoningEffort;
+        }
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "none" => ReasoningEffort.None,
+            "low" => ReasoningEffort.Low,
+            "medium" => ReasoningEffort.Medium,
+            "high" => ReasoningEffort.High,
+            "extra-high" or "extrahigh" or "extra_high" => ReasoningEffort.ExtraHigh,
+            _ => throw new InvalidOperationException(
+                "CONTROL_ROOM_REASONING_EFFORT must be one of: none, low, medium, high, extra-high."),
+        };
+    }
+
+    /// <summary>
+    /// Runs one approved pnpm command (`install`, `test`, `test:coverage`,
+    /// `typecheck`, `data:summary`) in the fixture working directory, with a
+    /// hard timeout and stdout/stderr captured. Harness's ToolApproval wrapper
+    /// fires the approval gate before this is invoked.
+    /// </summary>
+    private static async Task<PnpmCommandResult> RunPnpmCommand(
+        string fixtureRoot,
+        [Description("One of: install | test | test:coverage | typecheck | data:summary")] string command,
+        CancellationToken cancellationToken)
+    {
+        if (command is not ("install" or "test" or "test:coverage" or "typecheck" or "data:summary"))
+        {
+            return new PnpmCommandResult(
+                Command: command,
+                ExitCode: -1,
+                TimedOut: false,
+                Stdout: "",
+                Stderr: $"Refusing to run '{command}'. Allowed: install, test, test:coverage, typecheck, data:summary.");
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "pnpm",
+            WorkingDirectory = fixtureRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        // `install` is a bare verb in pnpm; the others are npm-scripts under `run`.
+        if (command == "install")
+        {
+            psi.ArgumentList.Add("install");
+        }
+        else
+        {
+            psi.ArgumentList.Add("run");
+            psi.ArgumentList.Add(command);
+        }
+
+        using var process = new Process { StartInfo = psi };
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) stdout.AppendLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
+
+        if (!process.Start())
+        {
+            return new PnpmCommandResult(command, -1, false, "", "Failed to start pnpm process.");
+        }
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromMinutes(3));
+
+        var timedOut = false;
+        try
+        {
+            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            timedOut = true;
+            try { process.Kill(entireProcessTree: true); } catch { /* best effort */ }
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        return new PnpmCommandResult(
+            Command: command,
+            ExitCode: timedOut ? -1 : process.ExitCode,
+            TimedOut: timedOut,
+            Stdout: Truncate(stdout.ToString()),
+            Stderr: Truncate(stderr.ToString()));
+    }
+
+    private const int MaxOutputCharacters = 12_000;
+    private static string Truncate(string text) =>
+        text.Length <= MaxOutputCharacters
+            ? text
+            : text[..(MaxOutputCharacters - 32)] + "\n...[truncated to 12000 chars]";
+
+    internal sealed record PnpmCommandResult(
+        string Command,
+        int ExitCode,
+        bool TimedOut,
+        string Stdout,
+        string Stderr);
+
+    private const string A2UICatalogId = "copilotkit://ms-agent-harness-control-room";
+
+    private static string RenderA2UI(
+        [Description(
+            "Flat A2UI v0.9 component array. Every item needs id and component. " +
+            "The root item must have id 'root'. Container components such as Surface, Card, Row, and Column reference child ids with children. " +
+            "Use catalog components: Surface, SectionHeader, Card, Metric, Badge, Button, TextInput, Textarea, Select, Checkbox, Switch, Progress, BarChart, LineChart, AreaChart, StackedAreaChart, DonutChart, RadarChart, RadialChart, Calendar, RunHealthTable, FileImpactMap, ApprovalForm, HandoffForm. Basic Row and Column are also available.")]
+        List<A2UIComponentNode>? components = null,
+        [Description("Stable surface id for streaming previews. Use a concise kebab-case id such as progress-dashboard.")]
+        string? surfaceId = null,
+        [Description("A2UI catalog id. Use copilotkit://ms-agent-harness-control-room.")]
+        string? catalogId = null,
+        [Description("Optional short surface title used only if components is omitted.")]
+        string? title = null,
+        [Description("Optional supporting sentence used only if components is omitted.")]
+        string? description = null,
+        [Description("Deprecated simple component name. Prefer components. Kept for older prompts.")]
+        string? component = null,
+        [Description("Metrics used only for deprecated simple Card calls.")]
+        List<A2UIMetric>? metrics = null,
+        [Description("Chart data used only for deprecated simple chart calls.")]
+        List<A2UIDataPoint>? data = null)
+    {
+        var normalizedComponents = components is { Count: > 0 }
+            ? NormalizeA2UIComponents(components)
+            : BuildFallbackA2UIComponents(title, description, component, metrics, data);
+
+        if (!normalizedComponents.Any(c => c.TryGetValue("id", out var id) && id as string == "root"))
+        {
+            return JsonSerializer.Serialize(
+                new
+                {
+                    error = "A2UI components must include a root node with id 'root'."
+                },
+                A2UIJsonOptions);
+        }
+
+        var invalidComponent = normalizedComponents
+            .Select(c => c.TryGetValue("component", out var name) ? name as string : null)
+            .FirstOrDefault(name => string.IsNullOrWhiteSpace(name) || !SupportedA2UIComponents.Contains(name));
+
+        if (!string.IsNullOrWhiteSpace(invalidComponent))
+        {
+            return JsonSerializer.Serialize(
+                new
+                {
+                    error = $"Unsupported A2UI component '{invalidComponent}'. Use one of: {string.Join(", ", SupportedA2UIComponents)}."
+                },
+                A2UIJsonOptions);
+        }
+
+        var resolvedSurfaceId = NormalizeSurfaceId(surfaceId);
+        var resolvedCatalogId = catalogId == A2UICatalogId ? catalogId : A2UICatalogId;
+        var operations = new object[]
+        {
+            new Dictionary<string, object?>
+            {
+                ["version"] = "v0.9",
+                ["createSurface"] = new Dictionary<string, object?>
+                {
+                    ["surfaceId"] = resolvedSurfaceId,
+                    ["catalogId"] = resolvedCatalogId,
+                },
+            },
+            new Dictionary<string, object?>
+            {
+                ["version"] = "v0.9",
+                ["updateComponents"] = new Dictionary<string, object?>
+                {
+                    ["surfaceId"] = resolvedSurfaceId,
+                    ["components"] = normalizedComponents,
+                },
+            },
+        };
+
+        return JsonSerializer.Serialize(
+            new Dictionary<string, object?> { ["a2ui_operations"] = operations },
+            A2UIJsonOptions);
+    }
+
+    private static string NormalizeSurfaceId(string? surfaceId)
+    {
+        if (string.IsNullOrWhiteSpace(surfaceId))
+        {
+            return $"control-room-a2ui-{Guid.NewGuid():N}";
+        }
+
+        var trimmed = surfaceId.Trim();
+        if (trimmed.Length > 80)
+        {
+            trimmed = trimmed[..80];
+        }
+
+        var normalized = new StringBuilder(trimmed.Length);
+        foreach (var ch in trimmed)
+        {
+            if (char.IsLetterOrDigit(ch) || ch is '-' or '_')
+            {
+                normalized.Append(ch);
+            }
+            else if (char.IsWhiteSpace(ch))
+            {
+                normalized.Append('-');
+            }
+        }
+
+        return normalized.Length > 0
+            ? normalized.ToString()
+            : $"control-room-a2ui-{Guid.NewGuid():N}";
+    }
+
+    private static readonly HashSet<string> SupportedA2UIComponents = new(StringComparer.Ordinal)
+    {
+        "Surface",
+        "SectionHeader",
+        "Card",
+        "Metric",
+        "Badge",
+        "Button",
+        "TextInput",
+        "Textarea",
+        "Select",
+        "Checkbox",
+        "Switch",
+        "Progress",
+        "BarChart",
+        "LineChart",
+        "AreaChart",
+        "StackedAreaChart",
+        "DonutChart",
+        "RadarChart",
+        "RadialChart",
+        "Calendar",
+        "RunHealthTable",
+        "FileImpactMap",
+        "ApprovalForm",
+        "HandoffForm",
+        "Row",
+        "Column",
+        // Backwards-compatible aliases from the previous catalog.
+        "StatusBadge",
+        "PrimaryButton",
+        "PieChart",
+        "InfoRow",
+    };
+
+    private static readonly JsonSerializerOptions A2UIJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    private static List<Dictionary<string, object?>> NormalizeA2UIComponents(List<A2UIComponentNode> nodes)
+    {
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var normalized = new List<Dictionary<string, object?>>();
+
+        foreach (var node in nodes)
+        {
+            if (string.IsNullOrWhiteSpace(node.Id) || !seenIds.Add(node.Id))
+            {
+                continue;
+            }
+
+            normalized.Add(ToA2UIComponent(node));
+        }
+
+        return normalized;
+    }
+
+    private static Dictionary<string, object?> ToA2UIComponent(A2UIComponentNode node)
+    {
+        var component = NormalizeComponentName(node.Component);
+        var item = new Dictionary<string, object?>
+        {
+            ["id"] = node.Id,
+            ["component"] = component,
+        };
+
+        AddIfPresent(item, "title", node.Title);
+        AddIfPresent(item, "subtitle", node.Subtitle);
+        AddIfPresent(item, "description", node.Description);
+        AddIfPresent(item, "summary", node.Summary);
+        AddIfPresent(item, "eyebrow", node.Eyebrow);
+        AddIfPresent(item, "badge", node.Badge);
+        AddIfPresent(item, "label", node.Label);
+        AddIfPresent(
+            item,
+            "value",
+            component == "Progress"
+                ? node.NumericValue ?? ParseProgressValue(node.Value)
+                : node.Value);
+        AddIfPresent(item, "detail", node.Detail);
+        AddIfPresent(item, "trend", NormalizeTrend(node.Trend));
+        AddIfPresent(item, "tone", node.Tone);
+        AddIfPresent(item, "text", node.Text ?? node.Label);
+        AddIfPresent(item, "variant", NormalizeVariant(node.Variant));
+        AddIfPresent(item, "checked", node.Checked);
+        AddIfPresent(item, "placeholder", node.Placeholder);
+        AddIfPresent(item, "owner", node.Owner);
+        AddIfPresent(item, "notes", node.Notes);
+        AddIfPresent(item, "command", node.Command);
+        AddIfPresent(item, "risk", NormalizeRisk(node.Risk));
+        AddIfPresent(item, "options", node.Options);
+        AddIfPresent(item, "data", node.Data);
+        AddIfPresent(item, "metrics", node.Metrics);
+        AddIfPresent(item, "rows", node.Rows);
+        AddIfPresent(item, "events", node.Events);
+        AddIfPresent(item, "files", node.Files);
+        AddIfPresent(item, "checks", node.Checks);
+        AddIfPresent(item, "followups", node.Followups);
+
+        var childIds = node.Children is { Count: > 0 }
+            ? node.Children
+            : string.IsNullOrWhiteSpace(node.Child)
+                ? null
+                : new List<string> { node.Child };
+        AddIfPresent(item, "children", childIds);
+
+        return item;
+    }
+
+    private static List<Dictionary<string, object?>> BuildFallbackA2UIComponents(
+        string? title,
+        string? description,
+        string? component,
+        List<A2UIMetric>? metrics,
+        List<A2UIDataPoint>? data)
+    {
+        var requestedComponent = NormalizeComponentName(component ?? "Surface");
+
+        if (requestedComponent is "BarChart" or "AreaChart" or "LineChart" or "DonutChart")
+        {
+            return
+            [
+                new()
+                {
+                    ["id"] = "root",
+                    ["component"] = "Surface",
+                    ["title"] = string.IsNullOrWhiteSpace(title) ? "A2UI Chart" : title,
+                    ["subtitle"] = description,
+                    ["children"] = new List<string> { "chart-card" },
+                },
+                new()
+                {
+                    ["id"] = "chart-card",
+                    ["component"] = "Card",
+                    ["title"] = string.IsNullOrWhiteSpace(title) ? requestedComponent : title,
+                    ["description"] = description,
+                    ["children"] = new List<string> { "chart" },
+                },
+                new()
+                {
+                    ["id"] = "chart",
+                    ["component"] = requestedComponent,
+                    ["data"] = data is { Count: > 0 }
+                        ? data
+                        : new List<A2UIDataPoint>
+                        {
+                            new(Label: "Plan", Value: 34, Secondary: 16),
+                            new(Label: "Build", Value: 58, Secondary: 28),
+                            new(Label: "Verify", Value: 82, Secondary: 44),
+                        },
+                },
+            ];
+        }
+
+        var metricItems = metrics is { Count: > 0 }
+            ? metrics
+            : new List<A2UIMetric>
+            {
+                new("Planned", "34%", "Requirements and catalog ready", "up", "default"),
+                new("Built", "58%", "Composable nodes emitted", "up", "success"),
+                new("Verified", "82%", "Renderer path active", "up", "success"),
+            };
+
+        var fallback = new List<Dictionary<string, object?>>
+        {
+            new()
+            {
+                ["id"] = "root",
+                ["component"] = "Surface",
+                ["title"] = string.IsNullOrWhiteSpace(title) ? "Progress Dashboard" : title,
+                ["subtitle"] = string.IsNullOrWhiteSpace(description)
+                    ? "Composed in one A2UI generation from catalog components."
+                    : description,
+                ["children"] = new List<string> { "metrics-row", "charts-row" },
+            },
+            new()
+            {
+                ["id"] = "metrics-row",
+                ["component"] = "Row",
+                ["children"] = metricItems.Select((_, index) => $"metric-{index + 1}").ToList(),
+            },
+        };
+
+        for (var i = 0; i < metricItems.Count; i++)
+        {
+            fallback.Add(new Dictionary<string, object?>
+            {
+                ["id"] = $"metric-{i + 1}",
+                ["component"] = "Metric",
+                ["label"] = metricItems[i].Label,
+                ["value"] = metricItems[i].Value,
+                ["detail"] = metricItems[i].Detail,
+                ["trend"] = NormalizeTrend(metricItems[i].Trend),
+                ["tone"] = metricItems[i].Tone,
+            });
+        }
+
+        fallback.AddRange(
+        [
+            new()
+            {
+                ["id"] = "charts-row",
+                ["component"] = "Row",
+                ["children"] = new List<string> { "bar-card", "area-card" },
+            },
+            new()
+            {
+                ["id"] = "bar-card",
+                ["component"] = "Card",
+                ["title"] = "Completed Work",
+                ["description"] = "Progress by phase.",
+                ["children"] = new List<string> { "bar-chart" },
+            },
+            new()
+            {
+                ["id"] = "bar-chart",
+                ["component"] = "BarChart",
+                ["data"] = new List<A2UIDataPoint>
+                {
+                    new(Label: "Plan", Value: 34),
+                    new(Label: "Build", Value: 58),
+                    new(Label: "Verify", Value: 82),
+                },
+            },
+            new()
+            {
+                ["id"] = "area-card",
+                ["component"] = "Card",
+                ["title"] = "Confidence Trend",
+                ["description"] = "Confidence and review progress.",
+                ["children"] = new List<string> { "area-chart" },
+            },
+            new()
+            {
+                ["id"] = "area-chart",
+                ["component"] = "AreaChart",
+                ["data"] = new List<A2UIDataPoint>
+                {
+                    new(Label: "Plan", Value: 34, Secondary: 18),
+                    new(Label: "Build", Value: 58, Secondary: 31),
+                    new(Label: "Verify", Value: 82, Secondary: 52),
+                },
+            },
+        ]);
+
+        return fallback;
+    }
+
+    private static string NormalizeComponentName(string component) => component switch
+    {
+        "StatusBadge" => "Badge",
+        "PrimaryButton" => "Button",
+        "PieChart" => "DonutChart",
+        "InfoRow" => "Metric",
+        _ => component,
+    };
+
+    private static void AddIfPresent(Dictionary<string, object?> item, string key, object? value)
+    {
+        switch (value)
+        {
+            case null:
+                return;
+            case string text when string.IsNullOrWhiteSpace(text):
+                return;
+            case System.Collections.ICollection collection when collection.Count == 0:
+                return;
+            default:
+                item[key] = value;
+                return;
+        }
+    }
+
+    private static string? NormalizeVariant(string? variant)
+    {
+        var normalized = variant?.Trim().ToLowerInvariant();
+        return normalized is "default" or "secondary" or "success" or "warning" or "danger" or "info" or "outline" or "ghost"
+            ? normalized
+            : null;
+    }
+
+    private static string? NormalizeRisk(string? risk)
+    {
+        var normalized = risk?.Trim().ToLowerInvariant();
+        return normalized is "low" or "medium" or "high"
+            ? normalized
+            : null;
+    }
+
+    private static string? NormalizeTrend(string? trend)
+    {
+        var normalized = trend?.Trim().ToLowerInvariant();
+        return normalized is "up" or "down" or "neutral"
+            ? normalized
+            : null;
+    }
+
+    private static double? ParseProgressValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().TrimEnd('%').Trim();
+        if (!double.TryParse(
+                normalized,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return null;
+        }
+
+        return Math.Clamp(parsed, 0, 100);
+    }
+
+    internal sealed record A2UIComponentNode(
+        string Id,
+        string Component,
+        string? Title = null,
+        string? Subtitle = null,
+        string? Description = null,
+        string? Summary = null,
+        string? Eyebrow = null,
+        string? Badge = null,
+        List<string>? Children = null,
+        string? Child = null,
+        string? Label = null,
+        string? Value = null,
+        double? NumericValue = null,
+        string? Detail = null,
+        string? Trend = null,
+        string? Tone = null,
+        string? Text = null,
+        string? Variant = null,
+        bool? Checked = null,
+        string? Placeholder = null,
+        string? Owner = null,
+        string? Notes = null,
+        string? Command = null,
+        string? Risk = null,
+        List<A2UIOption>? Options = null,
+        List<A2UIDataPoint>? Data = null,
+        List<A2UIMetric>? Metrics = null,
+        List<A2UITableRow>? Rows = null,
+        List<A2UITimelineEvent>? Events = null,
+        List<A2UIFileImpact>? Files = null,
+        List<A2UIApprovalCheck>? Checks = null,
+        List<string>? Followups = null);
+
+    internal sealed record A2UIMetric(
+        string Label,
+        string Value,
+        string? Detail = null,
+        string? Trend = null,
+        string? Tone = null);
+
+    internal sealed record A2UIDataPoint(
+        string? Label = null,
+        string? Name = null,
+        string? Capability = null,
+        double? Value = null,
+        double? Secondary = null,
+        double? ToolCalls = null,
+        double? Evidence = null,
+        double? Approvals = null,
+        double? Score = null);
+
+    internal sealed record A2UIOption(string Label, string Value);
+    internal sealed record A2UITableRow(string Check, string Status, double Progress, string Detail);
+    internal sealed record A2UITimelineEvent(string Label, string Date, string? Detail = null, string? Tone = null);
+    internal sealed record A2UIFileImpact(string Path, string Risk, string Change);
+    internal sealed record A2UIApprovalCheck(string Label, bool Complete);
+
+    private static string ResolveFixtureRoot()
+    {
+        // CONTROL_ROOM_EXAMPLE_ROOT lets the Docker image place fixture-template at a
+        // path that doesn't match the host showcases/ layout. The active fixture lives
+        // at <exampleRoot>/.control-room-fixture; Harness's FileAccessProvider sandbox
+        // is anchored here so the agent cannot escape the fixture.
+        var exampleRoot = Environment.GetEnvironmentVariable("CONTROL_ROOM_EXAMPLE_ROOT")
+            ?? AppContext.BaseDirectory;
+        var fixtureRoot = Path.Combine(exampleRoot, ".control-room-fixture");
+        Directory.CreateDirectory(fixtureRoot);
+        SeedFixtureIfEmpty(exampleRoot, fixtureRoot);
+        return fixtureRoot;
+    }
+
+    private static void SeedFixtureIfEmpty(string exampleRoot, string fixtureRoot)
+    {
+        if (Directory.EnumerateFileSystemEntries(fixtureRoot).Any())
+        {
+            return;
+        }
+
+        var templateRoot = Path.Combine(exampleRoot, "fixture-template");
+        if (!Directory.Exists(templateRoot))
+        {
+            return;
+        }
+
+        CopyDirectory(templateRoot, fixtureRoot);
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        foreach (var dir in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, dir)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var dest = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            File.Copy(file, dest, overwrite: true);
+        }
+    }
+
+    private static string BuildInstructions() => """
+        You are the Control Room Agent, running inside a Microsoft Agent Harness with
+        planning mode, todos, file memory, tool approval, shell access, and file
+        access all pre-configured.
+
+        ## Workspace
+
+        The workspace at `.control-room-fixture` is a small TypeScript project
+        with source code, tests, scripts, and sample CSV data. It is meant to
+        demonstrate general agent-focused work: reading code, inspecting data,
+        planning changes, rendering UI, and using approvals before commands.
+
+        FileAccess paths are already rooted at `.control-room-fixture`. Use
+        relative paths such as `README.md`, `src/metrics.ts`,
+        `data/revenue.csv`, and `data/incidents.csv`. Do not prefix paths with
+        `.control-room-fixture/`, `/app/`, or an absolute path.
+
+        ## Default behavior
+
+        - If the operator asks a general question, answer directly.
+        - If the operator asks about the workspace, code, tests, or data,
+          inspect the relevant files first.
+        - Use todos for multi-step work so progress is visible in Harness.
+        - Use file memory for durable notes, handoffs, or summaries when the
+          operator asks for persistence.
+        - Stay in Plan mode for read-only analysis and previews. Switch to Act
+          mode before edits or command execution.
+        - Do not edit files or run commands unless the operator asks for that
+          level of action.
+
+        ## Stage demo contract
+
+        Follow the operator's current prompt exactly. Some presenter pills are
+        read-only planning or visualization moments; for those, do not switch
+        to Act mode, edit files, or run commands.
+
+        The operator should be able to ask in normal product language. They do
+        not know about A2UI, component arrays, tool names, or catalog ids. Treat
+        requests for dashboards, reports, control panels, status views, chart
+        sets, forms, approval previews, handoffs, calendars, tables, and
+        summaries as requests for a polished visual surface.
+
+        Optimize visualization turns for time-to-first-wow: if the operator
+        asks for a read-only visual and does not request real workspace/file
+        data, do not inspect files, create todos, switch modes, ask permission,
+        or explain the plan first. Render one sensible, well-scaled visual with
+        small illustrative data, then add one short natural-language follow-up
+        sentence that explains the visual or suggests a next step. Never ask
+        the operator to exit Plan mode for read-only visualization or preview
+        prompts; stay in the current mode and render the display. Switch to Act
+        mode only before edits or command execution.
+
+        For pure display-only prompts, start streaming immediately with one
+        brief acknowledgement sentence of eight words or fewer, then call the
+        display tool. Keep the acknowledgement specific and non-processy, for
+        example: "Here is a compact revenue dashboard." Do not do this before
+        workspace inspection, edits, command execution, or approval flows.
+
+        Frontend display tools are named `show...` (for example
+        `showBarChart`, `showLineChart`, `showAreaChart`,
+        `showHarnessSummary`, and `showHandoffForm`). When A2UI is available,
+        prefer `render_control_room_a2ui` instead of `show...` display tools for
+        any visual request that could benefit from more than one component, a
+        layout, or ShadCN-style primitives. The local A2UI catalog can compose
+        multiple UI pieces in one generated surface. A2UI is registered locally
+        as `copilotkit://ms-agent-harness-control-room`; do not emit A2UI
+        operations for the public basic catalog URL.
+
+        For A2UI, call `render_control_room_a2ui` with a flat `components`
+        array, a `surfaceId`, and a `catalogId` value of
+        `copilotkit://ms-agent-harness-control-room`. Use a short stable
+        kebab-case `surfaceId` derived from the display, such as
+        `progress-dashboard` or `workspace-health-check`. Every component
+        object must include a unique `id` and a `component` name. The root
+        component must be `{ id: "root", component: "Surface" }` for
+        dashboards and reports. Container components (`Surface`, `Card`,
+        `Row`, `Column`) reference children by id via a `children` array; never
+        inline child objects. Build the full UI in one call instead of making
+        one call per chart or card. The custom catalog includes ShadCN-style
+        primitives and sidebar components:
+        `Surface`, `SectionHeader`, `Card`, `Metric`, `Badge`, `Button`,
+        `TextInput`, `Textarea`, `Select`, `Checkbox`, `Switch`, `Progress`,
+        `BarChart`, `LineChart`, `AreaChart`, `StackedAreaChart`, `DonutChart`,
+        `RadarChart`, `RadialChart`, `Calendar`, `RunHealthTable`,
+        `FileImpactMap`, `ApprovalForm`, and `HandoffForm`. Basic `Row` and
+        `Column` are also available for layout composition.
+
+        Natural prompt mapping examples:
+        - "Show me a progress dashboard" means one composed surface with a
+          concise header, 2-4 metrics, and charts/cards that explain progress.
+        - "Create a controls panel" means one card or surface with a header,
+          inputs, select/switch/checkbox controls, badges, and a primary button.
+        - "Show workspace operations" means a composed status surface with run
+          health, file impact, and approval readiness sections.
+        - "Show me a chart set" means a compact dashboard of several chart
+          cards, not separate turns.
+        - "Show me a project overview dashboard" means an illustrative overview
+          surface with metrics and cards; do not read files unless the operator
+          asks for the real current workspace contents.
+        - "Show me a revenue dashboard" means a polished chart dashboard using
+          small illustrative revenue data unless the operator explicitly names
+          a file or asks for actual sample data.
+        - "Show me a small improvement plan with run health" means a visual
+          plan/readiness surface; do not create todos unless the operator asks
+          to track real implementation work.
+        - "Audit the sample workspace data" or "workspace health check" means
+          read `README.md` and `data/revenue.csv`, track a short todo list, use
+          `pnpm_run("data:summary")` with approval, then render one compact
+          dashboard with file impact, run health, revenue metrics, and next
+          steps.
+        - "Preview an approval" or "create a handoff" means a visual form or
+          card; do not read files, write memory, or run commands unless the
+          operator explicitly asks.
+
+        Mandatory workspace health check flow:
+        When the prompt asks for a workspace health check, sample project health
+        check, sample workspace audit, or similar health/audit wording, run the
+        full demo workflow. Do not stop after planning, file reads, or memory.
+        The required sequence is:
+        1. Load the `workspace-analysis` skill if it is not already loaded.
+        2. Create a short todo list for the audit so Harness progress is visible.
+        3. Read `README.md` and `data/revenue.csv`.
+        4. Mark the read/planning todos complete.
+        5. Switch to Act mode with `AgentMode_Set` if the current mode is not
+           already Act. Do not ask the operator in text to change modes.
+        6. Call `pnpm_run` with `command: "data:summary"`. Do not ask for
+           approval in prose first; Harness ToolApproval is the approval
+           surface and will render the approval card automatically.
+        7. If approval is pending, stop and wait for the approval result. After
+           the command result is visible, complete the command todo and render
+           exactly one `render_control_room_a2ui` dashboard with the findings,
+           run health, revenue summary, file impact, and next steps.
+        8. Do not call FileMemory for this flow unless the operator explicitly
+           asks to save a durable note, memory, or handoff.
+
+        Example: if the operator asks for a dashboard with a bar chart and an
+        area chart describing progress, do not call TodoList, FileMemory,
+        FileAccess, AgentMode, approval, shell, or `show...` display tools.
+        Make one `render_control_room_a2ui` call whose components contain a
+        root `Surface`, a `Row` of `Metric` nodes, and a chart `Row` containing
+        two `Card` nodes, one with `BarChart` and one with `AreaChart`. Include
+        `surfaceId` and the local `catalogId` in the tool call so the frontend
+        can render the surface while the call is still streaming. The tool owns
+        the A2UI operation envelope. Do not call any tool named `render_a2ui`
+        and do not hand-write `a2ui_operations`. Treat every display call as
+        the final tool action of the current turn, then write one concise
+        follow-up sentence. Never call a display tool while a
+        Harness tool action still needs to happen, and never call a display
+        tool in the same model step as TodoList, FileMemory, FileAccess,
+        AgentMode, approval, or shell tools. Complete those Harness actions
+        first, wait for their results, then render exactly one display
+        component when the operator prompt asks for one.
+
+        For Harness Summary prompts, including prompts that ask for current
+        mode, todos, files, approvals, workspace orientation, or a compact
+        control-room summary, gather the status first and then render one final
+        summary. The required Harness work is: get the current mode, inspect
+        current todo/approval/file state when the matching tools are available,
+        read `README.md`, list the top-level files, and finish any todo updates.
+        `showHarnessSummary` or an A2UI `Card` summary is not ready until those
+        results are visible. Once it is rendered, add one short follow-up
+        sentence and do not call additional tools. The final summary must use
+        those results: include a populated Workspace snapshot section with 2-4
+        concrete facts from `README.md` and the listed files, such as project
+        purpose, available scripts/data, top-level files, and readiness notes.
+        Never render an empty Card, Column, Row, or Workspace snapshot section;
+        if a section has no concrete children, omit that section instead.
+
+        Do not claim that todos, memory, file writes, approvals, shell commands,
+        or verification have completed unless the matching Harness tool result
+        is already present in the conversation. If a display component mentions
+        todos, call TodoList first and wait for the result before rendering it.
+        A tool request is not complete when you decide to call it; it is only
+        complete after the tool result is visible in your context.
+
+        If the operator asks for a simple chart, dashboard, form, table,
+        calendar, or other visual demo and does not ask to inspect workspace
+        data, render the relevant A2UI surface or `show...` component directly
+        with small illustrative data. Do not create todos or switch modes for
+        pure display-only visualization prompts. If the prompt mentions
+        workspace data or a file path, read that file first and wait for the
+        FileAccess result before rendering any display component. If the file
+        cannot be read, explain the problem and stop instead of rendering
+        guessed data.
+
+        If the operator asks to run or verify something, use `pnpm_run` so the
+        real Harness approval card appears. Stop at the approval card until the
+        presenter approves it. After approval, if the command reports missing
+        dependencies, continue automatically: call `pnpm_run("install")`, wait
+        for it, then call the original command again.
+
+        ## Tools
+
+        - `pnpm_run(command)` is the ONLY way to execute shell commands. It is
+          locked to approved commands: install, test, test:coverage,
+          typecheck, and data:summary. Harness's ToolApproval gate fires before
+          each invocation, so the user sees an approval card. Do not attempt
+          any other shell execution — there is no general shell tool in this
+          build.
+
+        ## Rules
+
+        - File access is sandboxed to the workspace root by Harness.
+        - Shell commands are gated by ToolApproval. If the user rejects, halt the
+          turn and explain.
+        - Use the workspace-analysis skill when a request benefits from a
+          structured read-first workflow.
+        - For read-only visualization prompts, keep the interaction complete:
+          do the needed reads first, render one component, then write one brief
+          follow-up sentence.
+        """;
+}

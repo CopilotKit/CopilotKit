@@ -7,6 +7,7 @@ import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+import { NormalizeToolResultMessageIdsMiddleware } from "../normalize-tool-result-message-ids-middleware";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -218,8 +219,11 @@ describe("handleRunAgent", () => {
       agentId: "my-agent",
     });
 
-    expect(useSpy).toHaveBeenCalledOnce();
-    expect(useSpy.mock.calls[0][0]).toBeInstanceOf(A2UIMiddleware);
+    expect(useSpy).toHaveBeenCalledTimes(2);
+    expect(useSpy.mock.calls[0][0]).toBeInstanceOf(
+      NormalizeToolResultMessageIdsMiddleware,
+    );
+    expect(useSpy.mock.calls[1][0]).toBeInstanceOf(A2UIMiddleware);
   });
 
   it("applies A2UIMiddleware only to matching agent when agents filter is set", async () => {
@@ -243,7 +247,11 @@ describe("handleRunAgent", () => {
       request: createRunRequest(),
       agentId: "my-agent",
     });
-    expect(matchingSpy).toHaveBeenCalledOnce();
+    expect(matchingSpy).toHaveBeenCalledTimes(2);
+    expect(matchingSpy.mock.calls[0][0]).toBeInstanceOf(
+      NormalizeToolResultMessageIdsMiddleware,
+    );
+    expect(matchingSpy.mock.calls[1][0]).toBeInstanceOf(A2UIMiddleware);
 
     // Should NOT apply for "other-agent"
     const otherRequest = new Request("https://example.com/agent/other/run", {
@@ -264,7 +272,10 @@ describe("handleRunAgent", () => {
       request: otherRequest,
       agentId: "other",
     });
-    expect(otherSpy).not.toHaveBeenCalled();
+    expect(otherSpy).toHaveBeenCalledOnce();
+    expect(otherSpy.mock.calls[0][0]).toBeInstanceOf(
+      NormalizeToolResultMessageIdsMiddleware,
+    );
   });
 
   it("does not apply A2UIMiddleware when a2ui is omitted", async () => {
@@ -284,7 +295,10 @@ describe("handleRunAgent", () => {
       agentId: "my-agent",
     });
 
-    expect(useSpy).not.toHaveBeenCalled();
+    expect(useSpy).toHaveBeenCalledOnce();
+    expect(useSpy.mock.calls[0][0]).toBeInstanceOf(
+      NormalizeToolResultMessageIdsMiddleware,
+    );
   });
 
   describe("IntelligenceAgentRunner realtime credentials path", () => {

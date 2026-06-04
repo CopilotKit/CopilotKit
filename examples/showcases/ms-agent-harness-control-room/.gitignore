@@ -1,0 +1,29 @@
+# dependencies
+node_modules
+.control-room-fixture
+
+# Next.js
+.next
+next-env.d.ts
+out
+*.tsbuildinfo
+
+# production
+build
+dist
+agent/bin
+agent/obj
+
+# local env files
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db

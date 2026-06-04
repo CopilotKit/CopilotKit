@@ -1,0 +1,11 @@
+week,severity,count,owner
+2026-W20,low,4,platform
+2026-W20,medium,2,data
+2026-W20,high,1,platform
+2026-W21,low,3,frontend
+2026-W21,medium,1,data
+2026-W21,high,0,platform
+2026-W22,low,5,frontend
+2026-W22,medium,2,platform
+2026-W22,high,1,data
+
