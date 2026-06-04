@@ -874,8 +874,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*\nstaging unchanged (no redeploy)\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
   notify:
     name: Notify on failure
@@ -916,8 +921,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
