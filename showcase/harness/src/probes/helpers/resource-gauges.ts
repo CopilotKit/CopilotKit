@@ -296,30 +296,3 @@ export function sampleResourceGauges(): ResourceGauges {
     playwrightTmpDirs: countPlaywrightTmpDirs(),
   };
 }
-
-/**
- * Format a gauge sample as a compact single-line key=val string for logs. The
- * cgroup PID counters lead (the headline signal); the rest follow so the
- * refuted-candidate differential stays in the log line.
- */
-export function formatGauges(g: ResourceGauges, label?: string): string {
-  const parts = [
-    label ? `[${label}]` : undefined,
-    `pidsCurrent=${g.cgroupPidsCurrent}`,
-    `pidsMax=${g.cgroupPidsMax}`,
-    `threads=${g.treeThreadCount}`,
-    `procs=${g.treeProcCount}`,
-    `zombies=${g.zombieCount}`,
-    `fd=${g.selfFdCount}`,
-    `selfRssMb=${g.selfRssMb}`,
-    `treeRssMb=${g.treeRssMb}`,
-    `shmUsedPct=${g.devShmUsedPct}`,
-    `tmpInodePct=${g.tmpInodeUsedPct}`,
-    `tmpInodesUsed=${g.tmpInodesUsed}`,
-    `tmpInodesFree=${g.tmpInodesFree}`,
-    `tmpSpacePct=${g.tmpSpaceUsedPct}`,
-    `tmpFreeMb=${g.tmpSpaceFreeMb}`,
-    `pwTmpDirs=${g.playwrightTmpDirs}`,
-  ].filter(Boolean);
-  return parts.join(" ");
-}
