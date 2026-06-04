@@ -17,6 +17,8 @@ sub-agents-as-tools pattern, adapted to surface delegation events to
 the frontend via CopilotKit's shared-state channel.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 import operator
 import uuid
 from typing import Annotated, Literal, TypedDict
@@ -28,6 +30,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.types import Command
 
 from copilotkit import CopilotKitMiddleware
+
+from src.agents._header_forwarding_middleware import HeaderForwardingMiddleware
 
 
 # ---------------------------------------------------------------------------
@@ -69,12 +73,18 @@ class AgentState(BaseAgentState):
 # Sub-agents (real LLM agents under the hood)
 # ---------------------------------------------------------------------------
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged `create_agent(...)` with its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees their return value.
 _sub_model = ChatOpenAI(model="gpt-5.4")
 
+# Each sub-agent gets the minimal HeaderForwardingMiddleware so the
+# inbound x-aimock-context (and other x-*) headers from the supervisor's
+# inbound HTTP request propagate to the sub-agent's outbound LLM call.
+# We intentionally do NOT attach the full CopilotKitMiddleware here —
+# the supervisor handles App-Context / frontend-tool injection for the
+# whole run, and adding it on sub-agents would double-inject prompt
+# state. Header forwarding alone is enough to keep aimock matching.
 _research_agent = create_agent(
     model=_sub_model,
     tools=[],
@@ -82,6 +92,7 @@ _research_agent = create_agent(
         "You are a research sub-agent. Given a topic, produce a concise "
         "bulleted list of 3-5 key facts. No preamble, no closing."
     ),
+    middleware=[HeaderForwardingMiddleware()],
 )
 
 _writing_agent = create_agent(
@@ -92,6 +103,7 @@ _writing_agent = create_agent(
         "facts, produce a polished 1-paragraph draft. Be clear and "
         "concrete. No preamble."
     ),
+    middleware=[HeaderForwardingMiddleware()],
 )
 
 _critique_agent = create_agent(
@@ -101,6 +113,7 @@ _critique_agent = create_agent(
         "You are an editorial critique sub-agent. Given a draft, give "
         "2-3 crisp, actionable critiques. No preamble."
     ),
+    middleware=[HeaderForwardingMiddleware()],
 )
 # @endregion[subagent-setup]
 
@@ -183,7 +196,6 @@ def _delegation_update(
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call synchronously runs the
 # matching sub-agent, records the delegation into shared state, and

@@ -174,8 +174,8 @@ useA2UIActionHandler((action, declaredOps) => {
   if (action.name === "book_flight") {
     // Return custom operations
     return [
-      { surfaceUpdate: { surfaceId: action.surfaceId, components: mySchema } },
-      { beginRendering: { surfaceId: action.surfaceId, root: "root" } },
+      { createSurface: { surfaceId: action.surfaceId, catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json" } },
+      { updateComponents: { surfaceId: action.surfaceId, components: mySchema } },
     ];
   }
   return null; // skip — let other handlers or fallback try

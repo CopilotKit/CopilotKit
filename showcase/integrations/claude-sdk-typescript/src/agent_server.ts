@@ -13,6 +13,7 @@
 // listening but /health probes never succeed.
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
+// @region[weather-tool-backend]
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
@@ -79,6 +80,32 @@ console.log(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Extract inbound headers that should ride along to the outbound Anthropic
+ * call: `authorization` + every `x-*` header. Mirrors the runtime's
+ * `extractForwardableHeaders` (@copilotkit/runtime
+ * `v2/runtime/handlers/header-utils.ts`) and the LGT/LGP forwarding
+ * pattern. Notably, `x-aimock-context` rides via this path so aimock can
+ * match the right fixture; without this, every outbound `/v1/messages`
+ * request loses the discriminator and aimock returns 404.
+ *
+ * Returns a plain Record so it can be spread into Anthropic SDK
+ * `RequestOptions.headers` on every `messages.stream` / `messages.create`
+ * call. We strip `host`, `content-length` and `accept-encoding` because
+ * those are connection-level concerns the SDK manages itself.
+ */
+function extractForwardedHeaders(req: Request): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (typeof value !== "string") continue;
+    const lower = key.toLowerCase();
+    if (lower === "authorization" || lower.startsWith("x-")) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 /**
  * Convert an AG-UI `binary` content part into an Anthropic ContentBlock.
@@ -324,6 +351,11 @@ function makeAgentHandler(config: DemoConfig = {}) {
   return async (req: Request, res: Response): Promise<void> => {
     const input = req.body as RunAgentInput;
     const accept = req.headers["accept"] ?? "";
+    // Inbound x-* / authorization headers travel from the AG-UI client →
+    // CopilotRuntime → HttpAgent → here. We forward them to every
+    // Anthropic call so aimock (and any other downstream observer)
+    // receives `x-aimock-context` and friends.
+    const forwardedHeaders = extractForwardedHeaders(req);
 
     const encoder = new EventEncoder({ accept });
     res.setHeader("Content-Type", encoder.getContentType());
@@ -399,7 +431,9 @@ function makeAgentHandler(config: DemoConfig = {}) {
       let reasoningEnded = false;
 
       try {
-        const stream = await anthropic.messages.stream(claudeRequest);
+        const stream = await anthropic.messages.stream(claudeRequest, {
+          headers: forwardedHeaders,
+        });
 
         for await (const event of stream) {
           if (event.type === "message_start") {
@@ -567,13 +601,17 @@ interface Delegation {
 async function invokeSubAgent(
   systemPrompt: string,
   task: string,
+  forwardedHeaders: Record<string, string> = {},
 ): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: SUBAGENT_MODEL,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: "user", content: task }],
-  });
+  const response = await anthropic.messages.create(
+    {
+      model: SUBAGENT_MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: "user", content: task }],
+    },
+    { headers: forwardedHeaders },
+  );
   const parts = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
     .map((c) => c.text);
@@ -606,6 +644,7 @@ async function executeBackendTool(
   toolInput: Record<string, unknown>,
   state: Record<string, unknown>,
   emit: (event: object) => void,
+  forwardedHeaders: Record<string, string> = {},
 ): Promise<ExecuteToolResult> {
   if (toolName === "display_flight") {
     const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
@@ -626,7 +665,6 @@ async function executeBackendTool(
     };
   }
 
-  // @region[weather-tool-backend]
   if (toolName === "get_weather") {
     const location =
       typeof toolInput.location === "string" ? toolInput.location : "";
@@ -688,6 +726,7 @@ async function executeBackendTool(
       const result = await invokeSubAgent(
         SUBAGENT_SYSTEM_BY_NAME[subAgentName],
         task,
+        forwardedHeaders,
       );
       const finalEntry: Delegation = {
         ...runningEntry,
@@ -761,6 +800,12 @@ async function runAgenticLoop(
 ): Promise<void> {
   const input = req.body as RunAgentInput;
   const accept = req.headers["accept"] ?? "";
+  // See `makeAgentHandler` — same forwarding contract applies to the
+  // agentic-loop demos (shared-state-read-write, subagents, a2ui-fixed,
+  // headless-complete). Without this, the secondary Anthropic calls
+  // inside the loop (and the supervisor's stream) all miss
+  // x-aimock-context and aimock returns 404.
+  const forwardedHeaders = extractForwardedHeaders(req);
 
   const encoder = new EventEncoder({ accept });
   res.setHeader("Content-Type", encoder.getContentType());
@@ -808,14 +853,17 @@ async function runAgenticLoop(
 
       let textMessageEnded = false;
       try {
-        const stream = await anthropic.messages.stream({
-          model: CLAUDE_MODEL,
-          max_tokens: 4096,
-          system: config.systemPrompt,
-          messages,
-          stream: true,
-          ...(tools.length > 0 ? { tools } : {}),
-        });
+        const stream = await anthropic.messages.stream(
+          {
+            model: CLAUDE_MODEL,
+            max_tokens: 4096,
+            system: config.systemPrompt,
+            messages,
+            stream: true,
+            ...(tools.length > 0 ? { tools } : {}),
+          },
+          { headers: forwardedHeaders },
+        );
 
         for await (const event of stream) {
           if (event.type === "content_block_start") {
@@ -982,7 +1030,13 @@ async function runAgenticLoop(
           });
           continue;
         }
-        const exec = await executeBackendTool(tc.name, parsed, state, emit);
+        const exec = await executeBackendTool(
+          tc.name,
+          parsed,
+          state,
+          emit,
+          forwardedHeaders,
+        );
         if (exec.state) {
           state = exec.state;
           emit({ type: EventType.STATE_SNAPSHOT, snapshot: state });

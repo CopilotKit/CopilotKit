@@ -1,7 +1,7 @@
 "use client";
 
 // @region[approval-dialog]
-// Modal dialog rendered at the APP level (portal'd to <body>) -- not
+// Modal dialog rendered at the APP level (portal'd to <body>) — not
 // inside the chat bubble tree. The caller supplies `pending` (the
 // message/context the agent wants approval for) and an `onResolve`
 // completion callback. The user's click on Approve / Reject fires the

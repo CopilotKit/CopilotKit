@@ -4,6 +4,7 @@ CrewAI tools wrapping shared showcase implementations.
 Provides weather, query data, and schedule meeting tools for the crew.
 """
 
+# @region[weather-tool-backend]
 import json
 
 from crewai.tools import BaseTool
@@ -20,7 +21,6 @@ from tools import (
 from typing import Any, List
 
 
-# @region[weather-tool-backend]
 class GetWeatherInput(BaseModel):
     """Input schema for GetWeatherTool."""
 

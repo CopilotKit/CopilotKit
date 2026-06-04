@@ -1,20 +1,15 @@
 "use client";
 
-import React from "react";
+// @region[frontend-useinterrupt-render]
 import {
   CopilotKit,
   CopilotChat,
   useInterrupt,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { TimePickerCard, TimeSlot } from "./time-picker-card";
-
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
-];
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
 
 export default function GenUiInterruptDemo() {
   return (
@@ -29,35 +24,43 @@ export default function GenUiInterruptDemo() {
 }
 
 function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Book a call with sales",
-        message: "Book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
-      },
-    ],
-    available: "always",
-  });
+  useGenUiInterruptSuggestions();
 
-  // @region[frontend-useinterrupt-render]
+  // `useInterrupt` is the low-level primitive for handling LangGraph
+  // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
+  // a structured payload — `{ topic, attendee, slots }` — which we render
+  // inline in the chat as a message bubble. Calling `resolve(...)` resumes
+  // the LangGraph run with the user's selection.
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
     render: ({ event, resolve }) => {
-      const payload = (event.value ?? {}) as {
+      // The AG-UI adapter JSON-stringifies interrupt values, so parse
+      // when needed to extract the structured payload.
+      const raw = event.value ?? {};
+      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
         topic?: string;
         attendee?: string;
+        slots?: TimeSlot[];
       };
+      const slots =
+        payload.slots && payload.slots.length > 0
+          ? payload.slots
+          : generateFallbackSlots();
       return (
         <TimePickerCard
           topic={payload.topic ?? "a call"}
           attendee={payload.attendee}
-          slots={DEFAULT_SLOTS}
-          onSubmit={(result) => resolve(result)}
+          slots={slots}
+          onSubmit={(result) => {
+            // Defer resolve so React commits the picked/cancelled state
+            // before useInterrupt clears the interrupt element. A single
+            // requestAnimationFrame is not reliable — rAF fires before
+            // React's commit in some scheduling scenarios. Using a short
+            // setTimeout ensures the commit lands first and the user sees
+            // the "Booked"/"Cancelled" badge before the card unmounts.
+            setTimeout(() => resolve(result), 500);
+          }}
         />
       );
     },

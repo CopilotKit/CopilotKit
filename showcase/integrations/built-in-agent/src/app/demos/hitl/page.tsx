@@ -1,5 +1,6 @@
 "use client";
 
+// @region[hitl-hook]
 import {
   CopilotKitProvider,
   CopilotChat,
@@ -16,7 +17,6 @@ export default function HITL() {
 }
 
 function Demo() {
-  // @region[hitl-hook]
   useHumanInTheLoop({
     name: "approveAction",
     description:

@@ -1,10 +1,10 @@
 /**
- * LangGraph TypeScript agent backing the byoc-hashbrown demo.
+ * LangGraph TypeScript agent backing the declarative-hashbrown demo.
  *
  * Port of `langgraph-python/src/agents/byoc_hashbrown_agent.py`.
  *
  * Emits hashbrown-shaped structured output (`<ui>...</ui>`) that the frontend
- * renderer (`src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx`) parses
+ * renderer (`src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx`) parses
  * progressively via `@hashbrownai/react`.
  *
  * A minimal single-node StateGraph (no tools) — the system prompt teaches
@@ -21,6 +21,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 // `@hashbrownai/react`'s `useJsonParser(content, kit.schema)` expects the
@@ -98,7 +100,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // so locking the model to JSON at the API layer keeps the wire
   // contract honest. Passed via `modelKwargs` so it survives the
   // LangChain → OpenAI chat-completions mapping.
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     modelKwargs: { response_format: { type: "json_object" } },
   });

@@ -1,46 +1,24 @@
 "use client";
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotPopup,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
+import { MainContent } from "./main-content";
+import { Suggestions } from "./suggestions-mount";
 
 export default function PrebuiltPopupDemo() {
   return (
     // @region[popup-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt_popup">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
       <MainContent />
       <CopilotPopup
-        agentId="prebuilt_popup"
+        agentId="prebuilt-popup"
         defaultOpen={true}
-        labels={{ chatInputPlaceholder: "Ask the popup anything..." }}
+        labels={{
+          chatInputPlaceholder: "Ask the popup anything...",
+        }}
       />
       <Suggestions />
     </CopilotKit>
     // @endregion[popup-basic-setup]
   );
-}
-
-function MainContent() {
-  return (
-    <main className="min-h-screen w-full p-12">
-      <h1 className="text-3xl font-semibold mb-4">
-        Popup demo — look for the floating launcher
-      </h1>
-      <p className="text-gray-600 max-w-xl">
-        This page showcases the pre-built <code>&lt;CopilotPopup /&gt;</code>{" "}
-        component against the LlamaIndex agent backend.
-      </p>
-    </main>
-  );
-}
-
-function Suggestions() {
-  useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
-    available: "always",
-  });
-  return null;
 }

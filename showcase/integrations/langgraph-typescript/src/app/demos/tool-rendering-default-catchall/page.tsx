@@ -20,9 +20,9 @@ import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useConfigureSuggestions,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
@@ -48,23 +48,7 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat

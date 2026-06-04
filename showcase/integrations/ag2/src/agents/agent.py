@@ -5,6 +5,7 @@ Uses AG2's ConversableAgent with AGUIStream to expose
 the agent via the AG-UI protocol.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import json
@@ -34,7 +35,6 @@ from tools.types import Flight
 # =====
 # Tools
 # =====
-# @region[weather-tool-backend]
 async def get_weather(
     location: Annotated[str, "City name to get weather for"],
 ) -> dict[str, str | float]:

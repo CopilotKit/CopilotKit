@@ -12,7 +12,7 @@ import type { Page } from "@playwright/test";
  * round-trip path end-to-end.
  *
  * Behavior pinned by this suite (each was an actual regression caught
- * during the multimodal port — see headers in
+ * during the multimodal rewrite — see headers in
  * sample-attachment-buttons.tsx and legacy-converter-shim.tsx):
  *
  * 1. Clicking a sample button auto-sends the canned prompt — no manual
@@ -20,14 +20,17 @@ import type { Page } from "@playwright/test";
  *    approach raced the upload state, the send got rejected, and the
  *    prompt got eaten.
  * 2. The user message keeps showing exactly ONE attachment chip after
- *    the assistant response arrives. The agent round-trip could double
- *    the attachment if both modern + legacy shapes survived in state
- *    (the page-level legacy-converter-shim deduplicates by source value).
- * 3. Sample-PDF renders as a `DocumentAttachment` chip, NOT as an
- *    `<img>` that errors with "Failed to load image".
- * 4. No "[Attached document]" bracket prefix leaks into the rendered
- *    user message (the chat UI must show the modern `document` chip
- *    only, never a flattened-text dump of the PDF body).
+ *    the assistant response arrives. The @ag-ui/langgraph round-trip
+ *    used to duplicate the attachment (modern + re-converted shape) so
+ *    the user saw two thumbnails for one file.
+ * 3. Sample-PDF specifically renders as a `DocumentAttachment` chip,
+ *    NOT as an `<img>` that errors with "Failed to load image". Earlier
+ *    the round-trip mis-tagged PDFs with `type: "image"` and forced the
+ *    image renderer.
+ * 4. The PDF flattened text doesn't bleed into the rendered user
+ *    message. Earlier `_PdfFlattenMiddleware` ran in `before_model`
+ *    and persisted the flattened "[Attached document]\n<pdf body>"
+ *    into state, which the chat UI rendered inline.
  * 5. Clicking image then PDF in the same session (and vice versa)
  *    leaves each user message with its own single, correct chip — no
  *    cross-contamination, no doubling.
@@ -108,8 +111,8 @@ test.describe("Multimodal Attachments", () => {
     await expect(userMsg).toContainText(IMAGE_PROMPT);
 
     // Exactly ONE rendered image — pin the dedupe + normalize behavior
-    // so the agent round-trip can't quietly start doubling attachments
-    // again.
+    // so the @ag-ui/langgraph round-trip can't quietly start doubling
+    // attachments again.
     await expect(userMsg.locator("img")).toHaveCount(1);
     await expect(userMsg.getByText(/Failed to load image/i)).toHaveCount(0);
 
@@ -124,21 +127,22 @@ test.describe("Multimodal Attachments", () => {
 
     await expect(userMsg).toContainText(PDF_PROMPT);
 
-    // Pinned regression: PDFs that survive a round-trip through a
-    // mis-typed converter could come back as `type: "image"` with
-    // `mimeType: application/pdf`, forcing the image renderer to fail
-    // load and show "Failed to load image" twice. The page-level dedupe
-    // + type-normalize subscriber turns them back into `document` parts
-    // so the icon-+-filename renderer fires exactly once.
+    // Pinned regression: PDFs round-tripped through @ag-ui/langgraph
+    // used to come back as `type: "image"` with `mimeType:
+    // application/pdf`, forcing the image renderer to fail load and
+    // show "Failed to load image" twice. The page-level dedupe + type-
+    // normalize subscriber turns them back into `document` parts so
+    // the icon-+-filename renderer fires exactly once.
     await expect(userMsg.getByText(/Failed to load image/i)).toHaveCount(0);
     await expect(userMsg.locator("img")).toHaveCount(0);
     // DocumentAttachment surfaces a "PDF" label via getDocumentIcon.
     await expect(userMsg.getByText(/^PDF$/)).toBeVisible();
 
-    // Pinned regression: any backend-side PDF flattening must not bleed
-    // its "[Attached document]\n<pdf body>" prefix into the rendered
-    // user message bubble (the chat UI must keep showing only the
-    // modern document chip, not the raw text dump).
+    // Pinned regression: the PDF flattened text used to bleed into the
+    // rendered user message when the Python middleware mutated state
+    // via `before_model`. Switching to `wrap_model_call` scopes the
+    // rewrite to the model request only — the bracket-tagged dump must
+    // never appear in the UI bubble.
     await expect(userMsg).not.toContainText("[Attached document]");
 
     await expect(asstMsg).toContainText(/copilotkit/i);

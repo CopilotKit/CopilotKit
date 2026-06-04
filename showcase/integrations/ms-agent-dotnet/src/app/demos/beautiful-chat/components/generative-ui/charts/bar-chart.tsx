@@ -88,6 +88,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
 
   return (
     <Card className="max-w-2xl mx-auto my-4 overflow-hidden">
+      {/* Scoped keyframe — no globals.css needed */}
       <style>{`
         @keyframes barSlideIn {
           from { transform: translateY(40px); opacity: 0; }
@@ -137,9 +138,8 @@ export function BarChart({ title, description, data }: BarChartProps) {
               dataKey="value"
               radius={[6, 6, 0, 0]}
               maxBarSize={48}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               shape={
-                ((props: any) => (
+                ((props: Record<string, unknown>) => (
                   <AnimatedBar
                     {...props}
                     isNew={isNew(props.index as number)}

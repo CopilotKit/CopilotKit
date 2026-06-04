@@ -13,6 +13,7 @@ only once the user picks a time slot (or cancels).
 See `src/agents/main.py` for the shared Agno agent used by most other demos.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from agno.agent.agent import Agent
@@ -50,3 +51,4 @@ agent = Agent(
     description="Scheduling assistant for the interrupt-adapted demos.",
     instructions=SYSTEM_PROMPT,
 )
+# @endregion[backend-interrupt-tool]

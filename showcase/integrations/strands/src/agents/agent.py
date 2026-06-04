@@ -8,6 +8,10 @@ All module-level side effects (agent construction, model init,
 so import failures are localized and testable.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
+# @region[backend-render-operations]
+# @region[weather-tool-backend]
 import json
 import logging
 import os
@@ -59,6 +63,16 @@ from tools import (
     schedule_meeting_impl,
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
+)
+
+# gen-ui-agent specialization (set_steps tool + state hook + prompt addendum).
+# The shared Strands backend serves every demo; this module lives in its own
+# file so the gen-ui-agent surface area is reviewable in isolation, matching
+# the wave-2 BYOC pattern (byoc_hashbrown.py / byoc_json_render.py).
+from agents.gen_ui_agent import (
+    GEN_UI_AGENT_PROMPT,
+    set_steps,
+    steps_state_from_args,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,7 +331,6 @@ class _A2uiError(TypedDict):
 # ---- Tools --------------------------------------------------------------
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """Get current weather for a location.
@@ -375,6 +388,7 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
+# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
 # Strands has no native interrupt primitive, so the gen-ui-interrupt and
 # interrupt-headless demos register `schedule_meeting` as a frontend tool
@@ -404,6 +418,7 @@ def schedule_meeting(reason: str):
 
 
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 @tool
@@ -430,7 +445,6 @@ def search_flights(flights: list[dict]):
     return json.dumps(result)
 
 
-# @region[backend-render-operations]
 # The `generate_a2ui` tool runs a secondary LLM call with a forced
 # `render_a2ui` tool, then converts that tool call's args into the
 # A2UI `a2ui_operations` container via
@@ -679,7 +693,6 @@ async def notes_state_from_args(context):
 # entry the moment the tool returns.
 
 
-# @region[subagent-setup]
 # Each sub-agent is a single-shot OpenAI completion driven by its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees the returned text. We keep the prompts in a
@@ -826,7 +839,6 @@ def _run_subagent(name: str, task: str) -> str:
         return f"{_SUBAGENT_FAILURE_MARKER}{exc.__class__.__name__}"
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; ``_run_subagent`` synchronously runs the
 # matching sub-agent (a single-shot OpenAI completion), and the result
@@ -1434,6 +1446,9 @@ SYSTEM_PROMPT = (
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "- Plan and execute multi-step tasks with a live progress card by "
+    "calling `set_steps` on every status transition (see planner mode "
+    "instructions below)\n"
     "- Remember things the user tells you by calling `set_notes` with the FULL "
     "updated list of short note strings (existing notes + new). The UI "
     "renders these in a notes panel.\n"
@@ -1446,7 +1461,8 @@ SYSTEM_PROMPT = (
     "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
     "mentioning, updating, or discussing todos with the user.\n"
     "When the user shares preferences (name, tone, language, interests), they will be "
-    "supplied in a system-style block at the top of every turn — respect them."
+    "supplied in a system-style block at the top of every turn — respect them.\n\n"
+    + GEN_UI_AGENT_PROMPT
 )
 
 
@@ -1487,6 +1503,14 @@ def build_showcase_agent(
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
             ),
+            # gen-ui-agent — the planner writes the full step list to
+            # `state["steps"]` via `set_steps` on every transition. Emit a
+            # snapshot the moment the tool fires so the UI's progress card
+            # re-renders pending → in_progress → completed in-place without
+            # waiting for the text response to stream.
+            "set_steps": ToolBehavior(
+                state_from_args=steps_state_from_args,
+            ),
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
             # `state_from_args` so the entry carries the sub-agent's
@@ -1517,6 +1541,7 @@ def build_showcase_agent(
             generate_a2ui,
             set_theme_color,
             set_notes,
+            set_steps,
             research_agent,
             writing_agent,
             critique_agent,

@@ -1,4 +1,4 @@
 {
   "title": "Premium Features",
-  "pages": ["self-hosting"]
+  "pages": ["overview", "observability", "self-hosting"]
 }

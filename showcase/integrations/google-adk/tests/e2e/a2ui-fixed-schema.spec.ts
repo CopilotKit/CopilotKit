@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 // QA reference: qa/a2ui-fixed-schema.md
 // Demo source: src/app/demos/a2ui-fixed-schema/{page.tsx, a2ui/*}
-// Backend: src/agents/a2ui_fixed_agent.py + src/agents/a2ui_schemas/flight_schema.json
+// Backend: src/agents/a2ui_fixed.py + src/agents/a2ui_schemas/flight_schema.json
 //
 // Pattern: A2UI FIXED-schema — the component tree lives on the frontend
 // (flight_schema.json has 12 nodes: root, content, title, route, from,
@@ -13,8 +13,8 @@ import { test, expect } from "@playwright/test";
 // incoming data model.
 //
 // This is a pure-presentation demo: the "Book flight" Button is inert —
-// schema-swap-on-action will be wired up once the A2UI Python SDK exposes
-// `action_handlers=` on `a2ui.render` (see comment in a2ui_fixed_agent.py).
+// schema-swap-on-action will be wired up once the Python SDK exposes
+// `action_handlers=` on `a2ui.render` (see comment in a2ui_fixed.py).
 //
 // No data-testid anywhere in the demo. Assertions ride on:
 //   - verbatim label text hardcoded in flight_schema.json ("Flight
@@ -25,8 +25,8 @@ import { test, expect } from "@playwright/test";
 //     price, lilac #BEC2FF airline badge border, black #010507 book
 //     button background).
 //
-// On Railway, `display_flight` occasionally stalls the secondary LLM
-// stage; render budget is 90s.
+// W8-8: on Railway, `display_flight` occasionally stalls the secondary
+// LLM stage; render budget is 60s.
 
 test.describe("A2UI Fixed Schema (flight card)", () => {
   test.setTimeout(120_000);
@@ -85,12 +85,13 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
       { timeout: 10_000 },
     );
 
-    // Regression guard (#4734): the deployed agent could loop `display_flight`
-    // indefinitely because the LLM couldn't tell the opaque
-    // `a2ui_operations` JSON return value was a success signal. The fix
-    // tightened the docstring + system prompt to spell out "card is rendered,
-    // do not call again". Assert that exactly ONE flight card is present
-    // after the round-trip — duplicates mean the loop re-emerged.
+    // Regression guard (#4734): on Railway the deployed agent used to loop
+    // `display_flight` indefinitely because the LLM (gpt-4o-mini) couldn't
+    // tell the opaque `a2ui.render(...)` JSON return value was a success
+    // signal. The fix tightened the docstring + system prompt to spell out
+    // "card is rendered, do not call again". Assert that exactly ONE flight
+    // card is present after the round-trip — duplicates mean the loop
+    // re-emerged.
     const flightDetailsCount = await page.getByText("Flight Details").count();
     expect(flightDetailsCount).toBe(1);
     const bookButtons = await page

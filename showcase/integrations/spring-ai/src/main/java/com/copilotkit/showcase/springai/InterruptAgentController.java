@@ -1,5 +1,6 @@
 package com.copilotkit.showcase.springai;
 
+// @region[backend-interrupt-tool]
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import org.springframework.ai.chat.model.ChatModel;
@@ -80,3 +81,4 @@ public class InterruptAgentController {
                 .body(emitter);
     }
 }
+// @endregion[backend-interrupt-tool]

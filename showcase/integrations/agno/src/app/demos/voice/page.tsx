@@ -1,68 +1,25 @@
 "use client";
 
-import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
-import { SampleAudioButton } from "./sample-audio-button";
-
-const RUNTIME_URL = "/api/copilotkit-voice";
-const AGENT_ID = "voice-demo";
-const SAMPLE_TEXT = "What is the weather in Tokyo?";
-
-// Voice demo (Agno).
-//
-// The mic button on <CopilotChat /> appears when the runtime advertises
-// `audioFileTranscriptionEnabled: true`. Click it, speak, click again — text
-// is transcribed into the composer. The <SampleAudioButton /> below the
-// chat synchronously injects a canned phrase so screenshot & playwright runs
-// work without mic permissions; the runtime is not involved on that path.
 // @region[voice-page]
-export default function VoiceDemoPage() {
-  const handleTranscribed = useCallback((text: string) => {
-    if (typeof document === "undefined") return;
-    const textarea = document.querySelector<HTMLTextAreaElement>(
-      '[data-testid="copilot-chat-textarea"]',
-    );
-    if (!textarea) {
-      console.warn(
-        "[voice-demo] could not find copilot-chat-textarea to populate",
-      );
-      return;
-    }
-    const nativeSetter = Object.getOwnPropertyDescriptor(
-      window.HTMLTextAreaElement.prototype,
-      "value",
-    )?.set;
-    if (nativeSetter) {
-      nativeSetter.call(textarea, text);
-    } else {
-      textarea.value = text;
-    }
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    textarea.focus();
-  }, []);
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { VoiceChat } from "./voice-chat";
 
+export default function VoiceDemoPage() {
   return (
     <CopilotKit
-      runtimeUrl={RUNTIME_URL}
-      agent={AGENT_ID}
+      runtimeUrl="/api/copilotkit-voice"
+      agent="voice-demo"
       useSingleEndpoint={false}
+      // The dev-only `<cpk-web-inspector>` overlay (auto-enabled on
+      // localhost via shouldShowDevConsole) intercepts pointer events
+      // on top of the voice sample-audio button, so dev/D5 probe runs
+      // can't click it through Playwright. Production isn't localhost
+      // so the inspector never mounts there — voice is D5 in prod and
+      // D4 locally for this reason alone. Disable explicitly here so
+      // the demo behaves the same in both environments.
+      enableInspector={false}
     >
-      <div className="flex h-screen flex-col gap-3 p-6">
-        <header>
-          <h1 className="text-lg font-semibold">Voice input</h1>
-          <p className="text-sm text-black/60 dark:text-white/60">
-            Click the microphone to record, or play the bundled sample audio.
-            Speech is transcribed into the input field — you click send.
-          </p>
-        </header>
-        <SampleAudioButton
-          onTranscribed={handleTranscribed}
-          sampleText={SAMPLE_TEXT}
-        />
-        <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-black/10 dark:border-white/10">
-          <CopilotChat agentId={AGENT_ID} className="h-full" />
-        </div>
-      </div>
+      <VoiceChat />
     </CopilotKit>
   );
 }

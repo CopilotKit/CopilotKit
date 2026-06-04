@@ -21,6 +21,14 @@ CopilotKit Intelligence — the platform that powers threads, shared state, the 
 
 Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual supporting resources (Services, Ingress, HPAs, PodDisruptionBudgets, ConfigMaps, and — when ESO is enabled — ExternalSecret resources).
 
+<Callout type="info" title="User memory (closed beta)">
+The Intelligence Platform image also includes an opt-in user memory
+capability: agents can recall information from prior conversations in the
+same project (e.g. *"what did we discuss earlier?"*, *"remind me about X"*).
+Currently supported with the Built-in Agent runtime. Reach out to your
+CopilotKit contact for access; see [Configuration reference → User memory](#user-memory-closed-beta) below for the enablement variables.
+</Callout>
+
 ## When should I use this?
 
 - Your organization requires CopilotKit Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
@@ -43,13 +51,13 @@ Both paths use the same install commands described below — pick whichever fits
 
 ## Prerequisites
 
-Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/learn/intelligence-platform) page explains the layering in more depth.
+Before starting, make sure the following are in place. The [How the Intelligence Platform Works](/premium/intelligence-platform) page explains the layering in more depth.
 
 **License and registry access:**
 
 - A valid CopilotKit Intelligence Platform license key (contact your CopilotKit account team if you do not have one)
 - Read access to the chart OCI registry at `oci://ghcr.io/copilotkit/charts/intelligence` (anonymous pulls are allowed for the released chart)
-- The latest released chart version. Check the [chart releases](https://github.com/CopilotKit/Intelligence/pkgs/container/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
+- The latest released chart version. Check the [chart releases](https://github.com/orgs/CopilotKit/packages/container/package/charts%2Fintelligence) on GHCR; substitute the value into the `<chart-version>` placeholder used throughout this guide (e.g. `0.1.0-rc.16`).
 
 **Cluster and tooling:**
 
@@ -474,6 +482,44 @@ The tables below summarize the most common values. For every option, see `values
 
 Enabling the realtime gateway requires that either `realtimeGateway.existingSecret` is set, or that `externalSecrets.secrets.realtimeGateway.enabled` or `selfHostedSecrets.enabled` is `true` — the chart fails validation otherwise.
 
+### User memory (closed beta)
+
+<InsecurePasswordProtected password="cpki-mem-beta">
+
+User memory lets agents recall information from prior conversations in the same project. Built-in Agent runtime only today; LangGraph, Mastra, and other frameworks are in development.
+
+**What it does.** The chat agent can recall the user's prior conversations and use that recall to answer questions like:
+
+- *"What did we discuss last week?"*
+- *"Remind me what I decided about X"*
+- *"Have we covered Y before?"*
+
+**Scope.** Only the current user's conversations in the current `(organization, project)`. The agent never sees another user's conversations or another project's data, and it cannot modify what was said.
+
+**Discovery.** The agent will use the capability on its own when asked recall-style questions; for best results, add one line to your agent's `prompt` nudging it to consult its memory when relevant.
+
+**Enabling it.** Two flips, one on each side:
+
+| Where | How |
+|---|---|
+| `app-api` (platform) | Set `SL_ENABLED=true` via `appApi.env: [{ name: SL_ENABLED, value: "true" }]` in your `values.yaml`. This mounts the platform's `/mcp` endpoint on `app-api`. |
+| Your runtime / BFF | Pass `mcpServer: true` when constructing `CopilotKitIntelligence` from `@copilotkit/runtime/v2`. The runtime then auto-attaches the platform's `/mcp` endpoint to every `BuiltInAgent` run. |
+
+```typescript title="runtime.ts"
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL!,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
+  mcpServer: true, // [!code highlight]
+});
+```
+
+Once both flips are in place the agent gains recall on its next turn — no further application changes needed.
+
+</InsecurePasswordProtected>
+
 ### External Secrets Operator integration
 
 | Key | Description | Default |
@@ -554,6 +600,6 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 
 ## Next steps
 
-- **Understand how it works:** [How the Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
+- **Understand how it works:** [How the Intelligence Platform Works](/premium/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
 - **Premium features overview:** [CopilotKit Premium](/premium/overview) — all premium capabilities that require an Intelligence license
 - **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Intelligence Platform you just deployed

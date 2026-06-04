@@ -16,6 +16,7 @@
  * This matches the canonical catalog's `DynString` helper:
  *   examples/integrations/langgraph-python/src/app/declarative-generative-ui/definitions.ts
  */
+// @region[definitions-types]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
@@ -25,7 +26,6 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-// @region[definitions-types]
 export const flightDefinitions = {
   Title: {
     description: "A prominent heading for the flight card.",
@@ -79,7 +79,7 @@ export const flightDefinitions = {
           z.object({
             event: z.object({
               name: z.string(),
-              context: z.record(z.any()).optional(),
+              context: z.record(z.string(), z.any()).optional(),
             }),
           }),
           z.null(),

@@ -37,7 +37,7 @@
 #   - showcase-shell         (landing / router service)
 #   - showcase-shell-dashboard / -docs / -dojo (auxiliary UI services)
 kind: e2e_smoke
-id: e2e-smoke
+id: d4-chat-roundtrip-e2e
 schedule: "*/15 * * * *"
 timeout_ms: 180000
 max_concurrency: 2
@@ -53,6 +53,9 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
+      # Harness service for .NET integration testing — not a demo service,
+      # deployed: false in manifest, no aimock wiring yet.
+      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno
@@ -71,4 +74,4 @@ discovery:
       - showcase-starter-pydantic-ai
       - showcase-starter-spring-ai
       - showcase-starter-strands
-  key_template: "e2e_smoke:${name}"
+  key_template: "d4-chat-roundtrip-e2e:${name}"

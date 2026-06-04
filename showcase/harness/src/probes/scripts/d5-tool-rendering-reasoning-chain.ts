@@ -52,14 +52,15 @@ import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /** The harness `Page` interface intentionally narrows the surface to
- *  `waitForSelector` + `evaluate` (see conversation-runner.ts). At
- *  runtime the underlying object IS a real Playwright Page, so we cast
- *  to a slightly wider shape here for the multi-pill polling we need —
- *  counting elements that match a selector and short sleeps between
- *  polls. Cast scope is limited to this file. */
+ *  `waitForSelector` + `evaluate` (see conversation-runner.ts). For
+ *  count-based polling we need `Page.locator(sel).count()` — that method
+ *  is exposed by the e2e-deep wrapper (`E2eDeepPage.locator`). We cast
+ *  to a local interface so this script doesn't depend on the wider
+ *  Playwright Page type. Sleep between polls uses native `setTimeout`
+ *  rather than Playwright's `page.waitForTimeout`, which is not part of
+ *  the harness `Page` surface. */
 interface CountablePage extends Page {
   locator(selector: string): { count(): Promise<number> };
-  waitForTimeout(ms: number): Promise<void>;
 }
 
 const POLL_INTERVAL_MS = 250;
@@ -214,7 +215,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       while (Date.now() - reasoningStart < REASONING_TIMEOUT_MS) {
         const count = await reasoningBlocks.count();
         if (count >= expectedReasoningCount) break;
-        await pw.waitForTimeout(POLL_INTERVAL_MS);
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
       const reasoningCount = await reasoningBlocks.count();
       if (reasoningCount < expectedReasoningCount) {
@@ -239,7 +240,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         while (Date.now() - cardStart < CARD_TIMEOUT_MS) {
           const count = await locator.count();
           if (count >= card.minCount) break;
-          await pw.waitForTimeout(POLL_INTERVAL_MS);
+          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         }
         const count = await locator.count();
         if (count < card.minCount) {

@@ -432,7 +432,7 @@ docker buildx build --platform linux/amd64 --push \
 #    serviceInstanceDeployV2 forces a fresh snapshot — serviceInstanceRedeploy
 #    replays the prior manifest and can re-pull a stale digest.
 RW_TOKEN=$(jq -r .user.token ~/.railway/config.json)
-curl -s -X POST https://backboard.railway.com/graphql/v2 \
+curl -s -X POST https://backboard.railway.app/graphql/v2 \
   -H "Authorization: Bearer $RW_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query":"mutation { serviceInstanceDeployV2(serviceId:\"3a14bfed-0537-4d71-897b-7c593dca161d\", environmentId:\"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}'

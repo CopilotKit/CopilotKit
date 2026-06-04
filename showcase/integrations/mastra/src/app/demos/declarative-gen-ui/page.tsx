@@ -1,39 +1,39 @@
 "use client";
 
 /**
- * Declarative Generative UI (A2UI — Dynamic Schema) — Mastra port.
+ * Declarative Generative UI (A2UI — Dynamic Schema) demo.
  *
- * The Mastra port reuses the shared `weatherAgent` (aliased as
- * `declarative-gen-ui` in the demo-alias list in
- * `src/app/api/copilotkit/route.ts`). The `generate_a2ui` tool on the
- * agent drives dynamic A2UI rendering; the frontend supplies the catalog
- * via `<CopilotKit a2ui={{ catalog: myCatalog }}>` and the
- * `@copilotkit/a2ui-renderer` intercepts operations from the tool output.
- *
- * NOTE: The Mastra `generate-a2ui` tool does its own internal LLM pass
- * inside `generateA2uiImpl` + `buildA2uiOperationsFromToolCall` (see
- * `src/mastra/tools/index.ts`); there's no route-level A2UI middleware
- * like LangGraph. The dynamic-schema catalog still ships because the
- * serialized definitions travel through the tool's system prompt.
+ * Pattern:
+ *   1. Define a small set of branded React components + Zod schemas in
+ *      `./a2ui/definitions.ts` and `./a2ui/renderers.tsx` (the latter calls
+ *      `createCatalog(..., { includeBasicCatalog: true })` and exports
+ *      `myCatalog`).
+ *   2. Pass that catalog to the provider via
+ *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
+ *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
+ *      configured with `injectA2UITool: false` — the backend agent
+ *      (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool
+ *      explicitly, mirroring the working pattern from beautiful-chat and the
+ *      canonical `examples/integrations/langgraph-python` reference. The
+ *      A2UI middleware still serialises the registered catalog schema into
+ *      `copilotkit.context` so the secondary LLM inside `generate_a2ui`
+ *      knows which components are available.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
+// @region[provider-a2ui-prop]
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "./a2ui/catalog";
+import { Chat } from "./chat";
 
 export default function DeclarativeGenUIDemo() {
   return (
-    // @region[provider-a2ui-prop]
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/copilotkit-declarative-gen-ui"
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
@@ -44,35 +44,5 @@ export default function DeclarativeGenUIDemo() {
       </div>
     </CopilotKit>
     // @endregion[provider-a2ui-prop]
-  );
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Show a KPI dashboard",
-        message:
-          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-      },
-      {
-        title: "Pie chart — sales by region",
-        message: "Show a pie chart of sales by region.",
-      },
-      {
-        title: "Bar chart — quarterly revenue",
-        message: "Render a bar chart of quarterly revenue.",
-      },
-      {
-        title: "Status report",
-        message:
-          "Give me a status report on system health — API, database, and background workers.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <CopilotChat agentId="declarative-gen-ui" className="h-full rounded-2xl" />
   );
 }

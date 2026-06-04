@@ -11,6 +11,8 @@
 // Lives at `[[...slug]]/route.ts` because the V2 router URL-routes on
 // `/info`, `/transcribe`, etc., under the same base path.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -23,7 +25,6 @@ import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -52,7 +53,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     agents: { default: createBuiltInAgent() },
     runner: new InMemoryAgentRunner(),

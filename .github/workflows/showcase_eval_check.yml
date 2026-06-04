@@ -19,14 +19,17 @@ jobs:
     steps:
       - name: Generate devops-bot token
         id: bot-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-checks: write
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Create Check Run
         id: check-run
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ steps.bot-token.outputs.token }}
           script: |
@@ -53,7 +56,7 @@ jobs:
             core.setOutput('check_run_id', result.data.id);
 
       - name: Post or update bot comment with trigger link
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ steps.bot-token.outputs.token }}
           script: |

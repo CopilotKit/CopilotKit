@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { pb } from "@/lib/pb";
+import { getPb } from "@/lib/pb";
 
 export interface PbAuthPromptProps {
   onSuccess: () => void;
@@ -27,6 +27,8 @@ export function PbAuthPrompt({ onSuccess, onCancel }: PbAuthPromptProps) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    const pb = getPb();
 
     try {
       // PB 0.22+ uses a _superusers collection for admin auth

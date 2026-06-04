@@ -1,6 +1,11 @@
+// @region[backend-render-operations]
+// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { openai } from "@ai-sdk/openai";
+// Use the header-forwarding `openai` so backend tool LLM calls (e.g.
+// generateText inside generateA2ui) carry the inbound aimock context
+// headers. See `_header_forwarding.ts`.
+import { openai } from "@/mastra/_header_forwarding";
 import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
@@ -16,13 +21,13 @@ import {
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
 export { setNotesTool } from "./shared-state-read-write";
+export { setStepsTool } from "./gen-ui-agent";
 export {
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
 } from "./subagents";
 
-// @region[weather-tool-backend]
 export const weatherTool = createTool({
   id: "get_weather",
   description: "Get current weather for a location",
@@ -145,7 +150,6 @@ export const searchFlightsTool = createTool({
   execute: async ({ flights }) => JSON.stringify(searchFlightsImpl(flights)),
 });
 
-// @region[backend-render-operations]
 // The `generate-a2ui` tool runs a secondary LLM call with a forced
 // `render_a2ui` tool, then converts that tool call's args into the
 // A2UI `a2ui_operations` container that the middleware forwards to

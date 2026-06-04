@@ -1,5 +1,6 @@
 "use client";
 
+// @region[use-rendered-messages-hook]
 import React, { useMemo } from "react";
 import type {
   Message,
@@ -25,7 +26,6 @@ import {
  * activity + custom before / after slots) can be re-composed from the
  * low-level hooks directly.
  */
-// @region[use-rendered-messages-hook]
 export type RenderedMessage = Message & { renderedContent: React.ReactNode };
 
 export function useRenderedMessages(

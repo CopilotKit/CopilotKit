@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / gen-ui-open + gen-ui-open-advanced",
+    "sourceScript": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open pill — 3D axis visualization. The response must produce an iframe[srcdoc] with >= 100 chars of HTML content. hasToolResult:false on toolCalls.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;font-family:sans-serif}canvas{border:1px solid #333}</style></head><body><canvas id=c width=400 height=400></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.strokeStyle='#e94560';x.beginPath();x.moveTo(200,350);x.lineTo(200,50);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(50,200);x.lineTo(350,200);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(100,300);x.lineTo(300,100);x.stroke();x.fillStyle='#fff';x.font='14px sans-serif';x.fillText('X',355,205);x.fillText('Y',205,45);x.fillText('Z',305,95);x.fillText('3D Axis - Model Airplane',110,380)</script></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open pill — follow-up after tool result.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "3D axis visualization rendered in the sandbox above. The three axes (X, Y, Z) are drawn with different colors on a dark background."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — inline expression evaluator. Must produce an iframe with sandbox='allow-scripts'. hasToolResult:false on toolCalls.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"html\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:20px;background:#0d1117;color:#c9d1d9;font-family:monospace}input{width:100%;padding:8px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;font-size:14px}#result{margin-top:12px;padding:12px;background:#161b22;border-radius:4px;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Type an expression...' oninput=\\\"try{document.getElementById('result').textContent='= '+eval(this.value)}catch(e){document.getElementById('result').textContent='Error: '+e.message}\\\"><div id=result></div></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — follow-up after tool result.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Expression evaluator sandbox rendered. Type any JavaScript expression to see it evaluated in real time."
+      }
+    }
+  ]
+}

@@ -20,6 +20,8 @@ the supervisor with the sub-agent's output so it can chain (research
 The handler is wired up by ``agent_server.py`` at ``POST /subagents``.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import functools
@@ -71,7 +73,6 @@ class Delegation(TypedDict):
 # =====================================================================
 
 
-# @region[subagent-setup]
 # In Langroid, each sub-agent is a `lr.ChatAgent` with a single-task
 # `system_message` and no tools. The supervisor only ever sees the
 # sub-agent's final-message content — no shared memory, no shared tools.
@@ -195,7 +196,6 @@ async def _invoke_sub_agent(name: str, task: str) -> str:
 # =====================================================================
 
 
-# @region[supervisor-delegation-tools]
 # In Langroid, the supervisor delegates by emitting a tool call against
 # one of these `ToolMessage` subclasses. The SSE adapter intercepts the
 # call (rather than letting Langroid dispatch to `.handle`), runs the

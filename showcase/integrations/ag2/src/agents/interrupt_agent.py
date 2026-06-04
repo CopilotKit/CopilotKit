@@ -14,6 +14,7 @@ See `src/agents/agent.py` for the shared ConversableAgent used by most other
 AG2 demos.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from autogen import ConversableAgent, LLMConfig
@@ -52,6 +53,7 @@ interrupt_agent = ConversableAgent(
     functions=[],
 )
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 # AG-UI stream wrapper
 interrupt_stream = AGUIStream(interrupt_agent)

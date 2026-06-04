@@ -19,6 +19,8 @@ Every delegation appends an entry to ``state["delegations"]`` with shape
 sub-agent returns, so the UI's delegation log animates in real time.
 """
 
+# @region[subagent-setup]
+# @region[supervisor-delegation-tools]
 from __future__ import annotations
 
 import json
@@ -54,7 +56,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 
-# @region[subagent-setup]
 # Each sub-agent is defined by its own system prompt; `_invoke_sub_agent`
 # (below) issues a single-shot Anthropic call as that sub-agent. They
 # don't share memory or tools with the supervisor — the supervisor only
@@ -94,7 +95,6 @@ SUPERVISOR_SYSTEM_PROMPT = (
 )
 
 
-# @region[supervisor-delegation-tools]
 # The supervisor delegates by calling tools. Each entry in
 # `SUPERVISOR_TOOLS` is an Anthropic tool schema that the supervisor LLM
 # "calls" to delegate work; the run loop in `run_subagents_agent` (see

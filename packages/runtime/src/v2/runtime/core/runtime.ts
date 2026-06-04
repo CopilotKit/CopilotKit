@@ -30,6 +30,7 @@ import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { CopilotKitIntelligence } from "../intelligence-platform";
+import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
 
@@ -306,7 +307,16 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    this.licenseChecker = createLicenseChecker(options.licenseToken);
+    // Match license-verifier's env fallback so telemetry attribution
+    // resolves the same way as feature gating — otherwise customers who
+    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
+    // anonymous telemetry.
+    const licenseToken =
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    this.licenseChecker = createLicenseChecker(licenseToken);
+    if (licenseToken) {
+      telemetry.setLicenseToken(licenseToken);
+    }
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,

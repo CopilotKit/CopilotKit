@@ -59,7 +59,15 @@ def _make_response(
     partial: bool = False,
     with_parts: bool = True,
     error_message: str | None = None,
+    finish_reason: object = "STOP",
 ):
+    """Build a fake LlmResponse.
+
+    `finish_reason` defaults to "STOP" — the real terminal-response shape.
+    `simple_after_model_modifier` / `stop_on_terminal_text` only terminate
+    when finish_reason is STOP, to avoid premature termination on Gemini
+    thinking-mode chunks that arrive non-partial with `finish_reason=None`.
+    """
     parts = []
     if with_parts:
         parts.append(
@@ -75,6 +83,8 @@ def _make_response(
         content=content,
         partial=partial,
         error_message=error_message,
+        finish_reason=finish_reason,
+        turn_complete=None,
     )
     return response
 

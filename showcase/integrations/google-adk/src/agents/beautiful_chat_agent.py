@@ -75,7 +75,7 @@ def _get_genai_client():
     base_url = os.environ.get("GOOGLE_GEMINI_BASE_URL")
     if base_url:
         return genai.Client(
-            http_options={"api_endpoint": base_url},
+            http_options={"base_url": base_url},
         )
     return genai.Client()
 
@@ -421,6 +421,32 @@ _INSTRUCTION = """
         - Todos / Task Manager: call manage_sales_todos to update the complete todo
           list, or get_sales_todos to read the current list before discussing them.
           Always pass the COMPLETE list to manage_sales_todos.
+        - Interactive / sandboxed widgets (calculator, custom forms, mini-apps):
+          call generateSandboxedUi to create a self-contained HTML+CSS+JS widget
+          rendered inside a sandboxed iframe. Use this when the user asks for
+          something that isn't a dashboard (so generate_a2ui doesn't apply) but
+          benefits from a live, interactive UI — calculators, color pickers,
+          quizzes, etc. Keep the chat reply to one short sentence; the rendered
+          widget is the real output.
+
+          Sandbox iframe restrictions (CRITICAL — these are silently enforced by
+          the browser, so the LLM has to know):
+          - The iframe runs with `sandbox="allow-scripts"` ONLY. `<form>` and
+            `<button type="submit">` are blocked BEFORE any onsubmit handler
+            runs — never use a form for interactivity.
+          - Use plain `<button type="button">` elements and wire them with
+            `addEventListener('click', ...)`. Do the same for keyboard input:
+            attach a `keydown` listener that checks `e.key === 'Enter'` and
+            calls your handler directly instead of wrapping inputs in a form.
+          - All click/keypress handlers must live inside a `<script>` tag in
+            the generated `html` (the iframe runs the html plus a small
+            postMessage shim). Top-level expressions are fine; no `fetch`,
+            no `localStorage`, no `document.cookie`.
+          - For calculators: render `<button type="button" data-key="7">7</button>`
+            etc. and a single `document.addEventListener('click', e => { ... })`
+            that reads `e.target.dataset.key` and updates an output `<div>`.
+            Wire the metric-shortcut buttons the same way; reading their
+            `data-value` to push the numeric value into the display.
         - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
           respond with a brief confirmation. The UI already updated on the frontend.
         - Meeting scheduling is handled entirely on the frontend via the

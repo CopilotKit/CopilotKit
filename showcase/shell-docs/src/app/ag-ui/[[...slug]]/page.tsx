@@ -6,29 +6,91 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
-import rehypeHighlight from "rehype-highlight";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import Link from "next/link";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { DocsPage, DocsBody, DocsTitle } from "fumadocs-ui/page";
+import type * as PageTree from "fumadocs-core/page-tree";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { docsComponents } from "@/lib/mdx-registry";
 import { stripLeadingImports } from "@/lib/docs-render";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Self-canonical for /ag-ui[/<slug>]. AG-UI pages aren't per-framework
 // but get a canonical for parity with the rest of the docs surface.
+// Title/description come from the page's MDX frontmatter so every AG-UI
+// doc emits its own social card and `<meta description>` rather than
+// inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug?: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/ag-ui${slugTail}`,
-    },
-  };
+  const slugPath = slug && slug.length > 0 ? slug.join("/") : "";
+  const canonicalPath = slugPath ? `/ag-ui/${slugPath}` : "/ag-ui";
+  // Overview page (no slug): hard-code the protocol-level title rather
+  // than reading from MDX, since /ag-ui has no backing file — its body
+  // is rendered by `OverviewContent` in this same module.
+  if (!slugPath) {
+    return buildDocMetadata({
+      title: "AG-UI: the Agent-User Interaction Protocol",
+      description:
+        "AG-UI is an open protocol for connecting AI agents to frontend applications via a standard event-based interface.",
+      canonicalPath,
+    });
+  }
+  // Read frontmatter from the AG-UI MDX file. Mirror the page render's
+  // own resolution (file.mdx → folder/index.mdx) so the metadata always
+  // matches what the user sees. Use safeReadFileSync to keep the read
+  // path-traversal-guarded.
+  const mdxResolved = resolveWithinDir(CONTENT_DIR, `${slugPath}.mdx`);
+  const indexResolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.join(slugPath, "index.mdx"),
+  );
+  let title: string | undefined;
+  let description: string | undefined;
+  const relPath = mdxResolved
+    ? path.relative(CONTENT_DIR, mdxResolved)
+    : indexResolved
+      ? path.relative(CONTENT_DIR, indexResolved)
+      : null;
+  if (relPath) {
+    const raw = safeReadFileSync(CONTENT_DIR, relPath);
+    if (raw !== null) {
+      try {
+        const { data } = matter(raw);
+        if (typeof data.title === "string" && data.title.length > 0) {
+          title = data.title;
+        }
+        if (
+          typeof data.description === "string" &&
+          data.description.length > 0
+        ) {
+          description = data.description;
+        }
+      } catch {
+        // Malformed frontmatter — fall back to the slug-derived title.
+      }
+    }
+  }
+  return buildDocMetadata({
+    title: title ?? titleFromSlug(slugPath),
+    description,
+    canonicalPath,
+  });
 }
+
+// Force dynamic rendering so unknown AG-UI slugs reliably return HTTP
+// 404 from `notFound()` instead of being cached as a 200 (soft-404).
+// See the matching note in the framework route.
+export const dynamic = "force-dynamic";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -237,6 +299,9 @@ function getNavTabs(): ResolvedTab[] {
 // shim that discarded numbering.
 const components = {
   ...docsComponents,
+  // Same `pre` override the docs renderer uses — surfaces a copy button
+  // and the optional file-path caption (driven by `rehypeCodeMeta` below).
+  pre: MdxCodeBlock,
 };
 
 function OverviewContent() {
@@ -439,55 +504,87 @@ export default async function AgUiDocPage({
     notFound();
   }
 
+  // Convert AG-UI's tab > section > item structure into a Fumadocs
+  // PageTree. Tabs become top-level separators; sections become folders;
+  // items map to pages (recursively when they're groups).
+  function itemToNode(item: ResolvedNavItem): PageTree.Node {
+    if (item.kind === "page") {
+      return {
+        type: "page",
+        name: item.title,
+        url: `/ag-ui/${item.slug}`,
+      };
+    }
+    return {
+      type: "folder",
+      name: item.name,
+      defaultOpen: true,
+      children: item.children.map(itemToNode),
+    };
+  }
+  const pageTree: PageTree.Root = {
+    name: "AG-UI",
+    children: navTabs.flatMap((tab) => [
+      { type: "separator" as const, name: tab.tab },
+      ...tab.sections.flatMap((s) => [
+        {
+          type: "folder" as const,
+          name: s.section,
+          defaultOpen: true,
+          children: s.items.map(itemToNode),
+        },
+      ]),
+    ]),
+  };
+
   return (
-    <div className="flex h-full w-full">
-      {/* Sidebar */}
-      <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
         <Link
           href="/ag-ui"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--violet)] mb-4"
+          className="block text-xs font-mono uppercase tracking-widest text-[var(--violet)]"
         >
           AG-UI Protocol
         </Link>
-        {navTabs.map((tab, i) => (
-          <div
-            key={tab.tab}
-            className={i > 0 ? "mt-6 pt-5 border-t border-[var(--border)]" : ""}
-          >
-            {tab.sections.map(({ section, items }) => (
-              <div key={section} className="mb-5">
-                <div className="text-[13px] font-semibold text-[var(--text)] mb-2">
-                  {section}
-                </div>
-                {items.map((item) => renderNavItem(item))}
-              </div>
-            ))}
-          </div>
-        ))}
-      </SidebarNav>
-
-      {/* Content — <main> is the full-width scroll container so the
-       * scrollbar lands at the viewport edge; content width is capped
-       * by the inner wrapper. */}
-      <main className="flex-1 overflow-y-auto">
+      }
+    >
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
         <div className="max-w-3xl px-8 py-8">
-          <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
+          <DocsTitle className="text-2xl font-semibold tracking-tight mb-6">
             {title}
-          </h1>
-          <div className="reference-content">
+          </DocsTitle>
+          <DocsBody className="reference-content">
             <MDXRemote
               source={content}
               components={components}
               options={{
                 mdxOptions: {
                   remarkPlugins: [remarkGfm],
-                  rehypePlugins: [rehypeHighlight],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
                 },
               }}
             />
-          </div>
+          </DocsBody>
         </div>
-      </main>
-    </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

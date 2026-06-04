@@ -9,6 +9,8 @@
  * Ported from `src/agents/a2ui_fixed.py`.
  */
 
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -25,6 +27,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -34,7 +38,6 @@ const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const SURFACE_ID = "flight-fixed-schema";
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
 
-// @region[backend-schema-json-load]
 // Schemas are JSON so they can be authored and reviewed independently of the
 // agent code.
 const __filename = fileURLToPath(import.meta.url);
@@ -86,7 +89,6 @@ function renderA2uiOperations(operations: unknown[]): string {
   return JSON.stringify({ [A2UI_OPERATIONS_KEY]: operations });
 }
 
-// @region[backend-render-operations]
 const displayFlight = tool(
   async ({
     origin,
@@ -127,7 +129,10 @@ const SYSTEM_PROMPT =
   "Keep any chat reply to one short sentence.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

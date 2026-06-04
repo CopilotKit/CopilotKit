@@ -3,14 +3,18 @@
  *
  * 1. Reads the scope and current version from package.json (already bumped by the release PR)
  * 2. Optionally reads the Notion draft for the final release notes
- * 3. Builds all packages
- * 4. Publishes to npm with "latest" tag
- * 5. Outputs the version for downstream steps (git tag, GitHub Release)
+ * 3. Publishes pre-built packages to npm with "latest" tag
+ * 4. Outputs the version for downstream steps (git tag, GitHub Release)
+ *
+ * NOTE: Build is handled by the separate CI build job (no publish secrets).
+ * This script receives pre-built artifacts and only performs the publish step.
  *
  * Env vars:
- *   NPM_TOKEN        — npm auth token
  *   NOTION_API_KEY    — for reading edited release notes from Notion (optional)
  *   GITHUB_OUTPUT     — CI output file
+ *
+ * Auth: Uses npm OIDC trusted publishers (id-token: write) via npx npm@11.
+ * No NPM_TOKEN needed — NODE_AUTH_TOKEN must be empty to avoid blocking OIDC.
  *
  * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
  */
@@ -140,19 +144,45 @@ async function main() {
     }
   }
 
-  // Build all packages
-  console.log("\nBuilding packages...");
-  run("pnpm", ["run", "build"]);
+  // NOTE: Build is handled by the CI build job (no secrets).
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild here to keep NPM_TOKEN out of the
+  // build process tree.
 
-  // Publish each package in scope
+  // Publish each package in scope.
+  // Uses pnpm pack (workspace-aware) + npx npm@11 publish (OIDC-aware).
+  // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
+  // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
+  // Skips packages already published at this version (idempotent retries).
   console.log("\nPublishing packages...");
+  let skipped = 0;
   for (const p of getPackagesForScope(scope)) {
+    const pubVersion = getPublishedVersion(p.name);
+    if (pubVersion === version) {
+      console.log(`  Skipping ${p.name}@${version} (already published)`);
+      skipped++;
+      continue;
+    }
     console.log(`  Publishing ${p.name}@${version}...`);
+    run("pnpm", ["pack"], { cwd: p.dir });
+    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
     run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", "latest", "--access", "public"],
+      "npx",
+      [
+        "--yes",
+        "npm@11.15.0",
+        "publish",
+        tarball,
+        "--tag",
+        "latest",
+        "--access",
+        "public",
+      ],
       { cwd: p.dir },
     );
+  }
+  if (skipped > 0) {
+    console.log(`\n${skipped} package(s) skipped (already at ${version}).`);
   }
 
   // Output version for downstream steps

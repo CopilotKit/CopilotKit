@@ -24,6 +24,8 @@ Implementation notes:
   tools; the router's state snapshot picks up the change automatically.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 import logging
 import os
 import uuid
@@ -43,7 +45,6 @@ logger = logging.getLogger(__name__)
 # the supervisor only sees the final text the sub-agent returns.
 # ---------------------------------------------------------------------------
 
-# @region[subagent-setup]
 _openai_kwargs = {}
 if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
@@ -185,7 +186,6 @@ async def _delegate(
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 async def research_agent(
     ctx: Context,
     task: Annotated[

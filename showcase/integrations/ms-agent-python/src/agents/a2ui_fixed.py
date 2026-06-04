@@ -11,6 +11,8 @@ Reference:
     showcase/integrations/langgraph-python/src/agents/a2ui_fixed.py
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -34,13 +36,11 @@ def _load_schema(path: Path) -> list[dict]:
         return json.load(f)
 
 
-# @region[backend-schema-json-load]
 FLIGHT_SCHEMA = _load_schema(_SCHEMAS_DIR / "flight_schema.json")
 BOOKED_SCHEMA = _load_schema(_SCHEMAS_DIR / "booked_schema.json")  # noqa: F841 — kept for parity with LangGraph reference
 # @endregion[backend-schema-json-load]
 
 
-# @region[backend-render-operations]
 def _build_a2ui_ops(*, origin: str, destination: str, airline: str, price: str) -> dict:
     """Return the `a2ui_operations` payload for the flight card.
 

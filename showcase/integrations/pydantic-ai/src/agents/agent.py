@@ -4,6 +4,7 @@ PydanticAI agent with sales todos state, weather/query tools, and HITL schedulin
 Upgraded from proverbs demo to full feature parity with shared tool implementations.
 """
 
+# @region[weather-tool-backend]
 import json
 from textwrap import dedent
 from typing import Any
@@ -65,7 +66,6 @@ agent = Agent(
 # =====
 # Tools
 # =====
-# @region[weather-tool-backend]
 @agent.tool
 def get_weather(ctx: RunContext[StateDeps[SalesTodosState]], location: str) -> str:
     """Get the weather for a given location. Ensure location is fully spelled out.

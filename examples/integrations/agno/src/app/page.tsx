@@ -1,12 +1,15 @@
 "use client";
 
 import {
-  useDefaultTool,
+  useAgent,
+  useConfigureSuggestions,
+  useDefaultRenderTool,
   useFrontendTool,
-  useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+  useRenderTool,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
+import React, { useEffect, useState } from "react";
+import { z } from "zod";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
 import { WeatherCard } from "@/components/weather";
 
@@ -16,102 +19,116 @@ export default function CopilotKitPage() {
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
     name: "set_theme_color",
-    parameters: [
+    parameters: z.object({
+      theme_color: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
+    handler: async ({ theme_color }) => {
+      setThemeColor(theme_color);
+      return `Changing theme color to ${theme_color}`;
+    },
+  });
+
+  // 🪁 Suggestions: https://docs.copilotkit.ai/guides/suggestions
+  useConfigureSuggestions({
+    available: "always",
+    suggestions: [
       {
-        name: "theme_color",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
+        title: "Generative UI",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Frontend Tools",
+        message: "Set the theme to green.",
+      },
+      {
+        title: "Default Tool Rendering",
+        message: "What's the latest price of Apple stock?",
+      },
+      {
+        title: "Writing Agent State",
+        message: "Add a proverb about AI.",
       },
     ],
-    handler({ theme_color }) {
-      setThemeColor(theme_color);
-    },
   });
 
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
+      <YourMainContent themeColor={themeColor} />
       <CopilotSidebar
-        clickOutsideToClose={false}
         defaultOpen={true}
         // Adds an initial message to the chat
         labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an Agno agent.",
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "👋 Hi, there! You're chatting with an Agno agent.",
         }}
-        // Suggestions for guiding users
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "What's the weather in San Francisco?",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Default Tool Rendering",
-            message: "What's the latest price of Apple stock?",
-          },
-          {
-            title: "Writing Agent State",
-            message: "Add a proverb about AI.",
-          },
-        ]}
-      >
-        {/* Wrapping your content in the sidebar pushes it to the side*/}
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
+      />
     </main>
   );
 }
 
+// State of the agent, make sure this aligns with your agent's state.
+type AgentState = {
+  proverbs: string[];
+};
+
 function YourMainContent({ themeColor }: { themeColor: string }) {
-  const [state, setState] = useState<{ proverbs: string[] }>({
-    proverbs: [
-      "CopilotKit may be new, but its the best thing since sliced bread.",
-    ],
-  });
+  // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "default" });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+  const setState = (next: AgentState) => agent.setState(next);
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/agno/frontend-tools
   useFrontendTool({
     name: "add_proverb",
-    parameters: [
-      {
-        name: "proverb",
-        description: "The proverb to add. Make it witty, short and concise.",
-        required: true,
-      },
-    ],
-    handler: ({ proverb }) => {
-      setState({
-        ...state,
-        proverbs: [...state.proverbs, proverb],
+    parameters: z.object({
+      proverb: z
+        .string()
+        .describe("The proverb to add. Make it witty, short and concise."),
+    }),
+    handler: async ({ proverb }) => {
+      // Read agent.state at call time so rapid successive adds don't drop
+      // earlier proverbs via a stale closure over `state`.
+      agent.setState({
+        proverbs: [...((agent.state as AgentState | undefined)?.proverbs ?? []), proverb],
       });
+      return `Added proverb: ${proverb}`;
     },
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/agno/generative-ui/backend-tools
-  useRenderToolCall(
+  useRenderTool(
     {
       name: "get_weather",
-      parameters: [
-        {
-          name: "location",
-          description: "The location to get the weather for.",
-          required: true,
-        },
-      ],
-      render: (props) => <WeatherCard themeColor={themeColor} {...props} />,
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ parameters }) => (
+        <WeatherCard themeColor={themeColor} location={parameters.location} />
+      ),
     },
     [themeColor],
   );
 
   //🪁 Default Generative UI: https://docs.copilotkit.ai/agno/generative-ui/backend-tools
-  useDefaultTool(
+  useDefaultRenderTool(
     {
       render: (props) => (
         <DefaultToolComponent themeColor={themeColor} {...props} />

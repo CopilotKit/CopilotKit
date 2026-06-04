@@ -222,11 +222,13 @@ def _stub_agent_server_deps():
         "byoc_hashbrown_agent",
         "byoc_json_render_agent",
         "declarative_gen_ui",
+        "gen_ui_agent",
         "interrupt_crew",
         "mcp_apps_agent",
         "shared_state_read_write",
         "subagents",
         "tool_rendering",
+        "_header_forwarding",
     ):
         sys.modules[f"agents.{name}"] = types.ModuleType(f"agents.{name}")
     setattr(sys.modules["agents.crew"], "LatestAiDevelopment", lambda: object())
@@ -257,6 +259,34 @@ def _stub_agent_server_deps():
     )
     setattr(sys.modules["agents.subagents"], "subagents_flow", object())
     setattr(sys.modules["agents.tool_rendering"], "tool_rendering_flow", object())
+    setattr(sys.modules["agents.gen_ui_agent"], "gen_ui_agent_flow", object())
+
+    # agent_server imports the header-forwarding helpers at top level and calls
+    # install_global_httpx_hook() at import time, then mounts
+    # HeaderForwardingHTTPMiddleware in the stack. Stub both: a no-arg no-op
+    # callable for the hook, and a BaseHTTPMiddleware subclass for the
+    # middleware. The real middleware's dispatch is a transparent pass-through
+    # (copies x-* headers onto a ContextVar, then `return await
+    # call_next(request)`), so the stub mirrors that pass-through — the bare
+    # BaseHTTPMiddleware.dispatch raises NotImplementedError and would break
+    # the real-agent_server streaming tests that exercise the mounted stack.
+    async def _passthrough_dispatch(self, request, call_next):
+        return await call_next(request)
+
+    setattr(
+        sys.modules["agents._header_forwarding"],
+        "HeaderForwardingHTTPMiddleware",
+        type(
+            "HeaderForwardingHTTPMiddleware",
+            (BaseHTTPMiddleware,),
+            {"dispatch": _passthrough_dispatch},
+        ),
+    )
+    setattr(
+        sys.modules["agents._header_forwarding"],
+        "install_global_httpx_hook",
+        lambda: None,
+    )
 
     # Drop any stale agent_server import — we want the next `import agent_server`
     # to re-run module-init against OUR stubs.

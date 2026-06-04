@@ -74,6 +74,7 @@ agents["subagents"] = createAgent("subagents");
 // split out of main.py so main.py stays a pure default).
 agents["agentic_chat"] = createAgent("agentic_chat");
 agents["frontend_tools"] = createAgent("frontend_tools");
+agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools");
 // Frontend Tools (Async) — dedicated cell demonstrating an async useFrontendTool
 // handler (simulated client-side notes DB query). Backend has no tools; the
 // frontend registers `query_notes` via useFrontendTool and the agent awaits

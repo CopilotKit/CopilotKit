@@ -18,6 +18,7 @@ import {
 } from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const byocHashbrownAgent = getLocalAgent({
   mastra,
@@ -36,19 +37,20 @@ const runtime = new CopilotRuntime({
   agents: { "byoc-hashbrown-demo": byocHashbrownAgent },
 });
 
-export const POST = async (req: NextRequest) => {
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-hashbrown",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime,
-    });
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
-  }
-};
+export const POST = async (req: NextRequest) =>
+  withForwardedHeaders(req, async () => {
+    try {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        endpoint: "/api/copilotkit-byoc-hashbrown",
+        serviceAdapter: new ExperimentalEmptyAdapter(),
+        runtime,
+      });
+      return await handleRequest(req);
+    } catch (error: unknown) {
+      const e = error as { message?: string; stack?: string };
+      return NextResponse.json(
+        { error: e.message, stack: e.stack },
+        { status: 500 },
+      );
+    }
+  });

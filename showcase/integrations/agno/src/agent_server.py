@@ -20,6 +20,16 @@ import os
 import uuid
 from typing import Any, AsyncIterator, List, Optional, Set, Union
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. Agno constructs its ``OpenAIChat`` client at agent-module
+# import time, so the patch must be in place before those imports run.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import dotenv
 from ag_ui.core import (
     BaseEvent,
@@ -61,6 +71,7 @@ from agents.agent_config_agent import (
 )
 from agents.byoc_hashbrown_agent import agent as byoc_hashbrown_agent
 from agents.byoc_json_render_agent import agent as byoc_json_render_agent
+from agents.gen_ui_agent import agent as gen_ui_agent
 from agents.interrupt_agent import agent as interrupt_agent
 from agents.main import agent as main_agent
 from agents.mcp_apps_agent import agent as mcp_apps_agent
@@ -650,6 +661,7 @@ agent_os = AgentOS(
         agent_config_agent,
         byoc_hashbrown_agent,
         byoc_json_render_agent,
+        gen_ui_agent,
         mcp_apps_agent,
         multimodal_agent,
         open_gen_ui_agent,
@@ -706,6 +718,11 @@ _attach_hitl_aware_route(app, interrupt_agent, "/interrupt-adapted")
 # CORS with the stock AGUI interfaces above.
 _attach_state_aware_route(app, shared_state_rw_agent, "/shared-state-rw")
 _attach_state_aware_route(app, subagents_supervisor, "/subagents")
+# gen-ui-agent: planner that walks 3 steps through pending -> in_progress
+# -> completed via the `set_steps` tool. Each set_steps call mutates
+# session_state["steps"], and the state-aware router emits a
+# StateSnapshotEvent after the run so the UI's useAgent picks it up.
+_attach_state_aware_route(app, gen_ui_agent, "/gen-ui-agent")
 
 
 # Agent Config Object cell — builds a per-request Agno Agent whose system
@@ -723,6 +740,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``) so
+# downstream LLM/provider httpx calls inside the request scope copy them
+# onto their outbound requests. Paired with ``install_global_httpx_hook``
+# at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 
 def main():

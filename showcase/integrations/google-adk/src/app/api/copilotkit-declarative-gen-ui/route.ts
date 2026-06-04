@@ -17,27 +17,31 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const declarativeGenUiAgent = new HttpAgent({
-  url: `${AGENT_URL}/declarative_gen_ui`,
-});
-
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- see main route.ts
-  agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: { injectA2UITool: false },
-});
-
-const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  endpoint: "/api/copilotkit-declarative-gen-ui",
-  serviceAdapter: new ExperimentalEmptyAdapter(),
-  runtime,
-});
-
 export const POST = async (req: NextRequest) => {
   try {
+    // Per-request build conveys inbound `x-aimock-context` to the Python
+    // agent_server. See `src/lib/header-forwarding.ts`.
+    const headers = extractForwardedHeaders(req);
+    const declarativeGenUiAgent = new HttpAgent({
+      url: `${AGENT_URL}/declarative_gen_ui`,
+      headers,
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: { "declarative-gen-ui": declarativeGenUiAgent },
+      a2ui: { injectA2UITool: false },
+    });
+
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit-declarative-gen-ui",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime,
+    });
+
     return await handleRequest(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };

@@ -1,8 +1,11 @@
 import React from "react";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type { NextRequest } from "next/server";
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 import { loadDoc } from "@/lib/docs-render";
+import { getDocsFolder, getIntegration } from "@/lib/registry";
 
 // Per-page Open Graph image route — emits a 1200x630-ish PNG used by
 // Twitter cards, LinkedIn previews, and Slack unfurls. Ported from
@@ -13,44 +16,52 @@ import { loadDoc } from "@/lib/docs-render";
 // Public signature is preserved: requests at `/og/<slug>/og.png` map
 // to the page at `<slug>` (the trailing `og.png` is stripped, matching
 // upstream's `generateStaticParams` which appends it).
+//
+// Previously this route fetched Inter TTFs from fonts.gstatic.com at
+// request time and any failure (Railway egress hiccup, font URL drift,
+// cold cache) put the request into the catch block, which 307-redirected
+// to a static CDN fallback that itself was broken (25 bytes). The result
+// was zero working OG images on most pages in prod. We now skip the font
+// fetch entirely. Keep that reliability improvement by loading all OG
+// render assets from shell-docs/public instead of external URLs.
 
-const getInter = async () => {
-  try {
-    const response = await fetch(
-      `https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZg.ttf`,
-      { cache: "force-cache" },
-    );
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Inter font: ${response.status}`);
-    }
-    const res = await response.arrayBuffer();
-    return res;
-  } catch (error) {
-    console.error("Error fetching Inter font:", error);
-    // Return null to handle the error case in the ImageResponse
-    return null;
-  }
-};
+const PUBLIC_ROOT_CANDIDATES = [
+  path.join(process.cwd(), "public"),
+  path.join(process.cwd(), "showcase/shell-docs/public"),
+];
 
-const getInterSemibold = async () => {
-  try {
-    const response = await fetch(
-      `https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYMZg.ttf`,
-      { cache: "force-cache" },
-    );
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Inter Semibold font: ${response.status}`,
-      );
+function readPublicAsset(relativePath: string): Buffer {
+  for (const publicRoot of PUBLIC_ROOT_CANDIDATES) {
+    const candidate = path.join(publicRoot, relativePath);
+    if (existsSync(candidate)) {
+      return readFileSync(candidate);
     }
-    const res = await response.arrayBuffer();
-    return res;
-  } catch (error) {
-    console.error("Error fetching Inter Semibold font:", error);
-    // Return null to handle the error case in the ImageResponse
-    return null;
   }
-};
+
+  throw new Error(`Missing shell-docs public asset: ${relativePath}`);
+}
+
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  ) as ArrayBuffer;
+}
+
+function toPngDataUri(buffer: Buffer): string {
+  return `data:image/png;base64,${buffer.toString("base64")}`;
+}
+
+const interMedium = toArrayBuffer(
+  readPublicAsset("fonts/inter/Inter-Medium.ttf"),
+);
+const interBold = toArrayBuffer(readPublicAsset("fonts/inter/Inter-Bold.ttf"));
+const ogBackgroundImage = toPngDataUri(
+  readPublicAsset("images/og/opengraph-background.png"),
+);
+const copilotKitLogo = toPngDataUri(
+  readPublicAsset("images/og/copilotkit-logo.png"),
+);
 
 // In Next.js 13+ (app directory), route handlers use the following signature:
 export async function GET(
@@ -67,40 +78,31 @@ export async function GET(
     // Drop the trailing `og.png` segment to recover the actual page slug.
     const slugParts = resolvedParams.slug.slice(0, -1);
     const slugPath = slugParts.join("/");
-    const doc = slugPath ? loadDoc(slugPath) : null;
+    // Resolution mirrors the framework page route's order so that the
+    // OG image always reflects the same MDX file the user sees:
+    //   1. Direct loadDoc(slugPath) for unscoped paths (e.g. concepts/...).
+    //   2. Framework-scoped: when the first segment is a registered
+    //      integration slug, try integrations/<docsFolder>/<rest>.
+    //   3. Bare framework root (e.g. "built-in-agent") -> the file at
+    //      that name in the docs root (built-in-agent.mdx) — the
+    //      existing behavior preserved here so prior callers keep
+    //      working.
+    let doc = slugPath ? loadDoc(slugPath) : null;
+    if (!doc && slugParts.length >= 2) {
+      const [framework, ...rest] = slugParts;
+      if (getIntegration(framework)) {
+        const docsFolder = getDocsFolder(framework);
+        doc = loadDoc(`integrations/${docsFolder}/${rest.join("/")}`);
+      }
+    }
     if (!doc) notFound();
-
-    const interFont = await getInter();
-    const interSemiboldFont = await getInterSemibold();
-
-    // Define fonts array without type errors by dropping strong typing
-    const fontOptions = [];
-
-    if (interFont) {
-      fontOptions.push({
-        name: "Inter",
-        weight: 500,
-        data: interFont,
-        style: "normal",
-      });
-    }
-
-    if (interSemiboldFont) {
-      fontOptions.push({
-        name: "Inter",
-        weight: 700,
-        data: interSemiboldFont,
-        style: "normal",
-      });
-    }
 
     return new ImageResponse(
       <section
         style={{
           backgroundColor: "#000000",
           background: "#FAEEDC",
-          backgroundImage:
-            "url('https://cdn.copilotkit.ai/docs/copilotkit/images/opengraph-background.png')",
+          backgroundImage: `url('${ogBackgroundImage}')`,
           backgroundSize: "cover",
           backgroundPosition: "0% 0%",
           width: "100%",
@@ -108,7 +110,7 @@ export async function GET(
           padding: "5%",
           display: "block",
           position: "relative",
-          fontFamily: "Satori",
+          fontFamily: "Inter",
         }}
       >
         <section style={{ display: "flex", flexDirection: "column" }}>
@@ -118,7 +120,7 @@ export async function GET(
               style={{
                 width: "14rem",
               }}
-              src="https://github-production-user-asset-6210df.s3.amazonaws.com/746397/288400836-bd5c9079-929b-4d55-bdc9-16d1c8181b71.png"
+              src={copilotKitLogo}
               alt="CopilotKit"
             />
           </div>
@@ -135,7 +137,7 @@ export async function GET(
               <p
                 style={{
                   color: "#4f46e5",
-                  fontFamily: fontOptions.length ? "Inter" : "sans-serif",
+                  fontFamily: "Inter",
                   fontWeight: 700,
                   margin: 0,
                   fontSize: 48,
@@ -151,7 +153,7 @@ export async function GET(
                   fontSize: 34,
                   marginBottom: 12,
                   fontWeight: 500,
-                  fontFamily: fontOptions.length ? "Inter" : "sans-serif",
+                  fontFamily: "Inter",
                 }}
               >
                 {doc.fm.description}
@@ -161,21 +163,33 @@ export async function GET(
         </section>
       </section>,
       {
-        // width: width,
-        // height: height,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        fonts: fontOptions.length ? (fontOptions as any) : undefined,
+        fonts: [
+          {
+            name: "Inter",
+            data: interMedium,
+            weight: 500,
+            style: "normal",
+          },
+          {
+            name: "Inter",
+            data: interBold,
+            weight: 700,
+            style: "normal",
+          },
+        ],
       },
     );
   } catch (error) {
+    // Note: notFound() throws an internal Next.js redirect-like error; let
+    // it propagate so the framework returns a proper 404. Anything else is
+    // a real failure we want surfaced as a 500 with a server-side log so
+    // operators see breakage rather than silent fallback to a static PNG
+    // that may itself be broken.
+    const digest = (error as { digest?: string } | undefined)?.digest;
+    if (typeof digest === "string" && digest.startsWith("NEXT_HTTP_ERROR")) {
+      throw error;
+    }
     console.error("Error generating OG image:", error);
-    // Return a simple fallback image
-    return new Response("OG image generation failed - using fallback", {
-      status: 307,
-      headers: {
-        Location:
-          "https://cdn.copilotkit.ai/docs/copilotkit/images/og-fallback.png",
-      },
-    });
+    return new Response("OG image generation failed", { status: 500 });
   }
 }

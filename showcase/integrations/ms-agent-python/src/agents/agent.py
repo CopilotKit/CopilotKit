@@ -5,6 +5,7 @@ and HITL schedule meeting tool.
 Adapted from examples/integrations/ms-agent-framework-python/agent/src/agent.py
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import json
@@ -89,7 +90,6 @@ def get_sales_todos() -> str:
     return json.dumps(result)
 
 
-# @region[weather-tool-backend]
 @tool(
     name="get_weather",
     description="Get the current weather for a location. Use this to render the frontend weather card.",
@@ -178,7 +178,7 @@ def generate_a2ui(
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "render_a2ui",
+            "name": "_design_a2ui_surface",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -203,11 +203,11 @@ def generate_a2ui(
             },
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)

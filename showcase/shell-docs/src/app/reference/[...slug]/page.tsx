@@ -1,9 +1,18 @@
 import type { Metadata } from "next";
+import type React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
+import { LinkIcon } from "lucide-react";
+import remarkGfm from "remark-gfm";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import { PropertyReference } from "@/components/property-reference";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   Callout,
   Cards,
@@ -12,41 +21,82 @@ import {
   Accordion,
 } from "@/components/mdx-components";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
-import { SidebarNav } from "@/components/sidebar-nav";
 import {
-  REFERENCE_CONTENT_DIR,
-  loadAllReferenceItems,
+  DocsPage,
+  DocsBody,
+  DocsTitle,
+  DocsDescription,
+} from "fumadocs-ui/page";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
+import { ReferenceVersionSelector } from "@/components/reference-version-selector";
+import {
+  REFERENCE_VERSIONS,
+  buildReferencePageTree,
+  referenceHref,
   referenceStaticParams,
+  referenceVersionHref,
+  resolveReferencePage,
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
-import { safeReadFileSync } from "@/lib/safe-fs";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
 // is unambiguous and any future host aliases can't fragment indexing.
+// Title/description come from the page's MDX frontmatter so each API
+// reference page emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/reference/${slug.join("/")}`,
-    },
-  };
+  const resolved = resolveReferencePage(slug);
+  const raw = resolved?.raw ?? null;
+  let title: string | undefined;
+  let description: string | undefined;
+  if (raw !== null) {
+    try {
+      const { data } = matter(raw);
+      if (typeof data.title === "string" && data.title.length > 0) {
+        title = data.title;
+      }
+      if (typeof data.description === "string" && data.description.length > 0) {
+        description = data.description;
+      }
+    } catch {
+      // Malformed frontmatter — fall back to slug-derived title.
+    }
+  }
+  return buildDocMetadata({
+    title: title ?? slug[slug.length - 1],
+    description,
+    canonicalPath: resolved
+      ? referenceHref(resolved.version, resolved.pageSlug)
+      : `/reference/${slug.join("/")}`,
+  });
 }
 
 // next-mdx-remote components map
 const mdxComponents = {
   PropertyReference,
+  // Render fenced code blocks through the same Shiki + Fumadocs CodeBlock
+  // chrome the main docs use (syntax highlighting + copy button), paired with
+  // the rehypeCode plugin wired into the MDXRemote options below.
+  pre: MdxCodeBlock,
   Callout,
   Cards,
   Card,
   Accordions,
   Accordion,
   OpsPlatformCTA,
+  LinkIcon,
+  Frame: ({ children }: { children: React.ReactNode }) => (
+    <div className="my-6 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+      {children}
+    </div>
+  ),
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
 
@@ -60,15 +110,12 @@ export default async function ReferenceSlugPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  const slugPath = slug.join("/");
-  // slugPath is user-supplied (URL segments). Route the filesystem read
-  // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
-  // can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
-  if (raw === null) {
+  const resolved = resolveReferencePage(slug);
+  if (resolved === null) {
     notFound();
   }
 
+  const { version, pageSlug, contentSlug, raw } = resolved;
   let content = "";
   let data: Record<string, unknown> = {};
   try {
@@ -77,7 +124,7 @@ export default async function ReferenceSlugPage({
     data = parsed.data;
   } catch (err) {
     console.error(
-      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
+      `[reference] Failed to parse frontmatter in ${contentSlug}.mdx:`,
       err,
     );
     notFound();
@@ -85,62 +132,36 @@ export default async function ReferenceSlugPage({
 
   const cleanedContent = stripLeadingImports(content);
 
-  const allItems = loadAllReferenceItems();
   const title =
     typeof data.title === "string" && data.title.length > 0
       ? data.title
       : slug[slug.length - 1];
   const description =
     typeof data.description === "string" ? data.description : undefined;
+  const pageTree = buildReferencePageTree(version);
+  const versionOptions = REFERENCE_VERSIONS.map((referenceVersion) => ({
+    version: referenceVersion,
+    href: referenceVersionHref(referenceVersion, pageSlug),
+  }));
 
   return (
-    <div className="flex h-full w-full">
-      {/* Sidebar */}
-      <SidebarNav className="hidden lg:block w-56 shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-y-auto h-full">
-        <nav className="p-4 space-y-6">
-          <div>
-            <Link
-              href="/reference"
-              className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-            >
-              Reference
-            </Link>
-          </div>
-          {["Components", "Hooks"].map((cat) => (
-            <div key={cat}>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-                {cat}
-              </div>
-              <ul className="space-y-0.5">
-                {allItems
-                  .filter((i) => i.category === cat)
-                  .map((item) => {
-                    const isActive = item.slug === slugPath;
-                    return (
-                      <li key={item.slug}>
-                        <Link
-                          href={`/reference/${item.slug}`}
-                          data-active={isActive ? "true" : undefined}
-                          className={`block text-[12px] font-mono px-2 py-1 rounded transition-colors ${
-                            isActive
-                              ? "bg-[var(--accent)]/10 text-[var(--accent)] font-semibold"
-                              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
-                          }`}
-                        >
-                          {item.title}
-                        </Link>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-      </SidebarNav>
-
-      {/* Main content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <article className="max-w-3xl mx-auto px-6 py-10">
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        <ReferenceVersionSelector
+          activeVersion={version}
+          options={versionOptions}
+        />
+      }
+    >
+      <DocsPage
+        toc={[]}
+        tableOfContent={{ enabled: false }}
+        tableOfContentPopover={{ enabled: false }}
+        breadcrumb={{ enabled: false }}
+        footer={{ enabled: false }}
+      >
+        <div className="px-6 py-10 max-w-3xl mx-auto">
           <div className="mb-8">
             <div className="text-xs text-[var(--text-muted)] mb-2">
               <Link
@@ -150,21 +171,47 @@ export default async function ReferenceSlugPage({
                 Reference
               </Link>
               {" / "}
-              <span className="capitalize">{slug[0]}</span>
+              <span>{version}</span>
+              {pageSlug && (
+                <>
+                  {" / "}
+                  <span className="capitalize">{pageSlug.split("/")[0]}</span>
+                </>
+              )}
             </div>
-            <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
+            <DocsTitle className="text-2xl font-bold">{title}</DocsTitle>
             {description && (
-              <p className="text-sm text-[var(--text-muted)] mt-1">
+              <DocsDescription className="text-sm mt-1">
                 {description}
-              </p>
+              </DocsDescription>
             )}
           </div>
 
-          <div className="reference-content prose-sm">
-            <MDXRemote source={cleanedContent} components={mdxComponents} />
-          </div>
-        </article>
-      </div>
-    </div>
+          <DocsBody className="reference-content prose-sm">
+            <MDXRemote
+              source={cleanedContent}
+              components={mdxComponents}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
+                },
+              }}
+            />
+          </DocsBody>
+        </div>
+      </DocsPage>
+    </ShellDocsLayout>
   );
 }

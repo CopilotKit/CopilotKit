@@ -19,6 +19,8 @@
  * package.
  */
 
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -39,6 +41,7 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -85,9 +88,6 @@ export type AgentState = typeof AgentStateAnnotation.State;
 // value.
 // ---------------------------------------------------------------------------
 
-// @region[subagent-setup]
-const SUB_MODEL = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
-
 const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
   research_agent:
     "You are a research sub-agent. Given a topic, produce a concise " +
@@ -104,8 +104,13 @@ const SUB_AGENT_PROMPTS: Record<SubAgentName, string> = {
 async function invokeSubAgent(
   agent: SubAgentName,
   task: string,
+  config?: RunnableConfig,
 ): Promise<string> {
-  const result = await SUB_MODEL.invoke([
+  const subModel = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
+  const result = await subModel.invoke([
     new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
     new HumanMessage({ content: task }),
   ]);
@@ -175,9 +180,10 @@ function delegationUpdate(
 async function runSubAgentSafely(
   agent: SubAgentName,
   task: string,
+  config?: RunnableConfig,
 ): Promise<{ ok: true; result: string } | { ok: false; result: string }> {
   try {
-    const result = await invokeSubAgent(agent, task);
+    const result = await invokeSubAgent(agent, task, config);
     return { ok: true, result };
   } catch (err) {
     const errName = err instanceof Error ? err.constructor.name : typeof err;
@@ -212,11 +218,10 @@ function requireToolCallId(
 // ToolMessage the supervisor can read on its next step.
 // ---------------------------------------------------------------------------
 
-// @region[supervisor-delegation-tools]
 const researchAgentTool = tool(
   async ({ task }, config: ToolRunnableConfig) => {
     const toolCallId = requireToolCallId(config, "research_agent");
-    const outcome = await runSubAgentSafely("research_agent", task);
+    const outcome = await runSubAgentSafely("research_agent", task, config);
     return delegationUpdate(
       "research_agent",
       task,
@@ -242,7 +247,7 @@ const researchAgentTool = tool(
 const writingAgentTool = tool(
   async ({ task }, config: ToolRunnableConfig) => {
     const toolCallId = requireToolCallId(config, "writing_agent");
-    const outcome = await runSubAgentSafely("writing_agent", task);
+    const outcome = await runSubAgentSafely("writing_agent", task, config);
     return delegationUpdate(
       "writing_agent",
       task,
@@ -270,7 +275,7 @@ const writingAgentTool = tool(
 const critiqueAgentTool = tool(
   async ({ task }, config: ToolRunnableConfig) => {
     const toolCallId = requireToolCallId(config, "critique_agent");
-    const outcome = await runSubAgentSafely("critique_agent", task);
+    const outcome = await runSubAgentSafely("critique_agent", task, config);
     return delegationUpdate(
       "critique_agent",
       task,
@@ -316,7 +321,10 @@ const SUPERVISOR_SYSTEM_PROMPT =
   "of every sub-agent delegation.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

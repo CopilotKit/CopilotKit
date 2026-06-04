@@ -1,4 +1,4 @@
-using System.ComponentModel;
+// @region[backend-interrupt-tool]
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -9,18 +9,12 @@ using System.ClientModel;
 // Interrupt Agent Factory
 // =================
 //
-// Adaptation note — the Microsoft Agent Framework (.NET) does NOT have a
+// Adaptation note: the Microsoft Agent Framework (.NET) does not have a
 // LangGraph-equivalent `interrupt()` primitive that can pause execution
-// mid-tool and resume with a caller-supplied value. We simulate the same
-// end-user experience via an approval-mode shim: the `schedule_meeting`
-// tool is declared as a backend tool that describes what it needs, but the
-// actual "picker" UI and the user decision live on the frontend via
-// `useFrontendTool` with an async handler. The frontend-registered tool
-// definition is forwarded to the backend through AG-UI's tool-catalog
-// mechanism, so when the model calls `schedule_meeting` the request is
-// handled on the client and resolves with the user's picked slot (or
-// cancellation). Visually this matches the LangGraph demos — the backend
-// mechanism differs.
+// mid-tool and resume with a caller-supplied value. The scheduling demos
+// use a frontend-provided `schedule_meeting` tool; AG-UI forwards that tool
+// definition to the model, then the client renders the picker and resolves
+// the tool call with the user's selected slot.
 //
 // This factory reuses the existing SharedStateAgent pattern for
 // consistency with the rest of the showcase, even though state-sync isn't
@@ -67,19 +61,9 @@ public sealed class InterruptAgentFactory
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
-        // Backend-declared `schedule_meeting` tool. This is a FALLBACK
-        // implementation: if the frontend has not registered its own
-        // `schedule_meeting` via `useFrontendTool`, this backend tool runs
-        // and returns a generic "unscheduled" message. When the frontend
-        // has the tool registered (the intended demo path), AG-UI forwards
-        // the frontend tool definition and the client handles the call —
-        // the frontend handler returns a Promise that only resolves once
-        // the user picks a slot, which is the MS Agent shim for the
-        // LangGraph `interrupt()` pause/resume primitive.
-        //
-        // The parameters intentionally mirror the LangGraph reference's
-        // `schedule_meeting(topic, attendee)` signature so the model's
-        // behavior is identical across backends.
+        // No backend fallback tool is registered. If the frontend tool is
+        // missing, the demo should fail visibly instead of bypassing the
+        // picker with a server-side response.
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "InterruptAgent",
@@ -88,39 +72,11 @@ or schedule a meeting, you MUST call the `schedule_meeting` tool. Pass a short `
 describing the purpose and `attendee` describing who the meeting is with. After the tool
 returns, confirm briefly whether the meeting was scheduled and at what time, or that the
 user cancelled.",
-            tools: [
-                AIFunctionFactory.Create(
-                    ScheduleMeeting,
-                    options: new() { Name = "schedule_meeting", SerializerOptions = _jsonSerializerOptions }),
-            ]);
+            tools: []);
 
         return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions, _loggerFactory.CreateLogger<SharedStateAgent>());
     }
     // @endregion[backend-tool-call]
 
-    // =================
-    // Tools
-    // =================
-
-    [Description("Ask the user to pick a time slot for a call via an in-app picker. The frontend renders the picker and returns the user's choice or a cancellation.")]
-    private string ScheduleMeeting(
-        [Description("Short human-readable description of the call's purpose.")] string topic,
-        [Description("Who the call is with (optional).")] string? attendee = null)
-    {
-        // This backend implementation runs only when the frontend has not
-        // registered an override via `useFrontendTool`. The intended demo
-        // path is frontend-handled; see the comment on the factory.
-        _logger.LogInformation(
-            "ScheduleMeeting (backend fallback) called with topic={Topic}, attendee={Attendee}",
-            topic,
-            attendee ?? "(none)");
-
-        return JsonSerializer.Serialize(new
-        {
-            status = "pending_frontend_picker",
-            topic,
-            attendee,
-            message = "A time picker will appear in the UI. Please choose a slot or cancel.",
-        });
-    }
 }
+// @endregion[backend-interrupt-tool]

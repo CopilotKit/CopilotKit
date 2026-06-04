@@ -1,0 +1,21 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+
+  </Step>
+  <Step>
+    ### Read CopilotKit context before each model call
+
+    `useAgentContext` entries arrive in ADK session state under
+    `state["copilotkit"]["context"]`. Add `AGUIToolset()` to the agent and
+    use a `before_model_callback` to inject those read-only values into the
+    system instruction.
+
+    <DemoCode file="src/agents/readonly_state_agent_context_agent.py" region="agent-context-setup" />
+
+  </Step>
+</Steps>

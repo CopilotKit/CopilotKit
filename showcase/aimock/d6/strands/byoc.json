@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / byoc (bring-your-own-component)",
+    "sourceFile": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — the demo's custom renderer materializes JSON as metric cards + charts. The response must include structured JSON the renderer can parse. hasToolResult:false on the tool-call-emitting leg.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_render_dashboard_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,247\",\"change\":\"+8%\"},{\"label\":\"Avg Deal Size\",\"value\":\"$18.5K\",\"change\":\"+3%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":800000},{\"label\":\"SMB\",\"value\":400000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":750000},{\"label\":\"Nov\",\"value\":820000},{\"label\":\"Dec\",\"value\":830000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after render_dashboard tool returns.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "toolCallId": "call_d6_byoc_render_dashboard_001",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above — total revenue hit $2.4M (+12%), with Enterprise leading the pie chart at $1.2M. Monthly revenue trended up through the quarter."
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — fallback content-only response for integrations where render_dashboard isn't registered as a tool.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "turnIndex": 0,
+        "context": "strands"
+      },
+      "response": {
+        "content": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,247\",\"change\":\"+8%\"},{\"label\":\"Avg Deal Size\",\"value\":\"$18.5K\",\"change\":\"+3%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":800000},{\"label\":\"SMB\",\"value\":400000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":750000},{\"label\":\"Nov\",\"value\":820000},{\"label\":\"Dec\",\"value\":830000}]}]}"
+      }
+    }
+  ]
+}

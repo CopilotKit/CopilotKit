@@ -1,8 +1,26 @@
 name: test / smoke / starter
 
+# PR build-sanity gate (model B, §e / Phase 5) PLUS the post-merge 6h
+# floating-dependency breakage detector. The eventual live dashboard signal
+# for starter health comes from the harness HTTP-probing the deployed
+# (sleepable) Railway starter services — but those S5 Railway services do
+# NOT exist yet, so this `schedule` cron remains the ONLY post-merge
+# detector that catches a starter broken by a floating transitive dependency
+# or an upstream CopilotKit release. We KEEP the 6h cron (and the harness
+# alert path, alerts/alert-engine.ts → #oss-alerts, carries the
+# scheduled-failure Slack signal too) until S5 starter-service probing is
+# confirmed live, at which point the cron can be retired in favour of the
+# harness signal. The fast pre-merge build-sanity gate is the
+# `pull_request` trigger on examples/integrations/**: it builds + smoke-
+# tests each starter offline against aimock on every starter change. The
+# post-merge GHCR `:latest` publish that feeds the Railway services lives in
+# showcase_build.yml's build-starters job (push:main, §b stage 1), so it is
+# intentionally NOT duplicated here.
 on:
   schedule:
-    # Every 6 hours — catches floating dep breakage
+    # Every 6h — post-merge floating-dependency / upstream-release breakage
+    # detector. Stays until S5 harness probing of live Railway starter
+    # services is confirmed, then retire in favour of the harness signal.
     - cron: "0 */6 * * *"
   workflow_run:
     workflows: ["publish / release"]
@@ -41,10 +59,11 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 1
           lfs: false
+          persist-credentials: false
 
       - name: Run starter smoke tests
         working-directory: examples/integrations/${{ matrix.starter }}
@@ -120,7 +139,7 @@ jobs:
 
       - name: Upload test artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/
@@ -161,9 +180,9 @@ jobs:
 
       - name: Alert Slack on failure
         if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ${{ toJSON(format(':x: *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }

@@ -42,11 +42,27 @@ def _make_part(*, text: str | None = None, function_call: object | None = None):
     return part
 
 
-def _make_response(*, parts=None, partial: bool = False, role: str = "model"):
+def _make_response(
+    *,
+    parts=None,
+    partial: bool = False,
+    role: str = "model",
+    finish_reason: object = "STOP",
+):
+    """Build a fake LlmResponse.
+
+    `finish_reason` defaults to "STOP" because that's the real terminal
+    response shape — `stop_on_terminal_text` gates termination on it to
+    avoid premature termination on Gemini thinking-mode chunks that arrive
+    non-partial with `finish_reason=None` (the text-only chunk that precedes
+    the function-call chunk).
+    """
     return SimpleNamespace(
         content=SimpleNamespace(role=role, parts=list(parts or [])),
         partial=partial,
         error_message=None,
+        finish_reason=finish_reason,
+        turn_complete=None,
     )
 
 

@@ -1,11 +1,11 @@
 # Stage 1: Build Next.js frontend
 FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY src/ ./src/
 COPY public/ ./public/
-COPY next.config.ts tsconfig.json postcss.config.mjs ./
+COPY next.config.ts tsconfig.json postcss.config.mjs manifest.yaml ./
 RUN npm run build
 
 # Stage 2: Build Python venv with agent deps

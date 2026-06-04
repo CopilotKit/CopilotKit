@@ -27,12 +27,20 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
+  // Custom Row/Column: override the basic catalog's versions so we can
+  // honour `gap` (basic Row/Column from web_core ignores it). Children may
+  // be a literal-string array (flat trees) OR a structural template form
+  // `{ componentId, path }` so the GenericBinder expands per-row templates
+  // from the data model — required for fixed-schema flows like
+  // flight_schema.json (Row.children = { componentId, path: "/flights" }).
   Row: {
     description: "Horizontal layout container.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
       justify: z.string().optional(),
+      // Union with { componentId, path } so GenericBinder treats this as
+      // STRUCTURAL and resolves template children from the data model.
       children: z.union([
         z.array(z.string()),
         z.object({ componentId: z.string(), path: z.string() }),
@@ -45,6 +53,7 @@ export const demonstrationCatalogDefinitions = {
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
+      // Same union as Row — required for template children support.
       children: z.union([
         z.array(z.string()),
         z.object({ componentId: z.string(), path: z.string() }),
@@ -126,6 +135,7 @@ export const demonstrationCatalogDefinitions = {
           "The ID of the child component (e.g. a Text component for the label).",
         ),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
+      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
       action: z
         .union([
           z.object({

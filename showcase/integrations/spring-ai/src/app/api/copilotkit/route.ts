@@ -70,6 +70,9 @@ for (const name of agentNames) {
 for (const name of interruptAgentNames) {
   agents[name] = createAgent("/interrupt-adapted");
 }
+// gen-ui-agent has a dedicated Java controller (GenUiAgentController @ /gen-ui-agent/run)
+// that drives the set_steps state-card chain; override the shared-root registration.
+agents["gen-ui-agent"] = createAgent("/gen-ui-agent/run");
 agents["default"] = createAgent();
 
 console.log(

@@ -74,6 +74,13 @@ for (const name of agentNames) {
 }
 agents["default"] = createAgent();
 
+// gen-ui-agent owns a typed `steps` slice of shared state that the
+// unified `/` agent does not implement (it has no `set_steps` tool).
+// Route this agent name at a dedicated backend endpoint that drives
+// the pending -> in_progress -> completed state machine and emits
+// STATE_SNAPSHOT events between transitions.
+agents["gen-ui-agent"] = new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent` });
+
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );

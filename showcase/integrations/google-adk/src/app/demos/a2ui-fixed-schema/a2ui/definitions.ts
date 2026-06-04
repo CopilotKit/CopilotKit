@@ -18,6 +18,7 @@
  * This matches the canonical catalog's `DynString` helper:
  *   examples/integrations/langgraph-python/src/app/declarative-generative-ui/definitions.ts
  */
+// @region[definitions-types]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
@@ -27,7 +28,6 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-// @region[definitions-types]
 export const definitions = {
   /**
    * Card override: gives the outer flight-card container a ShadCN look

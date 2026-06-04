@@ -5,6 +5,8 @@ icon: "lucide/Shield"
 snippet_cell: auth
 ---
 
+<InlineDemo demo="auth" />
+
 You have a chat surface or a hook driving an agent and you want every agent run to know *who* the request came from. By the end of this guide, your frontend will forward a token, the runtime will pass it through, and your agent code will read the resulting user info on every turn.
 
 ## When to use this
@@ -15,8 +17,6 @@ You have a chat surface or a hook driving an agent and you want every agent run 
 - **Session-aware UX** where the agent's behaviour depends on the user's role or permissions.
 
 If you don't need any of those, skip auth entirely. The agent runs anonymously and the frontend never has to care about tokens.
-
-<InlineDemo demo="auth" />
 
 <WhenFrameworkHas flag="auth_pattern" equals="runtime-onrequest">
 
@@ -144,11 +144,11 @@ For full handler details, see the [LangGraph Platform Authentication documentati
 When you self-host the agent, there's no managed auth handler to plug into. Instead, you forward the raw token onto every run by configuring the agent dynamically — the request's `properties.authorization` becomes part of `langgraph_config["configurable"]`, where every node can read it back later.
 
 ```python title="backend/demo.py"
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
 
 sdk = CopilotKitRemoteEndpoint(
     agents=lambda context: [
-        LangGraphAgent(
+        LangGraphAGUIAgent(
             name="sample_agent",
             description="Agent with authentication support",
             graph=graph,
@@ -417,7 +417,5 @@ This composes with [Human in the loop](/human-in-the-loop): gate on auth first, 
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.
-
-<FeatureIntegrations feature="auth" />
 
 <IntegrationGrid path="auth" />

@@ -60,21 +60,21 @@ All three approaches use the same A2UI protocol and renderer. The difference is 
 
 ## How it works
 
-Every A2UI surface is built from three operations:
+Every A2UI v0.9 surface is built from three operations:
 
-1. **`surfaceUpdate`** — defines the component tree (the schema)
-2. **`dataModelUpdate`** — provides the data that populates the components
-3. **`beginRendering`** — tells the client to start rendering
+1. **`createSurface`** — initializes the surface with its catalog (must come first)
+2. **`updateComponents`** — defines the component tree (the schema)
+3. **`updateDataModel`** — provides the data that populates the components
 
 The CopilotKit Python SDK provides helpers to build these operations:
 
 ```python
 from copilotkit import a2ui
 
-a2ui.surface_update(surface_id, components)
-a2ui.data_model_update(surface_id, {"items": data})
-a2ui.begin_rendering(surface_id, root_id)
-a2ui.render(operations)  # wraps and serializes
+a2ui.create_surface(surface_id)
+a2ui.update_components(surface_id, components)
+a2ui.update_data_model(surface_id, {"items": data})
+a2ui.render(operations)  # wraps in a2ui_operations and serializes
 ```
 
 Continue to one of the approach guides above to see the full implementation.

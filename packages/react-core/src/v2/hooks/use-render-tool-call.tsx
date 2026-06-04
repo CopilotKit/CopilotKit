@@ -1,12 +1,15 @@
 import React, { useCallback, useMemo, useSyncExternalStore } from "react";
-import { ToolCall, ToolMessage } from "@ag-ui/core";
+import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { DefaultToolCallRenderer } from "./use-default-render-tool";
+import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import {
+  DefaultToolCallRenderer,
+  mapToolCallStatus,
+} from "./use-default-render-tool";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -181,9 +184,15 @@ export function useRenderToolCall() {
 
 // Adapter that bridges the ReactToolCallRenderer signature
 // (`{ name, args, status, result, toolCallId }`) to the
-// `DefaultToolCallRenderer` signature (`{ name, parameters, status,
-// result }`) so the latter can be used as a zero-config fallback when
-// no `*` renderer is registered.
+// `DefaultToolCallRenderer` signature (`{ name, toolCallId, parameters,
+// status, result }`) so the latter can be used as a zero-config fallback
+// when no `*` renderer is registered.
+//
+// Status mapping is delegated to `mapToolCallStatus` (an explicit switch
+// over the `ToolCallStatus` enum with a logged fallback for unknown /
+// future values). Keeping the mapping in one place ensures
+// `useDefaultRenderTool`'s opt-in render path and this zero-config
+// fallback agree on the documented string-union surface.
 function defaultToolCallRenderAdapter(props: {
   name: string;
   args: unknown;
@@ -191,18 +200,23 @@ function defaultToolCallRenderAdapter(props: {
   result: string | undefined;
   toolCallId: string;
 }): React.ReactElement {
-  const status =
-    props.status === ToolCallStatus.Complete
-      ? "complete"
-      : props.status === ToolCallStatus.Executing
-        ? "executing"
-        : "inProgress";
   return (
     <DefaultToolCallRenderer
       name={props.name}
+      toolCallId={props.toolCallId}
       parameters={props.args}
-      status={status}
+      status={mapToolCallStatus(props.status)}
       result={props.result}
     />
   );
 }
+
+/**
+ * Test-only export so the adapter's status-mapping + logging behavior can
+ * be exercised directly without rebuilding the full provider/render
+ * pipeline. Not part of the package public API.
+ *
+ * @internal
+ */
+export const __testOnly_defaultToolCallRenderAdapter =
+  defaultToolCallRenderAdapter;

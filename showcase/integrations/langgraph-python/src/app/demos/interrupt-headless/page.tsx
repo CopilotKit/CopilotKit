@@ -9,6 +9,7 @@
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
 
+// @region[headless-useinterrupt-primitives]
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,
@@ -17,10 +18,8 @@ import {
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
-import {
-  generateFallbackSlots,
-  type TimeSlot,
-} from "../_shared/interrupt-fallback-slots";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -70,7 +69,6 @@ function Layout() {
   );
 }
 
-// @region[headless-useinterrupt-primitives]
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
   resolve: (response: unknown) => void;
@@ -84,9 +82,14 @@ function useHeadlessInterrupt(agentId: string): {
     const sub = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
+          // The AG-UI adapter JSON-stringifies interrupt values, so
+          // parse when the value arrives as a string.
+          const raw = event.value ?? {};
           local = {
             name: event.name,
-            value: (event.value ?? {}) as InterruptPayload,
+            value: (typeof raw === "string"
+              ? JSON.parse(raw)
+              : raw) as InterruptPayload,
           };
         }
       },

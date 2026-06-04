@@ -26,7 +26,7 @@ export function ReasoningBlock({
           Reasoning
         </span>
         <span className="text-[#57575B]">
-          {isStreaming ? "Thinking..." : hasContent ? "Agent reasoning" : "..."}
+          {isStreaming ? "Thinking…" : hasContent ? "Agent reasoning" : "…"}
         </span>
       </div>
       {hasContent && (

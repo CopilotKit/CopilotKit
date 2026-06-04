@@ -3,7 +3,7 @@ MS Agent Framework agent for the CopilotKit MCP Apps demo.
 
 This agent has no bespoke tools -- the CopilotKit runtime is wired with
 ``mcpApps: { servers: [...] }`` pointing at the public Excalidraw MCP
-server (see ``src/app/api/copilotkit-mcp-apps/route.ts``). The runtime
+server (see ``src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts``). The runtime
 auto-applies the MCP Apps middleware, which exposes the remote MCP
 server's tools to this agent at request time and emits the activity
 events that CopilotKit's built-in ``MCPAppsActivityRenderer`` renders in

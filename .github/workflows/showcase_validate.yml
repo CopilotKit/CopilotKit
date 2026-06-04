@@ -20,13 +20,10 @@ on:
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
-# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
 permissions:
   contents: read
-  id-token: write
 
 # Split concurrency per event so main-branch push runs are never canceled
 # mid-execution (we need Slack failure alerts to fire reliably). PR runs
@@ -49,6 +46,10 @@ jobs:
     # typically reduces to ~5-8m. 25m timeout retained as headroom.
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 25
+    permissions:
+      contents: read
+      # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
     defaults:
       run:
         # Pin shell so `set -euo pipefail` + `mapfile` behave the same
@@ -58,10 +59,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           # Cache npm for the showcase/shell `npm ci` step below (shell is
@@ -73,7 +76,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@v4.4.0
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -203,8 +206,9 @@ jobs:
         # unique FAIL lines) lives in `showcase/scripts/fail-baseline.json`;
         # see that file for the full ratchet semantics and adjustment
         # procedure. Weekly backlog visibility is provided by
-        # `.github/workflows/showcase_drift-report.yml`. Drift-to-zero work
-        # is tracked in GitHub issue #4047.
+        # `.github/workflows/showcase_drift-report.yml`. Driving the drift to
+        # zero (and flipping this advisory ratchet to fully enforcing) is
+        # future work.
         run: |
           set -euo pipefail
 
@@ -361,6 +365,36 @@ jobs:
         working-directory: showcase/scripts
         run: pnpm exec tsx generate-registry.ts
 
+      # ADVISORY ONLY — never fail the build. The promote dropdown is
+      # self-healed by the lefthook pre-commit hook; this step only warns if a
+      # commit somehow lands with a drifted showcase_promote.yml `service`
+      # dropdown (e.g. hook skipped). The trailing `|| true` keeps a non-zero
+      # `--check` exit from reddening validate.
+      - name: Advisory — promote dropdown drift check
+        working-directory: showcase/scripts
+        run: |
+          # ADVISORY ONLY: capture the exit code without letting a non-zero
+          # `--check` redden the build. `|| true` alone would discard rc and
+          # collapse every failure mode into the misleading "stale, re-run"
+          # warning. sync-promote-service-options.ts exits:
+          #   1 => drift (dropdown out of date; re-running the generator fixes it)
+          #   2 => read error
+          #   3 => missing/duplicate/malformed marker block (corruption)
+          # Only rc=1 is actually self-heals-by-rerun; rc>=2 needs a human, and
+          # the suggested re-run would itself fail — so report it distinctly.
+          set +e
+          pnpm exec tsx sync-promote-service-options.ts --check
+          rc=$?
+          set -e
+          if [ "$rc" -eq 1 ]; then
+            echo "::warning::showcase_promote.yml service dropdown is stale. Run: npx tsx showcase/scripts/sync-promote-service-options.ts and commit the result."
+          elif [ "$rc" -ge 2 ]; then
+            echo "::warning::sync-promote-service-options.ts failed (exit $rc) — marker block missing/duplicated or read error; investigate before trusting the dropdown."
+          fi
+          # Always succeed: this step must never fail the build (the lefthook
+          # pre-commit hook self-heals; CI only warns).
+          exit 0
+
       - name: Bundle demo content
         working-directory: showcase/scripts
         run: pnpm exec tsx bundle-demo-content.ts
@@ -472,7 +506,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -494,12 +528,43 @@ jobs:
         run: |
           echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
 
+  shell-script-tests:
+    name: Shell script tests (bats + shellcheck)
+    # Separate job (mirrors python-unit-tests) so the showcase shell-script
+    # regression suite runs independently of the JS/TS validate job. Runs on
+    # ubuntu-latest where shellcheck is preinstalled; bats is apt-installed.
+    # These tests gate the promote-fleet.sh best-effort loop + succeeded_csv
+    # export that the promote → verify-prod handoff depends on.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Shellcheck promote-fleet.sh
+        # shellcheck is preinstalled on ubuntu-latest.
+        run: shellcheck showcase/scripts/promote-fleet.sh
+
+      - name: Run bats suite
+        run: bats showcase/scripts/__tests__/
+
   python-unit-tests:
     name: Python unit tests (${{ matrix.python-version }})
     # Separate job so pre-existing `validate-parity` failures don't mask new
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     strategy:
       # Fail-fast disabled so a 3.10-only regression (e.g. typing_extensions
       # fallback path breaking) doesn't cancel the 3.12 run and leave us
@@ -513,10 +578,12 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -596,3 +663,68 @@ jobs:
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"
+
+  notify:
+    # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).
+    # Mirrors the workflow-level notify pattern in showcase_promote.yml so
+    # red runs surface uniformly across the showcase pipeline. The validate
+    # job has its own inline (and richer) push-only notifier that extracts
+    # the failing step + error excerpt; this job is the workflow-level
+    # safety net that also covers the python-unit-tests matrix job and the
+    # shell-script-tests job — which otherwise had no Slack signal at all.
+    # Webhook empty-guard mirrors promote.yml so an unset
+    # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red the
+    # workflow on this step.
+    needs: [validate, python-unit-tests, shell-script-tests]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Compute state
+        id: state
+        env:
+          VALIDATE: ${{ needs.validate.result }}
+          PYTEST: ${{ needs.python-unit-tests.result }}
+          SHELL: ${{ needs.shell-script-tests.result }}
+        run: |
+          set -euo pipefail
+          if [ "$VALIDATE" = "success" ] && [ "$PYTEST" = "success" ] && [ "$SHELL" = "success" ]; then
+            STATE="success"; ICON=":white_check_mark:"
+          else
+            STATE="failure"; ICON=":x:"
+          fi
+          {
+            echo "state=$STATE"
+            echo "icon=$ICON"
+          } >> "$GITHUB_OUTPUT"
+      - name: Post to #oss-alerts
+        if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *showcase_validate failed on {1}*\nvalidate={2} python-unit-tests={3} shell-script-tests={4}\n<{5}/{6}/actions/runs/{7}|View run>',
+                steps.state.outputs.icon,
+                github.ref,
+                needs.validate.result,
+                needs.python-unit-tests.result,
+                needs.shell-script-tests.result,
+                github.server_url,
+                github.repository,
+                github.run_id
+              )) }}
+            }
+      - name: Log (no Slack — webhook unset)
+        if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK == ''
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "::warning::showcase_validate failed on $REF but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."

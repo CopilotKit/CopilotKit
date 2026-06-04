@@ -18,6 +18,8 @@
 // route lives at `[[...slug]]/route.ts` to catch all sub-paths under
 // `/api/copilotkit-voice`.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
@@ -29,6 +31,7 @@ import { getLocalAgent } from "@ag-ui/mastra";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { mastra } from "@/mastra";
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const voiceDemoAgent = getLocalAgent({
   mastra,
@@ -47,7 +50,6 @@ if (!voiceDemoAgent) {
  * OPENAI_API_KEY is not configured. When the key is present we delegate to
  * the real OpenAI-backed service.
  */
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
@@ -76,7 +78,6 @@ let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- see main route.ts
     agents: {
@@ -93,8 +94,12 @@ function getHandler(): (req: Request) => Promise<Response> {
   return cachedHandler;
 }
 
-export const POST = (req: NextRequest) => getHandler()(req);
-export const GET = (req: NextRequest) => getHandler()(req);
-export const PUT = (req: NextRequest) => getHandler()(req);
-export const DELETE = (req: NextRequest) => getHandler()(req);
+export const POST = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const GET = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const PUT = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const DELETE = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
 // @endregion[voice-runtime]

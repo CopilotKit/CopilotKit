@@ -11,13 +11,14 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
-import { Callout as DocsCallout } from "@/components/docs-callout";
+import { Callout as DocsCallout } from "fumadocs-ui/components/callout";
 import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import {
   TailoredContent as RealTailoredContent,
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
+import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
@@ -28,9 +29,129 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
+import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
+import {
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+} from "@/components/icons/framework-icons";
+import catalogData from "@/data/catalog.json";
+
+// Local `(integration, demo) → catalog entry` lookup. Mirrors the lookup in
+// `<Snippet>` (snippet.tsx) so `<InlineDemo>` can short-circuit to an
+// `<UnsupportedBox>` placeholder when the catalog flags a pair as
+// `unsupported` instead of iframing a backend route that 404s. Built once
+// at module scope.
+//
+// After Tyler's docs_mode cutover, only `generated`-mode frameworks
+// (langgraph-python, langgraph-typescript, google-adk) render the
+// agnostic shell-docs pages that embed `<InlineDemo>`. Authored-mode
+// frameworks render their own ported MDX and never hit this path, so
+// this guard now narrowly covers the LGTS/ADK gaps:
+//   langgraph-typescript ✗ shared-state-streaming
+//   google-adk           ✗ gen-ui-interrupt, interrupt-headless
+interface InlineDemoCatalogCell {
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
+  const m = new Map<string, InlineDemoCatalogCell>();
+  const cells =
+    (catalogData as { cells?: InlineDemoCatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 const Callout = DocsCallout;
+
+// Stub name → partial path under `src/content/snippets/`. When a live
+// MDX page references one of these stubs WITHOUT children (the common
+// "<Inspector />" pattern), the registry renders the partial in place
+// of an empty `<div>`. With children, the stub falls back to wrapping
+// the children — preserving the legacy passthrough shape used by older
+// MDX that intentionally inlines content.
+//
+// This complements `SNIPPET_MAP` in `docs-render.tsx`, which performs
+// the same substitution by string regex BEFORE MDX parses the page.
+// That regex only matches plain `<Component />` (optionally with a
+// `components={...}` attribute), so any stub invoked with other props
+// (e.g. `<EcosystemTable data={...} />`) bypasses it and lands here.
+// Keeping this map alongside the stub definitions also makes the
+// mapping discoverable from a single place.
+const STUB_PARTIAL_MAP: Record<string, string> = {
+  Inspector: "shared/premium/inspector.mdx",
+  GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
+  ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
+  ToolRendering: "shared/generative-ui/tool-rendering.mdx",
+  A2UI: "shared/generative-ui/a2ui.mdx",
+  HeadlessUI: "shared/basics/headless-ui.mdx",
+  Overview: "shared/premium/overview.mdx",
+  Observability: "shared/premium/observability.mdx",
+  ObservabilityConnectors:
+    "shared/troubleshooting/observability-connectors.mdx",
+  CommonIssues: "shared/troubleshooting/common-issues.mdx",
+  ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
+  DebugMode: "shared/troubleshooting/debug-mode.mdx",
+  MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
+  MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
+  MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
+  SelfHosting: "shared/premium/self-hosting.mdx",
+  CodingAgents: "shared/coding-agents.mdx",
+  CustomAgent: "shared/backend/custom-agent.mdx",
+  PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
+  ProgrammaticControl: "shared/basics/programmatic-control.mdx",
+  Slots: "shared/basics/slots.mdx",
+  FrontendTools: "shared/app-control/frontend-tools.mdx",
+  FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx",
+  DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  DisplayOnly: "shared/generative-ui/display-only.mdx",
+  Interactive: "shared/generative-ui/interactive.mdx",
+  MCPApps: "shared/generative-ui/mcp-apps.mdx",
+  MCPSetup: "shared/guides/mcp-server-setup.mdx",
+  CopilotRuntime: "copilot-runtime.mdx",
+  CopilotUI: "copilot-ui.mdx",
+  LandingCodeShowcase: "landing-code-showcase.mdx",
+  UseAgentSnippet: "use-agent.mdx",
+  InstallSDKSnippet: "install-sdk.mdx",
+  InstallPythonSDK: "install-python-sdk.mdx",
+  RunAndConnect: "coagents/run-and-connect-agent.mdx",
+  RunAndConnectSnippet: "coagents/run-and-connect-agent.mdx",
+  CopilotCloudConfigureCopilotKitProvider:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  CopilotCloudConfigureCopilotKit:
+    "copilot-cloud-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeCreateEndpoint:
+    "self-hosting-copilot-runtime-create-endpoint.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  SelfHostingCopilotRuntimeConfigureCopilotKit:
+    "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
+  ReasoningMessages:
+    "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
+  Threads: "shared/threads/threads.mdx",
+};
 
 // Dev-only warning helper for stub components that discard their props.
 // Fires once per component name so HMR / re-renders don't spam the console.
@@ -48,19 +169,73 @@ function warnStub(name: string, propKeys: string[]): void {
   );
 }
 
-// Wrap a children-only stub so it warns in dev when additional props are
-// passed. Keeps runtime behavior identical (render children) for compat.
-function stub(name: string) {
-  const Stub = ({
+// Wrap a stub so that when invoked WITHOUT children, it renders the
+// MDX partial at `STUB_PARTIAL_MAP[name]` via the PartialLoader server
+// component. With children, the existing pass-through shape is kept so
+// older MDX that inlines content under `<Component>...</Component>`
+// continues to render unchanged.
+//
+// The returned function is an async React server component — MDXRemote
+// awaits the returned element so the partial's parsed JSX is composed
+// into the rendered tree as if it were inlined at the call site.
+//
+// `extraProps` are intentionally ignored when delegating to the
+// partial: a partial's body is the authoritative content for the
+// "no children" rendering. Authors who need prop-driven rendering
+// should reach for a dedicated component (see `EcosystemTable` below).
+function stubWithPartial(name: string) {
+  // Forward-declare the docsComponents map via a getter so the closure
+  // sees the fully-initialized export rather than the `undefined` it
+  // would otherwise capture at module-init time. This keeps the stub
+  // function definitions reorderable inside the registry block.
+  const Stub = async ({
     children,
     ...rest
   }: {
     children?: React.ReactNode;
     [key: string]: unknown;
-  }) => {
-    const extras = Object.keys(rest);
-    if (extras.length > 0) warnStub(name, extras);
-    return <div>{children}</div>;
+  }): Promise<React.ReactElement | null> => {
+    // With non-empty children, preserve the historical passthrough so
+    // MDX that intentionally inlines content (the legacy shape this
+    // stub replaces) keeps rendering. Drop other props on the floor —
+    // this matches the pre-partial behavior.
+    //
+    // Treat empty strings / empty arrays as "no children" so a
+    // self-closing `<Inspector />` whose MDX compiler produces an empty
+    // children prop still falls through to the partial loader.
+    const hasChildren =
+      children !== undefined &&
+      children !== null &&
+      !(typeof children === "string" && children.trim() === "") &&
+      !(Array.isArray(children) && children.length === 0);
+    if (hasChildren) {
+      return <div>{children}</div>;
+    }
+
+    const partialPath = STUB_PARTIAL_MAP[name];
+    if (!partialPath) {
+      if (process.env.NODE_ENV !== "production") {
+        const extras = Object.keys(rest);
+        if (extras.length > 0) warnStub(name, extras);
+      }
+      return null;
+    }
+
+    return (
+      <PartialLoader
+        relativePath={partialPath}
+        // The map's component values have heterogeneous prop shapes
+        // (Callout, Cards, ImageZoom, etc.). Cast through `unknown` so
+        // the loader's loose `Record<string, ComponentType<...>>` type
+        // accepts the full union without spelling out every variant.
+        components={
+          docsComponents as unknown as Record<
+            string,
+            React.ComponentType<Record<string, unknown>>
+          >
+        }
+      />
+    );
   };
   Stub.displayName = `MdxStub(${name})`;
   return Stub;
@@ -155,49 +330,64 @@ export const docsComponents = {
       );
       return null;
     }
-    // Iframe the integration demo directly (its own backend host). The
-    // demo-detail page (<integrations/.../[demo]>) is only served by the
-    // SHELL host (showcase.copilotkit.ai), so the "Open full demo" link
-    // must point at the shell host rather than an in-place relative URL —
-    // otherwise it'd 404 on docs.showcase.copilotkit.ai which has no
-    // /integrations route.
+    // If the catalog marks this (integration × demo) pair as
+    // `unsupported`, render the same neutral placeholder <Snippet> uses
+    // instead of iframing a backend route that will 404. Only
+    // generated-mode frameworks reach this path; the affected cells are
+    // langgraph-typescript/shared-state-streaming and
+    // google-adk/{gen-ui-interrupt, interrupt-headless}.
+    const catalogEntry = inlineDemoCatalogByKey.get(`${integration}::${demo}`);
+    if (catalogEntry?.status === "unsupported") {
+      return (
+        <UnsupportedBox
+          integrationName={catalogEntry.integration_name ?? int.name}
+          featureName={catalogEntry.feature_name ?? demo}
+        />
+      );
+    }
+    // Iframe the integration demo directly (its own backend host).
+    //
+    // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
+    // inner iframe to zoom the embedded content OUT. The iframe is sized
+    // to (100% / SCALE) (wider + taller than its visible box) and then
+    // `transform: scale(SCALE)` shrinks it back down to fill the wrapper.
+    // With SCALE < 1 the iframe lays out as if it had MORE viewport, so
+    // more demo content fits in the same visual footprint at a smaller
+    // effective size: useful for chat surfaces where the composer,
+    // suggested prompts, and early messages should all be visible at once.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    const shellHost =
-      process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
-    const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
-    const iframeStyle: React.CSSProperties = {
+    const SCALE = 0.7;
+    const WRAPPER_HEIGHT = 550;
+    const wrapperStyle: React.CSSProperties = {
       width: "100%",
-      height: "500px",
-      border: "none",
+      height: `${WRAPPER_HEIGHT}px`,
+      overflow: "hidden",
       background: "var(--bg-surface)",
     };
+    const iframeStyle: React.CSSProperties = {
+      width: `calc(100% / ${SCALE})`,
+      height: `${WRAPPER_HEIGHT / SCALE}px`,
+      border: "none",
+      background: "var(--bg-surface)",
+      transform: `scale(${SCALE})`,
+      transformOrigin: "top left",
+    };
     return (
-      <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Live Demo: {int.name} — {demo}
-          </span>
-          <a
-            href={profileUrl}
-            className="text-xs text-[var(--accent)] hover:underline"
-          >
-            Open full demo →
-          </a>
-        </div>
-        <DocsTabs items={["Demo", "Code"]}>
-          <DocsTab value="Demo">
+      <DocsTabs items={["Demo", "Code"]}>
+        <DocsTab value="Demo">
+          <div style={wrapperStyle}>
             <iframe
               src={demoUrl}
               style={iframeStyle}
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               loading="lazy"
             />
-          </DocsTab>
-          <DocsTab value="Code">
-            <DemoSource integration={integration} demo={demo} />
-          </DocsTab>
-        </DocsTabs>
-      </div>
+          </div>
+        </DocsTab>
+        <DocsTab value="Code">
+          <DemoSource integration={integration} demo={demo} />
+        </DocsTab>
+      </DocsTabs>
     );
   },
   Note: Callout,
@@ -328,21 +518,16 @@ export const docsComponents = {
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  RunAndConnect: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  RunAndConnectSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MigrateTo: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MigrateToV: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  HeadlessUI: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  A2UI: stubWithPartial("A2UI"),
+  RunAndConnect: stubWithPartial("RunAndConnect"),
+  RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
+  MigrateTo: stubWithPartial("MigrateTo"),
+  MigrateToV: stubWithPartial("MigrateToV"),
+  MigrateTo182: stubWithPartial("MigrateTo182"),
+  MigrateTo1100: stubWithPartial("MigrateTo1100"),
+  MigrateToV2: stubWithPartial("MigrateToV2"),
+  SelfHosting: stubWithPartial("SelfHosting"),
+  HeadlessUI: stubWithPartial("HeadlessUI"),
   ImageZoom: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -356,77 +541,65 @@ export const docsComponents = {
       }}
     />
   ),
-  InstallSDKSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MCPApps: stub("MCPApps"),
-  MCPSetup: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Overview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommonIssues: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ErrorDebugging: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Observability: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ObservabilityConnectors: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Inspector: stub("Inspector"),
-  DefaultToolRendering: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DisplayOnly: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Interactive: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  PrebuiltComponents: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ProgrammaticControl: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CodingAgents: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CustomAgent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DebugMode: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  NewLookAndFeelPreview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  InstallSDKSnippet: stubWithPartial("InstallSDKSnippet"),
+  BuildWithAgents: stubWithPartial("BuildWithAgents"),
+  MCPApps: stubWithPartial("MCPApps"),
+  MCPSetup: stubWithPartial("MCPSetup"),
+  Overview: stubWithPartial("Overview"),
+  // Authored `integrations/<folder>/index.mdx` files use the flat-prop
+  // form `<FrameworkOverview frameworkName=... frameworkIcon={...} ...>`
+  // ported verbatim from v1. The MDX adapter wraps the data-driven
+  // `FrameworkOverview` so the props actually render (banner video,
+  // features grid, architecture image, live demos) instead of being
+  // dropped on the floor as a children-passthrough used to do.
+  FrameworkOverview: MdxFrameworkOverview,
+  // Per-render override in DocsPageView binds `currentFramework` from
+  // the URL — same closure pattern as MdxFrameworkOverview. The base
+  // registration renders null when invoked without a framework slug
+  // (e.g. an unscoped /docs/<slug> route where the concept of
+  // "framework-specific setup" doesn't apply).
+  FrameworkSetup,
+  // Per-framework icon components used inline by authored index.mdx files
+  // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
+  // resolves to the same component the data-driven path uses via
+  // `customIcons[<key>]`. New frameworks: add a matching `<XIcon>` here
+  // when porting their `index.mdx`.
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAIIcon: PydanticAiIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+  CommonIssues: stubWithPartial("CommonIssues"),
+  ErrorDebugging: stubWithPartial("ErrorDebugging"),
+  Observability: stubWithPartial("Observability"),
+  ObservabilityConnectors: stubWithPartial("ObservabilityConnectors"),
+  Inspector: stubWithPartial("Inspector"),
+  DefaultToolRendering: stubWithPartial("DefaultToolRendering"),
+  DisplayOnly: stubWithPartial("DisplayOnly"),
+  Interactive: stubWithPartial("Interactive"),
+  PrebuiltComponents: stubWithPartial("PrebuiltComponents"),
+  ProgrammaticControl: stubWithPartial("ProgrammaticControl"),
+  CodingAgents: stubWithPartial("CodingAgents"),
+  CustomAgent: stubWithPartial("CustomAgent"),
+  DebugMode: stubWithPartial("DebugMode"),
+  NewLookAndFeelPreview,
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  FrontendTools: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  FrontEndToolsImpl: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ToolRendering: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ToolRenderer: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  FrontendTools: stubWithPartial("FrontendTools"),
+  FrontEndToolsImpl: stubWithPartial("FrontEndToolsImpl"),
+  ToolRendering: stubWithPartial("ToolRendering"),
+  ToolRenderer: stubWithPartial("ToolRenderer"),
+  ReasoningMessages: stubWithPartial("ReasoningMessages"),
   YouTubeVideo: ({ id, title }: { id?: string; title?: string }) =>
     id ? (
       <div
@@ -511,9 +684,77 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  EcosystemTable: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // `<EcosystemTable data={[...]} />` is used by
+  // `concepts/generative-ui-overview.mdx` to render a 4-column matrix
+  // of generative-UI approaches. There is no partial for this — the
+  // data is supplied inline by the page — so the stub returns a real
+  // table rendered from `props.data` instead of a `<div>`.
+  EcosystemTable: ({
+    data,
+    children,
+  }: {
+    data?: Array<{
+      approach: string;
+      examples?: string;
+      strengths?: string;
+      weaknesses?: string;
+    }>;
+    children?: React.ReactNode;
+  }) => {
+    if (!data || data.length === 0) {
+      // Legacy MDX shape — fall back to the previous wrapper-of-children
+      // behavior so anything that still authors `<EcosystemTable>...</EcosystemTable>`
+      // doesn't disappear from the page.
+      return <div>{children}</div>;
+    }
+    return (
+      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+                Approach
+              </th>
+              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+                Examples
+              </th>
+              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+                Strengths
+              </th>
+              <th className="bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-[var(--border)]">
+                Weaknesses
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, idx) => (
+              <tr
+                key={`${row.approach}-${idx}`}
+                className={
+                  idx % 2 === 0
+                    ? "bg-[var(--bg-surface)]"
+                    : "bg-[var(--bg-elevated)]"
+                }
+              >
+                <td className="px-4 py-2.5 font-medium text-[var(--text)] border-b border-[var(--border-dim)]">
+                  {row.approach}
+                </td>
+                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                  {row.examples ?? ""}
+                </td>
+                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                  {row.strengths ?? ""}
+                </td>
+                <td className="px-4 py-2.5 text-[var(--text-secondary)] border-b border-[var(--border-dim)]">
+                  {row.weaknesses ?? ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  },
   FeatureMatrix: () => {
     const reg = getRegistry();
     const integrations = reg.integrations.filter((i) => i.deployed);
@@ -640,15 +881,9 @@ export const docsComponents = {
       CopilotKit Cloud
     </a>
   ),
-  LandingCodeShowcase: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  UseAgentSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  InstallPythonSDK: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  LandingCodeShowcase: stubWithPartial("LandingCodeShowcase"),
+  UseAgentSnippet: stubWithPartial("UseAgentSnippet"),
+  InstallPythonSDK: stubWithPartial("InstallPythonSDK"),
   ActionButtons: ({ children }: { children?: React.ReactNode }) => (
     <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
       {children}
@@ -660,23 +895,17 @@ export const docsComponents = {
   AskComponent: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CopilotCloudConfigureCopilotKitProvider: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
+  CopilotCloudConfigureCopilotKitProvider: stubWithPartial(
+    "CopilotCloudConfigureCopilotKitProvider",
+  ),
   // Alias of CopilotCloudConfigureCopilotKitProvider — historical
   // spelling without the `Provider` suffix appears in tutorials
   // (`ai-powered-textarea/step-2`, `ai-todo-app/step-2`). Keeping both
   // keys so existing MDX renders without throwing.
-  CopilotCloudConfigureCopilotKit: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
-  GenerativeUISpecsOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  CopilotCloudConfigureCopilotKit: stubWithPartial(
+    "CopilotCloudConfigureCopilotKit",
   ),
+  GenerativeUISpecsOverview: stubWithPartial("GenerativeUISpecsOverview"),
   IOptions: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -686,9 +915,7 @@ export const docsComponents = {
   MessageActionRenderProps: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CopilotRuntime: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  CopilotRuntime: stubWithPartial("CopilotRuntime"),
   // <Image> honours className/width/height so MDX-side authors can
   // swap light/dark variants via Tailwind's `block dark:hidden` /
   // `hidden dark:block` pattern. The previous shape destructured only
@@ -823,12 +1050,18 @@ export const docsComponents = {
   Cog: () => <span>⚙️</span>,
   Server: () => <span>🖥️</span>,
   ArrowLeftRight: () => <span>↔️</span>,
+  Blocks: () => <span>🧩</span>,
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
-  AwsStrandsIcon: () => <span>☁️</span>,
-  MicrosoftIcon: () => <span>Ⓜ️</span>,
-  PydanticAIIcon: () => <span>🐍</span>,
+  // `MicrosoftIcon` and `PydanticAIIcon` were once emoji stubs here.
+  // Both are now registered to their real SVG icon components in the
+  // FrameworkOverview block above (around line 489), so the stubs would
+  // be duplicate keys (TS1117) — removed. `AwsStrandsIcon` remains a
+  // stub because the framework-icons export is named `StrandsIcon`
+  // (the `customIcons.awsStrands` key keeps the legacy v1 alias), and
+  // some ported MDX uses the AwsStrandsIcon name verbatim.
+  AwsStrandsIcon: StrandsIcon,
   SiLangchain: () => <span>🔗</span>,
   FaArrowUp: () => <span>↑</span>,
   FaCloud: () => <span>☁️</span>,
@@ -866,23 +1099,17 @@ export const docsComponents = {
   CloudCopilotKit: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  SelfHostingCopilotRuntimeCreateEndpoint: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
-  SelfHostingCopilotRuntimeConfigureCopilotKitProvider: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
+  SelfHostingCopilotRuntimeCreateEndpoint: stubWithPartial(
+    "SelfHostingCopilotRuntimeCreateEndpoint",
+  ),
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider: stubWithPartial(
+    "SelfHostingCopilotRuntimeConfigureCopilotKitProvider",
+  ),
   // Alias of SelfHostingCopilotRuntimeConfigureCopilotKitProvider —
   // `ai-todo-app/step-2-setup-copilotkit` uses the unsuffixed name.
-  SelfHostingCopilotRuntimeConfigureCopilotKit: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
+  SelfHostingCopilotRuntimeConfigureCopilotKit: stubWithPartial(
+    "SelfHostingCopilotRuntimeConfigureCopilotKit",
+  ),
   AgentState: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

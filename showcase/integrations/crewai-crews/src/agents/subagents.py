@@ -39,6 +39,8 @@ where each sub-graph is replaced by a real `Crew(agents=[...],
 tasks=[...])`.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import asyncio
@@ -89,7 +91,6 @@ class AgentState(CopilotKitState):
 _LLM = "gpt-4o-mini"
 
 
-# @region[subagent-setup]
 # Each sub-agent is a real, single-agent CrewAI Crew with its own
 # Agent role/goal/backstory and a single Task. They don't share
 # memory or tools with the supervisor — the supervisor only sees
@@ -239,7 +240,6 @@ async def _kickoff_crew(crew: Crew, task: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each entry below is one "delegation tool" the supervisor LLM can call.
 # CrewAI's hierarchical Process orchestrates sub-agents internally and
 # only surfaces the final crew output to the AG-UI bridge, which would

@@ -11,6 +11,9 @@
 // production demo's runtime behavior. See agentic-chat /
 // chat-component.snippet.tsx for the same sibling-file pattern.
 
+// @region[register-disclaimer-slot]
+// @region[register-assistant-message-slot]
+// @region[register-welcome-slot]
 import type {
   CopilotChatAssistantMessage,
   CopilotChatInput,
@@ -22,19 +25,16 @@ declare const CustomAssistantMessage: React.ComponentType;
 declare const CustomDisclaimer: React.ComponentType;
 
 export function ChatSlotsTeachingExtracts() {
-  // @region[register-welcome-slot]
   const welcomeScreen =
     CustomWelcomeScreen as unknown as typeof CopilotChatView.WelcomeScreen;
   // @endregion[register-welcome-slot]
 
-  // @region[register-assistant-message-slot]
   const messageView = {
     assistantMessage:
       CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
   };
   // @endregion[register-assistant-message-slot]
 
-  // @region[register-disclaimer-slot]
   const input = {
     disclaimer:
       CustomDisclaimer as unknown as typeof CopilotChatInput.Disclaimer,

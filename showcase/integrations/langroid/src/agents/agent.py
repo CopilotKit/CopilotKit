@@ -21,6 +21,7 @@ Sibling provider-agnostic A2UI planner implementations live in
 aligned.
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import functools
@@ -600,7 +601,6 @@ def _tool_error(*, error: _ToolErrorKind, message: str) -> str:
     return _json_dumps({"error": error.value, "message": message})
 
 
-# @region[weather-tool-backend]
 class GetWeatherTool(ToolMessage):
     request: str = "get_weather"
     purpose: str = "Get current weather for a location."
@@ -716,6 +716,7 @@ class GenerateHaikuTool(ToolMessage):
         return "Haiku generated!"
 
 
+# @region[backend-interrupt-tool]
 # @region[backend-tool-call]
 # `schedule_meeting` is declared here as a `ToolMessage` subclass so Langroid's
 # LLM knows the tool's schema, but it executes client-side: the AG-UI adapter
@@ -741,6 +742,7 @@ class ScheduleMeetingTool(ToolMessage):
 
 
 # @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 class SearchFlightsTool(ToolMessage):

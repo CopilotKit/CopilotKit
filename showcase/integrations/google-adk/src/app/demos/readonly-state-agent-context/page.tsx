@@ -1,5 +1,6 @@
 "use client";
 
+// @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -10,18 +11,15 @@ import {
 import { ACTIVITIES, DemoLayout } from "./demo-layout";
 import { useReadonlyStateAgentContextSuggestions } from "./suggestions";
 
-// Agent name uses underscores because the ADK runtime mounts agents by
-// the path `${AGENT_URL}/<name>` (see src/agents/registry.py and
-// src/app/api/copilotkit/route.ts), and the registered key here is
-// `readonly_state_agent_context`.
-const AGENT_ID = "readonly_state_agent_context";
-
 export default function ReadonlyStateAgentContextDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="readonly-state-agent-context"
+    >
       <DemoContent />
       <CopilotPopup
-        agentId={AGENT_ID}
+        agentId="readonly-state-agent-context"
         defaultOpen={true}
         labels={{ chatInputPlaceholder: "Ask about your context..." }}
       />
@@ -30,7 +28,6 @@ export default function ReadonlyStateAgentContextDemo() {
 }
 
 function DemoContent() {
-  // @region[context-provider-sketch]
   const [userName, setUserName] = useState("Atai");
   const [userTimezone, setUserTimezone] = useState("America/Los_Angeles");
   const [recentActivity, setRecentActivity] = useState<string[]>([

@@ -115,8 +115,8 @@ The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_C
 
 1. Extracts the `components` array as it streams — waits for the full schema before rendering
 2. Extracts `surfaceId` and `root` from the partial JSON
-3. Once the schema is complete, emits `surfaceUpdate` + `beginRendering`
-4. Extracts complete `items` objects progressively and emits `dataModelUpdate` for each
+3. Once the schema is complete, emits `createSurface` + `updateComponents`
+4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
 5. Cards appear one by one as data streams in
 
 ## Built-in progress indicator

@@ -6,6 +6,8 @@ ops apply the schema and seed the data model. The runtime detects the
 container in the tool result and forwards surfaces to the frontend renderer.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -29,7 +31,6 @@ def _load_schema(name: str) -> list[dict[str, Any]]:
         return json.load(f)
 
 
-# @region[backend-schema-json-load]
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
 # Loaded for parity with the langgraph-python sibling; the A2UI Python SDK's
 # `a2ui.render(...)` does not yet accept the `action_handlers={...}` kwarg
@@ -40,7 +41,6 @@ BOOKED_SCHEMA = _load_schema("booked_schema.json")  # noqa: F841
 # @endregion[backend-schema-json-load]
 
 
-# @region[backend-render-operations]
 def _build_flight_operations(
     *, origin: str, destination: str, airline: str, price: str
 ) -> dict[str, Any]:

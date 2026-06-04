@@ -279,15 +279,13 @@ describe("CopilotKit", () => {
     expect(copilotKit.agents()).toEqual(core.agents);
   });
 
-  it("adds app watermark when license key is missing", () => {
+  it("does not add a watermark when license key is missing (watermark disabled)", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ runtimeUrl: "https://runtime.local" })],
     });
 
     TestBed.inject(CopilotKit);
 
-    expect(
-      document.getElementById("copilotkit-license-watermark"),
-    ).toBeTruthy();
+    expect(document.getElementById("copilotkit-license-watermark")).toBeNull();
   });
 });
