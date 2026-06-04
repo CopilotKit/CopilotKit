@@ -13,6 +13,7 @@ RUN npm install next@latest && \
 COPY src/ ./src/
 COPY public/ ./public/
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
+COPY showcase.json ./showcase.json
 
 # Patch next.config.ts to ignore TS errors during build (can't modify original source)
 RUN node -e "const fs=require('fs'); const f='next.config.ts'; let c=fs.readFileSync(f,'utf8'); if(!c.includes('ignoreBuildErrors')){c=c.replace('};','  typescript: { ignoreBuildErrors: true },\n};'); fs.writeFileSync(f,c);}"
