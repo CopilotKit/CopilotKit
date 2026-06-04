@@ -195,7 +195,7 @@ export function createStarterSmokeDriver(
             starterSlug,
             columnSlug: starterSlug,
             publicUrl: base,
-            total: 0,
+            total: STARTER_LEVELS.length,
             passed: 0,
             failed: [...STARTER_LEVELS],
             errorClass: "smoke-failed",
