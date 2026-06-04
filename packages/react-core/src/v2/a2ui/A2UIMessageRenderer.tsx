@@ -125,27 +125,21 @@ export function createA2UIMessageRenderer(
         return groups;
       }, [operations]);
 
-      if (!groupedOperations.size) {
-        // No painted surface yet → render the pre-paint lifecycle state. These
-        // share this activity's messageId, so the painted surface below replaces
-        // them in place once operations arrive.
-        const status = content?.status;
-        const debugExposure = resolveDebugExposure(
-          content,
-          optionDebugExposure,
-        );
+      const hasOps = groupedOperations.size > 0;
+
+      // Renders the pre-paint lifecycle state for a given content snapshot.
+      const renderLifecycle = (c: any) => {
+        const status = c?.status;
+        const debugExposure = resolveDebugExposure(c, optionDebugExposure);
         if (status === "failed") {
           return (
-            <A2UIRecoveryFailure
-              content={content}
-              debugExposure={debugExposure}
-            />
+            <A2UIRecoveryFailure content={c} debugExposure={debugExposure} />
           );
         }
         if (status === "retrying") {
           return (
             <A2UIRetryingState
-              content={content}
+              content={c}
               showAfterMs={showAfterMs}
               showAfterAttempts={showAfterAttempts}
               debugExposure={debugExposure}
@@ -157,10 +151,37 @@ export function createA2UIMessageRenderer(
           const LoadingComponent = loadingComponent;
           return <LoadingComponent />;
         }
-        return <A2UIBuildingState content={content} />;
+        return <A2UIBuildingState content={c} />;
+      };
+
+      // Remember the last pre-paint snapshot so the hand-off below keeps showing
+      // exactly what was on screen (building skeleton w/ its count, or the retry
+      // status) instead of flickering to a generic one.
+      const lastLoaderContentRef = useRef<any>(null);
+      if (!hasOps) lastLoaderContentRef.current = content;
+
+      // Cross-over: when operations first arrive, the A2UIProvider needs a couple
+      // ticks to process them and paint. Hold the loader in-flow (it defines the
+      // height) while the surface paints OFFSCREEN, then swap — so the first card
+      // REPLACES the skeleton with no empty gap. (OSS-162)
+      const [surfaceReady, setSurfaceReady] = useState(false);
+      useEffect(() => {
+        if (!hasOps) {
+          setSurfaceReady(false);
+          return;
+        }
+        const t = setTimeout(() => setSurfaceReady(true), 220);
+        return () => clearTimeout(t);
+      }, [hasOps]);
+
+      if (!hasOps) {
+        // No painted surface yet → render the pre-paint lifecycle state. These
+        // share this activity's messageId, so the painted surface below replaces
+        // them in place once operations arrive.
+        return renderLifecycle(content);
       }
 
-      return (
+      const surfaces = (
         <div className="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6">
           {Array.from(groupedOperations.entries()).map(([surfaceId, ops]) => (
             <ReactSurfaceHost
@@ -173,6 +194,26 @@ export function createA2UIMessageRenderer(
               catalog={catalog}
             />
           ))}
+        </div>
+      );
+
+      if (surfaceReady) return surfaces;
+
+      // Surface mounts/paints offscreen behind the still-visible loader.
+      return (
+        <div style={{ position: "relative" }}>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          >
+            {surfaces}
+          </div>
+          {renderLifecycle(lastLoaderContentRef.current ?? content)}
         </div>
       );
     },
