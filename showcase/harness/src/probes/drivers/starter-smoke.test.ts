@@ -5,6 +5,7 @@ import {
   type StarterSmokeAggregateSignal,
   type StarterSmokeLevelSignal,
 } from "./starter-smoke.js";
+import { STARTER_LEVELS } from "../helpers/starter-mapping.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -320,5 +321,80 @@ describe("starterSmokeDriver", () => {
     })) as ProbeResult<StarterSmokeAggregateSignal>;
     expect(r.state).toBe("green");
     expect(r.key).toBe("starter:mastra");
+  });
+
+  it("external abort (already-aborted ctx.abortSignal) → levels classified 'aborted'", async () => {
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    // A fetch that rejects with an AbortError, paired with an
+    // already-aborted external signal: the per-check catch must classify the
+    // failure as `aborted` (the outer tick was abandoned), distinct from a
+    // per-endpoint `transport-error` slow wake.
+    const abortErr = new Error("The operation was aborted");
+    abortErr.name = "AbortError";
+    const ctx: ProbeContext = {
+      now: () => new Date("2026-06-03T00:00:00Z"),
+      logger,
+      env: {},
+      writer,
+      fetchImpl: fakeFetch({
+        throwOn: {
+          health: abortErr,
+          agent: abortErr,
+          chat: abortErr,
+          interaction: abortErr,
+        },
+      }),
+      abortSignal: AbortSignal.abort(),
+    };
+    const r = (await driver.run(ctx, {
+      key: "starter_smoke:starter-agno",
+      name: "starter-agno",
+      publicUrl: "https://starter-agno.up.railway.app",
+    })) as ProbeResult<StarterSmokeAggregateSignal>;
+
+    expect(r.state).toBe("red");
+    expect(r.signal.failed.sort()).toEqual([
+      "agent",
+      "chat",
+      "health",
+      "interaction",
+    ]);
+    // All levels aborted → aggregate worst class is `aborted`.
+    expect(r.signal.errorClass).toBe("aborted");
+    const rows = sideRows(writes);
+    for (const row of rows) {
+      expect(row.signal.errorClass).toBe("aborted");
+    }
+  });
+
+  it("a writer whose write() rejects must not fail the aggregate tick (swallowed + still green)", async () => {
+    // makeSideEmit must swallow a side-emit writer throw at error-level so a
+    // per-row write hiccup never takes the aggregate tick down with it.
+    const writeErrors: unknown[] = [];
+    const throwingWriter: ProbeResultWriter = {
+      async write() {
+        throw new Error("simulated writer failure");
+      },
+    };
+    const driver = createStarterSmokeDriver();
+    const ctx = mkCtx(fakeFetch({}), throwingWriter);
+    const r = (await driver
+      .run(ctx, {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      })
+      .catch((e) => {
+        writeErrors.push(e);
+        throw e;
+      })) as ProbeResult<StarterSmokeAggregateSignal>;
+
+    // The writer threw on every side-emit, yet the aggregate tick completed
+    // and stayed green — the throw was swallowed, not propagated.
+    expect(writeErrors).toHaveLength(0);
+    expect(r.state).toBe("green");
+    expect(r.key).toBe("starter:mastra");
+    expect(r.signal.passed).toBe(STARTER_LEVELS.length);
   });
 });
