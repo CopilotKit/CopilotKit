@@ -197,7 +197,7 @@ dependencies = [
 requires-dist = [
     { name = "ag-ui-protocol", specifier = "==0.1.18" },
     { name = "ag-ui-strands", specifier = "==0.1.9" },
-    { name = "copilotkit", specifier = "==0.1.87" },
+    { name = "copilotkit", specifier = "==0.1.93" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "langchain", specifier = "==1.2.15" },
     { name = "langchain-openai", specifier = "==1.1.9" },
@@ -358,7 +358,7 @@ wheels = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.87"
+version = "0.1.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ag-ui-langgraph", extra = ["fastapi"] },
@@ -367,11 +367,12 @@ dependencies = [
     { name = "langchain" },
     { name = "langgraph" },
     { name = "partialjson" },
+    { name = "pydantic-core" },
     { name = "toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/9a/a2e942a6229d1c65dd2a5d3b88c535ff4c01c86c6d2e99f1a49e2b5f91b6/copilotkit-0.1.87.tar.gz", hash = "sha256:7157c95b875bd0e3d6521935733bd1f9c11f0101c7e4e597ea3339b332afec36", size = 44587, upload-time = "2026-04-15T15:53:16.873Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/e8/7e89dadd6fe07ea81c8d750715b48328996b19cd66c17a398d1683f89942/copilotkit-0.1.93.tar.gz", hash = "sha256:0cfa9c19f82c8d9b425298c795b14174ce44d6de1d38d988af24188c71b1f13c", size = 46575, upload-time = "2026-05-29T05:19:54.445Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/34/e0c44e0cd1e6597150e82c8233b7bc47e451171a926aa1cd3c2156a4a6b7/copilotkit-0.1.87-py3-none-any.whl", hash = "sha256:4de3854bb643e20d6c84810d8996183f2007e1253d3365425cef80dce623dc05", size = 54164, upload-time = "2026-04-15T15:53:15.285Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/48/b5ee9cab38db9f7722afdd0520b341f19292536f235eadb847d50cb6b090/copilotkit-0.1.93-py3-none-any.whl", hash = "sha256:6c86d8ac5e2f50271c5b8ec189db3042a064a576cbfe7d57e18ccde20428c4b2", size = 55451, upload-time = "2026-05-29T05:19:53.44Z" },
 ]
 
 [[package]]

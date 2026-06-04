@@ -299,6 +299,21 @@ export class BrowserPool {
   private readonly launchStaggerMs: number;
   private launchChain: Promise<unknown> = Promise.resolve();
 
+  // In-flight launches. Every `launchBrowser()` registers its launch promise
+  // here BEFORE awaiting `rawLaunchBrowser()` and removes it on settle. This is
+  // the atomicity fix for the close-during-launch teardown race: a browser that
+  // is mid-`launch()` is NOT yet in `this.browsers` and has NO disconnect
+  // handler, so it is invisible to every teardown path (shutdown's close pass,
+  // recycle, the disconnect handler). Under the self-heal/relaunch storm a
+  // teardown therefore raced an in-flight launch — closing the browser
+  // underneath it (`browserType.launch: Target page ... has been closed`,
+  // SIGTRAP) or leaking it entirely. shutdown() now DRAINS this set (so it waits
+  // for every in-flight launch to settle before its close pass), and
+  // `launchBrowser` re-checks `isShutdown` the instant a launch settles: if a
+  // shutdown intervened it closes the freshly-launched browser cleanly THEN,
+  // exactly once, instead of leaving it for a teardown that already ran.
+  private pendingLaunches = new Set<Promise<unknown>>();
+
   constructor(options: BrowserPoolOptions = {}) {
     this.logger = options.logger;
     this.injectedLaunchBrowser = options.launchBrowser;
@@ -446,15 +461,56 @@ export class BrowserPool {
    * receives the rejection via the returned `result`. The stagger applies
    * whether the launch resolved or threw — a failed launch is just as
    * PID-costly to retry.
+   *
+   * ATOMIC vs TEARDOWN: the launch promise is registered in `pendingLaunches`
+   * BEFORE it is awaited and removed when it settles, so `shutdown()` can DRAIN
+   * every in-flight launch before its close pass — a launch can no longer escape
+   * teardown accounting (the close-during-launch race). And the instant a launch
+   * settles, if a `shutdown()` raced in while it was in flight, this seam closes
+   * the freshly-launched browser cleanly THEN (exactly once) and re-throws a
+   * shutdown sentinel: the caller's launch then "fails" into its normal
+   * error/abort path rather than registering (and leaking) a browser into a pool
+   * that is going away. Callers must NOT separately close a browser this seam
+   * returned on the shutdown path — the throw means there is no browser to close.
    */
   private launchBrowser = (): Promise<Browser> => {
     const gate = this.launchChain;
-    const result = gate.then(() => this.rawLaunchBrowser());
-    this.launchChain = result
+    const raw = gate.then(() => this.rawLaunchBrowser());
+    // Gate the NEXT launch off the RAW result (pre-shutdown-handling) so the
+    // stagger/queue semantics are unchanged by the teardown guard below.
+    this.launchChain = raw
       .catch(() => undefined)
       .then(() =>
         this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
       );
+
+    const result = raw.then((browser) => {
+      // The launch settled. If a shutdown raced in while it was in flight, this
+      // freshly-launched browser would otherwise be invisible to the close pass
+      // that already ran (it was never in `this.browsers`). Close it cleanly here
+      // — exactly once — and surface a shutdown sentinel so the caller does not
+      // register it into a pool that is tearing down.
+      if (this.isShutdown) {
+        // The launching browser is by definition not yet registered in
+        // `this.browsers`, so there is no meaningful index — log it as -1.
+        return this.closeBrowser(browser, -1).then((): Browser => {
+          throw new Error("BrowserPool shut down during launch");
+        });
+      }
+      return browser;
+    });
+
+    // Track the in-flight launch so shutdown() drains it before closing. Use a
+    // catch-swallowed handle so a rejected launch (failure OR the shutdown
+    // sentinel above) still settles the drain without surfacing an unhandled
+    // rejection on the tracking copy; the caller still receives the real
+    // rejection via `result`.
+    const tracked = result.catch(() => undefined);
+    this.pendingLaunches.add(tracked);
+    void tracked.finally(() => {
+      this.pendingLaunches.delete(tracked);
+    });
+
     return result;
   };
 
@@ -670,16 +726,23 @@ export class BrowserPool {
       throw err;
     }
 
-    // BELT-AND-SUSPENDERS for the recycle-vs-open race: the entry may have been
-    // recycled (crash recovery or a hygiene recycle that fired before this
-    // counter was consulted) WHILE the newContext() above was in flight. If so
-    // the freshly-opened context is an orphan on a torn-down browser — closing
-    // or otherwise counting it would corrupt the cap and could hand a dead
-    // context to a holder. Detect that state, close the orphan, roll back the
-    // reservation + the in-flight marker (generation-guarded so a teardown that
-    // already rolled it back is not double-counted), and surface as a failure so
-    // the caller's retry/enqueue path handles it.
+    // BELT-AND-SUSPENDERS for the recycle-vs-open AND shutdown-vs-open races: the
+    // entry may have been recycled (crash recovery or a hygiene recycle that
+    // fired before this counter was consulted) OR the pool may have SHUT DOWN
+    // WHILE the newContext() above was in flight. If so the freshly-opened
+    // context is an orphan on a torn-down browser / a torn-down pool — closing or
+    // otherwise counting it would corrupt the cap, could hand a dead context to a
+    // holder, OR (the shutdown case) land in contextToBrowser/liveContexts AFTER
+    // shutdown()'s close-pass already ran, leaking a context that is never closed.
+    //
+    // The `isShutdown` term is the SHUTDOWN-LEAK fix: a serveNextWaiter()/acquire
+    // open that reserved before shutdown can settle AFTER shutdown's close-pass.
+    // shutdown() drains inFlightRecycles + pendingLaunches, but this open is
+    // fire-and-forget and tracked by NEITHER set, so the drain does not await it.
+    // Treating shutdown like a recycle here — close the just-opened orphan, roll
+    // back the reservation, and throw — keeps the post-shutdown pool clean.
     if (
+      this.isShutdown ||
       entry.generation !== genBefore ||
       entry.recycling ||
       entry.browser !== browserBefore ||
@@ -749,6 +812,16 @@ export class BrowserPool {
       });
       return context;
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool shut down WHILE this open was in flight —
+      // openContextOn's orphan guard closed the orphan, rolled the reservation
+      // back, and threw. Do NOT enter the transient-retry / recycle / enqueue
+      // path: shutdown() already cleared `this.waiters`, so enqueueWaiter would
+      // strand this acquire on a queue nothing drains (it would only settle on
+      // its own timeout). Reject promptly instead, mirroring the at-entry
+      // `isShutdown` guard. (openContextOn already rolled the reservation back.)
+      if (this.isShutdown) {
+        throw new Error("BrowserPool is shut down");
+      }
       // FIX #7 — a `newContext()` throw does NOT prove the browser died. The
       // unfixed code unconditionally recycled `entry`, so a TRANSIENT
       // newContext error on a still-`isConnected()` shared browser tore down a
@@ -773,6 +846,16 @@ export class BrowserPool {
         try {
           return await this.openContextOn(entry, options);
         } catch (transientRetryErr) {
+          // SHUTDOWN STRADDLE (retry leg): a DISTINCT, genuinely-reachable straddle
+          // window from the outer catch's guard — the outer guard already observed
+          // isShutdown===false, then we re-reserved and re-opened, and the pool can
+          // shut down WHILE THIS retry's open is in flight (its orphan guard then
+          // closed+rolled-back+threw, landing here). Reject promptly, mirroring the
+          // outer guard, rather than enqueueing onto a queue shutdown already
+          // cleared (which would strand this acquire until its timeout).
+          if (this.isShutdown) {
+            throw new Error("BrowserPool is shut down");
+          }
           this.logger?.warn?.("browser-pool.acquire-transient-retry-failed", {
             browserIndex: this.browsers.indexOf(entry),
             connected: entry.browser.isConnected(),
@@ -892,6 +975,15 @@ export class BrowserPool {
 
   private async serveNextWaiter(): Promise<void> {
     if (this.waiters.length === 0) return;
+    // SHUTDOWN GUARD: bail BEFORE shifting/reserving/opening once the pool is
+    // shutting down. shutdown() flips `isShutdown` and rejects every queued
+    // waiter synchronously; a serveNextWaiter scheduled just before that (or
+    // re-entering from a release/recycle handoff) must NOT shift a waiter and
+    // start an `openContextOn` whose context would settle AFTER shutdown's
+    // close-pass and leak into contextToBrowser/liveContexts. (The orphan guard
+    // in openContextOn is the belt; this is the suspenders — never start the open
+    // in the first place.)
+    if (this.isShutdown) return;
     const entry = this.pickLeastLoaded();
     if (!entry) return; // No live browser — waiter served by a later relaunch.
 
@@ -918,6 +1010,22 @@ export class BrowserPool {
     try {
       context = await this.openContextOn(entry, waiter.options);
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool may have shut down WHILE this open was in
+      // flight — openContextOn's orphan guard then closed the orphan, rolled the
+      // reservation back, and threw. This waiter was `shift()`ed off `this.waiters`
+      // (line above) BEFORE shutdown could run; shutdown()'s reject-loop iterates
+      // ONLY what is still on `this.waiters`, so it never saw — and never rejected
+      // — this shifted waiter. Re-queueing it would strand it on a list nothing
+      // drains (shutdown's reject loop already ran) → a never-settling acquire.
+      // THIS branch is therefore the SOLE settler of a shifted-then-straddled
+      // waiter: REJECT it here, mirroring shutdown's waiter-rejection, and do NOT
+      // touch the browser (everything is being torn down).
+      if (this.isShutdown) {
+        if (!waiter.settled) {
+          waiter.reject(new Error("BrowserPool is shut down"));
+        }
+        return;
+      }
       // FIX #7 (propagated to serveNextWaiter) — a `newContext()` throw does NOT
       // prove the browser died. The unfixed code unconditionally recycled
       // `entry`, so a TRANSIENT newContext error on a still-`isConnected()`
@@ -1123,21 +1231,31 @@ export class BrowserPool {
 
     // Reject any queued waiters.
     for (const waiter of this.waiters) {
-      waiter.reject(new Error("BrowserPool is shutting down"));
+      waiter.reject(new Error("BrowserPool is shut down"));
     }
     this.waiters = [];
 
-    // Drain in-flight recycles + self-heal loops in a LOOP, re-snapshotting each
-    // pass. A ONE-TIME snapshot is racy: a self-heal iteration (or an
-    // in-flight-recovery relaunch) can register a NEW promise in
+    // Drain in-flight recycles + self-heal loops AND in-flight launches in a
+    // LOOP, re-snapshotting each pass. A ONE-TIME snapshot is racy: a self-heal
+    // iteration (or an in-flight-recovery relaunch) can register a NEW promise in
     // `inFlightRecycles` AFTER the snapshot — and that late iteration may launch
     // a fresh chromium AFTER shutdown returned, leaking the process. Loop until
-    // the set is genuinely empty (each settled loop/recycle has dropped its
-    // handle), so we await every late-registered iteration too. The loops all
+    // BOTH sets are genuinely empty (each settled loop/recycle/launch has dropped
+    // its handle), so we await every late-registered iteration too.
+    //
+    // `pendingLaunches` is the close-during-launch fix: an init/recycle/self-heal
+    // launch that is mid-`launch()` is NOT yet in `this.browsers`, so the close
+    // pass below cannot see it. Draining it here makes shutdown WAIT for every
+    // in-flight launch to settle; the launch seam itself (`launchBrowser`) then
+    // observes `isShutdown` on settle and closes the freshly-launched browser
+    // cleanly — so it is neither closed mid-launch nor leaked. The loops all
     // check `isShutdown` and the delays abort via the shutdown signal, so this
     // converges promptly.
-    while (this.inFlightRecycles.size > 0) {
-      await Promise.allSettled(Array.from(this.inFlightRecycles));
+    while (this.inFlightRecycles.size > 0 || this.pendingLaunches.size > 0) {
+      await Promise.allSettled([
+        ...Array.from(this.inFlightRecycles),
+        ...Array.from(this.pendingLaunches),
+      ]);
     }
 
     // Close every live context, then every browser. Route through the close

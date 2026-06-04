@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, act } from "@testing-library/react";
+import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 
@@ -52,16 +52,13 @@ describe("A2UIMessageRenderer rendering integration", () => {
       <RenderComponent content={content} agent={null} />
     );
 
-    let container: HTMLElement;
-    await act(async () => {
-      const result = render(<TestWrapper />);
-      container = result.container;
-    });
+    const { container } = render(<TestWrapper />);
 
-    const surfaceElement = container!.querySelector(
-      "[data-surface-id='test-surface']",
-    );
-    expect(surfaceElement).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='test-surface']"),
+      ).not.toBeNull();
+    });
   });
 
   it("should update surface when operations change", async () => {
@@ -104,14 +101,13 @@ describe("A2UIMessageRenderer rendering integration", () => {
       return <RenderComponent content={content} agent={null} />;
     };
 
-    let container: HTMLElement;
-    await act(async () => {
-      const result = render(<TestWrapper />);
-      container = result.container;
-    });
+    const { container } = render(<TestWrapper />);
 
-    const surfaceElement = container!.querySelector("[data-surface-id='test']");
-    expect(surfaceElement).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='test']"),
+      ).not.toBeNull();
+    });
 
     await act(async () => {
       setContent({
@@ -142,8 +138,11 @@ describe("A2UIMessageRenderer rendering integration", () => {
       });
     });
 
-    const updatedSurface = container!.querySelector("[data-surface-id='test']");
-    expect(updatedSurface).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='test']"),
+      ).not.toBeNull();
+    });
   });
 
   it("should return null when no operations are provided", async () => {
@@ -158,13 +157,9 @@ describe("A2UIMessageRenderer rendering integration", () => {
       <RenderComponent content={{ a2ui_operations: [] }} agent={null} />
     );
 
-    let container: HTMLElement;
-    await act(async () => {
-      const result = render(<TestWrapper />);
-      container = result.container;
-    });
+    const { container } = render(<TestWrapper />);
 
-    expect(container!.querySelector("[data-surface-id]")).toBeNull();
+    expect(container.querySelector("[data-surface-id]")).toBeNull();
   });
 
   it("should render multiple surfaces independently", async () => {
@@ -226,15 +221,11 @@ describe("A2UIMessageRenderer rendering integration", () => {
       <RenderComponent content={content} agent={null} />
     );
 
-    let container: HTMLElement;
-    await act(async () => {
-      const result = render(<TestWrapper />);
-      container = result.container;
-    });
+    const { container } = render(<TestWrapper />);
 
-    const surface1 = container!.querySelector("[data-surface-id='s1']");
-    const surface2 = container!.querySelector("[data-surface-id='s2']");
-    expect(surface1).not.toBeNull();
-    expect(surface2).not.toBeNull();
+    await waitFor(() => {
+      expect(container.querySelector("[data-surface-id='s1']")).not.toBeNull();
+      expect(container.querySelector("[data-surface-id='s2']")).not.toBeNull();
+    });
   });
 });

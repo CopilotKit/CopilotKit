@@ -14,9 +14,7 @@ type StaticAgents = Extract<RuntimeOptions["agents"], Record<string, unknown>>;
 //    integration to setup the connection.
 const runtime = new CopilotRuntime({
   agents: {
-    // @ag-ui/crewai's agent is runtime-compatible with CopilotRuntime, but its
-    // current types do not structurally extend the runtime's AbstractAgent.
-    starterAgent: new CrewAIAgent({
+    default: new CrewAIAgent({
       url: process.env.AGENT_URL || "http://localhost:8000/",
     }),
   } as unknown as StaticAgents,

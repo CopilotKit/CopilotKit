@@ -6,6 +6,7 @@ import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
 import {
   useAgent,
+  useConfigureSuggestions,
   useFrontendTool,
   useHumanInTheLoop,
   CopilotSidebar,
@@ -30,9 +31,42 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler({ themeColor }) {
+    handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
+      return `Changing theme color to ${themeColor}`;
     },
+  });
+
+  // 🪁 Suggestions: https://docs.copilotkit.ai/mastra/suggestions
+  useConfigureSuggestions({
+    available: "always",
+    suggestions: [
+      {
+        title: "Generative UI",
+        message: "Get the weather in San Francisco.",
+      },
+      {
+        title: "Frontend Tools",
+        message: "Set the theme to green.",
+      },
+      {
+        title: "Human In the Loop",
+        message: "Please go to the moon.",
+      },
+      {
+        title: "Write Agent State",
+        message: "Add a proverb about AI.",
+      },
+      {
+        title: "Update Agent State",
+        message:
+          "Please remove 1 random proverb from the list if there are any.",
+      },
+      {
+        title: "Read Agent State",
+        message: "What are the proverbs?",
+      },
+    ],
   });
 
   return (
@@ -41,7 +75,7 @@ export default function CopilotKitPage() {
           match the CopilotSidebar chat aesthetic. */}
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="weatherAgent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
@@ -53,10 +87,7 @@ export default function CopilotKitPage() {
           provider's threadId when called without an explicit one, so selecting
           a thread in the drawer drives the same per-thread agent clone.
         */}
-        <CopilotChatConfigurationProvider
-          agentId="weatherAgent"
-          threadId={threadId}
-        >
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
           <main
             style={
               {
@@ -66,37 +97,12 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
+              defaultOpen={true}
               labels={{
-                title: "Popup Assistant",
-                initial: "👋 Hi, there! You're chatting with an agent.",
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
               }}
-              suggestions={[
-                {
-                  title: "Generative UI",
-                  message: "Get the weather in San Francisco.",
-                },
-                {
-                  title: "Frontend Tools",
-                  message: "Set the theme to green.",
-                },
-                {
-                  title: "Human In the Loop",
-                  message: "Please go to the moon.",
-                },
-                {
-                  title: "Write Agent State",
-                  message: "Add a proverb about AI.",
-                },
-                {
-                  title: "Update Agent State",
-                  message:
-                    "Please remove 1 random proverb from the list if there are any.",
-                },
-                {
-                  title: "Read Agent State",
-                  message: "What are the proverbs?",
-                },
-              ]}
             />
           </main>
         </CopilotChatConfigurationProvider>
@@ -108,7 +114,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/mastra/shared-state/in-app-agent-read
   // V2: useAgent returns the agent; read agent.state and write via agent.setState.
-  const { agent } = useAgent({ agentId: "weatherAgent" });
+  const { agent } = useAgent({ agentId: "default" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);
 
@@ -128,8 +134,10 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     {
       name: "weatherTool",
       description: "Get the weather for a given location.",
-      available: "disabled",
-      parameters: z.object({ location: z.string() }),
+      available: false,
+      parameters: z.object({
+        location: z.string(),
+      }),
       render: ({ args }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
