@@ -216,6 +216,13 @@ export function CopilotChat({
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
 
+  // Track the last agent+thread combination we called connect() on. Without
+  // this, connect() fires on every render where the `agent` reference changes
+  // — including unrelated context re-renders during streaming. This mirrors
+  // the v1 pattern in useCopilotChatInternal (lastConnectedAgentRef).
+  const lastConnectedAgentRef = useRef<AbstractAgent | null>(null);
+  const lastConnectedThreadRef = useRef<string | null>(null);
+
   useEffect(() => {
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
@@ -227,6 +234,17 @@ export function CopilotChat({
     // always 404 — skip the call. A real thread is only created once the
     // user runs the agent for the first time.
     if (!hasExplicitThreadId) return;
+
+    // Skip redundant connect calls when the agent reference changes due to
+    // context re-renders but the logical identity (agentId + threadId) hasn't
+    // changed. This prevents mid-stream re-subscription cascades that cause
+    // TOOL_CALL_ARGS double-processing and JSON parse errors.
+    if (
+      agent === lastConnectedAgentRef.current &&
+      resolvedThreadId === lastConnectedThreadRef.current
+    ) {
+      return;
+    }
 
     let detached = false;
 
@@ -269,11 +287,16 @@ export function CopilotChat({
         }
       }
     };
+    lastConnectedAgentRef.current = agent;
+    lastConnectedThreadRef.current = resolvedThreadId;
     connect(agent);
     return () => {
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
+      // Reset the refs so remounts always trigger a fresh connect.
+      lastConnectedAgentRef.current = null;
+      lastConnectedThreadRef.current = null;
       detached = true;
       connectAbortController.abort();
       // The .catch() is required to prevent a false-positive "Uncaught (in promise)
