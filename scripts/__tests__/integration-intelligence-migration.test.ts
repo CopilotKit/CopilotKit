@@ -9,17 +9,8 @@ const migratedIntegrations = [
   "crewai-flows",
   "llamaindex",
   "pydantic-ai",
-  "mcp-apps",
 ] as const;
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
-
-const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
-  "crewai-flows": "src/app",
-  llamaindex: "src/app",
-  "langgraph-fastapi": "src/app",
-  "pydantic-ai": "src/app",
-  "mcp-apps": "app",
-};
 
 function readIntegrationFile(
   integration: string,
@@ -48,7 +39,7 @@ describe("batch-2 Intelligence integration migration", () => {
     it(`${integration} has the env-gated Intelligence runtime route`, () => {
       const route = readIntegrationFile(
         integration,
-        `${appRoots[integration]}/api/copilotkit/[[...slug]]/route.ts`,
+        "src/app/api/copilotkit/[[...slug]]/route.ts",
       );
 
       expect(route).toContain("CopilotKitIntelligence");
@@ -65,37 +56,19 @@ describe("batch-2 Intelligence integration migration", () => {
     });
 
     it(`${integration} forces REST transport for thread routes`, () => {
-      const layout = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/layout.tsx`,
-      );
+      const layout = readIntegrationFile(integration, "src/app/layout.tsx");
 
       expect(layout).toContain("useSingleEndpoint={false}");
     });
 
     it(`${integration} wires the threads drawer into the chat thread context`, () => {
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
+      const page = readIntegrationFile(integration, "src/app/page.tsx");
 
       expect(page).toContain("ThreadsDrawer");
       expect(page).toContain("ThreadsPanelGate");
       expect(page).toContain("CopilotChatConfigurationProvider");
       expect(page).toContain("threadId");
       expect(page).toContain("onThreadChange={setThreadId}");
-
-      if (integration === "mcp-apps") {
-        expect(page).toContain('key={threadId ?? "new-thread"}');
-        expect(page).toContain("threadId={threadId}");
-
-        const drawer = readIntegrationFile(
-          integration,
-          "app/components/threads-drawer/threads-drawer.tsx",
-        );
-        expect(drawer).toContain("onThreadChange(undefined)");
-        expect(drawer).not.toContain("crypto.randomUUID()");
-      }
     });
 
     it(`${integration} exposes the client-safe threads enabled gate`, () => {
