@@ -6,7 +6,9 @@ import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
 import {
   useAgent,
+  useConfigureSuggestions,
   useFrontendTool,
+  useRenderTool,
   useHumanInTheLoop,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
@@ -30,10 +32,46 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler({ themeColor }) {
+    async handler({ themeColor }) {
       setThemeColor(themeColor);
+      return `Theme color set to ${themeColor}`;
     },
   });
+
+  // 🪁 Suggestions: https://docs.copilotkit.ai/microsoft-agent-framework
+  useConfigureSuggestions(
+    {
+      suggestions: [
+        {
+          title: "Generative UI",
+          message: "Get the weather in San Francisco.",
+        },
+        {
+          title: "Frontend Tools",
+          message: "Set the theme to green.",
+        },
+        {
+          title: "Human In the Loop",
+          message: "Please go to the moon.",
+        },
+        {
+          title: "Write Agent State",
+          message: "Add a proverb about AI.",
+        },
+        {
+          title: "Update Agent State",
+          message:
+            "Please remove 1 random proverb from the list if there are any.",
+        },
+        {
+          title: "Read Agent State",
+          message: "What are the proverbs?",
+        },
+      ],
+      available: "always",
+    },
+    [],
+  );
 
   return (
     <div className={`${styles.layout} threadsLayout`}>
@@ -41,7 +79,7 @@ export default function CopilotKitPage() {
           match the CopilotSidebar chat aesthetic. */}
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
@@ -53,10 +91,7 @@ export default function CopilotKitPage() {
           provider's threadId when called without an explicit one, so selecting
           a thread in the drawer drives the same per-thread agent clone.
         */}
-        <CopilotChatConfigurationProvider
-          agentId="my_agent"
-          threadId={threadId}
-        >
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
           <main
             style={
               {
@@ -66,38 +101,12 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
+              defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Popup Assistant",
                 welcomeMessageText:
                   "👋 Hi, there! You're chatting with an agent.",
               }}
-              suggestions={[
-                {
-                  title: "Generative UI",
-                  message: "Get the weather in San Francisco.",
-                },
-                {
-                  title: "Frontend Tools",
-                  message: "Set the theme to green.",
-                },
-                {
-                  title: "Human In the Loop",
-                  message: "Please go to the moon.",
-                },
-                {
-                  title: "Write Agent State",
-                  message: "Add a proverb about AI.",
-                },
-                {
-                  title: "Update Agent State",
-                  message:
-                    "Please remove 1 random proverb from the list if there are any.",
-                },
-                {
-                  title: "Read Agent State",
-                  message: "What are the proverbs?",
-                },
-              ]}
             />
           </main>
         </CopilotChatConfigurationProvider>
@@ -109,7 +118,7 @@ export default function CopilotKitPage() {
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
   // V2: useAgent returns the agent; read agent.state and write via agent.setState.
-  const { agent } = useAgent({ agentId: "my_agent" });
+  const { agent } = useAgent({ agentId: "default" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);
 
@@ -125,14 +134,16 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   }, [agent]);
 
   //🪁 Generative UI: https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui
-  useFrontendTool(
+  useRenderTool(
     {
       name: "get_weather",
-      description: "Get the weather for a given location.",
-      available: "disabled",
-      parameters: z.object({ location: z.string() }),
-      render: ({ args }) => {
-        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ status, parameters }) => {
+        const location =
+          status === "inProgress" ? "" : (parameters.location ?? "");
+        return <WeatherCard location={location} themeColor={themeColor} />;
       },
     },
     [themeColor],

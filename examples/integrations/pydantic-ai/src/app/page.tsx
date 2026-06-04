@@ -34,8 +34,9 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler({ themeColor: nextThemeColor }) {
-      setThemeColor(nextThemeColor);
+    handler: async ({ themeColor }) => {
+      setThemeColor(themeColor);
+      return `Set theme color to ${themeColor}`;
     },
   });
 
@@ -43,16 +44,13 @@ export default function CopilotKitPage() {
     <div className={`${styles.layout} threadsLayout`}>
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="my_agent"
+          agentId="default"
           threadId={threadId}
           onThreadChange={setThreadId}
         />
       </ThreadsPanelGate>
       <div className={styles.mainPanel}>
-        <CopilotChatConfigurationProvider
-          agentId="my_agent"
-          threadId={threadId}
-        >
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
           <main
             style={
               {
@@ -62,40 +60,12 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
-              disableSystemMessage={true}
-              clickOutsideToClose={false}
+              defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Popup Assistant",
                 welcomeMessageText:
                   "👋 Hi, there! You're chatting with an agent.",
               }}
-              suggestions={[
-                {
-                  title: "Generative UI",
-                  message: "Get the weather in San Francisco.",
-                },
-                {
-                  title: "Frontend Tools",
-                  message: "Set the theme to green.",
-                },
-                {
-                  title: "Human In the Loop",
-                  message: "Please go to the moon.",
-                },
-                {
-                  title: "Write Agent State",
-                  message: "Add a proverb about AI.",
-                },
-                {
-                  title: "Update Agent State",
-                  message:
-                    "Please remove 1 random proverb from the list if there are any.",
-                },
-                {
-                  title: "Read Agent State",
-                  message: "What are the proverbs?",
-                },
-              ]}
             />
           </main>
         </CopilotChatConfigurationProvider>
@@ -106,12 +76,12 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
-  const { agent } = useAgent({
-    agentId: "my_agent",
-  });
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "default" });
   const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
   const setState = (next: AgentState) => agent.setState(next);
 
+  // Seed an initial proverb once (the V2 agent starts with empty state).
   useEffect(() => {
     if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
       agent.setState({

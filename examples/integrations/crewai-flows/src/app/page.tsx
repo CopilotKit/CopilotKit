@@ -7,13 +7,15 @@ import {
   CopilotSidebar,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import type { CSSProperties } from "react";
-import { useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { ThreadsDrawer } from "@/components/threads-drawer";
 import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
+// The agent key registered in the runtime route (`agents: { default: ... }`).
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -27,8 +29,9 @@ export default function CopilotKitPage() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler: async ({ themeColor: nextThemeColor }) => {
-      setThemeColor(nextThemeColor);
+    handler: async ({ themeColor }) => {
+      setThemeColor(themeColor);
+      return `Changing background to ${themeColor}`;
     },
   });
 
@@ -36,14 +39,14 @@ export default function CopilotKitPage() {
     <div className={`${styles.layout} threadsLayout`}>
       <ThreadsPanelGate>
         <ThreadsDrawer
-          agentId="sample_agent"
+          agentId={AGENT_ID}
           threadId={threadId}
           onThreadChange={setThreadId}
         />
       </ThreadsPanelGate>
       <div className={styles.mainPanel}>
         <CopilotChatConfigurationProvider
-          agentId="sample_agent"
+          agentId={AGENT_ID}
           threadId={threadId}
         >
           <main
@@ -55,34 +58,12 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
+              defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Popup Assistant",
                 welcomeMessageText:
                   "👋 Hi, there! You're chatting with an agent.",
               }}
-              suggestions={[
-                {
-                  title: "Generative UI",
-                  message: "Get the weather in San Francisco.",
-                },
-                {
-                  title: "Frontend Tools",
-                  message: "Set the theme to green.",
-                },
-                {
-                  title: "Write Agent State",
-                  message: "Add a proverb about AI.",
-                },
-                {
-                  title: "Update Agent State",
-                  message:
-                    "Please remove 1 random proverb from the list if there are any.",
-                },
-                {
-                  title: "Read Agent State",
-                  message: "What are the proverbs?",
-                },
-              ]}
             />
           </main>
         </CopilotChatConfigurationProvider>
@@ -93,27 +74,44 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
   const { agent } = useAgent({
-    agentId: "sample_agent",
+    agentId: "default",
   });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-actions
-  useFrontendTool({
-    name: "updateProverb",
-    parameters: z.object({
-      proverbs: z
-        .array(z.string())
-        .describe(
-          "The proverbs to be committed into state. Make them witty, short and concise.",
-        ),
-    }),
-    handler: async ({ proverbs }) => {
-      agent.setState({
-        ...agent.state,
-        proverbs: [...proverbs],
-      });
+  useFrontendTool(
+    {
+      name: "updateProverb",
+      parameters: z.object({
+        proverbs: z
+          .array(z.string())
+          .describe(
+            "The proverbs to be committed into state. Make them witty, short and concise.",
+          ),
+      }),
+      handler: async ({ proverbs }) => {
+        agent.setState({
+          ...state,
+          proverbs: [...proverbs],
+        });
+        return `Updated proverbs`;
+      },
     },
-  });
+    [agent, state],
+  );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
   useRenderTool({
@@ -142,7 +140,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {agent.state?.proverbs?.map((proverb, index) => (
+          {state.proverbs?.map((proverb, index) => (
             <div
               key={index}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
@@ -151,8 +149,8 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
               <button
                 onClick={() =>
                   agent.setState({
-                    ...agent.state,
-                    proverbs: agent.state?.proverbs?.filter(
+                    ...state,
+                    proverbs: state.proverbs?.filter(
                       (_: string, i: number) => i !== index,
                     ),
                   })
@@ -165,7 +163,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             </div>
           ))}
         </div>
-        {agent.state?.proverbs?.length === 0 && (
+        {state.proverbs?.length === 0 && (
           <p className="text-center text-white/80 italic my-8">
             No proverbs yet. Ask the assistant to add some!
           </p>

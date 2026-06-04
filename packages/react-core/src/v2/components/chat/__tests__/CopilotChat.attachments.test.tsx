@@ -221,9 +221,7 @@ describe("CopilotChat attachments", () => {
         await waitFor(() => {
           expect(agent.isRunning).toBe(true);
         });
-        (
-          agent as unknown as { activeRunCompletionPromise?: Promise<void> }
-        ).activeRunCompletionPromise = inFlight;
+        agent.activeRunCompletionPromise = inFlight;
 
         // No attachments yet — the pre-await guard passes. Fire the send; it
         // parks on the in-flight run's completion promise.

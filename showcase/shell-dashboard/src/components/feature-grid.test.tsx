@@ -11,8 +11,15 @@ import { render } from "@testing-library/react";
 import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
 import type { CellContext, CellRenderer } from "./feature-grid";
 import { urlsFor } from "./cell-pieces";
+import { getIntegrations } from "@/lib/registry";
+import { starterIsSupported, STARTER_LEVELS } from "@/lib/live-status";
 import type { Integration, Feature } from "@/lib/registry";
-import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
+import type {
+  LiveStatusMap,
+  StatusRow,
+  ConnectionStatus,
+} from "@/lib/live-status";
+import { STARTER_STALE_AFTER_MS } from "@/lib/staleness";
 
 describe("LiveIndicator", () => {
   it("renders live → green solid dot", () => {
@@ -230,5 +237,103 @@ describe("computeColumnTally", () => {
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
     // D3=green, D4=green, D5=green → amber (D6 not yet green)
     expect(t).toEqual({ green: 0, amber: 1, red: 0, unknown: false });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d) — must render in the LIVE FeatureGrid   */
+/*  (it was ported here from the dead CellMatrix, where it could never   */
+/*   reach the served dashboard).                                        */
+/* ------------------------------------------------------------------ */
+
+describe("FeatureGrid — Starter row-group", () => {
+  // FeatureGrid pulls from the REAL registry (getIntegrations), so the Starter
+  // section renders against live integration slugs. Resolve a mapped and an
+  // unmapped column from the registry itself rather than hardcoding slugs.
+  const integrations = getIntegrations();
+  const mapped = integrations.find((i) => starterIsSupported(i.slug));
+  const unmapped = integrations.find((i) => !starterIsSupported(i.slug));
+
+  const renderGrid = (
+    live: LiveStatusMap,
+    connection: ConnectionStatus = "live",
+  ) =>
+    render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={() => null}
+        liveStatus={live}
+        connection={connection}
+        shellUrl="https://showcase.staging.copilotkit.ai"
+      />,
+    );
+
+  it("renders the Starter header and all four fixed sub-rows", () => {
+    const { getByText, getByTestId } = renderGrid(new Map());
+    expect(getByText("Starter")).toBeDefined();
+    for (const level of STARTER_LEVELS) {
+      expect(getByTestId(`starter-row-${level}`)).toBeDefined();
+    }
+  });
+
+  it("a mapped column with no row yet renders the gray ? no-data cell", () => {
+    expect(mapped, "registry must have ≥1 mapped starter column").toBeDefined();
+    const { getByTestId } = renderGrid(new Map());
+    const cell = getByTestId(`starter-cell-${mapped!.slug}-health`);
+    expect(cell.textContent).toContain("?");
+  });
+
+  it("an unmapped column renders the not-supported ✗ with the 'no starter' tooltip", () => {
+    expect(unmapped, "registry must have ≥1 unmapped column").toBeDefined();
+    const { getByTestId } = renderGrid(new Map());
+    const cell = getByTestId(`starter-cell-${unmapped!.slug}-health`);
+    expect(cell.textContent).toContain("✗");
+    const chip = cell.querySelector("[title]");
+    expect(chip?.getAttribute("title")).toBe("no starter for this integration");
+  });
+
+  it("✓ green for a passing mapped starter cell", () => {
+    expect(mapped).toBeDefined();
+    const key = `starter:${mapped!.slug}/health`;
+    const live: LiveStatusMap = new Map([[key, row(key, "starter", "green")]]);
+    const { getByTestId } = renderGrid(live);
+    const cell = getByTestId(`starter-cell-${mapped!.slug}-health`);
+    expect(cell.textContent).toContain("✓");
+  });
+
+  it("red ✗ for a failed mapped starter cell", () => {
+    expect(mapped).toBeDefined();
+    const key = `starter:${mapped!.slug}/chat`;
+    const live: LiveStatusMap = new Map([[key, row(key, "starter", "red")]]);
+    const { getByTestId } = renderGrid(live);
+    const cell = getByTestId(`starter-cell-${mapped!.slug}-chat`);
+    expect(cell.textContent).toContain("✗");
+  });
+
+  it("~ amber for a frozen-green starter row past the staleness window", () => {
+    expect(mapped).toBeDefined();
+    const key = `starter:${mapped!.slug}/interaction`;
+    const staleAt = new Date(
+      Date.now() - STARTER_STALE_AFTER_MS - 1,
+    ).toISOString();
+    const live: LiveStatusMap = new Map([
+      [
+        key,
+        {
+          id: "id-stale",
+          key,
+          dimension: "starter",
+          state: "green" as const,
+          signal: {},
+          observed_at: staleAt,
+          transitioned_at: staleAt,
+          fail_count: 0,
+          first_failure_at: null,
+        },
+      ],
+    ]);
+    const { getByTestId } = renderGrid(live);
+    const cell = getByTestId(`starter-cell-${mapped!.slug}-interaction`);
+    expect(cell.textContent).toContain("~");
   });
 });

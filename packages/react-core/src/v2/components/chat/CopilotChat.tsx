@@ -16,6 +16,7 @@ import {
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { isRunCompletionAware } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -295,6 +296,43 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
+  // Serializes consecutive sends: if a run is already in flight, let it finish
+  // before dispatching the next message instead of pre-empting it.
+  // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
+  // ABORT the in-flight run. That abort is harmful when the in-flight run is an
+  // interrupt RESUME: the resume re-enters and completes the paused agent
+  // graph, and aborting it mid-flight leaves the graph paused — so the new
+  // message lands as another resume of the SAME paused graph (re-interrupting
+  // with no fresh payload) instead of starting a clean new turn. This is the
+  // consecutive-interrupt regression: pick turn-1's slot (kicks off the
+  // resume), then immediately send turn-2's message — without waiting, turn-2
+  // aborts the resume and the 2nd interrupt's card never mounts. Awaiting the
+  // active run's completion serializes the two turns so the resume finishes
+  // (graph completes) before the new message starts a fresh run.
+  //
+  // The completion promise lives only on `IntelligenceAgent` (via the
+  // `RunCompletionAware` contract), not on the `AbstractAgent` type held here —
+  // so it is reached through a type guard, not a cast. Agents that don't
+  // implement the contract degrade safely (the await is skipped).
+  const waitForActiveRunToSettle = useCallback(async () => {
+    if (
+      agent.isRunning &&
+      isRunCompletionAware(agent) &&
+      agent.activeRunCompletionPromise
+    ) {
+      try {
+        await agent.activeRunCompletionPromise;
+      } catch (error) {
+        // The in-flight run rejected — proceed with the new send anyway,
+        // but log so a chronically-failing in-flight run is observable.
+        console.error(
+          "CopilotChat: in-flight run rejected while queuing send",
+          error,
+        );
+      }
+    }
+  }, [agent]);
+
   const onSubmitInput = useCallback(
     async (value: string) => {
       // Block if uploads in progress (fast fail against current state before
@@ -318,40 +356,8 @@ export function CopilotChat({
       setInputValue("");
 
       // If a run is already in flight, let it finish before sending the new
-      // message instead of pre-empting it. `copilotkit.runAgent` would
-      // otherwise call `agent.detachActiveRun()` and ABORT the in-flight run.
-      // That abort is harmful when the in-flight run is an interrupt RESUME:
-      // the resume re-enters and completes the paused agent graph, and
-      // aborting it mid-flight leaves the graph paused — so this new message
-      // lands as another resume of the SAME paused graph (re-interrupting
-      // with no fresh payload) instead of starting a clean new turn. This is
-      // the consecutive-interrupt regression: pick turn-1's slot (kicks off
-      // the resume), then immediately send turn-2's message — without waiting,
-      // turn-2 aborts the resume and the 2nd interrupt's card never mounts.
-      // Awaiting the active run's completion serializes the two turns so the
-      // resume finishes (graph completes) before the new message starts a
-      // fresh run.
-      if (
-        agent.isRunning &&
-        "activeRunCompletionPromise" in agent &&
-        (agent as unknown as { activeRunCompletionPromise?: Promise<unknown> })
-          .activeRunCompletionPromise
-      ) {
-        try {
-          await (
-            agent as unknown as {
-              activeRunCompletionPromise?: Promise<unknown>;
-            }
-          ).activeRunCompletionPromise;
-        } catch (error) {
-          // The in-flight run rejected — proceed with the new send anyway,
-          // but log so a chronically-failing in-flight run is observable.
-          console.error(
-            "CopilotChat: in-flight run rejected while queuing send",
-            error,
-          );
-        }
-      }
+      // message instead of pre-empting it (see waitForActiveRunToSettle).
+      await waitForActiveRunToSettle();
 
       // Re-check the uploading guard against LIVE attachment state: an upload
       // can start (or stay in flight) during the await above, so a snapshot
@@ -409,11 +415,17 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, consumeAttachments],
+    [agent, consumeAttachments, waitForActiveRunToSettle],
   );
 
   const handleSelectSuggestion = useCallback(
     async (suggestion: Suggestion) => {
+      // Mirror onSubmitInput's send-serialization: if a run is in flight, wait
+      // for it to settle before dispatching, so selecting a suggestion mid-run
+      // does NOT pre-empt/abort the active run (the same #5195 fix the
+      // typed-Enter path got — here for the suggestion path).
+      await waitForActiveRunToSettle();
+
       agent.addMessage({
         id: randomUUID(),
         role: "user",
@@ -430,7 +442,7 @@ export function CopilotChat({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, waitForActiveRunToSettle],
   );
 
   const stopCurrentRun = useCallback(() => {

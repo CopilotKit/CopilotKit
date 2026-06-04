@@ -61,6 +61,7 @@ import {
 } from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { qaDriver } from "./probes/drivers/qa.js";
+import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
@@ -1016,6 +1017,7 @@ export function registerAllProbeDrivers(
   }
 
   probeRegistry.register(qaDriver);
+  probeRegistry.register(starterSmokeDriver);
 }
 
 /**
