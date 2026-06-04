@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext } from "playwright";
-import { sampleResourceGauges, readCgroupPids } from "./resource-gauges";
-import type { ResourceGauges } from "./resource-gauges";
+import { sampleResourceGauges, readCgroupPids } from "./resource-gauges.js";
+import type { ResourceGauges } from "./resource-gauges.js";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium

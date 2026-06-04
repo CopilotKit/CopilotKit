@@ -3,8 +3,8 @@ import {
   sampleResourceGauges,
   formatGauges,
   readCgroupPids,
-} from "./resource-gauges";
-import type { ResourceGauges } from "./resource-gauges";
+} from "./resource-gauges.js";
+import type { ResourceGauges } from "./resource-gauges.js";
 
 describe("resource-gauges", () => {
   describe("sampleResourceGauges", () => {
