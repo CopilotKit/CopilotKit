@@ -726,16 +726,23 @@ export class BrowserPool {
       throw err;
     }
 
-    // BELT-AND-SUSPENDERS for the recycle-vs-open race: the entry may have been
-    // recycled (crash recovery or a hygiene recycle that fired before this
-    // counter was consulted) WHILE the newContext() above was in flight. If so
-    // the freshly-opened context is an orphan on a torn-down browser — closing
-    // or otherwise counting it would corrupt the cap and could hand a dead
-    // context to a holder. Detect that state, close the orphan, roll back the
-    // reservation + the in-flight marker (generation-guarded so a teardown that
-    // already rolled it back is not double-counted), and surface as a failure so
-    // the caller's retry/enqueue path handles it.
+    // BELT-AND-SUSPENDERS for the recycle-vs-open AND shutdown-vs-open races: the
+    // entry may have been recycled (crash recovery or a hygiene recycle that
+    // fired before this counter was consulted) OR the pool may have SHUT DOWN
+    // WHILE the newContext() above was in flight. If so the freshly-opened
+    // context is an orphan on a torn-down browser / a torn-down pool — closing or
+    // otherwise counting it would corrupt the cap, could hand a dead context to a
+    // holder, OR (the shutdown case) land in contextToBrowser/liveContexts AFTER
+    // shutdown()'s close-pass already ran, leaking a context that is never closed.
+    //
+    // The `isShutdown` term is the SHUTDOWN-LEAK fix: a serveNextWaiter()/acquire
+    // open that reserved before shutdown can settle AFTER shutdown's close-pass.
+    // shutdown() drains inFlightRecycles + pendingLaunches, but this open is
+    // fire-and-forget and tracked by NEITHER set, so the drain does not await it.
+    // Treating shutdown like a recycle here — close the just-opened orphan, roll
+    // back the reservation, and throw — keeps the post-shutdown pool clean.
     if (
+      this.isShutdown ||
       entry.generation !== genBefore ||
       entry.recycling ||
       entry.browser !== browserBefore ||
@@ -805,6 +812,16 @@ export class BrowserPool {
       });
       return context;
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool shut down WHILE this open was in flight —
+      // openContextOn's orphan guard closed the orphan, rolled the reservation
+      // back, and threw. Do NOT enter the transient-retry / recycle / enqueue
+      // path: shutdown() already cleared `this.waiters`, so enqueueWaiter would
+      // strand this acquire on a queue nothing drains (it would only settle on
+      // its own timeout). Reject promptly instead, mirroring the at-entry
+      // `isShutdown` guard. (openContextOn already rolled the reservation back.)
+      if (this.isShutdown) {
+        throw new Error("BrowserPool is shut down");
+      }
       // FIX #7 — a `newContext()` throw does NOT prove the browser died. The
       // unfixed code unconditionally recycled `entry`, so a TRANSIENT
       // newContext error on a still-`isConnected()` shared browser tore down a
@@ -829,6 +846,12 @@ export class BrowserPool {
         try {
           return await this.openContextOn(entry, options);
         } catch (transientRetryErr) {
+          // SHUTDOWN STRADDLE (retry leg): same as the outer catch — if the pool
+          // shut down during this retry's open, reject promptly rather than
+          // enqueueing onto a queue shutdown already cleared.
+          if (this.isShutdown) {
+            throw new Error("BrowserPool is shut down");
+          }
           this.logger?.warn?.("browser-pool.acquire-transient-retry-failed", {
             browserIndex: this.browsers.indexOf(entry),
             connected: entry.browser.isConnected(),
@@ -948,6 +971,15 @@ export class BrowserPool {
 
   private async serveNextWaiter(): Promise<void> {
     if (this.waiters.length === 0) return;
+    // SHUTDOWN GUARD: bail BEFORE shifting/reserving/opening once the pool is
+    // shutting down. shutdown() flips `isShutdown` and rejects every queued
+    // waiter synchronously; a serveNextWaiter scheduled just before that (or
+    // re-entering from a release/recycle handoff) must NOT shift a waiter and
+    // start an `openContextOn` whose context would settle AFTER shutdown's
+    // close-pass and leak into contextToBrowser/liveContexts. (The orphan guard
+    // in openContextOn is the belt; this is the suspenders — never start the open
+    // in the first place.)
+    if (this.isShutdown) return;
     const entry = this.pickLeastLoaded();
     if (!entry) return; // No live browser — waiter served by a later relaunch.
 
@@ -974,6 +1006,20 @@ export class BrowserPool {
     try {
       context = await this.openContextOn(entry, waiter.options);
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool may have shut down WHILE this open was in
+      // flight — openContextOn's orphan guard then closed the orphan, rolled the
+      // reservation back, and threw. shutdown() already rejected + cleared every
+      // queued waiter synchronously, so this shifted waiter is NOT on the queue
+      // anymore. Re-queueing it would strand it on a list nothing drains
+      // (shutdown's reject loop already ran) → a never-settling acquire. REJECT
+      // it here instead, mirroring shutdown's waiter-rejection, and do NOT touch
+      // the browser (everything is being torn down).
+      if (this.isShutdown) {
+        if (!waiter.settled) {
+          waiter.reject(new Error("BrowserPool is shutting down"));
+        }
+        return;
+      }
       // FIX #7 (propagated to serveNextWaiter) — a `newContext()` throw does NOT
       // prove the browser died. The unfixed code unconditionally recycled
       // `entry`, so a TRANSIENT newContext error on a still-`isConnected()`
