@@ -287,6 +287,92 @@ describe("checkDeploymentSuccess", () => {
     expect(err).toMatch(/no deployments/);
   });
 
+  it("waits out an in-progress deployment, then passes on SUCCESS", async () => {
+    // DEPLOYING twice, then SUCCESS — the exact race verify-prod hit
+    // (promote pins digest, Railway still rolling out). Must NOT fail on
+    // the first in-progress read.
+    const statuses = ["DEPLOYING", "DEPLOYING", "SUCCESS"];
+    let i = 0;
+    const fetchImpl = makeFetch(() =>
+      gqlDeploymentResponse(statuses[Math.min(i++, statuses.length - 1)]),
+    );
+    const sleeps: number[] = [];
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 150_000,
+        pollIntervalMs: 5_000,
+        // Deterministic, instant sleep seam — record the requested delays.
+        sleep: async (ms: number) => {
+          sleeps.push(ms);
+        },
+      },
+    );
+    expect(err).toBeUndefined();
+    // Polled twice (two in-progress reads) before the SUCCESS read.
+    expect(sleeps).toEqual([5_000, 5_000]);
+    expect((fetchImpl as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(3);
+  });
+
+  it("fails when an in-progress deployment never settles before the poll budget", async () => {
+    // Always DEPLOYING. A monotonic `now` seam advances past the budget
+    // so the loop terminates deterministically with a timeout error.
+    const fetchImpl = makeFetch(() => gqlDeploymentResponse("DEPLOYING"));
+    let clock = 0;
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 20_000,
+        pollIntervalMs: 5_000,
+        sleep: async (ms: number) => {
+          clock += ms;
+        },
+        now: () => clock,
+      },
+    );
+    expect(err).toMatch(/still in progress/);
+    expect(err).toMatch(/DEPLOYING/);
+    expect(err).toMatch(/prod/);
+  });
+
+  it("fails FAST on a terminal FAILED status without waiting", async () => {
+    const fetchImpl = makeFetch(() => gqlDeploymentResponse("FAILED"));
+    const sleeps: number[] = [];
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 150_000,
+        pollIntervalMs: 5_000,
+        sleep: async (ms: number) => {
+          sleeps.push(ms);
+        },
+      },
+    );
+    expect(err).toMatch(/FAILED/);
+    expect(err).toMatch(/expected SUCCESS/);
+    // No waiting on a terminal failure — exactly one query, zero sleeps.
+    expect(sleeps).toEqual([]);
+    expect((fetchImpl as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
   it("sends the Authorization bearer + serviceId/environmentId variables", async () => {
     const calls: Array<{ url: string; body: unknown; auth?: string }> = [];
     const fetchImpl = makeFetch((url, init) => {
