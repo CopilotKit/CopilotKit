@@ -68,6 +68,18 @@ export const DEFAULT_RESOURCE_SNAPSHOT_MAX_ROWS = 5000;
 const DEFAULT_PRUNE_INTERVAL_MS = 5 * 60_000;
 
 /**
+ * Max rows a SINGLE prune sweep lists + deletes. A cold start over a large
+ * backlog (or lowering RESOURCE_SNAPSHOT_MAX_ROWS on a full collection) makes
+ * `surplus = total - maxRows` thousands large; using that directly as
+ * `list({perPage})` and as a one-clause-per-row `id = ... || ...` delete filter
+ * builds a giant request + a thousands-clause filter URL that PB rejects
+ * (400/414) so the prune never converges. Instead each sweep drains at most this
+ * many oldest rows; `knownOverCap` keeps catching up across subsequent
+ * inserts/sweeps until back under cap.
+ */
+const PRUNE_BATCH_MAX = 200;
+
+/**
  * Consecutive snapshot-write failures before the writer escalates ONCE to
  * `logger.error`. Below this, failures warn (throttled). The escalation is
  * latched and resets on the first success.
@@ -207,6 +219,12 @@ export function createResourceSnapshotWriter(
   // under — otherwise a single rate-limited prune that can't clear the whole
   // backlog in one sweep would leave us over cap until the next interval.
   let knownOverCap = false;
+  // When a sweep makes NO structural progress while still over cap (PB
+  // delete-rule 403, filter 400, or a delete that matched 0 rows), we back the
+  // prune off until this timestamp so the retry is gated by the interval rather
+  // than firing on every insert via the knownOverCap re-arm. Until then BOTH the
+  // write-path re-arm and the prune gate honor the suppression.
+  let pruneSuppressedUntil = 0;
   // Local row-count estimate so the rate-limit can't STRAND us over cap until
   // the next interval. Each successful insert bumps it; every prune resets it to
   // the actual total. When the estimate crosses `maxRows` the next insert forces
@@ -249,11 +267,16 @@ export function createResourceSnapshotWriter(
         reject(new Error(`pb create timed out after ${writeTimeoutMs}ms`));
       }, writeTimeoutMs);
     });
+    // The orphaned create promise keeps running after a timeout wins the race.
+    // If a client that ignores the AbortSignal lets it REJECT later, the
+    // unhandled rejection would crash the process — swallow it. (The race
+    // result is what the caller acts on; this only neutralizes the loser.)
+    const create = pb.create(RESOURCE_SNAPSHOTS_COLLECTION, record, {
+      signal: ac.signal,
+    });
+    create.catch(() => {});
     try {
-      await Promise.race([
-        pb.create(RESOURCE_SNAPSHOTS_COLLECTION, record, { signal: ac.signal }),
-        timeout,
-      ]);
+      await Promise.race([create, timeout]);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }
@@ -292,6 +315,23 @@ export function createResourceSnapshotWriter(
     }
   }
 
+  /**
+   * Back off the prune when a sweep makes no STRUCTURAL progress while still
+   * over cap (no usable ids, or `deleteByFilter` returned 0 — PB delete-rule
+   * 403, a filter 400, etc.). Clears `knownOverCap` AND opens a suppression
+   * window (`pruneSuppressedUntil`) for one `pruneIntervalMs`. Until that window
+   * elapses, the write-path re-arm leaves `knownOverCap` cleared and the prune
+   * gate stays shut — so the retry is genuinely gated to once-per-interval
+   * rather than re-running the failing list-probe + sweep on every insert
+   * (estimatedTotal is still over cap, which would otherwise re-arm immediately).
+   */
+  function suppressPruneUntilInterval(): void {
+    knownOverCap = false;
+    const t = now();
+    lastPruneAt = t;
+    pruneSuppressedUntil = t + pruneIntervalMs;
+  }
+
   async function prune(): Promise<void> {
     try {
       // Cheapest possible "are we over cap?" probe: ask PB for the total.
@@ -308,19 +348,26 @@ export function createResourceSnapshotWriter(
         return;
       }
       knownOverCap = true;
-      // ROBUST-TO-TIES prune: delete the oldest `surplus` rows by stable row
+      // BOUNDED sweep: a cold start over a large backlog makes `surplus`
+      // thousands large; listing/deleting all of it in one sweep builds a giant
+      // perPage + a thousands-clause `id = ... || ...` filter URL that PB
+      // rejects (400/414) so the prune never converges. Cap each sweep to
+      // `PRUNE_BATCH_MAX` oldest rows and let `knownOverCap` drain the rest
+      // across subsequent inserts/sweeps.
+      const surplus = total - maxRows;
+      const batch = Math.min(surplus, PRUNE_BATCH_MAX);
+      // ROBUST-TO-TIES prune: delete the oldest `batch` rows by stable row
       // IDENTITY (id), NOT by a bare `observed_at < cutoff` strict compare.
       // observed_at is ms-resolution and several snapshots can share the same
       // millisecond (degraded+heartbeat+crash); a strict timestamp cutoff would
       // strand the surplus rows that tie the boundary and spin forever. Listing
       // the oldest rows directly and deleting them by id converges regardless.
-      const surplus = total - maxRows;
       const oldest = await pb.list<{ id: string; observed_at: string }>(
         RESOURCE_SNAPSHOTS_COLLECTION,
         {
           sort: "observed_at", // oldest first
           page: 1,
-          perPage: surplus,
+          perPage: batch,
           skipTotal: true,
         },
       );
@@ -328,10 +375,10 @@ export function createResourceSnapshotWriter(
         .map((r) => r.id)
         .filter((id): id is string => typeof id === "string" && id.length > 0);
       if (ids.length === 0) {
-        // No usable ids (e.g. a fake/old PB without id) — stop here rather than
-        // spin; next interval retries. Don't leave knownOverCap latched on a
-        // structural inability to prune.
-        knownOverCap = false;
+        // No usable ids (e.g. a fake/old PB without id) — make no progress.
+        // Back off via the interval rate-limit (below) instead of re-arming
+        // knownOverCap, which would re-probe on EVERY subsequent insert.
+        suppressPruneUntilInterval();
         return;
       }
       const filter = ids.map((id) => `id = ${JSON.stringify(id)}`).join(" || ");
@@ -344,14 +391,19 @@ export function createResourceSnapshotWriter(
       }
       estimatedTotal = total - deleted;
       if (deleted === 0) {
-        // Made no progress despite being over cap (e.g. nothing matched the id
-        // filter). Don't re-latch a sweep that can't converge; next interval
-        // retries. This is the safety valve that prevents a prune spin.
-        knownOverCap = false;
+        // Made no STRUCTURAL progress despite being over cap (PB delete-rule
+        // 403, a filter 400, or the delete matched nothing). Re-arming
+        // knownOverCap here would re-run a full list-probe + sweep on EVERY
+        // subsequent insert, hammering a broken delete path once per heartbeat.
+        // Instead back off: clear knownOverCap AND advance lastPruneAt so the
+        // `pruneIntervalMs` rate-limit genuinely gates the retry (once per
+        // interval, not once per insert).
+        suppressPruneUntilInterval();
         return;
       }
-      // Keep catching up next insert if still over cap (a single sweep is capped
-      // at `surplus` deletes, which is exact here, but stay defensive).
+      // Keep catching up next insert while still over cap. A single sweep is
+      // bounded at `PRUNE_BATCH_MAX` deletes, so a large backlog drains over
+      // multiple inserts/sweeps rather than one oversized request.
       knownOverCap = estimatedTotal > maxRows;
     } catch (err) {
       // Prune is best-effort: a failed sweep just means we retry next time.
@@ -372,6 +424,25 @@ export function createResourceSnapshotWriter(
           inFlight,
           maxInFlight,
         });
+        // DROP→ESCALATION seam (item #2): if PB is 100% broken the in-flight
+        // slots stay occupied by hung/timing-out writes, so new snapshots keep
+        // hitting THIS drop path instead of the timeout→failure path — which
+        // would let the loud `write-failing-systematically` error be delayed or
+        // dodged entirely. So once writes are ALREADY failing
+        // (`consecutiveFailures > 0` — the hung writes have begun timing out, or
+        // PB is rejecting outright) a concurrent drop ALSO counts toward the
+        // systematic-failure signal, accelerating the loud error instead of
+        // masking it. A drop while writes are succeeding normally
+        // (`consecutiveFailures === 0`: healthy backpressure, the in-flight
+        // writes are pending-but-fine) does NOT escalate — no false positive.
+        if (consecutiveFailures > 0) {
+          onWriteFailure(
+            event,
+            new Error(
+              `in-flight cap saturated while writes are failing (inFlight=${inFlight}/${maxInFlight})`,
+            ),
+          );
+        }
         return;
       }
       inFlight += 1;
@@ -396,8 +467,13 @@ export function createResourceSnapshotWriter(
         onWriteSuccess();
         // Local row-count estimate bumps per insert; once it crosses the cap the
         // rate-limit must NOT strand us — force a catch-up prune on this insert.
+        // EXCEPTION: while a no-progress backoff window is open, do NOT re-arm;
+        // re-arming here is exactly the cascade that hammers a broken delete path
+        // once per insert. The interval gate below takes over after the window.
         estimatedTotal += 1;
-        if (estimatedTotal > maxRows) knownOverCap = true;
+        if (estimatedTotal > maxRows && now() >= pruneSuppressedUntil) {
+          knownOverCap = true;
+        }
       } catch (err) {
         // BEST-EFFORT: a missing migration (400), PB outage, or network error
         // must NEVER break the pool. Swallow + count (throttled warn, latched
@@ -410,9 +486,13 @@ export function createResourceSnapshotWriter(
         inFlight -= 1;
       }
       // Ring retention: only sweep once per interval (or while known over cap)
-      // so a heartbeat burst doesn't issue a delete sweep on every insert.
+      // so a heartbeat burst doesn't issue a delete sweep on every insert. While
+      // a no-progress backoff window is open, suppress the interval-driven sweep
+      // too — the retry is gated to once the window elapses.
       const t = now();
-      if (knownOverCap || t - lastPruneAt >= pruneIntervalMs) {
+      const intervalElapsed =
+        t - lastPruneAt >= pruneIntervalMs && t >= pruneSuppressedUntil;
+      if (knownOverCap || intervalElapsed) {
         lastPruneAt = t;
         await prune();
       }
