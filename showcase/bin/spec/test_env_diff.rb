@@ -69,4 +69,45 @@ class EnvDiffTest < Minitest::Test
         assert_includes missing_in_b, "only-in-staging.copilotkit.ai"
         assert_includes missing_in_a, "only-in-prod.copilotkit.ai"
     end
+
+    # A service that exists in one snapshot but not the other must surface a
+    # "missing in <env>" drift line. This also exercises the missing-service
+    # branch that was previously untested.
+    def test_service_missing_in_one_env_reported
+        snap_a = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT], "custom_domains" => [] },
+                { "name" => "extra-svc", "digest" => "sha256:def",
+                  "start_command" => nil, "env_keys" => %w[PORT], "custom_domains" => [] },
+            ],
+        }
+        snap_b = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT], "custom_domains" => [] },
+            ],
+        }
+        cmd = Railway::EnvDiffCommand.new(%w[staging production])
+        drift = cmd.diff_services(snap_a, snap_b, "staging", "production")
+        missing = drift.find { |l| l.include?("extra-svc") && l.include?("missing in production") }
+        assert missing, "expected 'extra-svc missing in production', got: #{drift.inspect}"
+    end
+
+    # A snapshot lacking a "services" key must not raise NoMethodError — every
+    # accessor in diff_services must guard with `|| []`. Without the guard this
+    # raises before returning, failing the test loudly.
+    def test_snapshot_without_services_key_does_not_crash
+        snap_a = {} # no "services" key at all
+        snap_b = {
+            "services" => [
+                { "name" => "showcase-shell", "digest" => "sha256:abc",
+                  "start_command" => nil, "env_keys" => %w[PORT], "custom_domains" => [] },
+            ],
+        }
+        cmd = Railway::EnvDiffCommand.new(%w[staging production])
+        drift = cmd.diff_services(snap_a, snap_b, "staging", "production")
+        missing = drift.find { |l| l.include?("showcase-shell") && l.include?("missing in staging") }
+        assert missing, "expected 'showcase-shell missing in staging', got: #{drift.inspect}"
+    end
 end

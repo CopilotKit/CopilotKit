@@ -54,33 +54,33 @@ class SnapshotIvarLintTest < Minitest::Test
     #                       prose (do not perform a read)
     ALLOWED_LINES = [
         # `run` — capture full-fleet view before optional narrowing.
-        '1175:@full_staging_snapshot = @staging_snapshot',
-        '1176:@full_prod_snapshot    = @prod_snapshot',
+        '1202:@full_staging_snapshot = @staging_snapshot',
+        '1203:@full_prod_snapshot    = @prod_snapshot',
 
         # Doc comment above narrow_snapshots_to_single_service!.
-        '1184:# Narrow @staging_snapshot and @prod_snapshot to only the named',
+        '1211:# Narrow @staging_snapshot and @prod_snapshot to only the named',
 
         # narrow_snapshots_to_single_service! — the WRITE site.
-        '1192:staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }',
-        '1197:@staging_snapshot = @staging_snapshot.merge("services" => staging_match)',
-        '1198:prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }',
-        '1199:@prod_snapshot = @prod_snapshot.merge("services" => prod_match)',
+        '1219:staging_match = (@staging_snapshot["services"] || []).select { |s| s["name"] == name }',
+        '1224:@staging_snapshot = @staging_snapshot.merge("services" => staging_match)',
+        '1225:prod_match = (@prod_snapshot["services"] || []).select { |s| s["name"] == name }',
+        '1226:@prod_snapshot = @prod_snapshot.merge("services" => prod_match)',
 
         # Doc comment above capture_snapshots.
-        '1203:# @staging_snapshot / @prod_snapshot directly.',
+        '1230:# @staging_snapshot / @prod_snapshot directly.',
 
         # capture_snapshots — single test-seam assignment site.
-        '1205:@staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)',
-        '1206:@prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)',
+        '1232:@staging_snapshot ||= SnapshotCommand.new(["--env", "staging", "--dry-run"]).build_snapshot(STAGING_ENV_ID)',
+        '1233:@prod_snapshot    ||= SnapshotCommand.new(["--env", "production", "--dry-run"]).build_snapshot(PRODUCTION_ENV_ID)',
 
         # Doc comment above the accessor block (explains test seam).
-        '1230:# promote tests stub @staging_snapshot/@prod_snapshot directly',
+        '1257:# promote tests stub @staging_snapshot/@prod_snapshot directly',
 
         # The four accessor bodies — the ONLY sanctioned reads.
-        '1242:@full_staging_snapshot || @staging_snapshot',
-        '1246:@full_prod_snapshot || @prod_snapshot',
-        '1250:@staging_snapshot',
-        '1254:@prod_snapshot',
+        '1269:@full_staging_snapshot || @staging_snapshot',
+        '1273:@full_prod_snapshot || @prod_snapshot',
+        '1277:@staging_snapshot',
+        '1281:@prod_snapshot',
     ].freeze
 
     def setup
