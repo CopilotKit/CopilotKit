@@ -37,8 +37,7 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
-import { createA2UIRecoveryRenderer } from "../a2ui/A2UIRecoveryRenderer";
-import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryRenderer";
+import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -355,15 +354,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     if (runtimeA2UIEnabled) {
+      // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
+      // building skeleton → retrying → hard-failure → painted surface, all on one
+      // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
+      // debug exposure); the server can override debugExposure via the middleware.
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
           catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
+          recovery: a2ui?.recovery,
         }),
-        // Renders the `a2ui_recovery` status (OSS-162) — retrying hint /
-        // hard-failure — as a pure data contract (no toolkit dependency).
-        createA2UIRecoveryRenderer(a2ui?.recovery),
       );
     }
 
