@@ -51,10 +51,11 @@
 # four checks are cheap HTTP round-trips, but each tick WAKES sleeping
 # scale-to-zero services, so we keep the cadence well above the 15-min smoke
 # rhythm to keep wake frequency (and idle cost) low. The dashboard's
-# `STARTER_STALE_AFTER_MS` (UI slot) is derived from THIS schedule at
-# strictly > 2 probe periods, so a single missed/slow-wake tick stays green
-# and only two consecutive misses flip amber. Keep this cron and that
-# staleness window in lockstep.
+# `STARTER_STALE_AFTER_MS` (UI slot) is derived from THIS hourly schedule
+# (1h probe period) at strictly > 2 probe periods — it is set to 2.5h, so a
+# single missed/slow-wake tick (last row ~2h old) stays green and only two
+# consecutive misses (last row ~3h old) flip amber. Keep this cron and that
+# 2.5h staleness window in lockstep.
 kind: starter_smoke
 id: starter_smoke
 schedule: "40 * * * *"

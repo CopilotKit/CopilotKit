@@ -956,6 +956,36 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     expect(b.label).toBe("✓");
   });
 
+  // Hourly-cadence derivation (starter_smoke.yml `schedule: "40 * * * *"`,
+  // 1h probe period; STARTER_STALE_AFTER_MS = 2.5h). These pin the window to
+  // the hourly basis: a single missed tick (last row ~2h old) MUST stay green;
+  // two consecutive misses (last row ~3h old) MUST flip amber.
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
+  it("window is strictly > 2 hourly probe periods and < 3 (derived 2.5h)", () => {
+    expect(STARTER_STALE_AFTER_MS).toBeGreaterThan(2 * ONE_HOUR_MS);
+    expect(STARTER_STALE_AFTER_MS).toBeLessThan(3 * ONE_HOUR_MS);
+  });
+
+  it("single missed hourly tick (~2h old) stays green", () => {
+    const oneMiss = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 2 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, oneMiss, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("two consecutive missed hourly ticks (~3h old) flip amber ~", () => {
+    const twoMisses = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 3 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, twoMisses, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    expect(b.row?.state).toBe("degraded");
+  });
+
   it("gray ?: supported column, no row yet → gray ? (not-yet-run)", () => {
     const b = buildStarterBadge("interaction", true, null, NOW, "live");
     expect(b.tone).toBe("gray");
