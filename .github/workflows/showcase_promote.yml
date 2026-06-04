@@ -412,3 +412,10 @@ jobs:
           CSV: ${{ steps.state.outputs.csv }}
         run: |
           echo "::warning::Showcase promote failed for '$CSV' but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+      - name: Log (no Slack — team-showcase webhook unset)
+        if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS == ''
+        env:
+          CSV: ${{ steps.state.outputs.csv }}
+          ICON: ${{ steps.state.outputs.icon }}
+        run: |
+          echo "::notice::$ICON Showcase promoted to prod for '$CSV' but SLACK_WEBHOOK_TEAM_SHOWCASE is not set; no #team-showcase notification sent."
