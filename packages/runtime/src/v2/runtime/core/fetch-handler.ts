@@ -58,6 +58,7 @@ import {
   handleGetThreadEvents,
   handleGetThreadState,
 } from "../handlers/handle-threads";
+import { handleAnnotate } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
   createJsonRequest,
@@ -360,6 +361,8 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
+    case "annotate":
+      return handleAnnotate({ runtime, request });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
