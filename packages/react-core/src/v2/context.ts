@@ -17,6 +17,14 @@ export interface CopilotKitContextValue {
    * are captured even before child components mount.
    */
   executingToolCallIds: ReadonlySet<string>;
+  /**
+   * Whether the built-in `IntelligenceIndicator` pill auto-mounts on
+   * assistant messages when the runtime is in intelligence mode.
+   * Mirrors the `showIntelligenceIndicator` prop on `CopilotKitProvider`.
+   * When omitted (e.g. providers that don't surface the option), consumers
+   * treat it as `true` for backward compatibility.
+   */
+  showIntelligenceIndicator?: boolean;
 }
 
 export const EMPTY_SET: ReadonlySet<string> = new Set();

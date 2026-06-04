@@ -387,7 +387,7 @@ export function CopilotChatMessageView({
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -613,7 +613,15 @@ export function CopilotChatMessageView({
     // assistant messages avoids the per-slot `useAgent` subscription
     // and four effects on user/reasoning/activity slots that would just
     // return null at the role gate anyway.
-    if (copilotkit.intelligence !== undefined && message.role === "assistant") {
+    //
+    // Suppressed entirely when `showIntelligenceIndicator` is `false`
+    // (set via the `CopilotKitProvider` prop) so apps with their own
+    // custom intelligence status UI can opt out.
+    if (
+      showIntelligenceIndicator &&
+      copilotkit.intelligence !== undefined &&
+      message.role === "assistant"
+    ) {
       elements.push(
         <IntelligenceIndicator
           key={`${message.id}-intelligence`}
