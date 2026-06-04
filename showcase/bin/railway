@@ -103,14 +103,6 @@ module Railway
     # same SSOT as EXPECTED_DOMAINS so they cannot drift.
     STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
-    # Heuristic markers for env-scoped URLs (ignored in env-diff and promote).
-    ENV_SCOPED_URL_MARKERS = [
-        ".staging.copilotkit.ai",
-        ".copilotkit.ai",
-        "staging-",
-        "prod-",
-    ].freeze
-
     # ── Token / Auth ───────────────────────────────────────────────────────────
 
     module Auth
@@ -451,12 +443,6 @@ module Railway
     # Find service entry in a snapshot by name.
     def find_service(snapshot, name)
         (snapshot["services"] || []).find { |s| s["name"] == name }
-    end
-
-    # Strip env-scoped url-ish values when comparing two envs.
-    def env_scoped?(value)
-        return false unless value.is_a?(String)
-        ENV_SCOPED_URL_MARKERS.any? { |m| value.include?(m) }
     end
 
     # ── Snapshot Schema ────────────────────────────────────────────────────────
@@ -902,8 +888,14 @@ module Railway
         def find_previous_deployment(service_id, env_id)
             data = gql.query(DEPLOYMENTS_QUERY, serviceId: service_id, envId: env_id)
             deployments = (data.dig("deployments", "edges") || []).map { |e| e["node"] }
-            # Pick the second SUCCESS in reverse-chronological order.
-            successes = deployments.select { |d| d["status"] == "SUCCESS" }
+            # Railway's `deployments` connection returns nodes in an arbitrary
+            # order, so sort newest-first by createdAt before selecting — same
+            # hazard the sibling fetch_latest_staging_deployments guards against.
+            # Then pick the SECOND SUCCESS (the deploy preceding the current one).
+            successes = deployments
+                .sort_by { |d| d["createdAt"].to_s }
+                .reverse
+                .select { |d| d["status"] == "SUCCESS" }
             return nil if successes.size < 2
             successes[1]["id"]
         end
@@ -1744,13 +1736,12 @@ module Railway
         def parser
             OptionParser.new do |o|
                 o.banner = <<~BANNER
-                    Usage: bin/railway env-diff ENV_A ENV_B [--ignore-env-scoped]
+                    Usage: bin/railway env-diff ENV_A ENV_B
 
                       Compare image digests, startCommand, env-var key sets, and
-                      custom domains between two envs. Exits 0 if equal (modulo
-                      ignored markers), 1 if drift, 2 on error.
+                      custom domains between two envs. Exits 0 if equal, 1 if
+                      drift, 2 on error.
                 BANNER
-                o.on("--ignore-env-scoped") { options[:ignore_env_scoped] = true }
                 o.on("-h", "--help") { puts o; exit 0 }
             end
         end
@@ -1766,6 +1757,17 @@ module Railway
             snap_a = SnapshotCommand.new(["--env", a, "--dry-run"]).build_snapshot(id_a)
             snap_b = SnapshotCommand.new(["--env", b, "--dry-run"]).build_snapshot(id_b)
 
+            drift = diff_services(snap_a, snap_b, a, b)
+
+            drift.each { |line| puts line }
+            puts drift.empty? ? "OK: #{a} and #{b} agree." : "DRIFT: #{drift.size} finding(s)."
+            drift.empty? ? 0 : 1
+        end
+
+        # Pure comparison of two already-built snapshots. Returns an array of
+        # human-readable drift lines (empty == envs agree). Compares image
+        # digest, startCommand, env-var KEY sets, and custom domains.
+        def diff_services(snap_a, snap_b, a, b)
             drift = []
             names = ((snap_a["services"] + snap_b["services"]).map { |s| s["name"] }).uniq.sort
             names.each do |name|
@@ -1790,11 +1792,15 @@ module Railway
                 missing_in_a = sb["env_keys"] - sa["env_keys"]
                 drift << "service #{name}: env keys missing in #{b}: #{missing_in_b.join(', ')}" unless missing_in_b.empty?
                 drift << "service #{name}: env keys missing in #{a}: #{missing_in_a.join(', ')}" unless missing_in_a.empty?
-            end
 
-            drift.each { |line| puts line }
-            puts drift.empty? ? "OK: #{a} and #{b} agree." : "DRIFT: #{drift.size} finding(s)."
-            drift.empty? ? 0 : 1
+                domains_a = sa["custom_domains"] || []
+                domains_b = sb["custom_domains"] || []
+                domains_missing_in_b = domains_a - domains_b
+                domains_missing_in_a = domains_b - domains_a
+                drift << "service #{name}: custom domains missing in #{b}: #{domains_missing_in_b.join(', ')}" unless domains_missing_in_b.empty?
+                drift << "service #{name}: custom domains missing in #{a}: #{domains_missing_in_a.join(', ')}" unless domains_missing_in_a.empty?
+            end
+            drift
         end
     end
 
