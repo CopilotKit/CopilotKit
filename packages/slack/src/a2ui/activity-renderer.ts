@@ -29,7 +29,7 @@ export const A2UI_ACTIVITY_TYPE = "a2ui-surface";
  * straight to `@a2ui/web_core`'s `MessageProcessor`, which has its
  * own (more precise) validation.
  */
-const a2uiOperationSchema = z.record(z.unknown());
+const a2uiOperationSchema = z.record(z.string(), z.unknown());
 const a2uiActivityContentSchema = z.object({
   a2ui_operations: z.array(a2uiOperationSchema),
 });
