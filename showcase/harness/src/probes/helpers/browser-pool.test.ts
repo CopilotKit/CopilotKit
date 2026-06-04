@@ -1,13 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { promises as fs } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, it, expect } from "vitest";
 import type { Browser, BrowserContext } from "playwright";
-import {
-  BrowserPool,
-  defaultPurgeProfileDirs,
-  PURGE_MIN_AGE_MS,
-} from "./browser-pool.js";
+import { BrowserPool } from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
 
 /**
@@ -1860,16 +1853,18 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
   // the breaker trips at the threshold, the HARD recovery PURGES the stale
   // profile dirs — modeled here by the purge "unwedging" the launcher — and the
   // pool cold-launches fresh, so acquire() succeeds again.
-  it("OUTAGE: circuit-breaker hard-recovers (purge + cold-launch) out of a chromium launch-crash-loop the plain self-heal could not escape", async () => {
+  it("OUTAGE: circuit-breaker hard-recovers (paced cold relaunch) out of a chromium launch-crash-loop the plain self-heal could not escape", async () => {
     // init launches 1 browser (call 1). Everything AFTER call 1 throws the
     // "...has been closed" launch-crash-loop error — modeling the wedged
-    // container. The PURGE is what breaks the wedge: when the breaker fires the
-    // hard recovery, the injected purge flips the launcher healthy so the
-    // subsequent COLD launch succeeds. Without the breaker the purge never runs,
-    // launches stay wedged, and the pool is dead forever.
+    // container. The PROVEN wedge (cgroup PID/thread-ceiling exhaustion) relaxes
+    // over time, so the hard recovery is a PACED cold relaunch: after the
+    // threshold of consecutive failures the breaker backs off, then flips the
+    // launcher healthy (the kernel relaxing) so the subsequent cold launch
+    // succeeds. Without the breaker's give-up backstop the loop would spin into
+    // the same wedge forever with no operator signal.
     const launcher = makeFakeLauncher({ failAfterCall: 1 });
     const { logger, events } = makeLeveledLogger();
-    let purgeCalls = 0;
+    let hardRecoveries = 0;
     let recovered = 0;
     const pool = new BrowserPool({
       browsers: 1,
@@ -1883,19 +1878,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       // Trip the hard recovery after 3 consecutive self-heal launch failures.
       selfHealHardRecoveryThreshold: 3,
       selfHealMaxHardRecoveries: 3,
-      // The purge models clearing stale /tmp/playwright_* profile dirs. Doing so
-      // "unwedges" chromium — the proof that the hard recovery (not another
-      // identical relaunch) is what escapes the loop. The SAME injected helper
-      // also serves the PROACTIVE sweep (init + every recycle), which passes the
-      // conservative `staleProfileDirTtlMs`; gate on the breaker's aggressive
-      // `PURGE_MIN_AGE_MS` so only the breaker's hard-recovery purge counts +
-      // heals (the proactive sweep must NOT prematurely unwedge the launcher).
-      purgeProfileDirs: async (minAgeMs) => {
-        if (minAgeMs !== PURGE_MIN_AGE_MS) return 0; // proactive sweep: no-op here
-        purgeCalls++;
-        launcher.setFailAfter(undefined);
-        return 2;
-      },
       onRecovered: () => {
         recovered++;
       },
@@ -1909,15 +1891,23 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     launcher.launched[0]!.__crash();
 
     // BREAKER PROOF: after the threshold of consecutive failures the hard
-    // recovery fires — the purge runs (clears the wedge) and the cold launch
-    // succeeds, reviving the pool to full strength and firing onRecovered.
+    // recovery fires (paced cold relaunch). The moment we observe it, flip the
+    // launcher healthy (modeling the PID/thread ceiling relaxing) so the NEXT
+    // cold relaunch succeeds and the pool revives to full strength + onRecovered.
+    await waitFor(
+      () =>
+        events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+      5_000,
+    );
+    hardRecoveries = events.filter(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    ).length;
+    launcher.setFailAfter(undefined);
+
     await waitFor(() => recovered >= 1, 5_000);
-    expect(purgeCalls).toBeGreaterThanOrEqual(1);
+    expect(hardRecoveries).toBeGreaterThanOrEqual(1);
     expect(
       events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
-    ).toBe(true);
-    expect(
-      events.some((e) => e.event === "browser-pool.self-heal-profile-purge"),
     ).toBe(true);
 
     // The pool is alive again: a fresh acquire succeeds (no timeout, no wedge).
@@ -1935,7 +1925,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
   it("circuit-breaker: fires the hard recovery only AFTER the consecutive-failure threshold is reached", async () => {
     const launcher = makeFakeLauncher({ failAfterCall: 1 });
     const { logger, events } = makeLeveledLogger();
-    let purgeCalls = 0;
     const pool = new BrowserPool({
       browsers: 1,
       maxContexts: 2,
@@ -1947,44 +1936,41 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       selfHealIntervalMs: 1,
       selfHealHardRecoveryThreshold: 3,
       selfHealMaxHardRecoveries: 5,
-      // Count ONLY the breaker's hard-recovery purge (aggressive PURGE_MIN_AGE_MS),
-      // not the proactive sweep that shares this helper.
-      purgeProfileDirs: async (minAgeMs) => {
-        if (minAgeMs !== PURGE_MIN_AGE_MS) return 0; // proactive sweep: no-op here
-        purgeCalls++;
-        // Do NOT heal — keep the wedge so we can count failures BEFORE the first
-        // purge fired.
-        return 0;
-      },
     });
     await pool.init();
     launcher.launched[0]!.__crash();
 
     // Wait until the first hard recovery has fired.
-    await waitFor(() => purgeCalls >= 1, 5_000);
+    await waitFor(
+      () =>
+        events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+      5_000,
+    );
 
-    // At the moment the FIRST purge fired, at least `threshold` consecutive
-    // self-heal launch failures must have been logged first (the breaker does
-    // not fire early).
-    const failuresBeforeFirstPurge = events.filter(
-      (e) => e.event === "browser-pool.self-heal-launch-failed",
-    ).length;
-    expect(failuresBeforeFirstPurge).toBeGreaterThanOrEqual(3);
+    // At the moment the FIRST hard recovery fired, at least `threshold`
+    // consecutive self-heal launch failures must have been logged first (the
+    // breaker does not fire early).
+    const firstHardRecoveryIdx = events.findIndex(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    );
+    const failuresBeforeFirstHardRecovery = events
+      .slice(0, firstHardRecoveryIdx)
+      .filter((e) => e.event === "browser-pool.self-heal-launch-failed").length;
+    expect(failuresBeforeFirstHardRecovery).toBeGreaterThanOrEqual(3);
 
     await pool.shutdown();
   });
 
-  // RED (pre-breaker, silent spin) → GREEN: if even the HARD recovery cannot
-  // break the wedge (the purge does not help — e.g. a genuinely broken
-  // container), the breaker gives up LOUDLY after K hard recoveries with a
+  // RED (pre-breaker, silent spin) → GREEN: if even the HARD recovery (the paced
+  // cold relaunch) cannot break the wedge — e.g. the PID/thread ceiling never
+  // relaxes — the breaker gives up LOUDLY after K hard recoveries with a
   // `pool-unrecoverable` alarm and stops the heal loop, rather than spinning
   // self-heal-launch-failed forever with no operator signal.
   it("OUTAGE: circuit-breaker surfaces a loud pool-unrecoverable alarm (and stops) when even hard recovery cannot escape the wedge", async () => {
-    // Permanently wedged: launches throw forever and the purge never heals.
+    // Permanently wedged: launches throw forever (the ceiling never relaxes).
     const launcher = makeFakeLauncher({ failAfterCall: 1 });
     const { logger, events } = makeLeveledLogger();
     let unrecoverableCalls = 0;
-    let purgeCalls = 0;
     const pool = new BrowserPool({
       browsers: 1,
       maxContexts: 2,
@@ -1996,14 +1982,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       selfHealIntervalMs: 1,
       selfHealHardRecoveryThreshold: 2,
       selfHealMaxHardRecoveries: 2,
-      // Count ONLY the breaker's hard-recovery purge (aggressive PURGE_MIN_AGE_MS),
-      // not the proactive sweep that shares this helper.
-      purgeProfileDirs: async (minAgeMs) => {
-        if (minAgeMs !== PURGE_MIN_AGE_MS) return 0; // proactive sweep: no-op here
-        purgeCalls++;
-        // Purge cannot fix it — the wedge survives even the profile-dir clear.
-        return 0;
-      },
       onUnrecoverable: () => {
         unrecoverableCalls++;
       },
@@ -2015,7 +1993,10 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     // both fail, and then it gives up LOUDLY.
     await waitFor(() => unrecoverableCalls >= 1, 5_000);
     expect(unrecoverableCalls).toBe(1);
-    expect(purgeCalls).toBeGreaterThanOrEqual(2);
+    const hardRecoveries = events.filter(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    ).length;
+    expect(hardRecoveries).toBeGreaterThanOrEqual(2);
     expect(
       events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
     ).toBe(true);
@@ -2046,8 +2027,7 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     // Shape the launcher so the heal sequence is: fail, fail, fail (trip toward
     // threshold) … then SUCCEED once (partial revive — must reset the counter) …
     // then succeed again (full strength). If the counter did NOT reset on the
-    // partial success, a hard recovery (purge) would fire; we assert it does NOT.
-    let purgeCalls = 0;
+    // partial success, a hard recovery would fire; we assert it does NOT.
     let recovered = 0;
     const { logger, events } = makeLeveledLogger();
 
@@ -2082,14 +2062,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       selfHealIntervalMs: 1,
       selfHealHardRecoveryThreshold: 4,
       selfHealMaxHardRecoveries: 3,
-      // Count ONLY the breaker's hard-recovery purge (aggressive PURGE_MIN_AGE_MS).
-      // The proactive sweep (init + recycle) shares this helper and would
-      // otherwise inflate purgeCalls past the `=== 0` assertion below.
-      purgeProfileDirs: async (minAgeMs) => {
-        if (minAgeMs !== PURGE_MIN_AGE_MS) return 0; // proactive sweep: no-op here
-        purgeCalls++;
-        return 0;
-      },
       onRecovered: () => {
         recovered++;
       },
@@ -2108,7 +2080,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     // The breaker NEVER tripped a hard recovery: the 3-failure streak stayed
     // below the threshold of 4, and the partial revive reset the counter so the
     // second top-up launch could not push a stale counter over the line.
-    expect(purgeCalls).toBe(0);
     expect(
       events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
     ).toBe(false);
@@ -2157,7 +2128,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       selfHealIntervalMs: 1,
       selfHealHardRecoveryThreshold: 2,
       selfHealMaxHardRecoveries: 2,
-      purgeProfileDirs: async () => 0, // never heals — forces a give-up
       onUnrecoverable: (info) => {
         unrecoverableCalls++;
         infos.push({
@@ -2210,7 +2180,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     const launcher = makeFakeLauncher({ failAfterCall: 1 });
     const { logger, events } = makeLeveledLogger();
     let unrecoverableCalls = 0;
-    let purgeCalls = 0;
     const pool = new BrowserPool({
       browsers: 1,
       maxContexts: 2,
@@ -2223,13 +2192,6 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
       // The footgun: 0 would disable the `> 0` guards under the unfixed code.
       selfHealHardRecoveryThreshold: 0,
       selfHealMaxHardRecoveries: 0,
-      // Count ONLY the breaker's hard-recovery purge (aggressive PURGE_MIN_AGE_MS),
-      // not the proactive sweep that shares this helper.
-      purgeProfileDirs: async (minAgeMs) => {
-        if (minAgeMs !== PURGE_MIN_AGE_MS) return 0; // proactive sweep: no-op here
-        purgeCalls++;
-        return 0;
-      },
       onUnrecoverable: () => {
         unrecoverableCalls++;
       },
@@ -2241,7 +2203,9 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     // spinning forever. Without the clamp, neither would fire (silent spin).
     await waitFor(() => unrecoverableCalls >= 1, 5_000);
     expect(unrecoverableCalls).toBe(1);
-    expect(purgeCalls).toBeGreaterThanOrEqual(1);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(true);
     expect(
       events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
     ).toBe(true);
@@ -3363,335 +3327,131 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
   });
 });
 
-// ── CR-FIX: defaultPurgeProfileDirs safety (symlink-safe + age-scoped) ────────
+// ── RESOURCE-GAUGE INSTRUMENTATION (early-warning logging) ───────────────────
 //
-// The self-heal hard-recovery purge runs against the WORLD-WRITABLE OS temp dir.
-// The unfixed implementation did a blind `readdir` (no withFileTypes) + `rm(...,
-// {recursive:true,force:true})` on every `playwright_*` entry, so:
-//   (a) a planted `playwright_*` SYMLINK had its TARGET recursively deleted, and
-//   (b) a browser launching CONCURRENTLY with the purge had its FRESH profile dir
-//       nuked out from under it (re-wedging the very launch being revived).
-// The fix reads dirents, SKIPS symlinks + non-directories, and only removes dirs
-// older than `PURGE_MIN_AGE_MS`. These tests had ZERO coverage before (the pool
-// tests inject a no-op purge), so they pin the real implementation.
-describe("defaultPurgeProfileDirs — symlink-safe + age-scoped purge", () => {
-  let root: string;
-
-  async function makeAgedDir(name: string): Promise<string> {
-    const p = join(root, name);
-    await fs.mkdir(p, { recursive: true });
-    // Drop a file inside so we can prove a recursive delete removed contents.
-    await fs.writeFile(join(p, "sentinel"), "x");
-    // Backdate mtime well past the purge age threshold so it is eligible.
-    const old = new Date(Date.now() - (PURGE_MIN_AGE_MS + 60_000));
-    await fs.utimes(p, old, old);
-    return p;
-  }
-
-  beforeEach(async () => {
-    root = await fs.mkdtemp(join(tmpdir(), "purge-fixture-"));
-  });
-
-  afterEach(async () => {
-    await fs.rm(root, { recursive: true, force: true }).catch(() => undefined);
-  });
-
-  it("removes OLD playwright_* and playwright-artifacts-* dirs, leaves non-matching dirs", async () => {
-    const pwOld = await makeAgedDir("playwright_abc123");
-    const artifactsOld = await makeAgedDir("playwright-artifacts-xyz");
-    const unrelated = await makeAgedDir("some-other-dir");
-
-    const removed = await defaultPurgeProfileDirs(PURGE_MIN_AGE_MS, root);
-
-    expect(removed).toBe(2);
-    await expect(fs.stat(pwOld)).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(fs.stat(artifactsOld)).rejects.toMatchObject({
-      code: "ENOENT",
+// The PROVEN browser-pool wedge is cgroup PID/thread-ceiling exhaustion: a d6
+// launch burst drives `pids.current` toward the platform-fixed `pids.max=1000`,
+// every `chromium.launch()` then throws pthread EAGAIN → "...has been closed" →
+// crash-loop. To make a burst approaching the ceiling OBSERVABLE — and let an
+// EAGAIN be correlated to a measured `pids.current` — the pool samples + logs
+// the OS resource gauges (`browser-pool.resource-gauges`, headline
+// pids.current/pids.max + thread count) on EVERY launch and on the
+// `self-heal-launch-failed` path. These tests pin that the gauge is sampled +
+// logged on those events (they FAIL before the gauge is wired). Off-Linux the
+// gauge fields degrade to -1; the test asserts the EVENT + label, not the
+// (host-specific) numeric values.
+describe("BrowserPool — resource-gauge instrumentation (PID-ceiling early warning)", () => {
+  it("RED→GREEN: logs the resource gauges on every launchBrowser() (label=launch)", async () => {
+    const launcher = makeFakeLauncher({});
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 3,
+      maxContexts: 6,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
     });
-    // The non-matching dir is LEFT ALONE.
-    await expect(fs.stat(unrelated)).resolves.toBeDefined();
-  });
+    await pool.init();
 
-  it("SKIPS a playwright_* SYMLINK and never deletes its target's contents", async () => {
-    // A real victim dir the symlink points at — must survive untouched.
-    const victim = join(root, "victim-target");
-    await fs.mkdir(victim, { recursive: true });
-    await fs.writeFile(join(victim, "precious"), "do-not-delete");
-    // Backdate the victim so it CANNOT be excused by the age guard.
-    const old = new Date(Date.now() - (PURGE_MIN_AGE_MS + 60_000));
-    await fs.utimes(victim, old, old);
-
-    // The planted symlink matches the prefix but is a SYMLINK, not a real dir.
-    const planted = join(root, "playwright_evil");
-    await fs.symlink(victim, planted);
-    await fs.lutimes?.(planted, old, old).catch(() => undefined);
-
-    const removed = await defaultPurgeProfileDirs(PURGE_MIN_AGE_MS, root);
-
-    // The symlink was skipped (not counted, target untouched).
-    expect(removed).toBe(0);
-    await expect(fs.stat(join(victim, "precious"))).resolves.toBeDefined();
-    // The symlink itself is left in place (we never followed/removed it).
-    await expect(fs.lstat(planted)).resolves.toBeDefined();
-  });
-
-  it("LEAVES too-fresh playwright_* dirs (a concurrently-launching browser's dir)", async () => {
-    const fresh = join(root, "playwright_fresh");
-    await fs.mkdir(fresh, { recursive: true });
-    // mtime = now → younger than PURGE_MIN_AGE_MS → must be skipped.
-
-    const removed = await defaultPurgeProfileDirs(PURGE_MIN_AGE_MS, root);
-
-    expect(removed).toBe(0);
-    await expect(fs.stat(fresh)).resolves.toBeDefined();
-  });
-
-  it("swallows a missing temp dir (ENOENT) and returns 0", async () => {
-    const removed = await defaultPurgeProfileDirs(
-      PURGE_MIN_AGE_MS,
-      join(root, "does-not-exist-subdir"),
+    // init fills the fixed set with `browsers` launches — each must have logged a
+    // gauge sample labeled `launch` BEFORE forking the chromium process.
+    const launchGauges = events.filter(
+      (e) =>
+        e.event === "browser-pool.resource-gauges" &&
+        e.meta?.label === "launch",
     );
-    expect(removed).toBe(0);
-  });
-});
-
-describe("BrowserPool — PREVENTION: proactive stale-profile-dir sweep (durable root-cause fix)", () => {
-  // The RECURRING wedge: a long-lived harness container launches chromium
-  // repeatedly (init fill, hygiene recycles, crash-recovery relaunches); EVERY
-  // launch leaves a `/tmp/playwright_*` profile dir + `playwright-artifacts-*`
-  // dir whose Playwright close-time cleanup is BEST-EFFORT (logged-and-swallowed
-  // on failure). Over hours the orphans accumulate MONOTONICALLY until `/tmp`
-  // exhausts inodes/space — then every `chromium.launch()` throws "Target page,
-  // context or browser has been closed" and the pool wedges permanently (only a
-  // restart, which gives a fresh `/tmp`, clears it). The PREVENTION sweeps the
-  // age-gated stale dirs PROACTIVELY on a cadence (init + every recycle), keeping
-  // `/tmp` bounded so the exhaustion never happens. These tests assert the
-  // cadence fires (RED without the wiring) and that the real sweep — the SAME
-  // canonical `defaultPurgeProfileDirs` the breaker uses, just with the
-  // conservative `staleProfileDirTtlMs` age — is age-gated so it can never
-  // delete a dir still in use.
-
-  const poolInternals = (
-    pool: BrowserPool,
-  ): { browsers: Array<{ browser: { __crash(): void } }> } =>
-    pool as unknown as {
-      browsers: Array<{ browser: { __crash(): void } }>;
-    };
-
-  it("RED→GREEN: fires the stale-profile sweep once at init()", async () => {
-    const { launchBrowser } = makeFakeLauncher();
-    const sweepCalls: number[] = [];
-    const pool = new BrowserPool({
-      browsers: 2,
-      maxContexts: 8,
-      recycleAfter: 1000,
-      launchBrowser,
-      launchStaggerMs: 0,
-      staleProfileDirTtlMs: 60_000,
-      // Inject so we can assert the cadence WITHOUT touching the real FS. (An
-      // injected launcher would otherwise default the purge to a hermetic no-op.)
-      // The proactive sweep calls this with the conservative age threshold.
-      purgeProfileDirs: async (minAgeMs) => {
-        sweepCalls.push(minAgeMs);
-        return 0;
-      },
-    });
-    await pool.init();
-    await drainMicrotasks();
-
-    // Without the init() sweep wiring this is 0 (RED). With it, exactly one
-    // sweep fired, carrying the configured TTL as its age argument.
-    expect(sweepCalls.length).toBe(1);
-    expect(sweepCalls[0]).toBe(60_000);
+    expect(launchGauges.length).toBe(3);
+    // The headline cgroup PID fields are present in the structured payload (the
+    // signal the alert names); off-Linux they are -1, which is still a number.
+    const meta = launchGauges[0]!.meta!;
+    expect("cgroupPidsCurrent" in meta).toBe(true);
+    expect("cgroupPidsMax" in meta).toBe(true);
+    expect("treeThreadCount" in meta).toBe(true);
 
     await pool.shutdown();
   });
 
-  it("RED→GREEN: fires the stale-profile sweep on EVERY recycle (crash + hygiene)", async () => {
-    // browser0 crashes → crash recycle; browser1 hits recycleAfter=1 → hygiene
-    // recycle. Each replacement must fire the sweep (the cadence that reclaims
-    // the orphans each chromium replacement would otherwise leave to accumulate).
-    const { launchBrowser, launched } = makeFakeLauncher();
-    const sweepCalls: string[] = [];
+  it("RED→GREEN: logs the resource gauges on the self-heal-launch-failed path", async () => {
+    // init launches 1; everything after fails (persistent EAGAIN-style wedge).
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
     const pool = new BrowserPool({
-      browsers: 2,
-      maxContexts: 8,
-      recycleAfter: 1, // first served context makes the entry hygiene-eligible
-      relaunchBackoffMs: 0,
-      launchBrowser,
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
       launchStaggerMs: 0,
-      staleProfileDirTtlMs: 0,
-      purgeProfileDirs: async () => {
-        sweepCalls.push("sweep");
-        return 0;
-      },
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // Give up after a couple hard recoveries so the loop terminates the test.
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
     });
     await pool.init();
-    await drainMicrotasks();
+    // Crash the only browser → set empties → self-heal loop relaunches, every
+    // attempt fails → each failure logs a gauge sample labeled accordingly.
+    launcher.launched[0]!.__crash();
 
-    const initSweeps = sweepCalls.length; // 1 (init)
-    expect(initSweeps).toBe(1);
-
-    // Crash browser0 → crash recycle → relaunch → sweep.
-    launched[0]!.__crash();
-    await waitFor(() => sweepCalls.length >= initSweeps + 1);
-
-    // Drive a hygiene recycle on a surviving/relaunched browser: acquire+release
-    // once (recycleAfter=1) so the next idle release fires a hygiene recycle.
-    const ctx = await pool.acquire();
-    await pool.release(ctx);
-    await waitFor(() => sweepCalls.length >= initSweeps + 2);
-
-    // Each recycle (crash AND hygiene) fired its own sweep on top of init's.
-    // Without the recycle-cadence wiring sweepCalls would stay at initSweeps (RED).
-    expect(sweepCalls.length).toBeGreaterThanOrEqual(initSweeps + 2);
-
-    await pool.shutdown();
-  });
-
-  it("BOUNDED ACCUMULATION: across N recycle cycles the sweep keeps the orphan dir count from growing without bound", async () => {
-    // Model the production accumulation: each launch "creates" 2 orphan dirs in a
-    // simulated `/tmp`; Playwright's close-time cleanup is modeled as FAILING
-    // (the swallowed-failure case that causes the real leak), so WITHOUT a sweep
-    // the count grows by 2 per recycle forever. The injected sweep removes the
-    // age-gated stale entries on the recycle cadence, so the simulated `/tmp`
-    // stays BOUNDED across many cycles instead of growing monotonically.
-    // Model the simulated container `/tmp` as a map of dirName → owning launch
-    // seq. Each launch adds 2 dirs (profile + artifacts) tagged with its seq. A
-    // LIVE browser's dir is "in use"; when a browser is replaced (recycle) the
-    // OLD seq's dirs become orphans Playwright's best-effort cleanup left behind
-    // (the swallowed-failure leak). The age-gated sweep reclaims dirs whose seq
-    // is no longer live — i.e. exactly the orphans, never an in-use dir.
-    const fakeTmp = new Map<string, number>(); // dirName -> launchSeq
-    let launchSeq = 0;
-    const liveSeqs = new Set<number>(); // seqs whose browser is currently live
-
-    const customLauncher: LaunchBrowser = async () => {
-      const seq = launchSeq++;
-      fakeTmp.set(`playwright_chromiumdev_profile-${seq}`, seq);
-      fakeTmp.set(`playwright-artifacts-${seq}`, seq);
-      liveSeqs.add(seq);
-      const b = makeFakeBrowser();
-      // When this browser is closed (recycle teardown calls browser.close()),
-      // its seq stops being live — its dirs become orphans (NOT cleaned, modeling
-      // the real leak). The age gate is modeled by "only non-live seqs are stale".
-      const origClose = b.close.bind(b);
-      b.close = async () => {
-        liveSeqs.delete(seq);
-        await origClose();
-      };
-      return b as unknown as Browser;
-    };
-
-    // Age-gated sweep: removes ONLY dirs whose owning seq is no longer live (the
-    // orphans). An in-use (live) browser's dir is never removed — the age gate's
-    // real-world analogue (a live browser touches its dir, mtime ~now < cutoff).
-    const sweep = async (): Promise<number> => {
-      let removed = 0;
-      for (const [name, seq] of [...fakeTmp]) {
-        if (!liveSeqs.has(seq)) {
-          fakeTmp.delete(name);
-          removed++;
-        }
-      }
-      return removed;
-    };
-
-    const pool = new BrowserPool({
-      browsers: 2,
-      maxContexts: 8,
-      recycleAfter: 1000,
-      relaunchBackoffMs: 0,
-      launchBrowser: customLauncher,
-      launchStaggerMs: 0,
-      staleProfileDirTtlMs: 0,
-      purgeProfileDirs: sweep,
-    });
-    await pool.init();
-    await drainMicrotasks();
-    // After init the 2 live browsers' dirs are present (4 entries); none are
-    // orphans yet, so the init sweep removed nothing.
-    expect(fakeTmp.size).toBe(4);
-
-    const poolBrowsers = poolInternals(pool).browsers as unknown as Array<{
-      browser: { __crash(): void };
-    }>;
-
-    // Drive MANY crash→recycle cycles. Each crash orphans the old browser's 2
-    // dirs and the relaunch adds 2 new live dirs; the recycle-cadence sweep
-    // reclaims the orphans. WITHOUT the sweep, fakeTmp would grow by 2 per cycle
-    // (unbounded → exhaustion → the production wedge). WITH it, it stays bounded
-    // at ~2 * browserCount (only the live browsers' dirs).
-    const CYCLES = 30;
-    for (let i = 0; i < CYCLES; i++) {
-      const launchSeqBefore = launchSeq;
-      poolBrowsers[0]!.browser.__crash();
-      await waitFor(
-        () =>
-          launchSeq > launchSeqBefore &&
-          poolInternals(pool).browsers.length === 2,
-      );
-    }
-    // The orphan-producing launch count grew linearly with CYCLES.
-    expect(launchSeq).toBeGreaterThanOrEqual(CYCLES + 2);
-    // Let the fire-and-forget cadence sweeps settle.
     await waitFor(
-      () => liveSeqs.size === 2 && fakeTmp.size <= 2 * 2 + 2,
+      () =>
+        events.some(
+          (e) =>
+            e.event === "browser-pool.resource-gauges" &&
+            e.meta?.label === "self-heal-launch-failed",
+        ),
       5_000,
     );
-
-    // BOUNDED: `/tmp` holds only the live browsers' dirs (≤ 2*browsers) plus at
-    // most one in-flight cycle's slack — NOT 2 * (CYCLES + browsers). A no-sweep
-    // run would leave ~2 * (CYCLES + 2) = 64 entries here.
-    expect(fakeTmp.size).toBeLessThanOrEqual(2 * 2 + 2);
+    const healFailGauges = events.filter(
+      (e) =>
+        e.event === "browser-pool.resource-gauges" &&
+        e.meta?.label === "self-heal-launch-failed",
+    );
+    expect(healFailGauges.length).toBeGreaterThanOrEqual(1);
 
     await pool.shutdown();
   });
 
-  it("AGE GATE (real FS): defaultPurgeProfileDirs removes OLD orphans but NEVER a fresh in-use dir", async () => {
-    // The safety property the whole prevention rests on: the sweep must never
-    // delete a dir for a launch in flight / a live browser. Those are touched
-    // continuously (mtime ~now), so the age gate must skip them. Create a "fresh"
-    // dir (mtime now) and an "old" orphan (mtime far in the past) and assert the
-    // sweep removes ONLY the old one. Also assert a non-playwright dir is never
-    // touched (prefix gate). Uses the canonical helper with the conservative
-    // 5-min proactive TTL.
-    const tag = `${process.pid}-${Date.now()}`;
-    const freshDir = join(
-      tmpdir(),
-      `playwright_chromiumdev_profile-fresh-${tag}`,
-    );
-    const oldDir = join(tmpdir(), `playwright-artifacts-old-${tag}`);
-    const unrelatedDir = join(tmpdir(), `not-playwright-${tag}`);
-    await fs.mkdir(freshDir, { recursive: true });
-    await fs.mkdir(oldDir, { recursive: true });
-    await fs.mkdir(unrelatedDir, { recursive: true });
-    // Back-date the "old" orphan an hour so it is older than any sane TTL.
-    const oldTime = new Date(Date.now() - 3_600_000);
-    await fs.utimes(oldDir, oldTime, oldTime);
+  it("the pool-unrecoverable alarm payload carries the cgroup PID gauges (names the real signal)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger } = makeLeveledLogger();
+    let captured:
+      | {
+          cgroupPidsCurrent: number;
+          cgroupPidsMax: number;
+          treeThreadCount: number;
+        }
+      | undefined;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      onUnrecoverable: (info) => {
+        captured = {
+          cgroupPidsCurrent: info.cgroupPidsCurrent,
+          cgroupPidsMax: info.cgroupPidsMax,
+          treeThreadCount: info.treeThreadCount,
+        };
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
 
-    try {
-      // age = 5 min: the fresh dir (mtime now) is YOUNGER than the age gate and
-      // must be skipped; the hour-old orphan is OLDER and must be removed.
-      const removed = await defaultPurgeProfileDirs(5 * 60_000);
-      expect(removed).toBeGreaterThanOrEqual(1);
+    await waitFor(() => captured !== undefined, 5_000);
+    // The give-up alarm names the PROVEN wedge signal (the measured PID counts +
+    // thread demand), not just the abstract breaker counters. Off-Linux these
+    // degrade to -1 — still a number, still present in the payload.
+    expect(typeof captured!.cgroupPidsCurrent).toBe("number");
+    expect(typeof captured!.cgroupPidsMax).toBe("number");
+    expect(typeof captured!.treeThreadCount).toBe("number");
 
-      const exists = async (p: string): Promise<boolean> =>
-        fs
-          .stat(p)
-          .then(() => true)
-          .catch(() => false);
-
-      // The in-use (fresh) dir survives — the age gate protected it.
-      expect(await exists(freshDir)).toBe(true);
-      // The old orphan was reclaimed.
-      expect(await exists(oldDir)).toBe(false);
-      // A non-playwright dir is never touched (prefix gate).
-      expect(await exists(unrelatedDir)).toBe(true);
-    } finally {
-      await fs.rm(freshDir, { recursive: true, force: true });
-      await fs.rm(oldDir, { recursive: true, force: true });
-      await fs.rm(unrelatedDir, { recursive: true, force: true });
-    }
+    await pool.shutdown();
   });
 });

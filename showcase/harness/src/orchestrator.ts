@@ -1073,12 +1073,20 @@ export const BROWSER_POOL_UNRECOVERABLE_KEY =
 export const BROWSER_POOL_ALERT_WEBHOOK_ENV =
   "SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE";
 
-/** Breaker counters surfaced in the terminal alarm so an operator sees how hard
- *  the pool tried before giving up. */
+/** Breaker counters + resource gauges surfaced in the terminal alarm so an
+ *  operator sees how hard the pool tried before giving up AND the PROVEN wedge
+ *  signal (the cgroup PID/thread ceiling) that caused it. */
 export interface BrowserPoolBreakerCounters {
   browserCount: number;
   waiters: number;
   maxHardRecoveries: number;
+  /** cgroup `pids.current` at give-up — the measured PID/thread count against
+   *  the ceiling. -1 off-Linux / when the cgroup PID controller is unreadable. */
+  cgroupPidsCurrent?: number;
+  /** cgroup `pids.max` ceiling at give-up (-1 = unbounded / unavailable). */
+  cgroupPidsMax?: number;
+  /** Process-tree thread count at give-up (demand against `pids.max`). */
+  treeThreadCount?: number;
 }
 
 interface BrowserPoolHealthSignalsDeps {
@@ -1224,10 +1232,18 @@ export function createBrowserPoolHealthSignals(
     counters: BrowserPoolBreakerCounters,
   ): Promise<void> =>
     enqueue(async () => {
+      // Name the PROVEN wedge signal (cgroup PID/thread-ceiling exhaustion) in
+      // the alert when it was measured, so the operator sees the real cause
+      // rather than just the abstract breaker counters.
+      const pidsClause =
+        counters.cgroupPidsCurrent !== undefined &&
+        counters.cgroupPidsCurrent >= 0
+          ? `, pids.current=${counters.cgroupPidsCurrent}/pids.max=${counters.cgroupPidsMax}, threads=${counters.treeThreadCount}`
+          : "";
       const message =
         "browser pool UNRECOVERABLE — self-heal circuit-breaker gave up after " +
         `${counters.maxHardRecoveries} hard recoveries; a REDEPLOY is required ` +
-        `(browserCount=${counters.browserCount}, waiters=${counters.waiters})`;
+        `(browserCount=${counters.browserCount}, waiters=${counters.waiters}${pidsClause})`;
       const observedAt = nextObservedAt();
       // (1) UNCONDITIONAL health-signal writes — distinct terminal key + escalate
       //     the shared degraded key to critical/terminal.
@@ -1243,6 +1259,9 @@ export function createBrowserPoolHealthSignals(
             browserCount: counters.browserCount,
             waiters: counters.waiters,
             maxHardRecoveries: counters.maxHardRecoveries,
+            cgroupPidsCurrent: counters.cgroupPidsCurrent,
+            cgroupPidsMax: counters.cgroupPidsMax,
+            treeThreadCount: counters.treeThreadCount,
             unrecoverableSince: new Date().toISOString(),
           },
           observedAt,

@@ -1,7 +1,5 @@
-import { promises as fs } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { Browser, BrowserContext } from "playwright";
+import { sampleResourceGauges } from "./resource-gauges";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium
@@ -98,127 +96,6 @@ const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
  */
 const DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD = 4;
 const DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES = 3;
-
-/**
- * Glob-free prefix of the per-launch profile/temp dirs Playwright's chromium
- * leaves under the OS temp dir. The default chromium launcher does not pin a
- * `userDataDir`, so each launch creates an ephemeral `playwright_*` (and
- * related `playwright-artifacts-*`) directory; a crash-looping container
- * accumulates these and the FD/shm/inode pressure keeps every fresh launch
- * crashing. The hard-recovery purge removes them so a cold launch starts clean.
- */
-const PLAYWRIGHT_TMP_PREFIXES = ["playwright_", "playwright-artifacts-"];
-
-/**
- * Default minimum age (ms) a `playwright_*` dir must EXCEED before the
- * AGGRESSIVE breaker hard-recovery purge removes it. Bounds the blast radius: a
- * browser launching CONCURRENTLY with the purge (the cold-launch the hard
- * recovery is about to fire, or a sibling pool) has a fresh `playwright_*` dir;
- * recursively deleting it out from under an in-flight launch would re-wedge the
- * very launch we are trying to revive. Only dirs whose mtime is older than this
- * — i.e. left behind by the PRIOR wedged generation — are purged. 60s
- * comfortably exceeds a single launch/heal cycle. The hard-recovery path runs
- * only AFTER the fleet has already wedged, so it errs aggressive (reclaim fast).
- */
-export const PURGE_MIN_AGE_MS = 60_000;
-
-/**
- * Default minimum age (ms) a `playwright_*` dir must EXCEED before the PROACTIVE
- * stale-profile sweep removes it. The proactive sweep runs on a cadence (init +
- * every recycle) BEFORE any wedge, so it errs CONSERVATIVE: a 5-minute floor
- * leaves a wide margin so a dir belonging to a launch in flight or a live
- * browser (touched continuously, mtime ~now) is never even close to eligible.
- * The two ages feed the SAME `defaultPurgeProfileDirs` helper — the breaker
- * passes the aggressive `PURGE_MIN_AGE_MS`, the proactive sweep passes this.
- * Tunable on staging via env (BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS) without a
- * code change.
- */
-export const DEFAULT_STALE_PROFILE_DIR_TTL_MS = 5 * 60_000;
-
-/**
- * The ONE canonical profile/temp-dir purge — shared by BOTH the durable
- * browser-pool defenses:
- *  - the PROACTIVE prevention sweep (run on a cadence at `init()` and on EVERY
- *    recycle relaunch, passing the conservative `staleProfileDirTtlMs`, 5 min)
- *    that keeps `/tmp` bounded so it never reaches the exhaustion that wedges
- *    every future `chromium.launch()`; and
- *  - the breaker's AGGRESSIVE hard-recovery purge (run only AFTER the fleet has
- *    already wedged, passing `PURGE_MIN_AGE_MS`, 60s) that reclaims the orphaned
- *    profile/FD/shm pressure so a cold launch starts clean.
- * Same hardened implementation, different `minAgeMs` argument — no duplicate
- * purge logic. Best-effort: removes the `${tmpdir()}/playwright_*` (and
- * `playwright-artifacts-*`) directories left behind whose mtime is older than
- * `minAgeMs`. Injectable via `BrowserPoolOptions.purgeProfileDirs` so tests can
- * drive both cadences without touching the real filesystem and assert it fired.
- *
- * SAFETY (the temp dir is world-writable `/tmp`, so an attacker — or a stray
- * tool — can plant entries there):
- *  - SYMLINKS are SKIPPED. `readdir(..., {withFileTypes:true})` lets us reject a
- *    `playwright_*` SYMLINK whose target is some other path; a blind
- *    `rm(recursive)` would follow it and recursively delete the target's
- *    contents. Only entries that are themselves real DIRECTORIES are eligible.
- *  - Entries younger than `minAgeMs` are LEFT ALONE so a concurrently launching
- *    browser's fresh dir (or a live browser's continuously-touched dir) is never
- *    nuked — the age gate the whole prevention safety rests on.
- *  - The realpath is verified to still resolve UNDER `tmpdir()` before removal,
- *    a belt-and-suspenders guard against a TOCTOU race / nested symlink.
- *
- * A failure to read the temp dir, stat an entry, or unlink it is swallowed (the
- * dir may not exist, be owned by another process, or vanish mid-purge) — the
- * purge is a hygiene best-effort, not a correctness dependency. The returned
- * count is LOG-ONLY (surfaced in `self-heal-profile-purge` /
- * `stale-profile-sweep`), not load-bearing.
- */
-export async function defaultPurgeProfileDirs(
-  minAgeMs: number,
-  dir: string = tmpdir(),
-): Promise<number> {
-  let removed = 0;
-  let entries: import("node:fs").Dirent[];
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return 0;
-  }
-  // Resolve the canonical (symlink-free) form of the scan dir ONCE so the
-  // per-entry containment check is robust to platform-level symlinks in the
-  // temp path itself (e.g. macOS `/var` → `/private/var`). A realpath failure
-  // falls back to the raw dir.
-  let realDir: string;
-  try {
-    realDir = await fs.realpath(dir);
-  } catch {
-    realDir = dir;
-  }
-  const now = Date.now();
-  for (const entry of entries) {
-    const name = entry.name;
-    if (!PLAYWRIGHT_TMP_PREFIXES.some((p) => name.startsWith(p))) continue;
-    // Skip symlinks (do NOT follow a planted `playwright_*` symlink) and any
-    // non-directory entry. Only real directories the wedged chromium left
-    // behind are purge candidates.
-    if (entry.isSymbolicLink() || !entry.isDirectory()) continue;
-    const full = join(dir, name);
-    try {
-      // lstat (no symlink follow) for the age check; a directory entry that
-      // isn't a symlink resolves to itself.
-      const stat = await fs.lstat(full);
-      if (stat.isSymbolicLink()) continue; // TOCTOU: became a symlink post-readdir.
-      if (now - stat.mtimeMs < minAgeMs) continue; // younger than the age gate — skip.
-      // Belt-and-suspenders: confirm the realpath stays under the scan dir
-      // before a recursive remove, so a nested-symlink trick can't escape it.
-      const real = await fs.realpath(full);
-      if (real !== join(realDir, name) && !real.startsWith(realDir + "/")) {
-        continue;
-      }
-      await fs.rm(full, { recursive: true, force: true });
-      removed++;
-    } catch {
-      // best-effort: another process may own it, or it vanished mid-purge.
-    }
-  }
-  return removed;
-}
 
 /**
  * Resolve a STRICTLY-POSITIVE numeric tunable with explicit-arg > env > default
@@ -329,18 +206,6 @@ interface PoolLogger {
 export type LaunchBrowser = () => Promise<Browser>;
 
 /**
- * Purges the stale per-launch profile/temp dirs Playwright's chromium leaves
- * behind whose mtime is older than `minAgeMs`, returning the count removed. The
- * default implementation removes `${tmpdir()}/playwright_*`. Invoked by BOTH the
- * proactive prevention sweep (init + every recycle, conservative
- * `staleProfileDirTtlMs`) AND the breaker's hard-recovery (aggressive
- * `PURGE_MIN_AGE_MS`) — same helper, different age. Tests inject a fake so both
- * cadences are exercisable without touching the real filesystem (and so the test
- * can assert the purge fired and with which age).
- */
-export type PurgeProfileDirs = (minAgeMs: number) => Promise<number>;
-
-/**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
  * this — the hot path (`acquire`/`release`) opens and closes CONTEXTS on an
  * already-running browser and never forks a process. A browser is only
@@ -392,9 +257,15 @@ export interface BrowserPoolOptions {
   /** Number of long-lived browser processes in the fixed set. Default 3
    *  (env BROWSER_POOL_BROWSERS, legacy fallback BROWSER_POOL_SIZE). */
   browsers?: number;
-  /** Global cap on concurrently-live contexts across all browsers. Default
-   *  40 (env BROWSER_POOL_MAX_CONTEXTS) — covers D6 peak 32 + D5 peak 8.
-   *  acquire() past this pends a waiter. */
+  /** Global cap on concurrently-live contexts across all browsers. Default 24
+   *  (env BROWSER_POOL_MAX_CONTEXTS). LOWERED from 40 to reduce THREAD demand
+   *  against the platform-fixed cgroup `pids.max=1000` ceiling — the PROVEN
+   *  wedge: each context backs a chromium renderer (~15 threads), so a d6 burst
+   *  at 40 contexts (~32 concurrent) drove `pids.current` to ~850-900 and a
+   *  concurrent recovery-relaunch pushed it over 1000 → pthread EAGAIN →
+   *  crash-loop. 24 keeps peak demand well under the ceiling while still
+   *  covering the d6 peak. Env-overridable. acquire() past this pends a
+   *  waiter. */
   maxContexts?: number;
   /** Per-browser served-context hygiene threshold: once a browser has served
    *  >= recycleAfter contexts AND has no live contexts, it is recycled (its
@@ -420,30 +291,15 @@ export interface BrowserPoolOptions {
    *  a small value. */
   selfHealIntervalMs?: number;
   /** Number of CONSECUTIVE self-heal launch failures after which the loop stops
-   *  retrying the identical relaunch and performs a HARD recovery (purge stale
-   *  profile/temp dirs, then cold-launch). Default 4 (env
-   *  BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD). Tests pass a small value to
-   *  trip the breaker deterministically. */
+   *  retrying the identical relaunch and performs a HARD recovery (a paced cold
+   *  relaunch). Default 4 (env BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD).
+   *  Tests pass a small value to trip the breaker deterministically. */
   selfHealHardRecoveryThreshold?: number;
   /** Number of CONSECUTIVE HARD recoveries that may fail to revive any browser
    *  before the pool gives up and fires the `pool-unrecoverable` alarm (instead
    *  of spinning forever). Default 3 (env
    *  BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES). */
   selfHealMaxHardRecoveries?: number;
-  /** Injected profile/temp-dir purge (tests), given the age threshold. Defaults
-   *  to removing `${tmpdir()}/playwright_*` older than the passed age. Invoked by
-   *  BOTH the proactive prevention sweep (init + every recycle) AND the
-   *  self-heal hard-recovery path — same helper, different age argument. */
-  purgeProfileDirs?: PurgeProfileDirs;
-  /** Age (ms) a `${tmpdir()}/playwright_*` profile/artifact dir must EXCEED
-   *  before the PROACTIVE prevention sweep removes it. The age gate guarantees
-   *  the sweep never deletes a dir for a launch in flight or a live browser
-   *  (those are touched continuously, so their mtime is ~now). Conservative by
-   *  design (the sweep runs BEFORE any wedge). Default 300000 (5 min; env
-   *  BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS). Tests pass 0 to sweep every matching
-   *  dir deterministically. Distinct from the breaker's aggressive
-   *  `PURGE_MIN_AGE_MS`, which the hard-recovery path passes instead. */
-  staleProfileDirTtlMs?: number;
   /**
    * Mid-life capacity-loss alarm hook. Invoked when the browser set EMPTIES
    * (every entry evicted) — the silent-outage gap the original code had, where
@@ -483,6 +339,15 @@ export interface BrowserPoolUnrecoverableInfo {
   waiters: number;
   /** Consecutive failed HARD recoveries that tripped the give-up. */
   maxHardRecoveries: number;
+  /** cgroup `pids.current` at give-up — the PROVEN wedge signal. Naming the
+   *  measured PID count (vs the `pids.max` ceiling) in the alarm payload tells
+   *  the operator the wedge was PID/thread-ceiling exhaustion, not a guess. -1
+   *  off-Linux / when the cgroup PID controller is unreadable. */
+  cgroupPidsCurrent: number;
+  /** cgroup `pids.max` ceiling at give-up (-1 = unbounded / unavailable). */
+  cgroupPidsMax: number;
+  /** Process-tree thread count at give-up (the demand against `pids.max`). */
+  treeThreadCount: number;
 }
 
 /**
@@ -521,19 +386,14 @@ export class BrowserPool {
   private readonly relaunchMaxRetries: number;
   private readonly relaunchBackoffMs: number;
   private readonly selfHealIntervalMs: number;
-  // Self-heal circuit-breaker (the durable fix for the RECURRING wedge): trip a
-  // HARD recovery (profile-dir purge + cold-launch) after this many consecutive
-  // self-heal launch failures, and give up (loud alarm) after this many
-  // consecutive failed HARD recoveries.
+  // Self-heal circuit-breaker (the root-cause-agnostic backstop for the
+  // RECURRING wedge): trip a HARD recovery (a paced cold relaunch) after this
+  // many consecutive self-heal launch failures, and give up (loud
+  // `onUnrecoverable` alarm) after this many consecutive failed HARD recoveries.
+  // This stops the infinite silent spin and signals "redeploy required" on ANY
+  // wedge — including the PROVEN cgroup PID/thread-ceiling exhaustion.
   private readonly selfHealHardRecoveryThreshold: number;
   private readonly selfHealMaxHardRecoveries: number;
-  private readonly purgeProfileDirs: PurgeProfileDirs;
-  // PREVENTION: conservative age gate for the PROACTIVE stale-profile sweep (run
-  // at init + every recycle). Distinct from the breaker's aggressive
-  // PURGE_MIN_AGE_MS — both feed the same `purgeProfileDirs` helper, just with a
-  // different age. Keeps `/tmp` from accumulating orphaned `playwright_*` dirs to
-  // the exhaustion that wedges every future launch (the confirmed root cause).
-  private readonly staleProfileDirTtlMs: number;
   private readonly onDegraded?: () => void;
   private readonly onRecovered?: () => void;
   private readonly onUnrecoverable?: (
@@ -588,11 +448,14 @@ export class BrowserPool {
     const envMax = process.env.BROWSER_POOL_MAX_CONTEXTS
       ? parseInt(process.env.BROWSER_POOL_MAX_CONTEXTS, 10)
       : undefined;
+    // Default 24 (lowered from 40) to cap THREAD demand under the platform-fixed
+    // cgroup pids.max=1000 ceiling — the proven wedge. Env-overridable via
+    // BROWSER_POOL_MAX_CONTEXTS.
     this.maxContexts =
       options.maxContexts ??
       (envMax !== undefined && !Number.isNaN(envMax) && envMax > 0
         ? envMax
-        : 40);
+        : 24);
 
     const envRecycle = process.env.BROWSER_POOL_RECYCLE_AFTER
       ? parseInt(process.env.BROWSER_POOL_RECYCLE_AFTER, 10)
@@ -658,62 +521,34 @@ export class BrowserPool {
       process.env.BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES,
       DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES,
     );
-    // PREVENTION age gate (conservative). The proactive sweep passes this; the
-    // breaker's hard-recovery passes the aggressive PURGE_MIN_AGE_MS — both into
-    // the SAME purgeProfileDirs helper. resolveNonNegative (not resolvePositive):
-    // an explicit `0` is legitimate (tests sweep every matching dir).
-    this.staleProfileDirTtlMs = resolveNonNegative(
-      options.staleProfileDirTtlMs,
-      process.env.BROWSER_POOL_STALE_PROFILE_DIR_TTL_MS,
-      DEFAULT_STALE_PROFILE_DIR_TTL_MS,
-    );
-    // Purge resolution: an explicit injected purge wins. Otherwise, when a fake
-    // `launchBrowser` is injected (tests — the browsers are fakes, so there are
-    // NO real `/tmp/playwright_*` dirs to scan/remove), default to a hermetic
-    // no-op so NEITHER the proactive sweep NOR the breaker's hard-recovery path
-    // touches the real filesystem under test. Only the production path (real
-    // chromium launcher, no injected launcher) gets the real
-    // `${tmpdir()}/playwright_*` purge.
-    this.purgeProfileDirs =
-      options.purgeProfileDirs ??
-      (this.injectedLaunchBrowser
-        ? async (): Promise<number> => 0
-        : defaultPurgeProfileDirs);
     this.onDegraded = options.onDegraded;
     this.onRecovered = options.onRecovered;
     this.onUnrecoverable = options.onUnrecoverable;
   }
 
   /**
-   * PREVENTION: fire the PROACTIVE stale-profile-dir sweep without awaiting it
-   * (fire-and-forget — the sweep is hygiene, never on the critical path of a
-   * launch). Calls the SAME canonical `purgeProfileDirs` the breaker uses, but
-   * with the conservative `staleProfileDirTtlMs` age gate. Routes a removed-count
-   * to the structured log and any unexpected throw to the logger. Called once at
-   * init() and on every recycle relaunch so orphaned `/tmp/playwright_*` dirs are
-   * reclaimed on a cadence — keeping the container's `/tmp` from accumulating to
-   * the exhaustion that wedges every future `chromium.launch()` (the confirmed
-   * root cause). Orthogonal to the breaker, which purges UNCONDITIONALLY (its own
-   * aggressive age) only AFTER a wedge: the sweep PREVENTS the wedge, the breaker
-   * ESCAPES it if it ever still happens.
+   * EARLY-WARNING INSTRUMENTATION: sample + log the OS resource gauges so a
+   * burst approaching the cgroup `pids.max` ceiling (the PROVEN wedge cause) is
+   * observable, and an EAGAIN at `launchBrowser()` correlates to a measured
+   * `pids.current` near `pids.max`. Logged at `info` with the headline
+   * `pids.current`/`pids.max`/thread fields plus the refuted-candidate
+   * differential (FD/RSS/shm/tmp). Best-effort: a sampling failure is swallowed
+   * (degrades to -1 fields off-Linux), never on the critical path. `label`
+   * names the call site (`launch`, `self-heal-launch-failed`, probe ticks).
    */
-  private fireStaleProfileSweep(reason: "init" | "recycle"): void {
-    void this.purgeProfileDirs(this.staleProfileDirTtlMs)
-      .then((removed) => {
-        if (removed > 0) {
-          this.logger?.info("browser-pool.stale-profile-sweep", {
-            reason,
-            removed,
-            ttlMs: this.staleProfileDirTtlMs,
-          });
-        }
-      })
-      .catch((err: unknown) => {
-        this.logger?.warn?.("browser-pool.stale-profile-sweep-failed", {
-          reason,
-          error: err instanceof Error ? err.message : String(err),
-        });
+  private logGauges(label: string): void {
+    try {
+      const g = sampleResourceGauges();
+      this.logger?.info("browser-pool.resource-gauges", {
+        label,
+        ...g,
       });
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.resource-gauges-failed", {
+        label,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   async init(): Promise<void> {
@@ -728,13 +563,6 @@ export class BrowserPool {
           args: ["--no-sandbox", "--disable-dev-shm-usage"],
         });
     }
-
-    // PREVENTION: sweep any stale `/tmp/playwright_*` orphans BEFORE the init
-    // fill. A long-lived container that was redeployed in place (or whose prior
-    // process left orphans) starts with a `/tmp` that may already carry dirs
-    // whose owning processes are long gone; reclaiming them up front keeps the
-    // baseline low. Fire-and-forget — never block the init fill on hygiene.
-    this.fireStaleProfileSweep("init");
 
     try {
       for (let i = 0; i < this.browserCount; i++) {
@@ -803,6 +631,12 @@ export class BrowserPool {
    * returned on the shutdown path — the throw means there is no browser to close.
    */
   private launchBrowser = (): Promise<Browser> => {
+    // EARLY WARNING: log the OS resource gauges on EVERY launch (init fill,
+    // crash recovery, hygiene recycle, self-heal). A launch is the moment PID
+    // demand spikes toward the cgroup `pids.max` ceiling — the proven wedge —
+    // so sampling here makes a burst approaching the ceiling observable and lets
+    // a `pthread_create` EAGAIN be correlated to a measured `pids.current`.
+    this.logGauges("launch");
     const gate = this.launchChain;
     const raw = gate.then(() => this.rawLaunchBrowser());
     // Gate the NEXT launch off the RAW result (pre-shutdown-handling) so the
@@ -1726,17 +1560,6 @@ export class BrowserPool {
 
       if (this.isShutdown) return;
 
-      // PREVENTION: sweep stale `/tmp/playwright_*` orphans on the recycle
-      // cadence. Each recycle (crash recovery OR hygiene) is a chromium
-      // replacement — exactly the point in the long-lived container's life where
-      // orphaned profile/artifact dirs accumulate. Sweeping the AGE-GATED stale
-      // dirs here (after the old browser has been closed, before the fresh one
-      // launches) reclaims the orphans Playwright's best-effort close-time
-      // cleanup left behind, keeping `/tmp` bounded across hours of cron load so
-      // a future launch never hits the exhaustion that wedges the whole pool.
-      // Fire-and-forget — the relaunch never waits on hygiene.
-      this.fireStaleProfileSweep("recycle");
-
       try {
         // FIX #1 — PID-ceiling backpressure: retry the relaunch with backoff
         // before giving up the entry. A `pthread_create: Resource temporarily
@@ -2022,6 +1845,11 @@ export class BrowserPool {
               hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
               error: err instanceof Error ? err.message : String(err),
             });
+            // EARLY WARNING: a self-heal launch just failed — capture the OS
+            // gauges so a `pthread_create` EAGAIN at this point correlates to a
+            // measured `pids.current` near `pids.max` (the proven wedge), making
+            // the thread-ceiling exhaustion visible in the logs as it happens.
+            this.logGauges("self-heal-launch-failed");
           }
         }
         if (this.browsers.length >= this.browserCount) {
@@ -2074,14 +1902,12 @@ export class BrowserPool {
   /**
    * CIRCUIT-BREAKER hard-recovery step. Invoked by the self-heal loop after
    * `selfHealHardRecoveryThreshold` consecutive launch failures — the signal
-   * that the loop is stuck relaunching into a wedged chromium (every
-   * `chromium.launch()` throwing `...has been closed`). Purges the stale
-   * `/tmp/playwright_*` profile/temp dirs the crash-looping processes left
-   * behind (the FD-shm/profile pressure that keeps every fresh launch crashing)
-   * so the next launch starts cold and clean. Best-effort: a purge failure is
-   * logged, not thrown — the cold-launch retry still proceeds. The
-   * `delayOrShutdown` after the purge paces the next attempt and stays promptly
-   * cancellable on shutdown.
+   * that the loop is stuck relaunching into a wedged chromium. The PROVEN wedge
+   * is cgroup PID/thread-ceiling exhaustion, which a `/tmp` purge does NOT fix
+   * (that ceiling is platform-fixed and demand-side), so the hard recovery is
+   * simply a PACED cold relaunch: it backs the loop off (`delayOrShutdown`) to
+   * give the thread-exhausted kernel time to relax before the next cold launch,
+   * rather than hammering it. Stays promptly cancellable on shutdown.
    */
   private async hardRecover(attempt: number): Promise<void> {
     if (this.isShutdown) return;
@@ -2090,21 +1916,6 @@ export class BrowserPool {
       maxHardRecoveries: this.selfHealMaxHardRecoveries,
       hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
     });
-    try {
-      // AGGRESSIVE age gate: the fleet has ALREADY wedged, so reclaim the prior
-      // generation's orphaned dirs fast (60s, vs the proactive sweep's
-      // conservative 5 min). Same canonical helper, different age argument.
-      const removed = await this.purgeProfileDirs(PURGE_MIN_AGE_MS);
-      this.logger?.info("browser-pool.self-heal-profile-purge", {
-        attempt,
-        removed,
-      });
-    } catch (err) {
-      this.logger?.warn?.("browser-pool.self-heal-profile-purge-failed", {
-        attempt,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
     // Pace the cold-launch retry into the (hopefully now-unwedged) kernel.
     if (!this.isShutdown && this.selfHealIntervalMs > 0) {
       await this.delayOrShutdown(this.selfHealIntervalMs);
@@ -2113,11 +1924,13 @@ export class BrowserPool {
 
   /**
    * CIRCUIT-BREAKER give-up step. Invoked when `selfHealMaxHardRecoveries`
-   * consecutive HARD recoveries (purge + cold-launch) have ALL failed to revive
-   * a single browser — the wedge survived even a profile-dir purge, so a
-   * redeploy is genuinely required. Emits the LOUD `pool-unrecoverable` alarm
-   * (the operator signal the old silent-spin path never sent) and lets the heal
-   * loop exit instead of spinning forever.
+   * consecutive HARD recoveries (paced cold relaunches) have ALL failed to
+   * revive a single browser — the wedge survived every relaunch, so a redeploy
+   * is genuinely required (the PROVEN cgroup PID/thread ceiling is not
+   * relaxing). Emits the LOUD `pool-unrecoverable` alarm (the operator signal
+   * the old silent-spin path never sent), carrying the measured cgroup
+   * `pids.current`/`pids.max` + thread count so the alert NAMES the real signal,
+   * and lets the heal loop exit instead of spinning forever.
    *
    * ONCE-PER-EPISODE is guaranteed STRUCTURALLY, not by an instance latch: each
    * distinct degraded episode spawns its OWN self-heal loop (`startSelfHeal` is
@@ -2131,10 +1944,28 @@ export class BrowserPool {
    * this breaker exists to kill. The latch was removed so each episode alarms.
    */
   private fireUnrecoverable(): void {
+    // Sample the OS gauges at the moment of give-up so the alarm NAMES the
+    // proven wedge signal (cgroup pids.current near pids.max + thread demand)
+    // rather than reporting only the abstract breaker counters. Best-effort: a
+    // sampling failure degrades the gauge fields to -1, never blocks the alarm.
+    let cgroupPidsCurrent = -1;
+    let cgroupPidsMax = -1;
+    let treeThreadCount = -1;
+    try {
+      const g = sampleResourceGauges();
+      cgroupPidsCurrent = g.cgroupPidsCurrent;
+      cgroupPidsMax = g.cgroupPidsMax;
+      treeThreadCount = g.treeThreadCount;
+    } catch {
+      // gauge sampling is best-effort; leave the -1 defaults.
+    }
     const info: BrowserPoolUnrecoverableInfo = {
       browserCount: this.browserCount,
       waiters: this.waiters.length,
       maxHardRecoveries: this.selfHealMaxHardRecoveries,
+      cgroupPidsCurrent,
+      cgroupPidsMax,
+      treeThreadCount,
     };
     this.logger?.error?.("browser-pool.pool-unrecoverable", { ...info });
     // Best-effort hook (mirrors safeHook) — passes the breaker counters so the
