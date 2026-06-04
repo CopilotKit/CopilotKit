@@ -259,6 +259,69 @@ describe("fetchExistingServices", () => {
       fetchExistingServices(gql, PROJECT, STAGING_ENV_ID),
     ).rejects.toThrow(/returned null/);
   });
+
+  it("paginates the Relay ServiceConnection — services on page 2 are NOT truncated", async () => {
+    // Railway's `project.services` is a Relay connection that page-limits.
+    // With ~27 SSOT + 12 starter services in staging, a single un-paginated
+    // query returns a TRUNCATED first page — a starter that lives on page 2
+    // looks absent, the provisioner takes the CREATE path, and serviceCreate
+    // rejects with a non-transient "already exists" → the whole run ABORTS.
+    // fetchExistingServices must follow `pageInfo.hasNextPage`/`endCursor`
+    // until every page is drained, accumulating into one byName map.
+    let afterSeen: unknown;
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(
+        _query: string,
+        variables: Record<string, unknown> = {},
+      ): Promise<T> => {
+        const after = variables.after;
+        afterSeen = after;
+        const mkNode = (id: string, name: string) => ({
+          node: {
+            id,
+            name,
+            serviceInstances: {
+              edges: [
+                {
+                  node: {
+                    environmentId: STAGING_ENV_ID,
+                    domains: { serviceDomains: [] },
+                  },
+                },
+              ],
+            },
+          },
+        });
+        // Page 1: one service + hasNextPage. Page 2 (after cursor): the rest.
+        if (!after) {
+          return {
+            project: {
+              services: {
+                edges: [mkNode("svc-page1", "starter-mastra")],
+                pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+              },
+            },
+          } as T;
+        }
+        return {
+          project: {
+            services: {
+              edges: [mkNode("svc-page2", "starter-adk")],
+              pageInfo: { hasNextPage: false, endCursor: "cursor-2" },
+            },
+          },
+        } as T;
+      },
+    ) as RailwayGqlFn;
+
+    const map = await fetchExistingServices(gql, PROJECT, STAGING_ENV_ID);
+    // Both pages' services are present — page 2 was NOT truncated away.
+    expect(map.get("starter-mastra")?.id).toBe("svc-page1");
+    expect(map.get("starter-adk")?.id).toBe("svc-page2");
+    expect(map.size).toBe(2);
+    // The second query carried the first page's endCursor as `after`.
+    expect(afterSeen).toBe("cursor-1");
+  });
 });
 
 // ── provisionStarterFleet: create path ──────────────────────────────────
@@ -434,6 +497,56 @@ describe("provisionStarterFleet — create path", () => {
       sleepMs: NO_SLEEP,
     });
     expect(updateAttempts).toBe(2); // failed once, succeeded on retry
+    expect(summary.records[0].action).toBe("created");
+  });
+
+  it("retries Railway's INTERPOLATED 'Service <id> not found' (id in message)", async () => {
+    // Railway's real eventual-consistency message interpolates the service id:
+    // "Service abc-123 not found" — NOT the contiguous "Service not found".
+    // The transient regex must match the interpolated form so the post-create
+    // race is retried; otherwise the run aborts on a benign timing error.
+    let updateAttempts = 0;
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(
+        query: string,
+        variables: Record<string, unknown> = {},
+      ): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          const input = variables.input as { name: string };
+          return { serviceCreate: { id: "new-1", name: input.name } } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          updateAttempts += 1;
+          if (updateAttempts === 1) {
+            throw new Error(
+              "Railway GraphQL errors:\n  - Service abc-123-def not found",
+            );
+          }
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: true } as T;
+        }
+        if (query.includes("serviceDomainCreate(")) {
+          return {
+            serviceDomainCreate: { domain: "new-1.up.railway.app" },
+          } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: [TWO_TARGETS[0]],
+      sleepMs: NO_SLEEP,
+    });
+    expect(updateAttempts).toBe(2); // failed once on interpolated msg, retried
     expect(summary.records[0].action).toBe("created");
   });
 
@@ -667,6 +780,86 @@ describe("provisionStarterFleet — redeploy", () => {
       calls.filter((c) => c.query.includes("serviceInstanceRedeploy(")),
     ).toHaveLength(0);
   });
+
+  it("THROWS when serviceInstanceRedeploy returns false (image would not run)", async () => {
+    // serviceInstanceRedeploy returns Boolean! (verified against
+    // redeploy-env.ts:117 + bin/railway RestoreCommand). A `false` return
+    // means Railway did not start a deployment — the image would never run,
+    // so the provisioner must fail loud rather than report success.
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: false } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/image will not run/);
+  });
+
+  it("THROWS when serviceInstanceRedeploy returns null (no deployment started)", async () => {
+    const gql: RailwayGqlFn = vi.fn(
+      async <T = unknown>(query: string): Promise<T> => {
+        if (query.includes("project(id:")) {
+          return { project: { services: { edges: [] } } } as T;
+        }
+        if (query.includes("serviceCreate(")) {
+          return {
+            serviceCreate: { id: "new-1", name: "starter-mastra" },
+          } as T;
+        }
+        if (query.includes("serviceInstanceUpdate(")) {
+          return { serviceInstanceUpdate: true } as T;
+        }
+        if (query.includes("serviceInstanceRedeploy(")) {
+          return { serviceInstanceRedeploy: null } as T;
+        }
+        throw new Error(`unexpected query:\n${query}`);
+      },
+    ) as RailwayGqlFn;
+
+    await expect(
+      provisionStarterFleet({
+        gql,
+        projectId: PROJECT,
+        stagingEnvId: STAGING_ENV_ID,
+        targets: [TWO_TARGETS[0]],
+        sleepMs: NO_SLEEP,
+      }),
+    ).rejects.toThrow(/image will not run/);
+  });
+
+  it("SUCCEEDS when serviceInstanceRedeploy returns true (the verified Boolean! contract)", async () => {
+    const { gql } = makeMockGql();
+    const summary = await provisionStarterFleet({
+      gql,
+      projectId: PROJECT,
+      stagingEnvId: STAGING_ENV_ID,
+      targets: [TWO_TARGETS[0]],
+      sleepMs: NO_SLEEP,
+    });
+    expect(summary.records[0].action).toBe("created");
+  });
 });
 
 // ── provisionStarterFleet: idempotent domain re-create (partial failure) ─
@@ -715,12 +908,14 @@ describe("provisionStarterFleet — domain already-exists is a benign no-op", ()
       },
     ) as RailwayGqlFn;
 
+    const logs: string[] = [];
     const summary = await provisionStarterFleet({
       gql,
       projectId: PROJECT,
       stagingEnvId: STAGING_ENV_ID,
       targets: TWO_TARGETS,
       sleepMs: NO_SLEEP,
+      log: (line) => logs.push(line),
     });
     // Both targets processed — the fleet did NOT abort.
     expect(summary.records).toHaveLength(2);
@@ -728,6 +923,11 @@ describe("provisionStarterFleet — domain already-exists is a benign no-op", ()
     expect(summary.records[0].domainAction).toBe("existing");
     // The second target's domain succeeded normally.
     expect(summary.records[1].domainAction).toBe("created");
+    // Forensic trail: the benign no-op log line includes the ACTUAL matched
+    // Railway error message, not just a generic "already exists" note.
+    expect(
+      logs.some((l) => l.includes("A domain already exists for this service")),
+    ).toBe(true);
   });
 
   it("still ABORTS on a genuine non-transient domain-create error", async () => {
