@@ -1,0 +1,323 @@
+---
+title: Markdown Rendering
+icon: "lucide/FileText"
+description: Choose how assistant messages render markdown — keep the built-in streaming renderer, configure it, or plug in your own.
+---
+
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Callout } from "fumadocs-ui/components/callout";
+
+You have a working `CopilotChat`, and assistant messages already render markdown with CopilotKit's built-in streaming renderer — GFM, tables, autolinks, citations, and per-token animation, with no extra dependencies. By the end of this guide you'll know how to control that rendering: keep the default, **configure** the built-in renderer, or **replace** it entirely with your own (for syntax highlighting, math, or diagrams).
+
+It's one prop — `markdownRenderer` on `CopilotKitProvider` — that accepts **either** a config object (to tune the built-in renderer) **or** a component (to replace it):
+
+<Tabs groupId="cpk-framework" items={["React", "Vue", "React Native"]}>
+<Tab value="React">
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+// 1. nothing       -> built-in renderer (default)
+// 2. config object -> configures the built-in renderer
+// 3. a component    -> replaces the renderer entirely
+<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={...}>
+  {/* your app */}
+</CopilotKitProvider>
+```
+
+</Tab>
+<Tab value="Vue">
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue";
+</script>
+
+<template>
+  <!-- :markdown-renderer accepts a config object OR a component -->
+  <CopilotKitProvider runtime-url="/api/copilotkit" :markdown-renderer="...">
+    <!-- your app -->
+  </CopilotKitProvider>
+</template>
+```
+
+</Tab>
+<Tab value="React Native">
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-native";
+
+// config object ({ style, animate }) OR a component
+<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={...}>
+  {/* your app */}
+</CopilotKitProvider>
+```
+
+</Tab>
+</Tabs>
+
+## How the renderer is resolved
+
+When CopilotKit renders an assistant message it picks the renderer in this order:
+
+1. **Per-message slot** (React only) — a `markdownRenderer` passed directly to `CopilotChatAssistantMessage`.
+2. **Provider renderer** — the `markdownRenderer` on `CopilotKitProvider` (React, Vue, React Native).
+3. **Built-in** — the streaming renderer, when neither is set.
+
+Reasoning messages always use the built-in renderer.
+
+## Option 1 — Use the built-in renderer (default)
+
+Do nothing. Out of the box, assistant messages render with [`@copilotkit/markdown-renderer`](/reference/v2/packages/markdown-renderer): streaming-safe GFM, tables, autolinks, citations, and per-token fade-in animation (React/Vue). It escapes raw HTML and sanitizes link/image URLs to prevent XSS. It does **not** do syntax highlighting, math (KaTeX), or diagrams (mermaid) — if you need those, jump to [Option 3](#option-3--replace-the-renderer-escape-hatch).
+
+## Option 2 — Configure the built-in renderer
+
+Pass a **config object** to keep the built-in streaming renderer (and its animation/sanitization) while overriding specific pieces — e.g. a themed code block, the streaming caret, or parser options. This is the `DefaultMarkdownRendererProps` shape; your overrides merge over the built-in defaults, so anything you don't specify keeps rendering as before.
+
+<Callout type="warn">
+  Define the config object **outside render** (module scope, or `useMemo`), like the examples below. A new object identity on every render would remount the markdown subtree and discard streaming state mid-stream — the same rule as any component prop.
+</Callout>
+
+<Tabs groupId="cpk-framework" items={["React", "Vue", "React Native"]}>
+<Tab value="React">
+
+The React config accepts `nodeRenderers`, `caret`, `options`, `className`, `onLinkClick`, and `onCitationClick`. Node-renderer keys are camelCase (e.g. `codeBlock`); each receives the parsed node.
+
+```tsx title="app.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  type DefaultMarkdownRendererProps,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+// Stable reference (module scope) — overrides merge over the built-in defaults.
+const markdownRenderer: DefaultMarkdownRendererProps = {
+  nodeRenderers: {
+    // node.text = raw source, node.info = language (e.g. "ts" from ```ts)
+    codeBlock: ({ node }) => (
+      <pre className="rounded-lg bg-zinc-900 p-3 text-emerald-100">
+        <code data-lang={node.info}>{node.text}</code>
+      </pre>
+    ),
+  },
+};
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={markdownRenderer}>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+</Tab>
+<Tab value="Vue">
+
+The Vue config accepts `nodeRenderers`, `caret`, `options`, and `class`. Node-renderer keys are the kebab-case node types (except `codeBlock`); each renderer is called as `(node, defaultVNode) => VNode`.
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { h } from "vue";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue";
+import type { DefaultMarkdownRendererProps } from "@copilotkit/vue";
+
+// Stable reference — overrides merge over the built-in defaults.
+const markdownRenderer: DefaultMarkdownRendererProps = {
+  nodeRenderers: {
+    codeBlock: (node) =>
+      h("pre", { class: "rounded-lg bg-zinc-900 p-3 text-emerald-100" }, [
+        h("code", { "data-lang": node.info }, node.text),
+      ]),
+  },
+};
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :markdown-renderer="markdownRenderer">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+</Tab>
+<Tab value="React Native">
+
+React Native renders markdown into native `<Text>`/`<View>` and does not support `nodeRenderers`. Its config is `{ style, animate }` — `style` is a `MarkdownStyle` map, `animate` toggles the parser's `Intl.Segmenter` (it does not produce per-token animation on React Native).
+
+```tsx title="App.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-native";
+import type { DefaultMarkdownRendererProps } from "@copilotkit/react-native";
+
+const markdownRenderer: DefaultMarkdownRendererProps = {
+  style: {
+    codeBlock: { backgroundColor: "#18181b", color: "#a7f3d0" },
+  },
+};
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={markdownRenderer}>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="info">
+  For the full list of config fields, node-renderer keys, and `MarkdownStyle` keys, see the [`@copilotkit/markdown-renderer` reference](/reference/v2/packages/markdown-renderer).
+</Callout>
+
+## Option 3 — Replace the renderer (escape hatch)
+
+When you need richer rendering than the built-in provides — syntax highlighting, math, diagrams — install your renderer of choice and pass it as a **component**. A renderer is any component that accepts the `MarkdownRendererProps` contract: `{ content: string; isStreaming?: boolean; className?: string }` (only `content` is required). This replaces the built-in renderer entirely.
+
+The example below restores [Streamdown](https://www.npmjs.com/package/streamdown) (what CopilotKit shipped before — syntax highlighting, math, diagrams). The same pattern works for `react-markdown` + plugins, a Shiki-based highlighter, or your own component.
+
+<Tabs groupId="cpk-framework" items={["React", "Vue", "React Native"]}>
+<Tab value="React">
+
+<Steps>
+<Step>
+### Install your renderer
+
+```bash
+npm install streamdown
+```
+</Step>
+<Step>
+### Define the renderer (outside render, so its identity is stable)
+
+```tsx title="markdown-renderer.tsx"
+import { Streamdown } from "streamdown";
+import type { MarkdownRendererProps } from "@copilotkit/react-core/v2";
+
+export function StreamdownRenderer({ content }: MarkdownRendererProps) {
+  return <Streamdown>{content}</Streamdown>;
+}
+```
+</Step>
+<Step>
+### Pass it to the provider
+
+```tsx title="app.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { StreamdownRenderer } from "./markdown-renderer";
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={StreamdownRenderer}>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+</Step>
+</Steps>
+
+</Tab>
+<Tab value="Vue">
+
+<Steps>
+<Step>
+### Install your renderer
+
+```bash
+npm install streamdown-vue
+```
+</Step>
+<Step>
+### Define the renderer component
+
+```vue title="StreamdownRenderer.vue"
+<script setup lang="ts">
+import { StreamMarkdown } from "streamdown-vue";
+defineProps<{ content: string; isStreaming?: boolean }>();
+</script>
+
+<template>
+  <StreamMarkdown :content="content" />
+</template>
+```
+</Step>
+<Step>
+### Pass it to the provider
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue";
+import StreamdownRenderer from "./StreamdownRenderer.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :markdown-renderer="StreamdownRenderer">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+</Step>
+</Steps>
+
+</Tab>
+<Tab value="React Native">
+
+<Steps>
+<Step>
+### Install your renderer
+
+```bash
+npm install react-native-streamdown
+```
+</Step>
+<Step>
+### Define the renderer
+
+```tsx title="markdown-renderer.tsx"
+import { StreamdownText } from "react-native-streamdown";
+
+export function StreamdownRenderer({ content }: { content: string }) {
+  return <StreamdownText markdown={content} />;
+}
+```
+</Step>
+<Step>
+### Pass it to the provider
+
+```tsx title="App.tsx"
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-native";
+import { StreamdownRenderer } from "./markdown-renderer";
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={StreamdownRenderer}>
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
+```
+</Step>
+</Steps>
+
+</Tab>
+</Tabs>
+
+<Callout type="info">
+  Define the renderer outside render (or memoize it) so its identity is stable — an inline arrow function passed to the provider remounts the markdown subtree on every render.
+</Callout>
+
+## Override the renderer for a single message (React)
+
+The provider sets the renderer app-wide, but you can override it for one message via the `markdownRenderer` slot on `CopilotChatAssistantMessage` — it accepts the same config-object-or-component value and wins over the provider. See the [`CopilotChatAssistantMessage` reference](/reference/v2/components/CopilotChatAssistantMessage).
+
+## Try all three side by side
+
+The [`examples/v2/react-router`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/react-router) example wires a runtime toggle for all three scenarios — **Built-in**, **Custom (config)**, and **Streamdown** — so you can ask the agent for a code block and compare the renderers live.
+
+<Callout type="info">
+  Migrating off the bundled Streamdown renderer? See [Migrate the Markdown Renderer](/migration-guides/migrate-markdown-renderer).
+</Callout>

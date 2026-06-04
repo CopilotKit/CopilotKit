@@ -2,7 +2,7 @@ import { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { twMerge } from "tailwind-merge";
-import { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
+import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
 import { WithSlots, renderSlot } from "../../lib/slots";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
@@ -222,10 +222,11 @@ export namespace CopilotChatReasoningMessage {
         {...contentProps}
       >
         <div className="cpk:text-sm cpk:text-muted-foreground">
-          {/* Reasoning content always uses the built-in basic renderer; the
+          {/* Reasoning content always uses the built-in streaming renderer; the
               pluggable provider renderer applies to assistant messages only. */}
-          <BasicMarkdownRenderer
+          <StreamingMarkdownDefaultRenderer
             content={typeof contentChildren === "string" ? contentChildren : ""}
+            isStreaming={isStreaming}
           />
           {isStreaming && hasContent && (
             <span className="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle">

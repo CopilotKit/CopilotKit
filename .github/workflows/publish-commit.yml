@@ -15,6 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # core:build exceeds the default V8 heap on CI; match the repo's known-good
+  # value (used by the e2e workflow) to avoid OOM during the full package build.
+  NODE_OPTIONS: "--max-old-space-size=8192"
   NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Publish Commit"

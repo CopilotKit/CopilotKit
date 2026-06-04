@@ -172,8 +172,11 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     // Wait a moment for React to process
+    // Use document.body.textContent because the streaming renderer splits text
+    // into per-segment <span>s; getByText would fail to match across element
+    // boundaries.
     await waitFor(() => {
-      expect(screen.getByText(/The weather in Paris is/)).toBeDefined();
+      expect(document.body.textContent).toContain("The weather in Paris is");
     });
 
     const renderCountAfterFirstTextChunk = toolRenderCount;
@@ -186,7 +189,7 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByText(/currently sunny/)).toBeDefined();
+      expect(document.body.textContent).toContain("currently sunny");
     });
 
     agent.emit({
@@ -196,7 +199,7 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByText(/22°C/)).toBeDefined();
+      expect(document.body.textContent).toContain("22°C");
     });
 
     const renderCountAfterAllText = toolRenderCount;
@@ -289,8 +292,11 @@ describe("Tool Call Re-render Prevention", () => {
       delta: "Let me search for that...",
     } as BaseEvent);
 
+    // Use document.body.textContent because the streaming renderer splits text
+    // into per-segment <span>s; getByText would fail to match across element
+    // boundaries.
     await waitFor(() => {
-      expect(screen.getByText(/Let me search for that/)).toBeDefined();
+      expect(document.body.textContent).toContain("Let me search for that");
     });
 
     const renderCountAfterText = toolRenderCount;

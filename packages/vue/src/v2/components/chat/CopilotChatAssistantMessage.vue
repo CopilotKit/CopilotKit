@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, getCurrentInstance, onBeforeUnmount, ref } from "vue";
+import type { Component } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
@@ -11,8 +12,11 @@ import {
   IconThumbsUp,
   IconVolume2,
 } from "../icons";
-import BasicMarkdown from "./BasicMarkdown.vue";
-import { useMarkdownRenderer } from "../../providers/markdown-renderer";
+import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
+import {
+  useMarkdownRenderer,
+  isVueComponentRenderer,
+} from "../../providers/markdown-renderer";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
@@ -127,8 +131,18 @@ const normalizedContent = computed(() =>
 const hasContent = computed(() => normalizedContent.value.trim().length > 0);
 
 const providerMarkdownRenderer = useMarkdownRenderer();
-const ActiveMarkdownRenderer = computed(
-  () => providerMarkdownRenderer ?? BasicMarkdown,
+const providerIsComponent = computed(() =>
+  isVueComponentRenderer(providerMarkdownRenderer),
+);
+const ActiveMarkdownRenderer = computed(() =>
+  providerIsComponent.value
+    ? (providerMarkdownRenderer as Component)
+    : StreamingMarkdownDefault,
+);
+const activeMarkdownConfig = computed(() =>
+  providerIsComponent.value || !providerMarkdownRenderer
+    ? {}
+    : (providerMarkdownRenderer as Record<string, unknown>),
 );
 
 function hasListener(listenerName: string) {
@@ -243,6 +257,7 @@ onBeforeUnmount(() => {
         <component
           :is="ActiveMarkdownRenderer"
           v-if="hasContent"
+          v-bind="activeMarkdownConfig"
           :content="normalizedContent"
           :is-streaming="isRunning && isLatestAssistantMessage"
         />
