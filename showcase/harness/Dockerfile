@@ -68,6 +68,10 @@ ENV NODE_ENV=production
 # qa probe: repo-root override so the walk-up from dist/probes/drivers/
 # (3 levels to /app) matches the showcase/integrations/ layout copied above.
 ENV QA_REPO_ROOT=/app
+# pin-drift probe: same walk-up issue — the compiled driver lives at
+# dist/probes/drivers/pin-drift.js, five `..` segments overshoot /app
+# and land at /. Override so the driver finds showcase/scripts/fail-baseline.json.
+ENV PIN_DRIFT_REPO_ROOT=/app
 # Playwright cache lives outside /home/node so `chown` below doesn't
 # have to recurse over the ~300MB chromium tree on every build. Setting
 # PLAYWRIGHT_BROWSERS_PATH at this stage pins the install target; the
@@ -97,6 +101,10 @@ RUN node ./node_modules/playwright/cli.js install --with-deps chromium \
 # keep the image lean until another probe config actually needs those trees.
 COPY --from=build /repo/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=build /repo/packages ./packages
+# pin-drift probe: the driver reads showcase/scripts/fail-baseline.json as
+# the ratchet baseline. Only the JSON file is needed — the full scripts/
+# tree stays out of the runtime image.
+COPY --from=build /repo/showcase/scripts/fail-baseline.json ./showcase/scripts/fail-baseline.json
 # qa probe: the driver reads showcase/integrations/<slug>/manifest.yaml to
 # check QA file coverage. Copy only the manifests (not full source) to
 # keep the runtime image lean. The qa/ subdirectories are also needed
@@ -143,4 +151,35 @@ EXPOSE 8080
 # serve" to its supervisor.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:8080/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))" || exit 1
-CMD ["node", "dist/orchestrator.js"]
+# FIX #3 — raise the container PID/thread (nproc) soft ulimit before exec'ing
+# the orchestrator. THE OUTAGE: the harness runs a long-lived chromium pool —
+# at MAX_CONTEXTS=40 the legitimate workload spawns ~3.6GB / several hundred
+# OS threads (each headless chromium ~50+ PIDs, plus per-context renderer
+# threads). When kernel thread/PID demand approached the container's nproc
+# ceiling, `chromium.launch()` (and mid-life context opens) tripped
+# `pthread_create: Resource temporarily unavailable (errno 11)`, the browser
+# set drained, and the pool wedged. MAX_CONTEXTS stays 40 — verified safe on
+# the 24GB box at ~3.6GB RSS; the constraint was THREADS, not memory — so the
+# durable fix is to give the legitimate 40-context workload ample thread
+# headroom instead of running near the default ~1024 soft ceiling.
+#
+# We raise the SOFT nproc limit to the HARD limit ("ulimit -u $(ulimit -Hu)")
+# so the process gets the full headroom the kernel/cgroup already permits
+# without hard-coding a value the container may not be allowed to exceed. On
+# Railway the service additionally sets a generous pids cgroup limit (target:
+# 16384 — ~40x the steady-state thread count, leaving headroom for launch
+# bursts + recovery relaunches); the in-image `ulimit -u` ensures the soft
+# limit is lifted to that hard ceiling regardless of the inherited default.
+# `exec` replaces the shell so node remains PID 1 (correct signal handling /
+# Railway shutdown). The fallback `|| true` keeps boot resilient if the runtime
+# forbids raising the soft limit (it is then governed solely by the cgroup
+# pids limit, which is still the dominant control).
+#
+# MUST run under bash, NOT the default `/bin/sh`. On this image (node:22-
+# bookworm-slim) `/bin/sh` is dash, whose builtin `ulimit` does NOT support the
+# `-u` (max-user-processes / nproc) flag — it errors `ulimit: Illegal option -u`,
+# which the `2>/dev/null || true` then SILENTLY swallows. The intended PID
+# protection therefore never applied. bash IS present (/usr/bin/bash) and its
+# `ulimit -u` works: verified under `--ulimit nproc=512:4096` the soft limit is
+# raised 512 → 4096 (the hard ceiling) under bash, while dash leaves it untouched.
+CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]

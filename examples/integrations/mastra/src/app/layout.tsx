@@ -29,7 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="weatherAgent">
+        {/* Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev). */}
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
           {children}
         </CopilotKit>
       </body>

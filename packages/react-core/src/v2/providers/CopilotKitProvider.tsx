@@ -58,6 +58,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+// Stable frozen defaults keep provider effects from re-running just because a
+// caller omitted an object prop on a rerender.
+const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
+const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
+const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
@@ -248,14 +253,14 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers: headersProp = {},
+  headers: headersProp = EMPTY_HEADERS,
   credentials,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
-  properties = {},
-  agents__unsafe_dev_only: agents = {},
-  selfManagedAgents = {},
+  properties = EMPTY_PROPERTIES,
+  agents__unsafe_dev_only: agents = EMPTY_AGENTS,
+  selfManagedAgents = EMPTY_AGENTS,
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,

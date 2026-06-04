@@ -17,10 +17,21 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. Langroid / openai / pydantic-ai-style adapters construct
+# httpx clients eagerly at agent-module import time.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 from agents.agui_adapter import handle_run
 from agents.a2ui_fixed_agent import handle_run as handle_a2ui_fixed_schema
 from agents.byoc_hashbrown_agent import handle_run as handle_byoc_hashbrown
 from agents.byoc_json_render_agent import handle_run as handle_byoc_json_render
+from agents.gen_ui_agent import handle_run as handle_gen_ui_agent
 from agents.mcp_apps_agent import handle_run as handle_mcp_apps
 from agents.multimodal_agent import handle_run as handle_multimodal
 from agents.shared_state_read_write import (
@@ -44,6 +55,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,6 +95,19 @@ async def run_shared_state_read_write(request: Request):
     STATE_SNAPSHOT so the UI re-renders.
     """
     return await handle_shared_state_read_write(request)
+
+
+@app.post("/gen-ui-agent")
+async def run_gen_ui_agent(request: Request):
+    """Agentic Generative UI demo endpoint.
+
+    The agent owns a ``steps`` slice of shared state and walks each step
+    pending -> in_progress -> completed by repeatedly calling a custom
+    ``set_steps`` tool. Each call mutates local state and emits a fresh
+    STATE_SNAPSHOT so the UI's ``useAgent`` subscriber re-renders the
+    progress card in place.
+    """
+    return await handle_gen_ui_agent(request)
 
 
 @app.post("/subagents")

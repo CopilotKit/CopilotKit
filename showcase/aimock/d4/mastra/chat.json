@@ -2,7 +2,8 @@
   "_meta": {
     "description": "D4 chat fixtures for mastra",
     "sourceFile": "feature-parity.json",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "note": "ported from langgraph-python d4 chat.json; context rewritten to mastra (tightened over-broad catchalls)"
   },
   "fixtures": [
     {
@@ -11,7 +12,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Here's your sales dashboard — total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+        "content": "Here's your sales dashboard \u2014 total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
       }
     },
     {
@@ -69,7 +70,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -78,7 +79,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above \u2014 Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -87,7 +88,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+        "content": "Here is a quick card for Ada Lovelace \u2014 the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
       }
     },
     {
@@ -96,7 +97,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Approved — processing the $50 refund to customer #12345 now."
+        "content": "Approved \u2014 processing the $50 refund to customer #12345 now."
       }
     },
     {
@@ -105,7 +106,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+        "content": "Booked Alice's onboarding call for the time you selected \u2014 calendar invite is on its way."
       }
     },
     {
@@ -114,7 +115,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Got it — I have noted that your favorite color is blue."
+        "content": "Got it \u2014 I have noted that your favorite color is blue."
       }
     },
     {
@@ -123,7 +124,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+        "content": "Here is the summary, after research \u2192 drafting \u2192 critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
       }
     },
     {
@@ -162,7 +163,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above \u2014 Electronics is the largest slice, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -171,7 +172,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Bar chart rendered above — Salaries dominate monthly spend, with Rent, Marketing, and Travel rounding out the breakdown."
+        "content": "Bar chart rendered above \u2014 Salaries dominate monthly spend, with Rent, Marketing, and Travel rounding out the breakdown."
       }
     },
     {
@@ -180,7 +181,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Organic Search drives most traffic, followed by Direct, Social, and Referral."
+        "content": "Pie chart rendered above \u2014 Organic Search drives most traffic, followed by Direct, Social, and Referral."
       }
     },
     {
@@ -189,7 +190,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Apple and Samsung lead, with Xiaomi third and the long tail under \"Others\"."
+        "content": "Pie chart rendered above \u2014 Apple and Samsung lead, with Xiaomi third and the long tail under \"Others\"."
       }
     },
     {
@@ -198,7 +199,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Bar chart rendered above — Q4 was the strongest quarter, with Q2 close behind."
+        "content": "Bar chart rendered above \u2014 Q4 was the strongest quarter, with Q2 close behind."
       }
     },
     {
@@ -207,7 +208,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+        "content": "Pie chart rendered above \u2014 Electronics is the largest slice, followed by Clothing, Food, and Books."
       }
     },
     {
@@ -216,7 +217,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Bar chart rendered above — monthly expenses ranged from $12k in January to $15.8k in April."
+        "content": "Bar chart rendered above \u2014 monthly expenses ranged from $12k in January to $15.8k in April."
       }
     },
     {
@@ -225,7 +226,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Meeting scheduled — calendar invite is on its way."
+        "content": "Meeting scheduled \u2014 calendar invite is on its way."
       }
     },
     {
@@ -234,7 +235,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+        "content": "Two flights shown above \u2014 United at $349 (08:00) and Delta at $289 (10:15), both on time."
       }
     },
     {
@@ -252,17 +253,17 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Asia is the largest continent — about 30% of Earth's land area, home to over 4.6 billion people."
+        "content": "Asia is the largest continent \u2014 about 30% of Earth's land area, home to over 4.6 billion people."
       }
     },
     {
-      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "_comment": "shared-state-read \u2014 e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
       "match": {
         "userMessage": "What recipe am I making",
         "context": "mastra"
       },
       "response": {
-        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** \u2014 a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350\u00b0F (175\u00b0C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
       }
     },
     {
@@ -287,7 +288,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -510,7 +511,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — added three todos about learning CopilotKit to your task manager."
+        "content": "Done \u2014 added three todos about learning CopilotKit to your task manager."
       }
     },
     {
@@ -524,7 +525,7 @@
           {
             "id": "call_fp_beautiful_chat_manage_todos_001",
             "name": "manage_todos",
-            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"🚀\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"🎯\",\"status\":\"pending\"}]}"
+            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"\ud83d\udcda\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"\ud83d\ude80\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"\ud83c\udfaf\",\"status\":\"pending\"}]}"
           }
         ]
       }
@@ -546,7 +547,7 @@
       }
     },
     {
-      "_comment": "Scoped showcase-assistant 'hello' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'hello' (e.g. 'mellow', 'fellow'). Matches both 'hello' and 'Hello' as standalone greeting attempts only.",
+      "_comment": "Scoped showcase-assistant 'hello' fixture \u2014 anchored so it doesn't substring-match arbitrary prompts containing 'hello' (e.g. 'mellow', 'fellow'). Matches both 'hello' and 'Hello' as standalone greeting attempts only.",
       "match": {
         "userMessage": "hello, what can you do",
         "context": "mastra"
@@ -556,7 +557,7 @@
       }
     },
     {
-      "_comment": "Scoped showcase-assistant help fixture — anchored on 'what can you help me with' so it doesn't substring-match arbitrary prompts that happen to contain 'help' (e.g. 'helpful', 'helping').",
+      "_comment": "Scoped showcase-assistant help fixture \u2014 anchored on 'what can you help me with' so it doesn't substring-match arbitrary prompts that happen to contain 'help' (e.g. 'helpful', 'helping').",
       "match": {
         "userMessage": "what can you help me with",
         "context": "mastra"
@@ -580,7 +581,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "The attached image is the CopilotKit logo — a clean, geometric mark used across CopilotKit branding."
+        "content": "The attached image is the CopilotKit logo \u2014 a clean, geometric mark used across CopilotKit branding."
       }
     },
     {
@@ -589,7 +590,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Here's a tight 3-day Tokyo loop for a solo traveler who wants food, art, and architecture in equal measure.\n\n**Day 1 — Shibuya & Harajuku**\n- Morning: breakfast at a kissaten in Shibuya, then walk Cat Street to Harajuku.\n- Afternoon: Nezu Museum (architecture by Kengo Kuma + traditional garden).\n- Evening: izakaya in Nonbei Yokocho.\n\n**Day 2 — Roppongi & Ginza**\n- Morning: Mori Art Museum and the Tokyo City View deck.\n- Afternoon: stroll Ginza, stop into Itoya, lunch at a sushi counter.\n- Evening: jazz at a Ginza basement bar.\n\n**Day 3 — Yanaka & Asakusa**\n- Morning: Yanaka Ginza for old-Tokyo atmosphere and craft shops.\n- Afternoon: Senso-ji and the Asakusa back-streets; consider the Sumida River walk to the Tadao Ando-designed 21_21 if you want one more architecture stop.\n- Evening: ramen near Ueno before catching the train.\n\nLet me know if you want a vegetarian variant or a more architecture-heavy version."
+        "content": "Here's a tight 3-day Tokyo loop for a solo traveler who wants food, art, and architecture in equal measure.\n\n**Day 1 \u2014 Shibuya & Harajuku**\n- Morning: breakfast at a kissaten in Shibuya, then walk Cat Street to Harajuku.\n- Afternoon: Nezu Museum (architecture by Kengo Kuma + traditional garden).\n- Evening: izakaya in Nonbei Yokocho.\n\n**Day 2 \u2014 Roppongi & Ginza**\n- Morning: Mori Art Museum and the Tokyo City View deck.\n- Afternoon: stroll Ginza, stop into Itoya, lunch at a sushi counter.\n- Evening: jazz at a Ginza basement bar.\n\n**Day 3 \u2014 Yanaka & Asakusa**\n- Morning: Yanaka Ginza for old-Tokyo atmosphere and craft shops.\n- Afternoon: Senso-ji and the Asakusa back-streets; consider the Sumida River walk to the Tadao Ando-designed 21_21 if you want one more architecture stop.\n- Evening: ramen near Ueno before catching the train.\n\nLet me know if you want a vegetarian variant or a more architecture-heavy version."
       }
     },
     {
@@ -598,7 +599,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Imagine you're taking an open-book test.\n\nA regular language model is like a kid who studied really hard but isn't allowed to look at the textbook during the test — they have to answer from memory, and sometimes they confidently make stuff up.\n\nRetrieval-Augmented Generation (RAG) is the same kid, but now they're allowed to flip through the textbook before answering each question. First they look up the relevant pages (that's the *retrieval* step), then they write the answer using what they just read (that's the *generation* step).\n\nSo RAG = \"look it up, then answer.\" The model still talks like itself, but the facts come from the book instead of from its memory — which means fewer made-up answers, and you can swap the book out whenever your information changes."
+        "content": "Imagine you're taking an open-book test.\n\nA regular language model is like a kid who studied really hard but isn't allowed to look at the textbook during the test \u2014 they have to answer from memory, and sometimes they confidently make stuff up.\n\nRetrieval-Augmented Generation (RAG) is the same kid, but now they're allowed to flip through the textbook before answering each question. First they look up the relevant pages (that's the *retrieval* step), then they write the answer using what they just read (that's the *generation* step).\n\nSo RAG = \"look it up, then answer.\" The model still talks like itself, but the facts come from the book instead of from its memory \u2014 which means fewer made-up answers, and you can swap the book out whenever your information changes."
       }
     },
     {
@@ -607,11 +608,11 @@
         "context": "mastra"
       },
       "response": {
-        "content": "**Subject:** Meet your new AI co-pilot — now built right into the app\n\nHi there,\n\nWe just shipped something we're really excited about: an AI-powered chat that lives inside the product you already use. Ask it questions, hand off tasks, or just have it summarize what you're looking at — it has full context of your workspace, so you don't have to copy-paste anything.\n\nIt's rolling out today to every account, no setup required. Open the app, look for the new chat button in the corner, and try it on your messiest task. We'd love to hear what you build with it.\n\n— The team"
+        "content": "**Subject:** Meet your new AI co-pilot \u2014 now built right into the app\n\nHi there,\n\nWe just shipped something we're really excited about: an AI-powered chat that lives inside the product you already use. Ask it questions, hand off tasks, or just have it summarize what you're looking at \u2014 it has full context of your workspace, so you don't have to copy-paste anything.\n\nIt's rolling out today to every account, no setup required. Open the app, look for the new chat button in the corner, and try it on your messiest task. We'd love to hear what you build with it.\n\n\u2014 The team"
       }
     },
     {
-      "_comment": "Scoped showcase-assistant intro fixture. Anchored on 'Hi, who are you' so it doesn't substring-match arbitrary prompts that happen to contain 'hi' inside other words (e.g. 'this', 'history', 'while') — those caused subagents writer/critique sub-LLM calls to return this boilerplate, breaking the demo.",
+      "_comment": "Scoped showcase-assistant intro fixture. Anchored on 'Hi, who are you' so it doesn't substring-match arbitrary prompts that happen to contain 'hi' inside other words (e.g. 'this', 'history', 'while') \u2014 those caused subagents writer/critique sub-LLM calls to return this boilerplate, breaking the demo.",
       "match": {
         "userMessage": "Hi, who are you",
         "context": "mastra"
@@ -630,8 +631,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button \u2014 tightened from bare 'summarize' to 'Summarize the' (capital, anchor) so it doesn't shadow d6 fixtures whose user prompts happen to contain the word 'summarize' mid-sentence (e.g. gen-ui-agent pill 3 'Research our top competitor and summarize their strengths and weaknesses').",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the",
         "context": "mastra"
       },
       "response": {
@@ -657,8 +659,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button \u2014 tightened from bare 'detailed' so it doesn't shadow d6 agent-config 'responseLength:detailed \u2014 describe agent context per your config'. Anchored on the longer phrase that the d4 button actually sends.",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "mastra"
       },
       "response": {
@@ -675,7 +678,7 @@
       }
     },
     {
-      "_comment": "Scoped sales-pipeline 'add a deal' fixture — anchored on the full intent phrase so it doesn't substring-match arbitrary prompts that happen to contain 'deal' (e.g. 'dealing with', 'idealized').",
+      "_comment": "Scoped sales-pipeline 'add a deal' fixture \u2014 anchored on the full intent phrase so it doesn't substring-match arbitrary prompts that happen to contain 'deal' (e.g. 'dealing with', 'idealized').",
       "match": {
         "userMessage": "add a new enterprise deal",
         "hasToolResult": false,
@@ -726,7 +729,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Booked the intro call with the sales team for the time you selected — calendar invite is on its way."
+        "content": "Booked the intro call with the sales team for the time you selected \u2014 calendar invite is on its way."
       }
     },
     {
@@ -740,7 +743,7 @@
           {
             "id": "call_hitl_book_intro_sales_001",
             "name": "book_call",
-            "arguments": "{\"topic\":\"Intro call — discuss pricing\",\"attendee\":\"Sales team\"}"
+            "arguments": "{\"topic\":\"Intro call \u2014 discuss pricing\",\"attendee\":\"Sales team\"}"
           }
         ]
       }
@@ -755,7 +758,7 @@
       }
     },
     {
-      "_comment": "Scoped 'what city do I live in' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'city' (e.g. 'capacity', 'velocity', 'specificity').",
+      "_comment": "Scoped 'what city do I live in' fixture \u2014 anchored so it doesn't substring-match arbitrary prompts containing 'city' (e.g. 'capacity', 'velocity', 'specificity').",
       "match": {
         "userMessage": "what city do I live in",
         "context": "mastra"
@@ -794,7 +797,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart \u2014 installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
       }
     },
     {
@@ -901,27 +904,27 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
+      "_comment": "Pilot cell suggestion \u2014 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
       "match": {
         "userMessage": "sonnet",
         "context": "mastra"
       },
       "response": {
-        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math —\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made — but not by God."
+        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math \u2014\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made \u2014 but not by God."
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion \u2014 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
       "match": {
         "userMessage": "17 is prime",
         "context": "mastra"
       },
       "response": {
-        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 ÷ 2 = 8.5** — not a whole number, so 2 is not a factor.\n3. **17 ÷ 3 ≈ 5.67** — not a whole number, so 3 is not a factor.\n4. **17 ÷ 4 = 4.25** — not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
+        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 \u00f7 2 = 8.5** \u2014 not a whole number, so 2 is not a factor.\n3. **17 \u00f7 3 \u2248 5.67** \u2014 not a whole number, so 3 is not a factor.\n4. **17 \u00f7 4 = 4.25** \u2014 not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Write me a quick limerick.' (prebuilt-popup)",
+      "_comment": "Pilot cell suggestion \u2014 'Write me a quick limerick.' (prebuilt-popup)",
       "match": {
         "userMessage": "limerick",
         "context": "mastra"
@@ -931,7 +934,7 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion \u2014 'Give me a fun fact.' (prebuilt-sidebar)",
       "match": {
         "userMessage": "fun fact",
         "context": "mastra"
@@ -941,17 +944,17 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
+      "_comment": "Pilot cell suggestion \u2014 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
       "match": {
         "userMessage": "Say hi from the popup",
         "context": "mastra"
       },
       "response": {
-        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything \u2014 a quick question, a limerick, or a math walk-through. What would you like?"
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Pilot cell suggestion \u2014 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
       "match": {
         "userMessage": "Say hi",
         "context": "mastra"
@@ -971,7 +974,7 @@
       }
     },
     {
-      "_comment": "agent-config e2e: 'changing config between sends' test — first send with default config.",
+      "_comment": "agent-config e2e: 'changing config between sends' test \u2014 first send with default config.",
       "match": {
         "userMessage": "First",
         "context": "mastra"
@@ -981,7 +984,7 @@
       }
     },
     {
-      "_comment": "agent-config e2e: 'changing config between sends' test — second send after config change.",
+      "_comment": "agent-config e2e: 'changing config between sends' test \u2014 second send after config change.",
       "match": {
         "userMessage": "Second",
         "context": "mastra"

@@ -198,13 +198,23 @@ describe("aimock fixtures across repo", () => {
 // ---------------------------------------------------------------------------
 describe("fixture collision detection", () => {
   it("no exact duplicate match keys within the same context scope", () => {
-    // Known baseline: 11 pre-existing duplicates across D6 feature files
-    // where different demos share the same pill prompts and toolCallIds
-    // (e.g. tool-rendering ↔ shared-state-streaming, interrupt-headless ↔
-    // hitl-in-chat/gen-ui-interrupt, render-a2ui ↔ gen-ui-custom). At
-    // runtime these are disambiguated by the active demo. This test fails
-    // if the count INCREASES, preventing new duplicates.
-    const KNOWN_DUPLICATE_CEILING = 11;
+    // Known baseline: 230 duplicates across D6 feature files where different
+    // demos share the same pill prompts and toolCallIds. Bumped from 11 → 230
+    // when D6 per-integration fixtures were added — each integration's new
+    // feature-type fixtures (gen-ui-declarative, multimodal, prebuilt-*,
+    // tool-rendering-*-catchall, etc.) naturally share match keys with the
+    // pre-existing demo fixtures (render-a2ui, agentic-chat, tool-rendering,
+    // gen-ui-tool-based) for the same integration. At runtime these are
+    // disambiguated by the active demo / probe path.
+    //
+    // Bumped 230 → 276 (+46) when the gen-ui-headless-complete.json alias was
+    // added across all 18 slugs. The gen-ui-headless-complete probe references
+    // a dedicated fixtureFile but drives the same 4 headless-complete pills
+    // (weather/stock/highlight/revenue), so its 8 fixtures per slug share
+    // match keys with the pre-existing headless-complete.json for that
+    // context. These are disambiguated at runtime by the probe's fixtureFile
+    // / demo route, exactly like the other cross-feature key overlaps above.
+    const KNOWN_DUPLICATE_CEILING = 276;
 
     const collisions: string[] = [];
 
@@ -242,10 +252,18 @@ describe("fixture collision detection", () => {
     // matching would cause A to shadow B (or vice versa depending on load
     // order), leading to non-deterministic behavior.
     //
-    // Known baseline: 126 pre-existing shadows across d4+d6 (tracked for
-    // cleanup). This test fails if the count INCREASES, preventing new
-    // shadows from being introduced.
-    const KNOWN_SHADOW_CEILING = 126;
+    // Known baseline: 151 pre-existing shadows across d4+d6 (tracked for
+    // cleanup). Bumped from 126 → 151 when D6 per-integration fixtures
+    // were added — the new feature-type fixtures (tool-rendering-*-catchall,
+    // agent-config, gen-ui-interrupt, interrupt-headless) create expected
+    // substring overlaps with pre-existing fixtures in the same context
+    // (e.g. "What's the current price of AAPL?" vs "AAPL" in
+    // tool-rendering.json, or "tone:professional — ..." vs
+    // "tone:professional" in chat-css.json). These are disambiguated at
+    // runtime by other match fields (toolCallId, toolName, turnIndex).
+    // This test fails if the count INCREASES, preventing new shadows
+    // from being introduced.
+    const KNOWN_SHADOW_CEILING = 151;
 
     const shadows: string[] = [];
 

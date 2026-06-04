@@ -1,16 +1,24 @@
 /**
- * Unit tests for depth derivation utility.
- * Parameterized: all D0-D6 combos, short-circuit on red, unshipped returns D0.
+ * Unit tests for the depth-derivation utility (deriveDepth).
+ * Covers the D0-D6 ladder walk, short-circuit on non-green, unshipped/
+ * unsupported handling, maxPossible/isRegression computation, multi-key D5
+ * mappings, and D5/D6 staleness downgrades.
  */
 import { describe, it, expect } from "vitest";
 import { deriveDepth } from "../depth-utils";
 import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
+// Default `observed_at` is recent so green rows are not treated as stale by
+// the e2e staleness downgrade (see depth-utils.ts / cell-model.ts). Tests
+// that exercise staleness pass an explicit timestamp.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
   state: StatusRow["state"],
+  observedAt: string = FRESH_OBSERVED_AT,
 ): StatusRow {
   return {
     id: `id-${key}`,
@@ -18,8 +26,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: observedAt,
+    transitioned_at: observedAt,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -151,6 +159,22 @@ describe("deriveDepth", () => {
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(4);
+  });
+
+  it("D4 worst-state wins: green chat + red tools does NOT achieve D4", () => {
+    // Unification D: D4 was `chatGreen || toolsGreen` (OR), which credited
+    // D4 even when one half was red. Match cell-model's resolveD4 worst-
+    // state-wins — a red tools row pulls D4 down so achieved caps at D3.
+    const c = cell("lgp", "agentic-chat");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/agentic-chat", "e2e", "green"),
+      row("chat:lgp", "chat", "green"),
+      row("tools:lgp", "tools", "red"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(3);
   });
 
   it("short-circuits: D1 red means D0 even if D2+ green", () => {
@@ -350,7 +374,7 @@ describe("deriveDepth", () => {
     expect(result.achieved).toBe(4);
   });
 
-  it("returns D6 when D0-D5 green plus D6 green (aggregate key)", () => {
+  it("returns D6 when D0-D5 green plus D6 green (per-cell key)", () => {
     const c = cell("lgp", "agentic-chat");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -358,10 +382,175 @@ describe("deriveDepth", () => {
       row("e2e:lgp/agentic-chat", "e2e", "green"),
       row("chat:lgp", "chat", "green"),
       row("d5:lgp/agentic-chat", "d5", "green"),
-      row("d6:lgp", "d6", "green"),
+      row("d6:lgp/agentic-chat", "d6", "green"),
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(6);
+  });
+
+  // ── D5/D6 staleness mirrors cell-model.ts (both consumers agree) ──
+  describe("D5/D6 staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+    const STALE_AT = new Date(NOW - 7 * 60 * 60 * 1000).toISOString();
+    const FRESH_AT = new Date(NOW - 60 * 1000).toISOString();
+
+    it("does not credit D5 when its green row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", STALE_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green D5 must not advance past D4.
+      expect(result.achieved).toBe(4);
+    });
+
+    it("credits D5 when its green row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(5);
+    });
+
+    it("does not credit D6 when its green row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+        row("d6:lgp/agentic-chat", "d6", "green", STALE_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green D6 must not advance past D5.
+      expect(result.achieved).toBe(5);
+    });
+
+    it("credits D6 when its green row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+        row("d5:lgp/agentic-chat", "d5", "green", FRESH_AT),
+        row("d6:lgp/agentic-chat", "d6", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(6);
+    });
+  });
+
+  // ── D1/D2/D4 staleness downgrade (per-driver windows) ──
+  // Liveness (D1/D2) and real-time (D4) green rows from a stalled driver
+  // must not credit their depth. D1/D2 use LIVENESS_STALE_AFTER_MS (45m),
+  // D4 uses D4_STALE_AFTER_MS (1h); both mirror cell-model.ts.
+  describe("D1/D2/D4 staleness downgrade", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+    // Stale past every window in use (e2e 6h is the widest).
+    const STALE_AT = new Date(NOW - 7 * 60 * 60 * 1000).toISOString();
+    const FRESH_AT = new Date(NOW - 60 * 1000).toISOString();
+    // Older than 45m (D1/D2 window) but within the D4 1h window — proves the
+    // windows are independent: D1/D2 downgrade here while D4 would not.
+    const STALE_LIVENESS_AT = new Date(NOW - 50 * 60 * 1000).toISOString();
+    // Older than 1h (D4 window).
+    const STALE_D4_AT = new Date(NOW - 70 * 60 * 1000).toISOString();
+
+    it("does not credit D1 when its green health row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", STALE_LIVENESS_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green health → D1 not credited → achieved caps at D0.
+      expect(result.achieved).toBe(0);
+    });
+
+    it("credits D1 when its green health row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([row("health:lgp", "health", "green", FRESH_AT)]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(1);
+    });
+
+    it("does not credit D2 when its green agent row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", STALE_LIVENESS_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green agent → D2 not credited → caps at D1.
+      expect(result.achieved).toBe(1);
+    });
+
+    it("credits D2 when its green agent row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(2);
+    });
+
+    it("does not credit D4 when its green chat row is stale", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", STALE_D4_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // Stale green chat → D4 not credited → caps at D3.
+      expect(result.achieved).toBe(3);
+    });
+
+    it("credits D4 when its green chat row is fresh", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", FRESH_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(4);
+    });
+
+    it("D1/D2 window is tighter than D4: a 50m-old D4 row would still count", () => {
+      // A chat row 50m old is stale for liveness (45m) but fresh for D4 (1h).
+      // This guards against collapsing the two windows into one constant.
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([
+        row("health:lgp", "health", "green", FRESH_AT),
+        row("agent:lgp", "agent", "green", FRESH_AT),
+        row("e2e:lgp/agentic-chat", "e2e", "green", FRESH_AT),
+        row("chat:lgp", "chat", "green", STALE_LIVENESS_AT),
+      ]);
+      const result = deriveDepth(c, live, NOW);
+      // 50m < D4's 1h window → D4 still credited.
+      expect(result.achieved).toBe(4);
+    });
+
+    it("leaves a stale RED liveness row red (no false-credit either way)", () => {
+      const c = cell("lgp", "agentic-chat");
+      const live = mapOf([row("health:lgp", "health", "red", STALE_AT)]);
+      const result = deriveDepth(c, live, NOW);
+      expect(result.achieved).toBe(0);
+    });
   });
 
   it("returns D4 for feature with no D5 mapping", () => {
@@ -403,7 +592,7 @@ describe("deriveDepth", () => {
         row("e2e:lgp/agentic-chat", "e2e", "green"),
         row("chat:lgp", "chat", "green"),
         row("d5:lgp/agentic-chat", "d5", "green"),
-        row("d6:lgp", "d6", "green"),
+        row("d6:lgp/agentic-chat", "d6", "green"),
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(6);
@@ -505,6 +694,20 @@ describe("deriveDepth", () => {
 
     it("unshipped → maxPossible=0, no regression", () => {
       const c = cell("lgp", "agentic-chat", "unshipped");
+      const live = mapOf([]);
+      const result = deriveDepth(c, live);
+      expect(result.achieved).toBe(0);
+      expect(result.maxPossible).toBe(0);
+      expect(result.isRegression).toBe(false);
+    });
+
+    it("stub with no live data → maxPossible=0, NOT a regression (stub = not-yet-wired)", () => {
+      // A `stub` cell is "not yet wired", not "regressed". Treating it like
+      // `unshipped` (maxPossible=0) means a stub with no probe data does not
+      // light up the regression indicator. Pre-fix, computeMaxPossible gave a
+      // stub the same 4/6 ceiling as a wired cell, so achieved=0 < maxPossible
+      // falsely flagged isRegression.
+      const c = cell("lgp", "agentic-chat", "stub");
       const live = mapOf([]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);

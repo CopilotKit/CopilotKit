@@ -8,7 +8,7 @@
 # tool-call routing, hitl, gen-ui — captured as fixtures under
 # `showcase/harness/fixtures/d5/`.
 #
-# Rows emitted per driver invocation (see `src/probes/drivers/e2e-deep.ts`):
+# Rows emitted per driver invocation (see `src/probes/drivers/d5-single-pill.ts`):
 #   - Primary `e2e-deep:<slug>`     ProbeResult carrying the aggregate
 #                                   { total, passed, failed[], skipped[],
 #                                     shape, backendUrl } signal.
@@ -32,15 +32,18 @@
 # D5 ticks take ~3.5 min with max_concurrency=4; every-15-min gives
 # continuous regression coverage within a single deploy window.
 #
-# Cron string: `5,20,35,50 * * * *` (every 15 min, offset from :00 to
-# avoid Chromium EAGAIN when co-firing with e2e-smoke's browser pool).
+# Cron string: `5,20,35,50 * * * *` (every 15 min, offset +5 off the
+# :00/:15/:30/:45 quarter-ticks so D5 never co-fires with e2e-smoke
+# (`*/15` = :00/:15/:30/:45) and contends for the shared browser pool
+# (Chromium EAGAIN). The +5 offset also clears e2e-demos (:10) and
+# d6-all-pills-e2e (:40), so no two Playwright probes tick together.
 #
 # ── timeout_ms: 600_000 (10 min) ────────────────────────────────────────
 #
 # Outer driver-invocation cap. Per-feature run subdivides further: the
 # conversation-runner's per-turn `responseTimeoutMs` defaults to 30s,
 # the driver's per-page goto timeout is 30s, and the per-feature
-# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in e2e-deep.ts) is 5
+# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in d5-single-pill.ts) is 5
 # min so a single wedged feature can't drain the global budget for
 # downstream features.
 #
@@ -52,17 +55,21 @@
 # finish in <60s and exit early without sitting on the cap.
 #
 # Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY` (in
-# e2e-deep.ts, currently 2) cuts wall-clock proportionally but doubles
+# d5-single-pill.ts, currently 2) cuts wall-clock proportionally but doubles
 # concurrent Chromium contexts; revisit before raising the cap further.
 #
 # ── max_concurrency: 4 ──────────────────────────────────────────────────
 #
 # 4 services (max_concurrency) × FEATURE_CONCURRENCY(2) features per
-# service = up to 8 concurrent chromium contexts. Each context
-# resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production memory
-# headroom on the orchestrator's Railway footprint has been measured and
-# can sustain this. Higher service concurrency cuts tail latency roughly
-# in half vs. the prior max_concurrency=2.
+# service = up to 8 concurrent chromium contexts. Those contexts are drawn
+# from the 3 shared chromium processes (BROWSER_POOL_BROWSERS=3) under the
+# global BROWSER_POOL_MAX_CONTEXTS=40 cap (D6 peak 32 + this D5 peak 8).
+# Each context resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production
+# memory headroom on the orchestrator's Railway footprint has been measured
+# and can sustain this — the binding constraint is the PID ceiling of 1000,
+# not memory, so contexts (not processes) are the scaling knob. Higher
+# service concurrency cuts tail latency roughly in half vs. the prior
+# max_concurrency=2.
 #
 # ── Scope: all showcase packages ────────────────────────────────────────
 #
@@ -87,6 +94,9 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
+      # Harness service for .NET integration testing — not a demo service,
+      # deployed: false in manifest, no aimock wiring yet.
+      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno

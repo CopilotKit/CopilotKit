@@ -53,31 +53,47 @@ export function inferLanguage(filePath: string): string {
   return LANG_BY_EXT[ext] ?? "plaintext";
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Build the region-start and region-end matchers for a given extension.
 // Markers are matched against the line with leading whitespace tolerated
 // (common in indented class bodies). Returns null when the extension
 // has no comment syntax registered — callers treat that as "can't
 // extract" and return null upstream.
 function markersFor(ext: string): {
-  start: (region: string) => RegExp;
-  end: RegExp;
+  legacyStart: (region: string) => RegExp;
+  namedStart: (region: string) => RegExp;
+  legacyEnd: () => RegExp;
+  namedEnd: (region: string) => RegExp;
 } | null {
   const kind = COMMENT_BY_EXT[ext];
   if (!kind) return null;
   const prefix = kind === "py" ? "#" : "//";
   return {
-    start: (region) =>
-      new RegExp(
-        `^\\s*${prefix}\\s*region:\\s*${region.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`,
-      ),
-    end: new RegExp(`^\\s*${prefix}\\s*endregion\\b`),
+    legacyStart: (region) => {
+      const escaped = escapeRegex(region);
+      return new RegExp(`^\\s*${prefix}\\s*region:\\s*${escaped}\\s*$`);
+    },
+    namedStart: (region) => {
+      const escaped = escapeRegex(region);
+      return new RegExp(`^\\s*${prefix}\\s*@region\\[${escaped}\\]\\s*$`);
+    },
+    legacyEnd: () => new RegExp(`^\\s*${prefix}\\s*endregion\\b`),
+    namedEnd: (region) => {
+      const escaped = escapeRegex(region);
+      return new RegExp(`^\\s*${prefix}\\s*@endregion\\[${escaped}\\]\\s*$`);
+    },
   };
 }
 
 /**
- * Extract the body of `# region: <name>` ... `# endregion` (Python) /
- * `// region: <name>` ... `// endregion` (TS/JS/etc.) from a source
- * string. Markers are stripped from the returned content.
+ * Extract the body of a named region from a source string. Supports
+ * both setup-docs markers (`# region: name` / `# endregion`) and the
+ * showcase bundle markers (`# @region[name]` / `# @endregion[name]`)
+ * for Python, plus the equivalent `//` forms for TS/JS/etc.
+ * Boundary markers are stripped from the returned content.
  *
  * @param source raw file contents
  * @param region region name
@@ -103,17 +119,22 @@ export function extractRegion(
   const markers = markersFor(ext);
   if (!markers) return null;
   const lines = source.split("\n");
-  const startRx = markers.start(region);
-  const endRx = markers.end;
+  const legacyStartRx = markers.legacyStart(region);
+  const namedStartRx = markers.namedStart(region);
+  const legacyEndRx = markers.legacyEnd();
+  const namedEndRx = markers.namedEnd(region);
 
   const blocks: string[] = [];
   let i = 0;
   while (i < lines.length) {
-    if (!startRx.test(lines[i])) {
+    const isNamedStart = namedStartRx.test(lines[i]);
+    const isLegacyStart = legacyStartRx.test(lines[i]);
+    if (!isNamedStart && !isLegacyStart) {
       i++;
       continue;
     }
     const startIdx = i;
+    const endRx = isNamedStart ? namedEndRx : legacyEndRx;
     let endIdx = -1;
     for (let j = i + 1; j < lines.length; j++) {
       if (endRx.test(lines[j])) {

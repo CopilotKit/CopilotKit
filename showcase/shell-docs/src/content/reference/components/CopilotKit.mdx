@@ -4,8 +4,8 @@ description: "The CopilotKit provider component, wrapping your application."
 ---
 
 <Callout type="info">
-  This provider is shared across v1 and v2 APIs. It must be imported from the
-  root package (`@copilotkit/react-core`), not from the v2 subpackage.
+  This provider is shared across v1 and v2 APIs. In v2 docs, import it from
+  `@copilotkit/react-core/v2`.
 </Callout>
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
@@ -15,6 +15,8 @@ This component will typically wrap your entire application (or a sub-tree of you
 You can find more information about self-hosting CopilotKit [here](/direct-to-llm/guides/self-hosting).
 
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>
 ```
 

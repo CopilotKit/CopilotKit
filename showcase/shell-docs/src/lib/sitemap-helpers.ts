@@ -14,6 +14,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { getRuntimeConfig } from "./runtime-config";
 
 export const DOCS_CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const REFERENCE_CONTENT_DIR = path.join(
@@ -173,13 +174,14 @@ export function getAgUiPages(): MdxEntry[] {
 }
 
 /**
- * Resolve the canonical base URL. Reads `NEXT_PUBLIC_BASE_URL` (set in
- * production to `https://docs.copilotkit.ai`) and strips any trailing
- * slash so callers can concatenate `${BASE}/${path}` safely. Falls back
- * to the production host so SSG always yields absolute URLs even when
- * the env var hasn't been wired yet.
+ * Resolve the canonical base URL. Delegates to the server runtime
+ * config reader (which itself reads `NEXT_PUBLIC_BASE_URL` at REQUEST
+ * time, strips trailing slashes, and applies a sensible prod/dev
+ * fallback). Lives behind this thin wrapper so existing sitemap /
+ * robots call sites keep their shape — the runtime-config switch is
+ * what makes a single built artifact serve different hosts across
+ * Railway environments.
  */
 export function getBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_BASE_URL || "https://docs.copilotkit.ai";
-  return raw.replace(/\/+$/, "");
+  return getRuntimeConfig().baseUrl;
 }

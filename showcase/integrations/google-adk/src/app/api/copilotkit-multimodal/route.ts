@@ -17,34 +17,36 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const multimodalAgent = new HttpAgent({
-  url: `${AGENT_URL}/multimodal`,
-});
-
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
-  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
-  // plain Records. Fixed in source, pending release.
-  agents: {
-    // The page's <CopilotKit agent="multimodal-demo"> resolves here.
-    "multimodal-demo": multimodalAgent,
-    // Alias for any internal component that calls `useAgent()` without args
-    // (matches the beautiful-chat / langgraph-python pattern).
-    default: multimodalAgent,
-  },
-});
-
-const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  endpoint: "/api/copilotkit-multimodal",
-  serviceAdapter: new ExperimentalEmptyAdapter(),
-  runtime,
-});
-
+// Build per-request so inbound `x-aimock-context` is conveyed to the
+// Python agent_server. See `src/lib/header-forwarding.ts`.
 export const POST = async (req: NextRequest) => {
   try {
+    const headers = extractForwardedHeaders(req);
+    const multimodalAgent = new HttpAgent({
+      url: `${AGENT_URL}/multimodal`,
+      headers,
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        // The page's <CopilotKit agent="multimodal-demo"> resolves here.
+        "multimodal-demo": multimodalAgent,
+        // Alias for any internal component that calls `useAgent()` without args
+        // (matches the beautiful-chat / langgraph-python pattern).
+        default: multimodalAgent,
+      },
+    });
+
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      endpoint: "/api/copilotkit-multimodal",
+      serviceAdapter: new ExperimentalEmptyAdapter(),
+      runtime,
+    });
+
     return await handleRequest(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };

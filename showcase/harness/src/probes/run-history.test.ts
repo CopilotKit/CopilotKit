@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   PROBE_RUNS_COLLECTION,
   createProbeRunWriter,
-  type ProbeRunRecord,
+  sweepStaleRuns,
 } from "./run-history.js";
+import type { ProbeRunRecord } from "./run-history.js";
 import type { PbClient, ListOpts, ListResult } from "../storage/pb-client.js";
 
 /**
@@ -337,6 +338,79 @@ describe("run-history", () => {
       // (fakePb's `missing row` error) or silently update a non-existent
       // record on the real client.
       expect(fake.updateCalls).toHaveLength(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Partial-rollup-on-abort: when a probe run is aborted mid-flight (the
+  // orchestrator process dies during a pool-churn burst, leaving a
+  // `running` row orphaned), the boot-time sweep must PRESERVE whatever
+  // partial per-service rollup the row already carries rather than
+  // clobbering it with `{ total: 0, passed: 0, failed: 0 }`. Pre-fix the
+  // sweep discarded the real partial counts a 578s D6 run had computed
+  // (41 assertions passed, dozens of features green) — the dashboard /
+  // probe_runs then showed `failed / total:0` instead of reality.
+  // ---------------------------------------------------------------------
+  describe("sweepStaleRuns() — partial-rollup preservation", () => {
+    it("preserves an existing partial summary instead of zeroing it", async () => {
+      const fake = fakePb();
+      const stale = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+      // An orphaned `running` row that DID accumulate partial per-service
+      // results before the process died.
+      const partialSummary = {
+        total: 38,
+        passed: 31,
+        failed: 2,
+        services: [
+          { slug: "d6:starter-lg-react", state: "completed", result: "green" },
+          { slug: "d6:starter-lg-py", state: "failed", error: "boom" },
+        ],
+      };
+      await fake.pb.create(PROBE_RUNS_COLLECTION, {
+        probe_id: "d6-all-pills-e2e",
+        started_at: stale,
+        finished_at: null,
+        duration_ms: null,
+        triggered: false,
+        state: "running",
+        summary: partialSummary,
+      });
+
+      const swept = await sweepStaleRuns(fake.pb);
+      expect(swept).toBe(1);
+
+      const updated = fake.updateCalls.at(-1)!;
+      // The run is terminal + failed (it was aborted), but the partial
+      // rollup MUST survive — not be overwritten with zeros.
+      expect(updated.record.state).toBe("failed");
+      expect(updated.record.summary).toEqual(partialSummary);
+    });
+
+    it("still zeroes the summary for a row that never accumulated partial results", async () => {
+      const fake = fakePb();
+      const stale = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+      // Orphaned row that died before any target completed — summary is
+      // still null. The sweep should fall back to an explicit empty rollup.
+      await fake.pb.create(PROBE_RUNS_COLLECTION, {
+        probe_id: "smoke",
+        started_at: stale,
+        finished_at: null,
+        duration_ms: null,
+        triggered: false,
+        state: "running",
+        summary: null,
+      });
+
+      const swept = await sweepStaleRuns(fake.pb);
+      expect(swept).toBe(1);
+
+      const updated = fake.updateCalls.at(-1)!;
+      expect(updated.record.state).toBe("failed");
+      expect(updated.record.summary).toEqual({
+        total: 0,
+        passed: 0,
+        failed: 0,
+      });
     });
   });
 });

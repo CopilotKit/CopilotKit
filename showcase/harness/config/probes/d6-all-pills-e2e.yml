@@ -12,13 +12,18 @@
 #
 # -- Cadence: hourly at :40 --
 #
-# Avoids e2e-demos at :10, D5 at :05/:20/:35/:50. With BROWSER_POOL_SIZE=10
-# and FEATURE_CONCURRENCY=4, estimated runtime ~7-10 min.
+# :40 is offset off every other Playwright probe so none co-fire for the
+# shared browser pool: e2e-smoke (`*/15` = :00/:15/:30/:45), e2e-demos (:10),
+# and e2e-deep/D5 (:05/:20/:35/:50). With BROWSER_POOL_BROWSERS=3
+# chromium processes and FEATURE_CONCURRENCY=4, estimated runtime ~7-10 min.
 #
 # -- timeout_ms: 600_000 (10 min) --
 # -- max_concurrency: 8 --
 #
-# 8 services x 4 features = 32 concurrent contexts on 10 browsers.
+# 8 services x 4 features = 32 concurrent contexts, drawn from 3 chromium
+# processes. The global context cap is BROWSER_POOL_MAX_CONTEXTS=40 (D6 peak
+# 32 + D5 peak 8); contexts (not processes) are the scaling knob since the
+# PID ceiling of 1000 is the binding constraint.
 kind: e2e_d6
 id: d6-all-pills-e2e
 schedule: "40 * * * *"
@@ -36,6 +41,9 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
+      # Harness service for .NET integration testing — not a demo service,
+      # deployed: false in manifest, no aimock wiring yet.
+      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters
       - showcase-starter-ag2
       - showcase-starter-agno

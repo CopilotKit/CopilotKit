@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / prebuilt-popup",
+    "sourceFile": "harness/fixtures/d5/prebuilt-popup.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

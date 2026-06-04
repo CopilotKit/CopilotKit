@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-import { PreferencesCard, Preferences } from "./preferences-card";
-import { NotesCard } from "./notes-card";
+import { Preferences } from "./preferences-card";
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
 const INITIAL_PREFERENCES: Preferences = {
   name: "",
@@ -49,21 +48,7 @@ function DemoContent() {
   // @endregion[use-agent-read]
   // @endregion[use-agent]
 
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Greet me", message: "Say hi and introduce yourself." },
-      {
-        title: "Remember something",
-        message:
-          "Remember that I prefer morning meetings and that I don't eat dairy.",
-      },
-      {
-        title: "Plan a weekend",
-        message: "Suggest a weekend plan based on my interests.",
-      },
-    ],
-    available: "always",
-  });
+  useSharedStateReadWriteSuggestions();
 
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
@@ -102,23 +87,11 @@ function DemoContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
-      <aside className="p-4 md:w-[360px] md:shrink-0 overflow-y-auto space-y-4">
-        <PreferencesCard
-          value={preferences}
-          onChange={handlePreferencesChange}
-        />
-        <NotesCard notes={notes} onClear={handleClearNotes} />
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <CopilotChat
-          agentId="shared-state-read-write"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Chat with the agent...",
-          }}
-        />
-      </main>
-    </div>
+    <DemoLayout
+      preferences={preferences}
+      notes={notes}
+      onPreferencesChange={handlePreferencesChange}
+      onClearNotes={handleClearNotes}
+    />
   );
 }

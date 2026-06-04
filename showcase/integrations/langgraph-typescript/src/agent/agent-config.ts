@@ -1,19 +1,20 @@
 /**
  * LangGraph TypeScript agent backing the Agent Config Object demo.
  *
- * Reads three forwarded properties — tone, expertise, responseLength — from
- * the LangGraph run's ``RunnableConfig.configurable.properties`` and builds
- * its system prompt dynamically per turn.
+ * Reads three frontend-published context values — tone, expertise,
+ * responseLength — from ``state.copilotkit.context`` and builds its system
+ * prompt dynamically per turn.
  *
- * The CopilotKit provider's `properties` prop is wired through the runtime
- * as `forwardedProps` on each AG-UI run. This graph reads those with
- * defensive defaults (unknown / missing values fall back to the defaults)
- * and composes the system prompt from three small rulebooks before invoking
- * the model.
+ * The frontend uses `useAgentContext` to publish the config object on each
+ * render. This graph reads the latest matching context entry with defensive
+ * defaults (unknown / missing values fall back to the defaults) and composes
+ * the system prompt from three small rulebooks before invoking the model.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+// @region[agent-config-setup]
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -21,6 +22,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 type Tone = "professional" | "casual" | "enthusiastic";
@@ -47,29 +50,70 @@ const AgentStateAnnotation = Annotation.Root({
 
 type AgentState = typeof AgentStateAnnotation.State;
 
-/**
- * Read the forwarded `properties` object with defensive defaults. Any
- * missing or unrecognized value falls back to the corresponding default
- * constant. The function never throws.
- */
-function readProperties(config: RunnableConfig | undefined): ResolvedProps {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function containsConfigKeys(value: Record<string, unknown>): boolean {
+  return "tone" in value || "expertise" in value || "responseLength" in value;
+}
+
+function extractConfigContext(context: unknown): Record<string, unknown> {
+  if (typeof context === "string") {
+    try {
+      return extractConfigContext(JSON.parse(context));
+    } catch {
+      return {};
+    }
+  }
+
+  if (Array.isArray(context)) {
+    for (const entry of [...context].toReversed()) {
+      const extracted = extractConfigContext(entry);
+      if (containsConfigKeys(extracted)) return extracted;
+    }
+    return {};
+  }
+
+  if (!isRecord(context)) return {};
+  const value = context.value;
+  if (typeof value === "string") {
+    const parsed = extractConfigContext(value);
+    if (containsConfigKeys(parsed)) return parsed;
+  }
+  if (isRecord(value) && containsConfigKeys(value)) return value;
+  return containsConfigKeys(context) ? context : {};
+}
+
+function readForwardedProperties(
+  config: RunnableConfig | undefined,
+): Record<string, unknown> {
   const configurable =
     (config?.configurable as Record<string, unknown> | undefined) ?? {};
-  const properties =
-    (configurable.properties as Record<string, unknown> | undefined) ?? {};
+  return (configurable.properties as Record<string, unknown> | undefined) ?? {};
+}
 
-  const toneRaw = properties.tone as string | undefined;
-  const expertiseRaw = properties.expertise as string | undefined;
-  const responseLengthRaw = properties.responseLength as string | undefined;
+function readConfig(state: AgentState, config: RunnableConfig): ResolvedProps {
+  const contextConfig = extractConfigContext(state.copilotkit?.context);
+  const properties = containsConfigKeys(contextConfig)
+    ? contextConfig
+    : readForwardedProperties(config);
+
+  const toneRaw = properties.tone;
+  const expertiseRaw = properties.expertise;
+  const responseLengthRaw = properties.responseLength;
 
   const tone =
-    toneRaw && VALID_TONES.has(toneRaw) ? (toneRaw as Tone) : DEFAULT_TONE;
+    typeof toneRaw === "string" && VALID_TONES.has(toneRaw)
+      ? (toneRaw as Tone)
+      : DEFAULT_TONE;
   const expertise =
-    expertiseRaw && VALID_EXPERTISE.has(expertiseRaw)
+    typeof expertiseRaw === "string" && VALID_EXPERTISE.has(expertiseRaw)
       ? (expertiseRaw as Expertise)
       : DEFAULT_EXPERTISE;
   const responseLength =
-    responseLengthRaw && VALID_RESPONSE_LENGTHS.has(responseLengthRaw)
+    typeof responseLengthRaw === "string" &&
+    VALID_RESPONSE_LENGTHS.has(responseLengthRaw)
       ? (responseLengthRaw as ResponseLength)
       : DEFAULT_RESPONSE_LENGTH;
 
@@ -107,8 +151,11 @@ function buildSystemPrompt(props: ResolvedProps): string {
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.4 });
-  const props = readProperties(config);
+  const model = makeChatOpenAI(config, {
+    model: "gpt-4o-mini",
+    temperature: 0.4,
+  });
+  const props = readConfig(state, config);
   const systemPrompt = buildSystemPrompt(props);
 
   const response = (await model.invoke(
@@ -127,3 +174,4 @@ const workflow = new StateGraph(AgentStateAnnotation)
 const memory = new MemorySaver();
 
 export const graph = workflow.compile({ checkpointer: memory });
+// @endregion[agent-config-setup]

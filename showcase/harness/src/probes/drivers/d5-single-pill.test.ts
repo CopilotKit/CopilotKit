@@ -7,17 +7,19 @@ import {
   e2eDeepDriver,
   FEATURE_CONCURRENCY,
   Semaphore,
-  type E2eDeepAggregateSignal,
-  type E2eDeepBrowser,
-  type E2eDeepBrowserContext,
-  type E2eDeepFeatureSignal,
-  type E2eDeepPage,
+} from "./d5-single-pill.js";
+import type {
+  E2eDeepAggregateSignal,
+  E2eDeepBrowser,
+  E2eDeepBrowserContext,
+  E2eDeepFeatureSignal,
+  E2eDeepPage,
 } from "./d5-single-pill.js";
 import {
   __clearD5RegistryForTesting,
   registerD5Script,
-  type D5Script,
 } from "../helpers/d5-registry.js";
+import type { D5Script } from "../helpers/d5-registry.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -1089,148 +1091,129 @@ describe("e2e-deep graceful degradation (FEATURE_CONCURRENCY=1 equivalent)", () 
 });
 
 // ---------------------------------------------------------------------
-// Pool starvation fix — verifies that createPooledE2eDeepLauncher
-// releases browsers back to the pool when the abort signal fires,
-// preventing cascading starvation when Promise.race abandons the
-// driver promise on timeout.
+// Context-pool migration: createPooledE2eDeepLauncher now checks out a
+// pooled CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). maxContexts (reinterpreted POOL_SIZE) is the global cap;
+// each context acquire/release moves inUse by 1. On abort the launcher
+// closes its open contexts (each releasing its context) — NO browser fork.
+// The per-feature X-AIMock-Context / X-Test-Id headers must flow through
+// to pool.acquire so aimock routing still works.
 // ---------------------------------------------------------------------
-describe("createPooledE2eDeepLauncher abort release", () => {
-  /**
-   * Minimal fake pool that tracks acquire/release calls. Uses a simple
-   * array of fake browsers with an available/in-use split. The fake
-   * browsers satisfy the Playwright Browser interface just enough for
-   * the pooled launcher to call newContext() on them.
-   */
-  function makeFakePool(size: number) {
-    interface FakeBrowser {
-      id: number;
-      newContext(): Promise<{
-        newPage(): Promise<{
-          on: (event: string, handler: (...args: unknown[]) => void) => void;
-          waitForSelector: () => Promise<void>;
-          fill: () => Promise<void>;
-          press: () => Promise<void>;
-          evaluate: () => Promise<unknown>;
-          goto: () => Promise<void>;
-          close: () => Promise<void>;
-          click: () => Promise<void>;
-          waitForFunction: () => Promise<void>;
-        }>;
-        close(): Promise<void>;
-      }>;
-      close(): Promise<void>;
-    }
+/**
+ * Fake context-pool tracking per-CONTEXT acquire/release and the
+ * contextOptions each acquire was called with (so header forwarding is
+ * observable). `maxContexts` is the global cap. Module-scoped so oxlint's
+ * consistent-function-scoping is satisfied (captures no parent state).
+ */
+function makeDeepFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  // Track the set of currently-live contexts so release fidelity matches
+  // the real BrowserPool: an unknown / double release is a no-op (does
+  // NOT decrement the count). The previous unconditional decrement could
+  // drive `live` negative and silently mask a double-release bug.
+  const liveContexts = new Set<object>();
+  const releaseLog: number[] = [];
+  const acquireLog: number[] = [];
+  const acquireOptions: Array<
+    { extraHTTPHeaders?: Record<string, string> } | undefined
+  > = [];
 
-    const browsers: FakeBrowser[] = [];
-    for (let i = 0; i < size; i++) {
-      let contextsClosed = 0;
-      browsers.push({
-        id: i,
-        async newContext() {
+  return {
+    async acquire(options?: {
+      extraHTTPHeaders?: Record<string, string>;
+    }): Promise<unknown> {
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      acquireLog.push(id);
+      acquireOptions.push(options);
+      const ctx = {
+        __id: id,
+        async newPage() {
           return {
-            async newPage() {
-              return {
-                on: () => {},
-                waitForSelector: async () => {},
-                fill: async () => {},
-                press: async () => {},
-                evaluate: async () => 0,
-                goto: async () => {},
-                close: async () => {},
-                click: async () => {},
-                waitForFunction: async () => {},
-              };
-            },
-            async close() {
-              contextsClosed++;
-            },
+            on: () => {},
+            waitForSelector: async () => {},
+            fill: async () => {},
+            press: async () => {},
+            evaluate: async () => 0,
+            goto: async () => {},
+            close: async () => {},
+            click: async () => {},
+            waitForFunction: async () => {},
           };
         },
         async close() {},
-      });
-    }
+      };
+      liveContexts.add(ctx);
+      return ctx;
+    },
+    async release(ctx: unknown): Promise<void> {
+      // Unknown / double release — no-op, mirroring BrowserPool.release.
+      if (typeof ctx !== "object" || ctx === null || !liveContexts.has(ctx)) {
+        return;
+      }
+      liveContexts.delete(ctx);
+      releaseLog.push((ctx as { __id: number }).__id);
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireLog() {
+      return acquireLog;
+    },
+    get _acquireOptions() {
+      return acquireOptions;
+    },
+  };
+}
 
-    const available = [...browsers];
-    const releaseLog: number[] = [];
-    const acquireLog: number[] = [];
-
-    const pool = {
-      async acquire(): Promise<unknown> {
-        const browser = available.shift();
-        if (!browser) throw new Error("FakePool: no browsers available");
-        acquireLog.push(browser.id);
-        return browser;
-      },
-      release(browser: unknown): void {
-        const fb = browser as FakeBrowser;
-        releaseLog.push(fb.id);
-        available.push(fb);
-      },
-      stats() {
-        return {
-          size,
-          available: available.length,
-          inUse: size - available.length,
-          totalRecycles: 0,
-        };
-      },
-      // Expose internals for assertions.
-      get _available() {
-        return available;
-      },
-      get _releaseLog() {
-        return releaseLog;
-      },
-      get _acquireLog() {
-        return acquireLog;
-      },
-    };
-
-    return pool;
-  }
-
-  it("releases browser back to pool when abort signal fires (prevents starvation)", async () => {
-    const pool = makeFakePool(2);
-    // Cast: the fake pool satisfies BrowserPool structurally for the
-    // subset of methods createPooledE2eDeepLauncher uses.
+describe("createPooledE2eDeepLauncher context checkout + abort release", () => {
+  it("checks out one context per newContext() and moves inUse by 1", async () => {
+    const pool = makeDeepFakeContextPool(4);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
 
-    // Acquire both browsers through the launcher.
-    const abortCtrl1 = new AbortController();
-    const abortCtrl2 = new AbortController();
-    const browser1 = await launcher(abortCtrl1.signal);
-    const browser2 = await launcher(abortCtrl2.signal);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    expect(pool.stats().available).toBe(3);
 
-    // Both browsers are now in use — pool should have 0 available.
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(2);
-
-    // Simulate timeout: abort signal fires for browser1.
-    abortCtrl1.abort();
-
-    // Give the abort handler's async context-close + release a tick.
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Browser1 should be released back to the pool.
-    expect(pool._releaseLog).toContain(0);
-    expect(pool.stats().available).toBe(1);
-
-    // The driver's finally block eventually calls browser.close() —
-    // verify it's a no-op (doesn't double-release).
-    await browser1.close();
-    // Still only 1 release for browser 0.
-    expect(pool._releaseLog.filter((id) => id === 0)).toHaveLength(1);
-
-    // Browser2 is still held — normal close releases it.
-    await browser2.close();
-    expect(pool._releaseLog).toContain(1);
-    expect(pool.stats().available).toBe(2);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
   });
 
-  it("closes open contexts before releasing on abort", async () => {
-    const pool = makeFakePool(1);
+  it("forwards newContext(opts).extraHTTPHeaders into pool.acquire", async () => {
+    const pool = makeDeepFakeContextPool(2);
+    const launcher = createPooledE2eDeepLauncher(
+      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
+    );
+    const browser = await launcher();
+    await browser.newContext({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-x",
+        "X-Test-Id": "d5-slug-x",
+      },
+    });
+    expect(pool._acquireOptions[0]).toEqual({
+      extraHTTPHeaders: {
+        "X-AIMock-Context": "slug-x",
+        "X-Test-Id": "d5-slug-x",
+      },
+    });
+  });
+
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeDeepFakeContextPool(2);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
@@ -1238,103 +1221,27 @@ describe("createPooledE2eDeepLauncher abort release", () => {
     const abortCtrl = new AbortController();
     const browser = await launcher(abortCtrl.signal);
 
-    // Open a context (simulates the driver opening a page).
     const ctx = await browser.newContext();
     const _page = await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
 
-    // Abort fires — should close context then release.
     abortCtrl.abort();
     await new Promise((r) => setTimeout(r, 10));
 
-    // Browser released back to pool.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
+    expect(pool.stats().inUse).toBe(0);
   });
 
-  it("handles already-aborted signal (releases immediately)", async () => {
-    const pool = makeFakePool(1);
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeDeepFakeContextPool(2);
     const launcher = createPooledE2eDeepLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
-
-    // Pre-aborted signal.
-    const abortCtrl = new AbortController();
-    abortCtrl.abort();
-
-    const browser = await launcher(abortCtrl.signal);
-
-    // Should be released immediately (synchronously after acquire).
-    expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
-
-    // Driver's close is a no-op.
-    await browser.close();
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-
-  it("full pool starvation scenario: all slots acquired, timeout releases them for next run", async () => {
-    const POOL_SIZE = 4;
-    const pool = makeFakePool(POOL_SIZE);
-    const launcher = createPooledE2eDeepLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    // Simulate a probe run that acquires all 4 pool slots.
-    const abortCtrls = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const browsers = await Promise.all(
-      abortCtrls.map((ac) => launcher(ac.signal)),
-    );
-
-    // Pool is fully exhausted.
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    // Simulate timeout: abort all signals (as the invoker would).
-    for (const ac of abortCtrls) ac.abort();
-    await new Promise((r) => setTimeout(r, 20));
-
-    // All browsers should be released back to the pool.
-    expect(pool.stats().available).toBe(POOL_SIZE);
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE);
-
-    // Next probe run can now acquire all 4 browsers.
-    const nextAbortCtrls = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const nextBrowsers = await Promise.all(
-      nextAbortCtrls.map((ac) => launcher(ac.signal)),
-    );
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    // Clean up: normal close for the second run.
-    for (const b of nextBrowsers) await b.close();
-    expect(pool.stats().available).toBe(POOL_SIZE);
-
-    // Driver's finally block for the first run — all no-ops.
-    for (const b of browsers) await b.close();
-    // No extra releases — still POOL_SIZE total from the abort +
-    // POOL_SIZE from the second run's normal close.
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE * 2);
-  });
-
-  it("no-abort path: browser released normally via close()", async () => {
-    const pool = makeFakePool(1);
-    const launcher = createPooledE2eDeepLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    // No abort signal at all (backwards compat with defaultLauncher).
     const browser = await launcher();
-    expect(pool.stats().available).toBe(0);
-
-    await browser.close();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
   });
 });
 
@@ -1652,4 +1559,242 @@ describe("e2e-deep deploy-churn grace window", () => {
     expect(sig.passed).toBe(1);
     expect(sig.note).toBeUndefined();
   });
+});
+
+// ---------------------------------------------------------------------
+// Pooled-context budget: feature-timeout must NOT free the semaphore slot
+// until the orphaned (still-in-flight) runFeature's context is actually
+// released. Otherwise a freed slot lets a new feature acquire a context
+// while the orphan still holds one → live contexts exceed
+// FEATURE_CONCURRENCY's budget.
+//
+// We model the pool with a launcher that tracks live/peak contexts and
+// supports a controllably-slow context.close(). Each feature's goto hangs
+// past `featureTimeoutMs` so the per-feature timer fires the synthetic
+// `feature-timeout` verdict while runFeature keeps running and holding its
+// context; context teardown then completes a tick later.
+// ---------------------------------------------------------------------
+/** Module-scoped timer helper (oxlint consistent-function-scoping). */
+function testSleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Launcher whose contexts simulate pooled checkout: `newContext` increments
+ * a live counter (tracking peak), each context's page `goto` resolves only
+ * after `gotoDelayMs`, and `close()` resolves only after `closeDelayMs`
+ * (the orphan window). Module-scoped so oxlint's consistent-function-scoping
+ * is satisfied.
+ */
+function makeSlowTeardownLauncher(opts: {
+  gotoDelayMs: number;
+  closeDelayMs: number;
+}): {
+  launcher: () => Promise<E2eDeepBrowser>;
+  state: { live: number; peakLive: number; opened: number; closed: number };
+} {
+  const state = { live: 0, peakLive: 0, opened: 0, closed: 0 };
+  const browser: E2eDeepBrowser = {
+    async newContext(): Promise<E2eDeepBrowserContext> {
+      state.live++;
+      state.opened++;
+      if (state.live > state.peakLive) state.peakLive = state.live;
+      return {
+        async newPage(): Promise<E2eDeepPage> {
+          // Mirror makePage's growing-count contract so the conversation
+          // settles quickly (no 30s response timeout): baseline 0, then
+          // each press bumps the count so the runner detects growth and
+          // settles. runFeature then reaches its finally and calls the
+          // (deliberately slow) context.close().
+          let messageCount = 0;
+          return {
+            async goto() {
+              // Hang past the per-feature timeout so the synthetic
+              // feature-timeout verdict resolves while this runFeature
+              // (and its held context) is still in flight.
+              await testSleep(opts.gotoDelayMs);
+            },
+            async waitForSelector() {},
+            async fill() {},
+            async press() {
+              messageCount++;
+            },
+            async evaluate<R>() {
+              return messageCount as unknown as R;
+            },
+            async click() {},
+            async waitForFunction() {},
+            async close() {},
+          };
+        },
+        async close() {
+          // The orphan window: the context stays live until this resolves.
+          await testSleep(opts.closeDelayMs);
+          state.live--;
+          state.closed++;
+        },
+      };
+    },
+    async close() {},
+  };
+  return { launcher: async () => browser, state };
+}
+
+describe("e2e-deep feature-timeout pooled-context budget", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("does not exceed FEATURE_CONCURRENCY live contexts when features time out (slot release gated on orphan teardown)", async () => {
+    // 3 features, FEATURE_CONCURRENCY=2. Features 1 & 2 acquire slots and
+    // time out (goto hangs past featureTimeoutMs) but keep holding their
+    // contexts until close() resolves (closeDelayMs later). Feature 3
+    // waits in the semaphore queue. If the slot is freed at timeout
+    // BEFORE the orphan's context is released, feature 3 acquires a 3rd
+    // live context → peakLive === 3 (over budget). Gating slot release on
+    // the in-flight runFeature settling keeps peakLive <= 2.
+    expect(FEATURE_CONCURRENCY).toBe(2);
+
+    const featureTypes = [
+      "agentic-chat",
+      "tool-rendering",
+      "shared-state-read",
+    ] as const;
+    for (const ft of featureTypes) {
+      registerD5Script(
+        makeScript({
+          featureTypes: [ft],
+          fixtureFile: `${ft}.json`,
+          buildTurns: () => [{ input: `test ${ft}` }],
+        }),
+      );
+    }
+
+    const { launcher, state } = makeSlowTeardownLauncher({
+      gotoDelayMs: 60,
+      closeDelayMs: 80,
+    });
+
+    const driver = createE2eDeepDriver({
+      launcher,
+      scriptLoader: async () => {},
+      featureTimeoutMs: 20,
+    });
+    const { writer } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-deep:showcase-test",
+      publicUrl: "https://showcase-test.example.com",
+      name: "showcase-test",
+      features: [...featureTypes],
+      shape: "package",
+    });
+
+    // All three features ran (timed out → red rows), and at no point did
+    // more than FEATURE_CONCURRENCY contexts coexist.
+    expect(state.opened).toBe(3);
+    expect(state.peakLive).toBeLessThanOrEqual(FEATURE_CONCURRENCY);
+    expect(state.live).toBe(0); // all released by the time run() resolves
+    const sig = result.signal as E2eDeepAggregateSignal;
+    expect(sig.total).toBe(3);
+  }, 20_000);
+});
+
+// ---------------------------------------------------------------------
+// Per-feature retry uses an isolated AbortController per attempt: a retry
+// after a RETRY-ELIGIBLE failure must actually execute the second attempt
+// rather than being silently short-circuited by a poisoned (pre-aborted)
+// signal. We observe attempt execution via context-open count: runFeature
+// returns `abort` WITHOUT opening a context if entered with an aborted
+// signal, so a poisoned retry would open only ONE context. A healthy
+// retry opens TWO.
+// ---------------------------------------------------------------------
+/**
+ * Launcher whose first context FAILS with a retry-eligible `goto-error`
+ * (goto rejects) and whose second context SUCCEEDS. Attempt 1's goto is
+ * padded past RETRY_MIN_DURATION_MS so the retry gate fires. Tracks
+ * contexts opened (one per executed attempt).
+ */
+function makeRetryLauncher(opts: { attempt1DelayMs: number }): {
+  launcher: () => Promise<E2eDeepBrowser>;
+  state: { opened: number };
+} {
+  const state = { opened: 0 };
+  const browser: E2eDeepBrowser = {
+    async newContext(): Promise<E2eDeepBrowserContext> {
+      const attempt = ++state.opened;
+      return {
+        async newPage(): Promise<E2eDeepPage> {
+          let messageCount = 0;
+          return {
+            async goto() {
+              if (attempt === 1) {
+                // Burn > RETRY_MIN_DURATION_MS, then fail retry-eligibly.
+                await testSleep(opts.attempt1DelayMs);
+                throw new Error("nav blip (retryable)");
+              }
+            },
+            async waitForSelector() {},
+            async fill() {},
+            async press() {
+              messageCount++;
+            },
+            async evaluate<R>() {
+              return messageCount as unknown as R;
+            },
+            async click() {},
+            async waitForFunction() {},
+            async close() {},
+          };
+        },
+        async close() {},
+      };
+    },
+    async close() {},
+  };
+  return { launcher: async () => browser, state };
+}
+
+describe("e2e-deep per-feature retry signal isolation", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("executes the second attempt after a retry-eligible failure (fresh, non-aborted signal)", async () => {
+    // Attempt 1 fails with a retry-eligible conversation-error after
+    // >= RETRY_MIN_DURATION_MS (2s); attempt 2 succeeds. The retry must
+    // run with a fresh, un-aborted signal — observed by TWO contexts
+    // being opened (a poisoned/aborted retry would open only one because
+    // runFeature short-circuits to `abort` before newContext()).
+    registerD5Script(
+      makeScript({
+        featureTypes: ["agentic-chat"],
+        fixtureFile: "agentic-chat.json",
+        buildTurns: () => [{ input: "hello" }],
+      }),
+    );
+
+    const { launcher, state } = makeRetryLauncher({ attempt1DelayMs: 2_100 });
+
+    const driver = createE2eDeepDriver({
+      launcher,
+      scriptLoader: async () => {},
+      featureTimeoutMs: 30_000, // well above attempt durations — no timeout
+    });
+    const { writer } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-deep:showcase-test",
+      publicUrl: "https://showcase-test.example.com",
+      name: "showcase-test",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    // Two attempts executed → two contexts opened; attempt 2 succeeded.
+    expect(state.opened).toBe(2);
+    const sig = result.signal as E2eDeepAggregateSignal;
+    expect(sig.passed).toBe(1);
+    expect(sig.failed).toEqual([]);
+  }, 15_000);
 });

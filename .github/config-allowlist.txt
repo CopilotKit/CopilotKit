@@ -29,11 +29,13 @@ examples/integrations/ms-agent-framework-python/next.config.ts
 examples/integrations/pydantic-ai/next.config.ts
 examples/integrations/strands-python/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
+examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
 examples/showcases/banking/next.config.mjs
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
 examples/showcases/chatkit-studio/apps/world/next.config.ts
+examples/showcases/daytona-runcode/next.config.ts
 examples/showcases/deep-agents-finance-erp/next.config.ts
 examples/showcases/deep-agents-job-search/next.config.ts
 examples/showcases/deep-agents/next.config.ts
@@ -102,6 +104,7 @@ showcase/integrations/langroid/next.config.ts
 showcase/integrations/llamaindex/next.config.ts
 showcase/integrations/mastra/next.config.ts
 showcase/integrations/ms-agent-dotnet/next.config.ts
+showcase/integrations/ms-agent-harness-dotnet/next.config.ts
 showcase/integrations/ms-agent-python/next.config.ts
 showcase/integrations/pydantic-ai/next.config.ts
 showcase/integrations/spring-ai/next.config.ts

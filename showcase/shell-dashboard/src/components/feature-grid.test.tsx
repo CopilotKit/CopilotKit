@@ -8,7 +8,9 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { LiveIndicator, computeColumnTally } from "./feature-grid";
+import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
+import type { CellContext, CellRenderer } from "./feature-grid";
+import { urlsFor } from "./cell-pieces";
 import type { Integration, Feature } from "@/lib/registry";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
@@ -37,6 +39,10 @@ describe("LiveIndicator", () => {
   });
 });
 
+// Recent timestamp so green e2e rows are not treated as stale by the
+// staleness downgrade in cell-model.ts (which compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
   return {
     id: key,
@@ -44,12 +50,61 @@ function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
     dimension: dim,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
 }
+
+describe("FeatureGrid: server-threaded shellUrl builds real-host anchors", () => {
+  const REAL_HOST = "https://showcase.staging.copilotkit.ai";
+  const SENTINEL = "ssr-placeholder.invalid";
+
+  // renderCell that surfaces the resolved ctx.shellUrl as a real anchor via
+  // urlsFor — the same builder the production cells use. If FeatureGrid
+  // threads the server `shellUrl` prop into ctx, these anchors carry the
+  // REAL host; if it falls back to the client SSR sentinel, they carry
+  // `ssr-placeholder.invalid`.
+  const renderCell: CellRenderer = (ctx: CellContext) => {
+    const { demoUrl, codeUrl } = urlsFor(ctx);
+    return (
+      <>
+        <a data-testid="demo-link" href={demoUrl}>
+          Demo
+        </a>
+        <a data-testid="code-link" href={codeUrl}>
+          Code
+        </a>
+      </>
+    );
+  };
+
+  it("anchors use the real host (NOT the SSR sentinel) when shellUrl prop is provided", () => {
+    const { container } = render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={renderCell}
+        liveStatus={new Map() as LiveStatusMap}
+        connection="live"
+        shellUrl={REAL_HOST}
+      />,
+    );
+    const anchors = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(
+        "a[data-testid='demo-link'], a[data-testid='code-link']",
+      ),
+    );
+    // Real registry has integrations × features wired demos, so the grid
+    // renders many cells. There MUST be at least one anchor to assert on.
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const a of anchors) {
+      const href = a.getAttribute("href") ?? "";
+      expect(href).toContain(REAL_HOST);
+      expect(href).not.toContain(SENTINEL);
+    }
+  });
+});
 
 describe("computeColumnTally", () => {
   const demo = (id: string) => ({

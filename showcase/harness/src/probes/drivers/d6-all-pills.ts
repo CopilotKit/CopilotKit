@@ -66,6 +66,14 @@ const inputSchema = z
     name: z.string().optional(),
     features: z.array(z.string()).optional(),
     demos: z.array(z.string()).optional(),
+    /**
+     * Integration's manifest `not_supported_features` set. Features in
+     * this list are architecturally incapable on the framework, NOT
+     * regressions. The driver reclassifies them as `skipped-incapable`
+     * (green side-row + `skipped[]` in the aggregate) instead of running
+     * a probe that would always fail and report red.
+     */
+    notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
   })
@@ -100,6 +108,14 @@ export interface E2eFullFeatureSignal {
 /**
  * Aggregate signal carried on the primary `d6:<slug>` row.
  * Green only if ALL features pass.
+ *
+ * `skipped` is a union of three reasons: filtered-by-trigger (operator
+ * intent), deploy-churn (transient deploy state), and incapable
+ * (manifest `not_supported_features` — framework primitive gap). The
+ * driver does NOT distinguish them in the aggregate count because they
+ * all share the "not counted as red" semantic. `incapable` is broken
+ * out separately so dashboard / operators can tell genuine architectural
+ * skips apart from operational ones.
  */
 export interface E2eFullAggregateSignal {
   shape: "package";
@@ -109,6 +125,14 @@ export interface E2eFullAggregateSignal {
   passed: number;
   failed: string[];
   skipped: string[];
+  /**
+   * Subset of `skipped` representing manifest `not_supported_features`
+   * — features the integration's framework architecturally cannot
+   * support. Distinct from operational skips (deploy-churn, trigger
+   * filter). Empty when the manifest declares no NSF or no requested
+   * feature intersects it.
+   */
+  incapable?: string[];
   note?: string;
   errorDesc?: string;
   failureSummary?: string;
@@ -309,40 +333,50 @@ export function createPooledE2eFullLauncher(
   logger?: { warn(event: string, meta?: Record<string, unknown>): void },
 ): E2eFullBrowserLauncher {
   return async (abortSignal?: AbortSignal): Promise<E2eFullBrowser> => {
-    const browser = await pool.acquire();
-
-    let forceReleased = false;
+    // CONTEXT-POOLED model: each newContext() checks out a pooled
+    // BrowserContext (X-AIMock-Strict centralized in the pool; per-feature
+    // X-AIMock-Context / X-Test-Id flow through `contextOpts`) and the
+    // wrapper's close() releases it. The dead-browser re-acquire dance is
+    // gone: the pool only opens contexts on live browsers (acquire skips
+    // recycling/disconnected browsers and retries on another if newContext
+    // throws), so a dead process can never be handed to a feature. The abort
+    // closure re-targets onto the open contexts: on abort it closes each
+    // (each close() releases its pooled context). There is no Browser held.
+    let aborted = false;
     const openContexts = new Set<{ close(): Promise<void> }>();
 
+    const onAbort = (): void => {
+      if (aborted) return;
+      aborted = true;
+      const ctxCount = openContexts.size;
+      const stats = pool.stats();
+      logger?.warn("probe.e2e-full.pool-abort-release", {
+        openContexts: ctxCount,
+        poolAvailable: stats.available,
+        poolInUse: stats.inUse,
+        poolSize: stats.size,
+      });
+      const contextClosePromises = Array.from(openContexts).map((ctx) =>
+        ctx.close().catch(() => {}),
+      );
+      void Promise.allSettled(contextClosePromises).then(() => {
+        logger?.warn("probe.e2e-full.pool-abort-released", {
+          closedContexts: ctxCount,
+          poolAvailable: pool.stats().available,
+        });
+      });
+    };
+    // Capture the listener so launcher-level close() can detach it: without
+    // removeEventListener a post-completion abort would fire onAbort after the
+    // run returned, leaking the listener for the signal's lifetime.
+    let detachAbort: (() => void) | undefined;
     if (abortSignal) {
-      const onAbort = (): void => {
-        if (forceReleased) return;
-        forceReleased = true;
-        const ctxCount = openContexts.size;
-        const stats = pool.stats();
-        logger?.warn("probe.e2e-full.pool-abort-release", {
-          openContexts: ctxCount,
-          poolAvailable: stats.available,
-          poolInUse: stats.inUse,
-          poolSize: stats.size,
-        });
-        const contextClosePromises = Array.from(openContexts).map((ctx) =>
-          ctx.close().catch(() => {}),
-        );
-        void Promise.allSettled(contextClosePromises).then(() => {
-          pool.release(browser);
-          logger?.warn("probe.e2e-full.pool-abort-released", {
-            closedContexts: ctxCount,
-            poolAvailable: pool.stats().available,
-          });
-        });
-      };
       if (abortSignal.aborted) {
-        forceReleased = true;
+        aborted = true;
         logger?.warn("probe.e2e-full.pool-pre-aborted-release");
-        pool.release(browser);
       } else {
         abortSignal.addEventListener("abort", onAbort, { once: true });
+        detachAbort = () => abortSignal.removeEventListener("abort", onAbort);
       }
     }
 
@@ -350,13 +384,18 @@ export function createPooledE2eFullLauncher(
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
-          },
+        const ctx = await pool.acquire({
+          extraHTTPHeaders: contextOpts?.extraHTTPHeaders,
         });
-        const ctxHandle = { close: () => ctx.close() };
+        // If the signal was already aborted at launcher construction (the
+        // pre-aborted branch never attached the live abort listener), a context
+        // opened now would never be closed by the abort path. Release it
+        // immediately and refuse so it cannot leak into a torn-down run.
+        if (aborted) {
+          await pool.release(ctx).catch(() => {});
+          throw new Error("e2e-full launcher aborted");
+        }
+        const ctxHandle = { close: () => pool.release(ctx) };
         openContexts.add(ctxHandle);
         return {
           async newPage(): Promise<E2eFullPage> {
@@ -410,13 +449,15 @@ export function createPooledE2eFullLauncher(
           },
           close: async () => {
             openContexts.delete(ctxHandle);
-            await ctx.close();
+            await pool.release(ctx);
           },
         };
       },
+      // Launcher-level close releases nothing itself (each context releases
+      // itself) but detaches the abort listener so a post-completion abort
+      // can't fire onAbort after the run returned.
       close: async () => {
-        if (forceReleased) return;
-        pool.release(browser);
+        detachAbort?.();
       },
     };
   };
@@ -500,8 +541,28 @@ export function createE2eFullDriver(
 
       const requestedFeatures = featureSource.filter(isKnownFeatureType);
 
+      // NSF reclassification: features the integration's manifest
+      // declares in `not_supported_features` are architecturally
+      // incapable on this framework. Partition them out BEFORE script
+      // resolution / runnable filtering so they're never attempted —
+      // a stub demo page would fail every assertion and report red,
+      // but the framework gap is the cause, not a regression. Emit
+      // them as green side-rows with `errorClass: "skipped-incapable"`
+      // and surface in the aggregate via `incapable[]` (a subset of
+      // `skipped[]`).
+      const incapableSet = new Set<string>(input.notSupportedFeatures ?? []);
+      const incapableFeatures: D5FeatureType[] = [];
+      const capableRequestedFeatures: D5FeatureType[] = [];
+      for (const ft of requestedFeatures) {
+        if (incapableSet.has(ft)) {
+          incapableFeatures.push(ft);
+        } else {
+          capableRequestedFeatures.push(ft);
+        }
+      }
+
       if (requestedFeatures.length === 0) {
-        return {
+        const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
           key: input.key,
           state: "green",
           signal: {
@@ -516,6 +577,8 @@ export function createE2eFullDriver(
           },
           observedAt,
         };
+        await emitAggregate(ctx, slug, aggregateResult);
+        return aggregateResult;
       }
 
       // Deploy-churn grace window
@@ -548,7 +611,7 @@ export function createE2eFullDriver(
               });
             }
 
-            return {
+            const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
               key: input.key,
               state: "green",
               signal: {
@@ -563,6 +626,8 @@ export function createE2eFullDriver(
               },
               observedAt,
             };
+            await emitAggregate(ctx, slug, aggregateResult);
+            return aggregateResult;
           }
         }
       }
@@ -587,9 +652,11 @@ export function createE2eFullDriver(
       // D6 strict missing-script handling: features without a registered
       // script FAIL with red (unlike D5 which skips with green). Missing
       // scripts in D6 are coverage gaps that must surface immediately.
+      // Incapable features (NSF) are excluded from this check entirely
+      // — they're emitted as green side-rows below.
       const missingScript: string[] = [];
       let runnable: D5FeatureType[] = [];
-      for (const ft of requestedFeatures) {
+      for (const ft of capableRequestedFeatures) {
         if (D5_REGISTRY.has(ft)) {
           runnable.push(ft);
         } else {
@@ -644,7 +711,7 @@ export function createE2eFullDriver(
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn("probe.e2e-full.launcher-error", { slug, err: msg });
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "red",
             signal: {
@@ -654,12 +721,18 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: [],
+              skipped: incapableFeatures.map(String),
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
               errorDesc: "launcher-error",
               failureSummary: truncateUtf8(msg, 1200),
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
@@ -693,9 +766,29 @@ export function createE2eFullDriver(
           });
         }
 
+        // Emit green side rows for NSF-incapable features. Distinct
+        // `errorClass: "skipped-incapable"` so log scrapers can
+        // distinguish manifest-declared framework gaps from operational
+        // skips. State is green so the dashboard does NOT count these
+        // as red, but the side-row carries the reason for auditability.
+        for (const ft of incapableFeatures) {
+          await sideEmit(ctx, {
+            key: `d6:${slug}/${ft}`,
+            state: "green",
+            signal: {
+              slug,
+              featureType: ft,
+              backendUrl,
+              errorClass: "skipped-incapable",
+              note: "skipped: not supported by integration (manifest.not_supported_features)",
+            },
+            observedAt: ctx.now().toISOString(),
+          });
+        }
+
         // If nothing is runnable but we have missing scripts, that's a red.
         if (runnable.length === 0 && missingScript.length > 0) {
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "red",
             signal: {
@@ -705,18 +798,24 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: missingScript,
-              skipped: filteredByTrigger,
+              skipped: [...filteredByTrigger, ...incapableFeatures],
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
               failureSummary: missingScript
                 .map((ft) => `${ft}: no script registered`)
                 .join("; "),
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // If nothing is runnable and everything was filtered, green.
         if (runnable.length === 0) {
-          return {
+          const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
             key: input.key,
             state: "green",
             signal: {
@@ -726,11 +825,20 @@ export function createE2eFullDriver(
               total: requestedFeatures.length,
               passed: 0,
               failed: [],
-              skipped: filteredByTrigger,
-              note: "all runnable features filtered by trigger",
+              skipped: [...filteredByTrigger, ...incapableFeatures],
+              incapable:
+                incapableFeatures.length > 0
+                  ? incapableFeatures.map(String)
+                  : undefined,
+              note:
+                filteredByTrigger.length > 0
+                  ? "all runnable features filtered by trigger"
+                  : "all requested features are NSF-incapable",
             },
             observedAt,
           };
+          await emitAggregate(ctx, slug, aggregateResult);
+          return aggregateResult;
         }
 
         // Run features with bounded parallelism.
@@ -747,6 +855,18 @@ export function createE2eFullDriver(
 
           await sem.acquire();
           const featureStart = Date.now();
+          // In-flight runFeature promises that may still be holding a
+          // pooled BrowserContext after the Promise.race resolves. On
+          // the feature-timeout path the race resolves a synthetic
+          // result while the real runFeature keeps running until its
+          // abort-driven teardown closes the context (→ pool.release).
+          // We gate sem.release() (outer finally) on these settling so
+          // the freed slot can't be re-acquired while an orphan still
+          // holds a context, which would push live pooled contexts past
+          // the FEATURE_CONCURRENCY-bounded budget.
+          const inFlightRunFeatures: Array<
+            Promise<Awaited<ReturnType<typeof runFeature>>>
+          > = [];
           try {
             if (abort.signal.aborted) {
               await sideEmit(ctx, {
@@ -803,26 +923,47 @@ export function createE2eFullDriver(
               Awaited<ReturnType<typeof runFeature>>
             > => {
               let featureTimer: ReturnType<typeof setTimeout> | undefined;
+              // Per-attempt child controller. It aborts when the parent
+              // (`featureAbort`) fires OR when THIS attempt's timer wins,
+              // so aborting one attempt never poisons the next — the
+              // retry attempt gets a fresh, un-aborted signal. Without
+              // this, a single shared controller aborted by attempt 1
+              // would make attempt 2's runFeature return immediately with
+              // `aborted before start` (a silent no-op retry).
+              const attemptAbort = new AbortController();
+              const onParentAbortChild = (): void => attemptAbort.abort();
+              if (featureAbort.signal.aborted) attemptAbort.abort();
+              else
+                featureAbort.signal.addEventListener(
+                  "abort",
+                  onParentAbortChild,
+                  { once: true },
+                );
+              const runFeaturePromise = runFeature({
+                browser: browserRef,
+                url,
+                slug,
+                featureType: ft,
+                pageTimeoutMs,
+                script,
+                buildCtx: {
+                  integrationSlug: slug,
+                  featureType: ft,
+                  baseUrl: backendUrl,
+                },
+                abortSignal: attemptAbort.signal,
+                logger: ctx.logger,
+              });
+              inFlightRunFeatures.push(runFeaturePromise);
               try {
                 return await Promise.race([
-                  runFeature({
-                    browser: browserRef,
-                    url,
-                    slug,
-                    featureType: ft,
-                    pageTimeoutMs,
-                    script,
-                    buildCtx: {
-                      integrationSlug: slug,
-                      featureType: ft,
-                      baseUrl: backendUrl,
-                    },
-                    abortSignal: featureAbort.signal,
-                    logger: ctx.logger,
-                  }),
+                  runFeaturePromise,
                   new Promise<Awaited<ReturnType<typeof runFeature>>>(
                     (resolve) => {
                       featureTimer = setTimeout(() => {
+                        // Abort the parent so the launcher's open-context
+                        // teardown runs; this also aborts the child via
+                        // the listener above.
                         featureAbort.abort();
                         resolve({
                           ok: false,
@@ -835,6 +976,10 @@ export function createE2eFullDriver(
                 ]);
               } finally {
                 if (featureTimer) clearTimeout(featureTimer);
+                featureAbort.signal.removeEventListener(
+                  "abort",
+                  onParentAbortChild,
+                );
               }
             };
 
@@ -934,6 +1079,14 @@ export function createE2eFullDriver(
               };
             }
           } finally {
+            // Gate slot release on the real teardown of any in-flight
+            // runFeature. On the timeout path the synthetic verdict has
+            // already been returned to the caller above; here we only
+            // wait for the abandoned runFeature's context teardown (its
+            // own finally → context.close() → pool.release) to settle so
+            // the slot isn't handed to a new feature while an orphan
+            // still holds a pooled context.
+            await Promise.allSettled(inFlightRunFeatures);
             sem.release();
           }
         });
@@ -996,12 +1149,13 @@ export function createE2eFullDriver(
           slug,
           passed,
           failed: failed.length,
-          skipped: filteredByTrigger.length,
+          skipped: filteredByTrigger.length + incapableFeatures.length,
+          incapable: incapableFeatures.length,
           total: requestedFeatures.length,
           state: aggregateGreen ? "green" : "red",
           durationMs: Date.now() - serviceStart,
         });
-        return {
+        const aggregateResult: ProbeResult<E2eFullAggregateSignal> = {
           key: input.key,
           state: aggregateGreen ? "green" : "red",
           signal: {
@@ -1011,12 +1165,22 @@ export function createE2eFullDriver(
             total: requestedFeatures.length,
             passed,
             failed,
-            skipped: filteredByTrigger,
+            skipped: [...filteredByTrigger, ...incapableFeatures],
+            incapable:
+              incapableFeatures.length > 0
+                ? incapableFeatures.map(String)
+                : undefined,
             failureSummary:
               featureErrors.length > 0 ? featureErrors.join("; ") : undefined,
           },
           observedAt,
         };
+        // Unconditional dashboard-contract emit: even if features failed
+        // or timed out, the dashboard's D6 column needs a `d6:<slug>` row
+        // to display red (vs blank). Placed after the loop so per-feature
+        // timeouts inside the loop can never skip it.
+        await emitAggregate(ctx, slug, aggregateResult);
+        return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
         if (externalAbort) {
@@ -1344,6 +1508,45 @@ async function sideEmit(
   } catch (err) {
     ctx.logger.error("probe.e2e-full.side-emit-writer-failed", {
       key: result.key,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Emit the integration-scoped aggregate `d6:<slug>` side row consumed
+ * by the showcase dashboard. The dashboard reads this exact key (see
+ * `shell-dashboard/src/lib/live-status.ts` and
+ * `shell-dashboard/src/components/depth-utils.ts`). The CLI driver path
+ * (cli/targets.ts -> `key: d6:<slug>`) produces this shape as its
+ * primary return; the cron path's primary key is
+ * `d6-all-pills-e2e:<name>`, so without this explicit side-emit the
+ * dashboard's D6 column stays permanently blank.
+ *
+ * Best-effort and isolated from primary-return semantics: failures here
+ * are logged by `ctx.writer.write` but never propagate to the caller.
+ */
+async function emitAggregate(
+  ctx: ProbeContext,
+  slug: string,
+  result: ProbeResult<E2eFullAggregateSignal>,
+): Promise<void> {
+  if (!ctx.writer) {
+    ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {
+      key: `d6:${slug}`,
+    });
+    return;
+  }
+  try {
+    await ctx.writer.write({
+      key: `d6:${slug}`,
+      state: result.state,
+      signal: result.signal,
+      observedAt: result.observedAt,
+    });
+  } catch (err) {
+    ctx.logger.error("probe.e2e-full.aggregate-emit-failed", {
+      key: `d6:${slug}`,
       err: err instanceof Error ? err.message : String(err),
     });
   }

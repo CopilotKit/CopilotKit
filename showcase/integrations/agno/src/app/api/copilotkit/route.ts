@@ -33,6 +33,14 @@ function createSubagentsAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/subagents/agui` });
 }
 
+// gen-ui-agent: agent owns its own state schema (`steps`) and mutates it
+// via the `set_steps` tool. Needs the state-aware AGUI router so the
+// frontend's `useAgent({ updates: [OnStateChanged] })` receives the
+// StateSnapshotEvent each run — stock Agno AGUI does not emit one.
+function createGenUiAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent/agui` });
+}
+
 // Main agent backs most demos. The Next.js runtime aliases the single
 // Agno `main` agent under every demo cell name so per-cell frontend
 // tool/component registrations scope correctly.
@@ -45,7 +53,6 @@ const mainAgentNames = [
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -94,6 +101,10 @@ for (const name of reasoningAgentNames) {
 // Bidirectional shared-state agent — UI writes preferences, agent writes
 // notes back via set_notes and the custom AGUI router emits a
 // StateSnapshotEvent that the frontend's useAgent picks up.
+// gen-ui-agent — owns its own `steps` state schema and mutates it via the
+// `set_steps` tool. Routes to the state-aware AGUI handler that emits a
+// StateSnapshotEvent each run so the frontend's progress card updates.
+agents["gen-ui-agent"] = createGenUiAgent();
 agents["shared-state-read-write"] = createSharedStateRWAgent();
 // Sub-agents supervisor — appends to state["delegations"] every time a
 // research / writing / critique sub-agent is delegated to. Same custom

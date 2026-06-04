@@ -179,7 +179,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 async function submitMessageAndWaitForUserMessage(value: string) {
   await waitFor(() => {
-    expect(screen.queryByTestId("copilot-chat-cursor")).toBeNull();
+    expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
   });
 
   const input = await screen.findByRole("textbox");

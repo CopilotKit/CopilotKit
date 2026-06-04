@@ -7,10 +7,12 @@ import {
   e2eReadinessDriver,
   createE2eDemosDriver,
   createPooledE2eDemosLauncher,
-  type E2eDemosBrowser,
-  type E2eDemosBrowserContext,
-  type E2eDemosPage,
-  type E2eDemosAggregateSignal,
+} from "./e2e-readiness.js";
+import type {
+  E2eDemosBrowser,
+  E2eDemosBrowserContext,
+  E2eDemosPage,
+  E2eDemosAggregateSignal,
 } from "./e2e-readiness.js";
 import { buildProbeInvoker } from "../loader/probe-invoker.js";
 import { createDiscoveryRegistry } from "../discovery/index.js";
@@ -648,7 +650,7 @@ describe("e2e-demos driver", () => {
     });
 
     expect(result.state).toBe("red");
-    // Single compound selector tried (not 6 individual ones).
+    // Single compound selector tried (not the individual selectors one-by-one).
     expect(selectorsTried).toHaveLength(1);
     expect(selectorsTried[0]).toContain(
       '[data-testid="copilot-chat-textarea"]',
@@ -1061,13 +1063,13 @@ describe("e2e-demos driver", () => {
     expect(sig?.errorClass).not.toBe("abort");
   });
 
-  // --- C7: selector-loop is abort-responsive ---------------------------
+  // --- C7: the single compound selector wait is abort-responsive -------
 
-  it("aborts mid-selector-loop without walking all 6 selectors", async () => {
-    // Slow waitForSelector + cap fires mid-loop. Without the abort
-    // check between iterations, the worst case is 6*pageTimeoutMs per
-    // demo. Assert the loop bails after a small constant number of
-    // selectors (< 6) once the cap fires.
+  it("aborts during the compound selector wait (single waitForSelector call)", async () => {
+    // The driver issues ONE compound waitForSelector covering all ready
+    // selectors at once (no per-selector loop). A slow compound wait plus a
+    // fired cap must surface as a red result rather than blocking for the
+    // full pageTimeoutMs. Assert exactly the one compound call was made.
     const selectorsTried: string[] = [];
     let resolveFirstSel!: () => void;
     const firstSelGate = new Promise<void>((r) => {
@@ -1131,11 +1133,11 @@ describe("e2e-demos driver", () => {
     const result = await runP;
 
     expect(result.state).toBe("red");
-    // Strict: only the first selector should have been attempted; the
-    // mid-loop abort check must bail before the second iteration runs.
-    expect(selectorsTried.length).toBeLessThan(5);
+    // Compound design: exactly ONE waitForSelector call is made (the single
+    // compound selector), never a per-selector walk.
+    expect(selectorsTried).toHaveLength(1);
     // Side row must reflect either abort or selector-error/timeout, NOT
-    // a wall-clock-bloated six-selector walk.
+    // a wall-clock-bloated multi-selector walk.
     const sideRow = writes.find((w) => w.key === "e2e:abort-mid-loop/d1");
     const sig = sideRow?.signal as { errorClass?: string };
     expect(["abort", "selector-error", "selector-timeout"]).toContain(
@@ -1379,6 +1381,127 @@ describe("e2e-demos driver", () => {
     );
     expect(failLogs).toHaveLength(1);
     expect(failLogs[0]?.meta?.errName).toBe("Error");
+  });
+
+  // --- C13: exhausted per-demo budget must NOT pass timeout:0 -----------
+  //
+  // The per-demo wall-clock budget is `remaining() = max(0, deadline - now)`.
+  // When the budget is already exhausted at the goto/waitForSelector call
+  // site (now MUCH more reachable since pool.acquire() can block ~30s on a
+  // waiter), `remaining()` returns 0. Passing `timeout: 0` to Playwright's
+  // page.goto / page.waitForSelector means WAIT FOREVER — defeating the
+  // per-demo deadline and hanging the whole tick.
+  //
+  // This Playwright-faithful fake reproduces that contract: a `timeout: 0`
+  // (or absent) goto/waitForSelector NEVER resolves; a positive timeout
+  // rejects after that many ms. The driver MUST bail to a timeout result
+  // promptly instead of issuing a forever-wait call.
+  it("bails to a timeout result instead of passing timeout:0 when the per-demo budget is exhausted", async () => {
+    const gotoTimeouts: Array<number | undefined> = [];
+    const selectorTimeouts: Array<number | undefined> = [];
+
+    // Mirrors Playwright's `timeout: 0` === wait-forever semantics. A
+    // zero/absent timeout returns a never-settling promise; a positive
+    // timeout rejects after that delay.
+    function timeoutOrHang(
+      label: string,
+      timeout: number | undefined,
+    ): Promise<never> {
+      if (timeout === undefined || timeout <= 0) {
+        // Wait forever — exactly Playwright's timeout:0 behaviour.
+        return new Promise<never>(() => {});
+      }
+      return new Promise<never>((_resolve, reject) => {
+        setTimeout(
+          () => reject(new Error(`${label} timeout ${timeout}ms exceeded`)),
+          timeout,
+        );
+      });
+    }
+
+    const pwFaithfulPage: E2eDemosPage = {
+      async goto(_url, opts) {
+        gotoTimeouts.push(opts?.timeout);
+        return timeoutOrHang("goto", opts?.timeout);
+      },
+      async waitForSelector(_sel, opts) {
+        selectorTimeouts.push(opts?.timeout);
+        return timeoutOrHang("waitForSelector", opts?.timeout);
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const pwFaithfulBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return pwFaithfulPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => pwFaithfulBrowser,
+      // Generous outer cap so the abort race does NOT mask the bug — the
+      // per-demo deadline (pageTimeoutMs:0) is what must short-circuit.
+      timeoutMs: 60_000,
+      // Zero per-demo budget → deadline is already in the past at the goto
+      // call site → remaining() === 0.
+      pageTimeoutMs: 0,
+    });
+    const { writer, writes } = mkWriter();
+
+    const runP = driver.run(mkCtx(writer), {
+      key: "e2e-demos:budget-exhausted",
+      name: "showcase-budget-exhausted",
+      publicUrl: "https://showcase-budget-exhausted.example.com",
+      demos: ["d1"],
+      shape: "package",
+    });
+
+    // Watchdog: the run MUST resolve promptly. On the buggy code it issues
+    // `timeout: 0` and hangs forever, so this race surfaces the defect
+    // deterministically without a 30s wall-clock wait.
+    const watchdog = new Promise<"HANG">((resolve) => {
+      setTimeout(() => resolve("HANG"), 1_000);
+    });
+    const outcome = await Promise.race([
+      runP.then(() => "RESOLVED" as const),
+      watchdog,
+    ]);
+    expect(outcome).toBe("RESOLVED");
+
+    const result = await runP;
+    // Aggregate red — the single demo could not be verified in its budget.
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eDemosAggregateSignal;
+    expect(sig.failed).toEqual(["d1"]);
+
+    // The demo's side row must carry a timeout-class failure, NOT a
+    // forever-hang.
+    const sideRow = writes.find((w) => w.key === "e2e:budget-exhausted/d1");
+    expect(sideRow?.state).toBe("red");
+    const rowSig = sideRow?.signal as { errorClass?: string };
+    expect(["selector-timeout", "goto-error", "abort"]).toContain(
+      rowSig?.errorClass,
+    );
+
+    // CRITICAL: no goto/waitForSelector call may have been issued with a
+    // non-positive timeout. A 0 / undefined timeout is the forever-hang bug.
+    for (const t of gotoTimeouts) {
+      expect(typeof t === "number" && t > 0).toBe(true);
+    }
+    for (const t of selectorTimeouts) {
+      expect(typeof t === "number" && t > 0).toBe(true);
+    }
   });
 });
 
@@ -1679,116 +1802,100 @@ describe("shortest-service-first dispatch (integration)", () => {
 });
 
 // ---------------------------------------------------------------------
-// Pool starvation parity with createPooledE2eDeepLauncher (ed0933e5c).
-// e2e-demos shares the same Promise.race-driven outer-timeout pattern
-// as e2e-deep, so it needs the same abort-driven release path or a hung
-// service holds its slot until the orphaned driver promise drains.
+// Context-pool migration: the pooled launcher now checks out a pooled
+// CONTEXT per newContext() (pool.acquire) and releases it on close
+// (pool.release). maxContexts is the global cap (reinterpreted POOL_SIZE).
+// Each context acquire/release moves inUse by 1; on abort the launcher
+// closes its open contexts (each releasing its context) — NO browser fork.
 // ---------------------------------------------------------------------
-describe("createPooledE2eDemosLauncher abort release", () => {
-  /**
-   * Minimal fake pool tracking acquire/release calls. Mirrors the shape
-   * used by createPooledE2eDeepLauncher's tests so the two pooled launchers
-   * exercise an analogous fixture.
-   */
-  function makeFakePool(size: number) {
-    interface FakeBrowser {
-      id: number;
-      newContext(): Promise<{
-        newPage(): Promise<{
-          goto(): Promise<void>;
-          waitForSelector(): Promise<void>;
-          close(): Promise<void>;
-        }>;
-        close(): Promise<void>;
-      }>;
-      close(): Promise<void>;
-    }
+/**
+ * Fake context-pool tracking per-CONTEXT acquire/release. `maxContexts`
+ * is the global cap; acquire() hands out a fresh fake context (its own
+ * newPage + identity) and release(ctx) returns it. Module-scoped so
+ * oxlint's consistent-function-scoping is satisfied (captures no parent
+ * state).
+ */
+function makeDemosFakeContextPool(maxContexts: number) {
+  let nextCtxId = 0;
+  const releaseLog: number[] = [];
+  const acquireLog: number[] = [];
+  const forks = 0; // a real pool forks only at init; a fake never re-forks here
+  // Track the SET of currently-live contexts (not a bare counter) so the
+  // fake mirrors the real `BrowserPool.release` contract: release of a
+  // context not currently live (unknown / double release) is a no-op and
+  // must NOT decrement the live count. A bare counter would silently go
+  // negative on a double-release, masking launcher double-release bugs.
+  const liveContexts = new Set<unknown>();
 
-    const browsers: FakeBrowser[] = [];
-    for (let i = 0; i < size; i++) {
-      browsers.push({
-        id: i,
-        async newContext() {
+  return {
+    async acquire(): Promise<unknown> {
+      if (liveContexts.size >= maxContexts) throw new Error("FakePool: at cap");
+      const id = nextCtxId++;
+      acquireLog.push(id);
+      const ctx = {
+        __id: id,
+        async newPage() {
           return {
-            async newPage() {
-              return {
-                async goto() {},
-                async waitForSelector() {},
-                async close() {},
-              };
-            },
+            async goto() {},
+            async waitForSelector() {},
             async close() {},
           };
         },
         async close() {},
-      });
-    }
+      };
+      liveContexts.add(ctx);
+      return ctx;
+    },
+    async release(ctx: unknown): Promise<void> {
+      // Mirror BrowserPool.release: unknown / double release is a no-op.
+      // Only contexts currently checked out decrement the live set + log.
+      if (!liveContexts.has(ctx)) return;
+      liveContexts.delete(ctx);
+      const c = ctx as { __id: number };
+      releaseLog.push(c.__id);
+    },
+    stats() {
+      return {
+        size: maxContexts,
+        available: maxContexts - liveContexts.size,
+        inUse: liveContexts.size,
+        totalRecycles: 0,
+      };
+    },
+    get _releaseLog() {
+      return releaseLog;
+    },
+    get _acquireLog() {
+      return acquireLog;
+    },
+    get _forks() {
+      return forks;
+    },
+  };
+}
 
-    const available = [...browsers];
-    const releaseLog: number[] = [];
-    const acquireLog: number[] = [];
-
-    return {
-      async acquire(): Promise<unknown> {
-        const browser = available.shift();
-        if (!browser) throw new Error("FakePool: no browsers available");
-        acquireLog.push(browser.id);
-        return browser;
-      },
-      release(browser: unknown): void {
-        const fb = browser as FakeBrowser;
-        releaseLog.push(fb.id);
-        available.push(fb);
-      },
-      stats() {
-        return {
-          size,
-          available: available.length,
-          inUse: size - available.length,
-          totalRecycles: 0,
-        };
-      },
-      get _releaseLog() {
-        return releaseLog;
-      },
-      get _acquireLog() {
-        return acquireLog;
-      },
-    };
-  }
-
-  it("releases the pooled browser when the abort signal fires (prevents starvation)", async () => {
-    const pool = makeFakePool(2);
+describe("createPooledE2eDemosLauncher context checkout + abort release", () => {
+  it("checks out one context per newContext() and moves inUse by 1", async () => {
+    const pool = makeDemosFakeContextPool(4);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
+    const browser = await launcher();
+    expect(pool.stats().inUse).toBe(0);
 
-    const ac1 = new AbortController();
-    const ac2 = new AbortController();
-    const browser1 = await launcher(ac1.signal);
-    const browser2 = await launcher(ac2.signal);
+    const ctx = await browser.newContext();
+    expect(pool.stats().inUse).toBe(1);
+    expect(pool.stats().available).toBe(3);
 
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(2);
-
-    ac1.abort();
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(pool._releaseLog).toContain(0);
-    expect(pool.stats().available).toBe(1);
-
-    // Driver's finally-block close is a no-op after force-release.
-    await browser1.close();
-    expect(pool._releaseLog.filter((id) => id === 0)).toHaveLength(1);
-
-    // Browser2 still held — normal close releases it.
-    await browser2.close();
-    expect(pool._releaseLog).toContain(1);
-    expect(pool.stats().available).toBe(2);
+    await ctx.close();
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool._releaseLog).toHaveLength(1);
+    // No process fork on the hot path.
+    expect(pool._forks).toBe(0);
   });
 
-  it("closes open contexts before releasing on abort", async () => {
-    const pool = makeFakePool(1);
+  it("closes open contexts on abort (each releasing its pooled context)", async () => {
+    const pool = makeDemosFakeContextPool(2);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
@@ -1797,68 +1904,27 @@ describe("createPooledE2eDemosLauncher abort release", () => {
     const browser = await launcher(ac.signal);
 
     const ctx = await browser.newContext();
-    const _page = await ctx.newPage();
+    await ctx.newPage();
+    expect(pool.stats().inUse).toBe(1);
 
     ac.abort();
     await new Promise((r) => setTimeout(r, 10));
 
+    // The open context was closed → released back to the pool.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
+    expect(pool.stats().inUse).toBe(0);
   });
 
-  it("handles already-aborted signal (releases immediately)", async () => {
-    const pool = makeFakePool(1);
+  it("launcher-level close is a no-op (contexts release themselves)", async () => {
+    const pool = makeDemosFakeContextPool(2);
     const launcher = createPooledE2eDemosLauncher(
       pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
     );
-
-    const ac = new AbortController();
-    ac.abort();
-
-    const browser = await launcher(ac.signal);
-
-    // Released synchronously after acquire (no waiting on abort event).
+    const browser = await launcher();
+    const ctx = await browser.newContext();
+    await ctx.close();
+    await browser.close(); // no-op
+    // Exactly one release — from the context's own close, not the launcher.
     expect(pool._releaseLog).toHaveLength(1);
-    expect(pool.stats().available).toBe(1);
-
-    await browser.close();
-    expect(pool._releaseLog).toHaveLength(1);
-  });
-
-  it("full pool starvation scenario: all slots acquired, abort releases them for the next run", async () => {
-    const POOL_SIZE = 4;
-    const pool = makeFakePool(POOL_SIZE);
-    const launcher = createPooledE2eDemosLauncher(
-      pool as unknown as import("../helpers/browser-pool.js").BrowserPool,
-    );
-
-    const acs = Array.from({ length: POOL_SIZE }, () => new AbortController());
-    const browsers = await Promise.all(acs.map((ac) => launcher(ac.signal)));
-
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    for (const ac of acs) ac.abort();
-    await new Promise((r) => setTimeout(r, 20));
-
-    expect(pool.stats().available).toBe(POOL_SIZE);
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE);
-
-    // Next run can acquire all slots immediately.
-    const nextAcs = Array.from(
-      { length: POOL_SIZE },
-      () => new AbortController(),
-    );
-    const nextBrowsers = await Promise.all(
-      nextAcs.map((ac) => launcher(ac.signal)),
-    );
-    expect(pool.stats().available).toBe(0);
-    expect(pool.stats().inUse).toBe(POOL_SIZE);
-
-    for (const b of nextBrowsers) await b.close();
-    for (const b of browsers) await b.close();
-    // POOL_SIZE releases from abort + POOL_SIZE from the second run's
-    // normal close. The first run's normal close is a no-op.
-    expect(pool._releaseLog).toHaveLength(POOL_SIZE * 2);
   });
 });

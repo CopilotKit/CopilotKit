@@ -1,24 +1,36 @@
 "use client";
 
 /**
- * Two buttons that inject bundled sample files into the active CopilotChat's
- * attachment queue. The queue is owned internally by <CopilotChat /> (via its
- * `useAttachments` hook), so we inject at the DOM level: find the hidden
- * `<input type="file">` CopilotChat renders, populate its `.files` via
- * DataTransfer, and dispatch a `change` event. This exercises the *same*
- * onChange handler the paperclip / drag-and-drop paths use — which means our
- * sample path runs through the `AttachmentsConfig.onUpload` the page wires
- * on the chat, the same file-size + accept-filter validation, the same
- * placeholder-then-ready lifecycle. No duplicated queueing code.
+ * Two buttons that auto-attach a bundled sample file (image or PDF) and
+ * immediately submit a canned prompt about it.
  *
- * Container scope: the sample buttons live next to the chat inside a
- * `data-multimodal-demo-root` wrapper (see page.tsx). We scope our
- * `querySelector` to that root so multiple CopilotChat instances on the
- * page (there aren't any today, but the pattern should be safe) don't
- * collide.
+ * Implementation note: an earlier version of this component drove the
+ * chat's hidden `<input type="file">` via DataTransfer + a synthetic
+ * `change` event so the sample path went through the same `onUpload` /
+ * `useAttachments` pipeline as the paperclip button. That worked for
+ * "queue the attachment" but auto-sending the canned prompt afterwards
+ * required clicking the send button while the attachment was still in
+ * `status: "uploading"`, which `CopilotChat.onSubmitInput` rejects with
+ * `"Cannot send while attachments are uploading"` and clears the input
+ * regardless. Detecting the upload-complete state from outside the chat
+ * meant scraping the spinner overlay, racy on slow renders.
+ *
+ * This version skips the DOM entirely and goes through the V2 agent
+ * surface directly: `agent.addMessage(...)` to enqueue a fully-formed
+ * user message (text + attachment content parts), then
+ * `copilotkit.runAgent({ agent })` to dispatch it. Matches what
+ * `CopilotChat.onSubmitInput` does internally — same shapes, same
+ * runtime — but with no upload race because we build the
+ * already-base64'd content part ourselves before calling addMessage.
+ *
+ * The `LegacyConverterShim` in page.tsx still rewrites our modern
+ * `image|document` parts to the legacy `binary` shape the published
+ * `@ag-ui/langgraph` converter understands, so the agent ultimately
+ * receives the attachment in the form `multimodal_agent.py` expects.
  */
 
 import { useCallback, useState } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 interface SampleSpec {
   readonly buttonLabel: string;
@@ -26,6 +38,15 @@ interface SampleSpec {
   readonly mimeType: string;
   readonly testId: string;
   readonly fetchUrl: string;
+  /**
+   * Prompt sent alongside the attachment. Rendered as the user message
+   * bubble in chat AND matched against by aimock to return the demo's
+   * canned response. Phrased as a long, specific sentence ("demo pdf I
+   * just attached" / "demo image I just attached") so it both reads
+   * naturally and can't collide with arbitrary user prompts — random
+   * uploads phrase questions differently and fall through to the proxy.
+   */
+  readonly autoPrompt: string;
 }
 
 const SAMPLES: readonly SampleSpec[] = [
@@ -35,6 +56,7 @@ const SAMPLES: readonly SampleSpec[] = [
     mimeType: "image/png",
     testId: "multimodal-sample-image-button",
     fetchUrl: "/demo-files/sample.png",
+    autoPrompt: "can you tell me what is in this demo image I just attached",
   },
   {
     buttonLabel: "Try with sample PDF",
@@ -42,27 +64,17 @@ const SAMPLES: readonly SampleSpec[] = [
     mimeType: "application/pdf",
     testId: "multimodal-sample-pdf-button",
     fetchUrl: "/demo-files/sample.pdf",
+    autoPrompt: "can you tell me what is in this demo pdf I just attached",
   },
 ];
 
 export interface SampleAttachmentButtonsProps {
   /**
-   * Selector (scoped to `document`) that resolves to the wrapper element
-   * rendered around `<CopilotChat />`. The component walks this element's
-   * subtree to find the hidden file input CopilotChat renders.
+   * Agent slug the parent `<CopilotKit agent="...">` provider wires up.
+   * The buttons send via `useAgent({ agentId })` so the message lands on
+   * the same agent the sibling `<CopilotChat />` is bound to.
    */
-  readonly rootSelector: string;
-}
-
-function findChatFileInput(rootSelector: string): HTMLInputElement | null {
-  if (typeof document === "undefined") return null;
-  const root = document.querySelector(rootSelector);
-  if (!root) return null;
-  // CopilotChat renders exactly one hidden `<input type="file">` directly
-  // inside its chatContainerRef div. Match on `type="file"` to avoid
-  // sibling inputs (there are none today but it costs nothing to be
-  // defensive).
-  return root.querySelector<HTMLInputElement>('input[type="file"]');
+  readonly agentId: string;
 }
 
 /**
@@ -71,7 +83,7 @@ function findChatFileInput(rootSelector: string): HTMLInputElement | null {
  * short plain-text stub starting with `version https://git-lfs...`) with
  * a `Content-Type: image/png` header if LFS wasn't pulled at build time.
  * Without this guard, the broken pointer bytes get base64-encoded,
- * fed into CopilotChat as a valid-looking PNG, and rendered as a broken
+ * sent to the agent as a valid-looking PNG, and rendered as a broken
  * <img>. Fail loudly with an actionable error instead.
  */
 const MAGIC_BYTES: Record<string, number[]> = {
@@ -89,7 +101,18 @@ function bytesStartWith(bytes: Uint8Array, prefix: number[]): boolean {
   return true;
 }
 
-async function fetchAsFile(spec: SampleSpec): Promise<File> {
+interface FetchedSample {
+  bytes: Uint8Array;
+  base64: string;
+  size: number;
+}
+
+/**
+ * Fetch the sample file, validate its magic bytes, and return both the
+ * raw bytes (for size accounting) and a base64 string suitable for
+ * dropping into a `source.value` content part.
+ */
+async function fetchSample(spec: SampleSpec): Promise<FetchedSample> {
   const res = await fetch(spec.fetchUrl);
   if (!res.ok) {
     throw new Error(
@@ -100,7 +123,6 @@ async function fetchAsFile(spec: SampleSpec): Promise<File> {
   const buffer = await res.arrayBuffer();
   const bytes = new Uint8Array(buffer);
 
-  // Detect Git LFS pointer stub — the file on disk hasn't been materialized.
   const asciiHead = new TextDecoder("utf-8", { fatal: false }).decode(
     bytes.slice(0, Math.min(bytes.length, 64)),
   );
@@ -121,57 +143,105 @@ async function fetchAsFile(spec: SampleSpec): Promise<File> {
     );
   }
 
-  // Re-wrap the bytes into a blob/File with the explicit MIME type rather than
-  // trusting whatever Content-Type the dev server returned.
+  // Convert to base64 via FileReader for parity with the paperclip path.
+  // The `data:<mime>;base64,<payload>` URL is split — we only need the
+  // payload, which becomes the `source.value` of the content part below.
   const blob = new Blob([buffer], { type: spec.mimeType });
-  return new File([blob], spec.filename, { type: spec.mimeType });
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () =>
+      reject(
+        reader.error ?? new Error(`FileReader failed for ${spec.filename}`),
+      );
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error(`Unexpected FileReader result for ${spec.filename}`));
+        return;
+      }
+      resolve(reader.result);
+    };
+    reader.readAsDataURL(blob);
+  });
+  const commaIdx = dataUrl.indexOf(",");
+  const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+
+  return { bytes, base64, size: buffer.byteLength };
+}
+
+/**
+ * Browser-friendly UUID. `crypto.randomUUID` is widely supported but we
+ * fall back to a math-based UUIDv4 for the (rare) older runtime.
+ */
+function generateMessageId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 export function SampleAttachmentButtons({
-  rootSelector,
+  agentId,
 }: SampleAttachmentButtonsProps) {
+  const { agent } = useAgent({ agentId });
+  const { copilotkit } = useCopilotKit();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const injectSample = useCallback(
+  const sendSample = useCallback(
     async (spec: SampleSpec): Promise<void> => {
       setError(null);
       setLoading(spec.testId);
       try {
-        const fileInput = findChatFileInput(rootSelector);
-        if (!fileInput) {
+        if (!agent) {
           throw new Error(
-            `CopilotChat file input not found under "${rootSelector}". ` +
-              "Is <CopilotChat /> mounted with `attachments.enabled: true`?",
+            `Agent "${agentId}" is not yet available. Try again in a moment.`,
           );
         }
-        const file = await fetchAsFile(spec);
+        const sample = await fetchSample(spec);
+        const partType =
+          spec.mimeType === "application/pdf" ? "document" : "image";
 
-        // Populate the file input's `.files` list via a fresh DataTransfer.
-        // This is the only way to programmatically set `HTMLInputElement.files`
-        // — assigning a plain array fails in every browser.
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
+        // Build a multimodal user message as content parts: prompt text +
+        // the attachment. The `LegacyConverterShim` in page.tsx will
+        // rewrite the modern `image|document` part to the legacy `binary`
+        // shape the @ag-ui/langgraph converter understands before the
+        // request leaves the runtime.
+        agent.addMessage({
+          id: generateMessageId(),
+          role: "user",
+          content: [
+            { type: "text", text: spec.autoPrompt },
+            {
+              type: partType,
+              source: {
+                type: "data",
+                value: sample.base64,
+                mimeType: spec.mimeType,
+              },
+              metadata: {
+                filename: spec.filename,
+                size: sample.size,
+              },
+            },
+          ],
+        } as Parameters<typeof agent.addMessage>[0]);
 
-        // Dispatch a bubbling `change` event. CopilotChat's internal
-        // `useAttachments.handleFileUpload` listens on `onChange`, which
-        // React wires up as a native `change` listener — so a standard
-        // DOM Event with `bubbles: true` reaches it.
-        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await copilotkit.runAgent({ agent });
       } catch (err) {
-        console.error(
-          "[multimodal-demo] sample-attachment injection failed",
-          err,
-        );
-        setError(
-          err instanceof Error ? err.message : "Sample injection failed.",
-        );
+        console.error("[multimodal-demo] sample-attachment send failed", err);
+        setError(err instanceof Error ? err.message : "Sample send failed.");
       } finally {
         setLoading(null);
       }
     },
-    [rootSelector],
+    [agent, agentId, copilotkit],
   );
 
   return (
@@ -190,10 +260,10 @@ export function SampleAttachmentButtons({
             type="button"
             data-testid={spec.testId}
             disabled={loading !== null}
-            onClick={() => void injectSample(spec)}
+            onClick={() => void sendSample(spec)}
             className="rounded border border-black/15 bg-white px-3 py-1 text-xs font-medium text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-neutral-900 dark:text-white dark:hover:bg-white/5"
           >
-            {isLoading ? "Loading…" : spec.buttonLabel}
+            {isLoading ? "Sending…" : spec.buttonLabel}
           </button>
         );
       })}
