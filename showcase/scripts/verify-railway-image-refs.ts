@@ -49,6 +49,36 @@ import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
+/**
+ * Railway service-name prefix for the starter container fleet. Mirrors the
+ * `namePrefix: "starter-"` discovery filter in
+ * `showcase/harness/config/probes/starter_smoke.yml` (and the
+ * `deriveStarterSlug` strip in `drivers/starter-smoke.ts`).
+ */
+const STARTER_FLEET_PREFIX = "starter-";
+
+/**
+ * True iff `name` is a starter-container-fleet Railway service
+ * (`starter-<slug>`).
+ *
+ * The starter fleet is DECOUPLED from this 27-service SSOT: each
+ * `starter-*` service is AUTO-DISCOVERED at runtime by the `starter_smoke`
+ * probe via the `railway-services` discovery source filtered on
+ * `namePrefix: "starter-"` — it is never read from `railway-envs.ts`.
+ * Therefore the SSOT⨉Railway drift checks below MUST exclude these
+ * services: a provisioned `starter-*` service is neither required-in-SSOT
+ * (findMissingServices) nor flagged-as-untracked (findUntrackedServices).
+ * Without this carve-out, provisioning a starter service trips the
+ * Railway→SSOT drift gate and SKIPS the showcase build.
+ *
+ * NOTE: this matches the `starter-` prefix only — the decommissioned
+ * `showcase-starter-*` services use the `showcase-` prefix and are NOT
+ * starter-fleet (they are excluded by smoke.yml's nameExcludes instead).
+ */
+export function isStarterFleetService(name: string): boolean {
+  return name.startsWith(STARTER_FLEET_PREFIX);
+}
+
 // Canonical shapes per env.
 //   Staging :latest pattern — exact-match against `<repo>:latest`.
 //   Prod    @sha256:<hex>  — exact-match against `<repo>@sha256:<64 hex>`.
@@ -196,6 +226,11 @@ export function findMissingServices(
 ): string[] {
   const missing: string[] = [];
   for (const [name, entry] of Object.entries(SERVICES)) {
+    // Starter-fleet services are SSOT-decoupled (see
+    // isStarterFleetService) — never require them in the SSOT→Railway
+    // direction. Defense-in-depth: SERVICES never contains a starter-*
+    // key today, so this is a guard against a future stray entry.
+    if (isStarterFleetService(name)) continue;
     if (!entry.gateValidated) continue;
     if (!presentServiceNames.has(name)) missing.push(name);
   }
@@ -221,6 +256,13 @@ export function findUntrackedServices(
 ): string[] {
   const untracked: string[] = [];
   for (const name of railwayServiceNames) {
+    // Starter-fleet services (starter-<slug>) are SSOT-decoupled and
+    // auto-discovered by the starter_smoke probe (see
+    // isStarterFleetService) — a provisioned starter-* service is NOT
+    // drift, so never flag it as untracked. This is the carve-out that
+    // lets the 12 starter services be provisioned without skipping the
+    // showcase build.
+    if (isStarterFleetService(name)) continue;
     const entry = SERVICES[name];
     // Any SSOT entry — gateIgnored or not — is known/accounted-for in
     // the Railway->SSOT direction. Only absence from the SSOT counts.
