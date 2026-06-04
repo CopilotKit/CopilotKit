@@ -62,36 +62,61 @@ function makeLogger(): {
 }
 
 /** In-memory PB fake recording creates + supporting list/deleteByFilter for the
- *  retention path. */
+ *  retention path. Each row gets a stable `id` (insertion order, with a stable
+ *  per-row sequence as a secondary sort key) so the writer's id-based,
+ *  tie-robust prune can address rows individually even when `observed_at`
+ *  collides at the same millisecond. */
 function makeFakePb(): {
   pb: SnapshotPbClient;
   created: Array<Record<string, unknown>>;
 } {
   const created: Array<Record<string, unknown>> = [];
+  let seq = 0;
+  // Sort newest-first by observed_at, tie-broken by insertion sequence DESC so
+  // ordering is stable across same-millisecond rows.
+  const newestFirst = (
+    a: Record<string, unknown>,
+    b: Record<string, unknown>,
+  ): number => {
+    const cmp = String(b.observed_at).localeCompare(String(a.observed_at));
+    if (cmp !== 0) return cmp;
+    return Number(b.__seq) - Number(a.__seq);
+  };
   const pb: SnapshotPbClient = {
     async create(_collection, record) {
-      created.push(record);
-      return record as never;
+      const row = { id: `row-${seq}`, __seq: seq, ...record };
+      seq += 1;
+      created.push(row);
+      return row as never;
     },
     async list(_collection, opts) {
-      // Sort newest-first by observed_at for the boundary lookup.
-      const sorted = [...created].sort((a, b) =>
-        String(b.observed_at).localeCompare(String(a.observed_at)),
-      );
+      const sort = opts?.sort ?? "-observed_at";
+      // "observed_at" => oldest first; "-observed_at" (or default) => newest.
+      const sorted = [...created].sort(newestFirst);
+      const ordered = sort.startsWith("-") ? sorted : sorted.reverse();
       const perPage = opts?.perPage ?? 30;
       const page = opts?.page ?? 1;
       const start = (page - 1) * perPage;
-      const items = sorted.slice(start, start + perPage);
+      const items = ordered.slice(start, start + perPage);
       return { totalItems: created.length, items: items as never[] };
     },
     async deleteByFilter(_collection, filter) {
-      // filter is `observed_at < "<cutoff>"`.
-      const m = filter.match(/observed_at < "(.+)"/);
-      if (!m) return 0;
-      const cutoff = m[1];
+      // The writer's tie-robust prune deletes by id: `id = "x" || id = "y"`.
+      const ids = new Set(
+        Array.from(filter.matchAll(/id = "([^"]+)"/g)).map((m) => m[1]),
+      );
+      // Back-compat: still honor a legacy `observed_at < "<cutoff>"` filter so a
+      // strict-cutoff prune can be exercised directly if needed.
+      const cutoffMatch = filter.match(/observed_at < "(.+)"/);
+      const cutoff = cutoffMatch?.[1];
       const before = created.length;
       for (let i = created.length - 1; i >= 0; i--) {
-        if (String(created[i].observed_at) < cutoff) created.splice(i, 1);
+        const row = created[i];
+        if (ids.has(String(row.id))) {
+          created.splice(i, 1);
+        } else if (cutoff !== undefined && String(row.observed_at) < cutoff) {
+          created.splice(i, 1);
+        }
       }
       return before - created.length;
     },
@@ -191,6 +216,169 @@ describe("resource-snapshot-writer", () => {
       await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
     }
     expect(created).toHaveLength(5);
+  });
+
+  it("RETENTION: converges to <= maxRows even when boundary timestamps are IDENTICAL (tie-robust)", async () => {
+    // fix #2: observed_at is ms-resolution and snapshots can fire in the SAME
+    // millisecond (degraded+heartbeat+crash). A bare `observed_at < cutoff`
+    // strict compare would strand the surplus rows that tie the boundary
+    // timestamp and spin forever (knownOverCap stays true, every insert re-runs
+    // a full no-op sweep → unbounded growth). The id-based prune converges.
+    const { pb, created } = makeFakePb();
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxRows: 3,
+      pruneIntervalMs: 0,
+    });
+
+    // Write 6 snapshots that ALL share the exact same observed_at timestamp.
+    const tied = "2026-06-04T00:00:00.000Z";
+    for (let i = 0; i < 6; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: tied }), STATS);
+    }
+
+    // Ring cap is 3 — despite every row tying the boundary timestamp, retention
+    // still converges to exactly maxRows.
+    expect(created).toHaveLength(3);
+  });
+
+  it("RETENTION: rate-limit keeps prune off the steady-state insert path, but knownOverCap catches up over cap", async () => {
+    // slot-6 F2: with pruneIntervalMs > 0 the rate-limit must keep the prune off
+    // the hot insert path once it has run for the interval (steady state, under
+    // cap), yet once over cap the knownOverCap flag must force a catch-up prune
+    // on the NEXT insert rather than waiting a full interval.
+    const { pb, created } = makeFakePb();
+    const { logger, logs } = makeLogger();
+    // Frozen clock: after the first insert's prove-probe, no further inserts in
+    // this test advance past the interval, so a prune can ONLY recur via the
+    // knownOverCap catch-up path (never via the rate-limit timer).
+    const nowMs = 10 * 60_000; // > pruneIntervalMs so the first insert probes.
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      maxRows: 3,
+      pruneIntervalMs: 60_000, // 1 min between rate-limited sweeps
+      now: () => nowMs,
+    });
+
+    // Probe a list-call counter so we can prove inserts past the first do NOT
+    // issue a list (the prune's first action) in steady state.
+    let listCalls = 0;
+    const origList = pb.list.bind(pb);
+    pb.list = ((collection, opts) => {
+      listCalls += 1;
+      return origList(collection, opts);
+    }) as typeof pb.list;
+
+    // STEADY STATE (under cap): first insert probes once (lastPruneAt=0 → over
+    // interval); subsequent inserts in the SAME frozen instant must NOT re-probe
+    // because the rate-limit window has not elapsed and we are under cap.
+    for (let i = 0; i < 3; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
+    }
+    expect(created).toHaveLength(3);
+    expect(listCalls).toBe(1); // only the first insert probed.
+
+    // Go OVER cap, all within the SAME frozen instant. The insert that crosses
+    // the cap trips knownOverCap; subsequent inserts must catch up and prune
+    // even though the rate-limit interval has not elapsed (clock frozen).
+    for (let i = 3; i < 7; i++) {
+      await writer.write("heartbeat", makeGauges({ ts: `t${i}` }), STATS);
+    }
+    // Converged back to cap via the knownOverCap catch-up (NOT a timer wait).
+    expect(created).toHaveLength(3);
+    const prunedLogs = logs.filter(
+      (l) => l.event === "resource-snapshot.pruned",
+    );
+    expect(prunedLogs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("ESCALATION: after N consecutive failures escalates to logger.error ONCE, resets on success", async () => {
+    // fix #3: systematic write failures (unrun migration / outage / schema
+    // drift) must not silently no-op forever. After the threshold the writer
+    // escalates ONCE to error (latched), the per-failure warn is throttled, and
+    // a subsequent success resets the latch.
+    let fail = true;
+    const flakyPb: SnapshotPbClient = {
+      async create() {
+        if (fail) throw new Error("pb create failed: 400 missing collection");
+        return {} as never;
+      },
+      async list() {
+        return { totalItems: 0, items: [] };
+      },
+      async deleteByFilter() {
+        return 0;
+      },
+    };
+    const { logger, logs } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb: flakyPb,
+      logger,
+      failureEscalationThreshold: 5,
+    });
+
+    // 5 consecutive failures → exactly ONE error escalation.
+    for (let i = 0; i < 5; i++) {
+      await writer.write("heartbeat", makeGauges(), STATS);
+    }
+    const errs = logs.filter(
+      (l) =>
+        l.level === "error" &&
+        l.event === "resource-snapshot.write-failing-systematically",
+    );
+    expect(errs).toHaveLength(1);
+
+    // More failures must NOT re-fire the latched error.
+    await writer.write("heartbeat", makeGauges(), STATS);
+    expect(
+      logs.filter(
+        (l) => l.event === "resource-snapshot.write-failing-systematically",
+      ),
+    ).toHaveLength(1);
+
+    // A success resets the latch; a subsequent failure burst can escalate again.
+    fail = false;
+    await writer.write("heartbeat", makeGauges(), STATS);
+    fail = true;
+    for (let i = 0; i < 5; i++) {
+      await writer.write("heartbeat", makeGauges(), STATS);
+    }
+    expect(
+      logs.filter(
+        (l) => l.event === "resource-snapshot.write-failing-systematically",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("NULL SENTINEL: a -1 gauge is written to PB as null, not -1", async () => {
+    // fix #4: the -1 "unavailable" sentinel (off-Linux / unreadable cgroup) must
+    // be stored as null so post-wedge queries separate measured-vs-unavailable.
+    const { pb, created } = makeFakePb();
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({ pb, logger });
+
+    await writer.write(
+      "heartbeat",
+      makeGauges({
+        cgroupPidsCurrent: -1,
+        cgroupPidsMax: -1,
+        treeThreadCount: -1,
+        selfFdCount: -1,
+        // A real (non-negative) reading must pass through unchanged.
+        treeProcCount: 60,
+      }),
+      STATS,
+    );
+
+    const row = created[0];
+    expect(row.pids_current).toBeNull();
+    expect(row.pids_max).toBeNull();
+    expect(row.threads).toBeNull();
+    expect(row.fd_count).toBeNull();
+    expect(row.procs).toBe(60);
   });
 
   it("uses the documented collection name", () => {
