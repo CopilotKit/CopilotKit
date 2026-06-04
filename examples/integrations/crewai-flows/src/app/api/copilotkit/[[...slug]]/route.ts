@@ -10,7 +10,9 @@ import { handle } from "hono/vercel";
 //    integration to setup the connection.
 const runtime = new CopilotRuntime({
   agents: {
-    default: new HttpAgent({ url: "http://localhost:8000/" }),
+    default: new HttpAgent({
+      url: (process.env.AGENT_URL || "http://localhost:8000").replace(/\/$/, ""),
+    }),
   },
   runner: new InMemoryAgentRunner(),
 });
