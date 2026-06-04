@@ -163,6 +163,10 @@ interface ProjectServicesResult {
           };
         };
       }>;
+      pageInfo?: {
+        hasNextPage: boolean;
+        endCursor?: string | null;
+      } | null;
     };
   } | null;
 }
@@ -175,8 +179,19 @@ interface ServiceDomainResult {
   serviceDomainCreate: { domain: string };
 }
 
+/**
+ * `serviceInstanceRedeploy` returns a Boolean! in Railway's schema — `true`
+ * once the redeploy is enqueued. VERIFIED against the two in-repo consumers
+ * that read this mutation's result:
+ *   - showcase/scripts/redeploy-env.ts types it `serviceInstanceRedeploy?:
+ *     boolean` and gates on `!== true`;
+ *   - showcase/bin/railway (RestoreCommand P5) requires
+ *     `redeployed["serviceInstanceRedeploy"]` truthy.
+ * Both treat it as a bare boolean, and bin/railway's REDEPLOY_MUTATION selects
+ * NO subfields on the result (confirming a scalar, not an object/deployment).
+ */
 interface ServiceInstanceRedeployResult {
-  serviceInstanceRedeploy: boolean;
+  serviceInstanceRedeploy: boolean | null;
 }
 
 /** Existing-service lookup result: id + whether it already has a staging domain. */
@@ -197,41 +212,60 @@ export async function fetchExistingServices(
   projectId: string,
   stagingEnvId: string,
 ): Promise<Map<string, ExistingService>> {
-  const data = await gql<ProjectServicesResult>(
-    `query project($id: String!) {
-      project(id: $id) {
-        services {
-          edges { node {
-            id
-            name
-            serviceInstances {
-              edges { node {
-                environmentId
-                domains { serviceDomains { domain } }
-              } }
-            }
-          } }
-        }
-      }
-    }`,
-    { id: projectId },
-  );
-
-  if (!data.project) {
-    throw new Error(
-      `Railway project ${projectId} returned null — check PROJECT_ID and that the Railway token has access to this project.`,
-    );
-  }
-
   const byName = new Map<string, ExistingService>();
-  for (const edge of data.project.services.edges) {
-    const svc = edge.node;
-    const stagingInstance = svc.serviceInstances.edges.find(
-      (e) => e.node.environmentId === stagingEnvId,
+  // `project.services` is a Relay ServiceConnection that PAGE-LIMITS. The
+  // showcase project holds ~27 SSOT + 12 starter services, comfortably more
+  // than one page. A single un-paginated query returns a TRUNCATED snapshot —
+  // a starter that lands on a later page then looks ABSENT, the provisioner
+  // takes the CREATE path, and serviceCreate rejects with a non-transient
+  // "already exists" (NOT retried) which ABORTS the whole run. So drain every
+  // page via `pageInfo.hasNextPage`/`endCursor` (standard Relay cursor loop —
+  // bin/railway's SERVICES_LIST_QUERY predates this hazard and is unpaginated,
+  // so there is no in-repo precedent to mirror), accumulating into byName.
+  let after: string | null = null;
+  // Defensive upper bound so a malformed `pageInfo` (always hasNextPage with a
+  // stuck cursor) can't spin forever — far above any realistic project size.
+  for (let page = 0; page < 1000; page++) {
+    const data: ProjectServicesResult = await gql<ProjectServicesResult>(
+      `query project($id: String!, $after: String) {
+        project(id: $id) {
+          services(first: 100, after: $after) {
+            edges { node {
+              id
+              name
+              serviceInstances {
+                edges { node {
+                  environmentId
+                  domains { serviceDomains { domain } }
+                } }
+              }
+            } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }`,
+      { id: projectId, after },
     );
-    const hasStagingDomain =
-      (stagingInstance?.node.domains?.serviceDomains?.length ?? 0) > 0;
-    byName.set(svc.name, { id: svc.id, hasStagingDomain });
+
+    if (!data.project) {
+      throw new Error(
+        `Railway project ${projectId} returned null — check PROJECT_ID and that the Railway token has access to this project.`,
+      );
+    }
+
+    for (const edge of data.project.services.edges) {
+      const svc = edge.node;
+      const stagingInstance = svc.serviceInstances.edges.find(
+        (e) => e.node.environmentId === stagingEnvId,
+      );
+      const hasStagingDomain =
+        (stagingInstance?.node.domains?.serviceDomains?.length ?? 0) > 0;
+      byName.set(svc.name, { id: svc.id, hasStagingDomain });
+    }
+
+    const pageInfo = data.project.services.pageInfo;
+    if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break;
+    after = pageInfo.endCursor;
   }
   return byName;
 }
@@ -266,8 +300,16 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
  * as a generic "Service ... not found" while the instance is still settling.
  * NOTE: an "already exists" domain error is NON-transient and is handled
  * separately (caught as a benign no-op) — it must NOT match here.
+ *
+ * Railway INTERPOLATES the service id into the second form — the real message
+ * is "Service <id> not found" (e.g. "Service abc-123 not found"), NOT the
+ * contiguous "Service not found". So the pattern matches "Service" followed by
+ * "not found" with anything (the id) in between; the `(Instance)?` alternation
+ * still covers the literal "ServiceInstance not found" form. `[\s\S]*?` is a
+ * non-greedy any-char (incl. newline) bridge so the id between the two anchors
+ * never blocks the match.
  */
-const TRANSIENT_ERROR_RE = /(ServiceInstance not found|Service not found)/i;
+const TRANSIENT_ERROR_RE = /Service(Instance)?\b[\s\S]*?not found/i;
 
 /**
  * Retry a Railway mutation that can transiently fail while the env-scoped
@@ -461,7 +503,12 @@ export async function provisionStarterFleet(
           ),
         sleepMs,
       );
-      if (redeployed.serviceInstanceRedeploy !== true) {
+      // serviceInstanceRedeploy returns Boolean! (see the result-type comment
+      // for the verified contract + sources). A `false`/`null` return means
+      // Railway did NOT enqueue a deployment, so the image would never run —
+      // fail loud rather than report success. Accept any truthy value
+      // defensively in case the contract ever widens to a richer result.
+      if (!redeployed.serviceInstanceRedeploy) {
         throw new Error(
           `serviceInstanceRedeploy returned ${JSON.stringify(
             redeployed.serviceInstanceRedeploy,
@@ -510,8 +557,11 @@ export async function provisionStarterFleet(
         const msg = e instanceof Error ? e.message : String(e);
         if (!DOMAIN_ALREADY_EXISTS_RE.test(msg)) throw e;
         domainAction = "existing";
+        // Include the ACTUAL matched Railway message for a forensic trail —
+        // so a re-run log shows exactly which "already exists" wording was
+        // absorbed, not just a generic note.
         log(
-          `  staging domain already exists (per Railway) — treating as no-op`,
+          `  staging domain already exists (per Railway) — treating as no-op: ${msg}`,
         );
       }
     }
@@ -665,9 +715,20 @@ async function main(): Promise<void> {
   // main().catch — no deep process.exit here.
   const registryCredentials = resolveRegistryCredentials();
   if (!registryCredentials) {
-    console.warn(
-      "\n  WARNING: GITHUB_TOKEN not set. Registry credentials will NOT be configured — Railway cannot pull the private GHCR starter images until creds are added.\n",
-    );
+    if (dryRun) {
+      console.warn(
+        "\n  WARNING: GITHUB_TOKEN not set. Registry credentials will NOT be configured — Railway cannot pull the private GHCR starter images until creds are added.\n",
+      );
+    } else {
+      // ABORT on the LIVE path: creating services that point at a PRIVATE
+      // GHCR image with no pull credentials yields a perpetual
+      // image-pull-backoff while the script reports "success". That is worse
+      // than failing — fail loud up front. warn-and-continue is only
+      // tolerable under --dry-run, where no service is actually created.
+      throw new Error(
+        "GITHUB_TOKEN is not set. The starter images are PRIVATE GHCR images; provisioning live services without registry credentials would leave every service in image-pull-backoff while reporting success. Set GITHUB_TOKEN (+ GHCR_USERNAME / GITHUB_ACTOR) and re-run, or use --dry-run to plan without mutations.",
+      );
+    }
   }
 
   console.log(
