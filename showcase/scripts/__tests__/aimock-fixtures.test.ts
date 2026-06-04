@@ -214,7 +214,17 @@ describe("fixture collision detection", () => {
     // match keys with the pre-existing headless-complete.json for that
     // context. These are disambiguated at runtime by the probe's fixtureFile
     // / demo route, exactly like the other cross-feature key overlaps above.
-    const KNOWN_DUPLICATE_CEILING = 276;
+    //
+    // Bumped 276 → 288 (+12) when the declarative-gen-ui demo moved to the
+    // CopilotKitMiddleware auto-A2UI path across the 3 langgraph integrations
+    // (langgraph-python / -typescript / -fastapi). The middleware's inner
+    // forced tool is `render_a2ui`, so each integration's gen-ui-declarative.json
+    // gained 4 `render_a2ui` fixtures (KPI dashboard / pie / bar / status) that
+    // share match keys with the pre-existing render_a2ui entries in that
+    // integration's render-a2ui.json (the a2ui_fixed demo). 4 pills × 3
+    // integrations = 12. Disambiguated at runtime by the probe's fixtureFile /
+    // demo route, like the other cross-feature overlaps above.
+    const KNOWN_DUPLICATE_CEILING = 288;
 
     const collisions: string[] = [];
 
