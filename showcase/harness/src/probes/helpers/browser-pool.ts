@@ -569,6 +569,30 @@ export class BrowserPool {
   }
 
   /**
+   * Fire-and-forget orphan close that shutdown() still WAITS for. The orphan
+   * guard in openContextOn closes a just-opened context that straddled a recycle
+   * OR a shutdown; under shutdown that close is fire-and-forget and tracked by
+   * NEITHER drain set, so shutdown() could resolve while it is still in flight —
+   * violating the "shutdown resolved ⇒ everything closed" contract the
+   * pendingLaunches / inFlightRecycles drains uphold. Register the close promise
+   * in `inFlightRecycles` (the same set shutdown's drain loop re-snapshots until
+   * empty) so a close registered while shutdown is still draining is awaited too;
+   * self-remove on settle. Reuses the existing tracked-set mechanism — no new
+   * machinery. (Outside shutdown the add/delete is a harmless no-op: only
+   * shutdown's drain loop ever reads the set.)
+   */
+  private closeContextTracked(
+    context: BrowserContext,
+    browserIndex: number,
+  ): void {
+    const tracked = this.closeContext(context, browserIndex);
+    this.inFlightRecycles.add(tracked);
+    void tracked.finally(() => {
+      this.inFlightRecycles.delete(tracked);
+    });
+  }
+
+  /**
    * Pick the least-loaded live browser entry to open the next context on.
    * Skips entries that are recycling or whose browser has disconnected —
    * acquire() must never open a context on a dying browser. "Load" is measured
@@ -749,7 +773,11 @@ export class BrowserPool {
       !browserBefore.isConnected()
     ) {
       rollbackPendingOpen();
-      void this.closeContext(context, this.browsers.indexOf(entry));
+      // Track the orphan close so shutdown() awaits it (the shutdown-straddle
+      // case): a fire-and-forget close on a tearing-down pool would otherwise let
+      // shutdown() resolve with a context still closing. closeContextTracked
+      // registers it in inFlightRecycles, which shutdown's drain loop awaits.
+      this.closeContextTracked(context, this.browsers.indexOf(entry));
       this.logger?.warn?.("browser-pool.open-orphaned-by-recycle", {
         browserIndex: this.browsers.indexOf(entry),
       });
@@ -846,9 +874,13 @@ export class BrowserPool {
         try {
           return await this.openContextOn(entry, options);
         } catch (transientRetryErr) {
-          // SHUTDOWN STRADDLE (retry leg): same as the outer catch — if the pool
-          // shut down during this retry's open, reject promptly rather than
-          // enqueueing onto a queue shutdown already cleared.
+          // SHUTDOWN STRADDLE (retry leg): a DISTINCT, genuinely-reachable straddle
+          // window from the outer catch's guard — the outer guard already observed
+          // isShutdown===false, then we re-reserved and re-opened, and the pool can
+          // shut down WHILE THIS retry's open is in flight (its orphan guard then
+          // closed+rolled-back+threw, landing here). Reject promptly, mirroring the
+          // outer guard, rather than enqueueing onto a queue shutdown already
+          // cleared (which would strand this acquire until its timeout).
           if (this.isShutdown) {
             throw new Error("BrowserPool is shut down");
           }
@@ -1008,15 +1040,17 @@ export class BrowserPool {
     } catch (err) {
       // SHUTDOWN STRADDLE: the pool may have shut down WHILE this open was in
       // flight — openContextOn's orphan guard then closed the orphan, rolled the
-      // reservation back, and threw. shutdown() already rejected + cleared every
-      // queued waiter synchronously, so this shifted waiter is NOT on the queue
-      // anymore. Re-queueing it would strand it on a list nothing drains
-      // (shutdown's reject loop already ran) → a never-settling acquire. REJECT
-      // it here instead, mirroring shutdown's waiter-rejection, and do NOT touch
-      // the browser (everything is being torn down).
+      // reservation back, and threw. This waiter was `shift()`ed off `this.waiters`
+      // (line above) BEFORE shutdown could run; shutdown()'s reject-loop iterates
+      // ONLY what is still on `this.waiters`, so it never saw — and never rejected
+      // — this shifted waiter. Re-queueing it would strand it on a list nothing
+      // drains (shutdown's reject loop already ran) → a never-settling acquire.
+      // THIS branch is therefore the SOLE settler of a shifted-then-straddled
+      // waiter: REJECT it here, mirroring shutdown's waiter-rejection, and do NOT
+      // touch the browser (everything is being torn down).
       if (this.isShutdown) {
         if (!waiter.settled) {
-          waiter.reject(new Error("BrowserPool is shutting down"));
+          waiter.reject(new Error("BrowserPool is shut down"));
         }
         return;
       }
