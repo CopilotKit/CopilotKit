@@ -13,12 +13,21 @@
 // restart so the PID/thread-ceiling exhaustion (`pids.current` near
 // `pids.max`) is reconstructable AFTER the wedge.
 //
-// RETENTION: this collection is append-only and could grow unbounded under a
-// ~30-60s heartbeat (≈1k-2k rows/day). The writer enforces a RING-STYLE cap
-// (`RESOURCE_SNAPSHOT_MAX_ROWS`, default 5000) — after each insert it prunes
-// the oldest rows beyond the cap via `deleteByFilter` keyed on the
+// RETENTION: this collection is append-only and could grow unbounded under the
+// ~45s heartbeat (DEFAULT_HEARTBEAT_MS in browser-pool.ts) plus a row per
+// transition (≈2k rows/day at 45s). The writer enforces a RING-STYLE cap
+// (`RESOURCE_SNAPSHOT_MAX_ROWS`, default 5000 ≈ 2.5 days at 45s) — after each
+// insert it prunes the oldest rows beyond the cap by stable row id (robust to
+// same-millisecond `observed_at` ties), ordered via the
 // `idx_resource_snapshots_observed` index. Simpler than a TTL cron and bounds
 // the volume deterministically regardless of restart cadence.
+//
+// NULL-VS-UNAVAILABLE CONVENTION: every number field below is NULLABLE on
+// purpose. The gauges degrade to a `-1` "unavailable" sentinel off-Linux / on
+// an unreadable cgroup-pids / fd / df read; the writer maps that sentinel to
+// `null` here (never writes `-1`), so a post-wedge query can cleanly separate a
+// MEASURED reading from an UNAVAILABLE one — a stored `-1` would be
+// indistinguishable from a genuine count.
 //
 // PUBLIC-READ INVARIANT: mirrors `status` / `probe_runs` — listRule/viewRule =
 // "" (unauthenticated read) so the dashboard / a /debug endpoint can pull the
