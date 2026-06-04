@@ -7,11 +7,17 @@ import { WeatherCard } from "@/components/WeatherCard";
 import {
   useAgent,
   useFrontendTool,
+  CopilotChatConfigurationProvider,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
@@ -28,21 +34,37 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-      }
-    >
-      <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Popup Assistant",
-          welcomeMessageText:
-            '👋 Hi, there! You\'re chatting with an agent. This agent comes with a few tools to get you started.\n\nFor example you can try:\n- **Frontend Tools**: "Set the theme to orange"\n- **Shared State**: "Write a proverb about AI"\n- **Generative UI**: "Get the weather in SF"\n\nAs you interact with the agent, you\'ll see the UI update in real-time to reflect the agent\'s **state**, **tool calls**, and **progress**.',
-        }}
-      />
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId="default"
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as React.CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              clickOutsideToClose={false}
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  '👋 Hi, there! You\'re chatting with an agent. This agent comes with a few tools to get you started.\n\nFor example you can try:\n- **Frontend Tools**: "Set the theme to orange"\n- **Shared State**: "Write a proverb about AI"\n- **Generative UI**: "Get the weather in SF"\n\nAs you interact with the agent, you\'ll see the UI update in real-time to reflect the agent\'s **state**, **tool calls**, and **progress**.',
+              }}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
 
@@ -70,36 +92,45 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   }, [agent]);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useFrontendTool({
-    name: "add_proverb",
-    parameters: z.object({
-      proverb: z
-        .string()
-        .describe("The proverb to add. Make it witty, short and concise."),
-    }),
-    handler: async ({ proverb }) => {
-      // Read agent.state at call time so rapid successive adds don't drop
-      // earlier proverbs via a stale closure over `state`.
-      agent.setState({
-        proverbs: [...((agent.state as AgentState | undefined)?.proverbs ?? []), proverb],
-      });
-      return `Added proverb: ${proverb}`;
+  useFrontendTool(
+    {
+      name: "add_proverb",
+      parameters: z.object({
+        proverb: z
+          .string()
+          .describe("The proverb to add. Make it witty, short and concise."),
+      }),
+      handler: async ({ proverb }) => {
+        // Read agent.state at call time so rapid successive adds don't drop
+        // earlier proverbs via a stale closure over `state`.
+        agent.setState({
+          proverbs: [
+            ...((agent.state as AgentState | undefined)?.proverbs ?? []),
+            proverb,
+          ],
+        });
+        return `Added proverb: ${proverb}`;
+      },
     },
-  });
+    [state],
+  );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useFrontendTool({
-    name: "get_weather",
-    description: "Get the weather for a given location.",
-    available: false,
-    parameters: z.object({
-      location: z.string(),
-    }),
-    render: ({ args }) => {
-      return <WeatherCard location={args.location} themeColor={themeColor} />;
+  useFrontendTool(
+    {
+      name: "get_weather",
+      description: "Get the weather for a given location.",
+      available: false,
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ args }) => {
+        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      },
+      followUp: false,
     },
-    followUp: false,
-  });
+    [themeColor],
+  );
 
   return (
     <div

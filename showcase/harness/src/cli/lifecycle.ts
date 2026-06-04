@@ -1,9 +1,5 @@
-import {
-  execSync,
-  execFileSync,
-  spawn,
-  type SpawnOptions,
-} from "node:child_process";
+import { execSync, execFileSync, spawn } from "node:child_process";
+import type { SpawnOptions } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -84,12 +80,14 @@ function compose(...args: string[]): string {
     ) {
       throw new Error(
         "Docker not found. Please install Docker Desktop and ensure 'docker' is on your PATH.",
+        { cause: err },
       );
     }
     const e = err as { stderr?: string; status?: number };
     const stderr = typeof e.stderr === "string" ? e.stderr.trim() : "";
     throw new Error(
       `docker compose failed (exit ${e.status ?? "?"}): docker ${fullArgs.join(" ")}\n${stderr}`,
+      { cause: err },
     );
   }
 }

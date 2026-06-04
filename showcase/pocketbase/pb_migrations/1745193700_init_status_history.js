@@ -20,7 +20,7 @@ migrate(
     try {
       dao.findCollectionByNameOrId("status_history");
       return;
-    } catch (e) {
+    } catch {
       // Not present — fall through to create.
     }
     const c = new Collection({
@@ -72,7 +72,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("status_history");
-    } catch (e) {
+    } catch {
       // Already absent — nothing to do.
       return;
     }

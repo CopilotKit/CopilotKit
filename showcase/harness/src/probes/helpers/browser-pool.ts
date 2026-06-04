@@ -1167,7 +1167,7 @@ export class BrowserPool {
       // its own timeout). Reject promptly instead, mirroring the at-entry
       // `isShutdown` guard. (openContextOn already rolled the reservation back.)
       if (this.isShutdown) {
-        throw new Error("BrowserPool is shut down");
+        throw new Error("BrowserPool is shut down", { cause: err });
       }
       // FIX #7 — a `newContext()` throw does NOT prove the browser died. The
       // unfixed code unconditionally recycled `entry`, so a TRANSIENT
@@ -1201,7 +1201,9 @@ export class BrowserPool {
           // outer guard, rather than enqueueing onto a queue shutdown already
           // cleared (which would strand this acquire until its timeout).
           if (this.isShutdown) {
-            throw new Error("BrowserPool is shut down");
+            throw new Error("BrowserPool is shut down", {
+              cause: transientRetryErr,
+            });
           }
           this.logger?.warn?.("browser-pool.acquire-transient-retry-failed", {
             browserIndex: this.browsers.indexOf(entry),

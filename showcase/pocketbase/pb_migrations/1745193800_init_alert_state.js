@@ -21,7 +21,7 @@ migrate(
     try {
       dao.findCollectionByNameOrId("alert_state");
       return;
-    } catch (e) {
+    } catch {
       // Not present — fall through to create.
     }
     const c = new Collection({
@@ -50,7 +50,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("alert_state");
-    } catch (e) {
+    } catch {
       // Already absent — nothing to do.
       return;
     }

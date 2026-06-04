@@ -5,12 +5,21 @@ import {
   useFrontendTool,
   useRenderTool,
   CopilotSidebar,
+  CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import { CSSProperties, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
+// The agent key registered in the runtime route (`agents: { default: ... }`).
+const AGENT_ID = "default";
+
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
@@ -27,25 +36,41 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={{ "--copilot-kit-primary-color": themeColor } as CSSProperties}
-    >
-      <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Popup Assistant",
-          welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
-        }}
-      />
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId={AGENT_ID}
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={threadId}
+        >
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
-
-// State of the agent, make sure this aligns with your agent's state.
-type AgentState = {
-  proverbs: string[];
-};
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
