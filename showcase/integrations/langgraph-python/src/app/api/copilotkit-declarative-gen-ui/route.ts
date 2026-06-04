@@ -1,8 +1,4 @@
-// Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// cell. Splitting into its own endpoint (mirroring beautiful-chat) lets us set
-// `a2ui.injectA2UITool: false` — the backend agent owns the `generate_a2ui`
-// tool itself, so double-binding from the runtime would duplicate the tool
-// slot and confuse the LLM.
+// Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema) cell.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

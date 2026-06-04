@@ -17,6 +17,7 @@ name: "Showcase: Promote (staging → prod)"
 #                                     target service(s). Feature-level probes,
 #                                     not naked 200.
 #   4. notify                       → Slack #oss-alerts on any red. Never #engr.
+#                                     success → #team-showcase.
 
 on:
   workflow_dispatch:
@@ -172,6 +173,7 @@ jobs:
       - working-directory: showcase/scripts
         run: npm ci
       - name: Live-probe staging for promote precondition
+        working-directory: showcase/scripts
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
@@ -182,7 +184,9 @@ jobs:
           fi
           # Spec §7.2 P3: the live staging probe at promote time is
           # authoritative. CI verify history is a leading indicator only.
-          npx tsx showcase/scripts/verify-deploy.ts --env staging --services "$SERVICES_CSV"
+          # Run from showcase/scripts (where `npm ci` installed tsx) so npx
+          # uses the local install instead of network-fetching it.
+          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV"
 
   promote:
     needs: [resolve-targets, verify-staging-precondition]
@@ -278,6 +282,7 @@ jobs:
       - working-directory: showcase/scripts
         run: npm ci
       - name: Run verify-deploy --env prod
+        working-directory: showcase/scripts
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           # Scope verification to the services that ACTUALLY promoted (from the
@@ -286,7 +291,12 @@ jobs:
           # guarantee a red verify and mask the health of the ones that did
           # promote.
           SERVICES_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # The promote job's result, so the empty-CSV branch can tell a genuine
+          # all-failed run (empty succeeded set is expected) apart from a
+          # contract violation (promote reported success yet emitted no CSV).
+          PROMOTE_RESULT: ${{ needs.promote.result }}
         run: |
+          set -euo pipefail
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
@@ -297,11 +307,22 @@ jobs:
           # --services (which would either error or vacuously pass). The promote
           # job already exited non-zero in that case, so the overall run is red
           # via the notify state machine regardless.
+          #
+          # BUT: an empty succeeded set is only legitimate when promote did NOT
+          # succeed. If promote reported success and STILL emitted no CSV, the
+          # "promote already failed" assumption that justifies the vacuous skip
+          # is violated — fail loud instead of silently exiting 0.
           if [ -z "$SERVICES_CSV" ]; then
+            if [ "$PROMOTE_RESULT" = "success" ]; then
+              echo "::error::promote reported success but succeeded_csv is empty — contract violation"
+              exit 1
+            fi
             echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
             exit 0
           fi
-          npx tsx showcase/scripts/verify-deploy.ts --env prod --services "$SERVICES_CSV"
+          # Run from showcase/scripts (where `npm ci` installed tsx) so npx uses
+          # the local install instead of network-fetching it.
+          npx tsx verify-deploy.ts --env prod --services "$SERVICES_CSV"
 
   notify:
     # Slack #oss-alerts only. Never #engr (engr is sacred — release alerts only).
@@ -314,6 +335,7 @@ jobs:
       actions: read
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+      SLACK_WEBHOOK_TS: ${{ secrets.SLACK_WEBHOOK_TEAM_SHOWCASE }}
     steps:
       # Best-effort promote invariant (do NOT reintroduce a PRE gate below):
       #   resolve-targets              = HARD precondition (must succeed).
@@ -372,10 +394,15 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Newlines are injected via fromJSON('"\n"') (a real LF char), NOT a
+          # literal '\n' in the template: GitHub Actions expression string
+          # literals do not interpret backslash escapes, so a literal '\n' would
+          # survive toJSON as the two chars \\n and Slack would render it
+          # verbatim as "\n" instead of a line break.
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *Showcase Promote Failed*\nServices: `{1}`\nresolve-targets={2} pre-staging={3} promote={4} verify-prod={5}\n<{6}/{7}/actions/runs/{8}|View run>',
+                '{0} *Showcase Promote Failed*{9}Services: `{1}`{9}resolve-targets={2} pre-staging={3} promote={4} verify-prod={5}{9}<{6}/{7}/actions/runs/{8}|View run>',
                 steps.state.outputs.icon,
                 steps.state.outputs.csv,
                 needs.resolve-targets.result,
@@ -384,7 +411,28 @@ jobs:
                 needs.verify-prod.result,
                 github.server_url,
                 github.repository,
-                github.run_id
+                github.run_id,
+                fromJSON('"\n"')
+              )) }}
+            }
+      - name: Post to #team-showcase
+        if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_TEAM_SHOWCASE }}
+          webhook-type: incoming-webhook
+          # Newlines via fromJSON('"\n"') (real LF), not a literal '\n' — see the
+          # #oss-alerts step above for why a literal '\n' renders verbatim.
+          payload: |
+            {
+              "text": ${{ toJSON(format(
+                '{0} *Showcase Promoted to Prod*{5}Services: `{1}`{5}<{2}/{3}/actions/runs/{4}|View run>',
+                steps.state.outputs.icon,
+                steps.state.outputs.csv,
+                github.server_url,
+                github.repository,
+                github.run_id,
+                fromJSON('"\n"')
               )) }}
             }
       - name: Log (no Slack — webhook unset)
@@ -393,3 +441,10 @@ jobs:
           CSV: ${{ steps.state.outputs.csv }}
         run: |
           echo "::warning::Showcase promote failed for '$CSV' but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+      - name: Log (no Slack — team-showcase webhook unset)
+        if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS == ''
+        env:
+          CSV: ${{ steps.state.outputs.csv }}
+          ICON: ${{ steps.state.outputs.icon }}
+        run: |
+          echo "::notice::$ICON Showcase promoted to prod for '$CSV' but SLACK_WEBHOOK_TEAM_SHOWCASE is not set; no #team-showcase notification sent."

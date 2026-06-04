@@ -9,6 +9,8 @@ import {
   createStatusReader,
   createBrowserPoolHealthSignals,
   BROWSER_POOL_DEGRADED_KEY,
+  BROWSER_POOL_UNRECOVERABLE_KEY,
+  BROWSER_POOL_ALERT_WEBHOOK_ENV,
   diffCronSchedules,
   envForCfg,
   createRailwayAdapter,
@@ -840,6 +842,263 @@ describe("orchestrator.createBrowserPoolHealthSignals (CR-FIX #6)", () => {
         (c) => c[0].key === BROWSER_POOL_DEGRADED_KEY,
       ),
     ).toBe(true);
+  });
+});
+
+/**
+ * Headline-fix coverage: `writeUnrecoverable` is the production wiring for the
+ * self-heal circuit-breaker's TERMINAL give-up. The breaker mechanism existed in
+ * the PR but the alarm was a production NO-OP (the pool's onUnrecoverable hook
+ * was never wired). These tests pin: (1) an UNCONDITIONAL distinct terminal
+ * health-signal write (+ escalation of the shared degraded key to
+ * critical/terminal) so a give-up is distinguishable from a transient degraded,
+ * and (2) a BEST-EFFORT, env-GUARDED Slack ping that is SKIPPED when the webhook
+ * URL is unset (alerting discipline) yet never blocks the health-signal write.
+ */
+describe("orchestrator.createBrowserPoolHealthSignals — writeUnrecoverable (terminal alarm)", () => {
+  interface KeyedWrite {
+    key: string;
+    state: State;
+    signal: Record<string, unknown>;
+    observedAt: string;
+  }
+  function makeHarness() {
+    const writes: KeyedWrite[] = [];
+    const logs: Array<{
+      level: string;
+      msg: string;
+      meta?: Record<string, unknown>;
+    }> = [];
+    const writer = {
+      write: vi.fn(async (result: KeyedWrite) => {
+        writes.push(result);
+        return {};
+      }),
+    };
+    const statusReader = {
+      getStateByKey: vi.fn(async (): Promise<State | null> => null),
+    };
+    const testLogger = {
+      warn: (msg: string, meta?: Record<string, unknown>) =>
+        logs.push({ level: "warn", msg, meta }),
+      error: (msg: string, meta?: Record<string, unknown>) =>
+        logs.push({ level: "error", msg, meta }),
+      info: (msg: string, meta?: Record<string, unknown>) =>
+        logs.push({ level: "info", msg, meta }),
+    };
+    return { writes, logs, writer, statusReader, testLogger };
+  }
+  const counters = { browserCount: 3, waiters: 7, maxHardRecoveries: 3 };
+
+  it("writes a DISTINCT terminal health signal AND escalates the degraded key to critical/terminal", async () => {
+    const { writes, logs, writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn();
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: {}, // webhook UNSET
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable(counters);
+
+    // (1a) The distinct terminal key was written, red + terminal + critical +
+    //      redeployRequired, carrying the breaker counters.
+    const terminal = writes.find(
+      (w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY,
+    );
+    expect(terminal).toBeDefined();
+    expect(terminal!.state).toBe("red");
+    expect(terminal!.signal.terminal).toBe(true);
+    expect(terminal!.signal.severity).toBe("critical");
+    expect(terminal!.signal.redeployRequired).toBe(true);
+    expect(terminal!.signal.browserCount).toBe(3);
+    expect(terminal!.signal.waiters).toBe(7);
+
+    // (1b) The shared degraded key was ALSO escalated so a consumer keying off
+    //      it alone still sees the critical/terminal state.
+    const degraded = writes.find((w) => w.key === BROWSER_POOL_DEGRADED_KEY);
+    expect(degraded).toBeDefined();
+    expect(degraded!.state).toBe("red");
+    expect(degraded!.signal.severity).toBe("critical");
+    expect(degraded!.signal.terminal).toBe(true);
+
+    // (2) Slack was SKIPPED (URL unset) — logged, not attempted.
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(
+      logs.some(
+        (l) => l.msg === "boot.browser-pool-unrecoverable-slack-skipped",
+      ),
+    ).toBe(true);
+  });
+
+  it("posts a best-effort Slack alert when the webhook URL IS set", async () => {
+    const { writes, writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async (_url: string, _init: { body: string }) => ({
+      ok: true,
+      status: 200,
+    }));
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable(counters);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe("https://hooks.example/abc");
+    const body = JSON.parse(init.body) as {
+      text: string;
+    };
+    expect(body.text).toContain("UNRECOVERABLE");
+    expect(body.text).toContain("REDEPLOY");
+    // The health-signal writes still happened (Slack is additive).
+    expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+      true,
+    );
+  });
+
+  it("NAMES the cgroup pids signal in the Slack/alarm message when pids are present (>=0)", async () => {
+    // slot-6 F1: when the give-up snapshot measured the cgroup PID ceiling
+    // (cgroupPidsCurrent >= 0), the alarm must NAME it — pids.current/pids.max +
+    // threads — so the operator sees the PROVEN wedge cause, not just the
+    // abstract breaker counters. Off-Linux (-1 sentinel) the clause is omitted.
+    const { writes, writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async (_url: string, _init: { body: string }) => ({
+      ok: true,
+      status: 200,
+    }));
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable({
+      ...counters,
+      cgroupPidsCurrent: 998,
+      cgroupPidsMax: 1000,
+      treeThreadCount: 950,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse(init.body) as { text: string };
+    expect(body.text).toContain("pids.current=998/pids.max=1000");
+    expect(body.text).toContain("threads=950");
+    // The headline gauges are also persisted on the terminal health signal.
+    const terminal = writes.find(
+      (w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY,
+    );
+    expect(terminal!.signal.cgroupPidsCurrent).toBe(998);
+    expect(terminal!.signal.cgroupPidsMax).toBe(1000);
+    expect(terminal!.signal.treeThreadCount).toBe(950);
+  });
+
+  it("OMITS the pids clause when pids are unavailable (-1 sentinel, off-Linux)", async () => {
+    const { writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async (_url: string, _init: { body: string }) => ({
+      ok: true,
+      status: 200,
+    }));
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await writeUnrecoverable({
+      ...counters,
+      cgroupPidsCurrent: -1,
+      cgroupPidsMax: -1,
+      treeThreadCount: -1,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse(init.body) as { text: string };
+    expect(body.text).not.toContain("pids.current");
+  });
+
+  it("a failing Slack post never prevents the (unconditional) health-signal write", async () => {
+    const { writes, writer, statusReader, testLogger } = makeHarness();
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: testLogger,
+      env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await expect(writeUnrecoverable(counters)).resolves.toBeUndefined();
+    // The health signals landed despite the Slack failure.
+    expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+      true,
+    );
+    expect(writes.some((w) => w.key === BROWSER_POOL_DEGRADED_KEY)).toBe(true);
+  });
+
+  it("a HUNG Slack webhook is ABORTED at the timeout so the serialized health-signal chain is not stalled", async () => {
+    // A hung webhook fetch must not stall the SERIALIZED degraded↔healthy↔
+    // unrecoverable write chain indefinitely: the ping is aborted at
+    // BROWSER_POOL_SLACK_TIMEOUT_MS, logged best-effort, and the write resolves.
+    vi.useFakeTimers();
+    try {
+      const { writes, logs, writer, statusReader, testLogger } = makeHarness();
+      // fetch hangs until its AbortSignal fires, then rejects like a real abort.
+      const fetchImpl = vi.fn(
+        (_url: string, init: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () =>
+              reject(
+                Object.assign(new Error("The operation was aborted"), {
+                  name: "AbortError",
+                }),
+              ),
+            );
+          }),
+      );
+      const { writeUnrecoverable } = createBrowserPoolHealthSignals({
+        writer,
+        statusReader,
+        logger: testLogger,
+        env: { [BROWSER_POOL_ALERT_WEBHOOK_ENV]: "https://hooks.example/abc" },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      });
+
+      const done = writeUnrecoverable(counters);
+      // Advance past the Slack timeout — the abort fires and the ping rejects.
+      await vi.advanceTimersByTimeAsync(5_000);
+      // The chain resolves (not stalled) within the bound.
+      await expect(done).resolves.toBeUndefined();
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      // The hung ping was aborted + logged best-effort.
+      expect(
+        logs.some(
+          (l) => l.msg === "boot.browser-pool-unrecoverable-slack-failed",
+        ),
+      ).toBe(true);
+      // The (unconditional) health-signal writes still landed.
+      expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+        true,
+      );
+      expect(writes.some((w) => w.key === BROWSER_POOL_DEGRADED_KEY)).toBe(
+        true,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -1968,6 +2227,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "qa",
         "redirect_decommission",
         "smoke",
+        "starter_smoke",
         "version_drift",
       ].sort(),
     );

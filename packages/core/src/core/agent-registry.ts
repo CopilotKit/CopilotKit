@@ -63,6 +63,12 @@ export class AgentRegistry {
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "auto";
+  // The transport MODE last requested via `setRuntimeTransport` (e.g. "auto").
+  // Distinct from `_runtimeTransport`, which auto-detect overwrites with the
+  // RESOLVED value ("rest"/"single"). The idempotency guard compares against
+  // this so re-applying the same mode (the provider effect re-applies "auto"
+  // on every render) is a no-op instead of re-running the /info handshake.
+  private _requestedTransport: CopilotRuntimeTransport = "auto";
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
@@ -151,10 +157,15 @@ export class AgentRegistry {
   }
 
   setRuntimeTransport(runtimeTransport: CopilotRuntimeTransport): void {
-    if (this._runtimeTransport === runtimeTransport) {
+    // Guard on the requested MODE, not the resolved value: after auto-detect
+    // writes `_runtimeTransport = "rest"`, re-applying the same requested
+    // "auto" must not be treated as a change (otherwise every provider
+    // re-render re-runs the /info handshake and rebuilds agents).
+    if (this._requestedTransport === runtimeTransport) {
       return;
     }
 
+    this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
     void this.updateRuntimeConnection();
   }

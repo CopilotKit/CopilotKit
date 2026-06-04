@@ -28,7 +28,7 @@ import {
   buildFullInputs,
 } from "./targets.js";
 
-import { up, down, rebuild, isRunning } from "./lifecycle.js";
+import { up, down, rebuild, isRunning, healthCheck } from "./lifecycle.js";
 
 import {
   printResult,
@@ -177,16 +177,23 @@ export async function run(
   };
   process.on("SIGINT", onSigint);
 
-  // -- 4. Start missing services (with optional rebuild) --------------------
+  // -- 4. Rebuild targeted services if requested ----------------------------
+  // --rebuild must force a rebuild + recreate of EVERY targeted service,
+  // including ones that are already running — otherwise a stale container
+  // is silently reused (the 36h-stale-image false-positive). rebuild()
+  // builds the fresh image and force-recreates the container, and includes
+  // the infra profile so `aimock` (and friends) resolve.
+  if (options.rebuild && slugs.length > 0) {
+    console.log(`\n  \x1b[36mRebuilding services:\x1b[0m ${slugs.join(", ")}`);
+    logger.info("cli.runner.rebuilding", { slugs });
+    await rebuild(slugs);
+  }
+
+  // -- 5. Start missing services -------------------------------------------
   if (autoStarted.length > 0) {
     console.log(
       `\n  \x1b[36mStarting services:\x1b[0m ${autoStarted.join(", ")}`,
     );
-
-    if (options.rebuild) {
-      logger.info("cli.runner.rebuilding", { slugs: autoStarted });
-      await rebuild(autoStarted);
-    }
 
     await up(autoStarted);
 
@@ -194,7 +201,28 @@ export async function run(
     console.log("  \x1b[32mAll services healthy\x1b[0m\n");
   }
 
-  // -- 5. Build ProbeContext ------------------------------------------------
+  // -- 6. Health-check rebuilt-but-already-running services -----------------
+  // up() above only health-checks services it started. A service that was
+  // already running and got force-recreated by rebuild() is healthy-pending
+  // — verify it before probing so a broken rebuild fails loud here rather
+  // than mid-probe.
+  if (options.rebuild) {
+    const recreatedRunning = slugs.filter((s) => !autoStarted.includes(s));
+    if (recreatedRunning.length > 0) {
+      const results = await healthCheck(recreatedRunning);
+      const unhealthy = [...results.entries()]
+        .filter(([, ok]) => !ok)
+        .map(([name]) => name);
+      if (unhealthy.length > 0) {
+        throw new Error(
+          `Health check failed after rebuild for: ${unhealthy.join(", ")}. Check logs with: showcase logs <slug>`,
+        );
+      }
+      console.log("  \x1b[32mRebuilt services healthy\x1b[0m\n");
+    }
+  }
+
+  // -- 7. Build ProbeContext ------------------------------------------------
   const pbConfig = options.live ? resolvePbConfig(config) : null;
   const pbWriter = pbConfig ? createPbWriter(pbConfig, logger) : null;
 

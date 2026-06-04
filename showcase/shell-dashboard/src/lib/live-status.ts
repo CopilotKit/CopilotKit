@@ -18,6 +18,7 @@ import { formatTs } from "./format-ts";
 import {
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
   isStale,
 } from "./staleness";
 
@@ -342,6 +343,145 @@ function resolveD6Row(
   return worst;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d / §a)                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four smoke levels probed per starter, in dashboard sub-row order.
+ * Mirrors `STARTER_LEVELS` in
+ * `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
+ * the producer-side list, the dashboard carries its own copy because the two
+ * packages do not share a module boundary (the dashboard imports only `@/*`).
+ */
+export const STARTER_LEVELS = [
+  "health",
+  "agent",
+  "chat",
+  "interaction",
+] as const;
+
+export type StarterLevel = (typeof STARTER_LEVELS)[number];
+
+/**
+ * The dashboard column slugs that HAVE a smoke starter (the 12 mapped columns,
+ * §a). This is the dashboard's own copy of the *value set* of `STARTER_TO_COLUMN`
+ * in `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
+ * the producer-side remap and the dashboard cannot import across the package
+ * boundary, so the column list is mirrored here. The
+ * `starter-mapping-drift.test.ts` lint test guards the harness side against slug
+ * drift; `live-status.test.ts` asserts THIS set has exactly 12 entries so the
+ * 12-mapped / 7-not-supported split (12 + 7 = 19) can never silently rot.
+ *
+ * A column ABSENT from this set has NO starter and renders the dashboard's
+ * existing grey "not supported" ✗ state (§d) — keyed off the MAPPING, never off
+ * a missing row, so it never collides with the gray `?` not-yet-run state.
+ */
+export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
+  // 5 drift columns (starter slug ≠ column slug on the producer side)
+  "google-adk",
+  "langgraph-typescript",
+  "strands",
+  "ms-agent-dotnet",
+  "ms-agent-python",
+  // 7 direct columns (starter slug === column slug)
+  "crewai-crews",
+  "langgraph-fastapi",
+  "langgraph-python",
+  "agno",
+  "llamaindex",
+  "mastra",
+  "pydantic-ai",
+]);
+
+/** `true` when `columnSlug` has a mapped smoke starter (§a). */
+export function starterIsSupported(columnSlug: string): boolean {
+  return STARTER_COLUMNS.has(columnSlug);
+}
+
+/**
+ * Resolve the `starter:<columnSlug>/<level>` row for one starter sub-cell.
+ *
+ * Sibling to `resolveD5Row`/`resolveD6Row`, but the starter keyspace is flat:
+ * one row per (column, level) — there is no multi-key fan-out to fold, so this
+ * is a direct lookup, not a worst-state reduction. The 5-state cell vocabulary
+ * (§d) is produced by `buildStarterBadge`; this helper only returns the raw
+ * row (or `null` for not-yet-run). The not-supported state is mapping-derived
+ * and handled by the caller via `starterIsSupported`, NOT inferred here from a
+ * missing row.
+ */
+export function resolveStarterRow(
+  live: LiveStatusMap,
+  columnSlug: string,
+  level: StarterLevel,
+): StatusRow | null {
+  return live.get(keyFor("starter", columnSlug, level)) ?? null;
+}
+
+/** Per-level tooltip copy (§d). `interaction` stays generic. */
+const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
+  health: "health endpoint responded",
+  agent: "agent endpoint reachable (non-404)",
+  chat: "chat round-trip via aimock returned a response",
+  interaction: "UI interactions work, no console errors",
+};
+
+/**
+ * Build a `BadgeRender` for one starter sub-cell, applying the FULL 5-state
+ * cell vocabulary (§d):
+ *
+ *   - not-supported  → grey "✗", mapping-derived (`!isSupported`),
+ *                      tooltip "no starter for this integration". Distinct
+ *                      from the red smoke-failed ✗. Resolved FIRST so it can
+ *                      never collide with the gray `?` initial state.
+ *   - gray `?`       → no row yet (not-yet-run / initial).
+ *   - ✓ green        → last probe passed.
+ *   - red ✗          → last probe failed (actionable regression).
+ *   - `~` amber      → stale: a green row older than STARTER_STALE_AFTER_MS is
+ *                      downgraded to degraded (delegated to `buildBadge`).
+ *
+ * The data-bearing states (green/red/stale/gray) are delegated to the shared
+ * `buildBadge` path under the `health` dimension label so the level glyphs/copy
+ * reuse the same staleness downgrade + tooltip machinery as every other badge;
+ * the per-level descriptor is appended to the tooltip.
+ */
+export function buildStarterBadge(
+  level: StarterLevel,
+  isSupported: boolean,
+  row: StatusRow | null,
+  now: number,
+  connection: ConnectionStatus,
+): BadgeRender {
+  if (!isSupported) {
+    // Mapping-derived: this column has no starter (§a). Grey ✗,
+    // visually distinct from a red smoke-failed ✗. NOT data-derived, so it
+    // renders identically before and after the first probe tick.
+    return {
+      tone: "gray",
+      label: "✗",
+      tooltip: "no starter for this integration",
+      row: null,
+    };
+  }
+  const base = buildBadge(
+    "starter",
+    row,
+    now,
+    STARTER_STALE_AFTER_MS,
+    connection,
+  );
+  const descriptor = STARTER_LEVEL_DESCRIPTION[level];
+  // Suffix the level descriptor onto the resolved-state tooltip (state +
+  // observed_at come from the shared path). For not-yet-run there is no row,
+  // so keep buildBadge's "probe pending" copy but still name what would be
+  // checked.
+  return {
+    ...base,
+    tooltip:
+      connection === "error" ? base.tooltip : `${descriptor} — ${base.tooltip}`,
+  };
+}
+
 function rowTone(row: StatusRow | null): BadgeTone {
   if (!row) return "gray";
   switch (row.state) {
@@ -373,7 +513,8 @@ export type LiveDimension =
   | "chat"
   | "tools"
   | "d5"
-  | "d6";
+  | "d6"
+  | "starter";
 
 function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (!row) return "?";

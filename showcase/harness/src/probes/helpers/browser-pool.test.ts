@@ -1830,6 +1830,391 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     await pool.shutdown();
   });
 
+  // ── SELF-HEAL CIRCUIT-BREAKER (durable fix for the RECURRING wedge) ─────────
+  //
+  // The RECURRING staging BrowserPool collapse (#5185/#5221/#5225 each chipped
+  // at it but it kept recurring): after the long-lived harness container runs
+  // ~hours under sustained d6 cron load, chromium enters a LAUNCH crash-loop —
+  // every `chromium.launch()` throws `browserType.launch: Target page, context
+  // or browser has been closed`. The set empties, `startSelfHeal()` kicks in,
+  // and its loop just RELAUNCHES into the SAME wedged state forever
+  // (`self-heal-launch-failed` repeating) — backing off between identical
+  // attempts but NEVER escaping (the wedge is the cgroup PID/thread ceiling, a
+  // platform-fixed demand-side ceiling an immediate relaunch only re-pins).
+  // acquire() therefore has no
+  // contexts forever → blocks to timeout fleet-wide. Only a container RESTART
+  // cleared it (reactive). The circuit-breaker makes the loop ESCAPE: after N
+  // consecutive launch failures it HARD-recovers (a PACED cold relaunch — gives
+  // the thread-exhausted kernel time to relax; NO /tmp purge); if even K hard
+  // recoveries fail it fires a LOUD
+  // pool-unrecoverable alarm instead of spinning silently.
+
+  // RED (pre-breaker) → GREEN (post-breaker): chromium is wedged (every launch
+  // throws "...has been closed"). PRE-breaker the self-heal loop relaunches
+  // identically forever and acquire() never gets a context (wedged). POST-breaker
+  // the breaker trips at the threshold, the HARD recovery PACES a cold relaunch
+  // (gives the kernel time to relax — modeled here by the pacing "unwedging" the
+  // launcher) and the pool cold-launches fresh, so acquire() succeeds again.
+  it("OUTAGE: circuit-breaker hard-recovers (paced cold relaunch) out of a chromium launch-crash-loop the plain self-heal could not escape", async () => {
+    // init launches 1 browser (call 1). Everything AFTER call 1 throws the
+    // "...has been closed" launch-crash-loop error — modeling the wedged
+    // container. The PROVEN wedge (cgroup PID/thread-ceiling exhaustion) relaxes
+    // over time, so the hard recovery is a PACED cold relaunch: after the
+    // threshold of consecutive failures the breaker backs off, then flips the
+    // launcher healthy (the kernel relaxing) so the subsequent cold launch
+    // succeeds. Without the breaker's give-up backstop the loop would spin into
+    // the same wedge forever with no operator signal.
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let hardRecoveries = 0;
+    let recovered = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // Trip the hard recovery after 3 consecutive self-heal launch failures.
+      selfHealHardRecoveryThreshold: 3,
+      selfHealMaxHardRecoveries: 3,
+      onRecovered: () => {
+        recovered++;
+      },
+    });
+    await pool.init();
+    expect(launcher.launched.length).toBe(1);
+
+    // Crash the only browser → crash recycle's relaunch throws (wedged) → set
+    // empties → self-heal begins, but every relaunch keeps throwing the
+    // "...has been closed" error. The plain self-heal would loop here forever.
+    launcher.launched[0]!.__crash();
+
+    // BREAKER PROOF: after the threshold of consecutive failures the hard
+    // recovery fires (paced cold relaunch). The moment we observe it, flip the
+    // launcher healthy (modeling the PID/thread ceiling relaxing) so the NEXT
+    // cold relaunch succeeds and the pool revives to full strength + onRecovered.
+    await waitFor(
+      () =>
+        events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+      5_000,
+    );
+    hardRecoveries = events.filter(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    ).length;
+    launcher.setFailAfter(undefined);
+
+    await waitFor(() => recovered >= 1, 5_000);
+    expect(hardRecoveries).toBeGreaterThanOrEqual(1);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(true);
+
+    // The pool is alive again: a fresh acquire succeeds (no timeout, no wedge).
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+    expect(pool.stats().inUse).toBe(1);
+
+    await pool.release(ctx);
+    await pool.shutdown();
+  });
+
+  // PROOF the breaker fires AT the threshold, not before. With threshold=3 the
+  // first 3 consecutive failures must NOT trigger a hard recovery; only the
+  // attempt past the threshold does.
+  it("circuit-breaker: fires the hard recovery only AFTER the consecutive-failure threshold is reached", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 3,
+      selfHealMaxHardRecoveries: 5,
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // Wait until the first hard recovery has fired.
+    await waitFor(
+      () =>
+        events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+      5_000,
+    );
+
+    // At the moment the FIRST hard recovery fired, at least `threshold`
+    // consecutive self-heal launch failures must have been logged first (the
+    // breaker does not fire early).
+    const firstHardRecoveryIdx = events.findIndex(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    );
+    const failuresBeforeFirstHardRecovery = events
+      .slice(0, firstHardRecoveryIdx)
+      .filter((e) => e.event === "browser-pool.self-heal-launch-failed").length;
+    expect(failuresBeforeFirstHardRecovery).toBeGreaterThanOrEqual(3);
+
+    await pool.shutdown();
+  });
+
+  // RED (pre-breaker, silent spin) → GREEN: if even the HARD recovery (the paced
+  // cold relaunch) cannot break the wedge — e.g. the PID/thread ceiling never
+  // relaxes — the breaker gives up LOUDLY after K hard recoveries with a
+  // `pool-unrecoverable` alarm and stops the heal loop, rather than spinning
+  // self-heal-launch-failed forever with no operator signal.
+  it("OUTAGE: circuit-breaker surfaces a loud pool-unrecoverable alarm (and stops) when even hard recovery cannot escape the wedge", async () => {
+    // Permanently wedged: launches throw forever (the ceiling never relaxes).
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      onUnrecoverable: () => {
+        unrecoverableCalls++;
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // The breaker hard-recovers twice (each preceded by `threshold` failures),
+    // both fail, and then it gives up LOUDLY.
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    const hardRecoveries = events.filter(
+      (e) => e.event === "browser-pool.self-heal-hard-recovery",
+    ).length;
+    expect(hardRecoveries).toBeGreaterThanOrEqual(2);
+    expect(
+      events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
+    ).toBe(true);
+
+    // The heal loop has STOPPED (not spinning) — the failure count stabilizes.
+    const failuresAtGiveUp = events.filter(
+      (e) => e.event === "browser-pool.self-heal-launch-failed",
+    ).length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const failuresAfter = events.filter(
+      (e) => e.event === "browser-pool.self-heal-launch-failed",
+    ).length;
+    expect(failuresAfter).toBe(failuresAtGiveUp);
+
+    await pool.shutdown();
+  });
+
+  // MULTI-BROWSER (shortfall > 1) breaker pacing. Every prior breaker test runs
+  // browsers:1, leaving the multi-browser pacing of consecutiveFailures /
+  // consecutiveHardRecoveries unverified. Here browsers:2: the set empties, the
+  // heal loop must top BOTH back up. We let it revive ONE browser (partial
+  // success) while the second relaunch in the SAME shortfall pass fails — the
+  // partial success must RESET the consecutive-failure counter so the breaker
+  // does NOT trip a premature hard recovery, then the loop tops up the second
+  // browser on a later iteration and recovers to full strength.
+  it("MULTI-BROWSER: a partial revive resets the breaker's consecutive-failure counter (no premature hard recovery)", async () => {
+    // init launches 2 (calls 1,2). Crash both → set empties → heal loop runs.
+    // Shape the launcher so the heal sequence is: fail, fail, fail (trip toward
+    // threshold) … then SUCCEED once (partial revive — must reset the counter) …
+    // then succeed again (full strength). If the counter did NOT reset on the
+    // partial success, a hard recovery would fire; we assert it does NOT.
+    let recovered = 0;
+    const { logger, events } = makeLeveledLogger();
+
+    // Custom launcher: init's 2 launches succeed; the next `failStreak` relaunch
+    // attempts fail; everything after succeeds. With threshold=4 and a 3-failure
+    // streak BEFORE the first success, the breaker must NOT trip (3 < 4), and the
+    // success resets the streak so the remaining top-up never trips it either.
+    let call = 0;
+    const failStreak = 3;
+    const initLaunches = 2;
+    const launched: FakeBrowser[] = [];
+    const launchBrowser: LaunchBrowser = async () => {
+      call++;
+      if (call > initLaunches && call <= initLaunches + failStreak) {
+        throw new Error(
+          "browserType.launch: Target page, context or browser has been closed",
+        );
+      }
+      const b = makeFakeBrowser({});
+      launched.push(b);
+      return b as unknown as Browser;
+    };
+
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 4,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 4,
+      selfHealMaxHardRecoveries: 3,
+      onRecovered: () => {
+        recovered++;
+      },
+    });
+    await pool.init();
+    expect(launched.length).toBe(2);
+
+    // Crash both → both recycle relaunches fail (in the failStreak window) → set
+    // empties → heal loop begins, burns the rest of the streak, then revives.
+    launched[0]!.__crash();
+    launched[1]!.__crash();
+
+    // The pool comes back to FULL strength (2 browsers) and fires onRecovered.
+    await waitFor(() => recovered >= 1, 5_000);
+
+    // The breaker NEVER tripped a hard recovery: the 3-failure streak stayed
+    // below the threshold of 4, and the partial revive reset the counter so the
+    // second top-up launch could not push a stale counter over the line.
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(false);
+    // Full strength restored.
+    expect(pool.stats().size).toBe(4); // maxContexts is the reported size
+    const live = launched.filter((b) => b.isConnected());
+    expect(live.length).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // LATCH SECOND-EPISODE (the silent-spin the breaker exists to kill). The give-up
+  // path must be able to fire its alarm on EACH distinct degraded episode. The
+  // unfixed code latched `this.unrecoverable` after the first give-up and cleared
+  // it ONLY on a successful launch, so a pool that gave up, briefly revived, then
+  // re-wedged into a SECOND give-up was silent on the second episode under any
+  // ordering where the latch outlived the episode boundary. The fix removes the
+  // instance latch (the loop-local consecutiveHardRecoveries guard already gives
+  // once-per-episode), so each fresh self-heal spawn can alarm.
+  //
+  // This drives TWO distinct degraded episodes on ONE permanently-wedged pool.
+  // Episode 1: the set empties and the breaker gives up (alarm #1), then the
+  // heal loop EXITS (by design — `pool-unrecoverable (and stops)` asserts this).
+  // Episode 2: the set is STILL wedged and empties AGAIN (the fresh degraded
+  // episode the comment on `onBrowserSetEmpty` describes: "set empties AGAIN
+  // while degraded is still true but NO heal loop is running"). That re-spawns a
+  // fresh heal loop which must be able to fire its OWN alarm (#2). The unfixed
+  // instance latch (`this.unrecoverable`, set on the first give-up and cleared
+  // ONLY by a successful launch — which never happens while wedged) made the
+  // second give-up SILENT. We trigger the second episode via the private
+  // empty-set entrypoint, the same call the recycle-eviction path makes.
+  it("LATCH: a second degraded episode ALSO fires onUnrecoverable (not silenced by a stale latch)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    const infos: Array<{ browserCount: number; maxHardRecoveries: number }> =
+      [];
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      onUnrecoverable: (info) => {
+        unrecoverableCalls++;
+        infos.push({
+          browserCount: info.browserCount,
+          maxHardRecoveries: info.maxHardRecoveries,
+        });
+      },
+    });
+    await pool.init();
+
+    // Private hooks: the empty-set entrypoint + the selfHealing guard so we can
+    // wait for episode 1's loop to fully EXIT before triggering episode 2 (the
+    // recycle path itself calls onBrowserSetEmpty when browsers.length===0).
+    const priv = pool as unknown as {
+      onBrowserSetEmpty(): void;
+      selfHealing: boolean;
+    };
+
+    // EPISODE 1: crash the only browser → wedged → breaker gives up (#1) → loop
+    // exits (selfHealing flips back to false).
+    launcher.launched[0]!.__crash();
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    await waitFor(() => priv.selfHealing === false, 5_000);
+
+    // EPISODE 2: the container is STILL wedged and the set empties AGAIN. This is
+    // the fresh degraded episode — re-spawn the heal loop via the same empty-set
+    // entrypoint the recycle-eviction path uses. The breaker must be able to fire
+    // its alarm a SECOND time (the stale latch previously silenced it).
+    priv.onBrowserSetEmpty();
+    await waitFor(() => unrecoverableCalls >= 2, 8_000);
+    expect(unrecoverableCalls).toBe(2);
+    // The alarm carried the breaker counters both times.
+    expect(infos.every((i) => i.browserCount === 1)).toBe(true);
+    expect(
+      events.filter((e) => e.event === "browser-pool.pool-unrecoverable")
+        .length,
+    ).toBe(2);
+
+    await pool.shutdown();
+  });
+
+  // FOOTGUN CLAMP. The breaker guards are `> 0`, so a `selfHealHardRecovery
+  // Threshold` / `selfHealMaxHardRecoveries` of 0 (a config typo) would silently
+  // DISABLE both the hard recovery AND the give-up — reverting to the infinite
+  // silent spin this PR fixes. The fix CLAMPS resolved thresholds up to >= 1, so
+  // a 0 can't disable the safety net. With both passed as 0 (→ clamped to 1) a
+  // permanently-wedged pool MUST still hard-recover and then give up loudly.
+  it("FOOTGUN: a 0 breaker threshold is clamped to 1 (breaker stays armed, not silently disabled)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    let unrecoverableCalls = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // The footgun: 0 would disable the `> 0` guards under the unfixed code.
+      selfHealHardRecoveryThreshold: 0,
+      selfHealMaxHardRecoveries: 0,
+      onUnrecoverable: () => {
+        unrecoverableCalls++;
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    // Clamped to 1: the breaker hard-recovers AND gives up loudly instead of
+    // spinning forever. Without the clamp, neither would fire (silent spin).
+    await waitFor(() => unrecoverableCalls >= 1, 5_000);
+    expect(unrecoverableCalls).toBe(1);
+    expect(
+      events.some((e) => e.event === "browser-pool.self-heal-hard-recovery"),
+    ).toBe(true);
+    expect(
+      events.some((e) => e.event === "browser-pool.pool-unrecoverable"),
+    ).toBe(true);
+
+    await pool.shutdown();
+  });
+
   // ── CR-FIX BUCKET A: crash-recovery / self-heal / accounting bugs ──────────
 
   // FIX #5 — pickLeastLoaded must rank by liveContexts.size + pendingOpens, not
@@ -2562,5 +2947,651 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     // launched[1] registers, so it is never closed (__closeCount === 0).
     expect(launched[0]!.__closeCount).toBeGreaterThanOrEqual(1);
     expect(launched[1]!.__closeCount).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── SHUTDOWN-RACE REGRESSIONS (pre-existing; surfaced by #5221's CR) ───────
+  // Two latent races distinct from #5221's close-during-launch fix:
+  //   (1) a serveNextWaiter()/openContextOn() that already shifted a waiter +
+  //       reserved BEFORE shutdown can settle its newContext() AFTER shutdown's
+  //       close-pass → the freshly-opened context lands in contextToBrowser /
+  //       liveContexts and is never closed (leaked context on a torn-down pool).
+  //   (2) the acquire() transient-retry → concurrent-recycle → orphan-guard
+  //       straddle must keep the reservation accounting balanced (no overshoot).
+
+  // Internal-state probe for the maps the public stats() surface does not
+  // expose: contextToBrowser size + total liveContexts across entries. Used to
+  // assert no context survives the shutdown close-pass.
+  const internals = (
+    pool: BrowserPool,
+  ): {
+    contextToBrowser: Map<unknown, unknown>;
+    liveContextCount: number;
+    browsers: Array<{ liveContexts: Set<unknown> }>;
+    waiters: unknown[];
+  } =>
+    pool as unknown as {
+      contextToBrowser: Map<unknown, unknown>;
+      liveContextCount: number;
+      browsers: Array<{ liveContexts: Set<unknown> }>;
+      waiters: unknown[];
+    };
+
+  // RACE 1 (post-shutdown context leak) — a serveNextWaiter() that shifted a
+  // waiter + reserved a slot BEFORE shutdown parks in openContextOn()'s
+  // newContext(). shutdown() flips isShutdown, drains inFlightRecycles +
+  // pendingLaunches (neither tracks the fire-and-forget serve), then runs its
+  // close-pass over contextToBrowser. AFTER that close-pass the parked
+  // newContext() resolves: pre-fix, openContextOn()'s orphan guard does NOT
+  // check isShutdown, so the just-opened context is added to liveContexts /
+  // contextToBrowser on a torn-down pool — a leaked context that is never
+  // closed. The fix treats shutdown like a recycle in the orphan guard (close
+  // the orphan, roll back the reservation, throw) AND bails serveNextWaiter
+  // before openContextOn when isShutdown.
+  it("RACE1: does NOT leak a context when a serve's open settles AFTER shutdown's close-pass", async () => {
+    // TWO browsers so we can hold shutdown()'s drain loop OPEN (a parked relaunch
+    // sits in inFlightRecycles + pendingLaunches) WHILE the serve's open on the
+    // OTHER, still-connected browser settles. That is the exact window the bug
+    // lives in: isShutdown is already true, but the serving browser has NOT been
+    // closed yet (shutdown's close-pass runs only AFTER the drain), so the
+    // pre-existing orphan guard's `!isConnected()` / recycle checks all pass and
+    // (pre-fix) the freshly-opened context is added to contextToBrowser/
+    // liveContexts on a tearing-down pool — a leak shutdown will never close.
+    //
+    //   call 1 → browser0 (serves the waiter; defers its newContext)
+    //   call 2 → browser1 (crashed below to trigger a recycle)
+    //   call 3 → browser1's relaunch, PARKED in flight → holds shutdown's drain
+    const launcher = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+      parkLaunchForCalls: [3], // browser1's relaunch parks → drain stays open
+    });
+    const { launchBrowser, launched } = launcher;
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 1, // cap=1 so a single waiter queues behind c1
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(2);
+
+    // Fill the single cap slot with one context on browser0 (parked open →
+    // release the park). pickLeastLoaded picks browser0 (index 0, equal load).
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Enqueue a waiter past the cap. Bounded timeout so the test never hangs on
+    // the waiter's fate — the leak we assert is in the pool's internal maps.
+    let waiterSettled = false;
+    const waiterP = pool
+      .acquire(undefined, 5_000)
+      .then(() => (waiterSettled = true))
+      .catch(() => (waiterSettled = true));
+    await drainMicrotasks();
+
+    // CRASH browser1 → its recycle relaunch (call 3) PARKS in flight, keeping
+    // shutdown's drain loop (inFlightRecycles + pendingLaunches) open.
+    launched[1]!.__crash();
+    await waitFor(() => launcher.__parkedLaunches > 0);
+    expect(launched.length).toBe(3); // browser1's relaunch object exists, parked
+
+    // Release c1 → serveNextWaiter() shifts the waiter, RESERVES the freed slot,
+    // and parks its open in browser0's deferred newContext(). This serve is
+    // fire-and-forget — tracked by NEITHER inFlightRecycles NOR pendingLaunches.
+    await pool.release(c1);
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    expect(launched[0]!.__pendingNewContexts).toBe(1);
+
+    // Shutdown. isShutdown flips true synchronously; the drain loop then BLOCKS
+    // on the parked browser1 relaunch (call 3) — so shutdown's close-pass has
+    // NOT run yet and browser0 is still connected/open.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Resolve browser0's parked serve open NOW — isShutdown is true but browser0
+    // is still connected and un-recycled, so ONLY an isShutdown check in the
+    // orphan guard catches it. Pre-fix: the context lands in contextToBrowser/
+    // liveContexts on the tearing-down pool — a leak.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks(20);
+
+    // INVARIANT (asserted BEFORE the parked relaunch is released, so shutdown's
+    // close-pass has demonstrably not run): no serve context has leaked onto the
+    // tearing-down pool. Pre-fix: contextToBrowser.size === 1 / live === 1.
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+    expect(internals(pool).liveContextCount).toBe(0);
+    // The orphaned serve context on browser0 must have been CLOSED, not lingering.
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
+
+    // Release the parked relaunch so shutdown's drain loop completes + finishes.
+    launcher.__releaseParkedLaunches();
+    await shutdownP;
+    await waiterP;
+    expect(waiterSettled).toBe(true);
+    // Post-shutdown the pool is fully clean.
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+    expect(internals(pool).liveContextCount).toBe(0);
+  });
+
+  // RACE 2 (acquire transient-retry cap-overshoot) — REGRESSION LOCK FOR A
+  // PRE-EXISTING INVARIANT, NOT a shutdown-race proof. This test does NOT exercise
+  // any code added by the shutdown-leak fix and passes against main UNCHANGED; it
+  // is here purely to pin the generation-guarded exactly-once-rollback invariant
+  // that the transient-retry / orphan-by-recycle straddle already relied on, so a
+  // future edit to that interleaving regresses loudly.
+  //
+  // The scenario: acquire()'s transient retry path — a connected browser throws
+  // transiently, acquire() re-reserves and retries openContextOn(); the retry
+  // parks in newContext(); a CONCURRENT crash recycles the entry; the parked retry
+  // then hits openContextOn()'s orphan-by-recycle guard. The accounting invariant
+  // ("every reserveSlot matched by EXACTLY ONE trackOpenedContext OR
+  // releaseReservation") must hold across that straddle: the crash teardown rolls
+  // back the in-flight re-reservation against the OLD generation + bumps the
+  // generation, so the late settle's own `rollbackPendingOpen` is
+  // generation-guarded into a no-op — the reservation is rolled back EXACTLY ONCE
+  // (no overshoot, no double-rollback). This invariant is UPHELD by the
+  // pre-existing generation guard; the shutdown fix neither created nor altered it.
+  it("RACE2 (pre-existing-invariant lock, NOT a shutdown-race proof): transient-retry orphaned by a concurrent recycle keeps accounting balanced (no overshoot)", async () => {
+    // browser0 (init) defers every newContext so the transient-retry's open can
+    // be parked across a concurrent crash.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      recycleAfter: 1000, // hygiene out of the picture; this is the crash path
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+    expect(launched.length).toBe(1);
+
+    // Arm ONE transient newContext() throw on browser0: the FIRST open in this
+    // acquire throws transiently (browser stays connected), driving acquire into
+    // its transient-retry branch (re-reserve + retry openContextOn).
+    launched[0]!.__armTransientThrow(1);
+
+    // Start an acquire. attempt 1 throws transiently → acquire re-reserves and
+    // retries; the retry parks in the deferred newContext() (pendingOpens=1, the
+    // re-reservation is held). Bounded timeout so the caller settles
+    // deterministically even though it ends up orphaned + re-enqueued.
+    let acquireSettled = false;
+    const acquireP = pool
+      .acquire(undefined, 200)
+      .then(() => (acquireSettled = true))
+      .catch(() => (acquireSettled = true));
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    // The transient retry's open is parked, holding exactly one reservation.
+    expect(pool.stats().inUse).toBe(1);
+    expect(entry0(pool).pendingOpens).toBe(1);
+
+    // CRASH browser0 WHILE the transient retry's open is in flight → recovery
+    // recycle rolls back the in-flight reservation against the OLD generation,
+    // bumps the generation, and reassigns entry.browser to a fresh process.
+    launched[0]!.__crash();
+    await waitFor(() => launched.length === 2);
+
+    // Resolve the parked retry's open on the ORIGINAL (now-replaced) browser →
+    // openContextOn's orphan-by-recycle guard closes it. Its own
+    // rollbackPendingOpen is generation-guarded → a NO-OP (the teardown already
+    // owned the rollback), so the reservation is rolled back EXACTLY ONCE.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks(30);
+
+    // The orphan guard fired (proves we hit the recycle-straddle path).
+    expect(
+      events.some((e) => e.event === "browser-pool.open-orphaned-by-recycle"),
+    ).toBe(true);
+
+    // ACCOUNTING INVARIANT (the load-bearing assertion): the straddle left the
+    // accounting BALANCED — no leaked reservation (would read inUse >= 1 with no
+    // live context) and no double-rollback (would drive the count negative,
+    // clamped to 0 but desyncing). liveContextCount + contextToBrowser are both
+    // back to ZERO, and pendingOpens on the fresh entry is clean.
+    expect(internals(pool).liveContextCount).toBe(0);
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+    expect(pool.stats().inUse).toBe(0);
+    expect(pool.stats().available).toBe(2); // full cap reclaimed
+    expect(entry0(pool).pendingOpens).toBe(0);
+
+    // The orphan on the original (dead) browser was closed, never handed out.
+    const origOrphans = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(origOrphans.length).toBe(0);
+
+    await acquireP;
+    expect(acquireSettled).toBe(true);
+    await pool.shutdown();
+  });
+
+  // RACE 3 (shutdown-straddle caller settlement) — covers the two REACHABLE
+  // shutdown branches RACE1 does NOT: (3a) serveNextWaiter()'s post-open
+  // `if (this.isShutdown) waiter.reject(...)` leg, and (3b) acquire()'s OUTER-catch
+  // `if (this.isShutdown) throw` leg. In both, an open is in flight when
+  // shutdown() flips isShutdown and clears `this.waiters`; when the open then
+  // settles, openContextOn's orphan guard closes+rolls-back+throws, and the
+  // straddle branch must settle the CALLER with the shutdown sentinel — NOT
+  // re-enqueue onto the cleared `waiters` (where it would hang until its acquire
+  // timeout). Reverting either source guard makes the corresponding caller hang
+  // (RED); with the guard present the caller rejects promptly (GREEN).
+  it("RACE3a: a shifted waiter whose serve open straddles shutdown REJECTS (not enqueued, not hung)", async () => {
+    // Same two-browser drain-held setup as RACE1, but here we assert the WAITER's
+    // fate: it must reject with the shutdown sentinel, settled WELL BEFORE its
+    // (long) acquire timeout — proving serveNextWaiter's straddle reject ran and
+    // it was not stranded on the cleared queue.
+    const launcher = makeFakeLauncher({
+      deferNewContextForCalls: [1], // browser0 defers every newContext
+      parkLaunchForCalls: [3], // browser1's relaunch parks → drain stays open
+    });
+    const { launchBrowser, launched } = launcher;
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 1, // cap=1 so a single waiter queues behind c1
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Fill the single cap slot on browser0.
+    const c1p = pool.acquire();
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    launched[0]!.__releaseNewContexts();
+    const c1 = await c1p;
+    expect(pool.stats().inUse).toBe(1);
+
+    // Enqueue a waiter past the cap with a LONG timeout — if the straddle reject
+    // does NOT fire, the only way this settles is the timeout, so a prompt
+    // rejection proves the reject branch ran.
+    let waiterErr: Error | undefined;
+    const waiterP = pool.acquire(undefined, 30_000).catch((e: Error) => {
+      waiterErr = e;
+    });
+    await drainMicrotasks();
+
+    // CRASH browser1 → its recycle relaunch (call 3) PARKS, holding shutdown's
+    // drain loop open.
+    launched[1]!.__crash();
+    await waitFor(() => launcher.__parkedLaunches > 0);
+
+    // Release c1 → serveNextWaiter() shifts the waiter, reserves, parks its open
+    // in browser0's deferred newContext(). The waiter is now OFF this.waiters.
+    await pool.release(c1);
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+
+    // Shutdown — isShutdown flips synchronously, this.waiters (now empty, the
+    // waiter was shifted) is cleared; drain loop blocks on the parked relaunch.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Settle the parked serve open: openContextOn's orphan guard fires (isShutdown
+    // term), throws; serveNextWaiter's straddle branch must REJECT the shifted
+    // waiter.
+    launched[0]!.__releaseNewContexts();
+    await drainMicrotasks(20);
+
+    // The waiter settled by REJECTION (not hung, not enqueued).
+    expect(waiterErr).toBeDefined();
+    expect(waiterErr!.message).toBe("BrowserPool is shut down");
+    // It must NOT be sitting on the (cleared) waiters queue.
+    expect(internals(pool).waiters.length).toBe(0);
+
+    // Release the parked relaunch so shutdown completes.
+    launcher.__releaseParkedLaunches();
+    await shutdownP;
+    await waiterP;
+    // The straddled orphan context was closed by the orphan guard's
+    // fire-and-forget close, and never landed in contextToBrowser.
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+  });
+
+  it("RACE3b: an acquire whose open straddles shutdown REJECTS via the outer catch (not enqueued, not hung)", async () => {
+    // Single browser, cap large enough that the acquire opens directly (no waiter
+    // path). browser0 defers its newContext so we can park the acquire's open in
+    // flight, flip shutdown, then settle the open into the orphan guard. acquire()
+    // takes the OUTER catch's `if (this.isShutdown) throw` leg.
+    const { launchBrowser, launched } = makeFakeLauncher({
+      deferNewContextForCalls: [1],
+    });
+    const { logger } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 4,
+      recycleAfter: 1000,
+      relaunchBackoffMs: 0,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // Start an acquire whose open parks in the deferred newContext().
+    let acquireErr: Error | undefined;
+    const acquireP = pool.acquire(undefined, 30_000).catch((e: Error) => {
+      acquireErr = e;
+    });
+    await drainMicrotasks();
+    await waitFor(() => launched[0]!.__pendingNewContexts > 0);
+    expect(pool.stats().inUse).toBe(1); // reservation held by the parked open
+
+    // Flip shutdown WHILE the open is parked. No parked relaunch here, so the
+    // drain loop is empty and shutdown proceeds to its close-pass; the orphan
+    // opened-then-straddled here is closed by openContextOn's fire-and-forget
+    // orphan guard, not awaited by shutdown. Kick shutdown without awaiting so
+    // the straddled open settles into the guard first.
+    const shutdownP = pool.shutdown();
+    await drainMicrotasks();
+
+    // Settle the parked open: orphan guard (isShutdown term) closes+rolls-back+
+    // throws; acquire()'s outer catch `if (this.isShutdown) throw` must reject.
+    launched[0]!.__releaseNewContexts();
+
+    await acquireP;
+    expect(acquireErr).toBeDefined();
+    expect(acquireErr!.message).toBe("BrowserPool is shut down");
+    // No waiter was created (the acquire rejected, did not enqueue).
+    expect(internals(pool).waiters.length).toBe(0);
+
+    await shutdownP;
+    // The straddled orphan context was closed by the orphan guard's
+    // fire-and-forget close, and never landed in contextToBrowser.
+    const openButNotClosed = launched[0]!.__contexts.filter(
+      (c) => c.__closeCount === 0,
+    );
+    expect(openButNotClosed.length).toBe(0);
+    expect(internals(pool).contextToBrowser.size).toBe(0);
+  });
+});
+
+// ── RESOURCE-GAUGE INSTRUMENTATION (early-warning logging) ───────────────────
+//
+// The PROVEN browser-pool wedge is cgroup PID/thread-ceiling exhaustion: a d6
+// launch burst drives `pids.current` toward the platform-fixed `pids.max=1000`,
+// every `chromium.launch()` then throws pthread EAGAIN → "...has been closed" →
+// crash-loop. To make a burst approaching the ceiling OBSERVABLE — and let an
+// EAGAIN be correlated to a measured `pids.current` — the pool samples + logs
+// the OS resource gauges (`browser-pool.resource-gauges`, headline
+// pids.current/pids.max + thread count) on EVERY launch and on the
+// `self-heal-launch-failed` path. These tests pin that the gauge is sampled +
+// logged on those events (they FAIL before the gauge is wired). Off-Linux the
+// gauge fields degrade to -1; the test asserts the EVENT + label, not the
+// (host-specific) numeric values.
+describe("BrowserPool — resource-gauge instrumentation (PID-ceiling early warning)", () => {
+  it("RED→GREEN: logs the resource gauges on every launchBrowser() (label=launch)", async () => {
+    const launcher = makeFakeLauncher({});
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 3,
+      maxContexts: 6,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+    });
+    await pool.init();
+
+    // init fills the fixed set with `browsers` launches — each must have logged a
+    // gauge sample labeled `launch` BEFORE forking the chromium process.
+    const launchGauges = events.filter(
+      (e) =>
+        e.event === "browser-pool.resource-gauges" &&
+        e.meta?.label === "launch",
+    );
+    expect(launchGauges.length).toBe(3);
+    // The headline cgroup PID fields are present in the structured payload (the
+    // signal the alert names); off-Linux they are -1, which is still a number.
+    const meta = launchGauges[0]!.meta!;
+    expect("cgroupPidsCurrent" in meta).toBe(true);
+    expect("cgroupPidsMax" in meta).toBe(true);
+    expect("treeThreadCount" in meta).toBe(true);
+
+    await pool.shutdown();
+  });
+
+  it("RED→GREEN: logs the resource gauges on the self-heal-launch-failed path", async () => {
+    // init launches 1; everything after fails (persistent EAGAIN-style wedge).
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      // Give up after a couple hard recoveries so the loop terminates the test.
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+    });
+    await pool.init();
+    // Crash the only browser → set empties → self-heal loop relaunches, every
+    // attempt fails → each failure logs a gauge sample labeled accordingly.
+    launcher.launched[0]!.__crash();
+
+    await waitFor(
+      () =>
+        events.some(
+          (e) =>
+            e.event === "browser-pool.resource-gauges" &&
+            e.meta?.label === "self-heal-launch-failed",
+        ),
+      5_000,
+    );
+    const healFailGauges = events.filter(
+      (e) =>
+        e.event === "browser-pool.resource-gauges" &&
+        e.meta?.label === "self-heal-launch-failed",
+    );
+    expect(healFailGauges.length).toBeGreaterThanOrEqual(1);
+
+    await pool.shutdown();
+  });
+
+  it("the pool-unrecoverable alarm payload carries the cgroup PID gauges (names the real signal)", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const { logger } = makeLeveledLogger();
+    let captured:
+      | {
+          cgroupPidsCurrent: number;
+          cgroupPidsMax: number;
+          treeThreadCount: number;
+        }
+      | undefined;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      onUnrecoverable: (info) => {
+        captured = {
+          cgroupPidsCurrent: info.cgroupPidsCurrent,
+          cgroupPidsMax: info.cgroupPidsMax,
+          treeThreadCount: info.treeThreadCount,
+        };
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    await waitFor(() => captured !== undefined, 5_000);
+    // The give-up alarm names the PROVEN wedge signal (the measured PID counts +
+    // thread demand), not just the abstract breaker counters. Off-Linux these
+    // degrade to -1 — still a number, still present in the payload.
+    expect(typeof captured!.cgroupPidsCurrent).toBe("number");
+    expect(typeof captured!.cgroupPidsMax).toBe("number");
+    expect(typeof captured!.treeThreadCount).toBe("number");
+
+    await pool.shutdown();
+  });
+
+  // ── DURABLE FORENSIC SNAPSHOTS: onSnapshot hook + heartbeat ─────────────────
+  //
+  // The wedge ends in a container restart that clears in-memory state, and the
+  // Railway stdout window rolls off — so the gauge history MUST be persisted
+  // durably (PB) to survive. The pool fires `onSnapshot` (full gauge sample +
+  // stats + per-browser breakdown) on every meaningful transition AND on a
+  // periodic heartbeat. These tests assert: (a) a snapshot fires on the
+  // degraded + unrecoverable transitions; (b) the heartbeat samples
+  // periodically; (c) BEST-EFFORT — a throwing onSnapshot never breaks the pool.
+
+  // RED (pre-wiring): no onSnapshot → no forensic capture at the degraded
+  // transition. GREEN: the moment the set empties, a `degraded` snapshot fires.
+  it("SNAPSHOT: fires a forensic snapshot on the degraded transition", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 2 });
+    const snapshots: string[] = [];
+    const pool = new BrowserPool({
+      browsers: 2,
+      maxContexts: 4,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 5,
+      heartbeatMs: 0, // isolate the transition snapshot from the heartbeat
+      onSnapshot: (s) => {
+        snapshots.push(s.event);
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+    launcher.launched[1]!.__crash();
+
+    await waitFor(() => snapshots.includes("degraded"), 5_000);
+    expect(snapshots).toContain("degraded");
+    // The init snapshot also fired (baseline at boot).
+    expect(snapshots).toContain("init");
+
+    await pool.shutdown();
+  });
+
+  // GREEN: the TERMINAL give-up fires an `unrecoverable` snapshot — the single
+  // most important forensic row (pool dead, redeploy required).
+  it("SNAPSHOT: fires a forensic snapshot on the unrecoverable give-up", async () => {
+    const launcher = makeFakeLauncher({ failAfterCall: 1 });
+    const snapshots: Array<{ event: string; pidsMax: number }> = [];
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser: launcher.launchBrowser,
+      launchStaggerMs: 0,
+      relaunchMaxRetries: 0,
+      relaunchBackoffMs: 0,
+      selfHealIntervalMs: 1,
+      selfHealHardRecoveryThreshold: 2,
+      selfHealMaxHardRecoveries: 2,
+      heartbeatMs: 0,
+      onSnapshot: (s) => {
+        snapshots.push({ event: s.event, pidsMax: s.gauges.cgroupPidsMax });
+      },
+    });
+    await pool.init();
+    launcher.launched[0]!.__crash();
+
+    await waitFor(
+      () => snapshots.some((s) => s.event === "unrecoverable"),
+      5_000,
+    );
+    expect(snapshots.some((s) => s.event === "unrecoverable")).toBe(true);
+    // The snapshot carried a real gauge sample (pidsMax is a number, -1 off-Linux).
+    const unrec = snapshots.find((s) => s.event === "unrecoverable")!;
+    expect(typeof unrec.pidsMax).toBe("number");
+
+    await pool.shutdown();
+  });
+
+  // GREEN: the periodic heartbeat fires baseline snapshots between events so a
+  // slow PID creep is visible even when no transition fires.
+  it("SNAPSHOT: heartbeat fires periodic baseline snapshots", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    let heartbeats = 0;
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+      heartbeatMs: 10, // tiny so the test observes several beats quickly
+      onSnapshot: (s) => {
+        if (s.event === "heartbeat") heartbeats++;
+      },
+    });
+    await pool.init();
+
+    await waitFor(() => heartbeats >= 2, 5_000);
+    expect(heartbeats).toBeGreaterThanOrEqual(2);
+
+    await pool.shutdown();
+
+    // After shutdown the heartbeat loop stops — no further beats accrue.
+    const afterShutdown = heartbeats;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(heartbeats).toBe(afterShutdown);
+  });
+
+  // BEST-EFFORT: a throwing onSnapshot hook is caught + logged and NEVER breaks
+  // the pool — acquire/release keep working. Mirrors the safeHook doctrine.
+  it("SNAPSHOT: a throwing onSnapshot hook does NOT break the pool (best-effort)", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const { logger, events } = makeLeveledLogger();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      logger,
+      launchBrowser,
+      launchStaggerMs: 0,
+      heartbeatMs: 0,
+      onSnapshot: () => {
+        throw new Error("snapshot writer exploded");
+      },
+    });
+    // init() fires the "init" snapshot → the hook throws → must NOT reject init.
+    await expect(pool.init()).resolves.toBeUndefined();
+    // The throw was caught + logged, not propagated.
+    expect(
+      events.some(
+        (e) =>
+          e.event === "browser-pool.hook-failed" &&
+          e.meta?.hook === "onSnapshot",
+      ),
+    ).toBe(true);
+
+    // The pool is fully functional despite the throwing hook.
+    const ctx = await pool.acquire(undefined, 2_000);
+    expect(ctx).toBeDefined();
+    await pool.release(ctx);
+
+    await pool.shutdown();
   });
 });

@@ -43,11 +43,12 @@ from src.agents.beautiful_chat import (
     generate_a2ui as beautiful_chat_generate_a2ui,
     CUSTOM_CATALOG_ID as BEAUTIFUL_CHAT_CATALOG_ID,
 )
-from src.agents.a2ui_dynamic import (
-    _design_a2ui_surface as a2ui_dynamic_design,
-    generate_a2ui as a2ui_dynamic_generate_a2ui,
-    CUSTOM_CATALOG_ID as A2UI_DYNAMIC_CATALOG_ID,
-)
+
+# NOTE: a2ui_dynamic.py previously hand-rolled the same internal-tool pattern
+# and was covered here too. It now uses the canonical middleware path
+# (CopilotKitMiddleware auto-injects generate_a2ui), so it no longer exposes an
+# internal tool to regression-test. beautiful_chat.py keeps the hand-rolled
+# pattern for its combined cell, so the coverage below still applies to it.
 
 
 # A2UI middleware's default intercept list (mirrors `RENDER_A2UI_TOOL_NAME`
@@ -65,9 +66,8 @@ A2UI_MIDDLEWARE_INTERCEPTED_NAMES = {"render_a2ui"}
     "tool",
     [
         beautiful_chat_design,
-        a2ui_dynamic_design,
     ],
-    ids=["beautiful_chat", "a2ui_dynamic"],
+    ids=["beautiful_chat"],
 )
 def test_secondary_llm_tool_name_does_not_collide_with_middleware_intercept(tool):
     """The secondary-LLM helper name must not appear in the A2UI middleware's
@@ -166,7 +166,6 @@ def _create_surface_op(parsed: dict) -> dict:
     "agent_module_name,generate_a2ui_fn,expected_catalog_id",
     [
         ("beautiful_chat", beautiful_chat_generate_a2ui, BEAUTIFUL_CHAT_CATALOG_ID),
-        ("a2ui_dynamic", a2ui_dynamic_generate_a2ui, A2UI_DYNAMIC_CATALOG_ID),
     ],
 )
 def test_generate_a2ui_force_pins_canonical_catalog_id(
@@ -220,7 +219,6 @@ def test_generate_a2ui_force_pins_canonical_catalog_id(
     "agent_module_name,generate_a2ui_fn",
     [
         ("beautiful_chat", beautiful_chat_generate_a2ui),
-        ("a2ui_dynamic", a2ui_dynamic_generate_a2ui),
     ],
 )
 def test_generate_a2ui_drops_malformed_root_with_error_not_loop(

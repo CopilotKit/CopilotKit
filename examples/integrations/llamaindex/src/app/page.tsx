@@ -78,9 +78,10 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         .describe("The proverb to add. Make it witty, short and concise."),
     }),
     handler: async ({ proverb }) => {
-      setState({
-        ...state,
-        proverbs: [...(state?.proverbs || []), proverb],
+      // Read agent.state at call time so rapid successive adds don't drop
+      // earlier proverbs via a stale closure over `state`.
+      agent.setState({
+        proverbs: [...((agent.state as AgentState | undefined)?.proverbs ?? []), proverb],
       });
       return `Added proverb: ${proverb}`;
     },
@@ -103,7 +104,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   return (
     <div
       style={{ backgroundColor: themeColor }}
-      className="h-screen w-screen flex justify-center items-center flex-col transition-colors duration-300"
+      className="h-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-2xl w-full">
         <h1 className="text-4xl font-bold text-white mb-2 text-center">

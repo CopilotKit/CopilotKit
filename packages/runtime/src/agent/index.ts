@@ -51,7 +51,6 @@ import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { INTELLIGENCE_USER_ID_HEADER } from "../v2/runtime/intelligence-platform/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -1177,60 +1176,11 @@ export class BuiltInAgent extends AbstractAgent {
             }
           }
 
-          // Initialize MCP clients and get their tools.
-          //
-          // Servers come from two sources, concatenated in order:
-          //   - `config.mcpServers` — user-supplied static array.
-          //   - The CopilotKit Intelligence MCP server, auto-attached when
-          //     the runtime forwards a `copilotkitIntelligence` bag via
-          //     `input.forwardedProps.auth`. The bag carries `userId` +
-          //     `apiKey` + `mcpUrl`. We build a per-request
-          //     MCPClientConfigHTTP whose `options.fetch` closes over
-          //     `apiKey` + `userId` and stamps
-          //     `Authorization: Bearer <apiKey>` and `X-Cpki-User-Id:
-          //     <userId>` on every outbound MCP call. Skipped when the user
-          //     already configured a server pointing at the same URL. The
-          //     `auth` namespace is the convention for credentials that
-          //     downstream redaction policies strip before durable storage
-          //     and FE replay.
+          // Initialize MCP clients and get their tools from
+          // `config.mcpServers` — the user-supplied static array.
           const allMcpServers: MCPClientConfig[] = [
             ...(this.config.mcpServers ?? []),
           ];
-          const auth = (
-            input.forwardedProps as
-              | { auth?: { copilotkitIntelligence?: unknown } }
-              | undefined
-          )?.auth;
-          const cpki = auth?.copilotkitIntelligence as
-            | { userId?: unknown; apiKey?: unknown; mcpUrl?: unknown }
-            | undefined;
-          const cpkiUserId =
-            typeof cpki?.userId === "string" ? cpki.userId : undefined;
-          const cpkiApiKey =
-            typeof cpki?.apiKey === "string" ? cpki.apiKey : undefined;
-          const cpkiMcpUrl =
-            typeof cpki?.mcpUrl === "string" ? cpki.mcpUrl : undefined;
-          if (
-            cpkiUserId &&
-            cpkiApiKey &&
-            cpkiMcpUrl &&
-            !allMcpServers.some(
-              (s) => s.type === "http" && s.url === cpkiMcpUrl,
-            )
-          ) {
-            allMcpServers.push({
-              type: "http",
-              url: cpkiMcpUrl,
-              options: {
-                fetch: async (req, init) => {
-                  const headers = new Headers(init?.headers);
-                  headers.set("Authorization", `Bearer ${cpkiApiKey}`);
-                  headers.set(INTELLIGENCE_USER_ID_HEADER, cpkiUserId);
-                  return globalThis.fetch(req, { ...init, headers });
-                },
-              },
-            });
-          }
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
               let transport;
