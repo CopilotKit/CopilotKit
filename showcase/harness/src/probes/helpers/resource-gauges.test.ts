@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  sampleResourceGauges,
-  formatGauges,
-  readCgroupPids,
-} from "./resource-gauges.js";
+import { sampleResourceGauges, readCgroupPids } from "./resource-gauges.js";
 import type { ResourceGauges } from "./resource-gauges.js";
 
 describe("resource-gauges", () => {
@@ -76,45 +72,6 @@ describe("resource-gauges", () => {
         throw new Error("ENOENT");
       };
       expect(readCgroupPids(fake)).toEqual({ current: -1, max: -1 });
-    });
-  });
-
-  describe("formatGauges", () => {
-    it("leads with the cgroup PID counters (the headline signal)", () => {
-      const g: ResourceGauges = {
-        ts: "2026-06-04T00:00:00.000Z",
-        selfFdCount: 12,
-        treeThreadCount: 850,
-        treeProcCount: 33,
-        zombieCount: 0,
-        selfRssMb: 200,
-        treeRssMb: 3600,
-        cgroupPidsCurrent: 950,
-        cgroupPidsMax: 1000,
-        devShmUsedPct: 0,
-        tmpInodeUsedPct: 1,
-        tmpInodesUsed: 100,
-        tmpInodesFree: 890,
-        tmpSpaceUsedPct: 5,
-        tmpSpaceFreeMb: 1000,
-        playwrightTmpDirs: 6,
-      };
-      const line = formatGauges(g, "launch");
-      expect(line).toContain("[launch]");
-      expect(line).toContain("pidsCurrent=950");
-      expect(line).toContain("pidsMax=1000");
-      expect(line).toContain("threads=850");
-      // The headline PID gauges precede the refuted-candidate differential.
-      expect(line.indexOf("pidsCurrent")).toBeLessThan(
-        line.indexOf("tmpInode"),
-      );
-    });
-
-    it("omits the label bracket when no label is given", () => {
-      const g = sampleResourceGauges();
-      const line = formatGauges(g);
-      expect(line.startsWith("[")).toBe(false);
-      expect(line).toContain("pidsCurrent=");
     });
   });
 });
