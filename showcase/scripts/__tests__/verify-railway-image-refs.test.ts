@@ -77,7 +77,9 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
       "starter-mastra", // starter fleet — tolerated
       "showcase-rogue-untracked", // real drift — must be flagged
     ]);
-    expect(findUntrackedServices(railway)).toEqual(["showcase-rogue-untracked"]);
+    expect(findUntrackedServices(railway)).toEqual([
+      "showcase-rogue-untracked",
+    ]);
   });
 
   it("does NOT flag a service that the SSOT marks gateIgnore: true", () => {
