@@ -50,14 +50,18 @@ export const LIVENESS_STALE_AFTER_MS = 45 * 60 * 1000;
  * rows written by the harness `starter_smoke` probe family). Per spec §d, the
  * window is derived from the probe cadence and MUST be strictly greater than
  * two probe periods, so a single late/missed/slow-wake tick stays green and
- * only two consecutive misses flip amber. The probe ships on a 6h cadence
- * (mirroring the retired `test_smoke-starter.yml` cron the live signal
- * replaces); 13h is > 2×6h with headroom to absorb the scale-to-zero
- * cold-start latency (§c) folded into a single tick. Keep this in lockstep
- * with S2's `starter_smoke.yml` `schedule` — if the cadence changes, this
- * window must be re-derived (> 2× the new period). Not env-tunable.
+ * only two consecutive misses flip amber. The probe ships on an HOURLY cadence
+ * (`schedule: "40 * * * *"`, see harness/config/probes/starter_smoke.yml), so
+ * the probe period is 1h. We set the window to 2.5h: > 2×1h (so two consecutive
+ * missed hourly ticks, which age the last row to ~2h, then ~3h, flip amber on
+ * the SECOND miss) yet < 3h (so a single missed/slow-wake tick — last row ~2h
+ * old — stays green, absorbing a scale-to-zero cold-start wake folded into one
+ * tick, §c). 2.5h is the tightest window satisfying ">2 periods" that still
+ * trips on the second miss. Keep this in lockstep with S2's `starter_smoke.yml`
+ * `schedule` — if the cadence changes, this window must be re-derived
+ * (> 2× the new period). Not env-tunable.
  */
-export const STARTER_STALE_AFTER_MS = 13 * 60 * 60 * 1000;
+export const STARTER_STALE_AFTER_MS = 2.5 * 60 * 60 * 1000;
 
 /**
  * Determine whether a row's `observed_at` is older than `maxAgeMs` relative

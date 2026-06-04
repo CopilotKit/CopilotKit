@@ -430,7 +430,7 @@ const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
  * Build a `BadgeRender` for one starter sub-cell, applying the FULL 5-state
  * cell vocabulary (§d):
  *
- *   - not-supported  → grey/hollow "✗", mapping-derived (`!isSupported`),
+ *   - not-supported  → grey "✗", mapping-derived (`!isSupported`),
  *                      tooltip "no starter for this integration". Distinct
  *                      from the red smoke-failed ✗. Resolved FIRST so it can
  *                      never collide with the gray `?` initial state.
@@ -453,7 +453,7 @@ export function buildStarterBadge(
   connection: ConnectionStatus,
 ): BadgeRender {
   if (!isSupported) {
-    // Mapping-derived: this column has no starter (§a). Grey/hollow ✗,
+    // Mapping-derived: this column has no starter (§a). Grey ✗,
     // visually distinct from a red smoke-failed ✗. NOT data-derived, so it
     // renders identically before and after the first probe tick.
     return {

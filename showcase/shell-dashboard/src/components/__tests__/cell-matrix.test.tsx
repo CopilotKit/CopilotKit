@@ -769,7 +769,7 @@ describe("CellMatrix — Starter row-group", () => {
   it("not-supported ✗ for an unmapped column, tooltip 'no starter for this integration'", () => {
     const { getByTestId } = renderMatrix(new Map());
     const cell = getByTestId("starter-cell-ag2-health");
-    // grey/hollow ✗ — the chip carries the tooltip title.
+    // grey ✗ — the chip carries the tooltip title.
     expect(cell.textContent).toContain("✗");
     const chip = cell.querySelector("[title]");
     expect(chip?.getAttribute("title")).toBe("no starter for this integration");
