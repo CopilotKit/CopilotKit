@@ -58,7 +58,7 @@ const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
  * immediately drives a `pool.acquire()` that launches a Chromium
  * (~50 threads/procs each). With 5 simultaneous workers the kernel
  * sees ~250 thread spawns inside a few-ms window on top of an already-
- * warm 10-browser pool, and the container hits its PID/thread ceiling
+ * warm 3-browser pool, and the container hits its PID/thread ceiling
  * — fork/pthread_create returns EAGAIN, Chromium processes die, and
  * per-feature `browser.newContext()` fails with "Target page, context
  * or browser has been closed" so the whole run aborts at T+2s.
