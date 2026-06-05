@@ -3901,6 +3901,227 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
     // After stop() the watcher's unsubscribe ran → no reload fires anymore.
     expect(unwatched).toBe(true);
   });
+
+  // ── /api/probes trigger endpoint on the control-plane ──────────────────
+  //
+  // The control-plane runs the 8 in-process HTTP probe families on its own
+  // scheduler under `probe:<id>` entries. The on-demand trigger endpoint
+  // (`POST /api/probes/:id/trigger`, bearer-auth gated) lets operators fire a
+  // family immediately instead of waiting on the slow cron. It is mounted via
+  // the SAME `registerProbesRoutes` boot() uses, wired from the control-plane's
+  // own `httpProbeRegistry`/`httpProbeConfigs`/`scheduler`/`httpRunWriter` and
+  // `OPS_TRIGGER_TOKEN`. The router id namespace is the prefixed scheduler id
+  // (`probe:<cfg.id>`), matching boot() and the in-process registration.
+  describe("on-demand trigger endpoint (/api/probes)", () => {
+    const TOKEN = "cp-trigger-token";
+    let prevToken: string | undefined;
+
+    beforeEach(() => {
+      prevToken = process.env.OPS_TRIGGER_TOKEN;
+      process.env.OPS_TRIGGER_TOKEN = TOKEN;
+    });
+
+    afterEach(() => {
+      if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+      else process.env.OPS_TRIGGER_TOKEN = prevToken;
+    });
+
+    function pbMock() {
+      vi.doMock("@hono/node-server", async () => {
+        const actual =
+          await vi.importActual<typeof import("@hono/node-server")>(
+            "@hono/node-server",
+          );
+        return { ...actual };
+      });
+      vi.doMock("./storage/pb-client.js", async () => {
+        const actual = await vi.importActual<
+          typeof import("./storage/pb-client.js")
+        >("./storage/pb-client.js");
+        return {
+          ...actual,
+          createPbClient: () => ({
+            health: async () => true,
+            getOne: async () => null,
+            getFirst: async () => null,
+            getList: async () => ({ items: [] }),
+          }),
+        };
+      });
+    }
+
+    it("GET /api/probes lists the in-process HTTP families (and not the browser kind)", async () => {
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { probes: Array<{ id: string }> };
+        const ids = body.probes.map((p) => p.id).sort();
+        // The 3 HTTP families written to the temp probes dir, under their
+        // prefixed scheduler ids.
+        expect(ids).toEqual(
+          ["probe:image_drift", "probe:qa", "probe:smoke"].sort(),
+        );
+        // Browser kind is worker-routed, never in-process → not listed.
+        expect(ids).not.toContain("probe:e2e_smoke");
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("POST /api/probes/probe:smoke/trigger with the bearer token runs the in-process probe", async () => {
+      vi.resetModules();
+      pbMock();
+
+      // Capture trigger() calls on the real scheduler so we can assert the
+      // route routed the request to the control-plane's scheduler entry.
+      const triggered: string[] = [];
+      vi.doMock("./scheduler/scheduler.js", async () => {
+        const actual = await vi.importActual<
+          typeof import("./scheduler/scheduler.js")
+        >("./scheduler/scheduler.js");
+        return {
+          ...actual,
+          createScheduler: (
+            deps: Parameters<typeof actual.createScheduler>[0],
+          ) => {
+            const real = actual.createScheduler(deps);
+            return {
+              ...real,
+              trigger: async (id: string, opts?: unknown) => {
+                triggered.push(id);
+                return { runId: "run_cp", status: "queued", probe: id };
+              },
+            };
+          },
+        };
+      });
+
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:${port}/api/probes/probe:smoke/trigger`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${TOKEN}` },
+          },
+        );
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { runId: string; probe: string };
+        expect(body.runId).toBe("run_cp");
+        expect(body.probe).toBe("probe:smoke");
+        // The route invoked the control-plane scheduler's entry for the probe.
+        expect(triggered).toContain("probe:smoke");
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("POST /api/probes/probe:smoke/trigger WITHOUT the bearer token 401s", async () => {
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:${port}/api/probes/probe:smoke/trigger`,
+          { method: "POST" },
+        );
+        expect(res.status).toBe(401);
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("POST /api/probes/probe:e2e_smoke/trigger 404s — browser families are not in-process", async () => {
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:${port}/api/probes/probe:e2e_smoke/trigger`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${TOKEN}` },
+          },
+        );
+        // browser-only id is not a registered in-process probe → 404
+        expect(res.status).toBe(404);
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("POST /api/probes/probe:nope/trigger 404s for an unknown id", async () => {
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:${port}/api/probes/probe:nope/trigger`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${TOKEN}` },
+          },
+        );
+        expect(res.status).toBe(404);
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("does NOT mount the trigger endpoint when OPS_TRIGGER_TOKEN is unset (fail-safe)", async () => {
+      delete process.env.OPS_TRIGGER_TOKEN;
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      try {
+        // Router not mounted → /api/probes returns Hono's default 404.
+        const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
+        expect(res.status).toBe(404);
+      } finally {
+        await handle.stop();
+      }
+    });
+
+    it("throws fail-loud when OPS_TRIGGER_TOKEN is set-but-empty", async () => {
+      process.env.OPS_TRIGGER_TOKEN = "   ";
+      vi.resetModules();
+      pbMock();
+      const orchMod = await import("./orchestrator.js");
+      await expect(
+        orchMod.runControlPlane(
+          { role: "control-plane", poolCount: 1 },
+          { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+        ),
+      ).rejects.toThrow(/OPS_TRIGGER_TOKEN.*empty/i);
+    });
+  });
 });
 
 // A4 drift-lock: the HTTP-only driver set registered by
