@@ -1125,12 +1125,48 @@ export function registerHttpProbeDrivers(
 ): void {
   probeRegistry.register(aimockWiringDriver);
   probeRegistry.register(pinDriftDriver);
+  // The `smoke` family is served by `livenessDriver` (whose `kind` is
+  // `"smoke"`) — there is no separate "smoke" driver export.
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
   probeRegistry.register(qaDriver);
   probeRegistry.register(starterSmokeDriver);
+}
+
+/**
+ * Fail-loud invariant for the HTTP/browser kind partition. Given the list of
+ * driver kinds the control-plane registered in-process (via
+ * `registerHttpProbeDrivers`), assert that NONE of them is in `BROWSER_KINDS` —
+ * the two sets must be DISJOINT, so an HTTP driver kind can never collide with a
+ * browser kind.
+ *
+ * Today both sets are hand-maintained from a single 12-kind list, so this can
+ * only trip on a future edit. But a kind mis-added to BROWSER_KINDS that ALSO
+ * has an HTTP driver would go dark on the fleet — `includeKind` would skip the
+ * YAML in-process while the browser path wouldn't pick up an HTTP family — so we
+ * throw at control-plane boot rather than let a probe family vanish unnoticed.
+ *
+ * (The complementary JOINT-COVERAGE check — that the HTTP kinds + BROWSER_KINDS
+ * together equal the full `registerAllProbeDrivers` universe — lives in the
+ * drift-lock test, which can see the whole universe; this runtime guard only has
+ * the HTTP set in hand.)
+ *
+ * Exported so the drift-lock test can assert the partition without booting the
+ * full control-plane.
+ */
+export function assertHttpBrowserKindPartition(httpKinds: string[]): void {
+  const overlap = httpKinds.filter((kind) =>
+    BROWSER_KINDS.has(kind as ProbeConfig["kind"]),
+  );
+  if (overlap.length > 0) {
+    throw new Error(
+      `registerHttpProbeDrivers registered browser kind(s) that must NOT run ` +
+        `in-process on the control-plane: ${overlap.sort().join(", ")}. The ` +
+        `HTTP driver set and BROWSER_KINDS must be DISJOINT.`,
+    );
+  }
 }
 
 /**
@@ -2265,7 +2301,7 @@ export async function runControlPlane(
   });
   controlPlaneRef = controlPlane;
 
-  // ---- In-process HTTP-only probe families (Phase-1 3c) ----
+  // ---- In-process HTTP-only probe families ----
   //
   // The control-plane runs the 8 HTTP-only probe families IN-PROCESS by
   // lifting the legacy boot() probe-loader machinery: an HTTP-only
@@ -2281,14 +2317,44 @@ export async function runControlPlane(
   // The browser families (e2e_d6 / e2e_smoke / e2e_demos / e2e_deep) are NOT
   // run here — d6 goes via the producer; the rest need a BrowserPool the
   // control-plane deliberately does not own.
+
+  // Crash-recovery parity with boot(): finalize any `running` probe_runs rows
+  // orphaned by a prior crash BEFORE registering the in-process HTTP probes.
+  // boot() does this at startup, but boot() never runs in fleet mode — so
+  // without this the control-plane (which now writes probe_runs via the HTTP
+  // probes) would leak orphaned `running` rows forever. Best-effort: a sweep
+  // failure must NOT abort control-plane boot (mirrors boot's
+  // `boot.sweep-stale-runs-failed`).
+  try {
+    const swept = await sweepStaleRuns(pb);
+    if (swept > 0) {
+      logger.info("fleet.control-plane.swept-stale-runs", { swept });
+    }
+  } catch (err) {
+    logger.error("fleet.control-plane.sweep-stale-runs-failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const httpProbeRegistry = createProbeRegistry();
   registerHttpProbeDrivers(httpProbeRegistry);
+
+  // Drift-guard: the registered HTTP driver kinds and BROWSER_KINDS must be
+  // DISJOINT and together cover the full registered driver-kind universe. This
+  // is theoretical today (the two sets are hand-maintained from one list), but
+  // a future kind mis-added to BROWSER_KINDS — or an HTTP driver whose kind
+  // overlaps a browser kind — would silently drop a family from the in-process
+  // schedule (it'd be skipped by includeKind yet never run anywhere). Fail loud
+  // at boot rather than let a probe go dark unnoticed.
+  assertHttpBrowserKindPartition(httpProbeRegistry.list());
+
   const httpDiscoveryRegistry = createDiscoveryRegistry();
-  // `qa` is a per-service discovery probe (railway-services); `image_drift`
-  // and the pnpm-pinned drift probes use pnpm-packages discovery. Register the
-  // SAME discovery sources boot() wires so the HTTP families fan out to the
-  // identical target set. railway-services is cached (24h TTL) with an
-  // auth-failure tracker, mirroring boot().
+  // `qa` and `image_drift` are per-service discovery probes (railway-services);
+  // `version_drift` uses pnpm-packages discovery. (`pin_drift` is single-target
+  // — it has NO discovery source.) Register the SAME discovery sources boot()
+  // wires so the HTTP families fan out to the identical target set.
+  // railway-services is cached (24h TTL) with an auth-failure tracker,
+  // mirroring boot().
   const httpAuthTracker = new DiscoveryAuthTracker({
     threshold: 3,
     writer: statusWriter,
@@ -2341,6 +2407,15 @@ export async function runControlPlane(
       desired.set(`probe:${cfg.id}`, cfg);
     }
     // Unregister probe ids no longer desired (YAML deleted on a reload).
+    // Unregister-failure post-state (mirrors boot()'s diffProbeSchedules
+    // intent): await the unregister and only drop the config from
+    // `httpProbeConfigs` on SUCCESS. If unregister REJECTS, the scheduler still
+    // holds the old entry, so we deliberately KEEP the config in
+    // `httpProbeConfigs` — the orphaned entry stays VISIBLE on /health (its
+    // `rules` count still includes it) and a future surface could report its
+    // real kind/config rather than an "unknown" orphan. We log the drift; the
+    // next successful diff sweep cleans it up once the YAML is restored or the
+    // service restarts.
     for (const entry of scheduler.list()) {
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
@@ -2354,6 +2429,8 @@ export async function runControlPlane(
             err,
             { id: entry.id },
           );
+          // Intentionally do NOT delete from httpProbeConfigs — keep the
+          // orphan observable with proper metadata (see comment above).
         }
       }
     }
@@ -2403,8 +2480,12 @@ export async function runControlPlane(
     bus.emit("probes.reloaded", { count: httpConfigs.length });
   } catch (err) {
     // A probe-load failure must NOT take down the control-plane — the d6
-    // producer + fleet-health legs still function. Surface on the bus so
-    // operators can alert on `probes.reload.failed` without blocking boot.
+    // producer + fleet-health legs still function. The failure surface is the
+    // structured error log below PLUS the /health `rules` count dropping to 0
+    // (see ruleCount wiring), which dashboards/alerting can observe. We also
+    // emit `probes.reload.failed` on the bus for any future subscriber, but the
+    // control-plane wires NO bus subscriber for it today (unlike boot(), it has
+    // no metrics registry) — so the log + ruleCount are the live surface.
     logErrorWithStack(
       logger,
       "fleet.control-plane.initial-probe-load-failed",
@@ -2451,11 +2532,15 @@ export async function runControlPlane(
     // count is the number of in-process HTTP probe configs. We keep
     // `role: "control-plane"` (its liveness is still governed by the scheduler
     // signals folded into loopOk — schedulerJobCount>0 covers BOTH the
-    // producer entry AND the probe entries), but `ruleCount` now reflects the
-    // real in-process rule count so the role-drop on the rules>0 gate does not
-    // MASK a probe-loader failure: if the loader silently produced zero HTTP
-    // probes, `rules` reads 0 and the gap is visible on /health rather than
-    // hidden behind the role short-circuit.
+    // producer entry AND the probe entries). `ruleCount` now reports the REAL
+    // in-process probe count instead of a hardcoded 0, so a zero-probe load is
+    // OBSERVABLE in the /health JSON `rules` field (for dashboards / alerting).
+    // NOTE: the role still DROPS the `rules > 0` gate (server.ts forces
+    // `rulesOk = true` for the control-plane role), so a zero-probe load does
+    // NOT flip `status` to degraded — the visibility is for dashboards/alerts,
+    // not container liveness. Keeping the gate dropped is deliberate: the
+    // control-plane's liveness is its scheduler/producer signals, not its probe
+    // count.
     role: "control-plane",
     ruleCount: () => httpProbeConfigs.size,
     schedulerStarted: () => scheduler.isStarted(),

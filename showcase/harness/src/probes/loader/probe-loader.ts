@@ -119,7 +119,10 @@ export function createProbeLoader(
         // browser YAML never tries to resolve against an HTTP-only registry
         // (which would surface a spurious `no driver registered` failure).
         if (includeKind && !includeKind(cfg.kind)) {
-          logger.debug("probe-loader.kind-skipped", {
+          // logger.info (not debug) so a skipped config is visible at normal
+          // verbosity — operators can confirm WHICH on-disk YAMLs the
+          // HTTP-only control-plane is deliberately not scheduling.
+          logger.info("probe-loader.kind-skipped", {
             file: f,
             kind: cfg.kind,
           });
