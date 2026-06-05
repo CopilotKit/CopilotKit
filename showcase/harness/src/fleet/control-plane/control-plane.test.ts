@@ -254,6 +254,251 @@ describe("createControlPlane.start", () => {
   });
 });
 
+describe("createControlPlane — multiple producer schedules", () => {
+  it("registers one scheduler entry per schedule with its own cron + producer", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+
+    expect(scheduler.entries.size).toBe(2);
+    const a = scheduler.entries.get("fleet-d6-producer");
+    const b = scheduler.entries.get("fleet-smoke-producer");
+    expect(a?.cron).toBe("40 * * * *");
+    expect(b?.cron).toBe("*/15 * * * *");
+
+    // Each handler drives ITS producer's tick.
+    await a?.handler();
+    expect(producerA.ticks).toBe(1);
+    expect(producerB.ticks).toBe(0);
+    await b?.handler();
+    expect(producerB.ticks).toBe(1);
+
+    // Both producers were started.
+    expect(producerA.started).toBe(true);
+    expect(producerB.started).toBe(true);
+  });
+
+  it("stop() unregisters every schedule and stops every producer", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+    await cp.stop();
+
+    expect(scheduler.entries.has("fleet-d6-producer")).toBe(false);
+    expect(scheduler.entries.has("fleet-smoke-producer")).toBe(false);
+    expect(producerA.stopped).toBe(true);
+    expect(producerB.stopped).toBe(true);
+  });
+});
+
+// ── Multi-schedule seam hardening (best-effort / fail-loud bar) ─────────────
+describe("createControlPlane — multi-schedule hardening", () => {
+  // A1: one producer's stop() (or unregister) rejecting must NOT abort teardown
+  // of later schedules — best-effort teardown completes all entries.
+  it("stop() still tears down later schedules when an earlier unregister rejects", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    // Make the FIRST schedule's unregister reject.
+    const realUnregister = scheduler.unregister.bind(scheduler);
+    scheduler.unregister = (async (id: string) => {
+      if (id === "fleet-d6-producer") throw new Error("unregister boom");
+      return realUnregister(id);
+    }) as typeof scheduler.unregister;
+
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+    await cp.stop();
+
+    // The second schedule is still unregistered AND its producer still stopped,
+    // and the first producer's stop() still ran despite its unregister rejecting.
+    expect(scheduler.entries.has("fleet-smoke-producer")).toBe(false);
+    expect(producerB.stopped).toBe(true);
+    expect(producerA.stopped).toBe(true);
+  });
+
+  it("stop() still stops later producers when an earlier producer.stop() rejects", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    // Make the FIRST producer's stop() reject.
+    producerA.stop = async () => {
+      throw new Error("producer stop boom");
+    };
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+    await cp.stop();
+
+    expect(scheduler.entries.has("fleet-smoke-producer")).toBe(false);
+    expect(producerB.stopped).toBe(true);
+  });
+
+  // A2: an invalid cron must fail BEFORE any producer is started, and must not
+  // leave `started` latched true (a retry must be able to start cleanly).
+  it("start() throws on an invalid cron BEFORE starting any producer", () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        { scheduleId: "fleet-ok", cron: "40 * * * *", producer: producerA },
+        { scheduleId: "fleet-bad", cron: "not a cron", producer: producerB },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+
+    expect(() => cp.start()).toThrow(/fleet-bad/);
+    // No producer was started — validation happens up-front.
+    expect(producerA.started).toBe(false);
+    expect(producerB.started).toBe(false);
+    // Nothing registered.
+    expect(scheduler.entries.size).toBe(0);
+
+    // `started` is not latched true: a subsequent start() with valid crons works.
+    const cpOk = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler: makeFakeScheduler(),
+      logger: SILENT_LOGGER,
+      schedules: [
+        { scheduleId: "fleet-ok", cron: "40 * * * *", producer: producerA },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    expect(() => cpOk.start()).not.toThrow();
+    expect(producerA.started).toBe(true);
+  });
+
+  // A3: duplicate scheduleId must throw loudly (replace-semantics would silently
+  // collapse two producers onto one scheduler entry).
+  it("throws on a duplicate scheduleId", () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    expect(() =>
+      createControlPlane({
+        producer: producerA,
+        consumer: makeFakeConsumer(),
+        scheduler: makeFakeScheduler(),
+        logger: SILENT_LOGGER,
+        schedules: [
+          { scheduleId: "dup", cron: "40 * * * *", producer: producerA },
+          { scheduleId: "dup", cron: "*/15 * * * *", producer: producerB },
+        ],
+        setIntervalImpl: makeFakeTimers().setIntervalImpl,
+      }),
+    ).toThrow(/dup/);
+  });
+
+  // A4: distinguish undefined (→ d6 default) from an explicit [] (caller error).
+  it("throws when schedules is an explicit empty array", () => {
+    expect(() =>
+      createControlPlane({
+        producer: makeFakeProducer(),
+        consumer: makeFakeConsumer(),
+        scheduler: makeFakeScheduler(),
+        logger: SILENT_LOGGER,
+        schedules: [],
+        setIntervalImpl: makeFakeTimers().setIntervalImpl,
+      }),
+    ).toThrow(/empty/i);
+  });
+
+  it("omitting schedules still yields the single d6 schedule (unchanged)", () => {
+    const producer = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+    expect(scheduler.entries.size).toBe(1);
+    expect(scheduler.entries.has(FLEET_PRODUCER_SCHEDULE_ID)).toBe(true);
+  });
+});
+
 describe("createControlPlane.stop", () => {
   it("unregisters the producer tick, stops the producer, and clears the consumer timer", async () => {
     const producer = makeFakeProducer();
