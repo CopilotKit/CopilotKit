@@ -3281,6 +3281,662 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
   });
 });
 
+/**
+ * In-process HTTP-only probe families on the fleet control-plane.
+ *
+ * The control-plane runs the 8 HTTP-only probe families (smoke, starter_smoke,
+ * image_drift, qa, aimock_wiring, version_drift, pin_drift,
+ * redirect_decommission) IN-PROCESS, alongside the d6 producer. These tests
+ * pin that behavior:
+ *
+ *   1. `runControlPlane` loads `config/probes/*.yml`, partitions by
+ *      `BROWSER_KINDS`, and registers ONLY the HTTP-kind families on its own
+ *      scheduler under `probe:<id>` entries, with crons taken FROM the YAML
+ *      `schedule`. Browser kinds (e2e_*) are NOT scheduled in-process — they
+ *      route through the worker producer path.
+ *   2. /health's `rules` count reflects the REAL in-process HTTP probe count
+ *      so a zero-probe load is OBSERVABLE in the /health JSON body. The role
+ *      still DROPS the `rules>0` gate, so `status` stays ok regardless (the
+ *      count is for dashboards/alerting visibility, not container liveness);
+ *      `schedulerJobs` includes the probe entries.
+ *
+ * The probe config dir is the sibling `../probes` of `opts.configDir` (same
+ * resolution boot() uses), so the test writes a temp alerts dir + sibling
+ * probes dir containing HTTP families (smoke, image_drift, qa — the last a
+ * discovery-backed family) plus one BROWSER family (e2e_smoke) to prove the
+ * partition.
+ */
+describe("orchestrator runControlPlane in-process HTTP probes", () => {
+  let port = 0;
+  let probesDir = "";
+  let alertsDir = "";
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "harness-cp-http-probes-"),
+    );
+    alertsDir = path.join(root, "alerts");
+    probesDir = path.join(root, "probes");
+    await fs.mkdir(alertsDir, { recursive: true });
+    await fs.mkdir(probesDir, { recursive: true });
+    // Two HTTP families (single-target shapes keep the YAML minimal) + one
+    // browser family. The browser family must be SKIPPED in-process.
+    await fs.writeFile(
+      path.join(probesDir, "smoke.yml"),
+      [
+        "kind: smoke",
+        "id: smoke",
+        'schedule: "*/5 * * * *"',
+        "target:",
+        "  key: smoke:test",
+        '  url: "https://example.com"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(probesDir, "image-drift.yml"),
+      [
+        "kind: image_drift",
+        "id: image_drift",
+        'schedule: "*/15 * * * *"',
+        "target:",
+        "  key: image_drift:test",
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    // A discovery-backed family (qa → railway-services discovery) so the test
+    // exercises the discovery-registry wiring, not just the single-target
+    // smoke path. The discovery source resolves against the mocked PB/railway
+    // env; we only assert it SCHEDULES, not that it ticks.
+    await fs.writeFile(
+      path.join(probesDir, "qa.yml"),
+      [
+        "kind: qa",
+        "id: qa",
+        'schedule: "0 * * * *"',
+        "discovery:",
+        "  source: railway-services",
+        '  key_template: "qa:${name}"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(probesDir, "e2e-smoke.yml"),
+      [
+        "kind: e2e_smoke",
+        "id: e2e_smoke",
+        'schedule: "*/5 * * * *"',
+        "target:",
+        "  key: e2e_smoke:test",
+        '  url: "https://example.com"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    // doMock factories persist across the file (resetModules clears the module
+    // CACHE, not the mock REGISTRY). Explicitly unmock every module these tests
+    // doMock so a stale factory (e.g. a probe-loader that always throws, or an
+    // event-bus that pre-hooks a subscriber) never bleeds into a sibling test
+    // that doesn't re-mock it.
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./scheduler/scheduler.js");
+    vi.doUnmock("./probes/run-history.js");
+    vi.doUnmock("./probes/loader/probe-loader.js");
+    vi.doUnmock("./events/event-bus.js");
+  });
+
+  it("schedules the HTTP families (smoke, image_drift, qa) in-process with their YAML crons but NOT the browser kind", async () => {
+    vi.resetModules();
+
+    // Pin the REAL serve() so this role binds cleanly (immunize against a
+    // sibling test's leaked @hono/node-server doMock).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    // pb fake: health() true so the role boots clean; lookups return null.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // Capture every scheduler.register id AND cron so we can assert which
+    // probe families landed as in-process scheduler entries AND that their
+    // crons come FROM the YAML `schedule` (a hardcoded-cron regression must
+    // fail this).
+    const registered: { id: string; cron?: string }[] = [];
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: { id: string; cron?: string }) => {
+              registered.push({ id: entry.id, cron: entry.cron });
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      const ids = registered.map((r) => r.id);
+      // HTTP families register as in-process probe entries.
+      expect(ids).toContain("probe:smoke");
+      expect(ids).toContain("probe:image_drift");
+      // Discovery-backed family (qa → railway-services) also schedules,
+      // exercising the discovery-registry wiring, not just single-target.
+      expect(ids).toContain("probe:qa");
+      // Browser kind is NOT scheduled in-process — it routes to the producer.
+      expect(ids).not.toContain("probe:e2e_smoke");
+
+      // Crons are driven FROM the YAML `schedule`, never hardcoded.
+      const cronFor = (id: string) => registered.find((r) => r.id === id)?.cron;
+      expect(cronFor("probe:smoke")).toBe("*/5 * * * *");
+      expect(cronFor("probe:image_drift")).toBe("*/15 * * * *");
+      expect(cronFor("probe:qa")).toBe("0 * * * *");
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  it("/health reflects the in-process HTTP rule count (not a hardcoded 0)", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      const body = (await res.json()) as {
+        status: string;
+        rules: number;
+        schedulerJobs: number;
+      };
+      // Three HTTP families loaded (smoke, image_drift, qa) → `rules` reports
+      // the REAL in-process probe count. EXACT (not >=) so a browser kind
+      // leaking into the in-process scheduler is caught. `ruleCount` reporting
+      // the real count means a zero-probe load is OBSERVABLE in /health rather
+      // than hidden behind the hardcoded-0 — but note the role still DROPS the
+      // `rules>0` gate, so `status` does NOT flip to degraded on a zero load
+      // (visibility is for dashboards/alerting, not container liveness).
+      expect(body.rules).toBe(3);
+      // schedulerJobs = the producer entry + the 3 in-process probe entries.
+      expect(body.schedulerJobs).toBe(4);
+      // The role-drop keeps status ok regardless of the rule count.
+      expect(body.status).toBe("ok");
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  it("BROWSER_KINDS is the e2e partition (the in-process exclusion set)", async () => {
+    const orchMod = await import("./orchestrator.js");
+    expect([...orchMod.BROWSER_KINDS].sort()).toEqual(
+      ["e2e_d6", "e2e_deep", "e2e_demos", "e2e_smoke"].sort(),
+    );
+  });
+
+  // A1: the control-plane must sweep orphaned `running` probe_runs rows at
+  // boot, mirroring boot()'s `sweepStaleRuns(pb)` — boot() never runs in fleet
+  // mode, so without this the control-plane (which now writes probe_runs via
+  // the in-process HTTP probes) leaks orphaned `running` rows forever after a
+  // crash.
+  it("sweeps stale probe_runs at control-plane boot (and a sweep failure does not abort boot)", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // sweepStaleRuns: first throws (a sweep failure must NOT abort boot),
+    // and we record that it was invoked at all.
+    const sweepCalls: number[] = [];
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        sweepStaleRuns: async () => {
+          sweepCalls.push(Date.now());
+          throw new Error("simulated sweep failure");
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    // A sweep that throws must not reject runControlPlane — boot continues.
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(sweepCalls.length).toBe(1);
+      // Boot still completed despite the sweep failure: /health is reachable.
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(res.status).toBeGreaterThanOrEqual(200);
+      expect(res.status).toBeLessThan(600);
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  // A2: a probe-loader failure at INITIAL load must NOT take down the
+  // control-plane. The producer stays alive (status ok), `rules` reads 0
+  // (observable), and `probes.reload.failed` is emitted.
+  it("control-plane still boots (status ok, rules 0) and emits probes.reload.failed when the probe loader throws at initial load", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // Force the probe loader's initial load() to throw (e.g. probes dir
+    // missing / unreadable on disk).
+    vi.doMock("./probes/loader/probe-loader.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/loader/probe-loader.js")
+      >("./probes/loader/probe-loader.js");
+      return {
+        ...actual,
+        createProbeLoader: () => ({
+          load: async () => {
+            throw new Error("simulated probes dir missing");
+          },
+          watch: () => () => {},
+        }),
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      const body = (await res.json()) as { status: string; rules: number };
+      // Producer alive: status stays ok (the role drops the rules>0 gate).
+      expect(body.status).toBe("ok");
+      // Zero probes loaded → rules reads 0, visible on /health (observable,
+      // not a hard gate). The dedicated bus-subscription test below proves
+      // `probes.reload.failed` is emitted.
+      expect(body.rules).toBe(0);
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  // A2: prove `probes.reload.failed` is emitted by subscribing to the bus the
+  // control-plane uses BEFORE the failing load runs. We swap createEventBus so
+  // the test owns the bus instance the orchestrator constructs internally.
+  it("emits probes.reload.failed on the control-plane bus when initial probe load throws", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    vi.doMock("./probes/loader/probe-loader.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/loader/probe-loader.js")
+      >("./probes/loader/probe-loader.js");
+      return {
+        ...actual,
+        createProbeLoader: () => ({
+          load: async () => {
+            throw new Error("simulated probes dir missing");
+          },
+          watch: () => () => {},
+        }),
+      };
+    });
+
+    // Own the bus the orchestrator constructs so we can subscribe BEFORE the
+    // synchronous emit during runControlPlane.
+    const reloadFailures: unknown[] = [];
+    vi.doMock("./events/event-bus.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./events/event-bus.js")
+      >("./events/event-bus.js");
+      return {
+        ...actual,
+        createEventBus: () => {
+          const realBus = actual.createEventBus();
+          realBus.on("probes.reload.failed", (payload: unknown) => {
+            reloadFailures.push(payload);
+          });
+          return realBus;
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(reloadFailures.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  // A2: hot-reload + watcher teardown. A YAML added on reload registers a new
+  // probe:<id>; a YAML deleted unregisters it AND drops it from
+  // httpProbeConfigs (so /health no longer counts it); after stop() the
+  // watcher is torn down and no further reload fires.
+  it("hot-reloads added/removed YAMLs and tears down the watcher on stop()", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // Capture register/unregister calls on the scheduler.
+    const registeredIds: string[] = [];
+    const unregisteredIds: string[] = [];
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: { id: string }) => {
+              registeredIds.push(entry.id);
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+            unregister: (id: string) => {
+              unregisteredIds.push(id);
+              return (real.unregister as (...a: unknown[]) => unknown)(id);
+            },
+          };
+        },
+      };
+    });
+
+    // Drive the probe loader's watch callback manually so the reload path is
+    // deterministic (no chokidar timing). `unwatch` records teardown.
+    let watchCb:
+      | ((next: import("./probes/loader/schema.js").ProbeConfig[]) => void)
+      | undefined;
+    let unwatched = false;
+    const smokeCfg = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/5 * * * *",
+      target: { key: "smoke:test", url: "https://example.com" },
+    } as unknown as import("./probes/loader/schema.js").ProbeConfig;
+    const extraCfg = {
+      kind: "pin_drift",
+      id: "pin_drift",
+      schedule: "0 9 * * 1",
+      target: { key: "pin_drift:test" },
+    } as unknown as import("./probes/loader/schema.js").ProbeConfig;
+    vi.doMock("./probes/loader/probe-loader.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/loader/probe-loader.js")
+      >("./probes/loader/probe-loader.js");
+      return {
+        ...actual,
+        createProbeLoader: () => ({
+          // Initial load: just smoke.
+          load: async () => [smokeCfg],
+          watch: (cb: typeof watchCb) => {
+            watchCb = cb;
+            return () => {
+              unwatched = true;
+            };
+          },
+        }),
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(registeredIds).toContain("probe:smoke");
+      expect(watchCb).toBeDefined();
+
+      // Reload with an ADDED YAML (pin_drift) → new probe:<id> registered.
+      watchCb!([smokeCfg, extraCfg]);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(registeredIds).toContain("probe:pin_drift");
+
+      // Reload with smoke DELETED → unregister probe:smoke fires.
+      watchCb!([extraCfg]);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(unregisteredIds).toContain("probe:smoke");
+    } finally {
+      await handle.stop();
+    }
+
+    // After stop() the watcher's unsubscribe ran → no reload fires anymore.
+    expect(unwatched).toBe(true);
+  });
+});
+
+// A4 drift-lock: the HTTP-only driver set registered by
+// `registerHttpProbeDrivers` must be DISJOINT from BROWSER_KINDS, and together
+// they must cover the full registered driver universe. Mirrors the
+// `registerAllProbeDrivers` drift-guard above. A future kind mis-added to
+// BROWSER_KINDS — or an HTTP driver whose kind overlaps a browser kind — would
+// silently drop a family from the in-process schedule.
+describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift-lock)", () => {
+  it("registers exactly the 8 HTTP-only kinds (no browser kinds)", async () => {
+    const orchMod = await import("./orchestrator.js");
+    const registry = createProbeRegistry();
+    orchMod.registerHttpProbeDrivers(registry);
+    const kinds = registry.list();
+    expect(kinds.sort()).toEqual(
+      [
+        "aimock_wiring",
+        "image_drift",
+        "pin_drift",
+        "qa",
+        "redirect_decommission",
+        "smoke",
+        "starter_smoke",
+        "version_drift",
+      ].sort(),
+    );
+  });
+
+  it("the HTTP driver kinds and BROWSER_KINDS are DISJOINT and jointly cover the full driver universe", async () => {
+    const orchMod = await import("./orchestrator.js");
+    const httpRegistry = createProbeRegistry();
+    orchMod.registerHttpProbeDrivers(httpRegistry);
+    const httpKinds = new Set(httpRegistry.list());
+    const browserKinds = new Set<string>([...orchMod.BROWSER_KINDS]);
+
+    // Disjoint: no kind is in both sets.
+    for (const k of httpKinds) {
+      expect(browserKinds.has(k)).toBe(false);
+    }
+
+    // Jointly cover the FULL registered universe (registerAllProbeDrivers).
+    const allRegistry = createProbeRegistry();
+    registerAllProbeDrivers(allRegistry);
+    const allKinds = new Set(allRegistry.list());
+    const union = new Set<string>([...httpKinds, ...browserKinds]);
+    expect([...union].sort()).toEqual([...allKinds].sort());
+  });
+
+  it("assertHttpBrowserKindPartition throws if a browser kind is in the HTTP set", async () => {
+    const orchMod = await import("./orchestrator.js");
+    // Clean partition passes.
+    const registry = createProbeRegistry();
+    orchMod.registerHttpProbeDrivers(registry);
+    expect(() =>
+      orchMod.assertHttpBrowserKindPartition(registry.list()),
+    ).not.toThrow();
+    // A browser kind sneaking into the HTTP set fails loud.
+    expect(() =>
+      orchMod.assertHttpBrowserKindPartition([...registry.list(), "e2e_smoke"]),
+    ).toThrow(/DISJOINT/);
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {
