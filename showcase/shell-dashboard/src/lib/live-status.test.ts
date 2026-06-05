@@ -3,6 +3,7 @@ import {
   CATALOG_TO_D5_KEY,
   STARTER_COLUMNS,
   STARTER_LEVELS,
+  STATUS_LIST_FIELDS,
   buildStarterBadge,
   keyFor,
   mergeRowsToMap,
@@ -148,6 +149,34 @@ describe("upsertByKey", () => {
     const after = upsertByKey(before, b);
     expect(after).not.toBe(before);
     expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
+  });
+  it("applies a row whose signal goes from absent to present (SSE full-row delivery)", () => {
+    // The initial fetch projection drops `signal`, so initial rows arrive with
+    // `signal === undefined` and rely on SSE deltas to deliver the populated
+    // signal. A delta re-delivering the same key/state/observed_at/transitioned_at
+    // but now CARRYING a signal must NOT be treated as a no-op — otherwise the
+    // signal-less row survives and the "SSE delivers full rows" contract that
+    // cell-pieces.tsx / cell-drilldown.tsx rely on is broken.
+    const prev = row("k:sig", "smoke", "red", { signal: undefined });
+    const next = row("k:sig", "smoke", "red", {
+      signal: { error: "boom" },
+    });
+    const before = [prev];
+    const after = upsertByKey(before, next);
+    expect(after).not.toBe(before);
+    expect(after[0]!.signal).toEqual({ error: "boom" });
+  });
+  it("no-ops when signal presence is unchanged (optimization preserved)", () => {
+    // A genuinely-identical delta — same key/state/observed_at/transitioned_at
+    // AND same signal presence — must still short-circuit to the same array
+    // reference so memoised consumers don't needlessly re-render.
+    const a = row("k:samesig", "smoke", "red", { signal: { error: "x" } });
+    const aPrime = row("k:samesig", "smoke", "red", {
+      signal: { error: "y" },
+    });
+    const before = [a];
+    const after = upsertByKey(before, aPrime);
+    expect(after).toBe(before);
   });
 });
 
@@ -1073,5 +1102,35 @@ describe("starter rows are informational — excluded from resolveCell rollup", 
     expect(cell.rollup).not.toBe("red");
     // And the CellState shape exposes no starter contributor.
     expect(Object.keys(cell)).not.toContain("starter");
+  });
+});
+
+describe("STATUS_LIST_FIELDS (initial-fetch projection allow-list)", () => {
+  // Exhaustive `keyof StatusRow` map. The compiler requires EVERY StatusRow
+  // field to appear as a key here (Record<keyof StatusRow, true>), so adding a
+  // field to StatusRow forces a conscious update of this map — and therefore a
+  // conscious decision about whether the new field belongs in the lightweight
+  // initial projection. The runtime test below derives the expected set from
+  // this map (all keys minus `signal`) and asserts STATUS_LIST_FIELDS matches.
+  const STATUS_ROW_KEYS: Record<keyof StatusRow, true> = {
+    id: true,
+    key: true,
+    dimension: true,
+    state: true,
+    signal: true,
+    observed_at: true,
+    transitioned_at: true,
+    fail_count: true,
+    first_failure_at: true,
+  };
+
+  it("equals every StatusRow field except `signal`", () => {
+    const expected = new Set(
+      Object.keys(STATUS_ROW_KEYS).filter((k) => k !== "signal"),
+    );
+    const actual = new Set(STATUS_LIST_FIELDS.split(","));
+    expect(actual).toEqual(expected);
+    // `signal` is the heavy field deliberately dropped from the initial fetch.
+    expect(actual.has("signal")).toBe(false);
   });
 });
