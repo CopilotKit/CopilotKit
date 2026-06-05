@@ -86,7 +86,7 @@ Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit 
 
 ## 💬 Beyond the Browser: Slack & Microsoft Teams
 
-Your agents can run and generate Generative UI beyond the web app.
+Your agents can run and generate Generative UI beyond the web app (**[Learn more](https://www.copilotkit.ai/integrations)**).
 
 CopilotKit now lets you deploy the **same agent** to the places your users already work:
 
