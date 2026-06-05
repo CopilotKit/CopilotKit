@@ -992,20 +992,23 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     expect(b.label).toBe("?");
   });
 
-  it("not-supported ✗: unmapped column → gray ✗, mapping-derived (not data-derived)", () => {
-    // Keyed off isSupported=false, NOT off a missing row — so it is visually
-    // distinct from the gray `?` not-yet-run state (same tone, different glyph)
-    // AND from the red smoke-failed ✗ (different tone).
+  it("not-supported 🚫: unmapped column → 🚫 unsupported chip, mapping-derived (not data-derived)", () => {
+    // Keyed off isSupported=false, NOT off a missing row. An integration with
+    // NO starter is architecturally unsupported in the starter row, so it
+    // renders the SAME 🚫 "Not supported by this framework" treatment the
+    // depth-chip/unified-cell already use — NOT a grey/no-data `?`, and NOT a
+    // red smoke-failed `✗` (which would mis-communicate "we tried and failed").
     const b = buildStarterBadge("health", false, null, NOW, "live");
-    expect(b.tone).toBe("gray");
-    expect(b.label).toBe("✗");
-    expect(b.tooltip).toBe("no starter for this integration");
+    expect(b.label).toBe("🚫");
+    expect(b.tooltip).toBe("Not supported by this framework");
+    // It must be visually distinct from a data-bearing red FAIL: never red.
+    expect(b.tone).not.toBe("red");
     expect(b.row).toBeNull();
   });
 
-  it("not-supported ✗ is independent of any row data (mapping wins)", () => {
+  it("not-supported 🚫 is independent of any row data (mapping wins)", () => {
     // Even if a stray row existed, an unmapped column must still render the
-    // not-supported state — the caller passes row=null for unmapped columns,
+    // not-supported 🚫 state — the caller passes row=null for unmapped columns,
     // but assert buildStarterBadge ignores row entirely when !isSupported.
     const b = buildStarterBadge(
       "health",
@@ -1014,8 +1017,24 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
       NOW,
       "live",
     );
+    expect(b.label).toBe("🚫");
+    expect(b.tone).not.toBe("red");
+  });
+
+  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as 🚫)", () => {
+    // Guard the inverse: only ABSENT starters become 🚫. A starter that exists
+    // and FAILED must keep surfacing its real red ✗ — never reframed as
+    // "unsupported".
+    const b = buildStarterBadge(
+      "chat",
+      true,
+      row("starter:agno/chat", "starter", "red"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
     expect(b.label).toBe("✗");
-    expect(b.tone).toBe("gray");
+    expect(b.label).not.toBe("🚫");
   });
 
   it("tooltip carries the per-level descriptor for data-bearing states", () => {
