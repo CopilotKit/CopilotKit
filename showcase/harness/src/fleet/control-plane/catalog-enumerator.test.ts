@@ -1,0 +1,209 @@
+import { describe, it, expect } from "vitest";
+import {
+  createD6ServiceEnumerator,
+  D6_DRIVER_KIND,
+  D6_DISCOVERY_FILTER,
+} from "./catalog-enumerator.js";
+import type { DiscoverySource } from "../../probes/types.js";
+import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
+import type { EnumerateContext } from "./job-producer.js";
+import type { Logger } from "../../types/index.js";
+import { e2eFullDriver } from "../../probes/drivers/d6-all-pills.js";
+
+/**
+ * Pins the real catalog enumerator (S10): it yields ONE ServiceJobSpec per
+ * discovered showcase service, preserving the EXACT d6 keys the dashboard reads
+ * — `probeKey = d6:<slug>`, `driverKind = e2e_d6`, and a `driverInputs` object
+ * the worker re-hydrates into the d6 driver input. The discovery source is an
+ * injected fake (no Railway, no network).
+ */
+
+const SILENT_LOGGER: Logger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+};
+
+function svc(over: Partial<RailwayServiceInfo> = {}): RailwayServiceInfo {
+  return {
+    name: "showcase-langgraph-python",
+    imageRef: "ghcr.io/org/showcase-langgraph-python:latest",
+    publicUrl: "http://langgraph-python:10000",
+    env: {},
+    shape: "package",
+    deployedDigest: "",
+    demos: ["agentic_chat", "shared_state"],
+    notSupportedFeatures: [],
+    deployedAt: "",
+    ...over,
+  };
+}
+
+function fakeSource(
+  services: RailwayServiceInfo[],
+): DiscoverySource<RailwayServiceInfo> & {
+  configs: unknown[];
+} {
+  const configs: unknown[] = [];
+  return {
+    name: "railway-services",
+    configs,
+    async enumerate(_ctx, config): Promise<RailwayServiceInfo[]> {
+      configs.push(config);
+      return services;
+    },
+  } as DiscoverySource<RailwayServiceInfo> & { configs: unknown[] };
+}
+
+const CTX: EnumerateContext = { triggered: false, runId: "run-1" };
+
+describe("createD6ServiceEnumerator", () => {
+  it("yields one spec per service with the exact d6 keys (probeKey d6:<slug>, kind e2e_d6)", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+
+    expect(specs).toHaveLength(2);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg).toBeDefined();
+    expect(lg?.probeKey).toBe("d6:langgraph-python");
+    expect(lg?.driverKind).toBe(D6_DRIVER_KIND);
+    expect(lg?.driverInputs?.key).toBe("d6:langgraph-python");
+    expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    expect(lg?.driverInputs?.demos).toEqual(["agentic_chat", "shared_state"]);
+    expect(lg?.driverInputs?.shape).toBe("package");
+
+    const cr = specs.find((s) => s.serviceSlug === "crewai");
+    expect(cr?.probeKey).toBe("d6:crewai");
+  });
+
+  it("passes the d6 discovery filter (namePrefix + nameExcludes) to the source", async () => {
+    const source = fakeSource([svc()]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    await enumerate(CTX);
+
+    expect(source.configs).toHaveLength(1);
+    const cfg = source.configs[0] as {
+      namePrefix?: string;
+      nameExcludes?: string[];
+    };
+    expect(cfg.namePrefix).toBe(D6_DISCOVERY_FILTER.namePrefix);
+    expect(cfg.nameExcludes).toEqual([...D6_DISCOVERY_FILTER.nameExcludes]);
+  });
+
+  it("carries deployedAt only when the service has one (deploy-churn grace)", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-fresh", deployedAt: "2026-06-04T00:00:00.000Z" }),
+      svc({ name: "showcase-stable", deployedAt: "" }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+    const fresh = specs.find((s) => s.serviceSlug === "fresh");
+    const stable = specs.find((s) => s.serviceSlug === "stable");
+    expect(fresh?.driverInputs?.deployedAt).toBe("2026-06-04T00:00:00.000Z");
+    expect(stable?.driverInputs?.deployedAt).toBeUndefined();
+  });
+
+  it("scopes to the operator slug filter on a triggered run (empty when none match)", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai" }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const scoped = await enumerate({
+      triggered: true,
+      runId: "run-2",
+      filter: { slugs: ["crewai"] },
+    });
+    expect(scoped.map((s) => s.serviceSlug)).toEqual(["crewai"]);
+
+    const none = await enumerate({
+      triggered: true,
+      runId: "run-3",
+      filter: { slugs: ["does-not-exist"] },
+    });
+    expect(none).toEqual([]);
+  });
+
+  it("emits driverInputs that validate against the REAL d6 inputSchema and carry no fields the schema does not list", async () => {
+    // The worker re-hydrates driverInputs THROUGH the d6 driver's own zod
+    // inputSchema (the validation gate). Parse the emitted input through the
+    // real schema — the strongest guard that the enumerator's output matches
+    // the driver's contract. We also assert the enumerator does not emit a
+    // redundant `publicUrl` field: `backendUrl` already carries the live URL
+    // and the driver reads `backendUrl ?? publicUrl`, so the extra key is
+    // dead weight that drifts the emitted shape from the documented contract.
+    const source = fakeSource([
+      svc({
+        name: "showcase-langgraph-python",
+        publicUrl: "http://langgraph-python:10000",
+        deployedAt: "2026-06-04T00:00:00.000Z",
+      }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg).toBeDefined();
+
+    // Parses cleanly through the real d6 inputSchema — the worker's gate.
+    const parsed = e2eFullDriver.inputSchema.safeParse(lg!.driverInputs);
+    expect(parsed.success).toBe(true);
+
+    // No redundant `publicUrl` key — backendUrl carries the value.
+    expect(lg!.driverInputs).not.toHaveProperty("publicUrl");
+    expect(lg!.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+  });
+
+  it("produces a NON-EMPTY spec set for the real-shaped service catalog", async () => {
+    // The producer's tick enqueues one job per spec; a non-empty enumerator is
+    // what flips runControlPlane off the empty-run warning.
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai" }),
+      svc({ name: "showcase-mastra" }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    const specs = await enumerate(CTX);
+    expect(specs.length).toBeGreaterThan(0);
+    expect(specs.length).toBe(3);
+  });
+});

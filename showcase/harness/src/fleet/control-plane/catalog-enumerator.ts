@@ -1,0 +1,205 @@
+/**
+ * Control-plane CATALOG ENUMERATOR — the real `ServiceEnumerator` the job
+ * producer (S4) runs each tick (BLITZ S10, the discovery seam in
+ * `runControlPlane`).
+ *
+ * ── WHAT IT PRODUCES ───────────────────────────────────────────────────
+ * One `ServiceJobSpec` per showcase d6 service — the SAME service set and the
+ * SAME per-service granularity the in-process `d6-all-pills-e2e` driver runs
+ * today. Each spec carries:
+ *   - `probeKey`     = `d6:<slug>` — the dashboard's D6 aggregate row key (see
+ *                      contracts.ts §1: "probeKey for a d6 service job is
+ *                      d6:<slug>"). This is the join key to the claim row and
+ *                      the status row the aggregator writes.
+ *   - `serviceSlug`  = the slug (service name minus the `showcase-` prefix),
+ *                      identical to the driver's `deriveSlug`.
+ *   - `driverKind`   = `e2e_d6` (the per-service d6 unit).
+ *   - `driverInputs` = the serialized d6 `E2eFullDriverInput`
+ *                      (`key`/`backendUrl`/`demos`/`notSupportedFeatures`/
+ *                      `shape`/`deployedAt`/`name`) the WORKER re-hydrates via
+ *                      `createD6PayloadToInput`. The d6 driver's own zod schema
+ *                      is the validation gate.
+ *
+ * ── WHY IT REUSES railwayServicesSource ────────────────────────────────
+ * The in-process d6 path discovers its services through the `railway-services`
+ * discovery source filtered by the `d6-all-pills-e2e.yml` `discovery.filter`
+ * block. We reuse the EXACT same source + filter here rather than re-querying
+ * Railway by hand, so:
+ *   - the fleet enumerates the IDENTICAL service set as the legacy probe (no
+ *     drift between the two run paths during the cutover), and
+ *   - the `LOCAL_SERVICES_JSON` local-injection seam the source honors works
+ *     unchanged — the local N=1 d6 gate feeds the identical `RailwayServiceInfo`
+ *     shape and the fleet enumerates against it with zero Railway creds.
+ *
+ * The filter (`D6_DISCOVERY_FILTER`) is the single source of truth mirroring the
+ * YAML; keep it in lockstep with `config/probes/d6-all-pills-e2e.yml` until the
+ * two run paths converge on one config.
+ *
+ * ── INJECTION ──────────────────────────────────────────────────────────
+ * The discovery source, the env snapshot, and the fetch impl are injected so
+ * the enumerator is unit-testable with a fake source (no Railway, no network);
+ * `runControlPlane` wires the real `railwayServicesSource` + `process.env`.
+ */
+
+import type { Logger } from "../../types/index.js";
+import type { DiscoverySource, DiscoveryContext } from "../../probes/types.js";
+import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
+import type {
+  ServiceEnumerator,
+  ServiceJobSpec,
+  EnumerateContext,
+} from "./job-producer.js";
+
+/** The d6 driver kind every enumerated spec runs under. */
+export const D6_DRIVER_KIND = "e2e_d6";
+
+/**
+ * The d6 service-set filter — the SINGLE SOURCE OF TRUTH mirroring
+ * `config/probes/d6-all-pills-e2e.yml`'s `discovery.filter`. Selects the
+ * `showcase-*` demo services and excludes infra/shell services and the
+ * decommissioned starters. Keep this in lockstep with the YAML until the
+ * in-process and fleet run paths converge on one config.
+ */
+export const D6_DISCOVERY_FILTER = {
+  namePrefix: "showcase-",
+  nameExcludes: [
+    "showcase-aimock",
+    "showcase-harness",
+    "showcase-pocketbase",
+    "showcase-shell",
+    "showcase-shell-dashboard",
+    "showcase-shell-docs",
+    "showcase-shell-dojo",
+    // Harness service for .NET integration testing — not a demo service.
+    "showcase-ms-agent-harness-dotnet",
+    // Decommissioned starters.
+    "showcase-starter-ag2",
+    "showcase-starter-agno",
+    "showcase-starter-claude-sdk-python",
+    "showcase-starter-claude-sdk-typescript",
+    "showcase-starter-crewai-crews",
+    "showcase-starter-google-adk",
+    "showcase-starter-langgraph-fastapi",
+    "showcase-starter-langgraph-python",
+    "showcase-starter-langgraph-typescript",
+    "showcase-starter-langroid",
+    "showcase-starter-llamaindex",
+    "showcase-starter-mastra",
+    "showcase-starter-ms-agent-dotnet",
+    "showcase-starter-ms-agent-python",
+    "showcase-starter-pydantic-ai",
+    "showcase-starter-spring-ai",
+    "showcase-starter-strands",
+  ],
+} as const;
+
+export interface D6ServiceEnumeratorDeps {
+  /** The discovery source to enumerate (production: `railwayServicesSource`). */
+  source: DiscoverySource<RailwayServiceInfo>;
+  /** Frozen env snapshot threaded to the discovery context. */
+  env: Readonly<Record<string, string | undefined>>;
+  /** Fetch impl threaded to the discovery context (tests stub network). */
+  fetchImpl: typeof fetch;
+  logger: Logger;
+  /**
+   * Service-set filter. Defaults to `D6_DISCOVERY_FILTER`. Exposed so a test
+   * (or a future operator config) can narrow the set without editing the SSOT.
+   */
+  filter?: { namePrefix?: string; nameExcludes?: readonly string[] };
+}
+
+/**
+ * Strip the `showcase-` prefix to derive the slug — mirrors the d6 driver's
+ * `deriveSlug` and discovery's `deriveSlugFromServiceName` so the enumerated
+ * `serviceSlug` / `probeKey` match the keys the dashboard already reads.
+ */
+function deriveSlug(name: string): string {
+  return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
+}
+
+/**
+ * Map one discovered `RailwayServiceInfo` into the d6 driver input the worker
+ * re-hydrates. Field names match the d6 `inputSchema`
+ * (`key`/`backendUrl`/`demos`/`notSupportedFeatures`/`shape`/`deployedAt`/
+ * `name`). The driver reads `backendUrl ?? publicUrl`; we set `backendUrl` to
+ * the discovered `publicUrl` (the live URL the spec navigates against — local
+ * container host or Railway public domain) and emit ONLY `backendUrl` — the
+ * driver's `??` fallback never needs a second copy under `publicUrl`, and
+ * emitting both would drift the serialized shape from the documented contract.
+ * `key` is the `d6:<slug>` aggregate key so the driver emits the exact
+ * dashboard row keys.
+ */
+function toDriverInputs(
+  svc: RailwayServiceInfo,
+  slug: string,
+  probeKey: string,
+): Record<string, unknown> {
+  return {
+    key: probeKey,
+    name: svc.name,
+    backendUrl: svc.publicUrl,
+    demos: [...svc.demos],
+    notSupportedFeatures: [...svc.notSupportedFeatures],
+    shape: svc.shape,
+    // Omitted when empty so the driver's deploy-churn grace window only engages
+    // for a genuine timestamp (the driver guards on length/parse anyway).
+    ...(svc.deployedAt ? { deployedAt: svc.deployedAt } : {}),
+  };
+}
+
+/**
+ * Build the real d6 `ServiceEnumerator`. Each call enumerates the discovery
+ * source under the d6 filter and maps every service to one `ServiceJobSpec`.
+ * The `EnumerateContext.filter` (operator slug scoping on a triggered run) is
+ * applied AFTER discovery so an operator can scope a manual run to a subset of
+ * services without re-querying — mirroring the in-process invoker's slug filter.
+ */
+export function createD6ServiceEnumerator(
+  deps: D6ServiceEnumeratorDeps,
+): ServiceEnumerator {
+  const { source, env, fetchImpl, logger } = deps;
+  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+
+  return async (ctx: EnumerateContext): Promise<ServiceJobSpec[]> => {
+    const discoveryCtx: DiscoveryContext = { fetchImpl, env, logger };
+    const services = await source.enumerate(discoveryCtx, {
+      namePrefix: filter.namePrefix,
+      nameExcludes: filter.nameExcludes ? [...filter.nameExcludes] : undefined,
+    });
+
+    // Optional operator slug scoping (triggered runs only). An explicit filter
+    // with zero matches means "no slugs match" — keep the run honest (empty)
+    // rather than silently running everything.
+    const slugScope = ctx.filter?.slugs;
+    const slugSet =
+      slugScope && slugScope.length > 0 ? new Set(slugScope) : undefined;
+
+    const specs: ServiceJobSpec[] = [];
+    for (const svc of services) {
+      const slug = deriveSlug(svc.name);
+      if (slugSet && !slugSet.has(slug) && !slugSet.has(svc.name)) continue;
+      const probeKey = `d6:${slug}`;
+      const spec: ServiceJobSpec = {
+        probeKey,
+        serviceSlug: slug,
+        driverKind: D6_DRIVER_KIND,
+        driverInputs: toDriverInputs(svc, slug, probeKey),
+      };
+      // Forward the operator feature-type scoping to the worker as a cell
+      // narrowing (the d6 driver filters by ctx.featureTypes); per-service is
+      // still the partition, this only restricts which cells run.
+      if (ctx.filter?.featureTypes && ctx.filter.featureTypes.length > 0) {
+        spec.cellIds = [...ctx.filter.featureTypes];
+      }
+      specs.push(spec);
+    }
+
+    logger.info("fleet.control-plane.catalog-enumerated", {
+      runId: ctx.runId,
+      triggered: ctx.triggered,
+      discovered: services.length,
+      enqueueable: specs.length,
+    });
+    return specs;
+  };
+}
