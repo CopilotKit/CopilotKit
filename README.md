@@ -13,7 +13,9 @@
 
 </div>
 
-Build **agent-native applications** with generative UI, shared state, and human-in-the-loop workflows.
+Build **agent-native applications** — on any framework, on any surface.
+
+Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and beyond the browser.
 
 </div>
 
@@ -53,6 +55,8 @@ Build **agent-native applications** with generative UI, shared state, and human-
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
+What started as a React library is now a **multi-platform agentic framework**: the same agent can power your web app, your mobile app, and your team's Slack workspace.
+
 We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
@@ -61,13 +65,39 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
 **Features:**
 
-- **Chat UI** – A React-based chat interface that supports message streaming, tool calls, and agent responses.
+- **Chat UI** – A fully customizable chat interface that supports message streaming, tool calls, and agent responses.
 - **Backend Tool Rendering** – Enables agents to call backend tools that return UI components rendered directly in the client.
 - **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
 https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
+
+## 🧩 Works With Your Stack
+
+One agent backend. Every frontend.
+
+| Platform           | Status       | Get Started                                                 |
+| ------------------ | ------------ | ----------------------------------------------------------- |
+| ⚛️ React / Next.js | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
+| 🅰️ Angular         | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
+| 💚 Vue             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
+| 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
+
+Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
+
+## 💬 Beyond the Browser: Slack & Microsoft Teams
+
+Your agents shouldn't be locked inside your web app.
+
+CopilotKit now lets you deploy the **same agent** to the places your users already work:
+
+- **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
+- **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
+
+🔒 **Early access:** We're onboarding teams now.
+
+👉 **[Request early access →](EARLY_ACCESS_FORM_LINK)**
 
 ## Quick Start
 
@@ -105,10 +135,11 @@ This enables:
 - Agents that ask users for input
 - Tools that render UI
 - Stateful workflows across steps and sessions
+- One agent, deployed across web, mobile, and chat platforms
 
 ## ⭐️ useAgent Hook
 
-The `useAgent` hook is a proper superset of `useCoAgent` and sits directly on AG-UI, giving more control over the agent connection.
+The `useAgent` hook sits directly on AG-UI, giving you full programmatic control over the agent connection.
 
 ```ts
 // Programmatically access and control your agents
@@ -147,7 +178,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 ## 🖥️ AG-UI: The Agent–User Interaction Protocol
 
-Connect agent workflow to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangGraph, CrewAI, and more.
+Connect agent workflows to user-facing apps, with deep partnerships and 1st-party integrations across the agentic stack—including LangChain, CrewAI, Mastra, PydanticAI, and more.
 
 [![AG-UI](https://github.com/user-attachments/assets/a625237a-cfc1-45fc-8d0c-637316b81291)](https://go.copilotkit.ai/ag-ui)
 
