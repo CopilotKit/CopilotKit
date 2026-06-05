@@ -591,6 +591,116 @@ describe("starterSmokeDriver", () => {
     expect(chatRow.signal.errorClass).toBe("smoke-failed");
   });
 
+  it("resolves the chat agentId from /info agents map (mastra-shaped non-default key)", async () => {
+    // A2: most starters register `agents:{default}`, but mastra registers a
+    // DYNAMIC non-`default` key (`MastraAgent.getLocalAgents`). The chat rung
+    // must read the FIRST key of the `/info` `agents` map and POST to
+    // `/agent/<that-id>/run`, NOT the hardcoded `/agent/default/run` (which
+    // 404s for mastra). Here `/info` advertises `{ weatherAgent: {...} }`, so
+    // the chat POST must target `/agent/weatherAgent/run`.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    const r = (await driver.run(
+      mkCtx(
+        fakeFetch({
+          agentBody: JSON.stringify({
+            version: "1.59.5",
+            agents: { weatherAgent: { description: "weather" } },
+          }),
+          seenUrls,
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      },
+    )) as ProbeResult<StarterSmokeAggregateSignal>;
+
+    expect(seenUrls.chat).toBe(
+      "https://starter-mastra.up.railway.app/api/copilotkit/agent/weatherAgent/run",
+    );
+    // The resolved agentId is surfaced on the chat row signal for drilldown.
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/chat",
+    )!;
+    expect(chatRow.signal.agentId).toBe("weatherAgent");
+    // Full round-trip still passes (the fake chat SSE is the happy stream).
+    expect(chatRow.state).toBe("green");
+    expect(r.signal.failed).not.toContain("chat");
+  });
+
+  it("falls back to agentId 'default' when /info agents map is empty/absent", async () => {
+    // The 11 default-registering starters have `agents:{default}` (or an
+    // absent/empty map in degraded info). `default` is the EXPECTED resolved
+    // value for them — a last-resort fallback, not an error.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    await driver.run(
+      mkCtx(
+        // info body carries a `version` but NO `agents` map.
+        fakeFetch({ agentBody: '{"version":"1.59.5"}', seenUrls }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-agno",
+        name: "starter-agno",
+        publicUrl: "https://starter-agno.up.railway.app",
+      },
+    );
+
+    expect(seenUrls.chat).toBe(
+      "https://starter-agno.up.railway.app/api/copilotkit/agent/default/run",
+    );
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/chat",
+    )!;
+    expect(chatRow.signal.agentId).toBe("default");
+  });
+
+  it("resolves the chat agentId from a default-registering /info agents map", async () => {
+    // The 11 default-registering starters advertise `agents:{default}`; the
+    // resolver must pick `default` (first key) and the chat POST targets
+    // `/agent/default/run` — keeping the default case green.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    await driver.run(
+      mkCtx(
+        fakeFetch({
+          agentBody: JSON.stringify({
+            version: "1.59.5",
+            agents: { default: { description: "the agent" } },
+          }),
+          seenUrls,
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-agno",
+        name: "starter-agno",
+        publicUrl: "https://starter-agno.up.railway.app",
+      },
+    );
+
+    expect(seenUrls.chat).toBe(
+      "https://starter-agno.up.railway.app/api/copilotkit/agent/default/run",
+    );
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/chat",
+    )!;
+    expect(chatRow.signal.agentId).toBe("default");
+  });
+
   it("the chat POST targets /api/copilotkit/agent/default/run (path-based)", async () => {
     const { writer } = mkWriter();
     const driver = createStarterSmokeDriver();
