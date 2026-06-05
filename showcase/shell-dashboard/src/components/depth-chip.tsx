@@ -33,6 +33,17 @@ export interface DepthChipProps {
    * already determined the correct color (e.g. green when achieved == ceiling).
    */
   chipColor?: "green" | "amber" | "red" | "gray";
+  /**
+   * Pool COMMUNICATION error (REQ-B). When set, the chip renders a DISTINCT
+   * "couldn't reach the pool" treatment — a purple/indigo fill with a "⚡"
+   * glyph — that is visually unlike green/amber/red/gray, so an operator can
+   * tell "the pool was unreachable" apart from "the test went red". The
+   * underlying depth/colour is intentionally suppressed in favour of the
+   * comm-error overlay; the descriptive tooltip is supplied via `commTooltip`.
+   */
+  unreachable?: boolean;
+  /** Tooltip text for the unreachable treatment (names the comm-error kind). */
+  commTooltip?: string;
 }
 
 /**
@@ -91,7 +102,27 @@ export function DepthChip({
   regression,
   maxDepth,
   chipColor,
+  unreachable,
+  commTooltip,
 }: DepthChipProps) {
+  // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
+  // a "couldn't reach the pool" state must never be mistaken for a red test.
+  // A distinct indigo fill + ⚡ glyph, resolved BEFORE the unshipped/unsupported
+  // branches so an unreachable cell is always loud.
+  if (unreachable) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="unreachable"
+        data-surface-state="unreachable"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-indigo-400/60 bg-indigo-500/20 text-indigo-300"
+        title={commTooltip ?? "pool unreachable — comm error"}
+      >
+        ⚡
+      </span>
+    );
+  }
+
   if (status === "unshipped") {
     return (
       <span

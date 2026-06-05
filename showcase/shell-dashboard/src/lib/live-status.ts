@@ -24,6 +24,129 @@ import {
 
 export type State = "green" | "red" | "degraded";
 
+/* ------------------------------------------------------------------ */
+/*  Pool comm-error surface (REQ-B)                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Pool COMMUNICATION-failure taxonomy + signal decode — the DASHBOARD-side
+ * mirror of the harness fleet contract (`showcase/harness/src/fleet/contracts.ts`).
+ *
+ * WHY MIRRORED, NOT IMPORTED: the dashboard imports only `@/*` and never
+ * reaches across the package boundary into harness source at runtime (same
+ * rule that makes `CATALOG_TO_D5_KEY` / `STARTER_COLUMNS` local copies of
+ * harness producer constants). The harness owns the producer side; the
+ * dashboard carries a structural copy of the read shape it consumes. The
+ * `commError-contract-drift.test.ts` lint test guards the two against drift.
+ *
+ * The comm error rides in the status-row SIGNAL under the well-known
+ * `FLEET_COMM_ERROR_SIGNAL_KEY` ("__fleetCommError") — the persisted `State`
+ * enum is deliberately NOT widened (that would force every state-machine
+ * consumer — alert engine, transition detector, flap counter — to learn a new
+ * value). The row's `state` keeps carrying the last-known probe colour; the
+ * comm error is a SEPARATE overlay the dashboard renders as the DISTINCT
+ * `"unreachable"` surface state so an operator can tell "couldn't reach the
+ * pool" apart from "the test went red".
+ */
+export const POOL_COMM_ERROR_KINDS = [
+  /** Worker host/endpoint did not respond at all (connect refused, DNS, etc). */
+  "worker-unreachable",
+  /** A claim or lease CAS call failed at the transport layer (not a lost CAS). */
+  "claim-comm-failure",
+  /** The worker exceeded the protocol response deadline (hung, no crash). */
+  "worker-protocol-timeout",
+  /** The worker died mid-job: lease expired with no terminal report. */
+  "worker-crashed-mid-job",
+  /** A report arrived but failed schema/shape validation (protocol mismatch). */
+  "worker-protocol-violation",
+] as const;
+
+/** A single pool communication-failure kind. */
+export type PoolCommErrorKind = (typeof POOL_COMM_ERROR_KINDS)[number];
+
+/** Type guard for a valid PoolCommErrorKind. */
+export function isPoolCommErrorKind(
+  value: string | undefined,
+): value is PoolCommErrorKind {
+  return (
+    value !== undefined &&
+    (POOL_COMM_ERROR_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * A structured pool communication error — the read shape the dashboard
+ * surfaces. Mirror of the harness `PoolCommError` interface.
+ */
+export interface PoolCommError {
+  kind: PoolCommErrorKind;
+  /** Human-readable detail for the dashboard tooltip / operator log. */
+  message: string;
+  /** The worker involved, when known (unreachable workers may be unknown). */
+  workerId?: string;
+  /** The job involved, when the failure is tied to a specific job. */
+  jobId?: string;
+  /** ISO timestamp the failure was observed. */
+  observedAt: string;
+}
+
+/** Signal-blob key under which a comm error is mirrored onto a status row. */
+export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
+
+/**
+ * The dashboard's per-cell presentation state: the cell's resolved colour
+ * vocabulary (`green` | `amber` | `red` | `gray`, i.e. the `ChipColor` the cell
+ * already renders) PLUS the comm-error overlay `"unreachable"`. A PRESENTATION
+ * type only — never a persisted column.
+ *
+ * This is the dashboard analogue of the harness `FleetSurfaceState`
+ * (`ProbeState | "unreachable"`). The dashboard's cell render model uses
+ * `ChipColor` (with `gray` for no-data and `amber` for degraded) rather than
+ * the raw probe `State`, so the union is expressed over `ChipColor` to avoid an
+ * unsafe widen of the no-data `gray` case through `State`.
+ */
+export type FleetSurfaceState =
+  | "green"
+  | "amber"
+  | "red"
+  | "gray"
+  | "unreachable";
+
+/**
+ * Extract a `PoolCommError` from a status-row signal blob, or `undefined` when
+ * none is present / the embedded value is malformed. Inverse of the harness
+ * `commErrorToStatusSignal` writer; structurally identical to the harness
+ * `commErrorFromStatusSignal` reader. Pure; unit-tested.
+ *
+ * The dashboard read layer (REQ-B) uses this to decide whether to render the
+ * distinct `"unreachable"` overlay on a cell. Malformed payloads decode to
+ * `undefined` (fail-safe to the normal probe colour) rather than rendering a
+ * half-populated overlay.
+ */
+export function commErrorFromStatusSignal(
+  signal: unknown,
+): PoolCommError | undefined {
+  if (signal === null || typeof signal !== "object") return undefined;
+  const raw = (signal as Record<string, unknown>)[FLEET_COMM_ERROR_SIGNAL_KEY];
+  if (raw === null || typeof raw !== "object") return undefined;
+  const candidate = raw as Partial<PoolCommError>;
+  if (
+    !isPoolCommErrorKind(candidate.kind) ||
+    typeof candidate.message !== "string" ||
+    typeof candidate.observedAt !== "string"
+  ) {
+    return undefined;
+  }
+  const out: PoolCommError = {
+    kind: candidate.kind,
+    message: candidate.message,
+    observedAt: candidate.observedAt,
+  };
+  if (typeof candidate.workerId === "string") out.workerId = candidate.workerId;
+  if (typeof candidate.jobId === "string") out.jobId = candidate.jobId;
+  return out;
+}
+
 export interface StatusRow {
   id: string;
   key: string;
@@ -223,6 +346,23 @@ const WORST_STATE_RANK: Readonly<Record<State, number>> = {
 };
 
 /**
+ * Worst-state rank for an arbitrary row state (Fix A2). `StatusRow.state` is
+ * typed `State` (green|red|degraded), but the harness CAN persist an
+ * out-of-vocabulary value at runtime — notably `"error"` (the no-data
+ * representation; see harness result-aggregator.ts). A bare
+ * `WORST_STATE_RANK[state]` for such a value is `undefined`, and the fold
+ * comparison `undefined > n` is `false`, so the row is SILENTLY DROPPED from the
+ * worst-state fold instead of surfacing. Treat an unknown state as the MOST
+ * SEVERE (a rank above every known state) so it surfaces as the worst rather
+ * than vanishing — an unrecognized signal must never be silently swallowed.
+ * Mirrors `cell-model.ts`'s `rankOfState`.
+ */
+const UNKNOWN_WORST_STATE_RANK = Number.POSITIVE_INFINITY;
+function worstStateRank(state: string): number {
+  return WORST_STATE_RANK[state as State] ?? UNKNOWN_WORST_STATE_RANK;
+}
+
+/**
  * Effective state for staleness folding: a green row whose `observed_at` is
  * older than `maxAgeMs` folds in as `degraded`, so a frozen-green driver can
  * never win the all-green tie and mask a fresh-green sibling. Only green is
@@ -293,7 +433,7 @@ function resolveD5Row(
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
     if (
       worstState === null ||
-      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+      worstStateRank(eff) > worstStateRank(worstState)
     ) {
       worst = row;
       worstState = eff;
@@ -350,7 +490,7 @@ function resolveD6Row(
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
     if (
       worstState === null ||
-      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+      worstStateRank(eff) > worstStateRank(worstState)
     ) {
       worst = row;
       worstState = eff;
