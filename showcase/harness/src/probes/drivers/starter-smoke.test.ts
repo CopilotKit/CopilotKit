@@ -175,6 +175,13 @@ function fakeFetch(opts: {
   seenUrls?: Partial<
     Record<"health" | "agent" | "chat" | "interaction", string>
   >;
+  // Captures the request headers each level was fetched with (assertion hook).
+  // Headers are normalised to a lowercase-keyed plain object so a test can
+  // assert the chat rung carries `x-aimock-context` regardless of the casing
+  // the driver sent.
+  seenHeaders?: Partial<
+    Record<"health" | "agent" | "chat" | "interaction", Record<string, string>>
+  >;
   // Invoked at the TOP of each fetch (before any response is built), passed
   // the resolved level and the running fetch count. Lets a test fire a
   // mid-flight external abort exactly when the FIRST fetch lands so the
@@ -205,6 +212,24 @@ function fakeFetch(opts: {
     }
 
     if (opts.seenUrls) opts.seenUrls[level] = href;
+    if (opts.seenHeaders) {
+      const normalised: Record<string, string> = {};
+      const rawHeaders = init?.headers;
+      if (rawHeaders) {
+        // The driver passes a plain object literal for the chat rung; normalise
+        // its keys to lowercase so the assertion is casing-agnostic.
+        const entries =
+          rawHeaders instanceof Headers
+            ? [...rawHeaders.entries()]
+            : Array.isArray(rawHeaders)
+              ? rawHeaders
+              : Object.entries(rawHeaders);
+        for (const [k, v] of entries) {
+          normalised[k.toLowerCase()] = String(v);
+        }
+      }
+      opts.seenHeaders[level] = normalised;
+    }
 
     callCount += 1;
     opts.onFetch?.(level, callCount);
@@ -732,6 +757,115 @@ describe("starterSmokeDriver", () => {
     );
     // Path-based: NO single-route envelope POST to bare `/api/copilotkit`.
     expect(seenUrls.chat!.endsWith("/api/copilotkit")).toBe(false);
+  });
+
+  it("chat POST carries X-AIMock-Context = column slug (direct map: agno)", async () => {
+    // The scoped per-integration "Hello" fixture
+    // (`showcase/aimock/d4/agno/chat.json` → `{userMessage:"Hello",
+    // context:"agno"}`) only matches under aimock strict mode when the request
+    // carries `X-AIMock-Context: agno`. The chat POST must send the column slug
+    // as that header (the SAME value the integration's playwright.config.ts
+    // injects), or staging aimock 503s "no fixture matched". agno is a DIRECT
+    // map (starter slug === column slug === context).
+    const { writer } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenHeaders: Partial<
+      Record<
+        "health" | "agent" | "chat" | "interaction",
+        Record<string, string>
+      >
+    > = {};
+    await driver.run(mkCtx(fakeFetch({ seenHeaders }), writer), {
+      key: "starter_smoke:starter-agno",
+      name: "starter-agno",
+      publicUrl: "https://starter-agno.up.railway.app",
+    });
+    expect(seenHeaders.chat?.["x-aimock-context"]).toBe("agno");
+  });
+
+  it("chat POST carries X-AIMock-Context = COLUMN slug, not the starter slug (drift map: langgraph-js → langgraph-typescript)", async () => {
+    // The trust-critical skew case: the probe slug is `langgraph-js` but the
+    // fixture/playwright context is `langgraph-typescript`. The chat POST must
+    // send the REMAPPED column slug, not the raw starter slug — sending
+    // `langgraph-js` would 503 on staging (no such fixture context).
+    const { writer } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenHeaders: Partial<
+      Record<
+        "health" | "agent" | "chat" | "interaction",
+        Record<string, string>
+      >
+    > = {};
+    await driver.run(mkCtx(fakeFetch({ seenHeaders }), writer), {
+      key: "starter_smoke:starter-langgraph-js",
+      name: "starter-langgraph-js",
+      publicUrl: "https://starter-langgraph-js.up.railway.app",
+    });
+    expect(seenHeaders.chat?.["x-aimock-context"]).toBe("langgraph-typescript");
+    // It must NOT send the un-remapped starter slug.
+    expect(seenHeaders.chat?.["x-aimock-context"]).not.toBe("langgraph-js");
+  });
+
+  it("chat POST carries X-AIMock-Context = google-adk for the adk drift map", async () => {
+    // Second skew: probe slug `adk` → column/context `google-adk`.
+    const { writer } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenHeaders: Partial<
+      Record<
+        "health" | "agent" | "chat" | "interaction",
+        Record<string, string>
+      >
+    > = {};
+    await driver.run(mkCtx(fakeFetch({ seenHeaders }), writer), {
+      key: "starter_smoke:starter-adk",
+      name: "starter-adk",
+      publicUrl: "https://starter-adk.up.railway.app",
+    });
+    expect(seenHeaders.chat?.["x-aimock-context"]).toBe("google-adk");
+  });
+
+  it("the X-AIMock-Context header is sent ONLY on the chat POST, never on the GET rungs", async () => {
+    // The browser sends the context only on the chat turn; the GET rungs hit
+    // the runtime `/info` route + the app shell, not aimock. Sending the header
+    // on the GETs would be a needless deviation from what the browser does.
+    const { writer } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenHeaders: Partial<
+      Record<
+        "health" | "agent" | "chat" | "interaction",
+        Record<string, string>
+      >
+    > = {};
+    await driver.run(mkCtx(fakeFetch({ seenHeaders }), writer), {
+      key: "starter_smoke:starter-mastra",
+      name: "starter-mastra",
+      publicUrl: "https://starter-mastra.up.railway.app",
+    });
+    expect(seenHeaders.chat?.["x-aimock-context"]).toBe("mastra");
+    expect(seenHeaders.health?.["x-aimock-context"]).toBeUndefined();
+    expect(seenHeaders.agent?.["x-aimock-context"]).toBeUndefined();
+    expect(seenHeaders.interaction?.["x-aimock-context"]).toBeUndefined();
+  });
+
+  it("chat POST still carries Content-Type + Accept alongside X-AIMock-Context", async () => {
+    // Adding the context header must not drop the existing chat negotiation
+    // headers (JSON body + event-stream Accept).
+    const { writer } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenHeaders: Partial<
+      Record<
+        "health" | "agent" | "chat" | "interaction",
+        Record<string, string>
+      >
+    > = {};
+    await driver.run(mkCtx(fakeFetch({ seenHeaders }), writer), {
+      key: "starter_smoke:starter-agno",
+      name: "starter-agno",
+      publicUrl: "https://starter-agno.up.railway.app",
+    });
+    expect(seenHeaders.chat?.["content-type"]).toBe("application/json");
+    expect(seenHeaders.chat?.["accept"]).toBe("text/event-stream");
+    expect(seenHeaders.chat?.["x-aimock-context"]).toBe("agno");
   });
 
   it("health rung uses GET /api/copilotkit/info and reds on non-2xx", async () => {
