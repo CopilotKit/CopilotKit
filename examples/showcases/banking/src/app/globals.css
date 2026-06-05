@@ -51,20 +51,28 @@
   --radius-2xl: calc(var(--radius) + 12px);
 
   /* Soft, layered shadows. */
-  --shadow-soft: 0 1px 2px hsl(252 60% 30% / 0.04),
-    0 8px 24px hsl(252 50% 30% / 0.06);
-  --shadow-lift: 0 2px 6px hsl(252 60% 30% / 0.06),
-    0 18px 48px hsl(252 50% 30% / 0.12);
+  --shadow-soft:
+    0 1px 2px hsl(252 60% 30% / 0.04), 0 8px 24px hsl(252 50% 30% / 0.06);
+  --shadow-lift:
+    0 2px 6px hsl(252 60% 30% / 0.06), 0 18px 48px hsl(252 50% 30% / 0.12);
   --shadow-glow: 0 12px 30px hsl(252 83% 60% / 0.35);
 
   /* Headings pick up the brand font (Inter via next/font), body too. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
 }
 
 body {
-  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family:
+    var(--font-inter),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
   background-color: hsl(var(--canvas));
   color: hsl(var(--ink));
 }
@@ -201,4 +209,49 @@ body {
 .dark .border-b,
 .dark .border-r {
   border-color: hsl(var(--hairline));
+}
+
+/* ── Self-learning "recording" vignette ─────────────────────────────────────
+   A soft pulsating violet glow that hugs the canvas edges while the agent is
+   recording a demonstrated officer action (see <RecordingVignette/> +
+   recording-context.tsx). Non-blocking overlay: fixed, full-viewport,
+   pointer-events:none, driven by the `data-recording` attribute. */
+@keyframes recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.recording-vignette {
+  position: fixed;
+  inset: 0;
+  /* Above the docked chat panel (z-1200) so the glow frames the WHOLE canvas —
+     including over the panel — reading as "the entire app is being recorded".
+     pointer-events:none keeps it from ever intercepting clicks. */
+  z-index: 1300;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease-in-out;
+  box-shadow:
+    inset 0 0 0 3px hsl(var(--brand-violet) / 0.6),
+    inset 0 0 70px 2px hsl(var(--brand-violet) / 0.45),
+    inset 0 0 170px 36px hsl(var(--brand-indigo) / 0.22);
+}
+
+.recording-vignette[data-recording="true"] {
+  opacity: 1;
+  /* Delay the pulse by the fade-in duration so opacity eases 0 → 1 first, then
+     breathes; the keyframe starts at opacity 1 to avoid a snap. */
+  animation: recording-pulse 2.4s ease-in-out 0.22s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-vignette[data-recording="true"] {
+    animation: none;
+    opacity: 0.45;
+  }
 }

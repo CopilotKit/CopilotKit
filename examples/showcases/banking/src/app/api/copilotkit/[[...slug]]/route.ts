@@ -4,12 +4,12 @@ import {
   InMemoryAgentRunner,
   BuiltInAgent,
   CopilotKitIntelligence,
-  type IdentifyUserCallback,
 } from "@copilotkit/runtime/v2";
+import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 
 const bankingAgent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-5.4-mini-2026-03-17",
   prompt: `You are the Northwind Copilot, an assistant embedded in a corporate
 banking dashboard. You help users view transactions, manage credit cards,
 assign expense policies, and navigate the app. Use the provided tools. Respect
@@ -27,6 +27,7 @@ Tools available to you:
 - addNewCard — request a new expense card. Requires human approval.
 - setCardPin — change the PIN on an existing card. Requires human approval.
 - assignPolicyToCard — assign an expense policy to a card. Requires human approval.
+- selectCard — render a visual card picker (brand + last 4 digits) for the user to choose a card. Requires human selection.
 - addNoteToTransaction — attach a note to a transaction. Requires human approval.
 - showAndApproveTransactions — present a pending transaction for the user to approve or deny. Requires human approval.
 - openPolicyException — open a draft policy exception against a transaction. Requires human approval.
@@ -34,6 +35,11 @@ Tools available to you:
 - sendSpendAlert — send a spend alert notification for a card.
 - requestCardReplacement — request a replacement card for an existing card.
 - flagForReview — flag a transaction for manual review.
+
+When you need the user to choose which card to act on (for example before
+assigning a policy or changing a PIN), call selectCard to render a visual card
+picker rather than listing the cards as text. Wait for the user's selection,
+then continue with the chosen card.
 
 ACTION DISCIPLINE: Only invoke a write tool when the user has explicitly asked
 for that specific action. Do not chain or substitute actions on your own

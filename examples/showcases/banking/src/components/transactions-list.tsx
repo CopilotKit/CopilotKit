@@ -8,12 +8,17 @@ import {
   MessageSquare,
   X,
 } from "lucide-react";
-import type { ExpensePolicy, PolicyException, Transaction } from "@/app/api/v1/data";
+import type {
+  ExpensePolicy,
+  PolicyException,
+  Transaction,
+} from "@/app/api/v1/data";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
-import { PolicyExceptionModal } from "@/components/policy-exception-modal";
+import { useRecording } from "@/components/recording-context";
+import { PolicyExceptionInline } from "@/components/policy-exception-inline";
 
 type ExceptionResult = {
   ok: boolean;
@@ -62,15 +67,13 @@ export function TransactionsList({
   // component is rendered compact / read-only (without showApprovalInterface)
   // the recorder is simply never invoked.
   const recordUserAction = useRecordUserActionInCurrentThread();
+  // Bracket each record so the canvas recording vignette pulses while a
+  // demonstrated action is captured (true even against the no-op shim).
+  const { beginRecording, endRecording } = useRecording();
   const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
   return (
-    <div
-      className={cn(
-        "overflow-hidden",
-        compact ? "text-sm" : "text-base",
-      )}
-    >
+    <div className={cn("overflow-hidden", compact ? "text-sm" : "text-base")}>
       {transactions.map((transaction) => {
         // Over-limit is derived on the CLIENT from already-loaded data: a
         // pending txn whose policy would be pushed past its limit by this
@@ -156,10 +159,7 @@ export function TransactionsList({
                 />
                 <div className="flex-1">
                   <p
-                    className={cn(
-                      "text-ink",
-                      compact ? "text-xs" : "text-sm",
-                    )}
+                    className={cn("text-ink", compact ? "text-xs" : "text-sm")}
                   >
                     {transaction.note.content}
                   </p>
@@ -177,18 +177,34 @@ export function TransactionsList({
             {showApprovalInterface && transaction.status === "pending" && (
               <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface p-4">
                 {overLimit && (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex w-full flex-col items-center gap-2">
                     <div className="flex items-center gap-1.5 rounded-full bg-negative-soft px-2.5 py-1 text-xs font-medium text-negative ring-1 ring-inset ring-negative/30">
                       <AlertTriangle className="h-3.5 w-3.5" />
                       Over policy limit
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExceptionTxnId(transaction.id)}
-                    >
-                      File policy exception
-                    </Button>
+                    {exceptionTxnId === transaction.id &&
+                    openPolicyException &&
+                    finalizePolicyException ? (
+                      // The exception flow renders INLINE in the chat card (not
+                      // a popup modal) so the officer's whole demonstration —
+                      // symptom → file exception → recorded — happens right in
+                      // the conversation.
+                      <PolicyExceptionInline
+                        transactionId={transaction.id}
+                        openPolicyException={openPolicyException}
+                        finalizePolicyException={finalizePolicyException}
+                        onFiled={() => setExceptionTxnId(null)}
+                        onCancel={() => setExceptionTxnId(null)}
+                      />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExceptionTxnId(transaction.id)}
+                      >
+                        File policy exception
+                      </Button>
+                    )}
                   </div>
                 )}
                 <div className="flex items-center justify-center space-x-4">
@@ -201,6 +217,7 @@ export function TransactionsList({
                           transaction.id,
                         )) ?? false;
                       if (!ok) return;
+                      beginRecording();
                       recordUserAction({
                         title: "transaction.approved",
                         description:
@@ -208,7 +225,9 @@ export function TransactionsList({
                         previousData: { status: "pending" },
                         newData: { status: "approved" },
                         metadata: { transactionId: transaction.id },
-                      }).catch(console.error);
+                      })
+                        .catch(console.error)
+                        .finally(() => endRecording());
                     }}
                     aria-label="Approve"
                     className="h-12 w-12 rounded-full border-transparent bg-positive-soft text-positive hover:bg-positive-soft hover:text-positive hover:brightness-95 dark:hover:brightness-110"
@@ -224,6 +243,7 @@ export function TransactionsList({
                           transaction.id,
                         )) ?? false;
                       if (!ok) return;
+                      beginRecording();
                       recordUserAction({
                         title: "transaction.denied",
                         description:
@@ -231,7 +251,9 @@ export function TransactionsList({
                         previousData: { status: "pending" },
                         newData: { status: "denied" },
                         metadata: { transactionId: transaction.id },
-                      }).catch(console.error);
+                      })
+                        .catch(console.error)
+                        .finally(() => endRecording());
                     }}
                     aria-label="Deny"
                     className="h-12 w-12 rounded-full border-transparent bg-negative-soft text-negative hover:bg-negative-soft hover:text-negative hover:brightness-95 dark:hover:brightness-110"
@@ -244,17 +266,6 @@ export function TransactionsList({
           </div>
         );
       })}
-      {exceptionTxnId && openPolicyException && finalizePolicyException && (
-        <PolicyExceptionModal
-          open
-          transactionId={exceptionTxnId}
-          openPolicyException={openPolicyException}
-          finalizePolicyException={finalizePolicyException}
-          onOpenChange={(o) => {
-            if (!o) setExceptionTxnId(null);
-          }}
-        />
-      )}
     </div>
   );
 }

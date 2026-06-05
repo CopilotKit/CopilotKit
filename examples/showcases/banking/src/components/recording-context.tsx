@@ -1,0 +1,123 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+/**
+ * "Recording" state for the self-learning teach-mode UX.
+ *
+ * While the officer demonstrates an action that the agent will learn from
+ * (filing a policy exception, approving/denying a transaction), the UI emits
+ * `recordUserAction(...)` records. This context exposes a single boolean —
+ * `isRecording` — that is true for the duration of a demonstration, plus
+ * ref-counted `beginRecording()` / `endRecording()` to bracket the record
+ * call sites.
+ *
+ * Two design points make it demo-friendly:
+ *  - **Ref-counted:** overlapping records (e.g. exception `opened` immediately
+ *    followed by `finalized`) keep the flag continuously on instead of
+ *    flickering off between steps.
+ *  - **Minimum visible duration:** a fire-and-forget record against the no-op
+ *    shim resolves almost instantly; without a floor the vignette would never
+ *    be seen. We hold `isRecording` true for at least `MIN_VISIBLE_MS` so the
+ *    pulse is always perceptible. This stays correct once the real recording
+ *    hook streams — the flag simply reflects "the UI is emitting a record now."
+ *
+ * It is intentionally independent of the Intelligence backend: it reflects the
+ * client emitting a record, which is true even against the shim.
+ */
+
+const MIN_VISIBLE_MS = 1200;
+
+interface RecordingContextValue {
+  isRecording: boolean;
+  beginRecording: () => void;
+  endRecording: () => void;
+}
+
+const RecordingContext = createContext<RecordingContextValue | null>(null);
+
+export function RecordingProvider({ children }: { children: React.ReactNode }) {
+  const [isRecording, setIsRecording] = useState(false);
+
+  // All mutable bookkeeping lives in refs so begin/endRecording keep stable
+  // identities (empty dep arrays) and never read stale state.
+  const countRef = useRef(0);
+  const activeRef = useRef(false);
+  const startRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const beginRecording = useCallback(() => {
+    countRef.current += 1;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (!activeRef.current) {
+      activeRef.current = true;
+      startRef.current = Date.now();
+      setIsRecording(true);
+    }
+  }, []);
+
+  const endRecording = useCallback(() => {
+    countRef.current = Math.max(0, countRef.current - 1);
+    if (countRef.current > 0) return; // still recording other steps
+
+    const elapsed = Date.now() - startRef.current;
+    const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      // A new record may have started during the hold — only turn off if the
+      // ref-count is still at zero.
+      if (countRef.current === 0) {
+        activeRef.current = false;
+        setIsRecording(false);
+      }
+    }, remaining);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  const value = useMemo(
+    () => ({ isRecording, beginRecording, endRecording }),
+    [isRecording, beginRecording, endRecording],
+  );
+
+  return (
+    <RecordingContext.Provider value={value}>
+      {children}
+    </RecordingContext.Provider>
+  );
+}
+
+/**
+ * Read the recording state. Tolerates being called outside a
+ * `RecordingProvider` (returns a no-op) so call sites — e.g. a read-only
+ * transactions list rendered on a page that isn't wrapped — never need to
+ * guard.
+ */
+export function useRecording(): RecordingContextValue {
+  const ctx = useContext(RecordingContext);
+  if (!ctx) {
+    return {
+      isRecording: false,
+      beginRecording: () => {},
+      endRecording: () => {},
+    };
+  }
+  return ctx;
+}

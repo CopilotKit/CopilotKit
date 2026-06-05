@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
 import { CARD_COLORS, CardBrand } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
+import { CardPicker } from "@/components/card-picker";
 import type { PartialBy } from "@/lib/type-helpers";
 import {
   filterTransactionByTitle,
@@ -214,7 +215,9 @@ export default function Page() {
 
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">Assign Policy to Card</h3>
+          <h3 className="text-lg font-semibold text-ink">
+            Assign Policy to Card
+          </h3>
           <div className="text-sm space-y-1">
             <p>
               <span className="text-ink-muted">Card:</span>{" "}
@@ -240,6 +243,69 @@ export default function Page() {
       );
     },
   });
+
+  // Visual card picker (human-in-the-loop). Instead of listing the user's
+  // cards as text, the agent calls this to render a tappable picker (brand +
+  // last 4 digits); the human's pick is returned to the agent so it can
+  // continue (e.g. then ask which policy and call assignPolicyToCard). Pure
+  // selection UI, so it's available to every role — the actual mutating action
+  // it precedes stays independently permission-gated.
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "selectCard",
+      description:
+        "Render a visual picker of the user's cards (brand + last 4 digits) and let them choose one. Call this whenever you need the user to choose which card to act on — for example before assigning a policy or changing a PIN. Do NOT list the cards as text; call this tool so the user can pick one directly. After the user picks, you receive the chosen card's id, type and last 4 digits.",
+      available: true,
+      parameters: z.object({
+        purpose: z
+          .string()
+          .describe(
+            "Short reason shown as the picker heading, e.g. 'Select a card to assign the Marketing policy'.",
+          )
+          .optional(),
+      }),
+      render: ({ args, respond, status }) => {
+        console.log(
+          "[selectCard render] status=",
+          status,
+          "respond?",
+          !!respond,
+        );
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+
+        return (
+          <CardPicker
+            cards={cards}
+            policies={policies}
+            heading={args.purpose || "Select a card"}
+            onSelect={(card) => {
+              console.log(
+                "[selectCard onSelect] respond?",
+                !!respond,
+                "card=",
+                card.id,
+              );
+              respond?.(
+                `User selected the ${card.type} card ending in ${card.last4} (cardId: ${card.id}).`,
+              );
+            }}
+          />
+        );
+      },
+      // Re-register the renderer once the cards/policies load; otherwise the
+      // render closure captures the initial EMPTY `cards` (registration runs in a
+      // mount effect keyed on these deps) and the picker shows "No cards
+      // available". Mirrors the deps array on the showTransactions useComponent.
+    },
+    [cards, policies],
+  );
 
   useHumanInTheLoop({
     followUp: false,
@@ -268,7 +334,9 @@ export default function Page() {
 
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">Add Note to Transaction</h3>
+          <h3 className="text-lg font-semibold text-ink">
+            Add Note to Transaction
+          </h3>
           <div className="text-sm space-y-1">
             <p>
               <span className="text-ink-muted">Transaction:</span>{" "}
@@ -512,10 +580,13 @@ export default function Page() {
 
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">Open policy exception</h3>
+          <h3 className="text-lg font-semibold text-ink">
+            Open policy exception
+          </h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-ink-muted">Transaction:</span> {transactionId}
+              <span className="text-ink-muted">Transaction:</span>{" "}
+              {transactionId}
             </p>
             <p>
               <span className="text-ink-muted">Code:</span> {code}
@@ -532,9 +603,7 @@ export default function Page() {
                 code,
               });
               respond?.(
-                ok
-                  ? "Exception opened"
-                  : `Could not open exception: ${error}`,
+                ok ? "Exception opened" : `Could not open exception: ${error}`,
               );
             }}
             onDeny={() => respond?.("Denied by user")}
@@ -567,7 +636,9 @@ export default function Page() {
 
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">Finalize policy exception</h3>
+          <h3 className="text-lg font-semibold text-ink">
+            Finalize policy exception
+          </h3>
           <div className="text-sm space-y-1">
             <p>
               <span className="text-ink-muted">Exception:</span> {exceptionId}
