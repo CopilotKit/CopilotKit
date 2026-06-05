@@ -21,7 +21,7 @@ export interface CopilotKitProviderProps {
   publicLicenseKey?: string;
   /**
    * Signed license token for offline verification of premium features.
-   * Obtain from https://cloud.copilotkit.ai.
+   * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;

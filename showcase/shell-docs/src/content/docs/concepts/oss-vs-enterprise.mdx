@@ -11,7 +11,7 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 
 - **OSS is enough for** building a working agentic React app with hooks, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
 - **Enterprise adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, observability connectors, and a hosted admin console.
-- **Enterprise runs two ways** — fully hosted as [Copilot Cloud](https://cloud.copilotkit.ai), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
+- **Enterprise runs two ways** — fully hosted as [Copilot Cloud](https://dashboard.operations.copilotkit.ai), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
 - **Your app code doesn't change** between OSS-only, Cloud, and Self-Hosted. The boundary is a runtime config switch.
 
 | | OSS only | Needs Enterprise |
@@ -49,7 +49,7 @@ A separate **backend service** that sits beside your runtime and unlocks the cap
 
 Same Enterprise Intelligence Platform — you pick where it runs:
 
-- **[Copilot Cloud](https://cloud.copilotkit.ai)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
+- **[Copilot Cloud](https://dashboard.operations.copilotkit.ai)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
 - **Self-Hosted** installs the `copilot-intelligence` Helm chart into your own Kubernetes cluster. Pick this for data residency, on-prem requirements, or compliance control. You operate the workload (Postgres, Redis, ingress, OIDC, secret rotation); the chart and the same Enterprise image power the install.
 
 Application code doesn't change between Cloud and Self-Hosted — same SDK, same runtime, same hooks. Just a different `INTELLIGENCE_URL` environment variable.
@@ -64,6 +64,6 @@ If your app keeps state in your own backend (Postgres, your own auth) and you're
 
 - **Open-source quickstart** — [Quickstart](/quickstart) gets a working agentic app running in ~10 minutes against the Built-in Agent. No platform credentials needed.
 - **Enterprise overview** — [Premium Overview](/premium/overview) lists every Enterprise capability and the per-feature setup.
-- **Hosted setup** — [Copilot Cloud](https://cloud.copilotkit.ai) for the hosted Enterprise Intelligence Platform.
+- **Hosted setup** — [Copilot Cloud](https://dashboard.operations.copilotkit.ai) for the hosted Enterprise Intelligence Platform.
 - **Self-hosted deployment** — [Self-Hosting Intelligence](/premium/self-hosting) for the Helm-chart install on your own Kubernetes cluster.
 - **Architecture deep-dive** — [Enterprise Intelligence Platform internals](/premium/intelligence-platform) covers the control-plane / data-plane split, the three workloads, and the operational model.

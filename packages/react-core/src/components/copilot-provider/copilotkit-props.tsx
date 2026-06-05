@@ -1,8 +1,8 @@
-import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
-import { ReactNode } from "react";
-import { AuthState } from "../../context/copilot-context";
-import { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
-import { CopilotKitProviderProps } from "../../v2";
+import type { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import type { ReactNode } from "react";
+import type { AuthState } from "../../context/copilot-context";
+import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
+import type { CopilotKitProviderProps } from "../../v2";
 /**
  * Props for CopilotKit.
  */
@@ -20,14 +20,14 @@ export interface CopilotKitProps extends Omit<
   /**
    * Your Copilot Cloud API key.
    *
-   * Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+   * Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
    */
   publicApiKey?: string;
 
   /**
    * Your public license key for accessing premium CopilotKit features.
    *
-   * Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+   * Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
    */
   publicLicenseKey?: string;
 
@@ -44,7 +44,7 @@ export interface CopilotKitProps extends Omit<
    * Restrict input to specific topics using guardrails.
    * @remarks
    *
-   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
    */
   guardrails_c?: {
     validTopics?: string[];
@@ -156,7 +156,7 @@ export interface CopilotKitProps extends Omit<
    * The auth config to use for the CopilotKit.
    * @remarks
    *
-   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
    */
   authConfig_c?: {
     SignInComponent: React.ComponentType<{
