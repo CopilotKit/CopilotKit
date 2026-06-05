@@ -430,10 +430,16 @@ const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
  * Build a `BadgeRender` for one starter sub-cell, applying the FULL 5-state
  * cell vocabulary (§d):
  *
- *   - not-supported  → grey "✗", mapping-derived (`!isSupported`),
- *                      tooltip "no starter for this integration". Distinct
- *                      from the red smoke-failed ✗. Resolved FIRST so it can
- *                      never collide with the gray `?` initial state.
+ *   - not-supported  → 🚫 unsupported chip, mapping-derived (`!isSupported`),
+ *                      tooltip "Not supported by this framework". An
+ *                      integration with NO starter is architecturally
+ *                      unsupported in this row, so it renders the SAME 🚫
+ *                      treatment the depth-chip/unified-cell already use for
+ *                      "framework cannot support this feature" — NOT a
+ *                      grey/no-data `?` ("we expected data and got none") and
+ *                      NOT a red smoke-failed ✗ ("we tried and failed").
+ *                      Resolved FIRST so it can never collide with the gray
+ *                      `?` initial state.
  *   - gray `?`       → no row yet (not-yet-run / initial).
  *   - ✓ green        → last probe passed.
  *   - red ✗          → last probe failed (actionable regression).
@@ -453,13 +459,16 @@ export function buildStarterBadge(
   connection: ConnectionStatus,
 ): BadgeRender {
   if (!isSupported) {
-    // Mapping-derived: this column has no starter (§a). Grey ✗,
-    // visually distinct from a red smoke-failed ✗. NOT data-derived, so it
-    // renders identically before and after the first probe tick.
+    // Mapping-derived: this column has no starter (§a). Renders the 🚫
+    // "unsupported" treatment (matching depth-chip/unified-cell), which is
+    // distinct from BOTH the gray `?` no-data state AND the red smoke-failed
+    // ✗. NOT data-derived, so it renders identically before and after the
+    // first probe tick. Tone stays slate/gray (the muted unsupported fill);
+    // the 🚫 glyph — not the tone — is what communicates "unsupported".
     return {
       tone: "gray",
-      label: "✗",
-      tooltip: "no starter for this integration",
+      label: "🚫",
+      tooltip: "Not supported by this framework",
       row: null,
     };
   }
