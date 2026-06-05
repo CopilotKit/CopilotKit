@@ -73,6 +73,27 @@ const runtime = new CopilotRuntime({
 
 When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be addressed by passing their `agentId` to `useAgent` or the prebuilt components.
 
+## Display names
+
+By default, each key under `agents:` doubles as the human-facing display name returned by the runtime's `/info` endpoint. Decouple the two — for example, a stable routing key like `"customer-support-v1"` paired with a friendlier display name like `"Customer Support Specialist"` — by declaring a public `name` field on your agent subclass:
+
+```ts title="app/api/copilotkit/route.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+class CustomerSupportAgent extends BuiltInAgent {
+  name = "Customer Support Specialist";
+}
+
+const runtime = new CopilotRuntime({
+  agents: {
+    // Routing key stays stable even when the friendly name evolves.
+    "customer-support-v1": new CustomerSupportAgent({ model: "openai:gpt-5.4-mini" }),
+  },
+});
+```
+
+Routing still uses `"customer-support-v1"`; the `/info` endpoint reports `"Customer Support Specialist"` as the agent's name. Agents that don't declare a `name` keep today's behavior — display name equals registry key.
+
 ## What the runtime provides
 
 ### Authentication & security
