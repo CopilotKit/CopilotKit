@@ -2,9 +2,35 @@ import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
 import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
-import { type RuntimeLicenseStatus } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
+
+/**
+ * Resolves the display name for an agent.
+ *
+ * The runtime uses the dictionary key from the `agents` map both as the
+ * agent's routing identity (propagated as `agentId`) and — historically —
+ * as its human-facing display name. To let consumers decouple the two
+ * (e.g. a stable `"customer-support-v1"` routing key with a friendlier
+ * `"Customer Support Specialist"` display name), this preferentially
+ * reads `agent.name` when the implementation exposes one.
+ *
+ * The base `AbstractAgent` from `@ag-ui/client` does not declare a typed
+ * `name` field; subclasses opt in by declaring a public `name: string`,
+ * and we read it at runtime so this works without a coordinated change
+ * to the AG-UI protocol. Falls back to the registry key when `name` is
+ * absent, not a string, or blank.
+ */
+function resolveAgentDisplayName(
+  agent: { name?: unknown },
+  registryKey: string,
+): string {
+  const candidate = agent.name;
+  if (typeof candidate !== "string") return registryKey;
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : registryKey;
+}
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -49,7 +75,7 @@ export async function handleGetRuntimeInfo({
         }
 
         const description: AgentDescription = {
-          name,
+          name: resolveAgentDisplayName(agent, name),
           description: agent.description,
           className: agent.constructor.name,
           ...(capabilities ? { capabilities } : {}),
