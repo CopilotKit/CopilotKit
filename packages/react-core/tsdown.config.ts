@@ -1,10 +1,48 @@
+/// <reference types="node" />
 import { defineConfig } from "tsdown";
+import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // Resolved path to src/v2/context.ts — used to redirect the headless build's
 // relative ../context imports to the external @copilotkit/react-core/v2/context
 // package path, ensuring a shared React context instance at runtime.
-const contextModulePath = path.resolve(import.meta.dirname, "src/v2/context");
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+const contextModulePath = path.resolve(configDir, "src/v2/context");
+
+// Post-process the emitted declaration files. tsdown/rolldown-plugin-dts leaves
+// two artifacts in the .d.ts/.d.cts/.d.mts output that break `attw` type
+// resolution but do not affect the JS bundles:
+//   1. Side-effect CSS imports (e.g. `import "./index.css"`) — TypeScript cannot
+//      resolve a `.css` file as a typed module (InternalResolutionError). The CSS
+//      import is intentionally kept in the JS so styles auto-load for bundler
+//      consumers; only the declarations are cleaned.
+//   2. The headless re-export of the externalized context module is emitted as a
+//      relative `./context` import, which is invalid in ESM declarations
+//      (extensionless). Rewrite it to the package subpath so it resolves under
+//      node16/nodenext/bundler — matching how the JS bundle externalizes it.
+// Run from `build:done` so it processes every format's declarations on disk,
+// independent of per-output plugin order (the esm `.d.mts` and cjs `.d.cts` are
+// emitted in separate passes).
+const postProcessDeclarations = (dir: string) => {
+  const cssImport = /^[ \t]*import\s+["'][^"']+\.css["'];?[ \t]*\r?\n/gm;
+  const contextImport = /from\s+["']\.\.?\/context["']/g;
+  const walk = (current: string) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.d\.[cm]?ts$/.test(entry.name)) {
+        const code = fs.readFileSync(full, "utf8");
+        const next = code
+          .replace(cssImport, "")
+          .replace(contextImport, 'from "@copilotkit/react-core/v2/context"');
+        if (next !== code) fs.writeFileSync(full, next);
+      }
+    }
+  };
+  if (fs.existsSync(dir)) walk(dir);
+};
 
 export default defineConfig([
   {
@@ -14,6 +52,9 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
+    hooks: {
+      "build:done": () => postProcessDeclarations(path.resolve("dist")),
+    },
     external: [
       "react",
       "react-dom",
@@ -119,7 +160,6 @@ export default defineConfig([
       "zod",
       /\.css$/,
     ],
-    codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
@@ -158,7 +198,6 @@ export default defineConfig([
       "zod",
       /\.css$/,
     ],
-    codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
