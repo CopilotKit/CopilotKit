@@ -164,40 +164,6 @@ export function FrameworkOverview({
 
   return (
     <div className="relative pb-24">
-      {/* Hero atmosphere — single restrained accent glow behind the
-          framework name + headline. Sits at zIndex 0 so all hero text
-          renders cleanly on top. Subtle in light mode, more present in
-          dark mode (where the page bg gives the accent room to breathe). */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[480px] overflow-hidden"
-      >
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-40 h-[520px] w-[820px] rounded-full opacity-60 dark:opacity-50"
-          style={{
-            background:
-              "radial-gradient(closest-side, var(--accent-light), transparent 70%)",
-            filter: "blur(48px)",
-          }}
-        />
-        <div
-          className="absolute left-[8%] top-24 h-[260px] w-[260px] rounded-full opacity-40 dark:opacity-30"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(190, 194, 255, 0.45), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          className="absolute right-[6%] top-44 h-[220px] w-[220px] rounded-full opacity-35 dark:opacity-25"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(133, 236, 206, 0.4), transparent 70%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
-
       <div className="relative z-10">
         {/* =========================================================
              HERO
@@ -206,7 +172,7 @@ export function FrameworkOverview({
           {/* Framework identity: icon + name in a horizontal lockup. */}
           <div className="flex items-center gap-3 mb-5">
             {hasIcon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
+              <div className="shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]">
                 {iconOverride ??
                   (IconComponent ? (
                     <IconComponent className="h-6 w-6" />
@@ -233,7 +199,7 @@ export function FrameworkOverview({
           <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
             <Link
               href={guideLink}
-              className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-4 text-[13.5px] font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
+              className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent-dim)] px-4 text-[13.5px] font-semibold text-[var(--accent)] no-underline shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
             >
               Start the quickstart
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -242,7 +208,7 @@ export function FrameworkOverview({
             <button
               type="button"
               onClick={handleCopyCommand}
-              className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 h-11 px-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:bg-[var(--bg-elevated)] text-[var(--text)] transition-colors group"
+              className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
               aria-label="Copy install command"
             >
               <span className="flex items-center gap-2 text-[13.5px]">
@@ -323,7 +289,7 @@ export function FrameworkOverview({
                         fallback for sparse data records). */}
                     {hasMedia && (
                       <div className="lg:col-span-7">
-                        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+                        <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
                           <video
                             src={feature.videoUrl}
                             className="w-full block"
@@ -334,7 +300,7 @@ export function FrameworkOverview({
                           />
                           <div
                             aria-hidden
-                            className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-xl"
+                            className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
                           />
                         </div>
                       </div>
@@ -368,7 +334,7 @@ export function FrameworkOverview({
                 your UI down to the agent runtime.
               </p>
             </div>
-            <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-22px_rgba(0,0,0,0.4)]">
+            <div className="shell-docs-radius-surface overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
               {architectureImage && (
                 <Image
                   src={architectureImage}
@@ -412,7 +378,7 @@ export function FrameworkOverview({
                 underline. Mirrors the dojo's "view toggle" treatment but
                 in a flatter style that suits a landing page. */}
             {liveDemos.length > 1 && (
-              <div className="mb-6 inline-flex items-center gap-1 p-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+              <div className="shell-docs-radius-control mb-6 inline-flex items-center gap-1 border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-[var(--shadow-control)]">
                 {liveDemos.map((demo) => {
                   const active = activeDemo === demo.type;
                   return (
@@ -420,9 +386,9 @@ export function FrameworkOverview({
                       key={demo.type}
                       type="button"
                       onClick={() => setActiveDemo(demo.type)}
-                      className={`h-8 px-4 rounded-md text-[13px] font-medium transition-all ${
+                      className={`shell-docs-radius-control h-8 px-4 text-[13px] font-medium transition-colors ${
                         active
-                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-sm"
+                          ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-[var(--shadow-control)]"
                           : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
                       }`}
                     >
@@ -439,7 +405,7 @@ export function FrameworkOverview({
               </p>
             )}
 
-            <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_24px_60px_-30px_rgba(0,0,0,0.4)]">
+            <div className="shell-docs-radius-surface relative overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
               {activeDemoData && (
                 <iframe
                   src={activeDemoData.iframeUrl}
@@ -449,7 +415,7 @@ export function FrameworkOverview({
               )}
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5 rounded-2xl"
+                className="shell-docs-radius-surface pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/5"
               />
             </div>
           </section>

@@ -102,7 +102,7 @@ export function HeroCommandCopy({ command }: { command: string }) {
             ? "Command selected"
             : "Copy command"
       }
-      className="group flex h-11 min-w-0 items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-left transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+      className="shell-docs-radius-control group flex h-11 min-w-0 items-center gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-left transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
       onClick={async () => {
         if (resetTimerRef.current) {
           clearTimeout(resetTimerRef.current);
@@ -132,7 +132,7 @@ export function HeroCommandCopy({ command }: { command: string }) {
         <span ref={commandRef}>{command}</span>
       </code>
       <span
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]"
+        className="shell-docs-radius-icon inline-flex h-7 w-7 shrink-0 items-center justify-center border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent)]"
         aria-hidden="true"
       >
         {copied ? (
