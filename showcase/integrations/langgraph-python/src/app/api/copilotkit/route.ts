@@ -125,10 +125,11 @@ export const POST = async (req: NextRequest) => {
         // (declarative-gen-ui and a2ui-fixed-schema) each live on their own
         // dedicated runtime endpoint (/api/copilotkit-declarative-gen-ui and
         // /api/copilotkit-a2ui-fixed-schema respectively), mirroring the
-        // beautiful-chat topology. Each of those runtimes configures
-        // `a2ui.injectA2UITool: false` because the backend graphs own their
-        // own A2UI-rendering tools explicitly (matching the canonical
-        // reference at examples/integrations/langgraph-python).
+        // beautiful-chat topology. The dynamic-schema cells
+        // (declarative-gen-ui, beautiful-chat) set `a2ui.injectA2UITool: true`
+        // so the runtime injects `generate_a2ui` and the agent's
+        // CopilotKitMiddleware auto-executes it; the fixed-schema cell sets
+        // `false` because that agent owns its `display_flight` tool explicitly.
         // OpenGenerativeUI lives in /api/copilotkit-ogui for the same reason.
         // MCP Apps is in /api/copilotkit-mcp-apps.
       }),
