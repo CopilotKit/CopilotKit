@@ -5,6 +5,11 @@
   },
   "fixtures": [
     {
+      "_comment": "Starter chat smoke probe greeting. The starter chat rung POSTs {\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]} to a starter's CopilotKit runtime, which proxies to staging aimock running --strict against the baked /fixtures dir. aimock JSON matching is case-sensitive substring .includes(), so the capital-H 'Hello' here is deliberately distinct from the lowercase 'hello' that appears as a substring inside D6 pill prompts — it matches the exact starter probe without shadowing those pills. Placed before 'hello world' to win first-match-by-load-order.",
+      "match": { "userMessage": "Hello" },
+      "response": { "content": "Hello! How can I help you today?" }
+    },
+    {
       "_comment": "Generic greeting — shared across all integrations. Narrowed userMessage from bare 'hello' (substring match) to 'hello world' so it no longer shadows D6 pills whose prompts contain 'hello' as a substring (e.g. langgraph-python headless-simple sends 'Say hello in one short sentence.'). 'hello world' is not used by any current demo pill, so the fixture is effectively a structural placeholder that still serves as a manual-typing fallback.",
       "match": { "userMessage": "hello world" },
       "response": { "content": "Hello! How can I help you today?" }
