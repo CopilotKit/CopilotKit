@@ -11,12 +11,18 @@ import {
   useRenderTool,
   useHumanInTheLoop,
   CopilotSidebar,
+  CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/microsoft-agent-framework/frontend-actions
   useFrontendTool({
@@ -68,20 +74,44 @@ export default function CopilotKitPage() {
   );
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-      }
-    >
-      <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Popup Assistant",
-          welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
-        }}
-      />
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      {/* In-flow threads drawer on the LEFT, themed light in globals.css to
+          match the CopilotSidebar chat aesthetic. */}
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId="default"
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        {/*
+          Share the active threadId with the chat + demo content via one
+          CopilotChatConfigurationProvider. `useAgent()` falls back to the
+          provider's threadId when called without an explicit one, so selecting
+          a thread in the drawer drives the same per-thread agent clone.
+        */}
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as React.CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
 

@@ -21,12 +21,16 @@
     "@mastra/core": "beta",
     "@mastra/libsql": "beta",
     "@mastra/memory": "beta",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "hono": "^4",
     "libsql": "^0.5.22",
+    "lucide-react": "^0.525.0",
     "mastra": "beta",
     "next": "16.1.2",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {

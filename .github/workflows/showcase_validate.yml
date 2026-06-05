@@ -708,10 +708,15 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Newlines are injected via fromJSON('"\n"') (a real LF char) as {8},
+          # NOT a literal '\n' in the template: GitHub Actions expression string
+          # literals do not interpret backslash escapes, so a literal '\n' would
+          # survive toJSON as the two chars \\n and Slack would render it
+          # verbatim as "\n" instead of a line break.
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *showcase_validate failed on {1}*\nvalidate={2} python-unit-tests={3} shell-script-tests={4}\n<{5}/{6}/actions/runs/{7}|View run>',
+                '{0} *showcase_validate failed on {1}*{8}validate={2} python-unit-tests={3} shell-script-tests={4}{8}<{5}/{6}/actions/runs/{7}|View run>',
                 steps.state.outputs.icon,
                 github.ref,
                 needs.validate.result,
@@ -719,7 +724,8 @@ jobs:
                 needs.shell-script-tests.result,
                 github.server_url,
                 github.repository,
-                github.run_id
+                github.run_id,
+                fromJSON('"\n"')
               )) }}
             }
       - name: Log (no Slack — webhook unset)
