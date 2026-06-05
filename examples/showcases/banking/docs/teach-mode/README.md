@@ -184,7 +184,7 @@ runtime route already scaffolded.
    calls if your demo is client-side like e-commerce.
 
 4. **Copy the recording seam (role #3).** Copy
-   [`record-user-action.ts`](./record-user-action.ts) into your `src/lib/`
+   [`record-user-action.ts`](../../src/lib/record-user-action.ts) into your `src/lib/`
    **verbatim**. It is domain-neutral; do not edit it.
 
 5. **Wire the human UI to record (role #3).** In the modal/bar where the human
@@ -217,7 +217,7 @@ runtime route already scaffolded.
 ## (e) The RECORDING SEAM contract
 
 The canonical primitive lives in
-[`record-user-action.ts`](./record-user-action.ts) — copy it once, never edit
+[`record-user-action.ts`](../../src/lib/record-user-action.ts) — copy it once, never edit
 it.
 
 ### The `UserActionRecord` shape

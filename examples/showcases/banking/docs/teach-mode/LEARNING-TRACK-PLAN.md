@@ -16,9 +16,9 @@
 >   Nx monorepo with `apps/app-api`, `apps/realtime-gateway`, `apps/sl-worker`, and
 >   `demos/{e-commerce,banking,…}`. Its root `package.json` pins
 >   `@copilotkit/react-core@e103a19` (the build that **exports** the recording hook).
-> - **Cookbook contract:** `CopilotKit/examples/showcases/teach-mode/README.md` (the 5-role
->   teachable loop) + `record-user-action.ts` (the recording seam, a no-op shim today) +
->   `verify-teachable-gate.sh` (the backend-independent REST proof).
+> - **Cookbook contract:** `./README.md` (the 5-role teachable loop) + the recording seam at
+>   `../../src/lib/record-user-action.ts` (a no-op shim today) + `./verify-teachable-gate.sh`
+>   (the backend-independent REST proof).
 
 ---
 
