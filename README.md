@@ -70,6 +70,7 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
+- **Self-Learning** – Agents that continuously improve from user feedback via in-context reinforcement learning (CLHF).
 
 ## 🧩 Works With Your Stack
 
@@ -96,6 +97,21 @@ CopilotKit now lets you deploy the **same agent** to the places your users alrea
 🔒 **Early access:** We're onboarding teams now.
 
 👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
+
+## 🧠 Self-Learning Agents
+
+Most agents are frozen at deploy time. Yours don't have to be.
+
+With **Continuous Learning from Human Feedback (CLHF)**, part of the [CopilotKit Intelligence Platform](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
+
+- **In-context reinforcement learning** – Agents automatically improve from user interactions, no model fine-tuning required.
+- **Automatic prompt augmentation** – Agent behavior adapts based on recent interactions and outcomes.
+- **Per-user adaptation** – Agents learn individual preferences and get better for each user over time.
+- **Threads & persistence** – Full interaction history — generative UI, human-in-the-loop, shared state — captured across sessions.
+
+Available via CopilotKit Cloud or self-hosted.
+
+[Learn more about the Intelligence Platform →](https://www.copilotkit.ai/copilotkit-intelligence)
 
 ## Quick Start
 
