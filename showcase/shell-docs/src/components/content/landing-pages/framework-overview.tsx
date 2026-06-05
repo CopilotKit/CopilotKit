@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
+import { StartCommandCards } from "@/components/hero-start-commands";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type {
   FrameworkOverviewData,
@@ -88,6 +89,28 @@ function SectionEyebrow({ label }: { label: string }) {
   );
 }
 
+// Docs framework slug -> the `copilotkit` CLI's own `--framework` value. The
+// CLI uses different identifiers than our docs slugs, so the create command on
+// a framework page only pre-selects a framework when there's a verified 1:1
+// template match (values confirmed against the CLI's AGENT_FRAMEWORKS enum).
+// Slugs intentionally omitted fall back to a bare `npx copilotkit create`:
+//   - crewai-crews: the CLI ships "CrewAI Flows" (`flows`), not Crews — different
+//   - langgraph-fastapi, claude-sdk-*, langroid, ms-agent-harness-dotnet,
+//     spring-ai, agent-spec, deepagents: no matching CLI template
+const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
+  "langgraph-python": "langgraph-py",
+  "langgraph-typescript": "langgraph-js",
+  "google-adk": "adk",
+  strands: "aws-strands-py",
+  "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
+  "ms-agent-python": "microsoft-agent-framework-py",
+  mastra: "mastra",
+  "pydantic-ai": "pydantic-ai",
+  llamaindex: "llamaindex",
+  agno: "agno",
+  ag2: "ag2",
+};
+
 export function FrameworkOverview({
   data,
   currentFramework,
@@ -116,7 +139,12 @@ export function FrameworkOverview({
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
   const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
 
-  const guideLink = link(rawGuideLink);
+  // Frameworks whose init is the generic top-level command get the unified
+  // two-command recommendation (matching the home hero). Frameworks with
+  // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
+  // single command chip — those commands aren't interchangeable with the CLI.
+  const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
+  const createFramework = DOCS_SLUG_TO_CLI_FRAMEWORK[currentFramework];
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
@@ -193,40 +221,38 @@ export function FrameworkOverview({
             {subheader}
           </p>
 
-          {/* Action cluster: docs-style CTA + copy-command chip. The Live
-              feature viewer link was dropped — the demo iframe below
-              already covers "see it running" intent. */}
-          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
-            <Link
-              href={guideLink}
-              className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent-dim)] px-4 text-[13.5px] font-semibold text-[var(--accent)] no-underline shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
-            >
-              Start the quickstart
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleCopyCommand}
-              className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
-              aria-label="Copy install command"
-            >
-              <span className="flex items-center gap-2 text-[13.5px]">
-                <span className="text-[var(--accent)] opacity-70 font-mono">
-                  $
+          {/* Action cluster: the unified two-command cards for generic-init
+              frameworks, or a single copy-command chip for frameworks with
+              bespoke setup. The old "Start the quickstart" CTA and the Live
+              feature viewer link were dropped — the demo iframe below already
+              covers "see it running" intent. */}
+          <div className="mt-7 max-w-[640px]">
+            {isGenericInit ? (
+              <StartCommandCards createFramework={createFramework} />
+            ) : (
+              <button
+                type="button"
+                onClick={handleCopyCommand}
+                className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
+                aria-label="Copy install command"
+              >
+                <span className="flex items-center gap-2 text-[13.5px]">
+                  <span className="text-[var(--accent)] opacity-70 font-mono">
+                    $
+                  </span>
+                  <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+                    {initCommand}
+                  </span>
                 </span>
-                <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
-                  {initCommand}
+                <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
+                  {copied ? (
+                    <Check className="h-4 w-4 text-[var(--accent)]" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </span>
-              </span>
-              <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
-                {copied ? (
-                  <Check className="h-4 w-4 text-[var(--accent)]" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </span>
-            </button>
+              </button>
+            )}
           </div>
         </header>
 
