@@ -2661,6 +2661,44 @@ export async function runControlPlane(
     );
   }
 
+  // On-demand /api/probes trigger surface. The control-plane now runs the
+  // in-process HTTP probe families, so operators need the same manual-trigger
+  // endpoint boot() exposes (fire a family immediately instead of waiting on
+  // its slow cron). Mounted via the SAME `registerProbesRoutes` boot() uses —
+  // wired from the control-plane's own `httpProbeRegistry`/`httpProbeConfigs`/
+  // `scheduler`/`httpRunWriter`. The router id namespace is the prefixed
+  // scheduler id (`probe:<cfg.id>`), matching both `httpProbeConfigs`'s keying
+  // and the `scheduler.register({ id: "probe:<id>" })` entries — so the
+  // `isProbeId` guard inside the router admits exactly the in-process HTTP
+  // families and 404s everything else (browser-only `probe:e2e_*` ids, the
+  // producer's own entries, and unknown ids).
+  //
+  // Token handling mirrors boot() exactly (fail-safe): unset → router omitted;
+  // set-but-empty (incl. whitespace-only) → fail-loud at boot so a mistyped
+  // `OPS_TRIGGER_TOKEN=` can't silently ship an insecure/always-reject route.
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  const probesDeps = triggerToken
+    ? {
+        scheduler,
+        writer: httpRunWriter,
+        getProbeConfig: (id: string): ProbeConfig | undefined =>
+          httpProbeConfigs.get(id),
+        triggerToken,
+        now: () => Date.now(),
+      }
+    : undefined;
+  if (!triggerToken) {
+    logger.info("fleet.control-plane.probes-router-disabled", {
+      reason: "OPS_TRIGGER_TOKEN unset — /api/probes routes not mounted",
+    });
+  }
+
   // Minimal HTTP surface for the role's liveness `port` (fleet-health probes
   // hit this). /health reports OK once the producer's scheduler entry is live.
   const app = buildServer({
@@ -2686,6 +2724,7 @@ export async function runControlPlane(
     schedulerJobCount: () => scheduler.list().length,
     schedulerIsStopped: () => scheduler.isStopped(),
     bus,
+    probes: probesDeps,
   });
 
   scheduler.start();
