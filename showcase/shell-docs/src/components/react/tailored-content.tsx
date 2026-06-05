@@ -165,11 +165,11 @@ function TailoredContentInner({
   };
 
   const itemCn =
-    "border p-3 pl-4 rounded-md flex-1 flex md:block md:space-y-0.5 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-[var(--bg-elevated)] relative overflow-hidden group transition-all";
+    "shell-docs-radius-surface flex flex-1 cursor-pointer items-center gap-4 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-3 pl-4 shadow-[var(--shadow-control)] transition-colors md:block md:space-y-0.5 md:items-start";
   const selectedCn =
-    "shadow-lg ring-1 ring-indigo-400 selected bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-800/40 dark:to-indigo-950/20";
+    "selected border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]";
   const iconCn =
-    "w-8 h-8 mb-2 top-0 transition-all opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 dark:group-[.selected]:text-indigo-400 dark:group-[.selected]:opacity-60 dark:text-gray-400";
+    "mb-2 h-8 w-8 text-[var(--text-muted)] opacity-35 transition-colors group-[.selected]:text-[var(--accent)] group-[.selected]:opacity-80";
 
   const tablistId = `tailored-content-tablist-${id}`;
   const tabId = (optId: string) => `tailored-content-tab-${id}-${optId}`;

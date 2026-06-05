@@ -93,7 +93,7 @@ const mdxComponents = {
   OpsPlatformCTA,
   LinkIcon,
   Frame: ({ children }: { children: React.ReactNode }) => (
-    <div className="my-6 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+    <div className="shell-docs-radius-surface my-6 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)]">
       {children}
     </div>
   ),

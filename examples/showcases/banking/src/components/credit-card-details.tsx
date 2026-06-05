@@ -13,7 +13,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Card as ICard, CardBrand, ExpensePolicy } from "../app/api/v1/data";
+import type { Card as ICard, ExpensePolicy } from "../app/api/v1/data";
+import { CardBrand } from "../app/api/v1/data";
+import { formatCurrency } from "@/lib/utils";
 
 function VisaLogo({ className }: { className?: string }) {
   return (
@@ -82,12 +84,14 @@ export function CreditCardDetails({
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Credit Limit:</span>
-              <span className="font-semibold">${policy.limit}</span>
+              <span className="font-semibold">
+                {formatCurrency(policy.limit)}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Available Credit:</span>
               <span className="font-semibold">
-                ${policy.limit - policy.spent}
+                {formatCurrency(policy.limit - policy.spent)}
               </span>
             </div>
           </div>

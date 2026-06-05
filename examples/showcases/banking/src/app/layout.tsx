@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
-import "@copilotkit/react-ui/styles.css";
 import { AuthContextProvider } from "@/components/auth-context";
 import { CopilotKitWrapper } from "./wrapper";
+import { IDENTITY } from "@/lib/identity";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -17,7 +18,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CoBankKit",
+  title: IDENTITY.brand,
   description: "Collaborative finance for 21st century teams",
 };
 

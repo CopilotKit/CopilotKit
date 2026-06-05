@@ -68,7 +68,7 @@ function basename(p: string): string {
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-yellow-500/40 bg-yellow-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="alert"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">

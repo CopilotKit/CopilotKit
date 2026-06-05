@@ -22,7 +22,7 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
-    injectA2UITool: false,
+    injectA2UITool: true,
   },
 });
 
