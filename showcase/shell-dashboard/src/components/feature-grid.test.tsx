@@ -10,6 +10,8 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
 import type { CellContext, CellRenderer } from "./feature-grid";
+import { OverlayColumnHeader } from "./overlay-column-header";
+import type { Overlay } from "@/lib/overlay-types";
 import { urlsFor } from "./cell-pieces";
 import { getIntegrations } from "@/lib/registry";
 import { starterIsSupported, STARTER_LEVELS } from "@/lib/live-status";
@@ -145,7 +147,13 @@ describe("computeColumnTally", () => {
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
     // D6-ceiling: D3-only green with no D5/D6 → gray → not counted
-    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("red D3 → red chip, green D3 without D5/D6 → gray", () => {
@@ -156,7 +164,13 @@ describe("computeColumnTally", () => {
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
     // f1 red (gate fail), f2 gray (no D5/D6)
-    expect(t).toEqual({ green: 0, amber: 0, red: 1, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 1,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("health row alone does not contribute to tally", () => {
@@ -164,7 +178,13 @@ describe("computeColumnTally", () => {
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
     // No D3 rows → all cells gray → nothing counted
-    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("features without demos are gray (unwired), not counted", () => {
@@ -178,7 +198,13 @@ describe("computeColumnTally", () => {
     };
     const t = computeColumnTally(partialInt, features, live);
     // f1: wired + D3=green but no D5/D6 → gray; f2: unwired → gray
-    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("not_supported_features are gray, not counted", () => {
@@ -191,7 +217,13 @@ describe("computeColumnTally", () => {
     };
     const t = computeColumnTally(unsupportedInt, features, live);
     // f1: D3=green but no D5/D6 → gray; f2: unsupported → gray
-    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("returns unknown=true when connection is error", () => {
@@ -205,7 +237,49 @@ describe("computeColumnTally", () => {
 
   it("returns zeros with unknown=false when no rows", () => {
     const t = computeColumnTally(integration, features, new Map());
-    expect(t).toEqual({ green: 0, amber: 0, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
+  });
+
+  // Regression: while the initial PocketBase fetch is still in flight the
+  // live-status map is empty AND the connection is "connecting". Returning
+  // authoritative ✓0 ~0 ✗0 in that window reads as "everything is at depth 0",
+  // which is a lie — the data simply hasn't arrived yet. The header must show a
+  // loading/unknown state instead, NEVER zeros, until the first rows land.
+  it("returns loading=true (unknown, not authoritative zeros) while connecting with no rows", () => {
+    const t = computeColumnTally(
+      integration,
+      features,
+      new Map(),
+      "connecting",
+    );
+    expect(t.loading).toBe(true);
+    expect(t.unknown).toBe(true);
+    expect(t.green).toBe(0);
+    expect(t.amber).toBe(0);
+    expect(t.red).toBe(0);
+  });
+
+  it("does NOT treat connecting-with-rows as loading (data already arrived)", () => {
+    const live: LiveStatusMap = new Map();
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
+    // A delta arrived during a transient reconnect: rows are present, so the
+    // tally is authoritative even though the connection is mid-reconnect.
+    const t = computeColumnTally(integration, features, live, "connecting");
+    expect(t.loading).toBe(false);
+    expect(t.unknown).toBe(false);
+    expect(t.red).toBe(1);
+  });
+
+  it("live with no rows is NOT loading — it is an authoritative empty result", () => {
+    const t = computeColumnTally(integration, features, new Map(), "live");
+    expect(t.loading).toBe(false);
+    expect(t.unknown).toBe(false);
   });
 
   it("amber chip when D5=green but D6 absent", () => {
@@ -236,7 +310,13 @@ describe("computeColumnTally", () => {
     );
     const t = computeColumnTally(mappedInt, mappedFeatures, mappedLive);
     // D3=green, D4=green, D5=green → amber (D6 not yet green)
-    expect(t).toEqual({ green: 0, amber: 1, red: 0, unknown: false });
+    expect(t).toEqual({
+      green: 0,
+      amber: 1,
+      red: 0,
+      unknown: false,
+      loading: false,
+    });
   });
 });
 
@@ -338,5 +418,77 @@ describe("FeatureGrid — Starter row-group", () => {
     const { getByTestId } = renderGrid(live);
     const cell = getByTestId(`starter-cell-${mapped!.slug}-interaction`);
     expect(cell.textContent).toContain("~");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  OverlayColumnHeader — loading / offline rendering (spec §5.3, A5)   */
+/*                                                                      */
+/*  The core §5.3 guarantee: during the initial-load window the header   */
+/*  must NOT render authoritative ✓0 ~0 ✗0 (which reads as "every cell   */
+/*  at depth 0" — a lie). It shows a "… loading" affordance while the    */
+/*  first signal is in flight, and "? offline" when the stream is down.  */
+/* ------------------------------------------------------------------ */
+
+describe("OverlayColumnHeader — loading / offline rendering (§5.3)", () => {
+  const integration: Integration = {
+    slug: "i1",
+    name: "Integration One",
+    category: "c",
+    language: "ts",
+    description: "",
+    repo: "",
+    backend_url: "https://x",
+    deployed: true,
+    features: ["f1"],
+    demos: [{ id: "f1", name: "f1", description: "", tags: [] }],
+  };
+
+  const HEALTH: Set<Overlay> = new Set<Overlay>(["health"]);
+
+  it("loading tally → '… loading' affordance, NOT authoritative zero counts", () => {
+    const { getByText, queryByText } = render(
+      <OverlayColumnHeader
+        integration={integration}
+        tally={{ green: 0, amber: 0, red: 0, unknown: true, loading: true }}
+        overlays={HEALTH}
+      />,
+    );
+    // The loading affordance renders.
+    expect(getByText(/loading/)).toBeDefined();
+    // The authoritative zero glyphs must NOT render during loading.
+    expect(queryByText(/✓\s*0/)).toBeNull(); // ✓ 0
+    expect(queryByText(/✗\s*0/)).toBeNull(); // ✗ 0
+    expect(queryByText(/^~\s*0$/)).toBeNull(); // ~ 0
+  });
+
+  it("unknown (offline) tally → '? offline' affordance, NOT authoritative zero counts", () => {
+    const { getByText, queryByText } = render(
+      <OverlayColumnHeader
+        integration={integration}
+        tally={{ green: 0, amber: 0, red: 0, unknown: true, loading: false }}
+        overlays={HEALTH}
+      />,
+    );
+    // The offline affordance renders.
+    expect(getByText(/offline/)).toBeDefined();
+    // The authoritative zero glyphs must NOT render while offline.
+    expect(queryByText(/✓\s*0/)).toBeNull(); // ✓ 0
+    expect(queryByText(/✗\s*0/)).toBeNull(); // ✗ 0
+    expect(queryByText(/^~\s*0$/)).toBeNull(); // ~ 0
+  });
+
+  it("authoritative (not loading, not unknown) tally → renders the count glyphs", () => {
+    const { getByText, queryByText } = render(
+      <OverlayColumnHeader
+        integration={integration}
+        tally={{ green: 2, amber: 1, red: 3, unknown: false, loading: false }}
+        overlays={HEALTH}
+      />,
+    );
+    // Counts render; neither loading nor offline affordance is shown.
+    expect(getByText(/✓/)).toBeDefined(); // ✓
+    expect(queryByText(/loading/)).toBeNull();
+    expect(queryByText(/offline/)).toBeNull();
   });
 });
