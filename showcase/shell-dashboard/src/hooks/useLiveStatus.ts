@@ -224,7 +224,13 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     async function heartbeat(): Promise<void> {
       if (!alive || reconnecting) return;
       try {
-        await pb.collection("status").getList(1, 1, { filter });
+        // `requestKey: null` for the same reason as fetchInitial: this ping
+        // hits the SAME path (`/api/collections/status/records`), so the
+        // SDK's default auto-key would let a heartbeat and an in-flight
+        // initial/fan-out read cancel each other.
+        await pb
+          .collection("status")
+          .getList(1, 1, { filter, requestKey: null });
       } catch (err) {
         if (!alive) return;
         // SSE socket is probably dead too — re-establish the whole
@@ -266,9 +272,18 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       // monotonic, so a row inserted in the brief fetch→subscribe window sorts
       // into a random position and is reconciled by the live SSE subscription
       // (which delivers all future deltas), not by this fetch.
+      // `requestKey: null` DISABLES the PocketBase SDK's auto-cancellation.
+      // By default the SDK derives a request key from the HTTP method + path
+      // and auto-cancels any in-flight request that shares it. Our fan-out
+      // fires pages 2..N at the SAME path (`/api/collections/status/records`)
+      // concurrently, so every page after the first would cancel its
+      // predecessor — the cancelled promises reject and `Promise.all` rejects,
+      // dropping the whole hook to OFFLINE. Opting out per-request lets all
+      // concurrent same-path reads complete. Forwarded to page 1 too so it
+      // can't be cancelled by the fan-out either.
       const listOpts = filter
-        ? { filter, sort: INITIAL_SORT }
-        : { sort: INITIAL_SORT };
+        ? { filter, sort: INITIAL_SORT, requestKey: null }
+        : { sort: INITIAL_SORT, requestKey: null };
       const first = await pb
         .collection("status")
         .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
