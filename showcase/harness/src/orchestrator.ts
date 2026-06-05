@@ -90,7 +90,17 @@ import {
   type PoolCommError,
 } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
-import { createD6PayloadToInput } from "./fleet/worker/payload-mapper.js";
+import {
+  createD6PayloadToInput,
+  createDeepPayloadToInput,
+  createDemosPayloadToInput,
+  createSmokePayloadToInput,
+  E2E_D6_DRIVER_KIND,
+  E2E_DEEP_DRIVER_KIND,
+  E2E_DEMOS_DRIVER_KIND,
+  E2E_SMOKE_DRIVER_KIND,
+} from "./fleet/worker/payload-mapper.js";
+import type { DriverRegistry } from "./fleet/worker/worker-loop.js";
 import { registerWorker } from "./fleet/worker/registration.js";
 import {
   asKnownState,
@@ -2506,9 +2516,53 @@ export async function runWorker(
   const pool = new BrowserPool({ logger });
   await pool.init();
 
-  const driver = createE2eFullDriver({
-    launcher: createPooledE2eFullLauncher(pool, logger),
-  });
+  // Build the worker's DRIVER REGISTRY: every per-service browser driver family
+  // wired onto the SAME pooled launcher, keyed by its `driverKind`. The worker
+  // loop dispatches each claimed job by `payload.driverKind` to the matching
+  // entry, so one worker can run d6/d5/demos/smoke jobs. Each kind carries its
+  // own payload→input mapper (currently the shared re-hydration, since the four
+  // driver input shapes are identical and each driver's own zod schema is the
+  // validation gate). Lifted from the legacy `registerAllProbeDrivers` pooled
+  // construction so the fleet worker and the in-process probe registry build the
+  // same pooled drivers the same way.
+  const drivers: DriverRegistry = new Map([
+    [
+      E2E_D6_DRIVER_KIND,
+      {
+        driver: createE2eFullDriver({
+          launcher: createPooledE2eFullLauncher(pool, logger),
+        }),
+        payloadToInput: createD6PayloadToInput(),
+      },
+    ],
+    [
+      E2E_DEEP_DRIVER_KIND,
+      {
+        driver: createE2eDeepDriver({
+          launcher: createPooledE2eDeepLauncher(pool, logger),
+        }),
+        payloadToInput: createDeepPayloadToInput(),
+      },
+    ],
+    [
+      E2E_DEMOS_DRIVER_KIND,
+      {
+        driver: createE2eDemosDriver({
+          launcher: createPooledE2eDemosLauncher(pool, logger),
+        }),
+        payloadToInput: createDemosPayloadToInput(),
+      },
+    ],
+    [
+      E2E_SMOKE_DRIVER_KIND,
+      {
+        driver: createE2eSmokeDriver({
+          launcher: createPooledE2eSmokeLauncher(pool, logger),
+        }),
+        payloadToInput: createSmokePayloadToInput(),
+      },
+    ],
+  ]);
 
   // Self-register + start the capacity heartbeat against this worker's pool.
   // Best-effort by contract (registerWorker never rejects); a missing workers
@@ -2539,15 +2593,15 @@ export async function runWorker(
   try {
     worker = await runFleetWorker(config, {
       queue,
-      payloadToInput: createD6PayloadToInput(),
       workerId,
       port,
       logger,
       env,
-      // Inject the pool we own as BOTH the budget gate and the driver backing —
-      // fleet runWorker skips constructing its own pool when both are supplied.
+      // Inject the pool we own as the budget gate and the driver REGISTRY
+      // (driverKind → { driver, payloadToInput }) we built above — fleet
+      // runWorker skips constructing its own pool when both are supplied.
       budgetSource: pool,
-      driver,
+      drivers,
       // Wire the worker /health server's liveness probes: pb reachability +
       // registration. The fleet runWorker binds /health on the resolved port so
       // the docker/Railway healthcheck answers (no restart-loop).

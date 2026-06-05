@@ -41,6 +41,7 @@ import {
   startWorkerLoop,
   type PayloadToDriverInput,
   type ServiceJobDriver,
+  type DriverRegistry,
   type WorkerLoopHandle,
 } from "./worker/worker-loop.js";
 
@@ -57,8 +58,23 @@ export interface WorkerHandle {
 export interface RunWorkerOptions {
   /** The fleet queue client (S3 impl over the S0 claim endpoints). */
   queue: FleetQueueClient;
-  /** Maps a claimed per-service payload to the d6 driver's per-service input. */
-  payloadToInput: PayloadToDriverInput;
+  /**
+   * The driver REGISTRY: `driverKind` → `{ driver, payloadToInput }`. When
+   * supplied the worker dispatches each claimed job by `payload.driverKind`,
+   * hosting MULTIPLE browser driver families on one worker. Built by the
+   * `runWorker` entrypoint (orchestrator.ts) which wires every pooled driver
+   * onto the shared `BrowserPool`. Takes precedence over the legacy single
+   * `driver`/`payloadToInput` pair below; when omitted the worker falls back to
+   * the single-driver path.
+   */
+  drivers?: DriverRegistry;
+  /**
+   * LEGACY single-driver payload mapper. Used only when `drivers` is omitted.
+   * Optional now that the registry is the primary path; when both `drivers` and
+   * the single `driver` are absent the default pooled d6 driver + this mapper
+   * are constructed below.
+   */
+  payloadToInput?: PayloadToDriverInput;
   /** Stable worker id (the `claimed_by` on every claim). */
   workerId?: string;
   /**
@@ -163,22 +179,38 @@ export async function runWorker(
     port,
   });
 
-  // Construct the worker's own pool unless a budget source + driver are
-  // injected (test path). The pool is the self-bounded context budget that
-  // gates claiming and keeps the worker under its pids ceiling.
+  // Resolve the worker's drivers. Three shapes, in precedence order:
+  //   1. An injected `drivers` registry (the primary path — the entrypoint
+  //      wires every pooled driver family onto the shared pool). Paired with an
+  //      injected `budgetSource`, the worker runs entirely on the caller's wiring
+  //      and this entrypoint constructs NO pool of its own.
+  //   2. A legacy single `driver` + `budgetSource` (back-compat test path).
+  //   3. Neither → construct the worker's own pool + default pooled d6 driver
+  //      (the original self-contained boot).
+  // The pool is the self-bounded context budget that gates claiming and keeps the
+  // worker under its pids ceiling.
   let pool: BrowserPool | undefined;
   let budgetSource = opts.budgetSource;
+  let drivers = opts.drivers;
   let driver = opts.driver;
 
-  if (!budgetSource || !driver) {
+  // We have all the wiring we need iff a budget source exists AND at least one
+  // run path (a registry or a single driver) is supplied. Otherwise build the
+  // default pool + d6 driver so the worker is self-contained.
+  const haveRunPath = drivers !== undefined || driver !== undefined;
+  if (!budgetSource || !haveRunPath) {
     pool = new BrowserPool({ logger });
     await pool.init();
     budgetSource = budgetSource ?? pool;
-    driver =
-      driver ??
-      createE2eFullDriver({
+    if (!haveRunPath) {
+      // Default to the single pooled d6 driver registered under its kind, so the
+      // self-contained boot path also routes by driverKind (equivalence with the
+      // pre-registry single-d6 worker).
+      const d6Driver = createE2eFullDriver({
         launcher: createPooledE2eFullLauncher(pool, logger),
       });
+      driver = d6Driver;
+    }
   }
 
   let loop: WorkerLoopHandle;
@@ -187,6 +219,7 @@ export async function runWorker(
       workerId,
       queue: opts.queue,
       pool: budgetSource,
+      drivers,
       driver,
       payloadToInput: opts.payloadToInput,
       logger,

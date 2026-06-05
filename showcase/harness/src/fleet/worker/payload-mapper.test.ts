@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createD6PayloadToInput } from "./payload-mapper.js";
+import {
+  createD6PayloadToInput,
+  createDeepPayloadToInput,
+  createDemosPayloadToInput,
+  createSmokePayloadToInput,
+  createPayloadToInput,
+  E2E_D6_DRIVER_KIND,
+  E2E_DEEP_DRIVER_KIND,
+  E2E_DEMOS_DRIVER_KIND,
+  E2E_SMOKE_DRIVER_KIND,
+} from "./payload-mapper.js";
 import type { ServiceJobPayload } from "../contracts.js";
 
 function payload(over: Partial<ServiceJobPayload> = {}): ServiceJobPayload {
@@ -60,5 +70,50 @@ describe("createD6PayloadToInput", () => {
     const map = createD6PayloadToInput();
     expect(map(payload())).toBeUndefined();
     expect(map(payload({ driverInputs: undefined }))).toBeUndefined();
+  });
+});
+
+describe("driver-kind constants", () => {
+  it("expose the four browser driver kinds matching the driver factories", () => {
+    expect(E2E_D6_DRIVER_KIND).toBe("e2e_d6");
+    expect(E2E_DEEP_DRIVER_KIND).toBe("e2e_deep");
+    expect(E2E_DEMOS_DRIVER_KIND).toBe("e2e_demos");
+    expect(E2E_SMOKE_DRIVER_KIND).toBe("e2e_smoke");
+  });
+});
+
+describe("per-kind payload mappers", () => {
+  // The four browser driver families share the SAME re-hydration logic (each
+  // serializes a `{ key, backendUrl, … }` object and validates via its own zod
+  // schema), so the per-kind mappers all re-hydrate the input the same way.
+  const driverInputs = {
+    key: "k:langgraph-python",
+    backendUrl: "https://lg.example.com",
+  };
+
+  it.each([
+    ["deep", createDeepPayloadToInput],
+    ["demos", createDemosPayloadToInput],
+    ["smoke", createSmokePayloadToInput],
+    ["base", createPayloadToInput],
+  ])("%s mapper re-hydrates the serialized input", (_name, factory) => {
+    const map = factory();
+    const input = map(payload({ driverInputs })) as Record<string, unknown>;
+    expect(input.key).toBe("k:langgraph-python");
+    expect(input.backendUrl).toBe("https://lg.example.com");
+  });
+
+  it("each per-kind mapper defaults a missing key to the payload probeKey", () => {
+    for (const factory of [
+      createDeepPayloadToInput,
+      createDemosPayloadToInput,
+      createSmokePayloadToInput,
+    ]) {
+      const map = factory();
+      const input = map(
+        payload({ driverInputs: { backendUrl: "https://lg.example.com" } }),
+      ) as Record<string, unknown>;
+      expect(input.key).toBe("d6:langgraph-python");
+    }
   });
 });

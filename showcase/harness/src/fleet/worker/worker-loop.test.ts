@@ -8,6 +8,8 @@ import {
   type ServiceJobDriver,
   type ServiceDriverContext,
   type BudgetSource,
+  type DriverRegistry,
+  type DriverRegistryEntry,
 } from "./worker-loop.js";
 import type {
   FleetQueueClient,
@@ -882,5 +884,149 @@ describe("startWorkerLoop", () => {
     await vi.waitFor(() => expect(reports).toHaveLength(1));
     await handle.stop();
     expect(reports[0]!.aggregateState).toBe("green");
+  });
+});
+
+// ── Driver REGISTRY: dispatch by payload.driverKind ────────────────────────
+
+describe("driver registry (driverKind → driver)", () => {
+  const baseRegistryDeps = (drivers: DriverRegistry) => ({
+    workerId: "worker-test",
+    queue: makeQueue([]),
+    drivers,
+    logger: silentLogger,
+    env: {} as Readonly<Record<string, string | undefined>>,
+    now: () => new Date("2026-06-04T00:04:00.000Z"),
+    sleep: async () => {},
+  });
+
+  /** A driver fake that tags its aggregate row with the kind it represents. */
+  function makeTaggingDriver(kind: string): ServiceJobDriver {
+    return {
+      async run(ctx, _input): Promise<ProbeResult> {
+        const observedAt = ctx.now().toISOString();
+        return {
+          key: `${kind}:routed`,
+          state: "green",
+          signal: { routedKind: kind },
+          observedAt,
+        };
+      },
+    };
+  }
+
+  function entry(kind: string): DriverRegistryEntry {
+    return { driver: makeTaggingDriver(kind), payloadToInput: passInput };
+  }
+
+  function registry(...kinds: string[]): DriverRegistry {
+    const m: DriverRegistry = new Map();
+    for (const k of kinds) m.set(k, entry(k));
+    return m;
+  }
+
+  it("routes an e2e_smoke payload to the smoke driver", async () => {
+    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_smoke" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(result.aggregateState).toBe("green");
+    expect(result.aggregateKey).toBe("e2e_smoke:routed");
+    expect(result.aggregateSignal).toMatchObject({ routedKind: "e2e_smoke" });
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("routes an e2e_deep payload to the deep driver", async () => {
+    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_deep" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(result.aggregateKey).toBe("e2e_deep:routed");
+    expect(result.aggregateSignal).toMatchObject({ routedKind: "e2e_deep" });
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("routes an e2e_d6 payload to the d6 driver (equivalence)", async () => {
+    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_d6" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(result.aggregateKey).toBe("e2e_d6:routed");
+    expect(result.aggregateSignal).toMatchObject({ routedKind: "e2e_d6" });
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("maps an unknown driverKind to a worker-protocol-violation terminal result", async () => {
+    const drivers = registry("e2e_d6", "e2e_deep");
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_unknown" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(result.aggregateState).toBe("error");
+    expect(result.commError?.kind).toBe("worker-protocol-violation");
+    expect(result.commError?.message).toContain("e2e_unknown");
+  });
+
+  it("uses the matched kind's OWN payloadToInput, not a sibling's", async () => {
+    // Each entry carries its own mapper; the matched kind's mapper must run.
+    const seen: string[] = [];
+    const drivers: DriverRegistry = new Map([
+      [
+        "e2e_d6",
+        {
+          driver: makeTaggingDriver("e2e_d6"),
+          payloadToInput: (p) => {
+            seen.push(`d6:${p.serviceSlug}`);
+            return passInput();
+          },
+        } as DriverRegistryEntry,
+      ],
+      [
+        "e2e_smoke",
+        {
+          driver: makeTaggingDriver("e2e_smoke"),
+          payloadToInput: (p) => {
+            seen.push(`smoke:${p.serviceSlug}`);
+            return passInput();
+          },
+        } as DriverRegistryEntry,
+      ],
+    ]);
+    await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_smoke" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(seen).toEqual(["smoke:langgraph-python"]);
+  });
+
+  it("startWorkerLoop dispatches a claimed job by driverKind through the registry", async () => {
+    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const queue = makeQueue([
+      { claimed: true, lease: makeLease({ payload: { driverKind: "e2e_deep" } }) },
+    ]);
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      drivers,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    await vi.waitFor(() => expect(queue.reports).toHaveLength(1));
+    await handle.stop();
+    expect(queue.reports[0]!.aggregateKey).toBe("e2e_deep:routed");
   });
 });
