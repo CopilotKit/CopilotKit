@@ -113,7 +113,7 @@ Available via CopilotKit Cloud or self-hosted.
 
 🔒 **Early access:** We're onboarding teams now.
 
-👉 **[Request early access →](https://www.copilotkit.ai/copilotkit-intelligence)**
+👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
 
 ## Quick Start
 
