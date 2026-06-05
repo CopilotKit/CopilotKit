@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useCopilotChatConfiguration } from "../providers";
-import {
+import type {
   LearnFromUserActionInput,
   LearnFromUserActionResult,
-  useLearnFromUserAction,
 } from "./use-learn-from-user-action";
+import { useLearnFromUserAction } from "./use-learn-from-user-action";
 
 /**
  * Input to {@link UseLearnFromUserActionInCurrentThreadRecorder} — same as

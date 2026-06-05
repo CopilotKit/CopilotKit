@@ -355,7 +355,7 @@ export default async function FrameworkScopedDocsPage({
     : [];
 
   const banner = missingCell ? (
-    <div className="mb-6 rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-4">
+    <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-4 shadow-[var(--shadow-control)]">
       <div className="text-sm font-semibold text-[var(--text)] mb-1">
         Not available for {frameworkName} yet
       </div>
@@ -653,7 +653,7 @@ function NotAvailableForFrameworkPage({
           <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
             This topic isn't available for {frameworkName}.
           </p>
-          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-5 mb-6">
+          <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-5 shadow-[var(--shadow-control)]">
             <div className="text-sm font-semibold text-[var(--text)] mb-2">
               Available in other integrations
             </div>

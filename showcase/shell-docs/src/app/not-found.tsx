@@ -38,13 +38,13 @@ export default function NotFound() {
         <div className="flex justify-center gap-3">
           <Link
             href="/"
-            className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
           >
             Go to docs home
           </Link>
           <Link
             href="/reference"
-            className="inline-flex items-center px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] text-sm font-medium hover:border-[var(--accent)] transition-colors"
+            className="shell-docs-radius-control inline-flex h-10 items-center border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)]"
           >
             API reference
           </Link>

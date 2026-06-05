@@ -120,8 +120,9 @@
       "serviceId": "ba11e854-d695-4738-9a45-2b0776788824",
       "prodInstanceId": "1ee376e2-13f2-4464-801e-d0aa0bf76532",
       "stagingInstanceId": "0bc7db7b-5a43-4b33-af46-d07fb53c8610",
-      "ciBuilt": false,
+      "ciBuilt": true,
       "gateValidated": true,
+      "dispatchName": "showcase-pocketbase",
       "repoNameOverride": {
         "prod": "showcase-pocketbase",
         "staging": "showcase-pocketbase"

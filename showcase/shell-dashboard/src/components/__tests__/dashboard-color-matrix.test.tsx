@@ -803,7 +803,13 @@ describe("(6) edges + rollup precedence", () => {
       // subagents → no rows → gray (excluded)
     ]);
     const tally = computeColumnTally(integration, features, live, "live");
-    expect(tally).toEqual({ green: 1, amber: 0, red: 1, unknown: false });
+    expect(tally).toEqual({
+      green: 1,
+      amber: 0,
+      red: 1,
+      unknown: false,
+      loading: false,
+    });
   });
 
   it("column tally returns unknown=true when connection is error", () => {
@@ -818,7 +824,13 @@ describe("(6) edges + rollup precedence", () => {
       mapOf([]),
       "error",
     );
-    expect(tally).toEqual({ green: 0, amber: 0, red: 0, unknown: true });
+    expect(tally).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      unknown: true,
+      loading: false,
+    });
   });
 });
 

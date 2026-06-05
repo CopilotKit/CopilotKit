@@ -91,7 +91,77 @@ describe("computeColumnTallyDetail", () => {
       amber: [],
       red: [],
       unknown: true,
+      loading: false,
     });
+  });
+
+  // A4 regression: the connecting+empty initial-load branch in
+  // `computeColumnTallyDetail` (mirroring `computeColumnTally`). While the
+  // first PocketBase fetch is in flight the live-status map is empty AND the
+  // connection is "connecting". Returning authoritative empty buckets in that
+  // window reads as "every cell is at depth 0" — a lie. The detail must surface
+  // `loading: true` (a subset of `unknown`) instead, never authoritative
+  // emptiness, until the first rows land.
+  it("returns loading: true (unknown, not authoritative empty) while connecting with no rows", () => {
+    const integration = makeIntegration("test-int", ["feat-1"]);
+    const features = [makeFeature("feat-1", "Feature 1")];
+    const liveStatus: LiveStatusMap = new Map();
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "connecting",
+    );
+
+    expect(result).toEqual({
+      green: [],
+      amber: [],
+      red: [],
+      unknown: true,
+      loading: true,
+    });
+  });
+
+  it("does NOT treat connecting-with-rows as loading (data already arrived)", () => {
+    const integration = makeIntegration("test-int", ["feat-a"]);
+    const features = [makeFeature("feat-a", "Feature A")];
+    // A delta arrived during a transient reconnect: rows are present, so the
+    // detail is authoritative even though the connection is mid-reconnect.
+    const liveStatus: LiveStatusMap = new Map([
+      ["e2e:test-int/feat-a", makeRow("e2e:test-int/feat-a", "e2e", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "connecting",
+    );
+
+    expect(result.loading).toBe(false);
+    expect(result.unknown).toBe(false);
+    expect(result.red).toEqual([
+      { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
+    ]);
+  });
+
+  it("live with no rows is NOT loading — authoritative empty result", () => {
+    const integration = makeIntegration("test-int", ["feat-1"]);
+    const features = [makeFeature("feat-1", "Feature 1")];
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      new Map(),
+      "live",
+    );
+
+    expect(result.loading).toBe(false);
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.amber).toEqual([]);
+    expect(result.red).toEqual([]);
   });
 
   it("green D6 cells land in green bucket", () => {

@@ -333,7 +333,9 @@ describe("sync-promote-service-options", () => {
     expect(input.options[1]).toBe("all");
     expect(input.default).toBe("__select_a_service__");
     expect(input.options).toContain("ag2");
-    expect(input.options).toContain("pocketbase"); // no dispatchName → name fallback
+    // pocketbase now defines dispatchName "showcase-pocketbase", so the
+    // rendered token is the dispatchName, not the bare SSOT key.
+    expect(input.options).toContain("showcase-pocketbase");
     expect(input.options).not.toContain("bogus-stale-entry");
     // dispatchName tokens, not SSOT keys, for services that define one.
     expect(input.options).not.toContain("showcase-ag2");

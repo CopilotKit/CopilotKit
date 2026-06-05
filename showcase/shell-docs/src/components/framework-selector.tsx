@@ -143,21 +143,21 @@ export function FrameworkSelector({
     ? (options.find((o) => o.slug === "built-in-agent") ?? null)
     : null;
 
-  // Sidebar variant: full-width control with integration logo box on the
-  // left, framework name center, chevron right. Mirrors the canonical
-  // docs.copilotkit.ai reference: h-14 pill, lavender bg + accent border
-  // when a framework is active, soft surface bg when nothing is picked.
+  // Sidebar variant: full-width select with integration logo box on the
+  // left, framework name center, chevron right. It uses the global
+  // shadcn radius and a subtle accent wash so it reads as a selected
+  // docs context control without hardcoding a lavender value.
   const sidebarBtnClasses = [
-    "w-full flex items-center gap-2 p-1.5 rounded-lg border h-12",
-    "transition-colors cursor-pointer",
+    "shell-docs-radius-control w-full flex items-center gap-2 p-1.5 border h-12",
+    "shadow-[var(--shadow-control)] transition-colors cursor-pointer",
     "text-[13px] font-medium text-[var(--text)]",
     current
-      ? "bg-[var(--accent-light)] border-[var(--accent)] hover:border-[var(--accent)]"
+      ? "bg-[var(--accent-dim)] border-[var(--nav-control-border)] hover:bg-[var(--accent-light)] hover:border-[var(--nav-control-border-hover)]"
       : "bg-[var(--bg-surface)]/60 border-[var(--border)] hover:border-[var(--accent)]",
   ].join(" ");
 
   const topbarBtnClasses =
-    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+    "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
 
   return (
     <div className={`relative ${className ?? ""}`}>
@@ -172,10 +172,8 @@ export function FrameworkSelector({
         {isSidebar ? (
           <>
             <span
-              className={`flex justify-center items-center w-8 h-8 shrink-0 rounded-md ${
-                current
-                  ? "bg-[var(--accent)]/25 dark:bg-white/10"
-                  : "bg-[var(--bg-elevated)]"
+              className={`shell-docs-picker-icon-chip h-8 w-8 shrink-0 ${
+                current ? "" : "border-[var(--border)] text-[var(--text-faint)]"
               }`}
               aria-hidden="true"
             >
@@ -184,10 +182,10 @@ export function FrameworkSelector({
                   slug={current.slug}
                   fallbackSrc={current.logo}
                   size={16}
-                  className="text-[var(--text)]"
+                  className="text-[var(--accent)]"
                 />
               ) : (
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)] opacity-70" />
+                <span className="h-2.5 w-2.5 bg-current" />
               )}
             </span>
             <span className="flex-1 min-w-0 text-left">
@@ -254,8 +252,8 @@ export function FrameworkSelector({
           role="listbox"
           className={
             isSidebar
-              ? "absolute top-full left-0 right-0 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
-              : "absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
+              ? "shell-docs-radius-surface absolute top-full left-0 right-0 mt-1 max-h-[60vh] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)] z-50 p-2"
+              : "shell-docs-radius-surface absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)] z-50 p-2"
           }
         >
           {pinnedBIA && (
@@ -263,9 +261,9 @@ export function FrameworkSelector({
               key={pinnedBIA.slug}
               type="button"
               onClick={() => selectFramework(pinnedBIA.slug)}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
+              className={`shell-docs-radius-control w-full flex items-center gap-2 px-2 py-1.5 text-[13px] transition-colors cursor-pointer ${
                 pinnedBIA.slug === effectiveFramework
-                  ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                  ? "bg-[var(--accent-dim)] text-[var(--accent)]"
                   : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
               }`}
             >
@@ -273,7 +271,7 @@ export function FrameworkSelector({
                 slug={pinnedBIA.slug}
                 fallbackSrc={pinnedBIA.logo}
                 size={16}
-                className="shrink-0"
+                className="shrink-0 text-[var(--accent)]"
               />
               <span className="flex-1 text-left truncate">
                 {displayNameFor(pinnedBIA)}
@@ -289,9 +287,9 @@ export function FrameworkSelector({
                   key={opt.slug}
                   type="button"
                   onClick={() => selectFramework(opt.slug)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
+                  className={`shell-docs-radius-control w-full flex items-center gap-2 px-2 py-1.5 text-[13px] transition-colors cursor-pointer ${
                     isActive
-                      ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                      ? "bg-[var(--accent-dim)] text-[var(--accent)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
                   }`}
                 >
@@ -299,7 +297,7 @@ export function FrameworkSelector({
                     slug={opt.slug}
                     fallbackSrc={opt.logo}
                     size={16}
-                    className="shrink-0"
+                    className="shrink-0 text-[var(--accent)]"
                   />
                   <span className="flex-1 text-left truncate">
                     {displayNameFor(opt)}

@@ -15,7 +15,6 @@ import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
-import { FrameworkLogo } from "@/components/icons/framework-icons";
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
@@ -144,18 +143,7 @@ function DocsOverview() {
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
           <div className="flex max-w-[765px] flex-col">
             <div>
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)]">
-                  <FrameworkLogo
-                    slug={HOME_DEFAULT_FRAMEWORK}
-                    className="h-5 w-5"
-                  />
-                </div>
-                <span className="text-sm font-semibold tracking-tight text-[var(--text)] sm:text-base">
-                  Documentation
-                </span>
-              </div>
-              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem]">
+              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
                 CopilotKit
               </h1>
               <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">

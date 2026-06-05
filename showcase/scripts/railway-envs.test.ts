@@ -121,9 +121,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 25 services and excludes pocketbase/webhooks", () => {
-    expect(CI_BUILT_SERVICES.size).toBe(25);
-    expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(false);
+  it("CI_BUILT_SERVICES contains exactly 26 services (incl. pocketbase) and excludes webhooks", () => {
+    expect(CI_BUILT_SERVICES.size).toBe(26);
+    // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
+    // gated to showcase/pocketbase/** changes).
+    expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
+    // webhooks remains out-of-band (released by the showcase-eval-webhook repo).
     expect(CI_BUILT_SERVICES.has("webhooks")).toBe(false);
     // Sample positives.
     expect(CI_BUILT_SERVICES.has("showcase-mastra")).toBe(true);
@@ -142,9 +145,10 @@ describe("railway-envs SSOT", () => {
     });
   });
 
-  it("pocketbase and webhooks are marked ciBuilt=false but gateValidated=true", () => {
-    expect(SERVICES.pocketbase.ciBuilt).toBe(false);
+  it("pocketbase is ciBuilt=true with a dispatchName; webhooks stays ciBuilt=false; both gateValidated=true", () => {
+    expect(SERVICES.pocketbase.ciBuilt).toBe(true);
     expect(SERVICES.pocketbase.gateValidated).toBe(true);
+    expect(SERVICES.pocketbase.dispatchName).toBe("showcase-pocketbase");
     expect(SERVICES.webhooks.ciBuilt).toBe(false);
     expect(SERVICES.webhooks.gateValidated).toBe(true);
   });
@@ -237,9 +241,10 @@ describe("railway-envs SSOT", () => {
 
     // Reverse direction (scoped to CI-built): every CI-built SSOT entry's
     // dispatchName appears in the YAML matrix. Catches "added SSOT entry,
-    // forgot matrix slot." Non-CI-built services (pocketbase, webhooks)
-    // legitimately have no matrix entry — they're built by separate
-    // release workflows — so they are excluded from the reverse check.
+    // forgot matrix slot." pocketbase IS now CI-built (its
+    // "showcase-pocketbase" slot is gated to showcase/pocketbase/**) and
+    // so is included here; only webhooks remains non-CI-built (released by
+    // the showcase-eval-webhook repo) and thus excluded from this check.
     const yamlSet = new Set(dispatchNames);
     for (const name of CI_BUILT_SERVICES) {
       const entry = SERVICES[name];

@@ -17,11 +17,15 @@
     "@copilotkit/react-core": "1.59.3",
     "@copilotkit/runtime": "1.59.3",
     "@hono/node-server": "^1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "hono": "^4",
+    "lucide-react": "^0.577.0",
     "next": "16.1.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "shiki": "^3.19.0",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {

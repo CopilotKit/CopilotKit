@@ -3,19 +3,28 @@
 import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import {
   useAgent,
   useFrontendTool,
   useHumanInTheLoop,
   useRenderTool,
+} from "@copilotkit/react-core/v2";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
+import {
+  CopilotChatConfigurationProvider,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
+
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/pydantic-ai/frontend-actions
   useFrontendTool({
@@ -32,20 +41,36 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
-      }
-    >
-      <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Popup Assistant",
-          welcomeMessageText: "👋 Hi, there! You're chatting with an agent.",
-        }}
-      />
-    </main>
+    <div className={`${styles.layout} threadsLayout`}>
+      <ThreadsPanelGate>
+        <ThreadsDrawer
+          agentId="default"
+          threadId={threadId}
+          onThreadChange={setThreadId}
+        />
+      </ThreadsPanelGate>
+      <div className={styles.mainPanel}>
+        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as CopilotKitCSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </CopilotChatConfigurationProvider>
+      </div>
+    </div>
   );
 }
 
@@ -76,7 +101,10 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       }),
       render: ({ parameters }) => {
         return (
-          <WeatherCard location={parameters.location} themeColor={themeColor} />
+          <WeatherCard
+            location={parameters.location ?? "the requested location"}
+            themeColor={themeColor}
+          />
         );
       },
     },

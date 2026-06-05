@@ -1,8 +1,6 @@
 import { useCopilotChatConfiguration } from "../providers";
-import {
-  UseLearningContainersArgs,
-  useLearningContainers,
-} from "./use-learning-containers";
+import type { UseLearningContainersArgs } from "./use-learning-containers";
+import { useLearningContainers } from "./use-learning-containers";
 
 /**
  * Arguments for {@link useLearningContainersInCurrentThread}.
