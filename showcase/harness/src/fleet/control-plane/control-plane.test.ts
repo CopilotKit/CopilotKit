@@ -254,6 +254,67 @@ describe("createControlPlane.start", () => {
   });
 });
 
+describe("createControlPlane — multiple producer schedules", () => {
+  it("registers one scheduler entry per schedule with its own cron + producer", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        { scheduleId: "fleet-d6-producer", cron: "40 * * * *", producer: producerA },
+        { scheduleId: "fleet-smoke-producer", cron: "*/15 * * * *", producer: producerB },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+
+    expect(scheduler.entries.size).toBe(2);
+    const a = scheduler.entries.get("fleet-d6-producer");
+    const b = scheduler.entries.get("fleet-smoke-producer");
+    expect(a?.cron).toBe("40 * * * *");
+    expect(b?.cron).toBe("*/15 * * * *");
+
+    // Each handler drives ITS producer's tick.
+    await a?.handler();
+    expect(producerA.ticks).toBe(1);
+    expect(producerB.ticks).toBe(0);
+    await b?.handler();
+    expect(producerB.ticks).toBe(1);
+
+    // Both producers were started.
+    expect(producerA.started).toBe(true);
+    expect(producerB.started).toBe(true);
+  });
+
+  it("stop() unregisters every schedule and stops every producer", async () => {
+    const producerA = makeFakeProducer();
+    const producerB = makeFakeProducer();
+    const scheduler = makeFakeScheduler();
+    const cp = createControlPlane({
+      producer: producerA,
+      consumer: makeFakeConsumer(),
+      scheduler,
+      logger: SILENT_LOGGER,
+      schedules: [
+        { scheduleId: "fleet-d6-producer", cron: "40 * * * *", producer: producerA },
+        { scheduleId: "fleet-smoke-producer", cron: "*/15 * * * *", producer: producerB },
+      ],
+      setIntervalImpl: makeFakeTimers().setIntervalImpl,
+    });
+    cp.start();
+    await cp.stop();
+
+    expect(scheduler.entries.has("fleet-d6-producer")).toBe(false);
+    expect(scheduler.entries.has("fleet-smoke-producer")).toBe(false);
+    expect(producerA.stopped).toBe(true);
+    expect(producerB.stopped).toBe(true);
+  });
+});
+
 describe("createControlPlane.stop", () => {
   it("unregisters the producer tick, stops the producer, and clears the consumer timer", async () => {
     const producer = makeFakeProducer();

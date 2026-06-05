@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createD6ServiceEnumerator,
+  createServiceEnumerator,
   D6_DRIVER_KIND,
   D6_DISCOVERY_FILTER,
 } from "./catalog-enumerator.js";
@@ -205,5 +206,84 @@ describe("createD6ServiceEnumerator", () => {
     const specs = await enumerate(CTX);
     expect(specs.length).toBeGreaterThan(0);
     expect(specs.length).toBe(3);
+  });
+});
+
+describe("createServiceEnumerator (generic seam)", () => {
+  it("stamps the passed driverKind and probeKey prefix (non-d6 params)", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      driverKind: "e2e_smoke",
+      probeKeyPrefix: "smoke",
+      filter: { namePrefix: "showcase-" },
+    });
+
+    const specs = await enumerate(CTX);
+
+    expect(specs).toHaveLength(2);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg).toBeDefined();
+    expect(lg?.driverKind).toBe("e2e_smoke");
+    expect(lg?.probeKey).toBe("smoke:langgraph-python");
+    expect(lg?.driverInputs?.key).toBe("smoke:langgraph-python");
+    expect(lg?.driverInputs?.backendUrl).toBe(
+      "http://langgraph-python:10000",
+    );
+
+    const cr = specs.find((s) => s.serviceSlug === "crewai");
+    expect(cr?.probeKey).toBe("smoke:crewai");
+    expect(cr?.driverKind).toBe("e2e_smoke");
+  });
+
+  it("passes the param-supplied filter (namePrefix + nameExcludes) to the source", async () => {
+    const source = fakeSource([svc()]);
+    const filter = {
+      namePrefix: "showcase-",
+      nameExcludes: ["showcase-harness", "showcase-shell"],
+    } as const;
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      driverKind: "e2e_smoke",
+      probeKeyPrefix: "smoke",
+      filter,
+    });
+
+    await enumerate(CTX);
+
+    expect(source.configs).toHaveLength(1);
+    const cfg = source.configs[0] as {
+      namePrefix?: string;
+      nameExcludes?: string[];
+    };
+    expect(cfg.namePrefix).toBe("showcase-");
+    expect(cfg.nameExcludes).toEqual([...filter.nameExcludes]);
+  });
+
+  it("accepts a function probeKey prefix builder", async () => {
+    const source = fakeSource([svc({ name: "showcase-langgraph-python" })]);
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      driverKind: "e2e_deep",
+      probeKeyPrefix: (slug) => `deep-${slug}`,
+      filter: { namePrefix: "showcase-" },
+    });
+
+    const specs = await enumerate(CTX);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg?.probeKey).toBe("deep-langgraph-python");
+    expect(lg?.driverInputs?.key).toBe("deep-langgraph-python");
   });
 });

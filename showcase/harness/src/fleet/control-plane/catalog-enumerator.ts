@@ -109,6 +109,41 @@ export interface D6ServiceEnumeratorDeps {
 }
 
 /**
+ * Build the dashboard `probeKey` for a given service slug. A bare string is
+ * treated as a prefix (`<prefix>:<slug>` — the d6 `d6:<slug>` convention); a
+ * function gives a family full control over the key shape. The same value is
+ * stamped onto `driverInputs.key` so the driver emits the exact dashboard keys.
+ */
+export type ProbeKeyPrefix = string | ((slug: string) => string);
+
+export interface ServiceEnumeratorParams {
+  /** The discovery source to enumerate (production: `railwayServicesSource`). */
+  source: DiscoverySource<RailwayServiceInfo>;
+  /** Frozen env snapshot threaded to the discovery context. */
+  env: Readonly<Record<string, string | undefined>>;
+  /** Fetch impl threaded to the discovery context (tests stub network). */
+  fetchImpl: typeof fetch;
+  logger: Logger;
+  /** The driver kind every enumerated spec runs under (e.g. `e2e_d6`). */
+  driverKind: string;
+  /**
+   * Builds the dashboard `probeKey` (and `driverInputs.key`) per service. A
+   * string is used as a `<prefix>:<slug>` prefix; a function gives full control.
+   */
+  probeKeyPrefix: ProbeKeyPrefix;
+  /**
+   * Service-set filter selecting which discovered services this family runs.
+   * Carries the discovery source's `namePrefix` / `nameExcludes` block.
+   */
+  filter: { namePrefix?: string; nameExcludes?: readonly string[] };
+}
+
+/** Resolve a `ProbeKeyPrefix` into the concrete dashboard key for a slug. */
+function buildProbeKey(prefix: ProbeKeyPrefix, slug: string): string {
+  return typeof prefix === "function" ? prefix(slug) : `${prefix}:${slug}`;
+}
+
+/**
  * Strip the `showcase-` prefix to derive the slug — mirrors the d6 driver's
  * `deriveSlug` and discovery's `deriveSlugFromServiceName` so the enumerated
  * `serviceSlug` / `probeKey` match the keys the dashboard already reads.
@@ -148,17 +183,23 @@ function toDriverInputs(
 }
 
 /**
- * Build the real d6 `ServiceEnumerator`. Each call enumerates the discovery
- * source under the d6 filter and maps every service to one `ServiceJobSpec`.
- * The `EnumerateContext.filter` (operator slug scoping on a triggered run) is
- * applied AFTER discovery so an operator can scope a manual run to a subset of
- * services without re-querying — mirroring the in-process invoker's slug filter.
+ * Build a generic per-service `ServiceEnumerator` parameterized by the
+ * service-set filter, the `driverKind`, and the `probeKey` prefix builder. Each
+ * call enumerates the discovery source under the filter and maps every service
+ * to one `ServiceJobSpec`. The `EnumerateContext.filter` (operator slug scoping
+ * on a triggered run) is applied AFTER discovery so an operator can scope a
+ * manual run to a subset of services without re-querying — mirroring the
+ * in-process invoker's slug filter.
+ *
+ * `createD6ServiceEnumerator` is the d6 specialization of this seam; other
+ * browser families (Phase 2) re-express their enumerators the same way, each
+ * passing its own filter / kind / prefix.
  */
-export function createD6ServiceEnumerator(
-  deps: D6ServiceEnumeratorDeps,
+export function createServiceEnumerator(
+  params: ServiceEnumeratorParams,
 ): ServiceEnumerator {
-  const { source, env, fetchImpl, logger } = deps;
-  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+  const { source, env, fetchImpl, logger, driverKind, probeKeyPrefix, filter } =
+    params;
 
   return async (ctx: EnumerateContext): Promise<ServiceJobSpec[]> => {
     const discoveryCtx: DiscoveryContext = { fetchImpl, env, logger };
@@ -178,11 +219,11 @@ export function createD6ServiceEnumerator(
     for (const svc of services) {
       const slug = deriveSlug(svc.name);
       if (slugSet && !slugSet.has(slug) && !slugSet.has(svc.name)) continue;
-      const probeKey = `d6:${slug}`;
+      const probeKey = buildProbeKey(probeKeyPrefix, slug);
       const spec: ServiceJobSpec = {
         probeKey,
         serviceSlug: slug,
-        driverKind: D6_DRIVER_KIND,
+        driverKind,
         driverInputs: toDriverInputs(svc, slug, probeKey),
       };
       // Forward the operator feature-type scoping to the worker as a cell
@@ -197,9 +238,33 @@ export function createD6ServiceEnumerator(
     logger.info("fleet.control-plane.catalog-enumerated", {
       runId: ctx.runId,
       triggered: ctx.triggered,
+      driverKind,
       discovered: services.length,
       enqueueable: specs.length,
     });
     return specs;
   };
+}
+
+/**
+ * Build the real d6 `ServiceEnumerator` — a thin specialization of
+ * `createServiceEnumerator` with the d6 filter, the `e2e_d6` driver kind, and
+ * the `d6:<slug>` probeKey prefix. d6 behavior is BYTE-IDENTICAL to the prior
+ * hardwired implementation (same services, same filter, same kind, same keys).
+ */
+export function createD6ServiceEnumerator(
+  deps: D6ServiceEnumeratorDeps,
+): ServiceEnumerator {
+  const { source, env, fetchImpl, logger } = deps;
+  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+
+  return createServiceEnumerator({
+    source,
+    env,
+    fetchImpl,
+    logger,
+    driverKind: D6_DRIVER_KIND,
+    probeKeyPrefix: "d6",
+    filter,
+  });
 }
