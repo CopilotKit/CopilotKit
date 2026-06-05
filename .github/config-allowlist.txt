@@ -58,6 +58,7 @@ examples/showcases/research-canvas/frontend/next.config.ts
 examples/showcases/research-canvas/start/frontend/next.config.ts
 examples/showcases/scene-creator/next.config.ts
 examples/showcases/spreadsheet/next.config.mjs
+examples/showcases/strands-crm/frontend/next.config.ts
 examples/showcases/strands-file-analyzer/next.config.ts
 examples/showcases/todo/next.config.mjs
 examples/v1/_legacy/copilot-anthropic-pinecone/next.config.mjs
