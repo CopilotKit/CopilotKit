@@ -165,17 +165,27 @@ export function createA2UIMessageRenderer(
         content[A2UI_OPERATIONS_KEY].length > 0;
       if (!contentHasOps) lastLoaderContentRef.current = content;
 
-      // Cross-over: when operations first arrive, the A2UIProvider needs a couple
-      // ticks to process them and paint. Hold the loader in-flow (it defines the
-      // height) while the surface paints OFFSCREEN, then swap — so the first card
-      // REPLACES the skeleton with no empty gap. (OSS-162)
+      // Cross-over: hold the loader in-flow while the surface mounts + paints
+      // OFFSCREEN, then swap the instant the surface reports its first painted
+      // content (onReady). That makes the card REPLACE the skeleton with no gap,
+      // independent of stream latency / payload size / machine speed — a fixed
+      // delay can't, since the "right" delay varies with all of those. The timer
+      // below is only a safety fallback if onReady never fires. (OSS-162)
       const [surfaceReady, setSurfaceReady] = useState(false);
+      const readyRef = useRef(false);
+      const markSurfaceReady = useCallback(() => {
+        if (readyRef.current) return;
+        readyRef.current = true;
+        // One frame so the painted surface is on-screen before the loader drops.
+        requestAnimationFrame(() => setSurfaceReady(true));
+      }, []);
       useEffect(() => {
         if (!hasOps) {
           setSurfaceReady(false);
+          readyRef.current = false;
           return;
         }
-        const t = setTimeout(() => setSurfaceReady(true), 220);
+        const t = setTimeout(() => setSurfaceReady(true), 1500); // fallback only
         return () => clearTimeout(t);
       }, [hasOps]);
 
@@ -197,6 +207,7 @@ export function createA2UIMessageRenderer(
               agent={agent}
               copilotkit={copilotkit}
               catalog={catalog}
+              onReady={markSurfaceReady}
             />
           ))}
         </div>
@@ -240,6 +251,8 @@ type ReactSurfaceHostProps = {
   copilotkit: any;
   /** Optional component catalog to pass to A2UIProvider */
   catalog?: any;
+  /** Fired once the surface has processed its first operations (painted). */
+  onReady?: () => void;
 };
 
 /**
@@ -253,6 +266,7 @@ function ReactSurfaceHost({
   agent,
   copilotkit,
   catalog,
+  onReady,
 }: ReactSurfaceHostProps) {
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
@@ -284,6 +298,7 @@ function ReactSurfaceHost({
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}
+          onReady={onReady}
         />
         <A2UISurfaceOrError surfaceId={surfaceId} />
       </A2UIProvider>
@@ -314,9 +329,11 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
 function SurfaceMessageProcessor({
   surfaceId,
   operations,
+  onReady,
 }: {
   surfaceId: string;
   operations: any[];
+  onReady?: () => void;
 }) {
   const { processMessages, getSurface } = useA2UIActions();
   const lastHashRef = useRef<string>("");
@@ -338,7 +355,9 @@ function SurfaceMessageProcessor({
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
-  }, [processMessages, getSurface, surfaceId, operations]);
+    // The surface now has content → signal the cross-over to swap. (OSS-162)
+    onReady?.();
+  }, [processMessages, getSurface, surfaceId, operations, onReady]);
 
   return null;
 }
