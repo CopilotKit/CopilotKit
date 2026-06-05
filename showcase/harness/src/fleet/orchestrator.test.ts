@@ -11,7 +11,10 @@ import type {
   ServiceJobResult,
 } from "./contracts.js";
 import type { Logger } from "../types/index.js";
-import type { LaunchBrowser, CgroupPidsReader } from "../probes/helpers/browser-pool.js";
+import type {
+  LaunchBrowser,
+  CgroupPidsReader,
+} from "../probes/helpers/browser-pool.js";
 
 /**
  * Fleet WORKER entrypoint (`runWorker`, fleet/orchestrator.ts) — DEFAULT
