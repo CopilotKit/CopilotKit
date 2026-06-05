@@ -22,11 +22,13 @@ import type { ServiceEntry } from "../railway-envs";
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
     // Every real SSOT entry has gateIgnore unset (undefined / falsy),
-    // EXCEPT the staging-only `showcase-harness-worker` pool-fleet worker,
-    // which is deliberately gateIgnore:true (no prod instance, no public
-    // domain — it does not fit the symmetric dual-env shape the gate
-    // validates). See its SSOT entry in railway-envs.ts for the rationale.
-    const GATE_IGNORED = new Set(["showcase-harness-worker"]);
+    // EXCEPT two deliberately gateIgnore:true entries: the staging-only
+    // `showcase-harness-worker` pool-fleet worker (no public domain, does not
+    // fit the symmetric dual-env shape the gate validates) and the interim
+    // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
+    // digest, not the canonical :latest/@sha256 shape). See their SSOT
+    // entries in railway-envs.ts for the rationale.
+    const GATE_IGNORED = new Set(["showcase-harness-worker", "harness-legacy"]);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
       if (GATE_IGNORED.has(name)) {
@@ -232,15 +234,17 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 28 services in the SSOT", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(28);
+  it("has 29 services in the SSOT", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(29);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // The staging-only `showcase-harness-worker` is the sole intentional
-    // gateValidated:false entry (it is gateIgnore:true — no prod instance,
-    // no public domain). Every OTHER service must be gateValidated:true.
-    const GATE_IGNORED = new Set(["showcase-harness-worker"]);
+    // Two intentional gateValidated:false entries: the staging-only
+    // `showcase-harness-worker` (gateIgnore:true — no public domain) and the
+    // interim `harness-legacy` fleet-migration bridge (gateIgnore:true — runs
+    // a pinned out-of-band digest). Every OTHER service must be
+    // gateValidated:true.
+    const GATE_IGNORED = new Set(["showcase-harness-worker", "harness-legacy"]);
     const unvalidated = Object.entries(SERVICES)
       .filter(
         ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),
