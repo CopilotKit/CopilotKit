@@ -411,6 +411,20 @@ export function createStarterSmokeDriver(
             timeoutMs,
             now: ctx.now,
             abortSignal: ctx.abortSignal,
+            // The scoped per-integration "Hello" chat fixtures in
+            // `showcase/aimock/d4/<integration>/chat.json` only match when the
+            // request carries `X-AIMock-Context:<context>` — and that context
+            // token IS the dashboard column slug (verified against each
+            // integration's `showcase/integrations/<col>/playwright.config.ts`
+            // `extraHTTPHeaders["X-AIMock-Context"]` and the fixture's
+            // `match.context`). The local browser e2e passes only because
+            // Playwright injects this header, forwarded by the integration's
+            // HeaderForwardingMiddleware to aimock. A raw `fetch()` that omits
+            // it 503s under aimock strict mode ("no fixture matched"). Send the
+            // column slug as the context so the chat rung matches the same
+            // scoped fixture the browser does. Only the chat POST carries it
+            // (matching the browser); the GET rungs never reach aimock.
+            aimockContext: columnSlug,
           });
         }
 
@@ -542,8 +556,18 @@ async function probeLevel(opts: {
   timeoutMs: number;
   now: () => Date;
   abortSignal?: AbortSignal;
+  /**
+   * The `X-AIMock-Context` value the chat POST must carry to match the scoped
+   * per-integration fixture (the dashboard column slug — see the call site).
+   * Applies to the chat rung ONLY (the browser sends it on the chat turn; the
+   * GET rungs hit the runtime `/info` route, not aimock). Absent/empty → no
+   * header is sent (preserves the prior raw-fetch behaviour for any starter
+   * without a scoped fixture context).
+   */
+  aimockContext?: string;
 }): Promise<LevelOutcome> {
-  const { fetchImpl, level, url, timeoutMs, now, abortSignal } = opts;
+  const { fetchImpl, level, url, timeoutMs, now, abortSignal, aimockContext } =
+    opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   // Track WHY this specific check terminated. The shared `abortSignal` is
@@ -599,6 +623,15 @@ async function probeLevel(opts: {
         ? {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
+            // Match the scoped per-integration "Hello" fixture: aimock strict
+            // mode keys the fixture on `X-AIMock-Context`, and the value is the
+            // dashboard column slug (the SAME value the integration's
+            // playwright.config.ts injects via `extraHTTPHeaders`). Omit the
+            // header when no context is provided so the prior behaviour is
+            // preserved for any starter without a scoped fixture context.
+            ...(aimockContext && aimockContext.length > 0
+              ? { "X-AIMock-Context": aimockContext }
+              : {}),
           }
         : undefined,
       body: isChat ? CHAT_RUN_BODY : undefined,
