@@ -50,8 +50,27 @@ import type {
   EnumerateContext,
 } from "./job-producer.js";
 
+import {
+  E2E_SMOKE_DRIVER_KIND,
+  E2E_DEMOS_DRIVER_KIND,
+  E2E_DEEP_DRIVER_KIND,
+} from "../worker/payload-mapper.js";
+
 /** The d6 driver kind every enumerated spec runs under. */
 export const D6_DRIVER_KIND = "e2e_d6";
+
+/**
+ * The demos family's outer-cap timeout (ms) — the SINGLE SOURCE OF TRUTH
+ * mirroring `config/probes/e2e-demos.yml`'s `timeout_ms` (20 min). On the legacy
+ * in-process path the orchestrator threads this YAML value into the demos driver
+ * via the `E2E_DEMOS_TIMEOUT_MS` env (see `orchestrator.ts` `envForCfg`). The
+ * fleet WORKER does not run that boot path and never sets that env, so the demos
+ * enumerator instead CONVEYS the cap per-job in `driverInputs.timeout_ms` (the
+ * driver reads `input.timeout_ms`). Without it the 38-demo service would blow the
+ * driver's 5-min `DEFAULT_TIMEOUT_MS` and go all-red. Keep this in lockstep with
+ * the YAML until the in-process and fleet run paths converge on one config.
+ */
+export const E2E_DEMOS_TIMEOUT_MS = 1_200_000;
 
 /**
  * The d6 service-set filter — the SINGLE SOURCE OF TRUTH mirroring
@@ -146,6 +165,16 @@ export interface ServiceEnumeratorParams {
    * Carries the discovery source's `namePrefix` / `nameExcludes` block.
    */
   filter: ServiceSetFilter;
+  /**
+   * Extra family-wide `driverInputs` fields spread onto every enumerated spec's
+   * `driverInputs` AFTER the per-service `toDriverInputs` projection, so a family
+   * can convey a YAML-derived knob the worker can't otherwise reach (e.g. the
+   * demos `timeout_ms` outer cap — the fleet worker never sets the legacy
+   * `E2E_DEMOS_TIMEOUT_MS` env). The per-service fields win on key collision; the
+   * conveyed knobs (e.g. `timeout_ms`) never collide with the per-service shape.
+   * Omitted by d6/smoke/deep (their specs are unchanged).
+   */
+  extraDriverInputs?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -214,8 +243,16 @@ function toDriverInputs(
 export function createServiceEnumerator(
   params: ServiceEnumeratorParams,
 ): ServiceEnumerator {
-  const { source, env, fetchImpl, logger, driverKind, probeKeyPrefix, filter } =
-    params;
+  const {
+    source,
+    env,
+    fetchImpl,
+    logger,
+    driverKind,
+    probeKeyPrefix,
+    filter,
+    extraDriverInputs,
+  } = params;
 
   // Fail loud on a filter with no `namePrefix`: the discovery source treats an
   // absent/empty prefix as "match everything", which would enumerate ALL
@@ -262,7 +299,13 @@ export function createServiceEnumerator(
         probeKey,
         serviceSlug: slug,
         driverKind,
-        driverInputs: toDriverInputs(svc, slug, probeKey),
+        // Family-wide conveyed knobs (e.g. demos `timeout_ms`) spread FIRST so
+        // the per-service `toDriverInputs` projection always wins on a key
+        // collision — the conveyed knobs never overlap the per-service shape.
+        driverInputs: {
+          ...extraDriverInputs,
+          ...toDriverInputs(svc, slug, probeKey),
+        },
       };
       // Forward the operator feature-type scoping to the worker as a cell
       // narrowing (the d6 driver filters by ctx.featureTypes); per-service is
@@ -307,5 +350,96 @@ export function createD6ServiceEnumerator(
     driverKind: D6_DRIVER_KIND,
     probeKeyPrefix: "d6",
     filter,
+  });
+}
+
+/**
+ * Build the real e2e-smoke (`d4`) `ServiceEnumerator` — a thin specialization of
+ * `createServiceEnumerator` with the shared showcase filter, the `e2e_smoke`
+ * driver kind, and the `d4:<slug>` probeKey prefix (matching `src/cli/targets.ts`
+ * `d4:<slug>` and `config/probes/e2e-smoke.yml`). The fleet WORKER routes
+ * `e2e_smoke` jobs to its pooled smoke driver, which sets the per-slug
+ * `X-AIMock-Context` header itself via the pooled launcher.
+ */
+export function createE2eSmokeServiceEnumerator(
+  deps: D6ServiceEnumeratorDeps,
+): ServiceEnumerator {
+  const { source, env, fetchImpl, logger } = deps;
+  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+
+  return createServiceEnumerator({
+    source,
+    env,
+    fetchImpl,
+    logger,
+    driverKind: E2E_SMOKE_DRIVER_KIND,
+    probeKeyPrefix: "d4",
+    filter,
+  });
+}
+
+/**
+ * Build the real e2e-deep (`d5-single-pill-e2e`) `ServiceEnumerator` — a thin
+ * specialization of `createServiceEnumerator` with the shared showcase filter,
+ * the `e2e_deep` driver kind, and the `d5-single-pill-e2e:<slug>` probeKey prefix
+ * (matching `src/cli/targets.ts` `d5-single-pill-e2e:<slug>` and
+ * `config/probes/e2e-deep.yml`).
+ */
+export function createE2eDeepServiceEnumerator(
+  deps: D6ServiceEnumeratorDeps,
+): ServiceEnumerator {
+  const { source, env, fetchImpl, logger } = deps;
+  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+
+  return createServiceEnumerator({
+    source,
+    env,
+    fetchImpl,
+    logger,
+    driverKind: E2E_DEEP_DRIVER_KIND,
+    probeKeyPrefix: "d5-single-pill-e2e",
+    filter,
+  });
+}
+
+/** Deps for the demos enumerator — `D6ServiceEnumeratorDeps` plus the outer-cap. */
+export interface E2eDemosServiceEnumeratorDeps extends D6ServiceEnumeratorDeps {
+  /**
+   * The demos driver's outer-cap timeout (ms), conveyed per-job in
+   * `driverInputs.timeout_ms` so the fleet worker's pooled demos driver reads it
+   * (the worker never sets the legacy `E2E_DEMOS_TIMEOUT_MS` env). Defaults to
+   * {@link E2E_DEMOS_TIMEOUT_MS} (the `config/probes/e2e-demos.yml` value).
+   */
+  timeoutMs?: number;
+}
+
+/**
+ * Build the real e2e-demos (`e2e-demos`) `ServiceEnumerator` — a thin
+ * specialization of `createServiceEnumerator` with the shared showcase filter,
+ * the `e2e_demos` driver kind, and the `e2e-demos:<slug>` probeKey prefix
+ * (matching `config/probes/e2e-demos.yml` `id: e2e-demos`).
+ *
+ * Unlike the other families, demos CONVEYS its YAML `timeout_ms` outer cap into
+ * each spec's `driverInputs.timeout_ms` (see {@link E2E_DEMOS_TIMEOUT_MS}): the
+ * fleet worker re-hydrates the payload but never sets the legacy
+ * `E2E_DEMOS_TIMEOUT_MS` env, so without this the 38-demo service would blow the
+ * demos driver's 5-min `DEFAULT_TIMEOUT_MS` and go all-red.
+ */
+export function createE2eDemosServiceEnumerator(
+  deps: E2eDemosServiceEnumeratorDeps,
+): ServiceEnumerator {
+  const { source, env, fetchImpl, logger } = deps;
+  const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+  const timeoutMs = deps.timeoutMs ?? E2E_DEMOS_TIMEOUT_MS;
+
+  return createServiceEnumerator({
+    source,
+    env,
+    fetchImpl,
+    logger,
+    driverKind: E2E_DEMOS_DRIVER_KIND,
+    probeKeyPrefix: "e2e-demos",
+    filter,
+    extraDriverInputs: { timeout_ms: timeoutMs },
   });
 }

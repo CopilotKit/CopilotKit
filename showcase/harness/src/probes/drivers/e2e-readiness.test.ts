@@ -798,6 +798,128 @@ describe("e2e-demos driver", () => {
     expect(aborts.length).toBeGreaterThan(0);
   });
 
+  // --- Fleet path: per-job cap conveyed via input.timeout_ms ------------
+  //
+  // On the fleet the worker re-hydrates the driver input from the job payload
+  // and NEVER sets the legacy E2E_DEMOS_TIMEOUT_MS env. The demos enumerator
+  // (createE2eDemosServiceEnumerator) conveys the YAML 20-min cap in
+  // `driverInputs.timeout_ms`; the driver must read it so the 38-demo service
+  // doesn't blow the 5-min DEFAULT_TIMEOUT_MS and go all-red.
+
+  it("input.timeout_ms (fleet payload) wins over the deps default when env is absent", async () => {
+    // A goto that resolves quickly; the assertion is about WHICH cap fired.
+    // deps.timeoutMs is a tiny 10ms — if input.timeout_ms (5000ms) is honored,
+    // the per-demo work completes with no abort rows. If the deps default
+    // wins, the 10ms cap fires an abort.
+    let gotoStarted = false;
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        gotoStarted = true;
+        await new Promise((r) => setTimeout(r, 20));
+      },
+      async waitForSelector() {
+        /* match immediately */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      timeoutMs: 10,
+    });
+    const { writer, writes } = mkWriter();
+
+    // No E2E_DEMOS_TIMEOUT_MS env (fleet worker reality); cap comes from payload.
+    const result = await driver.run(mkCtx(writer, {}), {
+      key: "e2e-demos:input-timeout",
+      name: "showcase-input-timeout",
+      publicUrl: "https://showcase-input-timeout.example.com",
+      demos: ["d1"],
+      shape: "package",
+      timeout_ms: 5000,
+    });
+
+    expect(gotoStarted).toBe(true);
+    expect(result.state).toBe("green");
+    const aborts = writes.filter(
+      (w) => (w.signal as { errorClass?: string })?.errorClass === "abort",
+    );
+    expect(aborts).toHaveLength(0);
+  });
+
+  it("env override still wins over input.timeout_ms (precedence: env > input > deps)", async () => {
+    // env caps at 50ms, input.timeout_ms is a generous 60_000ms, goto sleeps
+    // 200ms. If env wins (correct), the 50ms cap fires abort rows. If input
+    // wrongly won, the run would complete green.
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        await new Promise((r) => setTimeout(r, 200));
+      },
+      async waitForSelector() {
+        /* never gets here */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      timeoutMs: 5 * 60 * 1000,
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtx(writer, { E2E_DEMOS_TIMEOUT_MS: "50" }),
+      {
+        key: "e2e-demos:env-beats-input",
+        name: "showcase-env-beats-input",
+        publicUrl: "https://showcase-env-beats-input.example.com",
+        demos: ["d1", "d2", "d3"],
+        shape: "package",
+        timeout_ms: 60_000,
+      },
+    );
+
+    expect(result.state).toBe("red");
+    const aborts = writes.filter(
+      (w) => (w.signal as { errorClass?: string })?.errorClass === "abort",
+    );
+    expect(aborts.length).toBeGreaterThan(0);
+  });
+
   // --- L: Driver fires internal cap mid-fan-out, side-emits abort rows ---
 
   it("driver fires the internal cap mid-fan-out and side-emits errorClass: 'abort' rows for remaining demos", async () => {

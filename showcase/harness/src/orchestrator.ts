@@ -109,17 +109,28 @@ import {
   DEFAULT_WORKER_STALE_AFTER_MS,
   type RestartWorkerHook,
 } from "./fleet/control-plane/fleet-health.js";
-import { createD6ServiceEnumerator } from "./fleet/control-plane/catalog-enumerator.js";
+import {
+  createD6ServiceEnumerator,
+  createE2eSmokeServiceEnumerator,
+  createE2eDemosServiceEnumerator,
+  createE2eDeepServiceEnumerator,
+} from "./fleet/control-plane/catalog-enumerator.js";
 import {
   buildJobProducer,
   createControlPlane,
+  DEFAULT_PRODUCER_CRON,
+  FLEET_PRODUCER_SCHEDULE_ID,
 } from "./fleet/control-plane/control-plane.js";
 import type {
   ControlPlane,
+  ProducerSchedule,
   PriorStateResolver,
   SweepAggregateKeyResolver,
 } from "./fleet/control-plane/control-plane.js";
-import type { ServiceEnumerator } from "./fleet/control-plane/job-producer.js";
+import type {
+  ServiceEnumerator,
+  JobProducer,
+} from "./fleet/control-plane/job-producer.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -1167,6 +1178,71 @@ export function assertHttpBrowserKindPartition(httpKinds: string[]): void {
         `HTTP driver set and BROWSER_KINDS must be DISJOINT.`,
     );
   }
+}
+
+/**
+ * The scheduler entry id + cron for each BROWSER probe family's fleet producer.
+ *
+ * The crons are LITERAL from `config/probes/*.yml` `schedule:` and the OFFSETS
+ * ARE DELIBERATE — the four browser families share ONE BrowserPool (capped at
+ * `BROWSER_POOL_MAX_CONTEXTS`, 24) on the pooled worker(s), so co-firing all
+ * four Playwright fan-outs at the same minute would starve the pool. Staggering
+ * their producer ticks (smoke every :15, demos at :10, deep at :05/:20/:35/:50,
+ * d6 at :40) keeps the families from claiming the pool simultaneously. Do NOT
+ * "tidy" these to a uniform cadence — keep each in lockstep with its YAML.
+ *
+ * The d6 entry keeps the historic `FLEET_PRODUCER_SCHEDULE_ID`
+ * (`fleet-job-producer`) so the degenerate single-schedule behavior is
+ * preserved exactly for d6 (and a `FLEET_PRODUCER_CRON` env override still wins
+ * for d6 — see `buildProducerSchedules`).
+ */
+export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
+export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
+export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
+
+/** Scheduler entry ids for the three non-d6 browser-family producers. */
+export const FLEET_PRODUCER_SMOKE_SCHEDULE_ID = "fleet-producer-e2e-smoke";
+export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
+export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
+
+/**
+ * Assemble the multi-schedule producer manifest `runControlPlane` passes to
+ * `createControlPlane`. Pure (no I/O) so the schedule ids + crons are
+ * unit-testable without booting the control-plane. Each browser family ticks on
+ * its own cron from the YAML (see the cron constants above for the offset
+ * rationale); the d6 entry keeps `fleet-job-producer` and honors the
+ * `FLEET_PRODUCER_CRON` env override (`d6Cron`) for the local fast-cadence seam.
+ */
+export function buildProducerSchedules(producers: {
+  d6: JobProducer;
+  smoke: JobProducer;
+  demos: JobProducer;
+  deep: JobProducer;
+  /** d6 cron — `FLEET_PRODUCER_CRON` override or `DEFAULT_PRODUCER_CRON`. */
+  d6Cron?: string;
+}): ProducerSchedule[] {
+  return [
+    {
+      scheduleId: FLEET_PRODUCER_SCHEDULE_ID,
+      cron: producers.d6Cron ?? DEFAULT_PRODUCER_CRON,
+      producer: producers.d6,
+    },
+    {
+      scheduleId: FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+      cron: FLEET_PRODUCER_SMOKE_CRON,
+      producer: producers.smoke,
+    },
+    {
+      scheduleId: FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+      cron: FLEET_PRODUCER_DEMOS_CRON,
+      producer: producers.demos,
+    },
+    {
+      scheduleId: FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+      cron: FLEET_PRODUCER_DEEP_CRON,
+      producer: producers.deep,
+    },
+  ];
 }
 
 /**
@@ -2229,6 +2305,31 @@ export async function runControlPlane(
       fetchImpl: globalThis.fetch,
       logger,
     });
+  // The three non-d6 BROWSER families (smoke/demos/deep) each get their own
+  // catalog enumerator over the SAME `railway-services` source + shared showcase
+  // filter, differing only in driverKind + dashboard probeKey prefix (and, for
+  // demos, the conveyed `timeout_ms` outer cap). `opts.fleetEnumerate` is a
+  // d6-ONLY test seam (it overrides the d6 enumerate above) — the new families
+  // always use their real enumerators so a d6-focused test override never
+  // accidentally re-points them. Each becomes its own fleet producer below.
+  const enumerateSmoke = createE2eSmokeServiceEnumerator({
+    source: railwayServicesSource,
+    env: process.env,
+    fetchImpl: globalThis.fetch,
+    logger,
+  });
+  const enumerateDemos = createE2eDemosServiceEnumerator({
+    source: railwayServicesSource,
+    env: process.env,
+    fetchImpl: globalThis.fetch,
+    logger,
+  });
+  const enumerateDeep = createE2eDeepServiceEnumerator({
+    source: railwayServicesSource,
+    env: process.env,
+    fetchImpl: globalThis.fetch,
+    logger,
+  });
   // REQ-B producer-sweep leg: the producer's lease-driven `sweepExpired`
   // synthesizes a `worker-crashed-mid-job` comm error per reclaimed job, but a
   // bare swept error carries only the `jobId`, not the `d6:<slug>` dashboard
@@ -2269,10 +2370,31 @@ export async function runControlPlane(
     logger,
     // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
     // which resolves each `d6:<slug>` key and writes the overlay through the
-    // aggregator. Best-effort; never aborts production.
+    // aggregator. Best-effort; never aborts production. Only the d6 producer
+    // wires this sweep leg — it's the historic REQ-B path and stays unchanged;
+    // the three new browser-family producers below do not forward sweep errors.
     onSweepCommErrors: async (commErrors) => {
       await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
     },
+  });
+  // The three non-d6 browser families each get their own producer over their
+  // family enumerator. They intentionally do NOT wire `onSweepCommErrors`: the
+  // single REQ-B sweep-surfacing leg stays on the d6 producer (preserving the
+  // current behavior); adding parallel sweep legs is out of scope for Phase 2.
+  const smokeProducer = buildJobProducer({
+    queue,
+    enumerate: enumerateSmoke,
+    logger,
+  });
+  const demosProducer = buildJobProducer({
+    queue,
+    enumerate: enumerateDemos,
+    logger,
+  });
+  const deepProducer = buildJobProducer({
+    queue,
+    enumerate: enumerateDeep,
+    logger,
   });
 
   // Producer cron cadence. Defaults to the hourly-at-:40 rhythm
@@ -2280,8 +2402,22 @@ export async function runControlPlane(
   // Env-overridable via FLEET_PRODUCER_CRON so a local N=1 run can drive the
   // SAME enqueue path on a fast cadence (e.g. `* * * * *`) instead of waiting
   // up to an hour for the top-of-:40 tick — local exercises the identical
-  // producer→queue→worker→consumer chain prod runs, just more often.
+  // producer→queue→worker→consumer chain prod runs, just more often. The env
+  // override applies to the d6 producer only; the three new browser families
+  // keep their literal YAML crons (the deliberate offsets that stagger the
+  // shared BrowserPool — see buildProducerSchedules).
   const producerCron = process.env.FLEET_PRODUCER_CRON?.trim() || undefined;
+
+  // Multi-schedule manifest: one producer per browser family, each on its own
+  // cron. d6 keeps `fleet-job-producer` @ its (optionally env-overridden) cron;
+  // smoke/demos/deep tick on their staggered YAML crons.
+  const schedules: ProducerSchedule[] = buildProducerSchedules({
+    d6: producer,
+    smoke: smokeProducer,
+    demos: demosProducer,
+    deep: deepProducer,
+    ...(producerCron ? { d6Cron: producerCron } : {}),
+  });
 
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the
@@ -2289,7 +2425,13 @@ export async function runControlPlane(
   // fleet-health monitor on its own interval and feeds each reclaimedOverlays
   // entry — and each swept error via surfaceSweepCommErrors — to the aggregator).
   const controlPlane = createControlPlane({
+    // `producer` is still required by the API (the degenerate single-d6 case),
+    // but it's IGNORED when `schedules` is provided — the d6 producer is already
+    // the first entry in `schedules`. The `FLEET_PRODUCER_CRON` env override is
+    // threaded into the d6 schedule's cron via `buildProducerSchedules`, so the
+    // degenerate `producerCron` knob is intentionally not passed here.
     producer,
+    schedules,
     consumer,
     scheduler,
     logger,
@@ -2297,7 +2439,6 @@ export async function runControlPlane(
     fleetHealth,
     resolveSweepAggregateKey,
     resolvePriorState,
-    ...(producerCron ? { producerCron } : {}),
   });
   controlPlaneRef = controlPlane;
 
