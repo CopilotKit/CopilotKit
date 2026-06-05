@@ -8,8 +8,7 @@
 //
 // Ported from langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

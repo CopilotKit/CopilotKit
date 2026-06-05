@@ -45,17 +45,17 @@
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
 import type { JobClaimClient, JobView } from "./job-claim.js";
-import { terminalJobStatus } from "./contracts.js";
-import type {
-  ClaimedJob,
-  EnqueueJobInput,
-  FleetQueueClient,
-  JobLease,
-  PoolCommError,
-  ReportJobInput,
-  ServiceJobMeta,
-  ServiceJobPayload,
-  SweepResult,
+import {
+  terminalJobStatus,
+  type ClaimedJob,
+  type EnqueueJobInput,
+  type FleetQueueClient,
+  type JobLease,
+  type PoolCommError,
+  type ReportJobInput,
+  type ServiceJobMeta,
+  type ServiceJobPayload,
+  type SweepResult,
 } from "./contracts.js";
 
 /**

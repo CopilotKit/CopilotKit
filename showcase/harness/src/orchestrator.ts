@@ -87,8 +87,8 @@ import {
 import {
   commErrorToStatusSignal,
   WORKERS_COLLECTION,
+  type PoolCommError,
 } from "./fleet/contracts.js";
-import type { PoolCommError } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import { createD6PayloadToInput } from "./fleet/worker/payload-mapper.js";
 import { registerWorker } from "./fleet/worker/registration.js";
@@ -100,8 +100,8 @@ import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
 import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
+  type RestartWorkerHook,
 } from "./fleet/control-plane/fleet-health.js";
-import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
 import { createD6ServiceEnumerator } from "./fleet/control-plane/catalog-enumerator.js";
 import {
   buildJobProducer,

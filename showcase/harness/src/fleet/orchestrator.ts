@@ -37,11 +37,11 @@ import type { Logger } from "../types/index.js";
 import type { FleetRoleConfig } from "./role-config.js";
 import type { FleetQueueClient } from "./contracts.js";
 import { buildWorkerHealthServer } from "./worker/worker-health.js";
-import { startWorkerLoop } from "./worker/worker-loop.js";
-import type {
-  PayloadToDriverInput,
-  ServiceJobDriver,
-  WorkerLoopHandle,
+import {
+  startWorkerLoop,
+  type PayloadToDriverInput,
+  type ServiceJobDriver,
+  type WorkerLoopHandle,
 } from "./worker/worker-loop.js";
 
 /** The worker boot handle — symmetric with the control-plane `boot()` shape. */

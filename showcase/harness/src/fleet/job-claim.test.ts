@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createJobClaimClient } from "./job-claim.js";
-import type { JobView } from "./job-claim.js";
+import { createJobClaimClient, type JobView } from "./job-claim.js";
 import { logger } from "../logger.js";
 
 function makeFetch(

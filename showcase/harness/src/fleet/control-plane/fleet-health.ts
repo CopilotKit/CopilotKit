@@ -52,8 +52,12 @@ import type { Logger } from "../../types/index.js";
 import type { PbClient } from "../../storage/pb-client.js";
 import type { JobClaimClient, JobView } from "../job-claim.js";
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
-import { WORKERS_COLLECTION, isWorkerStale } from "../contracts.js";
-import type { PoolCommError, WorkerHealthState } from "../contracts.js";
+import {
+  WORKERS_COLLECTION,
+  isWorkerStale,
+  type PoolCommError,
+  type WorkerHealthState,
+} from "../contracts.js";
 
 /**
  * Default staleness window: a worker whose `last_heartbeat_at` is older than

@@ -2,8 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createJobProducer,
   DEFAULT_SWEEP_INTERVAL_MS,
+  type JobProducer,
+  type ServiceJobSpec,
 } from "./job-producer.js";
-import type { JobProducer, ServiceJobSpec } from "./job-producer.js";
 import type {
   EnqueueJobInput,
   FleetQueueClient,

@@ -70,18 +70,18 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Generative UI** – Allows agents to generate and update UI components dynamically at runtime based on user intent and agent state.
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
-- **Self-Learning** _(early access)_ – Agents that continuously improve from user feedback via in-context reinforcement learning (CLHF).
+- **Self-Learning** *(early access)* – Agents that continuously improve from user feedback via in-context reinforcement learning (CLHF).
 
 ## 🧩 Works With Your Stack
 
 One agent backend. Every frontend.
 
-| Platform           | Status       | Get Started                                                                                                 |
-| ------------------ | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| ⚛️ React / Next.js | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                          |
+| Platform           | Status       | Get Started                                                 |
+| ------------------ | ------------ | ----------------------------------------------------------- |
+| ⚛️ React / Next.js | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart) |
 | 🅰️ Angular         | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
-| 💚 Vue             | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
-| 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
+| 💚 Vue             | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
+| 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native) |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 

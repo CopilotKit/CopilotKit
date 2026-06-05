@@ -24,8 +24,10 @@ import type {
   WorkerRegistryReadPb,
 } from "./orchestrator.js";
 import type { State, ProbeResult } from "./types/index.js";
-import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
-import type { PoolCommError } from "./fleet/contracts.js";
+import {
+  FLEET_COMM_ERROR_SIGNAL_KEY,
+  type PoolCommError,
+} from "./fleet/contracts.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";

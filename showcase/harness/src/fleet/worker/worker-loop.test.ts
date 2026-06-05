@@ -5,11 +5,9 @@ import {
   computeRollup,
   buildServiceJobResult,
   buildCommErrorResult,
-} from "./worker-loop.js";
-import type {
-  ServiceJobDriver,
-  ServiceDriverContext,
-  BudgetSource,
+  type ServiceJobDriver,
+  type ServiceDriverContext,
+  type BudgetSource,
 } from "./worker-loop.js";
 import type {
   FleetQueueClient,

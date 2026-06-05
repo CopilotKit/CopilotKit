@@ -13,8 +13,7 @@
 // - src/app/api/copilotkit-ogui/route.ts (scoping pattern)
 // - src/app/api/copilotkit-mcp-apps/route.ts (mcpApps config pattern)
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

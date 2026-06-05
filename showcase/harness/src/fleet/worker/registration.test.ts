@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerWorker } from "./registration.js";
-import type {
-  RegistrationPbClient,
-  RegistrationLogger,
-  WorkerPoolBudgetSource,
+import {
+  registerWorker,
+  type RegistrationPbClient,
+  type RegistrationLogger,
+  type WorkerPoolBudgetSource,
 } from "./registration.js";
 import { WORKERS_COLLECTION } from "../contracts.js";
 import type { BrowserPoolBudget } from "../../probes/helpers/browser-pool.js";
@@ -35,7 +35,7 @@ function makeFakePb(): {
     ): Promise<T> {
       upserts.push({ collection, field, value, record });
       // Merge over existing state (mirrors PB upsert semantics).
-      state = { ...state, [field]: value, ...record };
+      state = { ...(state ?? {}), [field]: value, ...record };
       return state as T;
     },
   };

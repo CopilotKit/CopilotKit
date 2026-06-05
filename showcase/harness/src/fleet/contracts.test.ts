@@ -15,12 +15,10 @@ import {
   terminalJobStatus,
   FLEET_COMM_ERROR_SIGNAL_KEY,
   WORKERS_COLLECTION,
-} from "./contracts.js";
-import type {
-  PoolCommError,
-  ServiceJobResult,
-  WorkerCapacity,
-  FleetStatusRow,
+  type PoolCommError,
+  type ServiceJobResult,
+  type WorkerCapacity,
+  type FleetStatusRow,
 } from "./contracts.js";
 
 /**

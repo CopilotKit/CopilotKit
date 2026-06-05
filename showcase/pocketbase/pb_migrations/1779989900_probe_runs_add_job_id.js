@@ -31,7 +31,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_runs");
-    } catch {
+    } catch (e) {
       // The base collection isn't present yet — the create migration (lower
       // unix prefix) runs first; if it somehow hasn't, this is a no-op rather
       // than a hard failure.
@@ -66,7 +66,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_runs");
-    } catch {
+    } catch (e) {
       return;
     }
     // Drop the index first, then the field.

@@ -81,7 +81,7 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
     let rec;
     try {
       rec = txDao.findRecordById("probe_jobs", jobId);
-    } catch {
+    } catch (e) {
       return; // unknown job → claimed stays false
     }
     const status = rec.get("status");
@@ -159,7 +159,7 @@ routerAdd("POST", "/api/fleet/renew", (c) => {
     let rec;
     try {
       rec = txDao.findRecordById("probe_jobs", jobId);
-    } catch {
+    } catch (e) {
       return;
     }
     const status = rec.get("status");
@@ -231,7 +231,7 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     let rec;
     try {
       rec = txDao.findRecordById("probe_jobs", jobId);
-    } catch {
+    } catch (e) {
       return;
     }
     // Only the current lease holder may release, and only while the row is in a
