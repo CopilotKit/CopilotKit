@@ -3469,8 +3469,7 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
       expect(ids).not.toContain("probe:e2e_smoke");
 
       // Crons are driven FROM the YAML `schedule`, never hardcoded.
-      const cronFor = (id: string) =>
-        registered.find((r) => r.id === id)?.cron;
+      const cronFor = (id: string) => registered.find((r) => r.id === id)?.cron;
       expect(cronFor("probe:smoke")).toBe("*/5 * * * *");
       expect(cronFor("probe:image_drift")).toBe("*/15 * * * *");
       expect(cronFor("probe:qa")).toBe("0 * * * *");
@@ -3813,7 +3812,9 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
 
     // Drive the probe loader's watch callback manually so the reload path is
     // deterministic (no chokidar timing). `unwatch` records teardown.
-    let watchCb: ((next: import("./probes/loader/schema.js").ProbeConfig[]) => void) | undefined;
+    let watchCb:
+      | ((next: import("./probes/loader/schema.js").ProbeConfig[]) => void)
+      | undefined;
     let unwatched = false;
     const smokeCfg = {
       kind: "smoke",
