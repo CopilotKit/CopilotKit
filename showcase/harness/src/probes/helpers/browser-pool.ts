@@ -196,6 +196,30 @@ export interface BrowserPoolStats {
 }
 
 /**
+ * The fleet WORKER's live "can I take more work?" signal, returned by
+ * `budget()`. A worker only claims a new pull-queue job when it has free
+ * context budget (`available > 0`) AND headroom under its cgroup pids ceiling
+ * — this is what keeps each worker safely below the platform-fixed
+ * `pids.max=1000` thread/PID ceiling (the PROVEN wedge). Deliberately CHEAP:
+ * in-memory context counts plus the same cheap cgroup-PID-only read the hot
+ * acquire/release path uses — no /proc walk, no `df` (consistent with the
+ * #5234 hot-path subset). `pidsCurrent`/`pidsMax` degrade to -1 when the
+ * cgroup controller is unreadable (e.g. off-Linux).
+ */
+export interface BrowserPoolBudget {
+  /** Live contexts currently checked out across the pool. */
+  inUse: number;
+  /** Remaining context capacity: `max - inUse` (never negative). */
+  available: number;
+  /** Global context cap (`maxContexts`). */
+  max: number;
+  /** cgroup `pids.current` (current PID/thread count), or -1 if unreadable. */
+  pidsCurrent: number;
+  /** cgroup `pids.max` ceiling, or -1 if unbounded/unreadable. */
+  pidsMax: number;
+}
+
+/**
  * Minimal logger surface the pool uses for lifecycle events. Matches the
  * harness-wide `Logger` interface but only the `info` method is required;
  * `warn`/`error` are OPTIONAL so existing callers (tests, legacy boot paths)
@@ -217,6 +241,14 @@ interface PoolLogger {
  * spawning a real chromium process.
  */
 export type LaunchBrowser = () => Promise<Browser>;
+
+/**
+ * Reads the cgroup PID controller counters (`pids.current` / `pids.max`).
+ * Matches `readCgroupPids` from `resource-gauges.ts`; injectable so the fleet
+ * worker's budget gate can be tested without a live cgroup filesystem. `max`
+ * is -1 when the controller is absent or unbounded (cgroup's `max` sentinel).
+ */
+export type CgroupPidsReader = () => { current: number; max: number };
 
 /**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
@@ -288,6 +320,9 @@ export interface BrowserPoolOptions {
   logger?: PoolLogger;
   /** Injected launcher (tests). Defaults to the real chromium launcher. */
   launchBrowser?: LaunchBrowser;
+  /** Injected cgroup PID-counter reader (tests). Powers the hot-path gauge AND
+   *  the worker `budget()` gate. Defaults to the real `readCgroupPids`. */
+  cgroupPidsReader?: CgroupPidsReader;
   /** Stagger between serialized launches (ms). Tests pass 0. */
   launchStaggerMs?: number;
   /** Max crash-recovery relaunch retries before an entry is evicted. Default 5
@@ -439,6 +474,10 @@ export class BrowserPool {
   });
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
+  // cgroup PID-counter reader for the hot-path gauge AND the worker budget()
+  // gate. Injectable so the budget signal is testable without a live cgroup
+  // filesystem; defaults to the real readCgroupPids.
+  private readonly cgroupPidsReader: CgroupPidsReader;
 
   // Crash-recovery relaunch backpressure (fix #1) + self-heal (fix #2) policy.
   private readonly relaunchMaxRetries: number;
@@ -497,6 +536,8 @@ export class BrowserPool {
   constructor(options: BrowserPoolOptions = {}) {
     this.logger = options.logger;
     this.injectedLaunchBrowser = options.launchBrowser;
+    this.cgroupPidsReader =
+      options.cgroupPidsReader ?? (() => readCgroupPids());
 
     const envBrowsers = process.env.BROWSER_POOL_BROWSERS
       ? parseInt(process.env.BROWSER_POOL_BROWSERS, 10)
@@ -696,11 +737,36 @@ export class BrowserPool {
    */
   private readHotGauges(): { pidsCurrent: number; pidsMax: number } {
     try {
-      const pids = readCgroupPids();
+      const pids = this.cgroupPidsReader();
       return { pidsCurrent: pids.current, pidsMax: pids.max };
     } catch {
       return { pidsCurrent: -1, pidsMax: -1 };
     }
+  }
+
+  /**
+   * The fleet WORKER's live capacity signal for the pull-queue claim gate. A
+   * worker consults this before claiming a new job and only takes more work
+   * when it has free context budget (`available > 0`) AND headroom under its
+   * cgroup pids ceiling — this is what keeps each worker safely below the
+   * platform-fixed `pids.max=1000` thread/PID ceiling (the PROVEN wedge).
+   *
+   * CHEAP by design — in-memory context counts plus the same cheap
+   * cgroup-PID-only read the hot acquire/release path uses (no /proc walk, no
+   * `df`; consistent with the #5234 hot-path subset). Safe to call on every
+   * claim attempt. `available` is clamped at 0 (a transient overshoot never
+   * surfaces as a negative budget); `pidsCurrent`/`pidsMax` degrade to -1 when
+   * the cgroup controller is unreadable.
+   */
+  budget(): BrowserPoolBudget {
+    const { pidsCurrent, pidsMax } = this.readHotGauges();
+    return {
+      inUse: this.liveContextCount,
+      available: Math.max(0, this.maxContexts - this.liveContextCount),
+      max: this.maxContexts,
+      pidsCurrent,
+      pidsMax,
+    };
   }
 
   /**

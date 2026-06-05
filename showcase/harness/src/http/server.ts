@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
+import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
 import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
 import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
@@ -9,6 +10,23 @@ import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
 export interface ServerDeps {
   pb: PbClient;
   logger: Logger;
+  /**
+   * Service role this /health surface represents. Defaults to "worker"
+   * (the legacy in-process harness), for which probe rules are the unit of
+   * work — so /health requires `ruleCount > 0` (a running server with zero
+   * rules means the rule loader silently failed). The "control-plane" role
+   * is a scheduler/queue/aggregator that legitimately owns NO probe rules
+   * (only the single fleet-job-producer scheduler entry), so for it the
+   * `rules > 0` gate is dropped — liveness is governed by pb + the scheduler
+   * signals (`schedulerJobCount`, `schedulerStarted`, `loopAlive`) instead.
+   * Without this, the control-plane container reports degraded/503 forever
+   * (rules is always 0) and Railway restart-loops it.
+   *
+   * Typed via the `HarnessRole` SSOT (fleet/role-config.ts) so a future role
+   * addition flows here automatically rather than drifting from an inline
+   * literal union.
+   */
+  role?: HarnessRole;
   ruleCount: () => number;
   /**
    * Historically exposed as `loop: ok|stopped` on /health, but the flag
@@ -138,7 +156,14 @@ export function buildServer(deps: ServerDeps): Hono {
           : !jobCountOk
             ? "no-jobs"
             : "ok";
-    const ok = pbOk && loopOk && ruleCount > 0;
+    // Role-aware rules gate: the worker (default) role treats probe rules as
+    // its unit of work, so zero rules is a hard 503 (rule-loader crashed).
+    // The control-plane owns no probe rules — its liveness is the scheduler
+    // signals already folded into `loopOk` (schedulerJobCount>0 covers the
+    // fleet-job-producer entry) — so it must not require rules>0, or it would
+    // report degraded forever and Railway would restart-loop it.
+    const rulesOk = deps.role === "control-plane" ? true : ruleCount > 0;
+    const ok = pbOk && loopOk && rulesOk;
     return c.json(
       {
         status: ok ? "ok" : "degraded",

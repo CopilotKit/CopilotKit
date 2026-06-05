@@ -218,6 +218,48 @@ describe("mergeRowsToMap", () => {
   });
 });
 
+describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix A2)", () => {
+  // The dashboard State union is green|red|degraded, but the harness CAN persist
+  // a row with state:"error" (the no-data representation; see
+  // result-aggregator.ts). STATE_RANK/WORST_STATE_RANK are Record<State,number>,
+  // so STATE_RANK["error"] is undefined and the fold comparison `undefined > n`
+  // is false — an "error" row is SILENTLY DROPPED instead of surfacing. The fold
+  // must treat an unknown/out-of-vocabulary state as the WORST (most severe) so
+  // such a row surfaces rather than vanishing.
+  const OUT_OF_VOCAB = "error" as unknown as StatusRow["state"];
+
+  it("does NOT silently drop a lone d6 row carrying an out-of-vocabulary state", () => {
+    // `agentic-chat` maps to a single d6 key, so the fold sees exactly one row.
+    const live = mapOf([row("d6:agno/agentic-chat", "d6", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    // Pre-fix: the "error" row is dropped, resolveD6Row returns null → d6.row is
+    // null. Post-fix: the row surfaces as the worst-state winner.
+    expect(c.d6.row).not.toBeNull();
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("surfaces an out-of-vocabulary d6 row as WORST over a present green sibling", () => {
+    // `beautiful-chat` maps to multiple d6 keys; an out-of-vocab row must win the
+    // fold over a present green sibling (treated as most severe, not skipped).
+    const live = mapOf([
+      row("d6:agno/beautiful-chat-toggle-theme", "d6", "green"),
+      row("d6:agno/beautiful-chat-pie-chart", "d6", OUT_OF_VOCAB),
+      row("d6:agno/beautiful-chat-bar-chart", "d6", "green"),
+      row("d6:agno/beautiful-chat-search-flights", "d6", "green"),
+      row("d6:agno/beautiful-chat-schedule-meeting", "d6", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("does NOT silently drop a lone d5 row carrying an out-of-vocabulary state", () => {
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d5.row).not.toBeNull();
+    expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
+  });
+});
+
 describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   // Order: red > degraded > green > error > unknown.
   // Rollup contributors: health, e2e (Decision #7: smokeRow dropped).
