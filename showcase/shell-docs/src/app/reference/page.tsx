@@ -72,13 +72,13 @@ export default function ReferencePage() {
                     <Link
                       key={item.slug}
                       href={item.url}
-                      className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
+                      className="shell-docs-radius-surface block min-w-0 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
                     >
-                      <div className="font-mono text-sm font-semibold text-[var(--accent)]">
+                      <div className="min-w-0 break-words font-mono text-sm font-semibold text-[var(--accent)] [overflow-wrap:anywhere]">
                         {displayTitle(item)}
                       </div>
                       {item.description && (
-                        <div className="text-xs text-[var(--text-muted)] mt-1">
+                        <div className="mt-1 min-w-0 break-words text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
                           {item.description}
                         </div>
                       )}

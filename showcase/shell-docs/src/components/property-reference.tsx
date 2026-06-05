@@ -54,16 +54,16 @@ export function PropertyReference({
   const renderChips = () => {
     return (
       <>
-        <span className="font-mono bg-blue-500/10 text-blue-400 py-0.5 px-2 rounded text-xs font-semibold">
+        <span className="shell-docs-radius-control border border-[var(--accent)] bg-[var(--accent-dim)] px-2 py-0.5 font-mono text-xs font-semibold text-[var(--accent)]">
           {type}
         </span>
         {required && (
-          <span className="font-mono bg-red-500/10 text-red-400 py-0.5 px-2 rounded text-xs font-semibold">
+          <span className="shell-docs-radius-control border border-[var(--destructive)] bg-[color-mix(in_oklch,var(--destructive)_12%,transparent)] px-2 py-0.5 font-mono text-xs font-semibold text-[var(--destructive)]">
             required
           </span>
         )}
         {deprecated && (
-          <span className="font-mono bg-yellow-500/10 text-yellow-400 py-0.5 px-2 rounded text-xs font-semibold">
+          <span className="shell-docs-radius-control border border-[var(--border)] bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-xs font-semibold text-[var(--text-muted)]">
             deprecated
           </span>
         )}
@@ -98,7 +98,7 @@ export function PropertyReference({
 
         <div>
           {cloudOnly && (
-            <span className="flex space-x-1 items-center justify-center bg-[var(--accent)] text-white py-0.5 px-2 rounded text-xs font-semibold">
+            <span className="shell-docs-radius-control flex items-center justify-center space-x-1 bg-[var(--accent)] px-2 py-0.5 text-xs font-semibold text-[var(--primary-foreground)]">
               <span>COPILOT CLOUD</span>
             </span>
           )}

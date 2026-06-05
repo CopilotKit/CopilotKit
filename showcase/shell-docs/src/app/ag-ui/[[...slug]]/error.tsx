@@ -38,7 +38,7 @@ export default function AgUiError({
         )}
         <button
           onClick={reset}
-          className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors"
+          className="shell-docs-radius-control h-10 border border-[var(--border)] px-4 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)]"
         >
           Try again
         </button>
