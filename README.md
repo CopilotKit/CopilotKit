@@ -171,8 +171,8 @@ npx create-ag-ui-app my-agent-app
     <a href="https://docs.copilotkit.ai/?ref=github_readme" target="_blank">
   Read the Docs →
   </a> </br>
-    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-   Try Copilot Cloud →
+    <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
+   Try the Enterprise Intelligence Platform →
   </a>
 <h3>Stay up to date with our latest releases!</h3>
   <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">

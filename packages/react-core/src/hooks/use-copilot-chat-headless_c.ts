@@ -2,7 +2,7 @@
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a premium-only feature">
- * Sign up for free on [Copilot Cloud](https://cloud.copilotkit.ai) to get your public license key or read more about <a href="/premium/overview">premium features</a>.
+ * Sign up for free on [Copilot Cloud](https://dashboard.operations.copilotkit.ai) to get your public license key or read more about <a href="/premium/overview">premium features</a>.
  *
  * Usage is generous, **free** to get started, and works with **either self-hosted or Copilot Cloud** environments.
  * </Callout>
@@ -160,12 +160,14 @@
  */
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import {
-  useCopilotChatInternal,
-  defaultSystemMessage,
+import type {
   UseCopilotChatOptions as UseCopilotChatOptions_c,
   UseCopilotChatReturn as UseCopilotChatReturn_c,
   MCPServerConfig,
+} from "./use-copilot-chat_internal";
+import {
+  useCopilotChatInternal,
+  defaultSystemMessage,
 } from "./use-copilot-chat_internal";
 
 import {
@@ -203,7 +205,7 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
  * Enterprise React hook that provides complete chat functionality for fully custom UI implementations.
  * Includes all advanced features like direct message access, suggestions array, interrupt handling, and MCP support.
  *
- * **Requires a publicApiKey** - Sign up for free at https://cloud.copilotkit.ai/
+ * **Requires a publicApiKey** - Sign up for free at https://dashboard.operations.copilotkit.ai/
  *
  * @param options - Configuration options for the chat
  * @returns Complete chat interface with all enterprise features
