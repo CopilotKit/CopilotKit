@@ -92,6 +92,7 @@ describe("computeColumnTallyDetail", () => {
       red: [],
       unknown: true,
       loading: false,
+      stale: false,
     });
   });
 
@@ -120,6 +121,7 @@ describe("computeColumnTallyDetail", () => {
       red: [],
       unknown: true,
       loading: true,
+      stale: false,
     });
   });
 
@@ -144,6 +146,79 @@ describe("computeColumnTallyDetail", () => {
     expect(result.red).toEqual([
       { label: "Feature A", dimension: "e2e", featureId: "feat-a" },
     ]);
+  });
+
+  // A.3: `stale` marks an AUTHORITATIVE result that is non-authoritative-fresh
+  // — the feed is reconnecting (`connecting`) but rows already exist (size>0),
+  // so the counts are real (NOT loading zeros) but the operator should treat
+  // them as possibly behind the live state. Distinct from `loading` (initial
+  // fetch, no rows) and `unknown` (offline).
+  it("marks stale: true when connecting with rows already present (A.3)", () => {
+    const integration = makeIntegration("test-int", ["feat-a"]);
+    const features = [makeFeature("feat-a", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      ["e2e:test-int/feat-a", makeRow("e2e:test-int/feat-a", "e2e", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "connecting",
+    );
+
+    // Authoritative (rows arrived) but stale (mid-reconnect).
+    expect(result.loading).toBe(false);
+    expect(result.unknown).toBe(false);
+    expect(result.stale).toBe(true);
+  });
+
+  it("stale: false when live (fresh) with rows (A.3)", () => {
+    const integration = makeIntegration("test-int", ["feat-a"]);
+    const features = [makeFeature("feat-a", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      ["e2e:test-int/feat-a", makeRow("e2e:test-int/feat-a", "e2e", "red")],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.stale).toBe(false);
+  });
+
+  it("stale: false on the loading branch (connecting, no rows) (A.3)", () => {
+    const integration = makeIntegration("test-int", ["feat-1"]);
+    const features = [makeFeature("feat-1", "Feature 1")];
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      new Map(),
+      "connecting",
+    );
+
+    // Loading and stale are mutually exclusive: no rows yet → loading, not stale.
+    expect(result.loading).toBe(true);
+    expect(result.stale).toBe(false);
+  });
+
+  it("stale: false on the offline (error) branch (A.3)", () => {
+    const integration = makeIntegration("test-int", ["feat-1"]);
+    const features = [makeFeature("feat-1", "Feature 1")];
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      new Map(),
+      "error",
+    );
+
+    expect(result.unknown).toBe(true);
+    expect(result.stale).toBe(false);
   });
 
   it("live with no rows is NOT loading — authoritative empty result", () => {
@@ -423,6 +498,41 @@ describe("computeColumnTallyDetail", () => {
     ]);
     expect(result.amber).toEqual([]);
     expect(result.red).toEqual([]);
+  });
+
+  it("amber cell (D5 green, D6 absent) classifies as 'health', not 'e2e' (A.6)", () => {
+    // A.6 dimension-classification rule: an amber cell is amber BECAUSE its
+    // D5 sub-signal is green (the ladder is intact through D5) but D6 is not
+    // green. That is a LIVE-conversation/parity surface — it must classify as
+    // `health`, never `e2e` (page-load). Here D6 is simply absent, so the chip
+    // is amber and the dimension must be "health".
+    const integration = makeIntegration("a6-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:a6-int/agentic-chat",
+        makeRow("e2e:a6-int/agentic-chat", "e2e", "green"),
+      ],
+      // D5 green, no D6 row → chipColor amber (awaiting D6 confirmation).
+      [
+        "d5:a6-int/agentic-chat",
+        makeRow("d5:a6-int/agentic-chat", "d5", "green"),
+      ],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.red).toEqual([]);
+    expect(result.amber).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
   });
 
   it("tallies PER-CELL D6 greens in a column with mixed per-cell rows (bug fix)", () => {

@@ -39,6 +39,24 @@ export interface StatusRow {
 export type LiveStatusMap = Map<string, StatusRow>;
 
 /**
+ * Comma-joined PocketBase `fields` projection for the INITIAL status fetch —
+ * every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe output:
+ * error messages, diffs, nested objects) is ~61% of the status payload by
+ * size but is only ever read in the drilldown panel and the per-cell banner,
+ * both of which lazy-load the full row on demand. Dropping it from the bulk
+ * initial fetch (~2455 rows across ~5 pages) is the dominant transfer-size win
+ * for first paint; the live SSE subscription still delivers full rows
+ * (`signal` included) for every subsequent delta, so the drilldown/banner are
+ * unaffected once a row updates.
+ *
+ * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
+ * minus `signal`, so a new `StatusRow` field forces a conscious decision about
+ * whether it belongs in the lightweight initial projection.
+ */
+export const STATUS_LIST_FIELDS =
+  "id,key,dimension,state,observed_at,transitioned_at,fail_count,first_failure_at";
+
+/**
  * Extends BadgeTone to include the hook-level "error" case (spec §5.4
  * table row for `error` tone — "dashboard offline"). This is NOT a row
  * state; it represents the SSE stream being disconnected.
@@ -304,7 +322,8 @@ function resolveD5Row(
  *
  * Identical semantics to `resolveD5Row`: worst-state across the mapped family
  * (red > degraded > green), per-sub-row stale-green→degraded fold (E2E 6h
- * window) applied BEFORE the fold, and STRICT on missing sub-rows — a missing
+ * window) applied BEFORE the worst-state comparison, and STRICT on missing
+ * sub-rows — a missing
  * mapped sub-row collapses a present green/degraded fold to `null` (no-data →
  * gray badge) UNLESS a present sub-row is red (red dominates no-data). An
  * unmapped feature returns `null` (no D6 test exists for it).
@@ -797,9 +816,22 @@ export function resolveCell(
 
 /**
  * Shallow equality on the row fields that change observably between
- * SSE updates. We deliberately avoid deep-equal on `signal` because it
- * may be a large nested object — the producer-side state machine
- * already collapses semantically equivalent signals upstream.
+ * SSE updates: `key`, `state`, `observed_at`, `transitioned_at`, plus the
+ * PRESENCE (not content) of `signal`.
+ *
+ * Signal handling: the initial fetch projection drops `signal`, so initial
+ * rows arrive with `signal === undefined` and rely on SSE deltas to deliver
+ * the populated signal (the "SSE delivers full rows" contract that
+ * cell-pieces.tsx / cell-drilldown.tsx rely on). A delta that flips signal
+ * PRESENCE — `undefined` ⇄ defined — is therefore observable and must NOT be a
+ * no-op, or the signal-bearing row would be discarded and the signal-less row
+ * would survive. We compare presence only (`(a.signal === undefined) !==
+ * (b.signal === undefined)`), keeping the cheap-comparison philosophy: we still
+ * avoid a deep-equal on `signal` because it may be a large nested object, and a
+ * same-presence content change is acceptable to treat as a no-op since
+ * `observed_at` / `transitioned_at` normally move when content meaningfully
+ * changes (and the producer-side state machine already collapses semantically
+ * equivalent signals upstream).
  */
 function rowsAreNoop(prev: unknown, next: unknown): boolean {
   if (prev === next) return true;
@@ -816,7 +848,8 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
     a.key === b.key &&
     a.state === b.state &&
     a.observed_at === b.observed_at &&
-    a.transitioned_at === b.transitioned_at
+    a.transitioned_at === b.transitioned_at &&
+    (a.signal === undefined) === (b.signal === undefined)
   );
 }
 
@@ -825,9 +858,9 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
  * live-subscribe reducer when the SSE stream emits a record update.
  *
  * Returns the SAME array reference when the incoming row is a no-op
- * (key + state + observed_at + transitioned_at unchanged) so React's
- * reference-equality short-circuit can skip re-rendering downstream
- * memoised components.
+ * (key + state + observed_at + transitioned_at unchanged AND signal
+ * presence unchanged) so React's reference-equality short-circuit can
+ * skip re-rendering downstream memoised components.
  */
 export function upsertByKey<T extends { key: string }>(
   rows: T[],
@@ -855,7 +888,8 @@ export function upsertByKey<T extends { key: string }>(
  *
  * The warning fires only on GENUINE divergence — two rows with the same key
  * but a different observable state (compared via `rowsAreNoop`, the same
- * key/state/observed_at/transitioned_at shallow check the reducer uses).
+ * key/state/observed_at/transitioned_at + signal-presence shallow check the
+ * reducer uses).
  * Identical-content-but-different-reference rows (e.g. the same producer row
  * re-allocated across two groups) are NOT a real invariant violation and used
  * to fire a noisy false warning under the old reference-based `prior !== r`
