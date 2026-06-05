@@ -75,11 +75,13 @@ env:
 
 jobs:
   build:
-    # Run on a merged release PR (normal flow) or a manual workflow_dispatch
-    # from main (escape hatch). The main-branch guard on workflow_dispatch
-    # prevents republishing from arbitrary branches.
+    # Run on a merged release PR (normal flow), a stable manual dispatch from
+    # main (retry escape hatch), or a prerelease manual dispatch from any
+    # selected branch. Canary publishes are intentionally branch-scoped so
+    # maintainers can push a button on feature work without merging first.
     if: >
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+        (inputs.mode == 'prerelease' || github.ref == 'refs/heads/main')) ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
@@ -182,6 +184,9 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # npm trusted publishing is bound to this environment. Its deployment
+    # branch policy must allow prerelease workflow_dispatch refs; stable
+    # releases remain main-only via the build job guard.
     environment: npm
     permissions:
       contents: write
