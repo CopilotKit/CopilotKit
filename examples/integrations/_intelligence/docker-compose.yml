@@ -24,12 +24,14 @@ services:
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
-      POSTGRES_DB: postgres
+      # Created on first init of an empty data volume. Volumes initialized
+      # before this default existed are healed by the provision-db one-shot
+      # below, so do not rely on this alone.
+      POSTGRES_DB: intelligence_app
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intelligence -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d intelligence_app"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -49,6 +51,33 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    networks:
+      - intelligence
+
+  # ---------------------------------------------------------------------------
+  # Database provisioning (one-shot)
+  # ---------------------------------------------------------------------------
+  # Ensures the intelligence_app database exists before the composite runs its
+  # migrations. POSTGRES_DB only takes effect on first init of an EMPTY data
+  # volume, and the postgres-data volume is shared across every project that
+  # uses this compose file (fixed project name above) — so a volume created by
+  # an earlier compose revision may not have the database. CREATE DATABASE has
+  # no IF NOT EXISTS, hence the pg_database existence check. Idempotent.
+  provision-db:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: intelligence
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -h postgres -U intelligence -d postgres -v ON_ERROR_STOP=1 -tAc \
+          "SELECT 1 FROM pg_database WHERE datname = 'intelligence_app'" | grep -q 1 \
+        || psql -h postgres -U intelligence -d postgres -v ON_ERROR_STOP=1 \
+          -c "CREATE DATABASE intelligence_app"
+    restart: "no"
     networks:
       - intelligence
 
@@ -77,8 +106,8 @@ services:
       THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-3}"
       THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
     depends_on:
-      postgres:
-        condition: service_healthy
+      provision-db:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
