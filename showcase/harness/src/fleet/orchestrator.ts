@@ -29,6 +29,10 @@ import { serve } from "@hono/node-server";
 import { createEventBus } from "../events/event-bus.js";
 import { logger as defaultLogger } from "../logger.js";
 import { BrowserPool } from "../probes/helpers/browser-pool.js";
+import type {
+  LaunchBrowser,
+  CgroupPidsReader,
+} from "../probes/helpers/browser-pool.js";
 import {
   createE2eFullDriver,
   createPooledE2eFullLauncher,
@@ -41,8 +45,13 @@ import {
   startWorkerLoop,
   type PayloadToDriverInput,
   type ServiceJobDriver,
+  type DriverRegistry,
   type WorkerLoopHandle,
 } from "./worker/worker-loop.js";
+import {
+  createD6PayloadToInput,
+  E2E_D6_DRIVER_KIND,
+} from "./worker/payload-mapper.js";
 
 /** The worker boot handle — symmetric with the control-plane `boot()` shape. */
 export interface WorkerHandle {
@@ -57,8 +66,23 @@ export interface WorkerHandle {
 export interface RunWorkerOptions {
   /** The fleet queue client (S3 impl over the S0 claim endpoints). */
   queue: FleetQueueClient;
-  /** Maps a claimed per-service payload to the d6 driver's per-service input. */
-  payloadToInput: PayloadToDriverInput;
+  /**
+   * The driver REGISTRY: `driverKind` → `{ driver, payloadToInput }`. When
+   * supplied the worker dispatches each claimed job by `payload.driverKind`,
+   * hosting MULTIPLE browser driver families on one worker. Built by the
+   * `runWorker` entrypoint (orchestrator.ts) which wires every pooled driver
+   * onto the shared `BrowserPool`. Takes precedence over the legacy single
+   * `driver`/`payloadToInput` pair below; when omitted the worker falls back to
+   * the single-driver path.
+   */
+  drivers?: DriverRegistry;
+  /**
+   * LEGACY single-driver payload mapper. Used only when `drivers` is omitted.
+   * Optional now that the registry is the primary path; when both `drivers` and
+   * the single `driver` are absent the default pooled d6 driver + this mapper
+   * are constructed below.
+   */
+  payloadToInput?: PayloadToDriverInput;
   /** Stable worker id (the `claimed_by` on every claim). */
   workerId?: string;
   /**
@@ -116,6 +140,20 @@ export interface RunWorkerOptions {
   budgetSource?: {
     budget(): import("../probes/helpers/browser-pool.js").BrowserPoolBudget;
   };
+  /**
+   * Test-only seam: injected chromium launcher forwarded to the `BrowserPool`
+   * the DEFAULT (self-contained) boot path constructs, so the default-boot
+   * equivalence test can exercise that path WITHOUT spawning real chromium.
+   * Production omits it → the pool uses the real launcher. Ignored when a
+   * `budgetSource` + run path are injected (no pool is constructed).
+   */
+  launchBrowser?: LaunchBrowser;
+  /**
+   * Test-only seam: injected cgroup PID reader forwarded to the default-boot
+   * `BrowserPool` (powers `budget()`), so the default-boot test reports
+   * headroom deterministically. Production omits it → the real reader is used.
+   */
+  cgroupPidsReader?: CgroupPidsReader;
 }
 
 /**
@@ -163,22 +201,55 @@ export async function runWorker(
     port,
   });
 
-  // Construct the worker's own pool unless a budget source + driver are
-  // injected (test path). The pool is the self-bounded context budget that
-  // gates claiming and keeps the worker under its pids ceiling.
+  // Resolve the worker's drivers. Three shapes, in precedence order:
+  //   1. An injected `drivers` registry (the primary path — the entrypoint
+  //      wires every pooled driver family onto the shared pool). Paired with an
+  //      injected `budgetSource`, the worker runs entirely on the caller's wiring
+  //      and this entrypoint constructs NO pool of its own.
+  //   2. A legacy single `driver` + `budgetSource` (back-compat test path).
+  //   3. Neither → construct the worker's own pool and a DEFAULT REGISTRY holding
+  //      the single pooled d6 driver under its `e2e_d6` kind (the self-contained
+  //      boot). Building it as a registry entry — not a bare `driver` — means the
+  //      self-contained path also routes by driverKind AND carries the d6
+  //      payload mapper, so `startWorkerLoop`'s construction guard is satisfied
+  //      (equivalence with the pre-registry single-d6 worker).
+  // The pool is the self-bounded context budget that gates claiming and keeps the
+  // worker under its pids ceiling.
   let pool: BrowserPool | undefined;
   let budgetSource = opts.budgetSource;
+  let drivers = opts.drivers;
   let driver = opts.driver;
 
-  if (!budgetSource || !driver) {
-    pool = new BrowserPool({ logger });
+  // We have all the wiring we need iff a budget source exists AND at least one
+  // run path (a registry or a single driver) is supplied. Otherwise build the
+  // default pool + d6 registry so the worker is self-contained.
+  const haveRunPath = drivers !== undefined || driver !== undefined;
+  if (!budgetSource || !haveRunPath) {
+    pool = new BrowserPool({
+      logger,
+      launchBrowser: opts.launchBrowser,
+      cgroupPidsReader: opts.cgroupPidsReader,
+    });
     await pool.init();
     budgetSource = budgetSource ?? pool;
-    driver =
-      driver ??
-      createE2eFullDriver({
-        launcher: createPooledE2eFullLauncher(pool, logger),
-      });
+    if (!haveRunPath) {
+      // Default to the single pooled d6 driver registered under its kind, paired
+      // with the d6 payload→input mapper, so the self-contained boot routes by
+      // driverKind through the registry (equivalence with the pre-registry
+      // single-d6 worker) and the loop's construction guard is satisfied.
+      drivers = new Map([
+        [
+          E2E_D6_DRIVER_KIND,
+          {
+            driver: createE2eFullDriver({
+              launcher: createPooledE2eFullLauncher(pool, logger),
+            }),
+            payloadToInput: createD6PayloadToInput(),
+            aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
+          },
+        ],
+      ]);
+    }
   }
 
   let loop: WorkerLoopHandle;
@@ -187,6 +258,7 @@ export async function runWorker(
       workerId,
       queue: opts.queue,
       pool: budgetSource,
+      drivers,
       driver,
       payloadToInput: opts.payloadToInput,
       logger,

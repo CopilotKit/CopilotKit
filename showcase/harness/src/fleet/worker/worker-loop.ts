@@ -51,6 +51,7 @@ import type {
   ServiceJobRollup,
   PoolCommError,
 } from "../contracts.js";
+import type { DriverKind } from "./payload-mapper.js";
 
 /**
  * The minimal driver surface the worker invokes per claimed service job. This
@@ -102,6 +103,40 @@ export type PayloadToDriverInput = (
   payload: ServiceJobPayload,
 ) => unknown | undefined;
 
+/**
+ * One entry of the worker's driver REGISTRY: a `ServiceJobDriver` paired with
+ * the `PayloadToDriverInput` mapper that re-hydrates the per-service input that
+ * driver's zod schema validates. The registry is keyed by `driverKind` (e.g.
+ * `e2e_d6`, `e2e_deep`, `e2e_smoke`, `e2e_demos`), so a single worker can host
+ * MULTIPLE browser-driver families — the loop dispatches each claimed job to the
+ * entry whose key matches `payload.driverKind`.
+ */
+export interface DriverRegistryEntry {
+  driver: ServiceJobDriver;
+  payloadToInput: PayloadToDriverInput;
+  /**
+   * Builds the aggregate side-emit key the loop filters OUT of the captured
+   * per-cell rows (the driver emits ONE aggregate row alongside the per-cell
+   * rows; the loop captures the aggregate from the run's RETURN value, so the
+   * side-emitted aggregate must be dropped from the cell set). Each driver
+   * family stamps its aggregate row under its OWN scheme, so the key derivation
+   * is per-entry. OPTIONAL: when absent the loop defaults to `d6:<serviceSlug>`
+   * (the d6 scheme), keeping the d6 path byte-identical to the pre-registry
+   * behavior. Non-d6 kinds with a different aggregate scheme supply their own.
+   */
+  aggregateSlugKey?: (serviceSlug: string) => string;
+}
+
+/**
+ * The worker's driver registry: `driverKind` → `{ driver, payloadToInput }`.
+ * Built once at the `runWorker` entrypoint (all driver families wired onto the
+ * shared pool) and injected into the loop. A claimed payload whose `driverKind`
+ * is absent from the map is a `worker-protocol-violation` (the same terminal
+ * failure shape an unmappable payload uses) — the worker won't crash on an
+ * unknown kind, it reports it.
+ */
+export type DriverRegistry = ReadonlyMap<DriverKind, DriverRegistryEntry>;
+
 /** The pool capacity surface the loop's claim gate consults (S6 `budget()`). */
 export interface BudgetSource {
   budget(): BrowserPoolBudget;
@@ -114,10 +149,24 @@ export interface WorkerLoopDeps {
   queue: FleetQueueClient;
   /** The pool whose `budget()` gates claiming (S6). */
   pool: BudgetSource;
-  /** The per-service d6/d5 driver (e.g. `createE2eFullDriver()`). */
-  driver: ServiceJobDriver;
-  /** Maps a claimed payload to the driver's per-service input. */
-  payloadToInput: PayloadToDriverInput;
+  /**
+   * The driver REGISTRY: `driverKind` → `{ driver, payloadToInput }`. The loop
+   * dispatches each claimed job to the entry whose key matches
+   * `payload.driverKind`; an unknown kind is reported as a
+   * `worker-protocol-violation` terminal result (never a crash). REQUIRED when
+   * the legacy single-driver pair below is omitted.
+   */
+  drivers?: DriverRegistry;
+  /**
+   * LEGACY single-driver pair. When `drivers` is omitted, the loop runs EVERY
+   * claimed job through this one driver (the pre-registry behavior). Retained so
+   * existing call sites / tests that inject one driver keep working; the
+   * registry path is preferred. Exactly one of `drivers` or this pair must be
+   * supplied.
+   */
+  driver?: ServiceJobDriver;
+  /** Maps a claimed payload to the legacy driver's per-service input. */
+  payloadToInput?: PayloadToDriverInput;
   logger: Logger;
   /** Frozen env snapshot threaded into the driver ctx. */
   env: Readonly<Record<string, string | undefined>>;
@@ -429,16 +478,86 @@ export function buildDriverErrorResult(args: {
  * Exported for direct unit testing of the claim→run→report round-trip without
  * driving the full poll loop.
  */
+/**
+ * Resolve the `{ driver, payloadToInput }` entry that runs a claimed payload.
+ * Dispatch is by `payload.driverKind` against the injected `drivers` registry;
+ * when the registry is omitted the loop falls back to the legacy single
+ * `driver`/`payloadToInput` pair (pre-registry behavior). Returns `undefined`
+ * when neither path can serve the kind — the caller maps that to a
+ * `worker-protocol-violation` terminal result (NOT a crash), the same failure
+ * shape an unmappable payload already uses.
+ *
+ * Pure; exercised through `runClaimedJob`'s routing branches.
+ */
+export function resolveDriverEntry(
+  deps: Pick<WorkerLoopDeps, "drivers" | "driver" | "payloadToInput">,
+  driverKind: string,
+): DriverRegistryEntry | undefined {
+  if (deps.drivers) {
+    // `driverKind` is a wire string (contracts.ts boundary); the registry is
+    // keyed by the closed `DriverKind` union. `.get` returns undefined for any
+    // off-set key, so this narrowing cast is safe — an unknown kind resolves to
+    // undefined and is reported as a protocol violation by the caller.
+    return deps.drivers.get(driverKind as DriverKind);
+  }
+  // Legacy single-driver path: one driver handles every kind.
+  if (deps.driver && deps.payloadToInput) {
+    return { driver: deps.driver, payloadToInput: deps.payloadToInput };
+  }
+  return undefined;
+}
+
 export async function runClaimedJob(
   deps: Pick<
     WorkerLoopDeps,
-    "workerId" | "queue" | "driver" | "payloadToInput" | "logger" | "env"
+    | "workerId"
+    | "queue"
+    | "drivers"
+    | "driver"
+    | "payloadToInput"
+    | "logger"
+    | "env"
   > & { now: () => Date; sleep: NonNullable<WorkerLoopDeps["sleep"]> },
   lease: JobLease,
   opts: { leaseSeconds: number; heartbeatMs: number },
 ): Promise<ServiceJobResult> {
-  const { workerId, queue, driver, payloadToInput, logger, env, now } = deps;
+  const { workerId, queue, logger, env, now } = deps;
   const { job, payload } = lease;
+
+  // Dispatch by driverKind: pick the registry entry whose key matches the
+  // payload's `driverKind` (or the legacy single driver when no registry was
+  // injected). An unknown kind is a protocol violation the WORKER owns (it won
+  // the claim) — report it as a `worker-protocol-violation` terminal result so
+  // the dashboard surfaces it, rather than crashing the worker on an unhandled
+  // kind. This mirrors the unmappable-payload failure shape below.
+  const entry = resolveDriverEntry(deps, payload.driverKind);
+  if (!entry) {
+    logger.error("fleet.worker.unknown-driver-kind", {
+      workerId,
+      jobId: job.id,
+      probeKey: payload.probeKey,
+      driverKind: payload.driverKind,
+    });
+    return buildCommErrorResult({
+      lease,
+      workerId,
+      commError: {
+        kind: "worker-protocol-violation",
+        message: `worker has no driver registered for driverKind "${payload.driverKind}" (job ${job.id}, probeKey "${payload.probeKey}")`,
+        workerId,
+        jobId: job.id,
+        observedAt: now().toISOString(),
+      },
+      finishedAt: now().toISOString(),
+    });
+  }
+  const { driver, payloadToInput } = entry;
+  // The aggregate side-emit key the loop filters out of the captured cells.
+  // Each driver family stamps its aggregate row under its own scheme, so the
+  // resolved entry supplies the derivation; default to d6's `d6:<slug>` when the
+  // entry omits it (keeps the d6 path byte-identical to the pre-registry filter).
+  const buildAggregateSlugKey =
+    entry.aggregateSlugKey ?? ((serviceSlug: string) => `d6:${serviceSlug}`);
 
   // Map the claimed payload to a driver input. A poison payload can fail either
   // by RETURNING undefined ("cannot map this") or by THROWING (decode/parse
@@ -492,10 +611,11 @@ export async function runClaimedJob(
     });
   }
 
-  // The driver's aggregate side-emit uses `d6:<serviceSlug>` — filter that one
+  // The driver's aggregate side-emit (e.g. `d6:<serviceSlug>`) — filter that one
   // out of the captured cells (the loop captures the aggregate from the primary
-  // return). Per-cell rows are `d6:<slug>/<featureId>` and are kept.
-  const aggregateSlugKey = `d6:${payload.serviceSlug}`;
+  // return). Per-cell rows are `<scheme>:<slug>/<featureId>` and are kept. The
+  // key scheme is per-driver-family, resolved from the registry entry above.
+  const aggregateSlugKey = buildAggregateSlugKey(payload.serviceSlug);
   const capture = createCellCapture(aggregateSlugKey);
 
   // Heartbeat-renew the lease while the (long) driver run is in flight. A renew
@@ -665,6 +785,21 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
     );
   }
 
+  // Fail-loud at construction: a worker with no way to run any claimed job is a
+  // misconfiguration. Exactly one of `drivers` (the registry) or the legacy
+  // single `driver`/`payloadToInput` pair must be supplied; an empty registry or
+  // a missing legacy pair means every claim would terminate as an
+  // unknown-kind/protocol-violation. Die immediately rather than ship a worker
+  // that fails every job (mirrors the lease-config fail-loud idiom above).
+  const hasRegistry = deps.drivers !== undefined && deps.drivers.size > 0;
+  const hasLegacyDriver =
+    deps.driver !== undefined && deps.payloadToInput !== undefined;
+  if (!hasRegistry && !hasLegacyDriver) {
+    throw new Error(
+      "Fleet worker has no drivers: supply either a non-empty `drivers` registry (driverKind → { driver, payloadToInput }) or the legacy `driver`+`payloadToInput` pair; otherwise every claimed job terminates as a protocol violation.",
+    );
+  }
+
   /**
    * Fire the current-job hook, guarding against a throwing/rejecting impl so a
    * registration-heartbeat failure can never break the worker loop (mirrors the
@@ -763,6 +898,7 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         {
           workerId,
           queue,
+          drivers: deps.drivers,
           driver: deps.driver,
           payloadToInput: deps.payloadToInput,
           logger,

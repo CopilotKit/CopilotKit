@@ -30,25 +30,55 @@
 import type { PayloadToDriverInput } from "./worker-loop.js";
 import type { ServiceJobPayload } from "../contracts.js";
 
-/** The driver kind this mapper knows how to map. */
-export const E2E_D6_DRIVER_KIND = "e2e_d6";
+/**
+ * The browser driver KINDS the worker registry hosts — one per per-service
+ * driver family. These are the `payload.driverKind` keys the producer stamps
+ * and the worker's `DriverRegistry` routes on. Kept in lock-step with the
+ * `kind` each driver factory reports (`createE2eFullDriver().kind === "e2e_d6"`,
+ * etc. in `probes/drivers/*`).
+ *
+ * `E2E_DRIVER_KINDS` is the closed set; `DriverKind` is its union type. The four
+ * `E2E_*_DRIVER_KIND` constants below are each typed `DriverKind` (not widened to
+ * `string`) so the registry map's key type stays the closed union. NOTE: this is
+ * the WORKER-INTERNAL kind space — `contracts.ts`'s `driverKind: string` stays a
+ * `string` (it's the wire boundary that receives external producer strings; the
+ * runtime unknown-kind guard handles anything off this set).
+ */
+export const E2E_DRIVER_KINDS = [
+  "e2e_d6",
+  "e2e_deep",
+  "e2e_demos",
+  "e2e_smoke",
+] as const;
+export type DriverKind = (typeof E2E_DRIVER_KINDS)[number];
+
+export const E2E_D6_DRIVER_KIND: DriverKind = "e2e_d6";
+export const E2E_DEEP_DRIVER_KIND: DriverKind = "e2e_deep";
+export const E2E_DEMOS_DRIVER_KIND: DriverKind = "e2e_demos";
+export const E2E_SMOKE_DRIVER_KIND: DriverKind = "e2e_smoke";
 
 /**
- * Build the d6 `PayloadToDriverInput` mapping. Re-hydrates the serialized d6
- * input from `payload.driverInputs`, defaulting `key` to the payload's
- * `probeKey`. Pure; the returned function captures nothing mutable.
+ * Build a per-service `PayloadToDriverInput` mapping. Re-hydrates the serialized
+ * driver input from `payload.driverInputs`, defaulting `key` to the payload's
+ * `probeKey`. This re-hydration is IDENTICAL across the browser driver families
+ * (d6/d5/demos/smoke): each driver serializes a `{ key, backendUrl, … }`-shaped
+ * object into `driverInputs`, and each driver's OWN zod schema is the validation
+ * gate inside `driver.run` (a malformed input fails LOUD there, surfaced by the
+ * loop as a terminal result). So one shared mapper serves every kind — every
+ * registry entry wires THIS factory directly. Pure; the returned function
+ * captures nothing mutable.
  */
-export function createD6PayloadToInput(): PayloadToDriverInput {
+export function createPayloadToInput(): PayloadToDriverInput {
   return (payload: ServiceJobPayload): unknown | undefined => {
     const raw = payload.driverInputs;
-    // No driver inputs → nothing the d6 driver can run. Signal "unmappable" so
-    // the loop reports a protocol violation instead of handing the driver an
-    // input its schema will reject deep inside the run.
+    // No driver inputs → nothing the driver can run. Signal "unmappable" so the
+    // loop reports a protocol violation instead of handing the driver an input
+    // its schema will reject deep inside the run.
     if (raw === undefined || raw === null || typeof raw !== "object") {
       return undefined;
     }
     const input = { ...(raw as Record<string, unknown>) };
-    // The d6 schema REQUIRES a non-empty `key`. The producer normally stamps
+    // The driver schemas REQUIRE a non-empty `key`. The producer normally stamps
     // it; default to the payload's probeKey (the join key to the dashboard
     // row) so a producer that omitted it still yields a runnable input.
     if (typeof input.key !== "string" || input.key.length === 0) {
@@ -57,3 +87,9 @@ export function createD6PayloadToInput(): PayloadToDriverInput {
     return input;
   };
 }
+
+/**
+ * The d6 (`e2e_d6`) payload→input mapper. Alias of {@link createPayloadToInput}
+ * — retained as the original named export so existing call sites keep working.
+ */
+export const createD6PayloadToInput = createPayloadToInput;
