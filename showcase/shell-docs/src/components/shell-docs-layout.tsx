@@ -4,9 +4,10 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import { MobileTopNav } from "./mobile-top-nav";
 import { SidebarScrollPreserver } from "./sidebar-scroll-preserver";
 import { SidebarFolderStatePreserver } from "./sidebar-folder-state-preserver";
-import { ThemeSwitch } from "./theme-switch";
 import GithubIcon from "./icons/github";
 import DiscordIcon from "./icons/discord";
+import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
+import { PrimaryDocsTabs } from "./primary-docs-tabs";
 
 // Shared Fumadocs `DocsLayout` chrome used by every shell-docs route.
 // All five callers (home overview, framework root, framework-scoped MDX
@@ -33,8 +34,7 @@ export function ShellDocsLayout({
       // we have to pass `enabled: false` explicitly to keep the
       // `iconLinks.length > 0 || slots.themeSwitch` branch in
       // `sidebar.js` from rendering the default rounded pill. Our own
-      // single-toggle `<ThemeSwitch>` is mounted via the
-      // `sidebar.footer` slot below instead.
+      // single-toggle `<ThemeSwitch>` is mounted in BrandNav instead.
       themeSwitch={{ enabled: false }}
       // We intentionally do NOT pass `links` here either. Fumadocs would
       // funnel `type: "icon"` entries into the same auto-injected pill
@@ -43,7 +43,12 @@ export function ShellDocsLayout({
       // of truth (the JSX below) and avoids the auto layout fighting
       // our custom one.
       sidebar={{
-        banner,
+        banner: (
+          <div className="flex flex-col">
+            <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
+            {banner}
+          </div>
+        ),
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.
         collapsible: false,
         className: "shell-docs-sidebar",
@@ -57,27 +62,29 @@ export function ShellDocsLayout({
         footer: (
           <div
             key="shell-docs-sidebar-footer"
-            className="flex items-center gap-1 sidebar-footer-row"
+            className="flex w-full flex-col gap-2 sidebar-footer-row md:w-auto md:flex-row md:items-center md:gap-1"
           >
-            <a
-              href="https://github.com/copilotkit/copilotkit"
-              target="_blank"
-              rel="noreferrer noopener"
-              aria-label="GitHub"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fd-muted-foreground transition-colors [&_svg]:size-4"
-            >
-              <GithubIcon />
-            </a>
-            <a
-              href="https://discord.gg/6dffbvGU3D"
-              target="_blank"
-              rel="noreferrer noopener"
-              aria-label="Discord"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-fd-muted-foreground transition-colors [&_svg]:size-4"
-            >
-              <DiscordIcon />
-            </a>
-            <ThemeSwitch className="ms-auto" />
+            <MobileSidebarFooterTalk />
+            <div className="flex items-center gap-1">
+              <a
+                href="https://github.com/copilotkit/copilotkit"
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="GitHub"
+                className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
+              >
+                <GithubIcon />
+              </a>
+              <a
+                href="https://discord.gg/6dffbvGU3D"
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Discord"
+                className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
+              >
+                <DiscordIcon />
+              </a>
+            </div>
           </div>
         ),
       }}

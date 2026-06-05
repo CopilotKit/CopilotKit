@@ -58,7 +58,7 @@ export function ReferenceVersionSelector({
   }, [open]);
 
   return (
-    <div className="sticky top-0 z-10 bg-[var(--bg-surface)] backdrop-blur-lg">
+    <div>
       <div className="relative">
         <button
           ref={buttonRef}
@@ -66,10 +66,10 @@ export function ReferenceVersionSelector({
           onClick={() => setOpen((value) => !value)}
           aria-haspopup="listbox"
           aria-expanded={open}
-          className="flex h-12 w-full cursor-pointer items-center gap-2 rounded-xl border border-[var(--accent)] bg-[var(--accent-light)] p-1.5 text-[13px] font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)]"
+          className="shell-docs-radius-control flex h-12 w-full cursor-pointer items-center gap-2 border border-[var(--nav-control-border)] bg-[var(--accent-dim)] p-1.5 text-[13px] font-medium text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--nav-control-border-hover)] hover:bg-[var(--accent-light)]"
         >
           <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--accent)]/25 text-base dark:bg-white/10"
+            className="shell-docs-picker-icon-chip h-8 w-8 shrink-0 text-base"
             aria-hidden="true"
           >
             🪁
@@ -89,7 +89,7 @@ export function ReferenceVersionSelector({
           <div
             ref={panelRef}
             role="listbox"
-            className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-lg"
+            className="shell-docs-radius-surface absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
           >
             {options.map(({ version, href }) => {
               const active = version === activeVersion;
@@ -101,9 +101,9 @@ export function ReferenceVersionSelector({
                   aria-selected={active}
                   onClick={() => setOpen(false)}
                   className={[
-                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-[13px] transition-colors",
+                    "shell-docs-radius-control flex w-full items-center gap-2 px-2 py-1.5 text-[13px] transition-colors",
                     active
-                      ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                      ? "bg-[var(--accent-dim)] text-[var(--accent)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
                   ].join(" ")}
                 >
