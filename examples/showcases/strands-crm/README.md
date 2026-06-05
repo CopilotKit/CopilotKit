@@ -10,6 +10,8 @@ and generating reports that render as full pages.
 > `@strands-agents/sdk` + `@ag-ui/aws-strands` to bridge a Strands agent to CopilotKit over the
 > AG-UI protocol.
 
+https://github.com/user-attachments/assets/c770941f-ba92-4d5b-ba42-b355e7205af4
+
 ## What this shows
 
 - **Agentic canvas** — tool calls route and render on the workspace, not just in chat:
