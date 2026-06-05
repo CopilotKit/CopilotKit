@@ -368,7 +368,10 @@ describe("starterSmokeDriver", () => {
     )) as ProbeResult<StarterSmokeAggregateSignal>;
 
     expect(r.state).toBe("red");
-    expect(r.signal.failed).toEqual(["agent"]);
+    // FIX A: a 4xx agent rung yields NO usable agents map, so the chat rung
+    // inherits the agent failure (it must NOT probe a guessed `default`). Both
+    // rungs red, aggregate class smoke-failed.
+    expect(r.signal.failed).toEqual(["agent", "chat"]);
     expect(r.signal.errorClass).toBe("smoke-failed");
 
     const agentRow = sideRows(writes).find(
@@ -376,6 +379,13 @@ describe("starterSmokeDriver", () => {
     )!;
     expect(agentRow.state).toBe("red");
     expect(agentRow.signal.errorClass).toBe("smoke-failed");
+    // The inherited chat row is smoke-failed too, and never claims `default`.
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/chat",
+    )!;
+    expect(chatRow.state).toBe("red");
+    expect(chatRow.signal.errorClass).toBe("smoke-failed");
+    expect(chatRow.signal.agentId).toBeUndefined();
   });
 
   it("agent rung FAILS on a 200 HTML body lacking `version`", async () => {
@@ -397,7 +407,9 @@ describe("starterSmokeDriver", () => {
     )) as ProbeResult<StarterSmokeAggregateSignal>;
 
     expect(r.state).toBe("red");
-    expect(r.signal.failed).toEqual(["agent"]);
+    // FIX A: the 200 info lacks BOTH `version` and an `agents` map → agent rung
+    // reds and the chat rung inherits (no guessed `default`).
+    expect(r.signal.failed).toEqual(["agent", "chat"]);
     const agentRow = sideRows(writes).find(
       (w) => w.key === "starter:agno/agent",
     )!;
@@ -419,7 +431,9 @@ describe("starterSmokeDriver", () => {
     )) as ProbeResult<StarterSmokeAggregateSignal>;
 
     expect(r.state).toBe("red");
-    expect(r.signal.failed).toEqual(["agent"]);
+    // FIX A: an HTML (non-JSON) info body yields no agents map → agent reds and
+    // the chat rung inherits the failure.
+    expect(r.signal.failed).toEqual(["agent", "chat"]);
     const agentRow = sideRows(writes).find(
       (w) => w.key === "starter:agno/agent",
     )!;
@@ -787,9 +801,11 @@ describe("starterSmokeDriver", () => {
     )) as ProbeResult<StarterSmokeAggregateSignal>;
 
     expect(r.state).toBe("red");
-    expect(r.signal.failed.sort()).toEqual(["agent", "interaction"]);
-    // smoke-failed (agent 404) is more actionable than the transport
-    // hiccup on interaction, so it wins the aggregate class.
+    // FIX A: the agent 404 yields no usable map → the chat rung inherits the
+    // smoke-failed agent failure (no guessed `default`), so chat reds too.
+    expect(r.signal.failed.sort()).toEqual(["agent", "chat", "interaction"]);
+    // smoke-failed (agent 404, inherited by chat) is more actionable than the
+    // transport hiccup on interaction, so it wins the aggregate class.
     expect(r.signal.errorClass).toBe("smoke-failed");
   });
 
@@ -1073,11 +1089,20 @@ describe("starterSmokeDriver", () => {
       },
     )) as ProbeResult<StarterSmokeAggregateSignal>;
     expect(r.state).toBe("red");
-    expect(r.signal.failed).toEqual(["agent"]);
+    // FIX A: an agent body-abort yields no usable map → the chat rung inherits
+    // the agent transport-error (no guessed `default` 404), so both reds are
+    // SOFT transport-errors that the staleness rule can absorb.
+    expect(r.signal.failed).toEqual(["agent", "chat"]);
     const agentRow = sideRows(writes).find(
       (w) => w.key === "starter:agno/agent",
     )!;
     expect(agentRow.signal.errorClass).toBe("transport-error");
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:agno/chat",
+    )!;
+    expect(chatRow.state).toBe("red");
+    expect(chatRow.signal.errorClass).toBe("transport-error");
+    expect(r.signal.errorClass).toBe("transport-error");
   });
 
   it("health non-2xx + mid-body abort → transport-error (NOT smoke-failed)", async () => {
@@ -1179,6 +1204,151 @@ describe("starterSmokeDriver", () => {
       expect(row.state).toBe("red");
       expect(row.signal.errorClass).toBe("aborted");
     }
+  });
+
+  it("FIX A: mastra-shaped /info agents map WITHOUT a valid version → agent red, but chat does NOT POST /agent/default/run and is NOT a misleading default-404 hard red", async () => {
+    // The agent rung fails its version check (info JSON has an `agents` map but
+    // no `version`). The OLD code resolved `resolvedChatAgentId` ONLY on the
+    // agent SUCCESS path, so the chat rung fell back to `default` and POSTed
+    // `/agent/default/run` → 404 for mastra (real key `weatherAgent`) → a
+    // spurious `smoke-failed` masking the real cause. The FIX must (1) resolve
+    // the id from the agents map even though version validation failed, so the
+    // chat rung never targets a guessed `default` for a non-default starter.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    const r = (await driver.run(
+      mkCtx(
+        fakeFetch({
+          // 200 info body WITH an agents map but NO `version` → agent rung reds.
+          agentBody: JSON.stringify({
+            agents: { weatherAgent: { description: "weather" } },
+          }),
+          seenUrls,
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      },
+    )) as ProbeResult<StarterSmokeAggregateSignal>;
+
+    // Agent rung is red (missing version) — the real, actionable failure.
+    expect(r.signal.failed).toContain("agent");
+    const agentRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/agent",
+    )!;
+    expect(agentRow.state).toBe("red");
+    expect(agentRow.signal.errorClass).toBe("smoke-failed");
+
+    // The chat rung must NOT have POSTed to /agent/default/run (the guessed
+    // default that 404s for mastra). It either targeted the resolved id or
+    // skipped the fetch entirely.
+    if (seenUrls.chat !== undefined) {
+      expect(seenUrls.chat).not.toContain("/agent/default/run");
+      expect(seenUrls.chat).toContain("/agent/weatherAgent/run");
+    }
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/chat",
+    )!;
+    // The chat row must NOT claim it targeted `default`.
+    expect(chatRow.signal.agentId).not.toBe("default");
+  });
+
+  it("FIX A: agent rung body-abort for a mastra-shaped target → chat rung softened/inherited, NOT a default 404", async () => {
+    // The agent rung's body read aborts (a slow cold-start info stream cut
+    // short by the timeout). No agents map could be read, so the chat rung has
+    // no resolved id. The OLD code would fall back to `default` and probe
+    // `/agent/default/run` → 404 → a hard `smoke-failed` that masks the
+    // transport hiccup. The FIX must carry the agent rung's transport failure
+    // forward to the chat row (inherit/skip), NOT manufacture a default 404.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    const r = (await driver.run(
+      mkCtx(
+        fakeFetch({ bodyAbortOn: { agent: "self" }, seenUrls }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      },
+    )) as ProbeResult<StarterSmokeAggregateSignal>;
+
+    // Agent rung reds as a transport-error (the body-read abort).
+    const agentRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/agent",
+    )!;
+    expect(agentRow.state).toBe("red");
+    expect(agentRow.signal.errorClass).toBe("transport-error");
+
+    // The chat rung must NOT have POSTed to /agent/default/run.
+    if (seenUrls.chat !== undefined) {
+      expect(seenUrls.chat).not.toContain("/agent/default/run");
+    }
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/chat",
+    )!;
+    expect(chatRow.state).toBe("red");
+    // The chat failure must be SOFT (inherit the agent transport-error), never
+    // a hard smoke-failed default-404.
+    expect(chatRow.signal.errorClass).toBe("transport-error");
+    // And it must not claim `default` was targeted.
+    expect(chatRow.signal.agentId).not.toBe("default");
+    // The aggregate worst class must be the transport hiccup, not a spurious
+    // smoke-failed from a manufactured default 404.
+    expect(r.signal.errorClass).toBe("transport-error");
+  });
+
+  it("FIX A: resolveAgentId prefers `default` when the agents map carries both default and a dynamic key", async () => {
+    // The resolver must PREFER `default` when present (safer for multi-agent
+    // starters), not blindly take the first inserted key. Here the map lists
+    // `weatherAgent` FIRST, then `default`; the resolved id must be `default`.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    const seenUrls: Partial<
+      Record<"health" | "agent" | "chat" | "interaction", string>
+    > = {};
+    await driver.run(
+      mkCtx(
+        fakeFetch({
+          agentBody: JSON.stringify({
+            version: "1.59.5",
+            agents: { weatherAgent: {}, default: {} },
+          }),
+          seenUrls,
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      },
+    );
+    expect(seenUrls.chat).toBe(
+      "https://starter-mastra.up.railway.app/api/copilotkit/agent/default/run",
+    );
+    const chatRow = sideRows(writes).find(
+      (w) => w.key === "starter:mastra/chat",
+    )!;
+    expect(chatRow.signal.agentId).toBe("default");
+  });
+
+  it("FIX C: STARTER_LEVELS orders `agent` strictly before `chat` (resolved-id invariant)", () => {
+    // The whole resolved-agentId mechanism depends on the agent rung running
+    // and reading `/info` BEFORE the chat rung POSTs the per-agent run path.
+    expect(STARTER_LEVELS.indexOf("agent")).toBeLessThan(
+      STARTER_LEVELS.indexOf("chat"),
+    );
   });
 
   it("a writer whose write() rejects must not fail the aggregate tick (swallowed + still green)", async () => {

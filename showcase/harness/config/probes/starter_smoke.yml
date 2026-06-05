@@ -23,10 +23,14 @@
 #                                                     `/api/health` route)
 #   - agent       GET  `${base}/api/copilotkit/info` → 200 JSON carrying a
 #                                                     `version` field
-#   - chat        POST `${base}/api/copilotkit/agent/default/run`
-#                 (Accept: text/event-stream) → AG-UI SSE stream asserting ≥1
-#                 TEXT_MESSAGE_CONTENT delta + terminal RUN_FINISHED + NO
-#                 RUN_ERROR
+#   - chat        POST `${base}/api/copilotkit/agent/<resolved-id>/run`
+#                 where `<resolved-id>` is resolved PER-STARTER from the `/info`
+#                 `agents` map (preferring `default`, else the first registered
+#                 key; e.g. mastra → `weatherAgent`), with `default` as the
+#                 last-resort fallback only when the agent rung answered `/info`
+#                 with no usable map (Accept: text/event-stream) → AG-UI SSE
+#                 stream asserting ≥1 TEXT_MESSAGE_CONTENT delta + terminal
+#                 RUN_FINISHED + NO RUN_ERROR
 #   - interaction GET  `${base}/`                    → 200 (app shell serves)
 #
 # Rows emitted per invocation:

@@ -51,11 +51,19 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *                     v2 runtime is mounted and answering.
  *   - **chat**        POST `${base}/api/copilotkit/agent/<id>/run` where
  *                     `<id>` is resolved PER-STARTER from the `/info` `agents`
- *                     map (`Object.keys(info.agents)[0]`, the same `info`
- *                     response the health + agent rungs fetch) — `default` for
- *                     the 11 default-registering starters, a dynamic key (e.g.
- *                     `weatherAgent`) for mastra, falling back to `default`
- *                     only when the map is empty/unreadable — with
+ *                     map (preferring the `default` key when present, else the
+ *                     first registered key; the same `info` response the health
+ *                     + agent rungs fetch) — `default` for the 11
+ *                     default-registering starters, a dynamic key (e.g.
+ *                     `weatherAgent`) for mastra. The id is resolved
+ *                     INDEPENDENT of the agent rung's version check, so a
+ *                     version-only regression still targets the real agent. The
+ *                     last-resort `default` fallback applies ONLY when the agent
+ *                     rung answered `/info` with an empty/unreadable map; when
+ *                     the agent rung FAILED to yield a usable map (non-2xx,
+ *                     unparseable, or body-abort) the chat rung INHERITS the
+ *                     agent failure rather than probing a guessed `default` —
+ *                     with
  *                     `Accept: text/event-stream` and the AG-UI run body
  *                     `{threadId, runId, messages, state, tools, context,
  *                     forwardedProps}`. Read the AG-UI SSE stream and require
@@ -162,10 +170,13 @@ export interface StarterSmokeLevelSignal {
   latencyMs: number;
   /**
    * The agent id this level resolved/targeted, for drilldown. Set on the chat
-   * rung (the id read from `/info` `agents` and POSTed at
-   * `/agent/<id>/run`); the EXPECTED value is `default` for the 11
-   * default-registering starters and a dynamic key (e.g. `weatherAgent`) for
-   * mastra. Absent on the other rungs.
+   * rung ONLY when it is TRUTHFUL: an id explicitly read from `/info` `agents`
+   * and POSTed at `/agent/<id>/run` (EXPECTED `default` for the 11
+   * default-registering starters, a dynamic key like `weatherAgent` for
+   * mastra), OR the last-resort `default` fallback the chat rung actually
+   * probed. Omitted when the agent rung failed to yield a usable map and the
+   * chat fetch was skipped (the chat row inherits the agent failure) — so the
+   * row never claims a `default` it never targeted. Absent on the other rungs.
    */
   agentId?: string;
 }
@@ -184,6 +195,21 @@ export type StarterFailureClass =
 const DEFAULT_TIMEOUT_MS = 30_000;
 const TIMEOUT_ENV_VAR = "STARTER_SMOKE_TIMEOUT_MS";
 
+// INVARIANT (FIX C): the per-starter chat agent id is resolved from the `/info`
+// `agents` map read by the AGENT rung, which therefore MUST run strictly BEFORE
+// the chat rung in STARTER_LEVELS order. If a future edit reorders the levels so
+// chat precedes agent, the chat rung would POST the last-resort `default` for
+// EVERY starter (404ing mastra) and the failure-inheritance in `run()` would
+// never see the agent outcome. Fail loudly at module load rather than silently
+// regress every non-`default` starter.
+if (STARTER_LEVELS.indexOf("agent") >= STARTER_LEVELS.indexOf("chat")) {
+  throw new Error(
+    "starter-smoke invariant violated: STARTER_LEVELS must order 'agent' " +
+      "strictly before 'chat' (the chat rung resolves its agent id from the " +
+      "agent rung's /info read). Fix the ordering in starter-mapping.ts.",
+  );
+}
+
 /**
  * LAST-RESORT agent id for the path-based chat rung when `/info` advertises
  * no readable `agents` map. Most starters register `{ default: ... }`
@@ -193,9 +219,11 @@ const TIMEOUT_ENV_VAR = "STARTER_SMOKE_TIMEOUT_MS";
  * `MastraAgent.getLocalAgents(...)`, whose keys are the Mastra agent names
  * (e.g. `weatherAgent`), so a hardcoded `/agent/default/run` 404s for it. The
  * driver therefore resolves the chat agent id PER-STARTER from the `/info`
- * `agents` map (`Object.keys(info.agents)[0]`, the first registered agent),
+ * `agents` map (preferring the `default` key, else the first registered agent),
  * the same `info` response the health + agent rungs already fetch, and only
- * falls back to this constant when that map is empty/unreadable.
+ * falls back to this constant when the agent rung answered `/info` with an
+ * empty/unreadable map. When the agent rung FAILS to yield a usable map, the
+ * chat rung inherits that failure instead of probing this guessed fallback.
  */
 const FALLBACK_CHAT_AGENT_ID = "default";
 
@@ -303,6 +331,24 @@ export function createStarterSmokeDriver(
       // chat POST targets the agent the deployed starter actually registered
       // (mastra registers a dynamic non-`default` key).
       let resolvedChatAgentId = FALLBACK_CHAT_AGENT_ID;
+      // Whether the agent rung successfully read a usable `agents` map. The
+      // chat rung's `default` fallback is ONLY trustworthy when the agent rung
+      // actually answered `/info` (so `default` is the genuine registered key
+      // for the 11 default starters). When the agent rung FAILED to yield a
+      // usable map (non-2xx, unparseable/empty, or body-abort), probing a
+      // guessed `default` would 404 a non-`default` starter and manufacture a
+      // misleading hard `smoke-failed` chat row that masks the true agent
+      // failure. In that case the chat rung INHERITS the agent rung's failure
+      // (class/reason) WITHOUT issuing a fetch.
+      let agentRungResolvedMap = false;
+      // The agent rung's failure outcome, carried forward to the chat rung when
+      // the agent rung did not yield a usable agents map.
+      let agentRungFailure: LevelOutcome | undefined;
+      // Whether an explicit agent id was resolved from `/info` (truthful for the
+      // chat row's reported `agentId` even when the agent rung itself failed its
+      // version check). Distinguishes a resolved id from the last-resort
+      // fallback so we never claim `default` was targeted when it wasn't.
+      let agentIdResolved = false;
       const chatUrlFor = (agentId: string): string =>
         `${base}/api/copilotkit/agent/${encodeURIComponent(agentId)}/run`;
       const urlForLevel = (level: StarterLevel): string => {
@@ -339,6 +385,26 @@ export function createStarterSmokeDriver(
             errorDesc: sanitizeErrorDesc("aborted"),
             latencyMs: 0,
           };
+        } else if (
+          level === "chat" &&
+          agentRungFailure &&
+          !agentRungResolvedMap
+        ) {
+          // The agent rung FAILED to yield a usable agents map, so the chat
+          // rung has no trustworthy id to POST. Do NOT probe a guessed
+          // `default` (it 404s a non-`default` starter and masks the true
+          // agent failure). INHERIT the agent rung's failure into the chat row
+          // WITHOUT a fetch — a transient agent-rung transport hiccup never
+          // becomes a hard-red chat 404.
+          result = {
+            ok: false,
+            status: agentRungFailure.status,
+            errorClass: agentRungFailure.errorClass,
+            errorDesc: sanitizeErrorDesc(
+              "agent rung failed — chat not probed",
+            ),
+            latencyMs: 0,
+          };
         } else {
           result = await probeLevel({
             fetchImpl,
@@ -350,12 +416,27 @@ export function createStarterSmokeDriver(
           });
         }
 
-        // Capture the agent id the agent rung resolved from `/info` so the
-        // chat rung (next in STARTER_LEVELS order) POSTs the per-agent run path
-        // the starter actually registered. A missing resolution leaves the
-        // last-resort fallback in place.
-        if (level === "agent" && result.resolvedAgentId) {
-          resolvedChatAgentId = result.resolvedAgentId;
+        // Capture the agent rung's outcome so the chat rung (next in
+        // STARTER_LEVELS order) targets the agent the starter actually
+        // registered — and, when the agent rung failed without a usable map,
+        // inherits that failure rather than probing a guessed `default`.
+        if (level === "agent") {
+          if (result.resolvedAgentId) {
+            resolvedChatAgentId = result.resolvedAgentId;
+            agentIdResolved = true;
+            // A resolved id means the agent rung read a usable agents map even
+            // if its version check later failed — `default` is no longer a
+            // guess and the chat rung may probe the real registered agent.
+            agentRungResolvedMap = true;
+          } else if (result.ok) {
+            // The agent rung succeeded but advertised no/empty `agents` map
+            // (the degraded-info case for a default-registering starter):
+            // `default` remains the genuine, trustworthy fallback.
+            agentRungResolvedMap = true;
+          }
+          if (!result.ok) {
+            agentRungFailure = result;
+          }
         }
 
         const state = result.ok ? "green" : "red";
@@ -378,10 +459,17 @@ export function createStarterSmokeDriver(
             errorDesc: result.errorDesc,
             errorClass: result.ok ? undefined : result.errorClass,
             latencyMs: result.latencyMs,
-            // Surface the resolved chat agent id on the chat row for
-            // drilldown (the EXPECTED value is `default` for the 11
-            // default-registering starters, a dynamic key for mastra).
-            ...(level === "chat" ? { agentId: resolvedChatAgentId } : {}),
+            // Surface the resolved chat agent id on the chat row for drilldown,
+            // but ONLY when it is TRUTHFUL: an id explicitly resolved from
+            // `/info` (the EXPECTED value is `default` for the 11
+            // default-registering starters, a dynamic key for mastra), OR the
+            // last-resort `default` fallback the chat rung ACTUALLY probed
+            // (agent rung succeeded with a degraded/empty map). When the agent
+            // rung failed to yield a usable map and the chat fetch was skipped,
+            // omit `agentId` rather than claim a `default` we never targeted.
+            ...(level === "chat" && (agentIdResolved || agentRungResolvedMap)
+              ? { agentId: resolvedChatAgentId }
+              : {}),
           },
           observedAt: ctx.now().toISOString(),
         });
@@ -414,9 +502,15 @@ interface LevelOutcome {
   latencyMs: number;
   /**
    * Agent rung only: the agent id resolved from the `/info` `agents` map
-   * (`Object.keys(info.agents)[0]`), used to drive the chat rung's per-agent
-   * run path. Absent when the map is empty/unreadable (the caller then keeps
-   * the last-resort fallback). Other rungs never set this.
+   * (preferring `default`, else the first non-empty key), used to drive the
+   * chat rung's per-agent run path. Set whenever the body completed and parsed
+   * to a 200 info response with a non-empty `agents` map — INDEPENDENT of the
+   * version-check outcome — so a version-only regression still targets the
+   * real agent rather than a guessed `default`. Absent when the agent rung did
+   * NOT yield a usable agents map (non-2xx, unparseable/empty map, or
+   * body-abort); the caller then treats it as a TRUE agent-rung failure and
+   * carries that failure forward to the chat rung (inherit class/reason)
+   * instead of probing a guessed `default`. Other rungs never set this.
    */
   resolvedAgentId?: string;
 }
@@ -526,9 +620,22 @@ async function probeLevel(opts: {
       const { text: body, completed } = await safeReadBody(res);
       // A read that did NOT complete was cut short by our timer / the
       // external signal → route through the shared abort classification, not
-      // a hard `smoke-failed` empty body.
+      // a hard `smoke-failed` empty body. The caller then knows no agents map
+      // was resolved (`resolvedAgentId` absent → chat rung inherits this
+      // transport failure rather than probing a guessed `default`).
       if (!completed) return abortOutcome(res.status);
       const latencyMs = outcomeLatency();
+      // Resolve the chat agent id from the SAME `/info` body INDEPENDENT of the
+      // version-check outcome. As long as the body completed and parses to a
+      // 200 info response carrying a non-empty `agents` map, populate the
+      // resolved id even if version validation later fails — so a version-only
+      // regression never sends the chat rung to a guessed `default` (which 404s
+      // for a non-`default` starter like mastra, masking the real cause). On a
+      // non-2xx (no usable body) this stays undefined and the chat rung
+      // inherits the agent failure.
+      const resolvedAgentId = res.ok
+        ? (resolveAgentId(body) ?? undefined)
+        : undefined;
       if (!res.ok) {
         return {
           ok: false,
@@ -540,6 +647,7 @@ async function probeLevel(opts: {
               : `agent info http ${res.status}`,
           ),
           latencyMs,
+          resolvedAgentId,
         };
       }
       const versionErr = verifyInfoVersion(body);
@@ -550,17 +658,20 @@ async function probeLevel(opts: {
           errorClass: "smoke-failed",
           errorDesc: sanitizeErrorDesc(`agent info ${versionErr}`),
           latencyMs,
+          // Carry the resolved id forward even though the version check failed:
+          // the chat rung still targets the agent the starter registered
+          // (truthful agentId), never a manufactured `default` 404.
+          resolvedAgentId,
         };
       }
-      // Resolve the chat agent id from the SAME `/info` body the version check
-      // just validated, so the chat rung targets the agent the starter
-      // actually registered (mastra uses a dynamic non-`default` key) without a
-      // second `info` fetch. Absent → caller keeps the last-resort fallback.
+      // The chat rung targets the agent the starter actually registered (mastra
+      // uses a dynamic non-`default` key) without a second `info` fetch. Absent
+      // → caller keeps the last-resort fallback.
       return {
         ok: true,
         status: res.status,
         latencyMs,
-        resolvedAgentId: resolveAgentId(body) ?? undefined,
+        resolvedAgentId,
       };
     }
 
@@ -615,8 +726,17 @@ async function probeLevel(opts: {
       };
     }
 
-    // health / interaction 2xx success: no body read, so headers-time latency
-    // is the true outcome time.
+    // health / interaction 2xx success: these rungs assert only the status, so
+    // they never READ the body — but an unread body leaks the underlying undici
+    // socket under repeated hourly load. Cancel the body stream to release the
+    // socket before returning success. Best-effort: a cancel failure must not
+    // flip a healthy 2xx red.
+    try {
+      await res.body?.cancel();
+    } catch {
+      // ignore — the 2xx liveness signal stands regardless of cancel outcome.
+    }
+    // No body read, so headers-time latency is the true outcome time.
     return { ok: true, status: res.status, latencyMs: outcomeLatency() };
   } catch (err) {
     const latencyMs = now().getTime() - started;
@@ -771,13 +891,15 @@ function verifyInfoVersion(body: string): string | null {
 }
 
 /**
- * Resolve the chat agent id from an `info` response body: the FIRST key of its
- * `agents` map (a `Record<string, AgentDescription>`). Most starters register
- * `{ default: ... }` → `default`; mastra registers dynamic keys (e.g.
- * `weatherAgent`). Returns null when the body is unparseable, has no `agents`
- * map, or the map is empty — the caller then keeps the last-resort fallback.
- * Order follows JS object insertion order, matching the runtime's
- * registration order.
+ * Resolve the chat agent id from an `info` response body's `agents` map (a
+ * `Record<string, AgentDescription>`). PREFERS the `"default"` key when the map
+ * carries it (the 11 default-registering starters, and the safe target for any
+ * future multi-agent starter that also registers a `default`), else falls back
+ * to the FIRST non-empty key (mastra registers a dynamic key such as
+ * `weatherAgent`). Preferring `default` over first-insertion-order avoids a
+ * first-key surprise for multi-agent starters. Returns null when the body is
+ * unparseable, has no `agents` map, or the map yields no usable key — the
+ * caller then keeps the last-resort fallback.
  */
 function resolveAgentId(body: string): string | null {
   let parsed: unknown;
@@ -795,8 +917,14 @@ function resolveAgentId(body: string): string | null {
   }
   const keys = Object.keys(agents as Record<string, unknown>);
   if (keys.length === 0) return null;
-  const first = keys[0];
-  return first.trim().length > 0 ? first : null;
+  // Prefer an explicit `default` key when present (safer for multi-agent
+  // starters that register both a `default` and dynamic keys), else take the
+  // first non-empty key in insertion order.
+  if (keys.includes("default")) return "default";
+  for (const key of keys) {
+    if (key.trim().length > 0) return key;
+  }
+  return null;
 }
 
 /**
