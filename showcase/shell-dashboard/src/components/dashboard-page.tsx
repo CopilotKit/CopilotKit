@@ -266,6 +266,7 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
               minColWidth={180}
               liveStatus={liveStatus}
               connection={connection}
+              degraded={allStatus.degraded}
               now={now}
               overlays={overlays}
               catalog={catalogData}
