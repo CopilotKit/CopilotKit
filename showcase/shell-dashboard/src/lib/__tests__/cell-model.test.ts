@@ -1390,4 +1390,84 @@ describe("buildCellModel", () => {
       expect(model.achievedDepth).toBe(3);
     });
   });
+
+  // ── d6Effective: ladder-gated D6 status (D6 never green if D5 fails) ──
+  describe("d6Effective ladder-gating", () => {
+    it("blocks (null) D6 when D5 is RED even though the raw D6 row is GREEN", () => {
+      // The exact bug: D5 red but D6 emitted green in isolation. The raw
+      // per-dimension d6.status is green, but the top-of-ladder claim is
+      // broken below D6, so d6Effective must NOT be green (and not a false
+      // red — the CV badge already shows the D5 failure).
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      // Raw per-dimension D6 is green (diagnostic), but the ladder is broken.
+      expect(model.d6!.status).toBe("green");
+      // Ladder-gated D6 is blocked → null, NOT green, NOT red.
+      expect(model.d6Effective).toBeNull();
+      // Chip stays red (D5-broken ladder) and badges below stay per-dimension.
+      expect(model.chipColor).toBe("red");
+      expect(model.d5!.status).toBe("red");
+      expect(model.achievedDepth).toBe(4);
+    });
+
+    it("greens d6Effective only on a FULLY-INTACT ladder (D5 green + D6 green)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6Effective).toBe("green");
+      expect(model.achievedDepth).toBe(6);
+      expect(model.chipColor).toBe("green");
+    });
+
+    it("passes through a genuine D6 RED when the ladder is intact through D5", () => {
+      // D5 green, D6 red → ladder intact below D6, the D6 failure is real.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6Effective).toBe("red");
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("blocks (null) D6 when the D1-D4 gate fails, regardless of raw D6", () => {
+      const live = mapOf([
+        // D3 red → gate fails; D6 raw green must be suppressed.
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6Effective).toBeNull();
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("blocks (null) D6 when D5 is unverified (no-data) even if raw D6 is green", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        // D5 mapped but no row emitted → status null (unverified).
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d5!.status).toBeNull();
+      expect(model.d6Effective).toBeNull();
+      expect(model.chipColor).toBe("gray");
+    });
+  });
 });

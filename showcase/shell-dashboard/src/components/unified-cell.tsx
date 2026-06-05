@@ -38,8 +38,35 @@ export interface UnifiedCellProps {
 // TestBadge helper
 // ---------------------------------------------------------------------------
 
-function TestBadge({ name, level }: { name: string; level: TestLevel | null }) {
+function TestBadge({
+  name,
+  level,
+  gated = false,
+}: {
+  name: string;
+  level: TestLevel | null;
+  /**
+   * When true, the rung EXISTS but is ladder-blocked by a lower rung (its
+   * effective status collapsed to `null`). Render a real, VISIBLE not-achieved
+   * indicator ("—", gray) rather than the no-data "?" — the latter is hidden
+   * by `Badge` (label === "?" → null), which would make a gated D6 vanish.
+   */
+  gated?: boolean;
+}) {
   if (!level || !level.exists) return null;
+
+  // Gated rung: exists but blocked below → visible em-dash, not a hidden "?".
+  if (gated) {
+    return (
+      <FlashOnChange tone="gray">
+        <Badge
+          name={name}
+          state={{ tone: "gray", label: "—" }}
+          title={`${name}: gated — blocked by a lower rung`}
+        />
+      </FlashOnChange>
+    );
+  }
 
   const tone: BadgeTone =
     level.status === "green"
@@ -64,7 +91,7 @@ function TestBadge({ name, level }: { name: string; level: TestLevel | null }) {
       <Badge
         name={name}
         state={{ tone, label }}
-        title={`${name}: ${level.status ?? "pending"}`}
+        title={`${name}: ${level.status ?? "no data"}`}
       />
     </FlashOnChange>
   );
@@ -172,7 +199,58 @@ function HealthLayer({ model }: { model: CellModel }) {
       <TestBadge name="API" level={model.d3} />
       <TestBadge name="RT" level={model.d4} />
       <TestBadge name="CV" level={model.d5} />
-      <TestBadge name="D6" level={model.d6} />
+      {/*
+        D6 is the TOP of the verification ladder, so its badge must reflect the
+        LADDER-GATED status (`model.d6Effective`), NOT the raw per-dimension
+        `model.d6.status`. When the ladder is broken/unverified below D6,
+        `d6Effective` collapses to null. We distinguish three cases:
+          - GATED-BY-FAILURE (d6 EXISTS, d6Effective === null, AND a lower rung
+            is genuinely FAILING — D3/D4 non-green or a mapped D5 red/amber):
+            render a VISIBLE not-achieved indicator ("—", gray) — NOT the
+            no-data "?" (which the real Badge hides → the badge would vanish).
+            The actual lower-rung failure is already shown by the CV/API/RT
+            badges.
+          - NO-DATA (d6 does not exist, OR d6Effective null only because the
+            ladder is unverified/no-data — e.g. empty live map → D5 mapped but
+            no rows → status null): keep the normal hide behavior, rendering NO
+            badge. A no-data ladder is NOT a failure, so it shows nothing.
+          - LADDER INTACT (d6Effective non-null): pass d6Effective through so a
+            genuine D6 red/amber/green renders per-dimension.
+        API/RT/CV stay per-dimension (diagnostic); only D6 is gated. See
+        `d6Effective` in cell-model.ts.
+      */}
+      {(() => {
+        // A gated "—" is only meaningful when D6 is blocked by a genuine
+        // FAILING lower rung — not merely absent data. `d6Effective === null`
+        // is too broad: it collapses to null both when (a) a lower rung is
+        // actually failing (D3/D4 non-green, or a mapped D5 red/amber) AND
+        // when (b) the ladder is simply unverified/no-data (empty live map →
+        // D5 mapped-but-no-rows → status null). Case (b) must render NO badge
+        // (D6 falls back to the hidden "?" no-data treatment), so the gated
+        // indicator fires ONLY on case (a). This mirrors `cell-model.ts`'s
+        // `d1d4GateFails` predicate plus a present, failing D5.
+        const lowerRungFailing =
+          Boolean(model.d3?.exists && model.d3.status !== "green") ||
+          Boolean(model.d4?.exists && model.d4.status !== "green") ||
+          Boolean(
+            model.d5?.exists &&
+            (model.d5.status === "red" || model.d5.status === "amber"),
+          );
+        const d6Gated = Boolean(
+          model.d6?.exists && model.d6Effective === null && lowerRungFailing,
+        );
+        return (
+          <TestBadge
+            name="D6"
+            level={
+              model.d6 && model.d6.exists
+                ? { ...model.d6, status: model.d6Effective }
+                : model.d6
+            }
+            gated={d6Gated}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -283,6 +361,7 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
     a.achievedDepth === b.achievedDepth &&
     a.ceilingDepth === b.ceilingDepth &&
     a.chipColor === b.chipColor &&
+    a.d6Effective === b.d6Effective &&
     a.isRegression === b.isRegression &&
     testLevelsEqual(a.d3, b.d3) &&
     testLevelsEqual(a.d4, b.d4) &&

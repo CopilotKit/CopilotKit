@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
+      - "examples/integrations/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
   workflow_dispatch:
@@ -51,7 +52,24 @@ on:
           - shell-docs
           - showcase-harness
           - showcase-aimock
+          - showcase-pocketbase
           - webhooks
+          # Per-starter image builds (model B, §b stage 1). These map to the
+          # build-starters job below, NOT the showcase `build` job. "all"
+          # builds the full showcase fleet AND all 12 starters; a specific
+          # starter slug narrows to that one starter via STARTER_DISPATCH.
+          - starter-langgraph-python
+          - starter-mastra
+          - starter-langgraph-js
+          - starter-crewai-crews
+          - starter-pydantic-ai
+          - starter-adk
+          - starter-agno
+          - starter-llamaindex
+          - starter-langgraph-fastapi
+          - starter-strands-python
+          - starter-ms-agent-framework-python
+          - starter-ms-agent-framework-dotnet
 
 # No top-level concurrency group. Every build run completes. This is the
 # whole point of the decoupling: rapid pushes to main no longer cancel
@@ -158,6 +176,13 @@ jobs:
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
+            pocketbase:
+              # PB image is self-contained: PB binary + pb_migrations +
+              # pb_hooks + Dockerfile. No shared-module copy, so the slot
+              # is gated purely to its own subtree — it does NOT rebuild
+              # on every showcase push, only when migrations/hooks/Dockerfile
+              # change.
+              - 'showcase/pocketbase/**'
             webhooks:
               # Sentinel pattern that cannot match any in-tree path.
               # The webhooks GHCR image is built by the showcase-eval-webhook
@@ -211,6 +236,7 @@ jobs:
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
             {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
           ]'
 
@@ -245,10 +271,23 @@ jobs:
           # done — a common "did my dispatch deploy?" footgun. The `all` and
           # empty (push-event) modes legitimately produce [] when there are
           # no changes and must still succeed.
-          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
-            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
-            exit 1
-          fi
+          #
+          # The `starter-*` namespace is OWNED by the detect-starter-changes
+          # job (which scopes its OWN fail-loud to `starter-*`). A
+          # `service=starter-<slug>` dispatch legitimately yields [] here
+          # (no showcase service is named `starter-*`), so it must SKIP — an
+          # empty showcase matrix, NOT a fail-loud exit 1. Mirrors how the
+          # starter job scopes its fail-loud to the `starter-*` namespace.
+          case "$DISPATCH" in
+            starter-*) ;; # starter namespace → empty showcase matrix + skip
+            "" | "all") ;; # push / full-fleet → [] is legitimate
+            *)
+              if [ "$MATRIX" = "[]" ]; then
+                echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+                exit 1
+              fi
+              ;;
+          esac
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
@@ -435,6 +474,180 @@ jobs:
           path: ${{ runner.temp }}/build-result/result.json
           if-no-files-found: error
           retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────
+  # Per-starter image publish (model B, §b stage 1 / Phase 1).
+  #
+  # Fully decoupled from the showcase `build`→`aggregate`→`redeploy` chain
+  # above: starters are self-contained npm projects (no monorepo-source
+  # build, no shared-module copy) and build from their own root Dockerfile
+  # at examples/integrations/<slug>/Dockerfile (the single-image deployable:
+  # Next.js frontend + agent, EXPOSE 3000, CMD entrypoint.sh — distinct from
+  # the docker/Dockerfile.app + docker/Dockerfile.agent split stack used by
+  # docker-compose.test.yml). Published to ghcr.io/copilotkit/starter-<slug>
+  # (the `starter-` prefix is disjoint from `showcase-*`; S2's harness
+  # discovery filters on namePrefix "starter-"). Railway deploy is the
+  # gated S5 — NOT done here.
+  #
+  # The 12 starter slugs are the matrix source of truth (the smoke matrix in
+  # test_smoke-starter.yml and STARTER_TO_COLUMN in
+  # showcase/harness/src/probes/helpers/starter-mapping.ts). The dashboard
+  # column remap lives in the harness (§a), so this layer uses raw starter
+  # slugs.
+  detect-starter-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.starter-matrix.outputs.matrix }}
+      has_changes: ${{ steps.starter-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Detect changed starter paths
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            workflow_config:
+              - '.github/workflows/showcase_build.yml'
+            langgraph_python:
+              - 'examples/integrations/langgraph-python/**'
+            mastra:
+              - 'examples/integrations/mastra/**'
+            langgraph_js:
+              - 'examples/integrations/langgraph-js/**'
+            crewai_crews:
+              - 'examples/integrations/crewai-crews/**'
+            pydantic_ai:
+              - 'examples/integrations/pydantic-ai/**'
+            adk:
+              - 'examples/integrations/adk/**'
+            agno:
+              - 'examples/integrations/agno/**'
+            llamaindex:
+              - 'examples/integrations/llamaindex/**'
+            langgraph_fastapi:
+              - 'examples/integrations/langgraph-fastapi/**'
+            strands_python:
+              - 'examples/integrations/strands-python/**'
+            ms_agent_framework_python:
+              - 'examples/integrations/ms-agent-framework-python/**'
+            ms_agent_framework_dotnet:
+              - 'examples/integrations/ms-agent-framework-dotnet/**'
+
+      - name: Build starter matrix
+        id: starter-matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          set -euo pipefail
+          # One slot per starter. `slug` is the examples/integrations/<slug>
+          # directory name; `image` is the published GHCR repo (starter-<slug>);
+          # `filter_key` matches the paths-filter key above.
+          ALL_STARTERS='[
+            {"slug":"langgraph-python","image":"starter-langgraph-python","filter_key":"langgraph_python"},
+            {"slug":"mastra","image":"starter-mastra","filter_key":"mastra"},
+            {"slug":"langgraph-js","image":"starter-langgraph-js","filter_key":"langgraph_js"},
+            {"slug":"crewai-crews","image":"starter-crewai-crews","filter_key":"crewai_crews"},
+            {"slug":"pydantic-ai","image":"starter-pydantic-ai","filter_key":"pydantic_ai"},
+            {"slug":"adk","image":"starter-adk","filter_key":"adk"},
+            {"slug":"agno","image":"starter-agno","filter_key":"agno"},
+            {"slug":"llamaindex","image":"starter-llamaindex","filter_key":"llamaindex"},
+            {"slug":"langgraph-fastapi","image":"starter-langgraph-fastapi","filter_key":"langgraph_fastapi"},
+            {"slug":"strands-python","image":"starter-strands-python","filter_key":"strands_python"},
+            {"slug":"ms-agent-framework-python","image":"starter-ms-agent-framework-python","filter_key":"ms_agent_framework_python"},
+            {"slug":"ms-agent-framework-dotnet","image":"starter-ms-agent-framework-dotnet","filter_key":"ms_agent_framework_dotnet"}
+          ]'
+
+          # Dispatch modes (mirror the showcase detect-changes job):
+          #   "all"                     → every starter (full-fleet rebuild).
+          #   "starter-<slug>"          → that one starter (strip "starter-" prefix to match .image).
+          #   "<showcase service slug>" → no starters (this is a showcase-only dispatch).
+          #   "" (push event)           → starters whose filter_key appears in CHANGES
+          #                               (or workflow_config touched → rebuild all).
+          DISPATCH="${DISPATCH_SERVICE:-}"
+          CHANGES="${FILTER_CHANGES:-[]}"
+
+          # `.image` is exactly "starter-<slug>", which is also the
+          # workflow_dispatch choice value, so a specific-starter dispatch
+          # matches `$dispatch == .image` directly.
+          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+            [.[] |
+              (.filter_key as $fk | select(
+              $dispatch == "all" or
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .image) or
+              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+            ))]
+          ')
+
+          # Fail loudly on a typo'd starter dispatch (mirrors showcase job).
+          # Only applies to the starter-* dispatch namespace; a showcase
+          # service slug or "all" legitimately yields [] here.
+          case "$DISPATCH" in
+            starter-*)
+              if [ "$MATRIX" = "[]" ]; then
+                echo "::error::workflow_dispatch service='$DISPATCH' did not match any starter — check the slug"
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-starters:
+    needs: [detect-starter-changes]
+    if: needs.detect-starter-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        starter: ${{ fromJSON(needs.detect-starter-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push starter image
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
+        with:
+          project: m2kw2wmmcp
+          context: examples/integrations/${{ matrix.starter.slug }}
+          file: examples/integrations/${{ matrix.starter.slug }}/Dockerfile
+          # Pin amd64: Railway and GHCR serve x86 hosts. Depot defaults to
+          # the runner's native arch, so an arm64-only image would crash on
+          # pull with "does not have a linux/amd64 variant available".
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
+            ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
 
   aggregate-build-results:
     name: Aggregate build results
@@ -661,8 +874,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*\nstaging unchanged (no redeploy)\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
   notify:
     name: Notify on failure
@@ -703,8 +921,13 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*\nCommit: `{0}` by {1}\n<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7

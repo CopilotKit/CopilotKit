@@ -287,6 +287,92 @@ describe("checkDeploymentSuccess", () => {
     expect(err).toMatch(/no deployments/);
   });
 
+  it("waits out an in-progress deployment, then passes on SUCCESS", async () => {
+    // DEPLOYING twice, then SUCCESS — the exact race verify-prod hit
+    // (promote pins digest, Railway still rolling out). Must NOT fail on
+    // the first in-progress read.
+    const statuses = ["DEPLOYING", "DEPLOYING", "SUCCESS"];
+    let i = 0;
+    const fetchImpl = makeFetch(() =>
+      gqlDeploymentResponse(statuses[Math.min(i++, statuses.length - 1)]),
+    );
+    const sleeps: number[] = [];
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 150_000,
+        pollIntervalMs: 5_000,
+        // Deterministic, instant sleep seam — record the requested delays.
+        sleep: async (ms: number) => {
+          sleeps.push(ms);
+        },
+      },
+    );
+    expect(err).toBeUndefined();
+    // Polled twice (two in-progress reads) before the SUCCESS read.
+    expect(sleeps).toEqual([5_000, 5_000]);
+    expect((fetchImpl as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(3);
+  });
+
+  it("fails when an in-progress deployment never settles before the poll budget", async () => {
+    // Always DEPLOYING. A monotonic `now` seam advances past the budget
+    // so the loop terminates deterministically with a timeout error.
+    const fetchImpl = makeFetch(() => gqlDeploymentResponse("DEPLOYING"));
+    let clock = 0;
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 20_000,
+        pollIntervalMs: 5_000,
+        sleep: async (ms: number) => {
+          clock += ms;
+        },
+        now: () => clock,
+      },
+    );
+    expect(err).toMatch(/still in progress/);
+    expect(err).toMatch(/DEPLOYING/);
+    expect(err).toMatch(/prod/);
+  });
+
+  it("fails FAST on a terminal FAILED status without waiting", async () => {
+    const fetchImpl = makeFetch(() => gqlDeploymentResponse("FAILED"));
+    const sleeps: number[] = [];
+    const err = await checkDeploymentSuccess(
+      "svc-id",
+      "prod",
+      TOKEN,
+      fetchImpl,
+      5000,
+      "docs",
+      "docs",
+      {
+        pollTimeoutMs: 150_000,
+        pollIntervalMs: 5_000,
+        sleep: async (ms: number) => {
+          sleeps.push(ms);
+        },
+      },
+    );
+    expect(err).toMatch(/FAILED/);
+    expect(err).toMatch(/expected SUCCESS/);
+    // No waiting on a terminal failure — exactly one query, zero sleeps.
+    expect(sleeps).toEqual([]);
+    expect((fetchImpl as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
   it("sends the Authorization bearer + serviceId/environmentId variables", async () => {
     const calls: Array<{ url: string; body: unknown; auth?: string }> = [];
     const fetchImpl = makeFetch((url, init) => {
@@ -657,10 +743,16 @@ describe.each(DRIVER_CASES)(
         });
       });
       const healthUrls = seen.filter((u) => !u.includes("/graphql/v2"));
-      expect(healthUrls).toHaveLength(1);
-      expect(healthUrls[0]).toBe(
-        `https://${entry.domains.prod}${expectedHealthPath}`,
-      );
+      // The dashboard driver makes a SECOND GET to `/` after the baseline
+      // healthcheck to fetch + sentinel-check the injected
+      // `__SHOWCASE_CONFIG__` (see verify-deploy.drivers.dashboard.ts). That
+      // extra GET targets the same `/` path, so both non-graphql fetches go
+      // to `https://<host>/`. Every other driver makes exactly one.
+      const expectedHealthCount = label === "dashboard" ? 2 : 1;
+      expect(healthUrls).toHaveLength(expectedHealthCount);
+      for (const u of healthUrls) {
+        expect(u).toBe(`https://${entry.domains.prod}${expectedHealthPath}`);
+      }
     });
 
     it("queries Railway with the SSOT serviceId for the resolved env", async () => {
@@ -723,3 +815,177 @@ describe.each(DRIVER_CASES)(
     });
   },
 );
+
+describe("probeDashboard runtime-config sentinel guard", () => {
+  // Build the dashboard `/` HTML carrying the root-layout injection
+  // `<script id="__showcase_config__">window.__SHOWCASE_CONFIG__={...};</script>`.
+  // The serializer escapes `<` to <; our config URLs never contain `<`,
+  // so the JSON is byte-identical to JSON.stringify.
+  function dashboardHtml(cfg: Record<string, unknown>): string {
+    const json = JSON.stringify(cfg);
+    return `<!doctype html><html><head><script id="__showcase_config__">window.__SHOWCASE_CONFIG__=${json};</script></head><body>ok</body></html>`;
+  }
+
+  const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
+  const PROD_INVALID_POCKETBASE_URL = "http://pocketbase.invalid";
+  const HEALTHY_CFG = {
+    pocketbaseUrl: "https://pb.example.com",
+    shellUrl: "https://shell.example.com",
+    opsBaseUrl: "",
+  };
+
+  // Drive the full driver (baseline GraphQL + healthcheck, then the
+  // config GET) with a single seam that serves SUCCESS for GraphQL, 200
+  // for every page GET, and the provided HTML body.
+  function seamFor(html: string): FetchLike {
+    return makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      return Promise.resolve(mkResponse({ status: 200, text: html }));
+    });
+  }
+
+  const entry = SERVICES.dashboard;
+  const target: ProbeTarget = {
+    name: "dashboard",
+    host: asHost(entry.domains.prod),
+    driver: "dashboard",
+  };
+
+  it("passes when the injected config is healthy", async () => {
+    await withGlobalSeam(
+      seamFor(dashboardHtml(HEALTHY_CFG)),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(true);
+      },
+    );
+  });
+
+  it("fails loud when shellUrl is the env-unset sentinel", async () => {
+    await withGlobalSeam(
+      seamFor(
+        dashboardHtml({ ...HEALTHY_CFG, shellUrl: PROD_INVALID_SHELL_URL }),
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+          expect(out.error).toMatch(/shellUrl/);
+          expect(out.error).toContain(PROD_INVALID_SHELL_URL);
+          expect(out.error).toMatch(/SHELL_URL/);
+        }
+      },
+    );
+  });
+
+  it("fails loud when pocketbaseUrl is the env-unset sentinel", async () => {
+    await withGlobalSeam(
+      seamFor(
+        dashboardHtml({
+          ...HEALTHY_CFG,
+          pocketbaseUrl: PROD_INVALID_POCKETBASE_URL,
+        }),
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) {
+          expect(out.error).toMatch(/pocketbaseUrl/);
+          expect(out.error).toContain(PROD_INVALID_POCKETBASE_URL);
+        }
+      },
+    );
+  });
+
+  it("does NOT false-fail when the config block is absent from the page", async () => {
+    await withGlobalSeam(
+      seamFor("<html><body>rendered without a config block</body></html>"),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(true);
+      },
+    );
+  });
+
+  it("fails when the config block is present but malformed JSON", async () => {
+    await withGlobalSeam(
+      seamFor(
+        '<html><head><script id="__showcase_config__">window.__SHOWCASE_CONFIG__={broken};</script></head><body>ok</body></html>',
+      ),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(false);
+        if (out.ok === false) expect(out.error).toMatch(/not valid JSON/);
+      },
+    );
+  });
+
+  it("passes when a config VALUE contains a `};` substring (no char-class truncation)", async () => {
+    // A char-class body match (`\{[^<]*?\}`) truncates at the first `};`
+    // inside a value, mis-parsing the config. The tag-boundary extractor must
+    // capture the whole assignment so a value like "a};b" round-trips intact.
+    await withGlobalSeam(
+      seamFor(dashboardHtml({ ...HEALTHY_CFG, opsBaseUrl: "x};y" })),
+      TOKEN,
+      async () => {
+        const out = await probeDashboard(target);
+        expect(out.ok).toBe(true);
+      },
+    );
+  });
+
+  it("fails loud on format drift (trailing newline / missing semicolon in the injection)", async () => {
+    // Old regex required a literal trailing `};` with no intervening
+    // whitespace; a formatter that emits a trailing newline (or drops the
+    // semicolon) made it no-match → silent PASS. The tag-boundary extractor
+    // must still parse it (healthy) OR, if genuinely unparseable, throw —
+    // never silent-pass. Here a parseable-but-no-trailing-semicolon, newline-
+    // padded body must be parsed as the healthy config (round-trips ok).
+    const json = JSON.stringify(HEALTHY_CFG);
+    const driftedHtml = `<!doctype html><html><head><script id="__showcase_config__">\n  window.__SHOWCASE_CONFIG__ = ${json}\n</script></head><body>ok</body></html>`;
+    await withGlobalSeam(seamFor(driftedHtml), TOKEN, async () => {
+      const out = await probeDashboard(target);
+      expect(out.ok).toBe(true);
+    });
+  });
+
+  it("fails loud when the config is parseable but NOT an object (e.g. a scalar)", async () => {
+    // A parseable non-object (here a JSON number) previously returned
+    // `undefined`, which the caller treats as "block absent → pass". It must
+    // now THROW like the bad-JSON branch so a format-drifted config fails loud.
+    const nonObjHtml = `<!doctype html><html><head><script id="__showcase_config__">window.__SHOWCASE_CONFIG__=42;</script></head><body>ok</body></html>`;
+    await withGlobalSeam(seamFor(nonObjHtml), TOKEN, async () => {
+      const out = await probeDashboard(target);
+      expect(out.ok).toBe(false);
+      if (out.ok === false) {
+        expect(out.error).toMatch(/config object|not valid JSON/);
+      }
+    });
+  });
+
+  it("surfaces a config-fetch failure as a probe error (after a green baseline)", async () => {
+    // GraphQL + the baseline healthcheck succeed; the SECOND GET (the
+    // config probe) throws. The dashboard driver must surface it, not
+    // silently pass.
+    let pageGets = 0;
+    const seam = makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      pageGets += 1;
+      if (pageGets === 1) return Promise.resolve(mkResponse({ status: 200 }));
+      throw new Error("connection refused");
+    });
+    await withGlobalSeam(seam, TOKEN, async () => {
+      const out = await probeDashboard(target);
+      expect(out.ok).toBe(false);
+      if (out.ok === false) {
+        expect(out.error).toMatch(/runtime-config GET/);
+        expect(out.error).toMatch(/connection refused/);
+      }
+    });
+  });
+});

@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import {
   findMissingServices,
   findUntrackedServices,
+  isStarterFleetService,
   summarizeFailures,
   validateImage,
 } from "../verify-railway-image-refs";
@@ -53,6 +54,34 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     expect(findUntrackedServices(railway)).toEqual(["alpha-svc", "zeta-svc"]);
   });
 
+  it("does NOT flag a `starter-*` live service that is absent from the SSOT", () => {
+    // The starter container fleet (starter-<slug>) is auto-discovered by
+    // the starter_smoke probe (railway-services source, namePrefix
+    // "starter-") and is intentionally DECOUPLED from this 27-service
+    // SSOT. Provisioning a starter-* service must NOT trip the
+    // Railway->SSOT drift gate (which previously SKIPPED the build).
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "starter-langgraph-python", // starter fleet, decoupled — tolerated
+      "starter-mastra", // starter fleet, decoupled — tolerated
+    ]);
+    expect(findUntrackedServices(railway)).toEqual([]);
+  });
+
+  it("STILL flags a real (non-starter) untracked Railway service", () => {
+    // Drift detection for the tracked fleet must be preserved: a genuine
+    // out-of-band service (here a rogue `showcase-*`) is still a hard fail
+    // even when a tolerated starter-* service is present alongside it.
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "starter-mastra", // starter fleet — tolerated
+      "showcase-rogue-untracked", // real drift — must be flagged
+    ]);
+    expect(findUntrackedServices(railway)).toEqual([
+      "showcase-rogue-untracked",
+    ]);
+  });
+
   it("does NOT flag a service that the SSOT marks gateIgnore: true", () => {
     // Inject a transient entry into SERVICES for this test, then remove.
     const sentinel = "transient-third-party-relay";
@@ -75,6 +104,38 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     } finally {
       delete (SERVICES as Record<string, ServiceEntry>)[sentinel];
     }
+  });
+});
+
+describe("isStarterFleetService predicate", () => {
+  it("matches names that start with the `starter-` prefix", () => {
+    expect(isStarterFleetService("starter-mastra")).toBe(true);
+    expect(isStarterFleetService("starter-langgraph-python")).toBe(true);
+    expect(isStarterFleetService("starter-")).toBe(true);
+  });
+
+  it("does NOT match tracked showcase / infra service names", () => {
+    expect(isStarterFleetService("showcase-mastra")).toBe(false);
+    expect(isStarterFleetService("dashboard")).toBe(false);
+    expect(isStarterFleetService("pocketbase")).toBe(false);
+    // The decommissioned `showcase-starter-*` services use the
+    // `showcase-` prefix, NOT `starter-`, so they are NOT starter-fleet.
+    expect(isStarterFleetService("showcase-starter-ag2")).toBe(false);
+  });
+});
+
+describe("findMissingServices — starter fleet is never required", () => {
+  it("does not require any `starter-*` service (none are in the SSOT)", () => {
+    // Starter services are decoupled from the SSOT, so they are never
+    // gateValidated SSOT entries and findMissingServices never demands
+    // them. A present-set containing only a starter service must still
+    // report the real gateValidated services as missing — and never the
+    // starter itself.
+    const present = new Set<string>(["starter-mastra"]);
+    const missing = findMissingServices("prod", present);
+    expect(missing).not.toContain("starter-mastra");
+    // Sanity: the tracked fleet is still required when absent.
+    expect(missing).toContain("showcase-mastra");
   });
 });
 

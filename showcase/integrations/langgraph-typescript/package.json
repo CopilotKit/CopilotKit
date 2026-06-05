@@ -56,6 +56,7 @@
     "typescript": "^5.7.0"
   },
   "overrides": {
+    "@ag-ui/langgraph": "0.0.37",
     "@copilotkit/web-inspector": {
       "@copilotkit/core": "latest"
     }

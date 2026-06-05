@@ -12,7 +12,7 @@
     "clean": "rm -rf build/ node_modules/ .vite/"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.54.0",
+    "@copilotkit/react-core": "1.59.3",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.7",
@@ -23,10 +23,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
+    "oidc-client-ts": "^3.5.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-dropzone": "^14.3.8",
+    "react-is": "^19.2.7",
     "react-markdown": "^10.1.0",
     "react-oidc-context": "^3.3.0",
     "react-router-dom": "^6.21.0",

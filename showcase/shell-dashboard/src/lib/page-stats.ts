@@ -9,7 +9,6 @@
  */
 
 import { buildCellModel } from "@/lib/cell-model";
-import { resolveCell } from "@/lib/live-status";
 import type { LiveStatusMap } from "@/lib/live-status";
 import type { CatalogCell } from "@/data/catalog-types";
 import type { ParityTier } from "@/components/parity-badge";
@@ -31,14 +30,29 @@ export interface HealthStats {
   noData: number;
 }
 
-/** All ParityTier values, used to validate `cell.parity_tier` before indexing. */
-const PARITY_TIERS: ReadonlySet<ParityTier> = new Set<ParityTier>([
+/**
+ * All ParityTier values, used to validate `cell.parity_tier` before indexing.
+ * Exported so other consumers of raw `cell.parity_tier` (e.g. feature-grid's
+ * `parityTierMap`) validate against the SAME set instead of an unchecked cast.
+ */
+export const PARITY_TIERS: ReadonlySet<ParityTier> = new Set<ParityTier>([
   "reference",
   "at_parity",
   "partial",
   "minimal",
   "not_wired",
 ]);
+
+/**
+ * Validate a raw `cell.parity_tier` against the known `ParityTier` set,
+ * returning the narrowed tier or `undefined` for an unknown/corrupt value.
+ * Centralizes the guard so callers don't `as ParityTier`-cast blindly.
+ */
+export function asParityTier(tier: unknown): ParityTier | undefined {
+  return PARITY_TIERS.has(tier as ParityTier)
+    ? (tier as ParityTier)
+    : undefined;
+}
 
 /**
  * Exhaustive achievedDepth → DepthDistribution key map. The compiler enforces
@@ -197,11 +211,22 @@ export function computeDepthDistribution(
 /**
  * D6 (parity-vs-reference) rollup counts across wired cells.
  *
- * The D6 badge tone (`resolveCell().d6.tone`) is one of green / red / amber
- * (degraded or stale-green) / gray (no row). Amber is counted as `degraded` and
- * surfaced distinctly — folding it into gray (the previous `default` branch)
- * hid stale/degraded D6 as "no data". This matches how the matrix and staleness
- * machinery treat a degraded D6 badge.
+ * Counts the LADDER-GATED D6 status (`buildCellModel().d6Effective`), NOT the
+ * raw per-dimension D6 tone (`resolveCell().d6.tone`). D6 is the top of the
+ * verification ladder, so a cell only counts as D6-green when the ladder through
+ * D5 is intact (full ladder → `d6Effective === "green"` → `chipColor === "green"`
+ * → `achievedDepth === 6`). A cell whose D5 is broken/unverified — which a raw
+ * green D6 row would otherwise overstate as "D6 green" — collapses to `null`
+ * (blocked) and is counted as `gray`, NOT green. This makes the headline D6
+ * count agree with the matrix's per-cell D6 badge (which renders the same
+ * `d6Effective`) and the chip; the standalone CV/API/RT badges still show the
+ * raw per-dimension failure.
+ *
+ * Buckets stay coherent with the badge tone mapping:
+ *   d6Effective green → green
+ *   d6Effective red   → red    (genuine D6 failure, ladder intact through D5)
+ *   d6Effective amber → degraded (stale/degraded D6, ladder intact through D5)
+ *   d6Effective null  → gray   (no row, OR blocked by a broken/unverified ladder)
  */
 export function computeD6Stats(
   cells: readonly CatalogCell[],
@@ -214,10 +239,17 @@ export function computeD6Stats(
   let red = 0;
   for (const cell of cells) {
     if (cell.status !== "wired" || cell.feature === null) continue;
-    const state = resolveCell(liveStatus, cell.integration, cell.feature, {
+    const model = buildCellModel(
+      liveStatus,
+      {
+        slug: cell.integration,
+        featureId: cell.feature,
+        isSupported: true,
+        isWired: true,
+      },
       now,
-    });
-    switch (state.d6.tone) {
+    );
+    switch (model.d6Effective) {
       case "green":
         green++;
         break;
@@ -228,7 +260,7 @@ export function computeD6Stats(
         degraded++;
         break;
       default:
-        // gray (no row) — distinct from degraded.
+        // null — no row OR blocked by a broken/unverified ladder below D6.
         gray++;
         break;
     }

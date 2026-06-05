@@ -4,8 +4,8 @@
 // Prerequisites:
 //   npm install @copilotkit/runtime @copilotkit/agent hono
 //
-// Environment variables:
-//   OPENAI_API_KEY=sk-...  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY)
+// Environment variables (store secrets in env, never hardcode them):
+//   OPENAI_API_KEY=<your-api-key>  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY)
 
 import {
   CopilotRuntime,

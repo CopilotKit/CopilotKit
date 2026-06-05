@@ -1,12 +1,7 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  HttpAgent,
-  RunAgentInput,
-} from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
@@ -934,6 +929,11 @@ describe("handleRunAgent", () => {
               id: "assistant-1",
               role: "assistant",
               content: '{"title":"**Order refund** status"}',
+            },
+            {
+              id: "tool-1",
+              role: "tool",
+              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
             },
           ],
         }),

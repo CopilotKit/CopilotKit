@@ -4,7 +4,7 @@ description: >
   Use when adding CopilotKit to an existing project or bootstrapping a new CopilotKit
   project from scratch. Covers framework detection, package installation, runtime wiring,
   provider setup, and first working chat integration.
-version: 1.1.0
+version: 1.1.1
 ---
 
 # CopilotKit Setup
@@ -307,19 +307,21 @@ import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 
 ### Step 5: Set environment variables
 
-Create a `.env.local` (Next.js) or `.env` file:
+Provider API keys are secrets. Store them in environment variables -- never hardcode them in source or commit them to version control. Create a `.env.local` (Next.js) or `.env` file:
 
 ```
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=<your-openai-api-key>
 ```
 
-The `BuiltInAgent` automatically resolves API keys from environment variables based on the model prefix:
+Make sure your `.gitignore` excludes env files (`.env`, `.env.local`, `.env*.local`) so keys are never committed. In production, supply keys through your platform's secret manager (Vercel/Netlify environment variables, AWS Secrets Manager, etc.) rather than a checked-in file.
+
+The `BuiltInAgent` automatically resolves API keys from these environment variables based on the model prefix:
 
 - `openai/*` models read `OPENAI_API_KEY`
 - `anthropic/*` models read `ANTHROPIC_API_KEY`
 - `google/*` models read `GOOGLE_API_KEY`
 
-You can also pass `apiKey` directly to `BuiltInAgent` if needed.
+If you need to pass `apiKey` explicitly, always source it from the environment (`apiKey: process.env.OPENAI_API_KEY`) -- never inline a literal key.
 
 ### Step 6: Connect to the cloud platform (telemetry)
 
@@ -331,21 +333,19 @@ CopilotKit uses telemetry to understand adoption, improve the product, and provi
    npx copilotkit auth
    ```
 3. Guide the user through the browser-based authentication that opens.
-4. Once authentication completes, the CLI outputs a license key (format: `ck_...`).
-5. Add the license key to the `CopilotKitProvider`:
-   ```tsx
-   <CopilotKitProvider
-     runtimeUrl="/api/copilotkit"
-     licenseKey="ck_..."
-   >
+4. Once authentication completes, the CLI outputs a license key (a public, client-side project identifier -- not a secret).
+5. Store the license key in an environment variable and reference it from the `CopilotKitProvider` -- this keeps it out of source and easy to rotate per environment:
    ```
-   Alternatively, store it as an environment variable (`COPILOTKIT_LICENSE_KEY` in `.env.local` or `.env`) and reference it:
+   # .env.local (Next.js)
+   NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
+   ```
    ```tsx
    <CopilotKitProvider
      runtimeUrl="/api/copilotkit"
      licenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
    >
    ```
+   The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
 
 See `references/telemetry-setup.md` for full details on what the license key enables and how to opt out.
 
@@ -356,6 +356,15 @@ See `references/telemetry-setup.md` for full details on what the license key ena
 3. The chat UI should render and connect to the runtime
 4. Send a test message -- you should receive an AI response
 5. Check the runtime's `/info` endpoint (GET) to confirm it reports available agents
+
+## Security notes
+
+Keep these in mind as you wire up a real deployment:
+
+- **Secrets stay server-side and in env vars.** Provider API keys (`OPENAI_API_KEY`, etc.) are read by the runtime/agent on the server. Never expose them to the browser, hardcode them, or commit them -- store them in environment variables or a secret manager (see Step 5). The CopilotKit license key is the one client-side value, and it is a public project identifier, not a secret.
+- **Treat all chat input as untrusted.** Chat messages flow from the frontend through the `CopilotRuntime` endpoint into the agent's LLM context. They are user-controlled and can attempt prompt injection -- including indirect injection via content the agent fetches (web pages, documents, tool results). Do not assume the model will only do what your system prompt intends.
+- **Give server-side tools least privilege.** A `defineTool` handler runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
+- **Authenticate the runtime endpoint.** The runtime route is a public HTTP endpoint by default. Put your app's auth in front of it so only authorized users can drive the agent and consume provider credits.
 
 ## Quick Reference
 

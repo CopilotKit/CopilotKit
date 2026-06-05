@@ -161,11 +161,16 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
 // ---------------------------------------------------------------------------
 
 describe("computeD6Stats — degraded (Finding #2)", () => {
-  it("counts a stale-green D6 cell as degraded, not gray", () => {
+  it("counts a stale-green D6 cell (intact ladder) as degraded, not gray", () => {
     const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
-    // D6 row is green but observed long ago → resolveCell downgrades to amber.
+    // Full ladder through D5 intact; the D6 row is green but observed long ago
+    // → resolveD6 downgrades to amber → ladder-gated d6Effective = amber.
     const stale = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString();
     const live = mapOf([
+      row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+      row(keyFor("chat", "agno"), "chat", "green"),
+      row(keyFor("tools", "agno"), "tools", "green"),
+      row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
       row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
         observed_at: stale,
       }),
@@ -180,31 +185,74 @@ describe("computeD6Stats — degraded (Finding #2)", () => {
     expect(stats.red).toBe(0);
   });
 
-  it("still counts green / red / gray (no row) correctly", () => {
+  it("still counts green / red / gray correctly with LADDER-GATED D6", () => {
+    // green: full intact ladder → d6Effective green.
     const greenCell = wiredCell({
       integration: "agno",
       feature: "agentic-chat",
     });
+    // red: intact ladder through D5, D6 red → genuine D6 failure → red.
     const redCell = wiredCell({
       integration: "mastra",
       feature: "agentic-chat",
     });
+    // gray: no d6 row at all → d6Effective null → gray.
     const grayCell = wiredCell({
       integration: "agno",
       feature: "tool-rendering",
     });
     const live = mapOf([
-      row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ...fullDepth6Rows("agno", "agentic-chat"),
+      // mastra: intact ladder through D5, then a real D6 red.
+      row(keyFor("e2e", "mastra", "agentic-chat"), "e2e", "green"),
+      row(keyFor("chat", "mastra"), "chat", "green"),
+      row(keyFor("tools", "mastra"), "tools", "green"),
+      row(keyFor("d5", "mastra", "agentic-chat"), "d5", "green"),
       row(keyFor("d6", "mastra", "agentic-chat"), "d6", "red"),
       // grayCell: no d6 row for tool-rendering → gray.
     ]);
-    const now = Date.now();
+    const now = Date.parse(FRESH);
 
     const stats = computeD6Stats([greenCell, redCell, grayCell], live, now);
 
     expect(stats.green).toBe(1);
     expect(stats.red).toBe(1);
     expect(stats.gray).toBe(1);
+    expect(stats.degraded).toBe(0);
+  });
+
+  // ── Ladder-gating: a D5-broken cell with raw-green D6 must NOT count green ─
+  it("does NOT count a D5-broken cell as D6-green even when the raw D6 row is green", () => {
+    const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
+    // D5 red but D6 emitted green in isolation — the exact overstatement bug.
+    const live = mapOf([
+      row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+      row(keyFor("chat", "agno"), "chat", "green"),
+      row(keyFor("tools", "agno"), "tools", "green"),
+      row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+      row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+    ]);
+    const now = Date.parse(FRESH);
+
+    const stats = computeD6Stats([cell], live, now);
+
+    // Ladder broken below D6 → blocked → counted as gray, NOT green.
+    expect(stats.green).toBe(0);
+    expect(stats.gray).toBe(1);
+    expect(stats.red).toBe(0);
+    expect(stats.degraded).toBe(0);
+  });
+
+  it("counts a fully-green ladder as D6-green", () => {
+    const cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
+    const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
+    const now = Date.parse(FRESH);
+
+    const stats = computeD6Stats([cell], live, now);
+
+    expect(stats.green).toBe(1);
+    expect(stats.gray).toBe(0);
+    expect(stats.red).toBe(0);
     expect(stats.degraded).toBe(0);
   });
 });
