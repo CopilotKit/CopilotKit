@@ -185,7 +185,7 @@ export function createA2UIMessageRenderer(
           readyRef.current = false;
           return;
         }
-        const t = setTimeout(() => setSurfaceReady(true), 1500); // fallback only
+        const t = setTimeout(() => setSurfaceReady(true), 8000); // fallback only
         return () => clearTimeout(t);
       }, [hasOps]);
 
@@ -355,11 +355,37 @@ function SurfaceMessageProcessor({
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
-    // The surface now has content → signal the cross-over to swap. (OSS-162)
-    onReady?.();
+    // Signal the cross-over to swap ONLY once the surface can actually paint a
+    // card. A data-bound list renders nothing until its data model arrives, so
+    // for those we wait for the first non-empty updateDataModel; static surfaces
+    // are renderable from components alone. Latency-independent. (OSS-162)
+    if (onReady && surfaceHasRenderableContent(operations)) onReady();
   }, [processMessages, getSurface, surfaceId, operations, onReady]);
 
   return null;
+}
+
+/**
+ * Whether the surface's operations are enough to paint a visible card yet.
+ * A data-bound surface references its data via `path` and renders nothing until
+ * the data model has ≥1 value; a static surface (no path refs) paints from its
+ * components alone. Used to time the loader→surface cross-over to actual content
+ * arrival rather than a fixed delay. (OSS-162)
+ */
+function surfaceHasRenderableContent(operations: any[]): boolean {
+  const componentOps = operations.filter((o) => o?.updateComponents);
+  if (!componentOps.length) return false;
+  const needsData = JSON.stringify(componentOps).includes('"path"');
+  if (!needsData) return true;
+  return operations.some((o) => {
+    const v = o?.updateDataModel?.value;
+    if (!v || typeof v !== "object") return false;
+    return Object.values(v).some((x) =>
+      Array.isArray(x)
+        ? x.length > 0
+        : x !== null && x !== undefined && x !== "",
+    );
+  });
 }
 
 function getOperationSurfaceId(operation: any): string | null {
