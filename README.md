@@ -85,7 +85,7 @@ One agent backend. Every frontend.
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 
-## 💬 Beyond the Browser: Slack & Microsoft Teams
+## 💬 Beyond the Browser: Slack & Microsoft Teams (Discord, Google Chat coming soon...)
 
 Your agents can run and generate Generative UI beyond the web app (**[Learn more](https://www.copilotkit.ai/integrations)**).
 
