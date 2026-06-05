@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer } from "react";
 import {
   useAgentContext,
   useHumanInTheLoop,
   useComponent,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
@@ -25,47 +26,7 @@ import { ChangePinDialog } from "@/components/change-pin-dialog";
 import { useSearchParams } from "next/navigation";
 import { CardsPageOperations } from "@/components/copilot-context";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
-
-function ApprovalButtons({
-  onApprove,
-  onDeny,
-  approveLabel = "Approve",
-  denyLabel = "Deny",
-}: {
-  onApprove: () => Promise<void> | void;
-  onDeny: () => void;
-  approveLabel?: string;
-  denyLabel?: string;
-}) {
-  const [responded, setResponded] = useState(false);
-
-  if (responded) {
-    return <p className="text-sm text-gray-500 italic">Response submitted.</p>;
-  }
-
-  return (
-    <div className="flex gap-2">
-      <button
-        className="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        onClick={async () => {
-          setResponded(true);
-          await onApprove();
-        }}
-      >
-        {approveLabel}
-      </button>
-      <button
-        className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-        onClick={() => {
-          setResponded(true);
-          onDeny();
-        }}
-      >
-        {denyLabel}
-      </button>
-    </div>
-  );
-}
+import { ApprovalButtons } from "@/components/approval-buttons";
 
 interface ChangePinState {
   newPin: string;
@@ -101,6 +62,8 @@ export default function Page() {
     assignPolicyToCard,
     addNoteToTransaction,
     changeTransactionStatus,
+    openPolicyException,
+    finalizePolicyException,
   } = useCreditCards();
 
   useEffect(() => {
@@ -164,14 +127,18 @@ export default function Page() {
       const { type, color, pin } = args;
 
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">New Card Request</h3>
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">New Card Request</h3>
           <div className="flex items-center gap-3">
-            <div className="bg-white border rounded-md p-1 flex items-center justify-center w-10 h-7">
+            <div className="flex h-7 w-10 items-center justify-center rounded-md border border-hairline bg-surface p-1">
               {type === CardBrand.Visa ? (
                 <svg
                   className="h-5"
@@ -204,7 +171,7 @@ export default function Page() {
             </div>
             <div>
               <p className="font-medium">{type}</p>
-              <p className="text-sm text-gray-500">PIN: {pin}</p>
+              <p className="text-sm text-ink-muted">PIN: {pin}</p>
             </div>
           </div>
           <ApprovalButtons
@@ -235,22 +202,26 @@ export default function Page() {
       const { cardId, policyType } = args;
 
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       const card = cards.find((c) => c.id === cardId);
       const policy = policies.find((p) => p.type === policyType);
 
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Assign Policy to Card</h3>
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Assign Policy to Card</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Card:</span>{" "}
+              <span className="text-ink-muted">Card:</span>{" "}
               {card ? `${card.type} ending in ${card.last4}` : cardId}
             </p>
             <p>
-              <span className="text-gray-500">Policy:</span> {policyType}
+              <span className="text-ink-muted">Policy:</span> {policyType}
             </p>
           </div>
           <ApprovalButtons
@@ -286,21 +257,25 @@ export default function Page() {
       const { transactionId, content } = args;
 
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       const transaction = transactions.find((t) => t.id === transactionId);
 
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Add Note to Transaction</h3>
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Add Note to Transaction</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Transaction:</span>{" "}
+              <span className="text-ink-muted">Transaction:</span>{" "}
               {transaction?.title ?? transactionId}
             </p>
             <p>
-              <span className="text-gray-500">Note:</span> {content}
+              <span className="text-ink-muted">Note:</span> {content}
             </p>
           </div>
           <ApprovalButtons
@@ -390,21 +365,25 @@ export default function Page() {
       const { cardId, pin } = args;
 
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       const card = cards.find((c) => c.id === cardId);
 
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
-          <h3 className="font-semibold text-lg">Change Card PIN</h3>
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Change Card PIN</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Card:</span>{" "}
+              <span className="text-ink-muted">Card:</span>{" "}
               {card ? `${card.type} ending in ${card.last4}` : cardId}
             </p>
             <p>
-              <span className="text-gray-500">New PIN:</span> {pin}
+              <span className="text-ink-muted">New PIN:</span> {pin}
             </p>
           </div>
           <ApprovalButtons
@@ -444,7 +423,11 @@ export default function Page() {
     render: ({ args, respond, status }) => {
       const { transactionId } = args;
       if (status === "inProgress") {
-        return <div>Loading...</div>;
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       }
 
       if (!transactionId) {
@@ -454,15 +437,25 @@ export default function Page() {
         return <div>No pending transactions</div>;
       }
 
+      // Run the REST mutation and respond with the REAL outcome. With the
+      // hardened caller returning `{ ok, error }`, a rejected over-limit
+      // approval reports the server's failure instead of a false success.
+      // Returns `ok` so the list only records the human action when it took
+      // effect.
       async function handleChangeTransactionStatus({
         id,
         status,
       }: {
         id: string;
         status: Transaction["status"];
-      }) {
-        await changeTransactionStatus({ id, status });
-        respond?.(`transaction ${id} ${status}`);
+      }): Promise<boolean> {
+        const { ok, error } = await changeTransactionStatus({ id, status });
+        if (!ok) {
+          respond?.(`Could not ${status} transaction ${id}: ${error}`);
+        } else {
+          respond?.(`transaction ${id} ${status}`);
+        }
+        return ok;
       }
 
       return (
@@ -470,6 +463,9 @@ export default function Page() {
           transactions={transactions.filter((t) =>
             transactionId.includes(t.id),
           )}
+          policies={policies}
+          openPolicyException={openPolicyException}
+          finalizePolicyException={finalizePolicyException}
           showApprovalInterface
           approvalInterfaceProps={{
             onApprove: (transactionId) =>
@@ -486,6 +482,162 @@ export default function Page() {
         />
       );
     },
+  });
+
+  // Open a draft policy exception against a transaction (human-in-the-loop).
+  // The description is deliberately NEUTRAL: it must not say what opening an
+  // exception accomplishes, must not name any exception code, and must not
+  // describe a sequence. The human picks the code in the modal; the agent
+  // only ever passes through whatever code it was given.
+  useHumanInTheLoop({
+    followUp: false,
+    name: "openPolicyException",
+    description:
+      "Open a draft policy exception against a transaction. Requires human approval.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      transactionId: z.string(),
+      code: z.string(),
+    }),
+    render: ({ args, respond, status }) => {
+      const { transactionId, code } = args;
+
+      if (status === "inProgress") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Open policy exception</h3>
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-ink-muted">Transaction:</span> {transactionId}
+            </p>
+            <p>
+              <span className="text-ink-muted">Code:</span> {code}
+            </p>
+          </div>
+          <ApprovalButtons
+            onApprove={async () => {
+              if (!transactionId || !code) {
+                respond?.("Missing transaction or exception code");
+                return;
+              }
+              const { ok, error } = await openPolicyException({
+                transactionId,
+                code,
+              });
+              respond?.(
+                ok
+                  ? "Exception opened"
+                  : `Could not open exception: ${error}`,
+              );
+            }}
+            onDeny={() => respond?.("Denied by user")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // Finalize a policy exception (human-in-the-loop). Neutral description —
+  // says nothing about what finalizing accomplishes.
+  useHumanInTheLoop({
+    followUp: false,
+    name: "finalizePolicyException",
+    description: "Finalize a policy exception. Requires human approval.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      exceptionId: z.string(),
+    }),
+    render: ({ args, respond, status }) => {
+      const { exceptionId } = args;
+
+      if (status === "inProgress") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Finalize policy exception</h3>
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-ink-muted">Exception:</span> {exceptionId}
+            </p>
+          </div>
+          <ApprovalButtons
+            onApprove={async () => {
+              if (!exceptionId) {
+                respond?.("Missing exception id");
+                return;
+              }
+              const { ok, error } = await finalizePolicyException({
+                exceptionId,
+              });
+              respond?.(
+                ok
+                  ? "Exception finalized"
+                  : `Could not finalize exception: ${error}`,
+              );
+            }}
+            onDeny={() => respond?.("Denied by user")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // Distractors. Plausible card/transaction actions that do NOT solve the
+  // over-limit block. No render — they run immediately and return a
+  // non-erroring success whose `note` makes clear it changed nothing about
+  // the transaction or policy. Their job is to widen the option space.
+  useFrontendTool({
+    name: "sendSpendAlert",
+    description: "Send a spend alert notification for a card.",
+    parameters: z.object({
+      cardId: z.string(),
+      message: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Spend alert sent. Informational only; does not modify any transaction or policy.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "requestCardReplacement",
+    description: "Request a replacement card for an existing card.",
+    parameters: z.object({
+      cardId: z.string(),
+    }),
+    handler: async ({ cardId }) => ({
+      ok: true,
+      cardId,
+      note: "Replacement card requested. Does not affect pending transactions or policy limits.",
+    }),
+  });
+
+  useFrontendTool({
+    name: "flagForReview",
+    description: "Flag a transaction for manual review.",
+    parameters: z.object({
+      transactionId: z.string(),
+      reason: z.string(),
+    }),
+    handler: async ({ transactionId }) => ({
+      ok: true,
+      transactionId,
+      note: "Flagged for manual review. Does not approve or change the transaction.",
+    }),
   });
 
   useAgentContext({
@@ -506,9 +658,16 @@ export default function Page() {
   if (!cards || !policies) return null;
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Credit Cards</h1>
+    <div className="mx-auto max-w-7xl px-2 pb-4 md:px-4">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-ink">
+            Credit Cards
+          </h1>
+          <p className="text-sm text-ink-muted">
+            Manage cards and spending policies for your team.
+          </p>
+        </div>
         <AddCardDropdown
           handleAddCard={handleAddCard}
           currentUser={currentUser}
@@ -520,6 +679,7 @@ export default function Page() {
             <CreditCardDetails
               key={card.id}
               card={card}
+              holder={currentUser.name}
               policy={policies.find((p) => p.id === card.expensePolicyId)}
               onChangePinModalOpen={() =>
                 dispatch({ dialogOpen: true, cardId: card.id })
@@ -527,7 +687,9 @@ export default function Page() {
             />
           ))
         ) : (
-          <div>No cards found for {currentUser.team} team</div>
+          <div className="col-span-full rounded-2xl border border-dashed border-hairline bg-surface/60 p-10 text-center text-ink-muted">
+            No cards found for {currentUser.team} team
+          </div>
         )}
       </div>
 
