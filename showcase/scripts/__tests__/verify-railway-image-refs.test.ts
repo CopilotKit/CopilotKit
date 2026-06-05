@@ -242,7 +242,9 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     // no public domain). Every OTHER service must be gateValidated:true.
     const GATE_IGNORED = new Set(["showcase-harness-worker"]);
     const unvalidated = Object.entries(SERVICES)
-      .filter(([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name))
+      .filter(
+        ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),
+      )
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
