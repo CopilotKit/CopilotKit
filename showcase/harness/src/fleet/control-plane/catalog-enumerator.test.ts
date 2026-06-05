@@ -1,10 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
   createD6ServiceEnumerator,
+  createE2eSmokeServiceEnumerator,
+  createE2eDemosServiceEnumerator,
+  createE2eDeepServiceEnumerator,
   createServiceEnumerator,
   D6_DRIVER_KIND,
   D6_DISCOVERY_FILTER,
+  E2E_DEMOS_TIMEOUT_MS,
 } from "./catalog-enumerator.js";
+import {
+  E2E_SMOKE_DRIVER_KIND,
+  E2E_DEMOS_DRIVER_KIND,
+  E2E_DEEP_DRIVER_KIND,
+} from "../worker/payload-mapper.js";
 import type { DiscoverySource } from "../../probes/types.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
 import type { EnumerateContext } from "./job-producer.js";
@@ -187,6 +196,9 @@ describe("createD6ServiceEnumerator", () => {
     // No redundant `publicUrl` key — backendUrl carries the value.
     expect(lg!.driverInputs).not.toHaveProperty("publicUrl");
     expect(lg!.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    // EQUIVALENCE: d6 conveys NO `timeout_ms` (only the demos family does) — the
+    // generic-seam `extraDriverInputs` change must not alter d6's emitted shape.
+    expect(lg!.driverInputs).not.toHaveProperty("timeout_ms");
   });
 
   it("produces a NON-EMPTY spec set for the real-shaped service catalog", async () => {
@@ -332,5 +344,169 @@ describe("createServiceEnumerator (generic seam)", () => {
     });
 
     await expect(enumerate(CTX)).rejects.toThrow(/langgraph-python/);
+  });
+});
+
+describe("createE2eSmokeServiceEnumerator", () => {
+  it("stamps the e2e_smoke kind + d4:<slug> probeKey and carries driver inputs", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createE2eSmokeServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+
+    expect(specs).toHaveLength(2);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg?.driverKind).toBe(E2E_SMOKE_DRIVER_KIND);
+    expect(lg?.probeKey).toBe("d4:langgraph-python");
+    expect(lg?.driverInputs?.key).toBe("d4:langgraph-python");
+    expect(lg?.driverInputs?.name).toBe("showcase-langgraph-python");
+    expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    expect(lg?.driverInputs?.demos).toEqual(["agentic_chat", "shared_state"]);
+    expect(lg?.driverInputs?.notSupportedFeatures).toEqual([]);
+    // Smoke conveys no outer-cap timeout.
+    expect(lg?.driverInputs).not.toHaveProperty("timeout_ms");
+
+    const cr = specs.find((s) => s.serviceSlug === "crewai");
+    expect(cr?.probeKey).toBe("d4:crewai");
+  });
+
+  it("passes the shared d6 discovery filter to the source", async () => {
+    const source = fakeSource([svc()]);
+    const enumerate = createE2eSmokeServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    await enumerate(CTX);
+    const cfg = source.configs[0] as {
+      namePrefix?: string;
+      nameExcludes?: string[];
+    };
+    expect(cfg.namePrefix).toBe(D6_DISCOVERY_FILTER.namePrefix);
+    expect(cfg.nameExcludes).toEqual([...D6_DISCOVERY_FILTER.nameExcludes]);
+  });
+});
+
+describe("createE2eDeepServiceEnumerator", () => {
+  it("stamps the e2e_deep kind + d5-single-pill-e2e:<slug> probeKey and carries driver inputs", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createE2eDeepServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+
+    expect(specs).toHaveLength(2);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg?.driverKind).toBe(E2E_DEEP_DRIVER_KIND);
+    expect(lg?.probeKey).toBe("d5-single-pill-e2e:langgraph-python");
+    expect(lg?.driverInputs?.key).toBe("d5-single-pill-e2e:langgraph-python");
+    expect(lg?.driverInputs?.name).toBe("showcase-langgraph-python");
+    expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    expect(lg?.driverInputs?.demos).toEqual(["agentic_chat", "shared_state"]);
+    expect(lg?.driverInputs?.notSupportedFeatures).toEqual([]);
+    expect(lg?.driverInputs).not.toHaveProperty("timeout_ms");
+
+    const cr = specs.find((s) => s.serviceSlug === "crewai");
+    expect(cr?.probeKey).toBe("d5-single-pill-e2e:crewai");
+  });
+
+  it("passes the shared d6 discovery filter to the source", async () => {
+    const source = fakeSource([svc()]);
+    const enumerate = createE2eDeepServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    await enumerate(CTX);
+    const cfg = source.configs[0] as {
+      namePrefix?: string;
+      nameExcludes?: string[];
+    };
+    expect(cfg.namePrefix).toBe(D6_DISCOVERY_FILTER.namePrefix);
+    expect(cfg.nameExcludes).toEqual([...D6_DISCOVERY_FILTER.nameExcludes]);
+  });
+});
+
+describe("createE2eDemosServiceEnumerator", () => {
+  it("stamps the e2e_demos kind + e2e-demos:<slug> probeKey and conveys the YAML timeout_ms", async () => {
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createE2eDemosServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+
+    const specs = await enumerate(CTX);
+
+    expect(specs).toHaveLength(2);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg?.driverKind).toBe(E2E_DEMOS_DRIVER_KIND);
+    expect(lg?.probeKey).toBe("e2e-demos:langgraph-python");
+    expect(lg?.driverInputs?.key).toBe("e2e-demos:langgraph-python");
+    expect(lg?.driverInputs?.name).toBe("showcase-langgraph-python");
+    expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
+    expect(lg?.driverInputs?.demos).toEqual(["agentic_chat", "shared_state"]);
+    // R-TIMEOUT: the demos family conveys the 20-min outer cap per-job so the
+    // fleet worker's pooled demos driver reads it from the payload (it never
+    // sees the legacy E2E_DEMOS_TIMEOUT_MS env). Default = YAML value.
+    expect(lg?.driverInputs?.timeout_ms).toBe(E2E_DEMOS_TIMEOUT_MS);
+    expect(E2E_DEMOS_TIMEOUT_MS).toBe(1_200_000);
+
+    const cr = specs.find((s) => s.serviceSlug === "crewai");
+    expect(cr?.probeKey).toBe("e2e-demos:crewai");
+    expect(cr?.driverInputs?.timeout_ms).toBe(E2E_DEMOS_TIMEOUT_MS);
+  });
+
+  it("honors an explicit timeoutMs override on the conveyed timeout_ms", async () => {
+    const source = fakeSource([svc({ name: "showcase-langgraph-python" })]);
+    const enumerate = createE2eDemosServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      timeoutMs: 999_000,
+    });
+
+    const specs = await enumerate(CTX);
+    const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
+    expect(lg?.driverInputs?.timeout_ms).toBe(999_000);
+  });
+
+  it("passes the shared d6 discovery filter to the source", async () => {
+    const source = fakeSource([svc()]);
+    const enumerate = createE2eDemosServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    await enumerate(CTX);
+    const cfg = source.configs[0] as {
+      namePrefix?: string;
+      nameExcludes?: string[];
+    };
+    expect(cfg.namePrefix).toBe(D6_DISCOVERY_FILTER.namePrefix);
+    expect(cfg.nameExcludes).toEqual([...D6_DISCOVERY_FILTER.nameExcludes]);
   });
 });

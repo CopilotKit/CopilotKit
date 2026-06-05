@@ -16,10 +16,22 @@ import {
   createRailwayAdapter,
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
+  buildProducerSchedules,
+  FLEET_PRODUCER_SMOKE_CRON,
+  FLEET_PRODUCER_DEMOS_CRON,
+  FLEET_PRODUCER_DEEP_CRON,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   hydrateProbeLastRuns,
   surfaceReclaimedCommErrors,
   verifyWorkerRegistered,
 } from "./orchestrator.js";
+import {
+  DEFAULT_PRODUCER_CRON,
+  FLEET_PRODUCER_SCHEDULE_ID,
+} from "./fleet/control-plane/control-plane.js";
+import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
 import { createE2eDeepDriver } from "./probes/drivers/d5-single-pill.js";
 import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
@@ -2891,7 +2903,14 @@ describe("orchestrator runControlPlane async bind error cleanup (CR-FIX #1)", ()
     // Critical: the scheduler must have been stopped as part of teardown.
     // Pre-fix the async bind error was unobserved and runControlPlane resolved
     // with the scheduler (and fleet-health interval) still running.
-    expect(stopSpy).toHaveBeenCalled();
+    //
+    // `teardownAfterBindFailure` is fire-and-forget on the error path (operators
+    // see the original bind error, not a stop-failure shadow), and it awaits
+    // `controlPlane.stop()` — which now unregisters FOUR producer schedules —
+    // BEFORE `scheduler.stop()`. So the rejection above can resolve a few
+    // microtasks ahead of `scheduler.stop()`; poll until teardown settles
+    // rather than asserting synchronously (avoids a timing-dependent flake).
+    await vi.waitFor(() => expect(stopSpy).toHaveBeenCalled());
   });
 });
 
@@ -3046,7 +3065,13 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
               cron: string;
               handler: () => Promise<unknown>;
             }) => {
-              producerHandler = entry.handler;
+              // The d6 producer (`fleet-job-producer`) is the ONLY one wired
+              // with the REQ-B `onSweepCommErrors` sweep leg, so capture ITS
+              // handler specifically — the other three browser-family producer
+              // schedules + the `probe:*` HTTP entries also register here.
+              if (entry.id === FLEET_PRODUCER_SCHEDULE_ID) {
+                producerHandler = entry.handler;
+              }
               return (real.register as (...a: unknown[]) => unknown)(entry);
             },
           };
@@ -3526,8 +3551,10 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
       // `rules>0` gate, so `status` does NOT flip to degraded on a zero load
       // (visibility is for dashboards/alerting, not container liveness).
       expect(body.rules).toBe(3);
-      // schedulerJobs = the producer entry + the 3 in-process probe entries.
-      expect(body.schedulerJobs).toBe(4);
+      // schedulerJobs = the 4 browser-family producer entries (d6 + smoke +
+      // demos + deep, registered via the multi-schedule manifest) + the 3
+      // in-process HTTP probe entries.
+      expect(body.schedulerJobs).toBe(7);
       // The role-drop keeps status ok regardless of the rule count.
       expect(body.status).toBe("ok");
     } finally {
@@ -3953,3 +3980,234 @@ function makeCronRule(id: string, cron: string): CompiledRule {
     actions: [],
   };
 }
+
+/**
+ * Phase 2 — fleet producer multi-schedule wiring.
+ *
+ * `runControlPlane` now builds FOUR browser-family producers (d6 + smoke +
+ * demos + deep) and passes a `schedules` array to `createControlPlane`, each on
+ * its own cron. `buildProducerSchedules` is the pure manifest assembler; these
+ * tests pin the EXACT schedule ids + crons (the deliberate offsets that stagger
+ * the families' Playwright fan-outs on the shared BrowserPool) and the d6
+ * env-override behavior, then prove the schedules actually register on the live
+ * scheduler when `runControlPlane` boots.
+ */
+describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
+  function fakeProducer(): JobProducer {
+    return {
+      start: () => {},
+      stop: async () => {},
+      tick: async () => ({ enqueued: 0, runId: "r" }) as never,
+      maybeSweep: async () => undefined,
+    } as unknown as JobProducer;
+  }
+
+  it("emits 4 schedules with the exact ids + crons read from the YAMLs", () => {
+    const d6 = fakeProducer();
+    const smoke = fakeProducer();
+    const demos = fakeProducer();
+    const deep = fakeProducer();
+
+    const schedules = buildProducerSchedules({ d6, smoke, demos, deep });
+
+    expect(schedules).toHaveLength(4);
+
+    const byId = new Map(schedules.map((s) => [s.scheduleId, s]));
+
+    // d6: historic scheduleId + cron (degenerate-path equivalence).
+    expect(byId.get(FLEET_PRODUCER_SCHEDULE_ID)?.cron).toBe("40 * * * *");
+    expect(byId.get(FLEET_PRODUCER_SCHEDULE_ID)?.cron).toBe(
+      DEFAULT_PRODUCER_CRON,
+    );
+    expect(byId.get(FLEET_PRODUCER_SCHEDULE_ID)?.producer).toBe(d6);
+
+    // smoke: every 15 min (e2e-smoke.yml).
+    expect(FLEET_PRODUCER_SMOKE_SCHEDULE_ID).toBe("fleet-producer-e2e-smoke");
+    expect(byId.get(FLEET_PRODUCER_SMOKE_SCHEDULE_ID)?.cron).toBe(
+      "*/15 * * * *",
+    );
+    expect(byId.get(FLEET_PRODUCER_SMOKE_SCHEDULE_ID)?.cron).toBe(
+      FLEET_PRODUCER_SMOKE_CRON,
+    );
+    expect(byId.get(FLEET_PRODUCER_SMOKE_SCHEDULE_ID)?.producer).toBe(smoke);
+
+    // demos: hourly at :10 (e2e-demos.yml).
+    expect(FLEET_PRODUCER_DEMOS_SCHEDULE_ID).toBe("fleet-producer-e2e-demos");
+    expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
+    expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe(
+      FLEET_PRODUCER_DEMOS_CRON,
+    );
+    expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.producer).toBe(demos);
+
+    // deep: :05/:20/:35/:50 (e2e-deep.yml).
+    expect(FLEET_PRODUCER_DEEP_SCHEDULE_ID).toBe("fleet-producer-e2e-deep");
+    expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
+      "5,20,35,50 * * * *",
+    );
+    expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
+      FLEET_PRODUCER_DEEP_CRON,
+    );
+    expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.producer).toBe(deep);
+
+    // All four schedule ids are distinct (createControlPlane throws on dups).
+    expect(new Set(schedules.map((s) => s.scheduleId)).size).toBe(4);
+  });
+
+  it("threads the FLEET_PRODUCER_CRON override onto the d6 schedule only", () => {
+    const d6 = fakeProducer();
+    const smoke = fakeProducer();
+    const demos = fakeProducer();
+    const deep = fakeProducer();
+
+    const schedules = buildProducerSchedules({
+      d6,
+      smoke,
+      demos,
+      deep,
+      d6Cron: "* * * * *",
+    });
+    const byId = new Map(schedules.map((s) => [s.scheduleId, s]));
+
+    // d6 honors the override; the 3 browser families keep their YAML crons.
+    expect(byId.get(FLEET_PRODUCER_SCHEDULE_ID)?.cron).toBe("* * * * *");
+    expect(byId.get(FLEET_PRODUCER_SMOKE_SCHEDULE_ID)?.cron).toBe(
+      "*/15 * * * *",
+    );
+    expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
+    expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
+      "5,20,35,50 * * * *",
+    );
+  });
+});
+
+describe("runControlPlane registers 4 producer schedules on the scheduler", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("registers d6 + smoke + demos + deep producer schedules with exact crons, alongside the in-process HTTP probes", async () => {
+    vi.resetModules();
+
+    // Real serve() (immunize against a sibling test's leaked doMock).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    // Minimal queue fake — no enqueue/sweep churn; the producers never tick here.
+    vi.doMock("./fleet/queue-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/queue-client.js")
+      >("./fleet/queue-client.js");
+      return {
+        ...actual,
+        createFleetQueueClient: () => ({
+          enqueue: async () => ({}) as never,
+          claimNext: async () => ({ claimed: false }) as never,
+          renewLease: async () => null,
+          report: async () => undefined,
+          sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+        }),
+      };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+        }),
+      };
+    });
+
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: () => ({ write: async () => undefined }),
+      };
+    });
+
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        createProbeRunWriter: () => ({
+          findByJobId: async () => null,
+          start: async () => ({}) as never,
+          finishTerminal: async () => undefined,
+        }),
+      };
+    });
+
+    // Record EVERY scheduler register call (id + cron) so we can assert the
+    // producer schedules landed alongside the in-process `probe:*` HTTP entries.
+    const registered: Array<{ id: string; cron: string }> = [];
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: {
+              id: string;
+              cron: string;
+              handler: () => Promise<unknown>;
+            }) => {
+              registered.push({ id: entry.id, cron: entry.cron });
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      // Empty d6 enumerator → no enqueue churn; schedule registration still runs.
+      { port, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      const byId = new Map(registered.map((r) => [r.id, r.cron]));
+
+      // All four producer schedules registered with their exact crons.
+      expect(byId.get("fleet-job-producer")).toBe("40 * * * *");
+      expect(byId.get("fleet-producer-e2e-smoke")).toBe("*/15 * * * *");
+      expect(byId.get("fleet-producer-e2e-demos")).toBe("10 * * * *");
+      expect(byId.get("fleet-producer-e2e-deep")).toBe("5,20,35,50 * * * *");
+
+      // The in-process HTTP probe families still register alongside (additive).
+      const probeEntries = registered.filter((r) => r.id.startsWith("probe:"));
+      expect(probeEntries.length).toBeGreaterThan(0);
+    } finally {
+      await handle.stop();
+    }
+  });
+});
