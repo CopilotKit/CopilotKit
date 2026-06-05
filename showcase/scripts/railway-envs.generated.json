@@ -286,6 +286,27 @@
       }
     },
     {
+      "name": "showcase-harness-worker",
+      "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "prodInstanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "stagingInstanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "repoNameOverride": {
+        "prod": "showcase-harness",
+        "staging": "showcase-harness"
+      },
+      "domains": {
+        "staging": "harness-staging-2ee4.up.railway.app",
+        "prod": "showcase-harness-production.up.railway.app"
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "harness"
+      }
+    },
+    {
       "name": "showcase-langgraph-fastapi",
       "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4",
       "prodInstanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",

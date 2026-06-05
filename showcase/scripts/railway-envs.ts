@@ -277,6 +277,61 @@ export const SERVICES: Record<
     },
     probe: { staging: true, prod: true, driver: "harness" },
   },
+  "showcase-harness-worker": {
+    serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+    // STAGING-ONLY worker (pool-fleet cutover). There is no prod
+    // serviceInstance — the pool-fleet runs in staging only for now.
+    // The schema requires a distinct, valid prod UUID per entry, so we
+    // mirror the env-independent serviceId here as a non-functional
+    // placeholder; it is never dereferenced because (a) gateIgnore skips
+    // both gate directions, (b) ciBuilt:false keeps it out of the default
+    // CI_BUILT_SERVICES redeploy scope, and (c) prodInstanceId would only
+    // be read by an explicit `redeploy-env.ts prod --services
+    // showcase-harness-worker`, which is never invoked for a staging-only
+    // service. If/when a prod worker is provisioned, replace this with the
+    // real prod serviceInstance ID and flip gateIgnore off.
+    prodInstanceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+    stagingInstanceId: "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+    // The worker runs the SAME `showcase-harness` GHCR image that the
+    // existing `harness` (control-plane) service runs — it is NOT a
+    // separately-built image. The single `showcase-harness` build slot in
+    // showcase_build.yml produces the image both services consume; there
+    // is no `showcase-harness-worker` build slot. Hence ciBuilt:false
+    // (no dedicated build) and a repoNameOverride to `showcase-harness`
+    // so the image-ref shape (`ghcr.io/copilotkit/showcase-harness:latest`)
+    // resolves correctly if the gate ever validates it.
+    ciBuilt: false,
+    // gateIgnore: deliberately-untracked for the image-ref gate. The
+    // worker is staging-only (no prod instance) and domain-less (it pulls
+    // jobs from the control-plane queue rather than serving HTTP), so it
+    // does not fit the symmetric dual-env / public-domain shape the gate
+    // validates. Listing it here (with gateIgnore) is what clears the
+    // "untracked Railway service" failure — findUntrackedServices treats
+    // any SSOT entry as known — WITHOUT triggering a false "missing from
+    // prod" failure from findMissingServices (which only checks
+    // gateValidated:true entries).
+    gateValidated: false,
+    gateIgnore: true,
+    repoNameOverride: {
+      prod: "showcase-harness",
+      staging: "showcase-harness",
+    },
+    // No public domain on Railway (queue worker, not HTTP-exposed). The
+    // schema requires both domains be set; we point both at the
+    // control-plane harness staging/prod hosts purely to satisfy the
+    // no-scheme domain invariant. domainFor() is never called for this
+    // service because its probe is disabled in both envs (below) and
+    // verify-deploy skips probe:false services.
+    domains: {
+      staging: "harness-staging-2ee4.up.railway.app",
+      prod: "showcase-harness-production.up.railway.app",
+    },
+    // probe disabled in BOTH envs: the worker has no health endpoint that
+    // verify-deploy's `harness` driver can hit from outside (it has no
+    // public domain). Its liveness is covered by the control-plane harness
+    // probe and the Railway-internal /health healthcheck.
+    probe: { staging: false, prod: false, driver: "harness" },
+  },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
     prodInstanceId: "1ee376e2-13f2-4464-801e-d0aa0bf76532",
