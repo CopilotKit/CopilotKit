@@ -233,14 +233,24 @@ const FALLBACK_CHAT_AGENT_ID = "default";
  * `packages/runtime/src/v2/runtime/__tests__/express-single-sse.test.ts`:
  * `{threadId, runId, messages, state, tools, context, forwardedProps}` — NO
  * single-route envelope wrapper (the path encodes the route on multi-route).
- * A single user "Hello" turn; the runtime answers with an AG-UI SSE stream.
- * The driver asserts only the stream SHAPE it requires (≥1 text-content delta
- * + terminal RUN_FINISHED + no RUN_ERROR), never a specific reply text.
+ * A single user "hello world" turn; the runtime answers with an AG-UI SSE
+ * stream. The driver asserts only the stream SHAPE it requires (≥1
+ * text-content delta + terminal RUN_FINISHED + no RUN_ERROR), never a specific
+ * reply text.
+ *
+ * The user message is "hello world" (NOT bare "Hello") so it matches the
+ * collision-free shared/context-less fixture in
+ * `showcase/aimock/shared/common.json` rather than the per-integration scoped
+ * "Hello" fixtures in `showcase/aimock/d4/<integration>/chat.json`. aimock's
+ * matcher is a case-sensitive substring `.includes()`; a shared fixture whose
+ * `userMessage` duplicates a scoped one fails the Validate Showcase
+ * shared-vs-scoped collision check, so the probe targets the existing
+ * "hello world" shared greeting (no scoped fixture uses that phrase).
  */
 const CHAT_RUN_BODY = JSON.stringify({
   threadId: "starter-smoke-thread",
   runId: "starter-smoke-run",
-  messages: [{ id: "u1", role: "user", content: "Hello" }],
+  messages: [{ id: "u1", role: "user", content: "hello world" }],
   state: {},
   tools: [],
   context: [],
