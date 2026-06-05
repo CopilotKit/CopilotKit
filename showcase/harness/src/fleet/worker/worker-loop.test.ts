@@ -1010,7 +1010,10 @@ describe("driver registry (driverKind → driver)", () => {
   it("startWorkerLoop dispatches a claimed job by driverKind through the registry", async () => {
     const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
     const queue = makeQueue([
-      { claimed: true, lease: makeLease({ payload: { driverKind: "e2e_deep" } }) },
+      {
+        claimed: true,
+        lease: makeLease({ payload: { driverKind: "e2e_deep" } }),
+      },
     ]);
     const handle = startWorkerLoop({
       workerId: "worker-test",
