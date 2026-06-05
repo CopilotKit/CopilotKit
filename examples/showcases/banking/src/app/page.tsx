@@ -266,12 +266,6 @@ export default function Page() {
           .optional(),
       }),
       render: ({ args, respond, status }) => {
-        console.log(
-          "[selectCard render] status=",
-          status,
-          "respond?",
-          !!respond,
-        );
         if (status === "inProgress") {
           return (
             <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
@@ -285,17 +279,11 @@ export default function Page() {
             cards={cards}
             policies={policies}
             heading={args.purpose || "Select a card"}
-            onSelect={(card) => {
-              console.log(
-                "[selectCard onSelect] respond?",
-                !!respond,
-                "card=",
-                card.id,
-              );
+            onSelect={(card) =>
               respond?.(
                 `User selected the ${card.type} card ending in ${card.last4} (cardId: ${card.id}).`,
-              );
-            }}
+              )
+            }
           />
         );
       },
