@@ -71,24 +71,22 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 - **Shared State** – A synchronized state layer that both agents and UI components can read from and write to in real time.
 - **Human-in-the-Loop** – Lets agents pause execution to request user input, confirmation, or edits before continuing.
 
-https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
-
 ## 🧩 Works With Your Stack
 
 One agent backend. Every frontend.
 
 | Platform           | Status       | Get Started                                                 |
 | ------------------ | ------------ | ----------------------------------------------------------- |
-| ⚛️ React / Next.js | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
-| 🅰️ Angular         | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
-| 💚 Vue             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
-| 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/?ref=github_readme) |
+| ⚛️ React / Next.js | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart) |
+| 🅰️ Angular         | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
+| 💚 Vue             | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
+| 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native) |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 
 ## 💬 Beyond the Browser: Slack & Microsoft Teams
 
-Your agents shouldn't be locked inside your web app.
+Your agents can run and generate Generative UI beyond the web app.
 
 CopilotKit now lets you deploy the **same agent** to the places your users already work:
 
@@ -97,7 +95,7 @@ CopilotKit now lets you deploy the **same agent** to the places your users alrea
 
 🔒 **Early access:** We're onboarding teams now.
 
-👉 **[Request early access →](EARLY_ACCESS_FORM_LINK)**
+👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
 
 ## Quick Start
 
