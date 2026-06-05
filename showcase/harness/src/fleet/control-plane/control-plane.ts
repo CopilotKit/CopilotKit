@@ -15,7 +15,8 @@
  *   3. AGGREGATE — `createResultAggregator` (S5), the ONLY writer of the
  *      authoritative dashboard status + run-history. The consumer runs on its
  *      OWN interval (sub-minute, finer than cron) since result latency should
- *      not be bounded by the producer's cron cadence.
+ *      not be bounded by any producer's cron cadence (one or more producers may
+ *      tick on distinct cadences).
  *
  * ── REQ-B: SURFACING DEAD-WORKER COMM ERRORS ───────────────────────────────
  * Two legs reclaim a crashed / lease-expired worker's job and synthesize a
@@ -42,6 +43,7 @@
  * Chromium of its own — `runControlPlane` constructs the real deps.
  */
 
+import { Cron } from "croner";
 import type { Logger, State } from "../../types/index.js";
 import type { Scheduler } from "../../scheduler/scheduler.js";
 import type { PoolCommError } from "../contracts.js";
@@ -171,9 +173,9 @@ export interface ControlPlaneDeps {
 
 /** A running control-plane: producer registered + consumer loop ticking. */
 export interface ControlPlane {
-  /** Start the producer + register its scheduler tick + start the consumer loop. */
+  /** Start each producer + register every schedule's scheduler tick + start the consumer loop. */
   start(): void;
-  /** Stop the consumer loop, unregister the producer tick, stop the producer. */
+  /** Stop the consumer loop, unregister every schedule's tick, stop each producer. */
   stop(): Promise<void>;
   /** Run one consumer cycle NOW (exposed for tests + opportunistic drains). */
   consumeOnce(): Promise<void>;
@@ -224,11 +226,20 @@ export function buildJobProducer(deps: {
 export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
   const { producer, consumer, scheduler, logger } = deps;
   const producerCron = deps.producerCron ?? DEFAULT_PRODUCER_CRON;
-  // Normalize to an array of schedules. The degenerate single-d6 case (no
-  // `schedules` passed) becomes a one-element array on FLEET_PRODUCER_SCHEDULE_ID
-  // at `producerCron`, so the historic single-producer behavior is identical.
+  // Normalize to an array of schedules. An OMITTED `schedules` (undefined)
+  // degenerates to the single-d6 case — a one-element array on
+  // FLEET_PRODUCER_SCHEDULE_ID at `producerCron`, so the historic
+  // single-producer behavior is identical. An EXPLICIT empty array is a caller
+  // error (intent erased), distinct from omission — fail loud rather than
+  // silently coercing it to the d6 fallback.
+  if (deps.schedules !== undefined && deps.schedules.length === 0) {
+    throw new Error(
+      "createControlPlane: `schedules` provided but empty — pass at least one " +
+        "schedule, or omit `schedules` for the default single-d6 schedule.",
+    );
+  }
   const schedules: readonly ProducerSchedule[] =
-    deps.schedules && deps.schedules.length > 0
+    deps.schedules !== undefined
       ? deps.schedules
       : [
           {
@@ -237,6 +248,23 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
             producer,
           },
         ];
+  // `ProducerSchedule.scheduleId` is documented "must be unique"; the scheduler
+  // registers by id with replace-semantics, so two entries sharing an id would
+  // silently collapse (one family's producer runs but never ticks). Enforce
+  // uniqueness loudly at construction, naming the offending id(s).
+  const seenScheduleIds = new Set<string>();
+  const duplicateScheduleIds = new Set<string>();
+  for (const sched of schedules) {
+    if (seenScheduleIds.has(sched.scheduleId)) {
+      duplicateScheduleIds.add(sched.scheduleId);
+    }
+    seenScheduleIds.add(sched.scheduleId);
+  }
+  if (duplicateScheduleIds.size > 0) {
+    throw new Error(
+      `createControlPlane: duplicate scheduleId(s) — ${[...duplicateScheduleIds].join(", ")}; each ProducerSchedule.scheduleId must be unique.`,
+    );
+  }
   const consumerIntervalMs =
     deps.consumerIntervalMs ?? DEFAULT_CONSUMER_INTERVAL_MS;
   const fleetHealthIntervalMs =
@@ -404,11 +432,39 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
   return {
     start() {
       if (started) return;
+      // Pre-validate EVERY schedule's cron BEFORE starting any producer. A bad
+      // cron would otherwise throw mid-loop (after `scheduler.register`'s own
+      // validateCron), leaving earlier producers started+registered, the timers
+      // unset, and `started` latched true — an unrecoverable half-started state.
+      // Croner throws synchronously on bad syntax; instantiate a paused job per
+      // schedule and aggregate the offending ids into one clear error. This is
+      // the same validation the scheduler applies, run up-front so start() is
+      // all-or-nothing.
+      const invalidCrons: string[] = [];
+      for (const sched of schedules) {
+        try {
+          new Cron(sched.cron, { paused: true });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.error("fleet.control-plane.invalid-cron", {
+            scheduleId: sched.scheduleId,
+            cron: sched.cron,
+            err: msg,
+          });
+          invalidCrons.push(`${sched.scheduleId} (${sched.cron}: ${msg})`);
+        }
+      }
+      if (invalidCrons.length > 0) {
+        throw new Error(
+          `createControlPlane.start: invalid cron(s) — ${invalidCrons.join("; ")}`,
+        );
+      }
       started = true;
       // Start each producer and register its tick as a scheduler handler — cron
       // cadence drives runs; each producer's tick also gates sweepExpired
       // internally. N schedules => N producers on N cadences (the degenerate
-      // single-d6 case is a one-element array).
+      // single-d6 case is a one-element array). All crons are pre-validated
+      // above, so this loop can't throw partway and leave a half-started plane.
       for (const sched of schedules) {
         sched.producer.start();
         scheduler.register({
@@ -458,6 +514,11 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
         fleetHealthTimer = undefined;
       }
       // Unregister every schedule and stop every producer (mirrors start()).
+      // Teardown is BEST-EFFORT: one schedule's unregister OR producer.stop()
+      // rejecting must not abort teardown of the later schedules (that would
+      // leak live cron handlers + running producers). Guard each leg per entry
+      // — mirror the unregister guard onto producer.stop() — so every entry is
+      // torn down even if an earlier one throws.
       for (const sched of schedules) {
         await scheduler.unregister(sched.scheduleId).catch((err) =>
           logger.warn("fleet.control-plane.unregister-failed", {
@@ -465,7 +526,14 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
             err: err instanceof Error ? err.message : String(err),
           }),
         );
-        await sched.producer.stop();
+        try {
+          await sched.producer.stop();
+        } catch (err) {
+          logger.error("fleet.control-plane.producer-stop-failed", {
+            scheduleId: sched.scheduleId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       logger.info("fleet.control-plane.stopped");
     },

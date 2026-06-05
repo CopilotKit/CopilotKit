@@ -93,6 +93,16 @@ export const D6_DISCOVERY_FILTER = {
   ],
 } as const;
 
+/**
+ * A discovery service-set filter — the `namePrefix` / `nameExcludes` block the
+ * discovery source narrows on. Shared by the d6 wrapper deps and the generic
+ * enumerator params so the shape stays in one place.
+ */
+export interface ServiceSetFilter {
+  namePrefix?: string;
+  nameExcludes?: readonly string[];
+}
+
 export interface D6ServiceEnumeratorDeps {
   /** The discovery source to enumerate (production: `railwayServicesSource`). */
   source: DiscoverySource<RailwayServiceInfo>;
@@ -105,7 +115,7 @@ export interface D6ServiceEnumeratorDeps {
    * Service-set filter. Defaults to `D6_DISCOVERY_FILTER`. Exposed so a test
    * (or a future operator config) can narrow the set without editing the SSOT.
    */
-  filter?: { namePrefix?: string; nameExcludes?: readonly string[] };
+  filter?: ServiceSetFilter;
 }
 
 /**
@@ -135,10 +145,16 @@ export interface ServiceEnumeratorParams {
    * Service-set filter selecting which discovered services this family runs.
    * Carries the discovery source's `namePrefix` / `nameExcludes` block.
    */
-  filter: { namePrefix?: string; nameExcludes?: readonly string[] };
+  filter: ServiceSetFilter;
 }
 
-/** Resolve a `ProbeKeyPrefix` into the concrete dashboard key for a slug. */
+/**
+ * Resolve a `ProbeKeyPrefix` into the concrete dashboard key for a slug. The
+ * string arm OWNS the `:` separator (`<prefix>:<slug>`), so a string-form caller
+ * passes the bare prefix WITHOUT a trailing `:` (e.g. `"d6"`, not `"d6:"`). The
+ * function arm gives a family full control over the key shape (and is
+ * responsible for its own separators).
+ */
 function buildProbeKey(prefix: ProbeKeyPrefix, slug: string): string {
   return typeof prefix === "function" ? prefix(slug) : `${prefix}:${slug}`;
 }
@@ -192,14 +208,27 @@ function toDriverInputs(
  * in-process invoker's slug filter.
  *
  * `createD6ServiceEnumerator` is the d6 specialization of this seam; other
- * browser families (Phase 2) re-express their enumerators the same way, each
- * passing its own filter / kind / prefix.
+ * browser families re-express their enumerators the same way, each passing its
+ * own filter / kind / prefix.
  */
 export function createServiceEnumerator(
   params: ServiceEnumeratorParams,
 ): ServiceEnumerator {
   const { source, env, fetchImpl, logger, driverKind, probeKeyPrefix, filter } =
     params;
+
+  // Fail loud on a filter with no `namePrefix`: the discovery source treats an
+  // absent/empty prefix as "match everything", which would enumerate ALL
+  // services (the railway-services source documents this incident class). The
+  // d6 wrapper always passes a concrete filter, so it is unaffected. A future
+  // family that legitimately needs "match all" can revisit this; default to
+  // fail-loud now.
+  if (typeof filter.namePrefix !== "string" || filter.namePrefix === "") {
+    throw new Error(
+      `createServiceEnumerator: filter.namePrefix must be a non-empty string ` +
+        `(driverKind ${driverKind}); an absent/empty prefix would enumerate ALL services.`,
+    );
+  }
 
   return async (ctx: EnumerateContext): Promise<ServiceJobSpec[]> => {
     const discoveryCtx: DiscoveryContext = { fetchImpl, env, logger };
@@ -220,6 +249,15 @@ export function createServiceEnumerator(
       const slug = deriveSlug(svc.name);
       if (slugSet && !slugSet.has(slug) && !slugSet.has(svc.name)) continue;
       const probeKey = buildProbeKey(probeKeyPrefix, slug);
+      // A function-form prefix returning "" yields an empty probeKey (and
+      // `driverInputs.key`) — a bad dashboard/claim join key. Fail loud naming
+      // the offending slug rather than emitting a spec keyed "".
+      if (probeKey === "") {
+        throw new Error(
+          `createServiceEnumerator: probeKeyPrefix produced an empty probeKey ` +
+            `for service "${svc.name}" (slug "${slug}", driverKind ${driverKind}).`,
+        );
+      }
       const spec: ServiceJobSpec = {
         probeKey,
         serviceSlug: slug,
@@ -249,8 +287,11 @@ export function createServiceEnumerator(
 /**
  * Build the real d6 `ServiceEnumerator` — a thin specialization of
  * `createServiceEnumerator` with the d6 filter, the `e2e_d6` driver kind, and
- * the `d6:<slug>` probeKey prefix. d6 behavior is BYTE-IDENTICAL to the prior
- * hardwired implementation (same services, same filter, same kind, same keys).
+ * the `d6:<slug>` probeKey prefix. The produced SPECS are identical to the prior
+ * hardwired implementation (same services, same filter, same kind, same keys);
+ * the only observable change is the diagnostic log line — the generic
+ * enumerator's `fleet.control-plane.catalog-enumerated` log additionally carries
+ * a `driverKind` field (the specs themselves are unchanged).
  */
 export function createD6ServiceEnumerator(
   deps: D6ServiceEnumeratorDeps,
