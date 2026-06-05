@@ -3,6 +3,7 @@ import {
   CATALOG_TO_D5_KEY,
   STARTER_COLUMNS,
   STARTER_LEVELS,
+  STATUS_LIST_FIELDS,
   buildStarterBadge,
   keyFor,
   mergeRowsToMap,
@@ -149,6 +150,34 @@ describe("upsertByKey", () => {
     expect(after).not.toBe(before);
     expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
   });
+  it("applies a row whose signal goes from absent to present (SSE full-row delivery)", () => {
+    // The initial fetch projection drops `signal`, so initial rows arrive with
+    // `signal === undefined` and rely on SSE deltas to deliver the populated
+    // signal. A delta re-delivering the same key/state/observed_at/transitioned_at
+    // but now CARRYING a signal must NOT be treated as a no-op — otherwise the
+    // signal-less row survives and the "SSE delivers full rows" contract that
+    // cell-pieces.tsx / cell-drilldown.tsx rely on is broken.
+    const prev = row("k:sig", "smoke", "red", { signal: undefined });
+    const next = row("k:sig", "smoke", "red", {
+      signal: { error: "boom" },
+    });
+    const before = [prev];
+    const after = upsertByKey(before, next);
+    expect(after).not.toBe(before);
+    expect(after[0]!.signal).toEqual({ error: "boom" });
+  });
+  it("no-ops when signal presence is unchanged (optimization preserved)", () => {
+    // A genuinely-identical delta — same key/state/observed_at/transitioned_at
+    // AND same signal presence — must still short-circuit to the same array
+    // reference so memoised consumers don't needlessly re-render.
+    const a = row("k:samesig", "smoke", "red", { signal: { error: "x" } });
+    const aPrime = row("k:samesig", "smoke", "red", {
+      signal: { error: "y" },
+    });
+    const before = [a];
+    const after = upsertByKey(before, aPrime);
+    expect(after).toBe(before);
+  });
 });
 
 describe("mergeRowsToMap", () => {
@@ -186,6 +215,48 @@ describe("mergeRowsToMap", () => {
     expect(map.get("dup:k")?.state).toBe("red");
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/disjoint-key invariant violated/);
+  });
+});
+
+describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix A2)", () => {
+  // The dashboard State union is green|red|degraded, but the harness CAN persist
+  // a row with state:"error" (the no-data representation; see
+  // result-aggregator.ts). STATE_RANK/WORST_STATE_RANK are Record<State,number>,
+  // so STATE_RANK["error"] is undefined and the fold comparison `undefined > n`
+  // is false — an "error" row is SILENTLY DROPPED instead of surfacing. The fold
+  // must treat an unknown/out-of-vocabulary state as the WORST (most severe) so
+  // such a row surfaces rather than vanishing.
+  const OUT_OF_VOCAB = "error" as unknown as StatusRow["state"];
+
+  it("does NOT silently drop a lone d6 row carrying an out-of-vocabulary state", () => {
+    // `agentic-chat` maps to a single d6 key, so the fold sees exactly one row.
+    const live = mapOf([row("d6:agno/agentic-chat", "d6", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    // Pre-fix: the "error" row is dropped, resolveD6Row returns null → d6.row is
+    // null. Post-fix: the row surfaces as the worst-state winner.
+    expect(c.d6.row).not.toBeNull();
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("surfaces an out-of-vocabulary d6 row as WORST over a present green sibling", () => {
+    // `beautiful-chat` maps to multiple d6 keys; an out-of-vocab row must win the
+    // fold over a present green sibling (treated as most severe, not skipped).
+    const live = mapOf([
+      row("d6:agno/beautiful-chat-toggle-theme", "d6", "green"),
+      row("d6:agno/beautiful-chat-pie-chart", "d6", OUT_OF_VOCAB),
+      row("d6:agno/beautiful-chat-bar-chart", "d6", "green"),
+      row("d6:agno/beautiful-chat-search-flights", "d6", "green"),
+      row("d6:agno/beautiful-chat-schedule-meeting", "d6", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("does NOT silently drop a lone d5 row carrying an out-of-vocabulary state", () => {
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d5.row).not.toBeNull();
+    expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
   });
 });
 
@@ -1073,5 +1144,35 @@ describe("starter rows are informational — excluded from resolveCell rollup", 
     expect(cell.rollup).not.toBe("red");
     // And the CellState shape exposes no starter contributor.
     expect(Object.keys(cell)).not.toContain("starter");
+  });
+});
+
+describe("STATUS_LIST_FIELDS (initial-fetch projection allow-list)", () => {
+  // Exhaustive `keyof StatusRow` map. The compiler requires EVERY StatusRow
+  // field to appear as a key here (Record<keyof StatusRow, true>), so adding a
+  // field to StatusRow forces a conscious update of this map — and therefore a
+  // conscious decision about whether the new field belongs in the lightweight
+  // initial projection. The runtime test below derives the expected set from
+  // this map (all keys minus `signal`) and asserts STATUS_LIST_FIELDS matches.
+  const STATUS_ROW_KEYS: Record<keyof StatusRow, true> = {
+    id: true,
+    key: true,
+    dimension: true,
+    state: true,
+    signal: true,
+    observed_at: true,
+    transitioned_at: true,
+    fail_count: true,
+    first_failure_at: true,
+  };
+
+  it("equals every StatusRow field except `signal`", () => {
+    const expected = new Set(
+      Object.keys(STATUS_ROW_KEYS).filter((k) => k !== "signal"),
+    );
+    const actual = new Set(STATUS_LIST_FIELDS.split(","));
+    expect(actual).toEqual(expected);
+    // `signal` is the heavy field deliberately dropped from the initial fetch.
+    expect(actual.has("signal")).toBe(false);
   });
 });

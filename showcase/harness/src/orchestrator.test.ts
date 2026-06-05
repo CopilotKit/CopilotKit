@@ -16,8 +16,16 @@ import {
   createRailwayAdapter,
   registerAllProbeDrivers,
   hydrateProbeLastRuns,
+  surfaceReclaimedCommErrors,
+  verifyWorkerRegistered,
 } from "./orchestrator.js";
-import type { State } from "./types/index.js";
+import type {
+  CommErrorSurfacePb,
+  WorkerRegistryReadPb,
+} from "./orchestrator.js";
+import type { State, ProbeResult } from "./types/index.js";
+import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
@@ -25,6 +33,7 @@ import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
+import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
 
 /**
  * F1.1 integration coverage: `buildServer` in orchestrator.ts must pass
@@ -2502,6 +2511,726 @@ describe("hydrateProbeLastRuns", () => {
 
     // Entry stays un-seeded because the run is incomplete
     expect(scheduler.seedEntryLastRun).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * CR-FIX #2: surfaceReclaimedCommErrors must NOT invent a green status row for
+ * a NEVER-OBSERVED probe key.
+ *
+ * Pre-fix the surfacer defaulted a never-observed key to `state: "green"` and
+ * wrote that through the status-writer — fabricating a healthy cell for a
+ * service whose worker crashed before it was ever probed. The codebase's
+ * no-data representation is an ABSENT status row (status-writer F2.1: a
+ * first-ever observation that is an "error" writes only status_history and
+ * seeds NO status row). So a comm error on a never-observed key must be written
+ * as state:"error" (never green), and an OBSERVED key must carry its real prior
+ * colour.
+ */
+describe("orchestrator.surfaceReclaimedCommErrors never-observed key (CR-FIX #2)", () => {
+  function makeLogger() {
+    return {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+  }
+
+  function makeCommError(jobId: string): PoolCommError {
+    return {
+      kind: "worker-crashed-mid-job",
+      message: "worker died mid-job",
+      workerId: "worker-abc",
+      jobId,
+      observedAt: "2025-01-01T00:00:00.000Z",
+    };
+  }
+
+  // Build a pb fake satisfying the surfacer's CommErrorSurfacePb. Plain generic
+  // methods (NOT vi.fn, which collapses the type param to unknown) so the canned
+  // rows type-check against getOne<T>/getFirst<T>. The tests assert on the
+  // statusWriter writes, not on these reads, so call-tracking isn't needed.
+  function makeSurfacePb(opts: {
+    jobRow: { probe_key?: string } | null;
+    statusRow: { state?: string; signal?: unknown } | null;
+  }): CommErrorSurfacePb {
+    return {
+      getOne<T>(): Promise<T | null> {
+        return Promise.resolve(opts.jobRow as T | null);
+      },
+      getFirst<T>(): Promise<T | null> {
+        return Promise.resolve(opts.statusRow as T | null);
+      },
+    };
+  }
+
+  it("writes state 'error' (NOT green) when the probe key was never observed", async () => {
+    const writes: ProbeResult<unknown>[] = [];
+    const statusWriter = {
+      write: vi.fn(async (r: ProbeResult<unknown>) => {
+        writes.push(r);
+        return undefined;
+      }),
+    };
+    const pb = makeSurfacePb({
+      // Job row resolves to a probe_key; never observed → no status row.
+      jobRow: { probe_key: "d6:never-seen-service" },
+      statusRow: null,
+    });
+    const logger = makeLogger();
+
+    await surfaceReclaimedCommErrors({ pb, statusWriter, logger }, [
+      makeCommError("job-1"),
+    ]);
+
+    expect(statusWriter.write).toHaveBeenCalledTimes(1);
+    expect(writes).toHaveLength(1);
+    // THE FIX: never-observed key must NOT be reported green.
+    expect(writes[0].state).not.toBe("green");
+    expect(writes[0].state).toBe("error");
+    expect(writes[0].key).toBe("d6:never-seen-service");
+    // The comm-error overlay is still carried on the signal.
+    expect(
+      (writes[0].signal as Record<string, unknown>)[
+        FLEET_COMM_ERROR_SIGNAL_KEY
+      ],
+    ).toBeDefined();
+  });
+
+  it("carries the real prior colour for an OBSERVED key (regression guard)", async () => {
+    const writes: ProbeResult<unknown>[] = [];
+    const statusWriter = {
+      write: vi.fn(async (r: ProbeResult<unknown>) => {
+        writes.push(r);
+        return undefined;
+      }),
+    };
+    const pb = makeSurfacePb({
+      jobRow: { probe_key: "d6:seen-service" },
+      // Observed: a red status row exists.
+      statusRow: { state: "red", signal: { prior: true } },
+    });
+    const logger = makeLogger();
+
+    await surfaceReclaimedCommErrors({ pb, statusWriter, logger }, [
+      makeCommError("job-2"),
+    ]);
+
+    expect(writes).toHaveLength(1);
+    // Observed key carries its real last-known colour, not "error", not green.
+    expect(writes[0].state).toBe("red");
+    // Base signal preserved + overlay added.
+    expect((writes[0].signal as Record<string, unknown>).prior).toBe(true);
+    expect(
+      (writes[0].signal as Record<string, unknown>)[
+        FLEET_COMM_ERROR_SIGNAL_KEY
+      ],
+    ).toBeDefined();
+  });
+});
+
+/**
+ * CR-FIX #4: verifyWorkerRegistered must reflect the ACTUAL upsert outcome.
+ *
+ * registerWorker is best-effort and swallows the boot-upsert failure, so the
+ * worker pre-fix set `registered = true` unconditionally — a failed
+ * registration still reported the worker healthy on the roster. The verifier
+ * reads the row back: present → true; absent OR read-error → false.
+ */
+describe("orchestrator.verifyWorkerRegistered (CR-FIX #4)", () => {
+  function makeLogger() {
+    return {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+  }
+
+  // pb fake satisfying verifyWorkerRegistered's WorkerRegistryReadPb. Plain
+  // generic method (not vi.fn) so getFirst<T> type-checks; the tests assert on
+  // the return value + logger, not on the read call.
+  function makeRegistryPb(row: { id?: string } | null): WorkerRegistryReadPb {
+    return {
+      getFirst<T>(): Promise<T | null> {
+        return Promise.resolve(row as T | null);
+      },
+    };
+  }
+
+  it("returns true when the registration row persisted", async () => {
+    const pb = makeRegistryPb({ id: "rec123" });
+    const logger = makeLogger();
+    const result = await verifyWorkerRegistered({
+      pb,
+      workerId: "worker-1",
+      logger,
+    });
+    expect(result).toBe(true);
+  });
+
+  it("returns false when the upsert did NOT persist a row (best-effort swallow)", async () => {
+    // registerWorker swallowed a PB 400 — no row exists.
+    const pb = makeRegistryPb(null);
+    const logger = makeLogger();
+    const result = await verifyWorkerRegistered({
+      pb,
+      workerId: "worker-2",
+      logger,
+    });
+    // THE FIX: pre-fix this was hardcoded true; now it reflects reality.
+    expect(result).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "showcase-harness.fleet.worker.registration-not-persisted",
+      expect.objectContaining({ workerId: "worker-2" }),
+    );
+  });
+
+  it("returns false (and warns) when the verify read itself errors", async () => {
+    const pb: WorkerRegistryReadPb = {
+      getFirst<T>(): Promise<T | null> {
+        return Promise.reject(new Error("pb unreachable"));
+      },
+    };
+    const logger = makeLogger();
+    const result = await verifyWorkerRegistered({
+      pb,
+      workerId: "worker-3",
+      logger,
+    });
+    expect(result).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "showcase-harness.fleet.worker.registration-verify-failed",
+      expect.objectContaining({ workerId: "worker-3" }),
+    );
+  });
+
+  // WIRING: a failed verify must flow into the /health `registered` probe.
+  // runWorker does `registered = await verifyWorkerRegistered(...)` then passes
+  // `registered: () => registered` into runFleetWorker's health server. This
+  // composes those two seams to prove a failed self-register → /health
+  // registered=false (NOT the pre-fix `() => true` default that reported a
+  // never-registered worker as healthy).
+  it("a failed verify wires through to /health registered=false (NOT defaulted true)", async () => {
+    const pb = makeRegistryPb(null); // upsert swallowed → no row
+    const logger = makeLogger();
+    const registered = await verifyWorkerRegistered({
+      pb,
+      workerId: "worker-w",
+      logger,
+    });
+    expect(registered).toBe(false);
+
+    // This is the exact wiring runWorker uses: the verified value, not () => true.
+    const healthApp = buildWorkerHealthServer({
+      pb: async () => true,
+      loopAlive: () => true,
+      registered: () => registered,
+      logger,
+    });
+    const res = await healthApp.request("/health");
+    const body = (await res.json()) as { registered: boolean };
+    expect(res.status).toBe(503);
+    expect(body.registered).toBe(false);
+  });
+});
+
+/**
+ * CR-FIX #1: runControlPlane must handle an ASYNC bind failure.
+ *
+ * serve()/server.listen() emits bind errors (EADDRINUSE) ASYNCHRONOUSLY. Pre-fix
+ * runControlPlane only had a synchronous try/catch around serve(), so an async
+ * bind failure resolved runControlPlane() "successfully" while leaving the
+ * scheduler, control-plane consumer loop, and fleet-health interval orphaned.
+ * The fix mirrors boot()'s R4-A.3 listening-vs-error race and tears those down
+ * on the error path. This test mocks serve() to emit 'error' asynchronously
+ * (mirroring the boot() R4-A.3 test) and asserts runControlPlane rejects AND
+ * the scheduler is stopped.
+ */
+describe("orchestrator runControlPlane async bind error cleanup (CR-FIX #1)", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects runControlPlane AND stops the scheduler when serve() emits 'error' asynchronously", async () => {
+    vi.resetModules();
+
+    const stopSpy = vi.fn(async () => undefined);
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            stop: async (...args: unknown[]) => {
+              stopSpy();
+              return (real.stop as (...a: unknown[]) => Promise<void>)(...args);
+            },
+          };
+        },
+      };
+    });
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return {
+        ...actual,
+        serve: () => {
+          const listeners: Record<string, Array<(...a: unknown[]) => void>> = {
+            error: [],
+            listening: [],
+          };
+          const stub = {
+            listening: false,
+            once(event: string, cb: (...a: unknown[]) => void) {
+              listeners[event] ??= [];
+              listeners[event].push(cb);
+              return stub;
+            },
+            on(event: string, cb: (...a: unknown[]) => void) {
+              listeners[event] ??= [];
+              listeners[event].push(cb);
+              return stub;
+            },
+            removeListener(event: string, cb: (...a: unknown[]) => void) {
+              const arr = listeners[event];
+              if (arr) {
+                const i = arr.indexOf(cb);
+                if (i >= 0) arr.splice(i, 1);
+              }
+              return stub;
+            },
+            close(cb?: (err?: Error) => void) {
+              if (cb) cb();
+              return stub;
+            },
+          };
+          setTimeout(() => {
+            const errs = listeners.error.slice();
+            for (const cb of errs)
+              cb(new Error("simulated EADDRINUSE from async listen()"));
+          }, 0);
+          return stub as unknown as ReturnType<typeof actual.serve>;
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    await expect(
+      orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port },
+      ),
+    ).rejects.toThrow(/simulated EADDRINUSE from async listen\(\)/);
+
+    // Critical: the scheduler must have been stopped as part of teardown.
+    // Pre-fix the async bind error was unobserved and runControlPlane resolved
+    // with the scheduler (and fleet-health interval) still running.
+    expect(stopSpy).toHaveBeenCalled();
+  });
+});
+
+/**
+ * REQ-B wiring (control-plane integration): a swept/lease-expired job's
+ * `worker-crashed-mid-job` overlay must reach the `d6:<slug>` dashboard status
+ * row through `runControlPlane`'s wiring.
+ *
+ * The control-plane MODULE seams exist (the producer forwards swept comm errors
+ * to an injected `onSweepCommErrors` sink; `createControlPlane` exposes
+ * `surfaceSweepCommErrors` which resolves each error's `d6:<slug>` key via an
+ * injected `resolveSweepAggregateKey` and writes the overlay through the
+ * aggregator), but pre-wiring `runControlPlane` did NOT connect them — the
+ * producer was built with no sink and `createControlPlane` received no
+ * aggregator/resolver, so the crash-path overlay was INERT.
+ *
+ * This drives a real swept job through `runControlPlane`'s assembly: the queue's
+ * `sweepExpired` yields one comm error (jobId `job-swept-1`), pb resolves that
+ * job row to `probe_key = d6:swept-svc`, and the producer tick (the registered
+ * scheduler handler) runs the sweep. The assertion is that the comm-error
+ * overlay landed on the `d6:swept-svc` status row via the status-writer. Against
+ * the unwired state this never fires (no sink, no resolver); once wired it does.
+ */
+describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integration)", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("surfaces a swept job's worker-crashed overlay onto its d6:<slug> status row", async () => {
+    vi.resetModules();
+
+    // Immunize against a sibling test's leaked `@hono/node-server` doMock (the
+    // async-bind tests register a serve() stub that rejects via setTimeout): we
+    // need the REAL serve() so this role binds cleanly and the producer tick can
+    // run. vi.doMock registrations persist across the file, so pin it explicitly.
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    const sweptCommError: PoolCommError = {
+      kind: "worker-crashed-mid-job",
+      message: "lease expired; worker presumed crashed",
+      workerId: "worker-dead",
+      jobId: "job-swept-1",
+      observedAt: "2026-06-04T00:00:00.000Z",
+    };
+
+    // Queue fake: sweepExpired yields the swept comm error exactly once (the
+    // producer's first tick sweeps because lastSweepAt is null). enqueue is a
+    // no-op (the enumerator is empty), claimNext/renew/report are unused here.
+    vi.doMock("./fleet/queue-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/queue-client.js")
+      >("./fleet/queue-client.js");
+      let swept = false;
+      return {
+        ...actual,
+        createFleetQueueClient: () => ({
+          enqueue: async () => ({}) as never,
+          claimNext: async () => ({ claimed: false }) as never,
+          renewLease: async () => null,
+          report: async () => undefined,
+          sweepExpired: async () => {
+            if (swept) return { reclaimed: 0, commErrors: [] };
+            swept = true;
+            return { reclaimed: 1, commErrors: [sweptCommError] };
+          },
+        }),
+      };
+    });
+
+    // pb fake: getOne(probe_jobs, "job-swept-1") resolves the swept job's
+    // probe_key (the resolveSweepAggregateKey lookup); getFirst(status, ...)
+    // is the "never observed" path. health() true so the role boots clean.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async (_collection: string, id: string) =>
+            id === "job-swept-1" ? { probe_key: "d6:swept-svc" } : null,
+          getFirst: async () => null,
+        }),
+      };
+    });
+
+    // Capture every status-writer write so we can assert the overlay landed on
+    // the d6:<slug> row.
+    const writes: ProbeResult<unknown>[] = [];
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: () => ({
+          write: async (r: ProbeResult<unknown>) => {
+            writes.push(r);
+            return undefined;
+          },
+        }),
+      };
+    });
+
+    // run-history writer is irrelevant to the sweep leg; stub it so the
+    // aggregator constructs without a real PB run-history collection.
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        createProbeRunWriter: () => ({
+          findByJobId: async () => null,
+          start: async () => ({}) as never,
+          finishTerminal: async () => undefined,
+        }),
+      };
+    });
+
+    // Capture the producer's scheduler handler so we can drive a tick (which
+    // runs the sweep) deterministically without waiting on cron.
+    let producerHandler: (() => Promise<unknown>) | undefined;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: {
+              id: string;
+              cron: string;
+              handler: () => Promise<unknown>;
+            }) => {
+              producerHandler = entry.handler;
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      // Empty enumerator → no enqueue churn; the sweep still runs on tick.
+      { port, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(producerHandler).toBeDefined();
+      // Drive one producer tick → maybeSweep → onSweepCommErrors →
+      // surfaceSweepCommErrors → resolveSweepAggregateKey → aggregateCommError.
+      await producerHandler!();
+
+      const overlayWrite = writes.find((w) => w.key === "d6:swept-svc");
+      expect(overlayWrite).toBeDefined();
+      const signal = overlayWrite!.signal as Record<string, unknown>;
+      const overlay = signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
+        | PoolCommError
+        | undefined;
+      expect(overlay).toBeDefined();
+      expect(overlay!.kind).toBe("worker-crashed-mid-job");
+      expect(overlay!.jobId).toBe("job-swept-1");
+    } finally {
+      await handle.stop();
+    }
+  });
+});
+
+/**
+ * REQ-B worker-self-report wiring: `runControlPlane` must pass its
+ * `resolvePriorState` resolver into `createResultAggregator`, not only into
+ * `createControlPlane`.
+ *
+ * The aggregator's `aggregate()` leg preserves the prior observed colour on a
+ * worker-self-report comm error (aggregateState:"error" + commError) — BUT only
+ * if it was constructed WITH `resolvePriorState`. Pre-wiring, `runControlPlane`
+ * built the aggregator with `{ statusWriter, runWriter, logger, now }` and NO
+ * resolver, so the self-report leg fell back to the "degraded" no-data colour
+ * and STOMPED a previously-RED service to degraded. The sibling sweep-wiring
+ * test above only exercises `aggregateCommError` (the crash leg, fed through
+ * `createControlPlane`); nothing proved the `aggregate()` leg got the resolver.
+ *
+ * This drives a real worker-self-report result through `runControlPlane`'s
+ * assembled aggregator (captured at the `createResultConsumer` seam, where the
+ * orchestrator injects the very aggregator it built). pb's `getFirst(status,…)`
+ * resolves the service's prior row to state:"red". The assertion is that the
+ * primary status write lands state:"red" + the comm-error overlay — NOT
+ * degraded, NOT green. Against the unwired aggregator the resolver is absent and
+ * the row writes "degraded"; once wired it preserves "red".
+ */
+describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregate leg prior-colour)", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("preserves a previously-RED service's colour on a worker-self-report comm error (not degraded)", async () => {
+    vi.resetModules();
+
+    // Pin the REAL serve() (immunize against a sibling test's leaked
+    // @hono/node-server doMock) so this role binds cleanly.
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    const selfReportCommError: PoolCommError = {
+      kind: "worker-protocol-violation",
+      message: "worker could not reach the pool mid-run",
+      workerId: "worker-1",
+      jobId: "job-selfreport-1",
+      observedAt: "2026-06-04T00:00:05.000Z",
+    };
+
+    // Queue fake: no sweep churn — this leg is the consumer, not the producer.
+    vi.doMock("./fleet/queue-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/queue-client.js")
+      >("./fleet/queue-client.js");
+      return {
+        ...actual,
+        createFleetQueueClient: () => ({
+          enqueue: async () => ({}) as never,
+          claimNext: async () => ({ claimed: false }) as never,
+          renewLease: async () => null,
+          report: async () => undefined,
+          sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+        }),
+      };
+    });
+
+    // pb fake: getFirst(status, key=d6:selfreport-svc) returns a prior RED row
+    // so the wired resolvePriorState reads "red"; getOne unused on this leg;
+    // health() true so the role boots clean.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async (collection: string, filter: string) => {
+            if (
+              collection === "status" &&
+              filter.includes("d6:selfreport-svc")
+            ) {
+              return { state: "red" as State };
+            }
+            return null;
+          },
+        }),
+      };
+    });
+
+    // Capture every status-writer write so we can assert the carried colour.
+    const writes: ProbeResult<unknown>[] = [];
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: () => ({
+          write: async (r: ProbeResult<unknown>) => {
+            writes.push(r);
+            return undefined;
+          },
+        }),
+      };
+    });
+
+    // run-history writer is irrelevant to the carried-colour assertion; stub it
+    // so the aggregator constructs and aggregate() runs end-to-end.
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        createProbeRunWriter: () => ({
+          findByJobId: async () => null,
+          start: async () => ({ id: "run-selfreport-1" }) as never,
+          finish: async () => undefined,
+          finishTerminal: async () => undefined,
+        }),
+      };
+    });
+
+    // Capture the aggregator the orchestrator injects into the consumer — this
+    // is the very aggregator built by createResultAggregator, so invoking its
+    // aggregate() exercises runControlPlane's real wiring (incl. resolvePriorState).
+    let injectedAggregator:
+      | import("./fleet/control-plane/result-aggregator.js").ResultAggregator
+      | undefined;
+    vi.doMock("./fleet/control-plane/result-consumer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/control-plane/result-consumer.js")
+      >("./fleet/control-plane/result-consumer.js");
+      return {
+        ...actual,
+        createResultConsumer: (
+          deps: Parameters<typeof actual.createResultConsumer>[0],
+        ) => {
+          injectedAggregator = deps.aggregator;
+          return { consumeOnce: async () => ({}) as never };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(injectedAggregator).toBeDefined();
+
+      // A worker-self-report comm error on a service whose worker could not
+      // reach the pool: aggregateState:"error" + a commError. With the resolver
+      // wired, aggregate() reads the prior RED row and carries "red".
+      await injectedAggregator!.aggregate({
+        jobId: "job-selfreport-1",
+        serviceSlug: "selfreport-svc",
+        driverKind: "e2e_d6",
+        aggregateKey: "d6:selfreport-svc",
+        aggregateState: "error",
+        aggregateSignal: { failedCount: 0 },
+        cells: [],
+        rollup: { total: 0, passed: 0, failed: 0 },
+        commError: selfReportCommError,
+      } as never);
+
+      const primary = writes.find((w) => w.key === "d6:selfreport-svc");
+      expect(primary).toBeDefined();
+      // The carried colour is the prior RED — NOT the degraded no-data fallback
+      // (which is what an unwired aggregator would write), and NOT green.
+      expect(primary!.state).toBe("red");
+      expect(primary!.state).not.toBe("degraded");
+      expect(primary!.state).not.toBe("green");
+      // The comm-error overlay still rides on the row the dashboard reads.
+      const signal = primary!.signal as Record<string, unknown>;
+      const overlay = signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
+        | PoolCommError
+        | undefined;
+      expect(overlay).toBeDefined();
+      expect(overlay!.kind).toBe("worker-protocol-violation");
+      expect(overlay!.jobId).toBe("job-selfreport-1");
+    } finally {
+      await handle.stop();
+    }
   });
 });
 

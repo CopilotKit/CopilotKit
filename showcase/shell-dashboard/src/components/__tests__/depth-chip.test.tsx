@@ -199,6 +199,56 @@ describe("DepthChip", () => {
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("danger");
   });
+
+  // ── REQ-B: pool comm-error / unreachable treatment ──────────────────
+
+  it("renders a DISTINCT unreachable treatment when unreachable=true", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={5}
+        status="wired"
+        chipColor="green"
+        unreachable
+        commTooltip="pool unreachable: worker-unreachable — worker w-7"
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).toBe("unreachable");
+    expect(chip.getAttribute("data-surface-state")).toBe("unreachable");
+    // Tooltip names the comm-error kind + worker.
+    expect(chip.getAttribute("title")).toContain("worker-unreachable");
+    expect(chip.getAttribute("title")).toContain("w-7");
+    // Visually distinct from green/amber/red/gray — uses the indigo overlay,
+    // NOT the emerald/danger/amber/text-muted probe-colour classes.
+    expect(chip.className).toContain("indigo");
+    expect(chip.className).not.toContain("emerald");
+    expect(chip.className).not.toContain("danger");
+  });
+
+  it("unreachable overrides chipColor='red' (comm error ≠ red test)", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={3} status="wired" chipColor="red" unreachable />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).toBe("unreachable");
+    // A comm error must never be painted as a red test.
+    expect(chip.className).not.toContain("danger");
+    expect(chip.className).toContain("indigo");
+  });
+
+  it("renders normally (no unreachable) when unreachable=false", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={5}
+        status="wired"
+        chipColor="green"
+        unreachable={false}
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).not.toBe("unreachable");
+    expect(chip.className).toContain("emerald");
+  });
 });
 
 describe("depthColorClass (direct)", () => {

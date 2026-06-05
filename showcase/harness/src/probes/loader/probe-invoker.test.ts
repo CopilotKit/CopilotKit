@@ -2460,6 +2460,9 @@ describe("buildProbeInvoker", () => {
         starts.push(opts);
         return { id: `run-${nextId++}` };
       },
+      async findByJobId() {
+        return null;
+      },
       async update(opts) {
         updates.push({
           id: opts.id,
@@ -2867,6 +2870,9 @@ describe("buildProbeInvoker", () => {
       async start() {
         return { id: "run-1" };
       },
+      async findByJobId() {
+        return null;
+      },
       async update(opts) {
         order.push("update");
         updates.push({ id: opts.id });
@@ -2929,6 +2935,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("network blip")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -2990,6 +2997,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("PB down")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -3034,6 +3042,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingFinish: ProbeRunWriter = {
       start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockRejectedValue(new Error("PB down")),
       recent: vi.fn().mockResolvedValue([]),

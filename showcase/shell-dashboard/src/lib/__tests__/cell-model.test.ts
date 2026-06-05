@@ -758,6 +758,61 @@ describe("buildCellModel", () => {
       expect(modelChat.chipColor).toBe("amber");
     });
 
+    it("END-TO-END: dashboard surfaces a fleet d6 result from the worker's emitted keys (d6:<slug> aggregate + d6:<slug>/<ft> per-cell)", () => {
+      // VERIFICATION of the worker→dashboard contract: the fleet worker emits
+      // the d6 aggregate at `d6:<slug>` AND per-cell rows at `d6:<slug>/<ft>`
+      // (NOT `e2e_d6:<slug>`). This pins that the dashboard's read side actually
+      // consumes EXACTLY those keys — a green per-cell row drives the green chip,
+      // and a comm error mirrored onto the aggregate row surfaces "unreachable".
+      const slug = "langgraph-python";
+      const ft = "agentic-chat";
+
+      // 1) Healthy fleet result: full ladder green, per-cell d6 green, aggregate
+      //    green. The cell must read its OWN per-cell d6:<slug>/<ft> row green.
+      const healthy = mapOf([
+        row(keyFor("e2e", slug, ft), "e2e", "green"),
+        row(keyFor("chat", slug), "chat", "green"),
+        row(keyFor("tools", slug), "tools", "green"),
+        row(keyFor("d5", slug, ft), "d5", "green"),
+        row(keyFor("d6", slug), "d6", "green"), // aggregate (worker emit)
+        row(keyFor("d6", slug, ft), "d6", "green"), // per-cell (worker emit)
+      ]);
+      const healthyModel = buildCellModel(healthy, wiredInput(slug, ft));
+      expect(healthyModel.d6!.exists).toBe(true);
+      expect(healthyModel.d6!.status).toBe("green");
+      expect(healthyModel.d6!.row?.key).toBe(`d6:${slug}/${ft}`);
+      expect(healthyModel.achievedDepth).toBe(6);
+      expect(healthyModel.chipColor).toBe("green");
+      expect(healthyModel.surfaceState).toBe("green");
+      expect(healthyModel.commError).toBeUndefined();
+
+      // 2) Comm-error fleet result (worker-death): the worker had no driver run,
+      //    so the PoolCommError is mirrored onto the AGGREGATE row `d6:<slug>`
+      //    (per the contract's `aggregateKey` fallback). The dashboard must read
+      //    that aggregate row and surface the "unreachable" overlay.
+      const commErrored = mapOf([
+        row(keyFor("e2e", slug, ft), "e2e", "green"),
+        row(keyFor("chat", slug), "chat", "green"),
+        row(keyFor("tools", slug), "tools", "green"),
+        row(keyFor("d5", slug, ft), "d5", "green"),
+        row(keyFor("d6", slug, ft), "d6", "green"),
+        row(keyFor("d6", slug), "d6", "green", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-crashed-mid-job",
+              message: "lease expired with no terminal report",
+              workerId: "fleet-worker-3",
+              observedAt: FRESH_OBSERVED_AT,
+            },
+          },
+        }),
+      ]);
+      const commModel = buildCellModel(commErrored, wiredInput(slug, ft));
+      expect(commModel.surfaceState).toBe("unreachable");
+      expect(commModel.commError?.kind).toBe("worker-crashed-mid-job");
+      expect(commModel.commError?.workerId).toBe("fleet-worker-3");
+    });
+
     it("does NOT credit D6 green when one mapped per-cell sub-row is MISSING (strict, mirrors resolveD5)", () => {
       // beautiful-chat maps to 5 D6 sub-keys (same featureTypes as D5). Emit
       // only 4 per-cell D6 rows (bar-chart missing). A missing mapped sub-row
@@ -1468,6 +1523,279 @@ describe("buildCellModel", () => {
       expect(model.d5!.status).toBeNull();
       expect(model.d6Effective).toBeNull();
       expect(model.chipColor).toBe("gray");
+    });
+  });
+
+  // ── REQ-B: pool comm-error → "unreachable" surface state ────────────
+  describe("pool comm-error overlay (REQ-B)", () => {
+    const COMM = {
+      kind: "worker-unreachable" as const,
+      message: "connect ECONNREFUSED",
+      workerId: "worker-7",
+      observedAt: FRESH_OBSERVED_AT,
+    };
+    const commSignal = { __fleetCommError: COMM };
+
+    it("a row carrying __fleetCommError surfaces as unreachable, distinct from red", () => {
+      const live = mapOf([
+        // Last-known probe colour stays green; the comm error rides on the row.
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+          signal: commSignal,
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.surfaceState).toBe("unreachable");
+      // The probe colour (chipColor) is preserved — comm error is an OVERLAY,
+      // not a recolour. The last-known result stays visible underneath.
+      expect(model.chipColor).toBe("green");
+      // The decoded comm error names the kind + worker for the tooltip.
+      expect(model.commError?.kind).toBe("worker-unreachable");
+      expect(model.commError?.workerId).toBe("worker-7");
+    });
+
+    it("a normal red row (no comm error) is unaffected — surfaceState is red, not unreachable", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+      expect(model.surfaceState).toBe("red");
+      expect(model.commError).toBeUndefined();
+    });
+
+    it("decodes a comm error riding on the e2e row too", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-crashed-mid-job",
+              message: "lease expired with no report",
+              observedAt: FRESH_OBSERVED_AT,
+            },
+          },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.surfaceState).toBe("unreachable");
+      expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+    });
+
+    it("mirrors the chip colour onto surfaceState when no comm error (amber)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        // D5 green, no/failing D6 → chip amber.
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("amber");
+      // surfaceState uses the dashboard's ChipColor vocabulary, so amber maps
+      // straight through (no comm error → no "unreachable" overlay).
+      expect(model.surfaceState).toBe("amber");
+    });
+
+    it("unsupported / unwired cells never surface unreachable", () => {
+      const unsupported = buildCellModel(mapOf([]), {
+        slug: "agno",
+        featureId: "agentic-chat",
+        isSupported: false,
+        isWired: false,
+      });
+      expect(unsupported.surfaceState).toBe("gray");
+      expect(unsupported.commError).toBeUndefined();
+    });
+
+    it("the MOST RECENT comm error wins — a newer aggregate (worker-death) beats a stale per-cell one", () => {
+      // A STALE per-cell comm error (older `observedAt`) lingers on the per-cell
+      // d6 row, scanned BEFORE the aggregate. A NEWER worker-death comm error
+      // landed on the aggregate `d6:<slug>` row. Without a recency tie-break the
+      // fixed scan order returns the stale per-cell error and masks the real,
+      // newer cause. The recency tie-break must surface the aggregate error.
+      // Both timestamps sit inside the comm-error staleness window relative to
+      // the injected `now`, so this exercises the RECENCY tie-break (not the
+      // staleness gate). "STALE" here means older-than-the-other, not aged-out.
+      const STALE = "2026-06-04T11:00:00.000Z";
+      const NEWER = "2026-06-04T12:00:00.000Z";
+      const NOW = Date.parse("2026-06-04T12:30:00.000Z");
+      const live = mapOf([
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-protocol-timeout",
+              message: "stale per-cell timeout",
+              workerId: "worker-OLD",
+              observedAt: STALE,
+            },
+          },
+        }),
+        row(keyFor("d6", "agno"), "d6", "green", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-crashed-mid-job",
+              message: "worker died — lease expired",
+              workerId: "worker-NEW",
+              observedAt: NEWER,
+            },
+          },
+        }),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.surfaceState).toBe("unreachable");
+      // The NEWER aggregate (worker-death) error wins despite being scanned LAST.
+      expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+      expect(model.commError?.workerId).toBe("worker-NEW");
+    });
+
+    it("equal timestamps fall back to scan order (per-cell before aggregate)", () => {
+      // Stable tie-break: when two comm errors share an `observedAt`, the
+      // first-in-scan-order one (the per-cell d6 row) is retained, preserving
+      // the prior authority ordering.
+      const SAME = "2026-06-04T12:00:00.000Z";
+      // `now` within the staleness window so this exercises the equal-timestamp
+      // tie-break, not the staleness gate.
+      const NOW = Date.parse("2026-06-04T12:30:00.000Z");
+      const live = mapOf([
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-protocol-timeout",
+              message: "per-cell",
+              workerId: "worker-PERCELL",
+              observedAt: SAME,
+            },
+          },
+        }),
+        row(keyFor("d6", "agno"), "d6", "green", {
+          signal: {
+            __fleetCommError: {
+              kind: "worker-crashed-mid-job",
+              message: "aggregate",
+              workerId: "worker-AGG",
+              observedAt: SAME,
+            },
+          },
+        }),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.commError?.workerId).toBe("worker-PERCELL");
+    });
+
+    // ── Comm-error staleness window ───────────────────────────────────
+    // A PoolCommError mirrored onto the `d6:<slug>` aggregate row is NOT
+    // overwritten when the pool recovers (recovery writes fresh per-cell
+    // rows; nothing clears the stale comm-error blob). Without a staleness
+    // window the cell renders "unreachable" forever. A comm error older than
+    // the staleness window must be treated as recovered/reachable, mirroring
+    // the resolveD3/D4/D5/D6 staleness downgrade.
+    describe("comm-error staleness window", () => {
+      const NOW = Date.parse("2026-06-04T12:00:00.000Z");
+
+      function commErrorAtAge(ageMs: number) {
+        return {
+          kind: "worker-crashed-mid-job" as const,
+          message: "worker died — lease expired",
+          workerId: "worker-stale",
+          observedAt: new Date(NOW - ageMs).toISOString(),
+        };
+      }
+
+      it("a FRESH comm error → surfaceState unreachable", () => {
+        const live = mapOf([
+          // Pool recovered: fresh green per-cell rows are present.
+          row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("chat", "agno"), "chat", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("tools", "agno"), "tools", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("d5", "agno", "agentic-chat"), "d5", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          // FRESH comm error on the aggregate row.
+          row(keyFor("d6", "agno"), "d6", "green", {
+            signal: { __fleetCommError: commErrorAtAge(0) },
+          }),
+        ]);
+        const model = buildCellModel(
+          live,
+          wiredInput("agno", "agentic-chat"),
+          NOW,
+        );
+        expect(model.surfaceState).toBe("unreachable");
+        expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+      });
+
+      it("the SAME comm error aged past the staleness window → NOT unreachable (recovered)", () => {
+        const live = mapOf([
+          // Pool recovered: fresh green per-cell rows are present and the
+          // ladder is intact through D6 → chip green.
+          row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("chat", "agno"), "chat", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("tools", "agno"), "tools", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("d5", "agno", "agentic-chat"), "d5", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+            observed_at: new Date(NOW).toISOString(),
+            transitioned_at: new Date(NOW).toISOString(),
+          }),
+          // STALE comm error blob left over on the aggregate row, never cleared.
+          row(keyFor("d6", "agno"), "d6", "green", {
+            signal: {
+              __fleetCommError: commErrorAtAge(
+                E2E_STALE_AFTER_MS + 60 * 60 * 1000,
+              ),
+            },
+          }),
+        ]);
+        const model = buildCellModel(
+          live,
+          wiredInput("agno", "agentic-chat"),
+          NOW,
+        );
+        // The aged comm error is treated as recovered — the cell reflects its
+        // underlying probe state (green), NOT the sticky "unreachable" overlay.
+        expect(model.surfaceState).not.toBe("unreachable");
+        expect(model.surfaceState).toBe("green");
+        expect(model.commError).toBeUndefined();
+      });
     });
   });
 });

@@ -879,13 +879,19 @@ export const docsComponents = {
         marginBottom: "1rem",
       }}
     >
-      <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+      <a
+        href="https://dashboard.operations.copilotkit.ai"
+        style={{ color: "var(--accent)" }}
+      >
         Sign up for CopilotKit Cloud →
       </a>
     </div>
   ),
   LinkToCopilotCloud: () => (
-    <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+    <a
+      href="https://dashboard.operations.copilotkit.ai"
+      style={{ color: "var(--accent)" }}
+    >
       CopilotKit Cloud
     </a>
   ),

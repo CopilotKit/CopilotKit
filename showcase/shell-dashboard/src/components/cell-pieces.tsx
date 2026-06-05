@@ -225,6 +225,24 @@ function LiveBadge({
   // for rows with state === "degraded" (F5.5 verification). Do NOT remove
   // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
+  // B.4: the INITIAL status projection (`STATUS_LIST_FIELDS` in live-status.ts)
+  // drops the heavy `signal` blob, so a row materialised from the bulk fetch
+  // arrives with `signal === undefined` until a live SSE delta re-attaches it.
+  // Read it defensively (the field is now effectively optional) and surface a
+  // neutral "unknown" availability marker instead of assuming presence — the
+  // badge must not imply we have probe detail we don't yet hold. `signal`-less
+  // rows degrade to a neutral state rather than misrendering. `null` (an
+  // explicitly empty signal) is treated as "no detail" too, matching
+  // `summarizeSignal`'s `signal == null` short-circuit upstream.
+  // Only eligible (red/amber) badges carry signal detail worth surfacing — a
+  // green/gray/no-data badge has nothing to disambiguate, so it gets no marker
+  // (`undefined` omits the attribute entirely).
+  const rowSignal = (badge.row as { signal?: unknown } | null)?.signal;
+  const signalAvailability: "present" | "unknown" | undefined = eligible
+    ? rowSignal == null
+      ? "unknown"
+      : "present"
+    : undefined;
   const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
   // CP2: format the transition line from the source `transition` enum
   // rather than just `state`. `first` and `error` don't encode a prior
@@ -241,6 +259,7 @@ function LiveBadge({
   return (
     <FlashOnChange tone={badge.tone}>
       <span
+        data-signal={signalAvailability}
         onMouseLeave={() => setTooltipOpen(false)}
         onBlur={() => setTooltipOpen(false)}
       >
@@ -314,9 +333,8 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
   // CP3: `cell.smoke` is computed by `resolveCell` for backwards-compat but
   // intentionally NOT rendered here — smoke is integration-scoped and lives
   // in the per-integration strip (Phase 3 Decision #7), not in the per-cell
-  // status row. The `smoke` field is a candidate for removal from
-  // `CellState`; that narrowing must happen in `live-status.ts` (separate
-  // worktree) and is tracked in the cross-worktree concerns of this fix.
+  // status row. `smoke` remains a permanent field on `CellState` (resolveCell
+  // still populates it); it is simply not consumed by this per-cell row.
 
   return (
     <div className="flex items-center justify-center gap-2.5">

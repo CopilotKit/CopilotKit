@@ -886,9 +886,7 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
 
     // Enqueue a waiter with a SHORT timeout — it pends past the cap.
     let waiterRejected: Error | undefined;
-    const waiterP = pool
-      .acquire(undefined, 20)
-      .catch((e: Error) => (waiterRejected = e));
+    void pool.acquire(undefined, 20).catch((e: Error) => (waiterRejected = e));
     await drainMicrotasks();
 
     // Release c1 → serveNextWaiter() picks the waiter, calls newContext()
@@ -3591,6 +3589,97 @@ describe("BrowserPool — resource-gauge instrumentation (PID-ceiling early warn
     const ctx = await pool.acquire(undefined, 2_000);
     expect(ctx).toBeDefined();
     await pool.release(ctx);
+
+    await pool.shutdown();
+  });
+});
+
+// budget() is the fleet WORKER's live "can I take more work?" signal for the
+// pull-queue claim gate: free context budget (available > 0) AND cgroup-pids
+// headroom keep each worker under its pids ceiling (the PROVEN wedge). These
+// assert the in-memory counts track acquire/release and that the cheap cgroup
+// pids read is folded in (injected reader, no live cgroup filesystem needed).
+describe("BrowserPool — budget() worker capacity gate", () => {
+  it("reflects inUse/available/max as contexts are acquired and released", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 3,
+      launchBrowser,
+      launchStaggerMs: 0,
+      // Injected cgroup reader so the pids fields are deterministic.
+      cgroupPidsReader: () => ({ current: 120, max: 1000 }),
+    });
+    await pool.init();
+
+    // Empty pool: full budget available, nothing in use.
+    expect(pool.budget()).toEqual({
+      inUse: 0,
+      available: 3,
+      max: 3,
+      pidsCurrent: 120,
+      pidsMax: 1000,
+    });
+
+    const c1 = await pool.acquire();
+    expect(pool.budget()).toMatchObject({ inUse: 1, available: 2, max: 3 });
+
+    const c2 = await pool.acquire();
+    expect(pool.budget()).toMatchObject({ inUse: 2, available: 1, max: 3 });
+
+    // At the cap: available hits 0 — the worker must NOT claim more work.
+    const c3 = await pool.acquire();
+    expect(pool.budget()).toMatchObject({ inUse: 3, available: 0, max: 3 });
+
+    // Releasing frees budget back up.
+    await pool.release(c2);
+    expect(pool.budget()).toMatchObject({ inUse: 2, available: 1, max: 3 });
+
+    await pool.release(c1);
+    await pool.release(c3);
+    expect(pool.budget()).toMatchObject({ inUse: 0, available: 3, max: 3 });
+
+    await pool.shutdown();
+  });
+
+  it("folds the cgroup pids reading through (current/max from the reader)", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 4,
+      launchBrowser,
+      launchStaggerMs: 0,
+      cgroupPidsReader: () => ({ current: 873, max: 1000 }),
+    });
+    await pool.init();
+
+    const b = pool.budget();
+    expect(b.pidsCurrent).toBe(873);
+    expect(b.pidsMax).toBe(1000);
+
+    await pool.shutdown();
+  });
+
+  it("degrades pids fields to -1 when the cgroup reader throws", async () => {
+    const { launchBrowser } = makeFakeLauncher();
+    const pool = new BrowserPool({
+      browsers: 1,
+      maxContexts: 2,
+      launchBrowser,
+      launchStaggerMs: 0,
+      cgroupPidsReader: () => {
+        throw new Error("no cgroup controller");
+      },
+    });
+    await pool.init();
+
+    expect(pool.budget()).toEqual({
+      inUse: 0,
+      available: 2,
+      max: 2,
+      pidsCurrent: -1,
+      pidsMax: -1,
+    });
 
     await pool.shutdown();
   });

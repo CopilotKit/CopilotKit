@@ -52,17 +52,43 @@ export interface ProbeRunRecord {
   summary: ProbeRunSummary | null;
 }
 
+/**
+ * The terminal-vs-running disposition of a `probe_runs` row, returned by
+ * `findByJobId` so the fleet aggregator can decide between SKIP (already fully
+ * applied) and RESUME (a previous attempt crashed mid-aggregate).
+ */
+export interface ProbeRunByJob {
+  id: string;
+  /** True once the row reached a terminal state (`completed` | `failed`). */
+  terminal: boolean;
+}
+
 export interface ProbeRunWriter {
   /**
    * Insert a `running` row. Returns the new row id so the caller can pass
    * it to `finish()` once the probe completes. `startedAt` is a numeric
    * epoch-ms (matching `Date.now()`) — converted to ISO inside.
+   *
+   * `jobId` (optional) stamps the fleet `probe_jobs` row id onto the run so
+   * the aggregator can dedupe a re-processed result (see `findByJobId`). The
+   * in-process probe-invoker omits it (no job); only the fleet aggregator
+   * supplies it.
    */
   start(opts: {
     probeId: string;
     startedAt: number;
     triggered: boolean;
+    jobId?: string;
   }): Promise<{ id: string }>;
+  /**
+   * Find the run row previously stamped with `jobId`, or null when none
+   * exists. The fleet aggregator calls this BEFORE doing any work so a
+   * re-processed result (latch write failed, or crash before latch) is a true
+   * idempotent no-op rather than re-bumping flap counts / appending duplicate
+   * history / minting a duplicate run row. Returns the row id + whether it is
+   * terminal so the caller can SKIP (terminal) vs RESUME (still running).
+   */
+  findByJobId(jobId: string): Promise<ProbeRunByJob | null>;
   /**
    * Persist a partial rollup onto a still-`running` row WITHOUT marking it
    * terminal. Called incrementally as each fan-out target completes so an
@@ -108,6 +134,8 @@ interface ProbeRunRow {
   triggered: boolean;
   state: ProbeRunState;
   summary: ProbeRunSummary | null;
+  /** Fleet job id (empty for in-process probe-invoker runs). */
+  job_id?: string;
 }
 
 function toRecord(row: ProbeRunRow): ProbeRunRecord {
@@ -134,8 +162,33 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
         triggered: opts.triggered,
         state: "running",
         summary: null,
+        // Empty string (not undefined) for the no-job in-process path so the
+        // column is cleanly "no job" rather than absent — matches how the
+        // workers row stores an idle current_job_id.
+        job_id: opts.jobId ?? "",
       });
       return { id: created.id };
+    },
+
+    async findByJobId(jobId) {
+      // The fleet aggregator dedupes on a NON-empty job id; an empty/blank id
+      // would match the whole in-process-probe population, so guard it.
+      if (!jobId) return null;
+      const filter = `job_id = ${JSON.stringify(jobId)}`;
+      const result = await pb.list<ProbeRunRow>(PROBE_RUNS_COLLECTION, {
+        filter,
+        // Newest first so if (pathologically) more than one row carries the id,
+        // we report the most recent disposition.
+        sort: "-started_at",
+        perPage: 1,
+        skipTotal: true,
+      });
+      const row = result.items[0];
+      if (!row) return null;
+      return {
+        id: row.id,
+        terminal: row.state === "completed" || row.state === "failed",
+      };
     },
 
     async update(opts) {
@@ -260,8 +313,17 @@ export async function sweepStaleRuns(
         summary,
       });
       swept++;
-    } catch {
-      // best-effort — log but don't block boot
+    } catch (err) {
+      // Best-effort — a single failing sweep update must not block boot, but it
+      // must be OBSERVABLE: a silently-discarded PB failure leaves a zombie
+      // `running` row in place with no trace of why. Log the row id + error
+      // (console.warn, consistent with this file's other PB guards) and
+      // continue to the next stale row.
+      // eslint-disable-next-line no-console
+      console.warn("run-history.sweepStaleRuns: row update failed", {
+        runId: row.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return swept;

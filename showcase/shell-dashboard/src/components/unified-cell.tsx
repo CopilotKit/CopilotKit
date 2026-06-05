@@ -14,6 +14,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from "react";
 import type { CellContext } from "@/components/feature-grid";
 import type { CellModel, TestLevel } from "@/lib/cell-model";
+import type { PoolCommError } from "@/lib/live-status";
 import { DepthChip } from "@/components/depth-chip";
 import { Badge, FlashOnChange } from "@/components/badges";
 import type { BadgeTone } from "@/lib/live-status";
@@ -98,6 +99,21 @@ function TestBadge({
 }
 
 // ---------------------------------------------------------------------------
+// Pool comm-error tooltip (REQ-B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format the "couldn't reach the pool" tooltip for the unreachable chip,
+ * NAMING the `PoolCommErrorKind` and (when known) the worker so an operator
+ * can triage which pool member dropped. Falls back to the raw message when no
+ * structured detail is available.
+ */
+export function commErrorTooltip(err: PoolCommError): string {
+  const worker = err.workerId ? ` — worker ${err.workerId}` : "";
+  return `pool unreachable: ${err.kind}${worker} — ${err.message}`;
+}
+
+// ---------------------------------------------------------------------------
 // Layer renderers
 // ---------------------------------------------------------------------------
 
@@ -173,6 +189,10 @@ function DepthLayer({ ctx, model }: { ctx: CellContext; model: CellModel }) {
           chipColor={model.chipColor}
           depth={model.achievedDepth}
           status="wired"
+          unreachable={model.surfaceState === "unreachable"}
+          commTooltip={
+            model.commError ? commErrorTooltip(model.commError) : undefined
+          }
         />
       </button>
       {drilldownOpen && (
@@ -361,6 +381,10 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
     a.achievedDepth === b.achievedDepth &&
     a.ceilingDepth === b.ceilingDepth &&
     a.chipColor === b.chipColor &&
+    a.surfaceState === b.surfaceState &&
+    a.commError?.kind === b.commError?.kind &&
+    a.commError?.workerId === b.commError?.workerId &&
+    a.commError?.message === b.commError?.message &&
     a.d6Effective === b.d6Effective &&
     a.isRegression === b.isRegression &&
     testLevelsEqual(a.d3, b.d3) &&
@@ -370,7 +394,13 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
   );
 }
 
-function arePropsEqual(
+/**
+ * Memo equality used by `UnifiedCell`. Exported for direct unit testing of the
+ * `directKeys` watch (a comm error landing solely on the aggregate `d6:<slug>`
+ * row must force a re-render even when the precomputed `model` reference is
+ * reused). Returns `true` to SKIP the re-render, `false` to re-render.
+ */
+export function arePropsEqual(
   prev: UnifiedCellProps,
   next: UnifiedCellProps,
 ): boolean {
@@ -398,6 +428,17 @@ function arePropsEqual(
     keyFor("e2e", slug, featureId),
     keyFor("chat", slug),
     keyFor("tools", slug),
+    // health:<slug> is a pool comm-error carrier (REQ-B) even though it does
+    // not feed the depth ladder — watch it so an incoming comm-error signal
+    // repaints the cell's unreachable overlay.
+    keyFor("health", slug),
+    // d6:<slug> is the integration-level AGGREGATE row. It does not feed the
+    // per-cell depth ladder (that reads `d6:<slug>/<featureType>`), but it IS
+    // a pool comm-error carrier (REQ-B): a worker-death comm error lands solely
+    // on the aggregate row, and `decodeCellCommError` in buildCellModel reads it
+    // to light the cell's "unreachable" overlay. Watch it here so that signal
+    // actually triggers a re-render — keep in sync with buildCellModel.
+    keyFor("d6", slug),
   ];
 
   // Add D5 + D6 sub-keys from CATALOG_TO_D5_KEY. D6 is per-cell (not the

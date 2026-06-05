@@ -70,12 +70,61 @@ import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
 import { makeGql } from "./probes/discovery/railway-services.js";
-import type { Logger, State, StatusRecord, Target } from "./types/index.js";
+import type {
+  Logger,
+  ProbeResult,
+  State,
+  StatusRecord,
+  Target,
+} from "./types/index.js";
+import { resolveFleetRoleConfig } from "./fleet/role-config.js";
+import type { FleetRoleConfig } from "./fleet/role-config.js";
+import { createJobClaimClient } from "./fleet/job-claim.js";
+import {
+  createFleetQueueClient,
+  PROBE_JOBS_COLLECTION,
+} from "./fleet/queue-client.js";
+import {
+  commErrorToStatusSignal,
+  WORKERS_COLLECTION,
+} from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
+import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
+import { createD6PayloadToInput } from "./fleet/worker/payload-mapper.js";
+import { registerWorker } from "./fleet/worker/registration.js";
+import {
+  asKnownState,
+  createResultAggregator,
+} from "./fleet/control-plane/result-aggregator.js";
+import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
+import {
+  createFleetHealthMonitor,
+  DEFAULT_WORKER_STALE_AFTER_MS,
+} from "./fleet/control-plane/fleet-health.js";
+import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
+import { createD6ServiceEnumerator } from "./fleet/control-plane/catalog-enumerator.js";
+import {
+  buildJobProducer,
+  createControlPlane,
+} from "./fleet/control-plane/control-plane.js";
+import type {
+  ControlPlane,
+  PriorStateResolver,
+  SweepAggregateKeyResolver,
+} from "./fleet/control-plane/control-plane.js";
+import type { ServiceEnumerator } from "./fleet/control-plane/job-producer.js";
 
 export interface BootOptions {
   configDir?: string;
   port?: number;
   bootstrapWindowMs?: number;
+  /**
+   * Fleet control-plane ONLY: the catalog-aware per-service enumerator the job
+   * producer (S4) runs each tick. Injected so the discovery slot can supply the
+   * real railway-services enumerator; when absent, `runControlPlane` produces
+   * empty runs (see the enumeration seam there). Ignored by `boot()` / worker.
+   */
+  fleetEnumerate?: ServiceEnumerator;
 }
 
 export async function boot(opts: BootOptions = {}): Promise<{
@@ -1825,10 +1874,756 @@ export function createRailwayAdapter(
   return { listServices: cachedListServices, getServiceEnv };
 }
 
-// Only run boot() when executed directly (not when imported). Use fileURLToPath
-// so symlinks and cross-platform path normalization don't break the check.
+// ---------------------------------------------------------------------------
+// FLEET ROLE DISPATCH
+//
+// The single harness image boots in one of two runtime ROLES, selected by
+// HARNESS_ROLE (see fleet/role-config.ts):
+//
+//   control-plane — scheduler / queue / aggregator; runs NO Chromium.
+//   worker        — runs the BrowserPool, pulls jobs from the control-plane.
+//
+// `boot()` above is the CURRENT single-process orchestrator (scheduler + pool
+// in one process). The fleet split moves those responsibilities into the two
+// role bodies below. Those bodies are built in PARALLEL slots — the stubs here
+// are intentionally minimal and clearly marked; this slot (S8) owns ONLY the
+// config + role-based dispatch wiring so the image boots in the selected mode.
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal PB surface `surfaceReclaimedCommErrors` reads — a structural subset
+ * of `PbClient` so the real client satisfies it and tests can pass a tiny fake.
+ * Exported so unit tests can type their fake against it without `as any`.
+ */
+export interface CommErrorSurfacePb {
+  getOne<T>(collection: string, id: string): Promise<T | null>;
+  getFirst<T>(collection: string, filter: string): Promise<T | null>;
+}
+
+/** Deps for the REQ-B comm-error surfacer (injectable for unit tests). */
+export interface SurfaceReclaimedCommErrorsDeps {
+  pb: CommErrorSurfacePb;
+  statusWriter: { write(result: ProbeResult<unknown>): Promise<unknown> };
+  logger: Logger;
+}
+
+/**
+ * REQ-B surfacing: fleet-health DETECTS a dead worker and reclaims its in-flight
+ * jobs, returning a `worker-crashed-mid-job` PoolCommError per reclaimed job —
+ * but a comm error only reaches the dashboard once it is mirrored onto the job's
+ * STATUS row (under FLEET_COMM_ERROR_SIGNAL_KEY). The worker-self-report path
+ * does that via the aggregator; the control-plane-detected (worker-death) path
+ * has no result to aggregate, so we persist it here.
+ *
+ * Per reclaimed job we resolve the job row's `probe_key` (the dashboard status-
+ * row key) and surface the comm error under FLEET_COMM_ERROR_SIGNAL_KEY. HOW
+ * depends on whether the cell was EVER OBSERVED:
+ *
+ *   OBSERVED (a status row exists): re-write the existing row's last-known
+ *   colour carrying the overlaid signal. We deliberately do NOT write state
+ *   "error" here — the status-writer's error path persists the signal only to
+ *   `status_history`, not the `status` row the dashboard reads — so to get the
+ *   overlay onto the readable row while PRESERVING its colour we re-write the
+ *   real prior state.
+ *
+ *   NEVER OBSERVED (no status row): there is NO last-known colour to carry. The
+ *   previous code INVENTED "green" here, a false green — a service whose worker
+ *   crashed before it was ever probed would be reported healthy. Instead we
+ *   route an "error"-state result through the writer. Per the writer's F2.1
+ *   discipline this records the comm error to `status_history` WITHOUT seeding a
+ *   status row, so the cell stays "no data" (the codebase's no-data
+ *   representation: absent status row) rather than a fabricated green. The first
+ *   real worker observation then establishes the true baseline.
+ */
+export async function surfaceReclaimedCommErrors(
+  deps: SurfaceReclaimedCommErrorsDeps,
+  commErrors: readonly PoolCommError[],
+): Promise<void> {
+  const { pb, statusWriter, logger } = deps;
+  for (const err of commErrors) {
+    if (!err.jobId) continue;
+    try {
+      const job = await pb.getOne<{ probe_key?: string }>(
+        PROBE_JOBS_COLLECTION,
+        err.jobId,
+      );
+      const probeKey = job?.probe_key;
+      if (!probeKey) {
+        logger.warn("fleet.control-plane.commerror-no-probekey", {
+          jobId: err.jobId,
+        });
+        continue;
+      }
+      const existing = await pb.getFirst<{ state?: string; signal?: unknown }>(
+        "status",
+        `key = ${JSON.stringify(probeKey)}`,
+      );
+      const baseSignal =
+        existing?.signal && typeof existing.signal === "object"
+          ? (existing.signal as Record<string, unknown>)
+          : {};
+      const overlaidSignal = { ...baseSignal, ...commErrorToStatusSignal(err) };
+      // Validate the PB string against the known State set rather than
+      // blind-casting it — a malformed/legacy `state` degrades to the no-data
+      // ("error") path below instead of being re-persisted as a bogus colour.
+      const priorState = asKnownState(existing?.state);
+      // Never observed → write as "error" so NO green status row is invented;
+      // observed → re-write the real prior colour carrying the overlay.
+      await statusWriter.write({
+        key: probeKey,
+        state: priorState ?? "error",
+        signal: overlaidSignal,
+        observedAt: err.observedAt,
+      });
+      logger.info("fleet.control-plane.commerror-surfaced", {
+        jobId: err.jobId,
+        probeKey,
+        kind: err.kind,
+        carriedState: priorState ?? "no-data",
+      });
+    } catch (writeErr) {
+      // Best-effort: a failed surface must not wedge the monitor — the job is
+      // already reclaimed; the next cycle's worker run re-establishes the row.
+      logger.warn("fleet.control-plane.commerror-surface-failed", {
+        jobId: err.jobId,
+        err: writeErr instanceof Error ? writeErr.message : String(writeErr),
+      });
+    }
+  }
+}
+
+/**
+ * Control-plane role entrypoint: scheduler / queue / aggregator. Runs NO
+ * Chromium / BrowserPool.
+ *
+ * Fully implemented. It:
+ *   - stands up the scheduler + the fleet job producer (the non-pool half of
+ *     `boot()`), driving enqueue on the producer cron cadence,
+ *   - exposes the PocketBase-backed job queue the workers pull from,
+ *   - aggregates worker results into the existing status/alert write path via
+ *     the result-consumer→aggregator bridge,
+ *   - runs the fleet-health monitor that reclaims a dead worker's in-flight
+ *     jobs and surfaces the resulting comm errors onto the dashboard, and
+ *   - returns the same `{ stop, port, bus }` shape `boot()` returns so the
+ *     entrypoint's lifecycle handling stays uniform.
+ */
+export async function runControlPlane(
+  config: FleetRoleConfig,
+  opts: BootOptions = {},
+): Promise<Awaited<ReturnType<typeof boot>>> {
+  logger.info("showcase-harness.fleet.role-selected", {
+    role: config.role,
+    poolCount: config.poolCount,
+  });
+
+  const env = process.env;
+  const port = opts.port ?? (Number(env.PORT ?? 8080) || 8080);
+
+  const pbCfg = resolveFleetPbConfig();
+  const pb = createPbClient({
+    url: pbCfg.url,
+    email: pbCfg.email,
+    password: pbCfg.password,
+    logger,
+  });
+  const claim = createJobClaimClient({
+    url: pbCfg.url,
+    email: pbCfg.email,
+    password: pbCfg.password,
+    logger,
+  });
+  const bus = createEventBus();
+  const queue = createFleetQueueClient({ pb, claim, logger });
+  const scheduler = createScheduler({ logger });
+
+  // S5 aggregator — the ONLY authoritative dashboard writer — over the
+  // UNCHANGED status + run-history pipelines (preserves the dashboard row
+  // shapes exactly; see result-aggregator.ts). It is the single sink for BOTH
+  // worker-self-report results AND the REQ-B crash-path comm-error overlays:
+  // the control-plane feeds the producer-sweep + fleet-health legs into its
+  // `aggregateCommError`.
+  const statusWriter = createStatusWriter({ pb, bus, logger });
+  // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key so
+  // EVERY comm-error leg preserves it on the overlay (a `red` service whose
+  // worker crashes — or whose worker self-reports a comm error — stays `red` +
+  // unreachable) instead of stomping it to green/degraded. Validates the read
+  // value against the known State set; a never-observed key (no row) returns
+  // null → the no-data ("error") path, never a fabricated green. Self-defensive:
+  // a lookup throw returns null. This SAME resolver is passed into BOTH the
+  // aggregator (its `aggregate()` worker-self-report leg) AND the control-plane
+  // (its `aggregateCommError` crash/lease-expiry legs) so all three legs share
+  // identical prior-colour semantics.
+  const statusReader = createStatusReader(pb);
+  const resolvePriorState: PriorStateResolver = async (
+    aggregateKey,
+  ): Promise<State | null> => {
+    try {
+      const state = await statusReader.getStateByKey(aggregateKey);
+      return asKnownState(state) ?? null;
+    } catch (err) {
+      logger.warn("fleet.control-plane.prior-state-lookup-failed", {
+        aggregateKey,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  };
+  const aggregator = createResultAggregator({
+    statusWriter,
+    runWriter: createProbeRunWriter(pb),
+    logger,
+    now: () => Date.now(),
+    // Preserve the prior observed colour on the worker-self-report comm-error
+    // leg (REQ-B): without this, `aggregate()` falls back to the "degraded"
+    // no-data colour for a service whose worker reports a comm error, stomping
+    // a previously-RED service. Sharing the control-plane's resolver keeps the
+    // aggregate() leg consistent with the aggregateCommError() crash legs.
+    resolvePriorState,
+  });
+  // The worker->aggregator bridge: polls terminal rows carrying an unprocessed
+  // ServiceJobResult and aggregates each exactly once. REQ-B (Fix A1): share the
+  // SAME prior-state resolver the aggregator + control-plane legs use so the
+  // consumer's result-lost leg preserves a previously-observed service's colour
+  // on its ⚡ "unreachable" overlay (lands on the LIVE status row, not
+  // history-only) instead of falling back to the no-data "error" path.
+  const consumer = createResultConsumer({
+    pb,
+    aggregator,
+    logger,
+    resolvePriorState,
+  });
+
+  // S10 fleet-health: a HEARTBEAT-driven monitor (the complement to the
+  // producer's lease-driven sweepExpired) that reads the `workers` roster,
+  // detects stale/offline workers, and reclaims their in-flight jobs back to
+  // pending — emitting a `worker-crashed-mid-job` comm error (REQ-B) per
+  // reclaimed job so the dashboard surfaces the pool outage. The restart hook is
+  // best-effort and env-guarded (Railway serviceInstanceRedeploy in staging);
+  // locally it stays a no-op so N=1 docker needs no Railway wiring.
+  const fleetHealth = createFleetHealthMonitor({
+    pb,
+    claim,
+    logger,
+    staleAfterMs: resolveWorkerStaleAfterMs(),
+    restartWorker: resolveWorkerRestartHook(logger),
+  });
+
+  // CATALOG-AWARE ENUMERATION: the per-service unit enumerator resolves the
+  // showcase service catalog (Railway discovery → backendUrl, declared demos,
+  // manifest NSF, shape) into one ServiceJobSpec per service, with the d6 driver
+  // input serialized into `driverInputs` (the worker re-hydrates it via
+  // createD6PayloadToInput). This is the SAME `railway-services` source + d6
+  // filter the in-process `d6-all-pills-e2e` probe uses, so the fleet enumerates
+  // the IDENTICAL service set (and the LOCAL_SERVICES_JSON local-injection seam
+  // works unchanged for the N=1 gate). `opts.fleetEnumerate` still overrides for
+  // tests / bespoke runs.
+  const enumerate: ServiceEnumerator =
+    opts.fleetEnumerate ??
+    createD6ServiceEnumerator({
+      source: railwayServicesSource,
+      env: process.env,
+      fetchImpl: globalThis.fetch,
+      logger,
+    });
+  // REQ-B producer-sweep leg: the producer's lease-driven `sweepExpired`
+  // synthesizes a `worker-crashed-mid-job` comm error per reclaimed job, but a
+  // bare swept error carries only the `jobId`, not the `d6:<slug>` dashboard
+  // key. This resolver maps each error to its aggregate key via the SAME
+  // `probe_jobs` row lookup `surfaceReclaimedCommErrors` used (the job row's
+  // `probe_key` IS the `d6:<slug>` aggregate status-row key). Returns null to
+  // SKIP an error whose row vanished — the control-plane's surfaceSweepCommErrors
+  // logs+skips it. SELF-DEFENSIVE: a lookup throw is caught HERE and returns null
+  // (mirroring surfaceReclaimedCommErrors's own try/catch) so one bad lookup
+  // skips just this error and never aborts the sweep leg — we do NOT delegate
+  // the catch to the caller.
+  const resolveSweepAggregateKey: SweepAggregateKeyResolver = async (
+    commError,
+  ): Promise<string | null> => {
+    if (!commError.jobId) return null;
+    try {
+      const job = await pb.getOne<{ probe_key?: string }>(
+        PROBE_JOBS_COLLECTION,
+        commError.jobId,
+      );
+      return job?.probe_key ?? null;
+    } catch (err) {
+      logger.warn("fleet.control-plane.sweep-aggregate-key-lookup-failed", {
+        jobId: commError.jobId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  };
+
+  // Forward-reference the assembled control-plane so the producer's sweep sink
+  // can call `surfaceSweepCommErrors` (the control-plane needs the producer, the
+  // producer needs the control-plane's sink — break the cycle with a late bind).
+  let controlPlaneRef: ControlPlane | undefined;
+  const producer = buildJobProducer({
+    queue,
+    enumerate,
+    logger,
+    // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
+    // which resolves each `d6:<slug>` key and writes the overlay through the
+    // aggregator. Best-effort; never aborts production.
+    onSweepCommErrors: async (commErrors) => {
+      await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
+    },
+  });
+
+  // Producer cron cadence. Defaults to the hourly-at-:40 rhythm
+  // (DEFAULT_PRODUCER_CRON) that mirrors the legacy in-process d6 probe.
+  // Env-overridable via FLEET_PRODUCER_CRON so a local N=1 run can drive the
+  // SAME enqueue path on a fast cadence (e.g. `* * * * *`) instead of waiting
+  // up to an hour for the top-of-:40 tick — local exercises the identical
+  // producer→queue→worker→consumer chain prod runs, just more often.
+  const producerCron = process.env.FLEET_PRODUCER_CRON?.trim() || undefined;
+
+  // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
+  // into the control-plane assembly so BOTH crash-path legs surface onto the
+  // dashboard through the proper module seams (the control-plane runs the
+  // fleet-health monitor on its own interval and feeds each reclaimedOverlays
+  // entry — and each swept error via surfaceSweepCommErrors — to the aggregator).
+  const controlPlane = createControlPlane({
+    producer,
+    consumer,
+    scheduler,
+    logger,
+    aggregator,
+    fleetHealth,
+    resolveSweepAggregateKey,
+    resolvePriorState,
+    ...(producerCron ? { producerCron } : {}),
+  });
+  controlPlaneRef = controlPlane;
+
+  // Minimal HTTP surface for the role's liveness `port` (fleet-health probes
+  // hit this). /health reports OK once the producer's scheduler entry is live.
+  const app = buildServer({
+    pb,
+    logger,
+    // The control-plane is a scheduler/queue/aggregator with NO probe rules —
+    // only the single fleet-job-producer scheduler entry. The role flag drops
+    // /health's `rules > 0` gate so the container reports HEALTHY on its real
+    // liveness signals (pb ok, scheduler started + alive, schedulerJobs>0);
+    // without it /health is degraded forever (rules always 0) and Railway
+    // restart-loops the service.
+    role: "control-plane",
+    ruleCount: () => 0,
+    schedulerStarted: () => scheduler.isStarted(),
+    schedulerJobCount: () => scheduler.list().length,
+    schedulerIsStopped: () => scheduler.isStopped(),
+    bus,
+  });
+
+  scheduler.start();
+  // controlPlane.start() ALSO starts the fleet-health monitor on its own
+  // internal interval (REQ-B): because the real `fleetHealth` + `aggregator`
+  // are now injected above, each cycle's `reclaimedOverlays` is fed straight to
+  // `aggregator.aggregateCommError`, and the producer's swept errors flow
+  // through `surfaceSweepCommErrors`. This supersedes the prior ad-hoc
+  // fleet-health timer that lived here (which dropped the producer-sweep leg
+  // entirely) — the surfacing now lives in the proper control-plane module seams.
+  controlPlane.start();
+
+  // Teardown of everything stood up above, used by BOTH bind-failure paths
+  // (the synchronous serve() throw and the async server.listen() 'error') so a
+  // failed bind never leaves the control-plane's fleet-health + consumer loops
+  // and scheduler orphaned (the orphan/restart-loop class boot()'s R4-A.3 race
+  // exists to prevent — see boot() above). controlPlane.stop() clears its own
+  // internal intervals. Best-effort: operators see the original bind error, not
+  // a teardown-failure shadow.
+  async function teardownAfterBindFailure(): Promise<void> {
+    await controlPlane.stop().catch((stopErr) =>
+      logger.error("fleet.control-plane.stop-after-bind-failure", {
+        err: stopErr instanceof Error ? stopErr.message : String(stopErr),
+      }),
+    );
+    await scheduler.stop().catch((stopErr) =>
+      logger.error("fleet.control-plane.scheduler-stop-after-bind-failure", {
+        err: stopErr instanceof Error ? stopErr.message : String(stopErr),
+      }),
+    );
+  }
+
+  let server: ReturnType<typeof serve>;
+  try {
+    server = serve({ fetch: app.fetch, port });
+  } catch (err) {
+    await teardownAfterBindFailure();
+    throw err;
+  }
+
+  // R4-A.3 (mirrors boot()): serve() returns the http.Server SYNCHRONOUSLY but
+  // bind happens via server.listen() which emits 'error' ASYNCHRONOUSLY for
+  // conditions like EADDRINUSE. The try/catch above only catches synchronous
+  // throws — a real async bind failure would resolve runControlPlane()
+  // "successfully" while leaving the control-plane's fleet-health + consumer
+  // loops and scheduler orphaned. Race 'listening' vs 'error' so async bind
+  // errors propagate as a rejection AND tear those down. If the server is
+  // already `listening` by the time we attach (sync bind raced ahead), short-
+  // circuit to resolve.
+  await new Promise<void>((resolve, reject) => {
+    const srv = server as unknown as {
+      listening?: boolean;
+      once(event: string, cb: (...args: unknown[]) => void): unknown;
+      removeListener(event: string, cb: (...args: unknown[]) => void): unknown;
+    };
+    const onListen = (): void => {
+      srv.removeListener("error", onError);
+      resolve();
+    };
+    const onError = (err: unknown): void => {
+      srv.removeListener("listening", onListen);
+      // Fire teardown as its own chain so the rejection below isn't gated on
+      // stop() — operators see the original bind error, not a stop-failure
+      // shadow.
+      void teardownAfterBindFailure();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+    srv.once("listening", onListen);
+    srv.once("error", onError);
+    if (srv.listening === true) {
+      srv.removeListener("error", onError);
+      srv.removeListener("listening", onListen);
+      resolve();
+    }
+  });
+
+  logger.info("showcase-harness.fleet.control-plane.boot", {
+    port,
+    pbUrl: pbCfg.url,
+    poolCount: config.poolCount,
+  });
+
+  return {
+    port,
+    bus,
+    async stop(): Promise<void> {
+      // controlPlane.stop() clears its own internal fleet-health + consumer
+      // intervals (REQ-B seams now own that lifecycle).
+      await controlPlane.stop();
+      await scheduler.stop();
+      await new Promise<void>((resolve) => {
+        const srv = server as unknown as {
+          close?: (cb?: () => void) => void;
+        };
+        if (typeof srv.close === "function") srv.close(() => resolve());
+        else resolve();
+      });
+      logger.info("showcase-harness.fleet.control-plane.stopped");
+    },
+  };
+}
+
+/**
+ * Resolve the heartbeat staleness window (ms): how long since a worker's last
+ * heartbeat before fleet-health treats it as dead and reclaims its jobs.
+ * Env-overridable via WORKER_STALE_AFTER_MS; defaults to
+ * DEFAULT_WORKER_STALE_AFTER_MS. A non-positive / unparseable override falls
+ * back to the default rather than disabling the monitor.
+ */
+function resolveWorkerStaleAfterMs(): number {
+  const raw = process.env.WORKER_STALE_AFTER_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_WORKER_STALE_AFTER_MS;
+}
+
+/**
+ * Resolve the best-effort worker-restart hook fleet-health fires for a wedged
+ * worker. In STAGING a wedged worker is recovered by a Railway
+ * `serviceInstanceRedeploy`; the wiring is env-guarded so it only engages when
+ * the Railway recovery creds are present (RAILWAY_TOKEN + RAILWAY_ENVIRONMENT_ID
+ * + the worker service id). LOCALLY (no creds) the hook stays a NO-OP — docker /
+ * the worker's own relaunch handles recovery, so N=1 needs no Railway wiring.
+ *
+ * The actual Railway GraphQL redeploy call is owned by the deploy/ops slot; this
+ * resolver only DECIDES whether a real hook or the no-op is installed, logging
+ * the decision so the recovery posture is greppable at boot.
+ */
+function resolveWorkerRestartHook(log: Logger): RestartWorkerHook | undefined {
+  const hasRailwayRecovery =
+    !!process.env.RAILWAY_TOKEN &&
+    !!process.env.RAILWAY_ENVIRONMENT_ID &&
+    !!process.env.FLEET_WORKER_SERVICE_ID;
+  if (!hasRailwayRecovery) {
+    log.info("fleet.control-plane.health-restart-noop", {
+      msg: "no Railway recovery creds — wedged-worker restart is a no-op (docker handles local recovery)",
+    });
+    // undefined → fleet-health installs its default no-op.
+    return undefined;
+  }
+  log.info("fleet.control-plane.health-restart-armed", {
+    msg: "Railway recovery creds present — wedged workers will be redeployed best-effort",
+  });
+  return async (workerId: string): Promise<void> => {
+    // Best-effort staging recovery: a wedged worker is redeployed via Railway's
+    // serviceInstanceRedeploy. The concrete GraphQL call is owned by the
+    // deploy/ops slot; until that lands we log the intent so the recovery path
+    // is observable without silently pretending it fired.
+    log.warn("fleet.control-plane.health-restart-requested", {
+      workerId,
+      serviceId: process.env.FLEET_WORKER_SERVICE_ID,
+      msg: "wedged worker flagged for Railway serviceInstanceRedeploy (deploy-slot wiring pending)",
+    });
+  };
+}
+
+/**
+ * Resolve the PocketBase URL + superuser creds the fleet clients authenticate
+ * with, mirroring `boot()`'s fail-loud-in-prod discipline so a worker that
+ * can't reach PB dies on boot (visible in deploy CI / Railway health-check)
+ * rather than silently claiming nothing.
+ */
+function resolveFleetPbConfig(): {
+  url: string;
+  email?: string;
+  password?: string;
+} {
+  const rawPbUrl = process.env.POCKETBASE_URL;
+  if (!rawPbUrl && process.env.NODE_ENV === "production") {
+    logger.error("orchestrator.FATAL-CONFIG", {
+      msg: "POCKETBASE_URL required in production",
+      nodeEnv: process.env.NODE_ENV,
+    });
+    throw new Error(
+      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
+    );
+  }
+  return {
+    url: rawPbUrl ?? "http://localhost:8090",
+    email: process.env.POCKETBASE_SUPERUSER_EMAIL,
+    password: process.env.POCKETBASE_SUPERUSER_PASSWORD,
+  };
+}
+
+/**
+ * Minimal PB surface `verifyWorkerRegistered` needs (injectable for tests).
+ * Exported so unit tests can type their fake against it without `as any`.
+ */
+export interface WorkerRegistryReadPb {
+  getFirst<T>(collection: string, filter: string): Promise<T | null>;
+}
+
+/**
+ * Verify a worker's registration row actually PERSISTED, returning the true
+ * `registered` value the worker's /health probe reports.
+ *
+ * `registerWorker` (fleet/worker/registration.ts) is best-effort: it swallows
+ * the boot upsert's failure (missing migration, PB 400/outage) and never
+ * rejects — so "it returned" is NOT proof the row landed. Pre-fix the worker set
+ * `registered = true` regardless, so a failed registration still reported
+ * healthy (or, under a /health hard-gate, silently restart-looped). We instead
+ * read the row back: present → true, absent OR read error → false. Best-effort
+ * by design — a verify failure must not break the worker (it only governs the
+ * /health roster signal), so we warn and return false rather than throw.
+ */
+export async function verifyWorkerRegistered(deps: {
+  pb: WorkerRegistryReadPb;
+  workerId: string;
+  logger: Logger;
+}): Promise<boolean> {
+  const { pb, workerId, logger } = deps;
+  let registered = false;
+  try {
+    const row = await pb.getFirst<{ id?: string }>(
+      WORKERS_COLLECTION,
+      `worker_id = ${JSON.stringify(workerId)}`,
+    );
+    registered = !!row?.id;
+  } catch (err) {
+    logger.warn("showcase-harness.fleet.worker.registration-verify-failed", {
+      workerId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
+  if (!registered) {
+    logger.warn("showcase-harness.fleet.worker.registration-not-persisted", {
+      workerId,
+      msg: "worker registration row did not persist — /health will report unregistered until a heartbeat lands it",
+    });
+  }
+  return registered;
+}
+
+/**
+ * Worker role entrypoint: runs the BrowserPool and pulls per-service jobs from
+ * the control-plane queue.
+ *
+ * Assembles the fleet worker from its slots and hands them to S7's real
+ * `runWorker` (fleet/orchestrator.ts), which owns the pool + driver + loop:
+ *   - the queue client (S3 `createFleetQueueClient`) over S0's `JobClaimClient`
+ *     + the harness `PbClient`,
+ *   - the worker's own `BrowserPool` (the self-bounded context budget) + the
+ *     pooled d6 driver wired onto it,
+ *   - self-registration + heartbeat (S9 `registerWorker`) keyed on the same
+ *     workerId the claim CAS stamps as `claimed_by`,
+ *   - the catalog-aware payload→d6-input mapping (`createD6PayloadToInput`).
+ *
+ * Returns the `{ stop, port, bus }` shape symmetric with `boot()` — `stop()`
+ * tears down BOTH the registration heartbeat and the worker loop/pool.
+ */
+export async function runWorker(
+  config: FleetRoleConfig,
+  opts: BootOptions = {},
+): Promise<Awaited<ReturnType<typeof boot>>> {
+  logger.info("showcase-harness.fleet.role-selected", {
+    role: config.role,
+    poolCount: config.poolCount,
+  });
+
+  const env = process.env;
+  const workerId =
+    env.HOSTNAME && env.HOSTNAME.trim().length > 0
+      ? `worker-${env.HOSTNAME.trim()}`
+      : `worker-${Math.random().toString(36).slice(2, 10)}`;
+  // Default to 8080 (the EXPOSE/Dockerfile/healthcheck port the compose worker
+  // sets via PORT=8080) — NOT 8090, which is PocketBase's port and never
+  // matched the worker healthcheck.
+  const port = opts.port ?? (Number(env.PORT ?? 8080) || 8080);
+
+  const pbCfg = resolveFleetPbConfig();
+  const pb = createPbClient({
+    url: pbCfg.url,
+    email: pbCfg.email,
+    password: pbCfg.password,
+    logger,
+  });
+  const claim = createJobClaimClient({
+    url: pbCfg.url,
+    email: pbCfg.email,
+    password: pbCfg.password,
+    logger,
+  });
+  const queue = createFleetQueueClient({ pb, claim, logger });
+
+  // The worker's own pool: the self-bounded context budget that gates claiming
+  // and keeps the worker under its cgroup pids ceiling. We construct it HERE
+  // (rather than letting fleet runWorker construct its own) so the SAME pool
+  // backs both the registration capacity heartbeat (S9) and the driver runs.
+  const pool = new BrowserPool({ logger });
+  await pool.init();
+
+  const driver = createE2eFullDriver({
+    launcher: createPooledE2eFullLauncher(pool, logger),
+  });
+
+  // Self-register + start the capacity heartbeat against this worker's pool.
+  // Best-effort by contract (registerWorker never rejects); a missing workers
+  // migration / PB blip warns but never blocks the loop. The endpoint carries a
+  // scheme (http://) so the control-plane can probe it as a URL rather than
+  // having to synthesize one from a bare host:port.
+  const host = env.HOSTNAME?.trim() || "localhost";
+  let registered = false;
+  const registration = await registerWorker({
+    pb,
+    pool,
+    logger,
+    workerId,
+    endpoint: `http://${host}:${port}`,
+  });
+  // registerWorker's boot upsert is best-effort: it SWALLOWS a PB failure
+  // (missing migration, 400, outage) and never rejects, so the mere fact that
+  // it returned tells us nothing about whether the row actually persisted.
+  // Pre-fix this code set `registered = true` unconditionally — a failed
+  // registration still reported the worker as on the roster (and, combined with
+  // a /health hard-gate, silently restart-looped). Instead VERIFY the row truly
+  // landed by reading it back, so `registered` reflects the ACTUAL upsert
+  // outcome (see `verifyWorkerRegistered`). The worker still runs its claim/loop
+  // regardless; this flag only governs what /health reports.
+  registered = await verifyWorkerRegistered({ pb, workerId, logger });
+
+  let worker: Awaited<ReturnType<typeof runFleetWorker>>;
+  try {
+    worker = await runFleetWorker(config, {
+      queue,
+      payloadToInput: createD6PayloadToInput(),
+      workerId,
+      port,
+      logger,
+      env,
+      // Inject the pool we own as BOTH the budget gate and the driver backing —
+      // fleet runWorker skips constructing its own pool when both are supplied.
+      budgetSource: pool,
+      driver,
+      // Wire the worker /health server's liveness probes: pb reachability +
+      // registration. The fleet runWorker binds /health on the resolved port so
+      // the docker/Railway healthcheck answers (no restart-loop).
+      pbHealth: () => pb.health(),
+      registered: () => registered,
+      // Reflect the live job on the registration row: heartbeat with the
+      // claimed jobId when a job starts, null when it settles. Best-effort —
+      // registration.heartbeat swallows its own errors, and the loop guards
+      // the call, so this can never break the worker.
+      onCurrentJobChange: (currentJobId) => {
+        void registration.heartbeat(currentJobId);
+      },
+    });
+  } catch (err) {
+    // Never strand the registration heartbeat or the pool's chromium processes
+    // if the loop fails to start.
+    registration.stop();
+    await pool.shutdown().catch(() => {});
+    throw err;
+  }
+
+  return {
+    port: worker.port,
+    bus: worker.bus,
+    async stop(): Promise<void> {
+      registration.stop();
+      // We injected BOTH budgetSource and driver, so fleet runWorker did NOT
+      // construct its own pool — its stop() only drains the in-flight job and
+      // stops the loop. WE own the pool, so we shut it down ourselves below.
+      await worker.stop();
+      await pool.shutdown().catch((err) =>
+        logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
+          workerId,
+          err: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    },
+  };
+}
+
+/**
+ * Resolve the fleet role from env and dispatch to the matching role body.
+ *
+ * HARNESS_ROLE is REQUIRED — there is no default. An unset or empty/whitespace
+ * HARNESS_ROLE throws at boot (fail loud) rather than silently defaulting to
+ * `control-plane`. This is deliberate: a defaulted control-plane boots POOLLESS
+ * and runs NO Chromium probes itself (it only schedules/queues jobs for workers
+ * and aggregates their results), so an un-migrated deploy that left HARNESS_ROLE
+ * unset would silently stop probing. Failing loud makes that misconfiguration
+ * die immediately (visible in deploy CI / Railway health-check). Every fleet
+ * member MUST set HARNESS_ROLE explicitly (control-plane or worker) — see
+ * docker-compose.local.yml, which sets it on both services.
+ */
+export async function bootFleet(
+  opts: BootOptions = {},
+): Promise<Awaited<ReturnType<typeof boot>>> {
+  const config = resolveFleetRoleConfig();
+  switch (config.role) {
+    case "control-plane":
+      return runControlPlane(config, opts);
+    case "worker":
+      return runWorker(config, opts);
+    default: {
+      // Exhaustiveness guard: a new HarnessRole added without a dispatch arm
+      // is a compile error here, not a silent fall-through.
+      const _exhaustive: never = config.role;
+      throw new Error(`Unhandled HARNESS_ROLE: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+// Only run on direct execution (not when imported). Use fileURLToPath so
+// symlinks and cross-platform path normalization don't break the check. The
+// entrypoint goes through bootFleet() so HARNESS_ROLE selects the runtime mode.
 if (process.argv[1] && url.fileURLToPath(import.meta.url) === process.argv[1]) {
-  boot().catch((err) => {
+  bootFleet().catch((err) => {
     logErrorWithStack(logger, "showcase-harness.boot-failed", err);
     process.exit(1);
   });

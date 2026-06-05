@@ -114,7 +114,7 @@ cmd_test() {
 
   # Build the filter description for the info line
   local filter_desc=""
-  for arg in "${harness_args[@]}"; do
+  for arg in ${harness_args[@]+"${harness_args[@]}"}; do
     case "$arg" in
       --d6|--d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
     esac
@@ -140,7 +140,7 @@ cmd_test() {
   date -u +%Y-%m-%dT%H:%M:%SZ > "$SHOWCASE_ROOT/.last-test-ts"
 
   local test_exit=0
-  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" "${harness_args[@]}" \
+  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" ${harness_args[@]+"${harness_args[@]}"} \
     || test_exit=$?
 
   # --cycle: dump aimock log delta on failure

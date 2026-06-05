@@ -7,8 +7,18 @@
  * regression flag.
  */
 
-import type { LiveStatusMap, StatusRow, State } from "./live-status";
-import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
+import type {
+  LiveStatusMap,
+  StatusRow,
+  State,
+  PoolCommError,
+  FleetSurfaceState,
+} from "./live-status";
+import {
+  keyFor,
+  CATALOG_TO_D5_KEY,
+  commErrorFromStatusSignal,
+} from "./live-status";
 import { E2E_STALE_AFTER_MS, D4_STALE_AFTER_MS, isStale } from "./staleness";
 
 // Re-export the staleness windows so existing consumers that import them from
@@ -57,16 +67,42 @@ export interface CellModel {
    * non-green / no-data D5 collapses D6 to `null`.
    *
    * Derived from the SAME contiguous-ladder algorithm as `chipColor` so the
-   * badge, the stat, and the chip never disagree. Mirrors the chip table:
-   *   chip green  ⇔ d6Effective green   (full ladder, achievedDepth === 6)
-   *   chip amber  ⇔ d6Effective amber/null (D5 green, D6 not green)
-   *   chip red (D5-broken) / gray (unverified) ⇒ d6Effective null (blocked)
+   * badge, the stat, and the chip never disagree. When the ladder is intact
+   * through D5 (`d5.status === "green"`, gate passing), `d6Effective` passes the
+   * RAW `d6.status` straight through, so it tracks the actual D6 result while
+   * the chip collapses every non-green D6 to amber:
+   *   D5 green + D6 green          → chip green, d6Effective green
+   *   D5 green + D6 red            → chip amber, d6Effective RED
+   *   D5 green + D6 amber          → chip amber, d6Effective amber
+   *   D5 green + D6 missing/null   → chip amber, d6Effective null
+   *   gate fails / D5 broken/null  → chip red or gray, d6Effective null (blocked)
+   * The chip is the coarser of the two: amber covers ANY non-green D6 once the
+   * ladder is intact, whereas d6Effective preserves the underlying D6 colour
+   * (a genuine D6 red surfaces as red on the badge/stat).
    */
   d6Effective: TestStatus;
   achievedDepth: 0 | 3 | 4 | 5 | 6;
   ceilingDepth: 0 | 3 | 4 | 5 | 6;
   chipColor: ChipColor;
   isRegression: boolean;
+  /**
+   * Pool COMMUNICATION error (REQ-B), decoded from a status row's signal under
+   * `FLEET_COMM_ERROR_SIGNAL_KEY`, when the latest attempt failed to reach /
+   * trust the worker pool rather than producing a real test result. This is a
+   * SEPARATE overlay from the probe colour — `chipColor` keeps carrying the
+   * last-known result so the cell still shows its prior state, dimmed, while
+   * `surfaceState` flips to `"unreachable"` so the renderer can paint the
+   * distinct "couldn't reach the pool" treatment. `undefined` when the pool was
+   * reachable (the normal case — a real red is NOT a comm error).
+   */
+  commError?: PoolCommError;
+  /**
+   * The dashboard's presentation state: `"unreachable"` when a `commError` is
+   * present, otherwise the cell's underlying probe colour (mapped from
+   * `chipColor`). Lets the renderer branch on ONE value instead of re-deriving
+   * the comm-error precedence. A presentation field only — never persisted.
+   */
+  surfaceState: FleetSurfaceState;
 }
 
 export interface CellModelInput {
@@ -105,6 +141,22 @@ const STATE_RANK: Readonly<Record<State, number>> = {
 };
 
 /**
+ * Worst-state rank for an arbitrary row state (Fix A2). `StatusRow.state` is
+ * typed `State` (green|red|degraded), but the harness CAN persist an
+ * out-of-vocabulary value at runtime — notably `"error"` (the no-data
+ * representation; see harness result-aggregator.ts). A bare `STATE_RANK[state]`
+ * for such a value is `undefined`, and the fold comparison `undefined > n` is
+ * `false`, so the row is SILENTLY DROPPED from the worst-state fold instead of
+ * surfacing. Treat an unknown state as the MOST SEVERE (a rank above every known
+ * state) so it surfaces as the worst rather than vanishing — an unrecognized
+ * signal must never be silently swallowed.
+ */
+const UNKNOWN_STATE_RANK = Number.POSITIVE_INFINITY;
+function rankOfState(state: string): number {
+  return STATE_RANK[state as State] ?? UNKNOWN_STATE_RANK;
+}
+
+/**
  * Resolve the D4 (real-time) test level for `slug`.
  *
  * D4 checks both `chat:<slug>` and `tools:<slug>`. When both exist the
@@ -141,7 +193,7 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
         : candidate.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       winner =
         effectiveState === candidate.state
@@ -224,7 +276,7 @@ function resolveD5(
         : row.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
       // `.status` — mirrors `buildBadge` in live-status.ts.
@@ -352,7 +404,7 @@ function resolveD6(
         : row.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
       // `.status` — mirrors `buildBadge` in live-status.ts.
@@ -384,6 +436,116 @@ function resolveD6(
   };
 }
 
+/**
+ * Map a derived `ChipColor` onto the presentation surface state. `FleetSurfaceState`
+ * is `ChipColor | "unreachable"`, so every chip colour passes straight through;
+ * the `"unreachable"` overlay is applied separately by the caller when a comm
+ * error is present. Pure; no widening cast needed.
+ */
+function chipColorToSurface(color: ChipColor): FleetSurfaceState {
+  return color;
+}
+
+/**
+ * Decode a pool comm-error (REQ-B) for this cell by scanning the status rows
+ * the cell's overlay depends on: the per-cell D6 (parity) row family, D5
+ * (conversation), the D3/e2e row, the D4 (chat/tools) rows, health, AND the
+ * integration-level d6 AGGREGATE row (`d6:<slug>`). The control-plane mirrors a
+ * `PoolCommError` into the row signal under `FLEET_COMM_ERROR_SIGNAL_KEY` (see
+ * `commErrorFromStatusSignal`).
+ *
+ * RECENCY, not key order, decides the winner. Multiple rows can each carry a
+ * comm error simultaneously (e.g. a STALE per-cell comm error left over from an
+ * earlier attempt, plus a NEWER worker-death error that landed solely on the
+ * aggregate row). A fixed key-order scan would let the stale per-cell error mask
+ * the newer aggregate one, painting the wrong cause. So we decode EVERY
+ * candidate row and return the one with the most recent `observedAt`, falling
+ * back to scan order only as a stable tie-break when timestamps are equal/absent.
+ * Returns `undefined` when no candidate row carries a comm error (pool reachable).
+ *
+ * STALENESS WINDOW: a comm error is only surfaced while it is RECENT. The
+ * control-plane mirrors a `PoolCommError` onto the `d6:<slug>` aggregate row but
+ * NOTHING clears that blob on recovery — recovery just writes fresh green
+ * per-cell rows. Without an age cap a single comm error would pin every cell of
+ * the service to "unreachable" forever, even after the pool recovers. So a
+ * decoded comm error whose `observedAt` is older than `E2E_STALE_AFTER_MS` (the
+ * same window resolveD3/D5/D6 apply to stale-green rows; the comm error rides the
+ * e2e-cadence d6 aggregate) is treated as recovered and skipped — exactly mirror-
+ * ing the resolveDx stale-green downgrade. `now` is threaded in the same way
+ * buildCellModel passes it to the resolveDx resolvers.
+ *
+ * SCOPE NOTE: this intentionally scans the integration-scoped aggregate
+ * (`d6:<slug>`) and the chat/tools/health rows in addition to the cell's own
+ * per-cell rows. A worker-death comm error rides on the aggregate row, not the
+ * per-cell rows, so to surface the "unreachable" overlay at all the cell MUST
+ * consult the aggregate — which means every cell of the affected service lights
+ * up from that one aggregate signal. That is the intended behavior (a pool that
+ * can't be reached cannot have produced any per-cell result), not a leak from "a
+ * row the cell doesn't show".
+ */
+function decodeCellCommError(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): PoolCommError | undefined {
+  // Per-cell D6/D5 rows fan out over the mapped featureType family.
+  const familyKeys = CATALOG_TO_D5_KEY[featureId];
+  const candidateKeys: string[] = [];
+  if (familyKeys) {
+    for (const ft of familyKeys) {
+      candidateKeys.push(keyFor("d6", slug, ft));
+      candidateKeys.push(keyFor("d5", slug, ft));
+    }
+  }
+  // The d6 AGGREGATE row (`d6:<slug>`, no featureId) is where BOTH harness
+  // legs mirror a per-service `PoolCommError` (REQ-B): the result-aggregator
+  // overlays it onto the aggregate primary row (`result.aggregateKey` =
+  // `d6:<slug>`), and the control-plane fleet-health leg writes it to the job's
+  // `probe_key` (also `d6:<slug>`). Without scanning the aggregate key here the
+  // dashboard never surfaces the "unreachable" overlay even though the signal
+  // is persisted. Checked alongside the per-cell rows so a worker-death comm
+  // error lights up every cell of the affected service.
+  candidateKeys.push(keyFor("d6", slug));
+  candidateKeys.push(keyFor("e2e", slug, featureId));
+  candidateKeys.push(keyFor("chat", slug));
+  candidateKeys.push(keyFor("tools", slug));
+  candidateKeys.push(keyFor("health", slug));
+
+  // Decode every candidate and keep the MOST RECENT comm error. A later
+  // candidate only wins if its `observedAt` is strictly newer, so for equal
+  // (or unparseable) timestamps the first-in-scan-order error is retained —
+  // a stable tie-break preserving the prior authority ordering.
+  let winner: PoolCommError | undefined;
+  let winnerTs = Number.NEGATIVE_INFINITY;
+  for (const key of candidateKeys) {
+    const row = live.get(key);
+    if (!row) continue;
+    const commError = commErrorFromStatusSignal(row.signal);
+    if (!commError) continue;
+    // `observedAt` is an ISO string; `Date.parse` yields NaN for a malformed
+    // value. Treat NaN as the oldest possible time so a well-timestamped error
+    // always outranks an untimestamped one, and so the first untimestamped
+    // error still wins over later untimestamped ones (stable scan-order).
+    const parsed = Date.parse(commError.observedAt);
+    // STALENESS GATE: a comm error older than the staleness window is treated
+    // as recovered and skipped — nothing clears the mirrored blob on recovery,
+    // so without this the cell would render "unreachable" forever. Mirrors the
+    // resolveDx stale-green downgrade and `isStale`'s fail-safe: a malformed /
+    // unparseable `observedAt` (NaN) is NOT treated as stale, so such an error
+    // is still surfaced rather than silently dropped.
+    if (!Number.isNaN(parsed) && now - parsed > E2E_STALE_AFTER_MS) {
+      continue;
+    }
+    const ts = Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+    if (winner === undefined || ts > winnerTs) {
+      winner = commError;
+      winnerTs = ts;
+    }
+  }
+  return winner;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -401,6 +563,7 @@ const UNSUPPORTED: CellModel = {
   ceilingDepth: 0,
   chipColor: "gray",
   isRegression: false,
+  surfaceState: "gray",
 };
 
 /**
@@ -435,6 +598,7 @@ export function buildCellModel(
       ceilingDepth: 0,
       chipColor: "gray",
       isRegression: false,
+      surfaceState: "gray",
     };
   }
 
@@ -582,6 +746,16 @@ export function buildCellModel(
     nextRung.exists &&
     nextRung.status !== null;
 
+  // ── Pool comm-error overlay (REQ-B) ───────────────────────────────
+  // Decode "couldn't reach the pool" off the rows this cell reads. When
+  // present it does NOT overwrite chipColor — the cell keeps showing its
+  // last-known probe result; surfaceState flips to "unreachable" so the
+  // renderer paints the distinct comm-error treatment on top.
+  const commError = decodeCellCommError(live, slug, featureId, now);
+  const surfaceState: FleetSurfaceState = commError
+    ? "unreachable"
+    : chipColorToSurface(chipColor);
+
   return {
     supported: true,
     d3,
@@ -593,5 +767,7 @@ export function buildCellModel(
     ceilingDepth,
     chipColor,
     isRegression,
+    ...(commError ? { commError } : {}),
+    surfaceState,
   };
 }
