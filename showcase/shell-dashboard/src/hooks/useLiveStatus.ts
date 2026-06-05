@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { getPb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
 import type { StatusRow } from "../lib/live-status";
 import { upsertByKey } from "../lib/live-status";
@@ -13,14 +13,25 @@ export interface UseLiveStatusResult {
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
-// Hard cap on initial fetch size. The `status` collection contains ~1300+
-// records across all probe dimensions (smoke, health, agent, e2e per-cell,
-// d5 per-feature, chat, tools, image-drift, etc.). Records are fetched in
-// rowid order; with a cap below the total, later-created dimensions (e2e
-// per-cell) get truncated and those cells show D2 instead of D4.
-// 2000 covers the current surface with headroom for growth.
-const INITIAL_CAP = 2000;
-const INITIAL_PAGE_SIZE = 200;
+// PocketBase clamps `perPage` to 500 server-side regardless of what the client
+// asks for, so 500 is the largest page the REST API will actually return. The
+// `status` collection holds ~2455 rows across all probe dimensions (smoke,
+// health, agent, e2e per-cell, d5/d6 per-feature, chat, tools, starter,
+// image-drift, etc.), so the initial fetch spans ~5 pages. We fetch page 1 to
+// learn `totalPages`, then fan out pages 2..N CONCURRENTLY (see fetchInitial).
+const INITIAL_PAGE_SIZE = 500;
+// Sort key for the initial paged fetch. PocketBase's default order is
+// `created DESC`, which is NOT stable as rows are inserted: a row created
+// between two concurrent page reads shifts every later row down a slot, so a
+// boundary row can drop off one page and reappear at the top of the next. We
+// pin `sort: "id"` so all concurrent page requests share the SAME ordering and
+// a stable collection paginates cleanly across the fan-out (no drop/duplicate
+// at a boundary). This is NOT a growth-completeness guarantee — PocketBase
+// `id` is a RANDOM 15-char string, not monotonic, so a row inserted mid-fetch
+// sorts into a random position and can still shift a boundary. The initial
+// fetch is therefore a best-effort consistent snapshot; rows created in the
+// brief fetch→subscribe window are reconciled by the live SSE subscription.
+const INITIAL_SORT = "id";
 // Heartbeat interval for detecting silent SSE drops. PB's realtime client
 // auto-reconnects internally but gives no explicit error callback; if the
 // SSE socket dies and reconnect ultimately fails, record updates stop
@@ -213,7 +224,13 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     async function heartbeat(): Promise<void> {
       if (!alive || reconnecting) return;
       try {
-        await pb.collection("status").getList(1, 1, { filter });
+        // `requestKey: null` for the same reason as fetchInitial: this ping
+        // hits the SAME path (`/api/collections/status/records`), so the
+        // SDK's default auto-key would let a heartbeat and an in-flight
+        // initial/fan-out read cancel each other.
+        await pb
+          .collection("status")
+          .getList(1, 1, { filter, requestKey: null });
       } catch (err) {
         if (!alive) return;
         // SSE socket is probably dead too — re-establish the whole
@@ -233,22 +250,86 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     }
 
     async function fetchInitial(): Promise<StatusRow[]> {
-      // Single-call fetch: getFullList with batch=INITIAL_CAP fetches all
-      // ~1300 records in one HTTP request (1300 < 2000). Previously used
-      // 7 sequential getList calls at 200/page = ~1050ms latency.
-      // Single call = ~150ms. If the collection grows past INITIAL_CAP,
-      // the SDK auto-paginates internally.
-      const filterOpts = filter ? { filter } : {};
-      return pb
+      // Best-effort consistent snapshot via a stable-sorted CONCURRENT paged
+      // fetch.
+      //
+      // The `status` collection spans ~5 pages (PB clamps perPage to 500), so a
+      // single `getFullList` paginates in N SERIAL round-trips — each page
+      // awaited before the next — and blocks first paint for the full chain.
+      // Instead:
+      //
+      //   1. Fetch page 1, which also reports `totalPages`.
+      //   2. If there is more than one page, fan out pages 2..totalPages and
+      //      `await Promise.all(...)` — all in flight at once.
+      //   3. Merge `[first, ...rest]` by ARRAY INDEX (page order), independent
+      //      of which HTTP response resolves first.
+      //
+      // `sort: "id"` is forwarded to EVERY page request so all the concurrent
+      // reads share the same ordering: for a STABLE collection that means no
+      // boundary row is dropped or duplicated across the fan-out (PB's default
+      // `created DESC` is NOT stable under inserts). This is a snapshot, NOT a
+      // growth-completeness guarantee — PocketBase `id` is a RANDOM string, not
+      // monotonic, so a row inserted in the brief fetch→subscribe window sorts
+      // into a random position and is reconciled by the live SSE subscription
+      // (which delivers all future deltas), not by this fetch.
+      // `requestKey: null` DISABLES the PocketBase SDK's auto-cancellation.
+      // By default the SDK derives a request key from the HTTP method + path
+      // and auto-cancels any in-flight request that shares it. Our fan-out
+      // fires pages 2..N at the SAME path (`/api/collections/status/records`)
+      // concurrently, so every page after the first would cancel its
+      // predecessor — the cancelled promises reject and `Promise.all` rejects,
+      // dropping the whole hook to OFFLINE. Opting out per-request lets all
+      // concurrent same-path reads complete. Forwarded to page 1 too so it
+      // can't be cancelled by the fan-out either.
+      const listOpts = filter
+        ? { filter, sort: INITIAL_SORT, requestKey: null }
+        : { sort: INITIAL_SORT, requestKey: null };
+      const first = await pb
         .collection("status")
-        .getFullList<StatusRow>({ batch: INITIAL_CAP, ...filterOpts });
+        .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
+      if (first.totalPages <= 1) {
+        return first.items;
+      }
+      // Fan out the remaining pages concurrently. `Promise.all` preserves
+      // request (array-index) order regardless of resolution order, so the
+      // merge below is deterministic page order — not resolution order.
+      const restRequests: Promise<{ items: StatusRow[] }>[] = [];
+      for (let page = 2; page <= first.totalPages; page++) {
+        restRequests.push(
+          pb
+            .collection("status")
+            .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts),
+        );
+      }
+      const rest = await Promise.all(restRequests);
+      return [first.items, ...rest.map((r) => r.items)].flat();
     }
 
     async function connect(): Promise<void> {
       try {
         const initial = await fetchInitial();
         if (!alive) return;
-        setRows(initial);
+        // The first time real data lands, every cell in the matrix has to
+        // re-render: the empty-map → populated-map transition invalidates the
+        // per-key memo checks on every cell, so this is a hundreds-of-cells
+        // walk in one synchronous React commit. Flag it as a transition so
+        // React 19 can yield to user input (scroll, click, keyboard) mid-walk
+        // instead of blocking the main thread for the whole render. `setStatus`
+        // stays URGENT so the "connecting → live" indicator flips immediately,
+        // before the heavy commit lands — and so the loading-state guard in the
+        // column tallies (connecting + empty map) releases as soon as data is
+        // live. The initial rows come from `fetchInitial`'s stable-sorted
+        // CONCURRENT paged fetch (page 1 + Promise.all over the remaining
+        // pages, merged in strict page order). That is the real latency win —
+        // the serial getFullList page chain blocked first paint. The merge
+        // order is deterministic (page order, not resolution order); the fetch
+        // is a best-effort consistent snapshot and the live SSE subscription
+        // reconciles any rows created in the brief fetch→subscribe window. This
+        // is where #4504's reverted resolution-order merge + early length
+        // `break` was not safe.
+        startTransition(() => {
+          setRows(initial);
+        });
         setStatus("live");
         setError(null);
         // Reset the reconnect counter on a SUCCESSFUL connection. This is

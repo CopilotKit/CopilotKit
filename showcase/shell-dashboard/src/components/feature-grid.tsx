@@ -67,6 +67,14 @@ export type CellRenderer = (ctx: CellContext) => React.ReactNode;
  * When the SSE stream is down (`connection === "error"`) we return all-zero —
  * the column header falls back to an "unknown" rendering so stale counts
  * don't read as authoritative while the dashboard is offline.
+ *
+ * Likewise during the INITIAL load — `connection === "connecting"` with an
+ * empty `liveStatus` map (the first PocketBase fetch hasn't resolved yet) — we
+ * return `loading: true` (also `unknown: true`). Without this guard the header
+ * renders authoritative `✓0 ~0 ✗0` while data is merely in flight, which reads
+ * as "every cell is at depth 0" — a lie. `loading` lets the header show a
+ * loading affordance instead of fake zeros. Once any rows arrive (even mid
+ * reconnect) the tally is authoritative again.
  */
 export function computeColumnTally(
   integration: Integration,
@@ -74,9 +82,21 @@ export function computeColumnTally(
   liveStatus: LiveStatusMap,
   connection: ConnectionStatus = "live",
   now: number = Date.now(),
-): { green: number; amber: number; red: number; unknown: boolean } {
+): {
+  green: number;
+  amber: number;
+  red: number;
+  unknown: boolean;
+  loading: boolean;
+} {
   if (connection === "error") {
-    return { green: 0, amber: 0, red: 0, unknown: true };
+    return { green: 0, amber: 0, red: 0, unknown: true, loading: false };
+  }
+
+  // Initial-load window: connecting AND no rows yet. Surface a loading state
+  // (which the header treats as unknown) instead of authoritative zeros.
+  if (connection === "connecting" && liveStatus.size === 0) {
+    return { green: 0, amber: 0, red: 0, unknown: true, loading: true };
   }
 
   let green = 0;
@@ -106,7 +126,7 @@ export function computeColumnTally(
     // gray → skip (no data / unsupported / unwired)
   }
 
-  return { green, amber, red, unknown: false };
+  return { green, amber, red, unknown: false, loading: false };
 }
 
 /**
@@ -120,11 +140,16 @@ export function computeColumnTallyDetail(
   integration: Integration,
   features: Feature[],
   liveStatus: LiveStatusMap,
-  connection: ConnectionStatus,
+  connection: ConnectionStatus = "live",
   now: number = Date.now(),
 ): TallyDetail {
   if (connection === "error") {
-    return { green: [], amber: [], red: [], unknown: true };
+    return { green: [], amber: [], red: [], unknown: true, loading: false };
+  }
+
+  // Initial-load window: connecting AND no rows yet — mirror computeColumnTally.
+  if (connection === "connecting" && liveStatus.size === 0) {
+    return { green: [], amber: [], red: [], unknown: true, loading: true };
   }
 
   const green: TallyItem[] = [];
@@ -181,7 +206,7 @@ export function computeColumnTallyDetail(
     else if (model.chipColor === "red") red.push(item);
   }
 
-  return { green, amber, red, unknown: false };
+  return { green, amber, red, unknown: false, loading: false };
 }
 
 /**
@@ -763,11 +788,16 @@ export function FeatureGrid({
               </th>
               {showRefDepth && <RefDepthHeader />}
               {integrations.map((integration) => {
+                // Fail-safe default: a missing tally must render the
+                // loading/offline affordance, NEVER authoritative ✓0 ~0 ✗0
+                // (the "fake-zero lie" §5.3 guards against). Default toward
+                // "we don't know" (unknown+loading), not "everything is zero".
                 const tally = tallies.get(integration.slug) ?? {
                   green: 0,
                   amber: 0,
                   red: 0,
-                  unknown: false,
+                  unknown: true,
+                  loading: true,
                 };
 
                 // Overlay-aware header when overlays prop is provided
@@ -787,11 +817,13 @@ export function FeatureGrid({
 
                 // Legacy header rendering (backwards compat when overlays not provided)
                 const total = tally.green + tally.amber + tally.red;
-                const tallyTitle = tally.unknown
-                  ? "dashboard offline — live signal unavailable (§5.3)"
-                  : total
-                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (D4 per feature; Health counted once per integration)`
-                    : "no countable signals for this column";
+                const tallyTitle = tally.loading
+                  ? "loading — waiting for the first live signal"
+                  : tally.unknown
+                    ? "dashboard offline — live signal unavailable (§5.3)"
+                    : total
+                      ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (D4 per feature; Health counted once per integration)`
+                      : "no countable signals for this column";
                 return (
                   <th
                     key={integration.slug}
@@ -814,7 +846,11 @@ export function FeatureGrid({
                       className="mt-1 text-[10px] tabular-nums text-[var(--text-muted)]"
                       title={tallyTitle}
                     >
-                      {tally.unknown ? (
+                      {tally.loading ? (
+                        <span className="text-[var(--text-muted)] animate-pulse">
+                          … loading
+                        </span>
+                      ) : tally.unknown ? (
                         <span className="text-[var(--text-muted)]">
                           ? offline
                         </span>

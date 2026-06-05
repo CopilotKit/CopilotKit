@@ -18,7 +18,20 @@ import type { Overlay } from "@/lib/overlay-types";
 
 export interface OverlayColumnHeaderProps {
   integration: Integration;
-  tally?: { green: number; amber: number; red: number; unknown: boolean };
+  tally?: {
+    green: number;
+    amber: number;
+    red: number;
+    unknown: boolean;
+    // REQUIRED (not optional): the producers — `computeColumnTally` /
+    // `computeColumnTallyDetail` — ALWAYS return a concrete `loading` boolean,
+    // and `FeatureGrid` always passes it. Keeping it optional was a latent gap:
+    // a future caller omitting `loading` would render authoritative ✓0/~0/✗0
+    // during an error/loading window (the exact "stale-green lie" this header
+    // prevents). The `tally` object itself stays optional; `loading` within it
+    // is mandatory once a tally is supplied.
+    loading: boolean;
+  };
   tallyDetail?: TallyDetail;
   overlays: Set<Overlay>;
   parityTier?: ParityTier;
@@ -38,11 +51,13 @@ export function OverlayColumnHeader({
   const showParity = overlays.has("parity");
 
   const total = tally ? tally.green + tally.amber + tally.red : 0;
-  const tallyTitle = tally?.unknown
-    ? "dashboard offline -- live signal unavailable"
-    : total
-      ? `${tally?.green ?? 0} green \u00b7 ${tally?.amber ?? 0} amber \u00b7 ${tally?.red ?? 0} red of ${total} signals`
-      : "no countable signals for this column";
+  const tallyTitle = tally?.loading
+    ? "loading -- waiting for the first live signal"
+    : tally?.unknown
+      ? "dashboard offline -- live signal unavailable"
+      : total
+        ? `${tally?.green ?? 0} green \u00b7 ${tally?.amber ?? 0} amber \u00b7 ${tally?.red ?? 0} red of ${total} signals`
+        : "no countable signals for this column";
 
   return (
     <th
@@ -72,7 +87,11 @@ export function OverlayColumnHeader({
           className="mt-1 text-[9px] tabular-nums text-[var(--text-muted)]"
           title={tallyTitle}
         >
-          {tally.unknown ? (
+          {tally.loading ? (
+            <span className="text-[var(--text-muted)] animate-pulse">
+              {"…"} loading
+            </span>
+          ) : tally.unknown ? (
             <span className="text-[var(--text-muted)]">? offline</span>
           ) : (
             <>
