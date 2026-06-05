@@ -54,9 +54,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 27 services", () => {
+  it("contains exactly 28 services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(27);
+    expect(names.length).toBe(28);
   });
 
   it("contains the expected canonical services", () => {
