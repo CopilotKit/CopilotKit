@@ -332,6 +332,55 @@ export const SERVICES: Record<
     // probe and the Railway-internal /health healthcheck.
     probe: { staging: false, prod: false, driver: "harness" },
   },
+  "harness-legacy": {
+    serviceId: "11279eba-97eb-417e-82a5-7cb4254eb147",
+    // INTERIM service (fleet-migration bridge). This is the legacy all-probe
+    // harness (HARNESS_ROLE unset) stood up to keep the non-d6 probe coverage
+    // live while the pool-fleet migration proceeds. It runs a PINNED pre-fleet
+    // `showcase-harness` image digest set out-of-band — it is NOT CI-built —
+    // and will be torn down (removed from this SSOT and from Railway) at
+    // migration end. Real serviceInstance IDs exist for BOTH envs on Railway
+    // (resolved 2026-06-05 via GraphQL); we record both. gateIgnore keeps the
+    // image-ref gate from validating either instance's (out-of-band) ref, and
+    // ciBuilt:false keeps it out of the default CI_BUILT_SERVICES redeploy
+    // scope. The build only failed because the Railway→SSOT untracked-services
+    // check saw this service name with no SSOT entry; listing it here clears
+    // that without subjecting its pinned digest to the gate's shape check.
+    prodInstanceId: "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
+    stagingInstanceId: "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
+    // Runs a pinned pre-fleet `showcase-harness` image digest, set
+    // out-of-band rather than tracked by showcase_build.yml. ciBuilt:false
+    // (no dedicated build slot — there is no `harness-legacy` build slot)
+    // and a repoNameOverride to `showcase-harness` so the image-ref shape
+    // resolves correctly if the gate ever validates it.
+    ciBuilt: false,
+    // gateIgnore: deliberately-untracked for the image-ref gate. This
+    // interim service runs a pinned digest (not the canonical :latest /
+    // @sha256 shape the gate enforces) and is short-lived. Listing it here
+    // (with gateIgnore) is what clears the "untracked Railway service"
+    // failure — findUntrackedServices treats any SSOT entry as known —
+    // WITHOUT triggering a false "missing from prod" failure from
+    // findMissingServices (which only checks gateValidated:true entries).
+    // Mirrors showcase-harness-worker exactly.
+    gateValidated: false,
+    gateIgnore: true,
+    repoNameOverride: {
+      prod: "showcase-harness",
+      staging: "showcase-harness",
+    },
+    // The schema requires both domains be set; point both at the
+    // control-plane harness staging/prod hosts purely to satisfy the
+    // no-scheme domain invariant. domainFor() is never called for this
+    // service because its probe is disabled in both envs (below) and
+    // verify-deploy skips probe:false services.
+    domains: {
+      staging: "harness-staging-2ee4.up.railway.app",
+      prod: "showcase-harness-production.up.railway.app",
+    },
+    // probe disabled in BOTH envs: this interim service's coverage is
+    // exercised out-of-band during the migration, not by verify-deploy.
+    probe: { staging: false, prod: false, driver: "harness" },
+  },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
     prodInstanceId: "1ee376e2-13f2-4464-801e-d0aa0bf76532",
