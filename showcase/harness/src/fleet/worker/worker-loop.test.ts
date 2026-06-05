@@ -10,7 +10,9 @@ import {
   type BudgetSource,
   type DriverRegistry,
   type DriverRegistryEntry,
+  type WorkerLoopHandle,
 } from "./worker-loop.js";
+import type { DriverKind } from "./payload-mapper.js";
 import type {
   FleetQueueClient,
   ClaimedJob,
@@ -646,6 +648,62 @@ describe("startWorkerLoop", () => {
     expect(start).not.toThrow();
   });
 
+  it("throws at construction when NEITHER a registry NOR the legacy driver pair is supplied", () => {
+    const start = (): WorkerLoopHandle =>
+      startWorkerLoop({
+        workerId: "worker-test",
+        queue: makeQueue([]),
+        pool: budgetWith(5),
+        // No `drivers`, no `driver`/`payloadToInput` → every claim would
+        // terminate as a protocol violation. Fail loud at construction.
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        leaseSeconds: 300,
+        heartbeatMs: 60_000,
+      });
+    expect(start).toThrow(/has no drivers/);
+  });
+
+  it("throws at construction when given an EMPTY registry", () => {
+    const start = (): WorkerLoopHandle =>
+      startWorkerLoop({
+        workerId: "worker-test",
+        queue: makeQueue([]),
+        pool: budgetWith(5),
+        // An empty registry can route NOTHING — same misconfiguration as no
+        // drivers at all.
+        drivers: new Map<DriverKind, DriverRegistryEntry>(),
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        leaseSeconds: 300,
+        heartbeatMs: 60_000,
+      });
+    expect(start).toThrow(/has no drivers/);
+  });
+
+  it("throws at construction when a legacy `driver` is supplied WITHOUT a `payloadToInput`", () => {
+    const start = (): WorkerLoopHandle =>
+      startWorkerLoop({
+        workerId: "worker-test",
+        queue: makeQueue([]),
+        pool: budgetWith(5),
+        // A driver with no mapper is not a usable run path (the loop can't build
+        // a driver input) — the legacy pair requires BOTH halves.
+        driver: makeDriver({ slug: "x", cells: [], aggregateState: "green" }),
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        leaseSeconds: 300,
+        heartbeatMs: 60_000,
+      });
+    expect(start).toThrow(/has no drivers/);
+  });
+
   it("claims a job, runs it, reports a correct ServiceJobResult, then idles", async () => {
     const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
     const driver = makeDriver({
@@ -919,8 +977,8 @@ describe("driver registry (driverKind → driver)", () => {
     return { driver: makeTaggingDriver(kind), payloadToInput: passInput };
   }
 
-  function registry(...kinds: string[]): DriverRegistry {
-    const m: DriverRegistry = new Map();
+  function registry(...kinds: DriverKind[]): DriverRegistry {
+    const m = new Map<DriverKind, DriverRegistryEntry>();
     for (const k of kinds) m.set(k, entry(k));
     return m;
   }
@@ -977,7 +1035,7 @@ describe("driver registry (driverKind → driver)", () => {
   it("uses the matched kind's OWN payloadToInput, not a sibling's", async () => {
     // Each entry carries its own mapper; the matched kind's mapper must run.
     const seen: string[] = [];
-    const drivers: DriverRegistry = new Map([
+    const drivers = new Map<DriverKind, DriverRegistryEntry>([
       [
         "e2e_d6",
         {
@@ -986,7 +1044,7 @@ describe("driver registry (driverKind → driver)", () => {
             seen.push(`d6:${p.serviceSlug}`);
             return passInput();
           },
-        } as DriverRegistryEntry,
+        },
       ],
       [
         "e2e_smoke",
@@ -996,7 +1054,7 @@ describe("driver registry (driverKind → driver)", () => {
             seen.push(`smoke:${p.serviceSlug}`);
             return passInput();
           },
-        } as DriverRegistryEntry,
+        },
       ],
     ]);
     await runClaimedJob(
@@ -1005,6 +1063,85 @@ describe("driver registry (driverKind → driver)", () => {
       { leaseSeconds: 300, heartbeatMs: 1_000_000 },
     );
     expect(seen).toEqual(["smoke:langgraph-python"]);
+  });
+
+  /**
+   * A driver that writes one per-cell row (`<scheme>:<slug>/<feature>`) AND one
+   * aggregate SIDE row (`<scheme>:<slug>`). The loop must filter the aggregate
+   * side row out of captured cells using the entry's `aggregateSlugKey` builder.
+   */
+  function makeSchemeDriver(scheme: string, slug: string): ServiceJobDriver {
+    return {
+      async run(ctx, _input): Promise<ProbeResult> {
+        const observedAt = ctx.now().toISOString();
+        await ctx.writer.write({
+          key: `${scheme}:${slug}/feat-1`,
+          state: "green",
+          signal: { featureType: "feat-1" },
+          observedAt,
+        });
+        // Aggregate side row under the custom scheme — must be filtered.
+        await ctx.writer.write({
+          key: `${scheme}:${slug}`,
+          state: "green",
+          signal: { shape: "package", slug },
+          observedAt,
+        });
+        return {
+          key: `${scheme}:${slug}`,
+          state: "green",
+          signal: { shape: "package", slug },
+          observedAt,
+        };
+      },
+    };
+  }
+
+  it("honors a custom aggregateSlugKey builder when filtering captured cells", async () => {
+    // The entry's aggregate scheme is `custom:` (not d6), so the aggregate side
+    // row is `custom:<slug>` and must be filtered; the per-cell row is kept.
+    const drivers = new Map<DriverKind, DriverRegistryEntry>([
+      [
+        "e2e_deep",
+        {
+          driver: makeSchemeDriver("custom", "langgraph-python"),
+          payloadToInput: passInput,
+          aggregateSlugKey: (serviceSlug) => `custom:${serviceSlug}`,
+        },
+      ],
+    ]);
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_deep" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    // Exactly the per-cell row is captured; the `custom:<slug>` aggregate side
+    // row was filtered (NOT counted as a cell).
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]!.cellKey).toBe("custom:langgraph-python/feat-1");
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("defaults to the d6 `d6:<slug>` aggregate filter when an entry omits aggregateSlugKey", async () => {
+    // No `aggregateSlugKey` on the entry → the loop defaults to `d6:<slug>`.
+    // The driver emits a `d6:<slug>` aggregate side row, which must be filtered.
+    const drivers = new Map<DriverKind, DriverRegistryEntry>([
+      [
+        "e2e_d6",
+        {
+          driver: makeSchemeDriver("d6", "langgraph-python"),
+          payloadToInput: passInput,
+        },
+      ],
+    ]);
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({ payload: { driverKind: "e2e_d6" } }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]!.cellKey).toBe("d6:langgraph-python/feat-1");
+    expect(result.commError).toBeUndefined();
   });
 
   it("startWorkerLoop dispatches a claimed job by driverKind through the registry", async () => {

@@ -91,10 +91,7 @@ import {
 } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import {
-  createD6PayloadToInput,
-  createDeepPayloadToInput,
-  createDemosPayloadToInput,
-  createSmokePayloadToInput,
+  createPayloadToInput,
   E2E_D6_DRIVER_KIND,
   E2E_DEEP_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
@@ -1061,6 +1058,40 @@ export async function boot(opts: BootOptions = {}): Promise<{
 }
 
 /**
+ * Construct the four POOLED per-service browser drivers (smoke/demos/deep/d6)
+ * wired onto the SAME `BrowserPool`. This is the single shared construction
+ * consumed by BOTH `registerAllProbeDrivers` (the in-process probe registry) and
+ * the fleet worker's `DriverRegistry` (orchestrator.ts `runWorker`), so the two
+ * can never drift on how the pooled drivers are built. Returned keyed by each
+ * driver's `driverKind` constant; callers adapt (register the raw driver, or
+ * pair it with a payload mapper for the worker registry).
+ */
+export function buildPooledBrowserDrivers(
+  pool: BrowserPool,
+  log: Logger,
+): {
+  smoke: ReturnType<typeof createE2eSmokeDriver>;
+  demos: ReturnType<typeof createE2eDemosDriver>;
+  deep: ReturnType<typeof createE2eDeepDriver>;
+  d6: ReturnType<typeof createE2eFullDriver>;
+} {
+  return {
+    smoke: createE2eSmokeDriver({
+      launcher: createPooledE2eSmokeLauncher(pool, log),
+    }),
+    demos: createE2eDemosDriver({
+      launcher: createPooledE2eDemosLauncher(pool, log),
+    }),
+    deep: createE2eDeepDriver({
+      launcher: createPooledE2eDeepLauncher(pool, log),
+    }),
+    d6: createE2eFullDriver({
+      launcher: createPooledE2eFullLauncher(pool, log),
+    }),
+  };
+}
+
+/**
  * Register every probe driver this orchestrator knows about onto the
  * given registry. Single source of truth for the registered probe-kind
  * set so YAML probe configs (`config/probes/*.yml`) and orchestrator
@@ -1083,26 +1114,11 @@ export function registerAllProbeDrivers(
   probeRegistry.register(redirectDecommissionDriver);
 
   if (pool) {
-    probeRegistry.register(
-      createE2eSmokeDriver({
-        launcher: createPooledE2eSmokeLauncher(pool, logger),
-      }),
-    );
-    probeRegistry.register(
-      createE2eDemosDriver({
-        launcher: createPooledE2eDemosLauncher(pool, logger),
-      }),
-    );
-    probeRegistry.register(
-      createE2eDeepDriver({
-        launcher: createPooledE2eDeepLauncher(pool, logger),
-      }),
-    );
-    probeRegistry.register(
-      createE2eFullDriver({
-        launcher: createPooledE2eFullLauncher(pool, logger),
-      }),
-    );
+    const pooled = buildPooledBrowserDrivers(pool, logger);
+    probeRegistry.register(pooled.smoke);
+    probeRegistry.register(pooled.demos);
+    probeRegistry.register(pooled.deep);
+    probeRegistry.register(pooled.d6);
   } else {
     probeRegistry.register(e2eChatToolsDriver);
     probeRegistry.register(e2eReadinessDriver);
@@ -2517,49 +2533,63 @@ export async function runWorker(
   await pool.init();
 
   // Build the worker's DRIVER REGISTRY: every per-service browser driver family
-  // wired onto the SAME pooled launcher, keyed by its `driverKind`. The worker
-  // loop dispatches each claimed job by `payload.driverKind` to the matching
-  // entry, so one worker can run d6/d5/demos/smoke jobs. Each kind carries its
-  // own payload→input mapper (currently the shared re-hydration, since the four
-  // driver input shapes are identical and each driver's own zod schema is the
-  // validation gate). Lifted from the legacy `registerAllProbeDrivers` pooled
-  // construction so the fleet worker and the in-process probe registry build the
-  // same pooled drivers the same way.
+  // wired onto the SAME pooled launcher (via the shared `buildPooledBrowserDrivers`
+  // that `registerAllProbeDrivers` also uses, so the fleet worker and the
+  // in-process probe registry build the same pooled drivers the same way), keyed
+  // by its `driverKind`. The worker loop dispatches each claimed job by
+  // `payload.driverKind` to the matching entry, so one worker can run
+  // d6/d5/demos/smoke jobs. Each kind carries the shared re-hydration mapper
+  // (`createPayloadToInput`) since the four driver input shapes are identical and
+  // each driver's own zod schema is the validation gate.
+  const pooled = buildPooledBrowserDrivers(pool, logger);
+
+  // Construction-time fail-loud: each factory's self-reported `kind` MUST equal
+  // the key constant we register it under, BEFORE the concrete `ProbeDriver` is
+  // erased to `ServiceJobDriver` (which drops `.kind`). A key→factory copy-paste
+  // swap would otherwise route silently to the wrong driver. Die immediately
+  // (visible in deploy CI / Railway health-check).
+  const kindChecks: Array<[string, { kind: string }]> = [
+    [E2E_D6_DRIVER_KIND, pooled.d6],
+    [E2E_DEEP_DRIVER_KIND, pooled.deep],
+    [E2E_DEMOS_DRIVER_KIND, pooled.demos],
+    [E2E_SMOKE_DRIVER_KIND, pooled.smoke],
+  ];
+  for (const [key, drv] of kindChecks) {
+    if (drv.kind !== key) {
+      throw new Error(
+        `Fleet worker driver registry mis-wired: driver factory reports kind "${drv.kind}" but is registered under key "${key}" — fix the key→factory mapping in runWorker.`,
+      );
+    }
+  }
+
   const drivers: DriverRegistry = new Map([
     [
       E2E_D6_DRIVER_KIND,
       {
-        driver: createE2eFullDriver({
-          launcher: createPooledE2eFullLauncher(pool, logger),
-        }),
-        payloadToInput: createD6PayloadToInput(),
+        driver: pooled.d6,
+        payloadToInput: createPayloadToInput(),
+        aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
       },
     ],
     [
       E2E_DEEP_DRIVER_KIND,
       {
-        driver: createE2eDeepDriver({
-          launcher: createPooledE2eDeepLauncher(pool, logger),
-        }),
-        payloadToInput: createDeepPayloadToInput(),
+        driver: pooled.deep,
+        payloadToInput: createPayloadToInput(),
       },
     ],
     [
       E2E_DEMOS_DRIVER_KIND,
       {
-        driver: createE2eDemosDriver({
-          launcher: createPooledE2eDemosLauncher(pool, logger),
-        }),
-        payloadToInput: createDemosPayloadToInput(),
+        driver: pooled.demos,
+        payloadToInput: createPayloadToInput(),
       },
     ],
     [
       E2E_SMOKE_DRIVER_KIND,
       {
-        driver: createE2eSmokeDriver({
-          launcher: createPooledE2eSmokeLauncher(pool, logger),
-        }),
-        payloadToInput: createSmokePayloadToInput(),
+        driver: pooled.smoke,
+        payloadToInput: createPayloadToInput(),
       },
     ],
   ]);

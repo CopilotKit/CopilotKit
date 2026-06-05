@@ -29,6 +29,10 @@ import { serve } from "@hono/node-server";
 import { createEventBus } from "../events/event-bus.js";
 import { logger as defaultLogger } from "../logger.js";
 import { BrowserPool } from "../probes/helpers/browser-pool.js";
+import type {
+  LaunchBrowser,
+  CgroupPidsReader,
+} from "../probes/helpers/browser-pool.js";
 import {
   createE2eFullDriver,
   createPooledE2eFullLauncher,
@@ -44,6 +48,10 @@ import {
   type DriverRegistry,
   type WorkerLoopHandle,
 } from "./worker/worker-loop.js";
+import {
+  createD6PayloadToInput,
+  E2E_D6_DRIVER_KIND,
+} from "./worker/payload-mapper.js";
 
 /** The worker boot handle — symmetric with the control-plane `boot()` shape. */
 export interface WorkerHandle {
@@ -132,6 +140,20 @@ export interface RunWorkerOptions {
   budgetSource?: {
     budget(): import("../probes/helpers/browser-pool.js").BrowserPoolBudget;
   };
+  /**
+   * Test-only seam: injected chromium launcher forwarded to the `BrowserPool`
+   * the DEFAULT (self-contained) boot path constructs, so the default-boot
+   * equivalence test can exercise that path WITHOUT spawning real chromium.
+   * Production omits it → the pool uses the real launcher. Ignored when a
+   * `budgetSource` + run path are injected (no pool is constructed).
+   */
+  launchBrowser?: LaunchBrowser;
+  /**
+   * Test-only seam: injected cgroup PID reader forwarded to the default-boot
+   * `BrowserPool` (powers `budget()`), so the default-boot test reports
+   * headroom deterministically. Production omits it → the real reader is used.
+   */
+  cgroupPidsReader?: CgroupPidsReader;
 }
 
 /**
@@ -185,8 +207,12 @@ export async function runWorker(
   //      injected `budgetSource`, the worker runs entirely on the caller's wiring
   //      and this entrypoint constructs NO pool of its own.
   //   2. A legacy single `driver` + `budgetSource` (back-compat test path).
-  //   3. Neither → construct the worker's own pool + default pooled d6 driver
-  //      (the original self-contained boot).
+  //   3. Neither → construct the worker's own pool and a DEFAULT REGISTRY holding
+  //      the single pooled d6 driver under its `e2e_d6` kind (the self-contained
+  //      boot). Building it as a registry entry — not a bare `driver` — means the
+  //      self-contained path also routes by driverKind AND carries the d6
+  //      payload mapper, so `startWorkerLoop`'s construction guard is satisfied
+  //      (equivalence with the pre-registry single-d6 worker).
   // The pool is the self-bounded context budget that gates claiming and keeps the
   // worker under its pids ceiling.
   let pool: BrowserPool | undefined;
@@ -196,20 +222,33 @@ export async function runWorker(
 
   // We have all the wiring we need iff a budget source exists AND at least one
   // run path (a registry or a single driver) is supplied. Otherwise build the
-  // default pool + d6 driver so the worker is self-contained.
+  // default pool + d6 registry so the worker is self-contained.
   const haveRunPath = drivers !== undefined || driver !== undefined;
   if (!budgetSource || !haveRunPath) {
-    pool = new BrowserPool({ logger });
+    pool = new BrowserPool({
+      logger,
+      launchBrowser: opts.launchBrowser,
+      cgroupPidsReader: opts.cgroupPidsReader,
+    });
     await pool.init();
     budgetSource = budgetSource ?? pool;
     if (!haveRunPath) {
-      // Default to the single pooled d6 driver registered under its kind, so the
-      // self-contained boot path also routes by driverKind (equivalence with the
-      // pre-registry single-d6 worker).
-      const d6Driver = createE2eFullDriver({
-        launcher: createPooledE2eFullLauncher(pool, logger),
-      });
-      driver = d6Driver;
+      // Default to the single pooled d6 driver registered under its kind, paired
+      // with the d6 payload→input mapper, so the self-contained boot routes by
+      // driverKind through the registry (equivalence with the pre-registry
+      // single-d6 worker) and the loop's construction guard is satisfied.
+      drivers = new Map([
+        [
+          E2E_D6_DRIVER_KIND,
+          {
+            driver: createE2eFullDriver({
+              launcher: createPooledE2eFullLauncher(pool, logger),
+            }),
+            payloadToInput: createD6PayloadToInput(),
+            aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
+          },
+        ],
+      ]);
     }
   }
 

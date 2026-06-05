@@ -51,6 +51,7 @@ import type {
   ServiceJobRollup,
   PoolCommError,
 } from "../contracts.js";
+import type { DriverKind } from "./payload-mapper.js";
 
 /**
  * The minimal driver surface the worker invokes per claimed service job. This
@@ -113,6 +114,17 @@ export type PayloadToDriverInput = (
 export interface DriverRegistryEntry {
   driver: ServiceJobDriver;
   payloadToInput: PayloadToDriverInput;
+  /**
+   * Builds the aggregate side-emit key the loop filters OUT of the captured
+   * per-cell rows (the driver emits ONE aggregate row alongside the per-cell
+   * rows; the loop captures the aggregate from the run's RETURN value, so the
+   * side-emitted aggregate must be dropped from the cell set). Each driver
+   * family stamps its aggregate row under its OWN scheme, so the key derivation
+   * is per-entry. OPTIONAL: when absent the loop defaults to `d6:<serviceSlug>`
+   * (the d6 scheme), keeping the d6 path byte-identical to the pre-registry
+   * behavior. Non-d6 kinds with a different aggregate scheme supply their own.
+   */
+  aggregateSlugKey?: (serviceSlug: string) => string;
 }
 
 /**
@@ -123,7 +135,7 @@ export interface DriverRegistryEntry {
  * failure shape an unmappable payload uses) — the worker won't crash on an
  * unknown kind, it reports it.
  */
-export type DriverRegistry = Map<string, DriverRegistryEntry>;
+export type DriverRegistry = ReadonlyMap<DriverKind, DriverRegistryEntry>;
 
 /** The pool capacity surface the loop's claim gate consults (S6 `budget()`). */
 export interface BudgetSource {
@@ -482,7 +494,11 @@ export function resolveDriverEntry(
   driverKind: string,
 ): DriverRegistryEntry | undefined {
   if (deps.drivers) {
-    return deps.drivers.get(driverKind);
+    // `driverKind` is a wire string (contracts.ts boundary); the registry is
+    // keyed by the closed `DriverKind` union. `.get` returns undefined for any
+    // off-set key, so this narrowing cast is safe — an unknown kind resolves to
+    // undefined and is reported as a protocol violation by the caller.
+    return deps.drivers.get(driverKind as DriverKind);
   }
   // Legacy single-driver path: one driver handles every kind.
   if (deps.driver && deps.payloadToInput) {
@@ -516,7 +532,7 @@ export async function runClaimedJob(
   // kind. This mirrors the unmappable-payload failure shape below.
   const entry = resolveDriverEntry(deps, payload.driverKind);
   if (!entry) {
-    logger.warn("fleet.worker.unknown-driver-kind", {
+    logger.error("fleet.worker.unknown-driver-kind", {
       workerId,
       jobId: job.id,
       probeKey: payload.probeKey,
@@ -536,6 +552,12 @@ export async function runClaimedJob(
     });
   }
   const { driver, payloadToInput } = entry;
+  // The aggregate side-emit key the loop filters out of the captured cells.
+  // Each driver family stamps its aggregate row under its own scheme, so the
+  // resolved entry supplies the derivation; default to d6's `d6:<slug>` when the
+  // entry omits it (keeps the d6 path byte-identical to the pre-registry filter).
+  const buildAggregateSlugKey =
+    entry.aggregateSlugKey ?? ((serviceSlug: string) => `d6:${serviceSlug}`);
 
   // Map the claimed payload to a driver input. A poison payload can fail either
   // by RETURNING undefined ("cannot map this") or by THROWING (decode/parse
@@ -589,10 +611,11 @@ export async function runClaimedJob(
     });
   }
 
-  // The driver's aggregate side-emit uses `d6:<serviceSlug>` — filter that one
+  // The driver's aggregate side-emit (e.g. `d6:<serviceSlug>`) — filter that one
   // out of the captured cells (the loop captures the aggregate from the primary
-  // return). Per-cell rows are `d6:<slug>/<featureId>` and are kept.
-  const aggregateSlugKey = `d6:${payload.serviceSlug}`;
+  // return). Per-cell rows are `<scheme>:<slug>/<featureId>` and are kept. The
+  // key scheme is per-driver-family, resolved from the registry entry above.
+  const aggregateSlugKey = buildAggregateSlugKey(payload.serviceSlug);
   const capture = createCellCapture(aggregateSlugKey);
 
   // Heartbeat-renew the lease while the (long) driver run is in flight. A renew

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createD6PayloadToInput,
-  createDeepPayloadToInput,
-  createDemosPayloadToInput,
-  createSmokePayloadToInput,
   createPayloadToInput,
   E2E_D6_DRIVER_KIND,
   E2E_DEEP_DRIVER_KIND,
@@ -82,38 +79,32 @@ describe("driver-kind constants", () => {
   });
 });
 
-describe("per-kind payload mappers", () => {
+describe("shared payload mapper", () => {
   // The four browser driver families share the SAME re-hydration logic (each
   // serializes a `{ key, backendUrl, … }` object and validates via its own zod
-  // schema), so the per-kind mappers all re-hydrate the input the same way.
+  // schema), so every registry entry wires the single `createPayloadToInput`.
+  // `createD6PayloadToInput` is retained as a back-compat alias of it.
   const driverInputs = {
     key: "k:langgraph-python",
     backendUrl: "https://lg.example.com",
   };
 
-  it.each([
-    ["deep", createDeepPayloadToInput],
-    ["demos", createDemosPayloadToInput],
-    ["smoke", createSmokePayloadToInput],
-    ["base", createPayloadToInput],
-  ])("%s mapper re-hydrates the serialized input", (_name, factory) => {
-    const map = factory();
+  it("re-hydrates the serialized input", () => {
+    const map = createPayloadToInput();
     const input = map(payload({ driverInputs })) as Record<string, unknown>;
     expect(input.key).toBe("k:langgraph-python");
     expect(input.backendUrl).toBe("https://lg.example.com");
   });
 
-  it("each per-kind mapper defaults a missing key to the payload probeKey", () => {
-    for (const factory of [
-      createDeepPayloadToInput,
-      createDemosPayloadToInput,
-      createSmokePayloadToInput,
-    ]) {
-      const map = factory();
-      const input = map(
-        payload({ driverInputs: { backendUrl: "https://lg.example.com" } }),
-      ) as Record<string, unknown>;
-      expect(input.key).toBe("d6:langgraph-python");
-    }
+  it("defaults a missing key to the payload probeKey", () => {
+    const map = createPayloadToInput();
+    const input = map(
+      payload({ driverInputs: { backendUrl: "https://lg.example.com" } }),
+    ) as Record<string, unknown>;
+    expect(input.key).toBe("d6:langgraph-python");
+  });
+
+  it("createD6PayloadToInput is the same factory (back-compat alias)", () => {
+    expect(createD6PayloadToInput).toBe(createPayloadToInput);
   });
 });

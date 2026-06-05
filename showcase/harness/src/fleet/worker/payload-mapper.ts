@@ -36,11 +36,26 @@ import type { ServiceJobPayload } from "../contracts.js";
  * and the worker's `DriverRegistry` routes on. Kept in lock-step with the
  * `kind` each driver factory reports (`createE2eFullDriver().kind === "e2e_d6"`,
  * etc. in `probes/drivers/*`).
+ *
+ * `E2E_DRIVER_KINDS` is the closed set; `DriverKind` is its union type. The four
+ * `E2E_*_DRIVER_KIND` constants below are each typed `DriverKind` (not widened to
+ * `string`) so the registry map's key type stays the closed union. NOTE: this is
+ * the WORKER-INTERNAL kind space — `contracts.ts`'s `driverKind: string` stays a
+ * `string` (it's the wire boundary that receives external producer strings; the
+ * runtime unknown-kind guard handles anything off this set).
  */
-export const E2E_D6_DRIVER_KIND = "e2e_d6";
-export const E2E_DEEP_DRIVER_KIND = "e2e_deep";
-export const E2E_DEMOS_DRIVER_KIND = "e2e_demos";
-export const E2E_SMOKE_DRIVER_KIND = "e2e_smoke";
+export const E2E_DRIVER_KINDS = [
+  "e2e_d6",
+  "e2e_deep",
+  "e2e_demos",
+  "e2e_smoke",
+] as const;
+export type DriverKind = (typeof E2E_DRIVER_KINDS)[number];
+
+export const E2E_D6_DRIVER_KIND: DriverKind = "e2e_d6";
+export const E2E_DEEP_DRIVER_KIND: DriverKind = "e2e_deep";
+export const E2E_DEMOS_DRIVER_KIND: DriverKind = "e2e_demos";
+export const E2E_SMOKE_DRIVER_KIND: DriverKind = "e2e_smoke";
 
 /**
  * Build a per-service `PayloadToDriverInput` mapping. Re-hydrates the serialized
@@ -49,9 +64,9 @@ export const E2E_SMOKE_DRIVER_KIND = "e2e_smoke";
  * (d6/d5/demos/smoke): each driver serializes a `{ key, backendUrl, … }`-shaped
  * object into `driverInputs`, and each driver's OWN zod schema is the validation
  * gate inside `driver.run` (a malformed input fails LOUD there, surfaced by the
- * loop as a terminal result). So one shared mapper serves every kind — the
- * per-kind exports below are named aliases for call-site clarity / future
- * divergence. Pure; the returned function captures nothing mutable.
+ * loop as a terminal result). So one shared mapper serves every kind — every
+ * registry entry wires THIS factory directly. Pure; the returned function
+ * captures nothing mutable.
  */
 export function createPayloadToInput(): PayloadToDriverInput {
   return (payload: ServiceJobPayload): unknown | undefined => {
@@ -78,12 +93,3 @@ export function createPayloadToInput(): PayloadToDriverInput {
  * — retained as the original named export so existing call sites keep working.
  */
 export const createD6PayloadToInput = createPayloadToInput;
-
-/** The d5 (`e2e_deep`) payload→input mapper. */
-export const createDeepPayloadToInput = createPayloadToInput;
-
-/** The e2e-demos (`e2e_demos`) payload→input mapper. */
-export const createDemosPayloadToInput = createPayloadToInput;
-
-/** The d4 chat-roundtrip (`e2e_smoke`) payload→input mapper. */
-export const createSmokePayloadToInput = createPayloadToInput;

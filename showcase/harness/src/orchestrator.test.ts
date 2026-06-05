@@ -15,10 +15,21 @@ import {
   envForCfg,
   createRailwayAdapter,
   registerAllProbeDrivers,
+  buildPooledBrowserDrivers,
   hydrateProbeLastRuns,
   surfaceReclaimedCommErrors,
   verifyWorkerRegistered,
 } from "./orchestrator.js";
+import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
+import { createE2eDeepDriver } from "./probes/drivers/d5-single-pill.js";
+import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
+import { createE2eSmokeDriver } from "./probes/drivers/d4-chat-roundtrip.js";
+import {
+  E2E_D6_DRIVER_KIND,
+  E2E_DEEP_DRIVER_KIND,
+  E2E_DEMOS_DRIVER_KIND,
+  E2E_SMOKE_DRIVER_KIND,
+} from "./fleet/worker/payload-mapper.js";
 import type {
   CommErrorSurfacePb,
   WorkerRegistryReadPb,
@@ -2255,6 +2266,40 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     const kinds = registry.list();
     expect(kinds).toContain("e2e_deep");
     expect(kinds).toContain("e2e_d6");
+  });
+});
+
+/**
+ * Pins the producer↔worker driver-kind contract for the fleet worker registry.
+ *
+ * Two failure modes guarded:
+ *  1. LOCK-STEP: each driver factory's self-reported `kind` MUST equal the
+ *     `E2E_*_DRIVER_KIND` constant the worker registry / payload producer keys
+ *     on. If a factory's kind and its constant drift, the producer would stamp a
+ *     `driverKind` no registry entry matches → every job of that kind terminates
+ *     as a worker-protocol-violation.
+ *  2. REGISTRY WIRING: the shared `buildPooledBrowserDrivers` (the SINGLE pooled
+ *     construction the worker registry at runWorker ~2528 builds from) must map
+ *     each slot to the factory whose kind matches — catches a key→factory
+ *     copy-paste swap (e.g. wiring the deep driver under the d6 slot).
+ */
+describe("fleet worker driver-kind lock-step + registry wiring", () => {
+  it("each driver factory's self-reported kind equals its constant (lock-step)", () => {
+    expect(createE2eFullDriver().kind).toBe(E2E_D6_DRIVER_KIND);
+    expect(createE2eDeepDriver().kind).toBe(E2E_DEEP_DRIVER_KIND);
+    expect(createE2eDemosDriver().kind).toBe(E2E_DEMOS_DRIVER_KIND);
+    expect(createE2eSmokeDriver().kind).toBe(E2E_SMOKE_DRIVER_KIND);
+  });
+
+  it("buildPooledBrowserDrivers maps each slot to the correctly-kinded factory", () => {
+    // The pooled launchers don't touch the pool at construction, so an
+    // un-init'd pool is sufficient to build the drivers.
+    const pool = new BrowserPool({ logger });
+    const pooled = buildPooledBrowserDrivers(pool, logger);
+    expect(pooled.d6.kind).toBe(E2E_D6_DRIVER_KIND);
+    expect(pooled.deep.kind).toBe(E2E_DEEP_DRIVER_KIND);
+    expect(pooled.demos.kind).toBe(E2E_DEMOS_DRIVER_KIND);
+    expect(pooled.smoke.kind).toBe(E2E_SMOKE_DRIVER_KIND);
   });
 });
 
