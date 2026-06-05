@@ -265,8 +265,16 @@ describe("createControlPlane — multiple producer schedules", () => {
       scheduler,
       logger: SILENT_LOGGER,
       schedules: [
-        { scheduleId: "fleet-d6-producer", cron: "40 * * * *", producer: producerA },
-        { scheduleId: "fleet-smoke-producer", cron: "*/15 * * * *", producer: producerB },
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
       ],
       setIntervalImpl: makeFakeTimers().setIntervalImpl,
     });
@@ -300,8 +308,16 @@ describe("createControlPlane — multiple producer schedules", () => {
       scheduler,
       logger: SILENT_LOGGER,
       schedules: [
-        { scheduleId: "fleet-d6-producer", cron: "40 * * * *", producer: producerA },
-        { scheduleId: "fleet-smoke-producer", cron: "*/15 * * * *", producer: producerB },
+        {
+          scheduleId: "fleet-d6-producer",
+          cron: "40 * * * *",
+          producer: producerA,
+        },
+        {
+          scheduleId: "fleet-smoke-producer",
+          cron: "*/15 * * * *",
+          producer: producerB,
+        },
       ],
       setIntervalImpl: makeFakeTimers().setIntervalImpl,
     });

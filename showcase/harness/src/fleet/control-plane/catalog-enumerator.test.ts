@@ -233,9 +233,7 @@ describe("createServiceEnumerator (generic seam)", () => {
     expect(lg?.driverKind).toBe("e2e_smoke");
     expect(lg?.probeKey).toBe("smoke:langgraph-python");
     expect(lg?.driverInputs?.key).toBe("smoke:langgraph-python");
-    expect(lg?.driverInputs?.backendUrl).toBe(
-      "http://langgraph-python:10000",
-    );
+    expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
 
     const cr = specs.find((s) => s.serviceSlug === "crewai");
     expect(cr?.probeKey).toBe("smoke:crewai");
