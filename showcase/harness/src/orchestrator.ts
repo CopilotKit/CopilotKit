@@ -2399,9 +2399,7 @@ export async function runControlPlane(
   // prefixed scheduler id (`probe:<cfg.id>`).
   const httpProbeConfigs = new Map<string, ProbeConfig>();
 
-  async function diffHttpProbeSchedules(
-    configs: ProbeConfig[],
-  ): Promise<void> {
+  async function diffHttpProbeSchedules(configs: ProbeConfig[]): Promise<void> {
     const desired = new Map<string, ProbeConfig>();
     for (const cfg of configs) {
       desired.set(`probe:${cfg.id}`, cfg);
@@ -2574,9 +2572,7 @@ export async function runControlPlane(
     } catch (unwatchErr) {
       logger.error("fleet.control-plane.probe-unwatch-after-bind-failure", {
         err:
-          unwatchErr instanceof Error
-            ? unwatchErr.message
-            : String(unwatchErr),
+          unwatchErr instanceof Error ? unwatchErr.message : String(unwatchErr),
       });
     }
     await controlPlane.stop().catch((stopErr) =>
