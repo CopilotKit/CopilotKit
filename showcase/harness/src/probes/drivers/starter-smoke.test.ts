@@ -1272,10 +1272,7 @@ describe("starterSmokeDriver", () => {
       Record<"health" | "agent" | "chat" | "interaction", string>
     > = {};
     const r = (await driver.run(
-      mkCtx(
-        fakeFetch({ bodyAbortOn: { agent: "self" }, seenUrls }),
-        writer,
-      ),
+      mkCtx(fakeFetch({ bodyAbortOn: { agent: "self" }, seenUrls }), writer),
       {
         key: "starter_smoke:starter-mastra",
         name: "starter-mastra",

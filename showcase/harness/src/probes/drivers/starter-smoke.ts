@@ -400,9 +400,7 @@ export function createStarterSmokeDriver(
             ok: false,
             status: agentRungFailure.status,
             errorClass: agentRungFailure.errorClass,
-            errorDesc: sanitizeErrorDesc(
-              "agent rung failed — chat not probed",
-            ),
+            errorDesc: sanitizeErrorDesc("agent rung failed — chat not probed"),
             latencyMs: 0,
           };
         } else {
