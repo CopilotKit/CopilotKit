@@ -1092,6 +1092,48 @@ export function buildPooledBrowserDrivers(
 }
 
 /**
+ * The probe kinds that REQUIRE a browser (Playwright via the BrowserPool /
+ * worker) and therefore must NOT run in-process on the fleet control-plane.
+ * They route through the worker producer path instead. Everything else is an
+ * HTTP-only family that the control-plane runs in-process (lifting the legacy
+ * `boot()` probe-loader machinery). Used to partition `config/probes/*.yml`:
+ * HTTP = every kind NOT in this set.
+ *
+ * Exported so unit tests can lock the partition without reaching into the
+ * control-plane's private wiring, and so a future kind addition flows through
+ * one source of truth rather than a drifting inline literal.
+ */
+export const BROWSER_KINDS: ReadonlySet<ProbeConfig["kind"]> = new Set<
+  ProbeConfig["kind"]
+>(["e2e_d6", "e2e_smoke", "e2e_demos", "e2e_deep"]);
+
+/**
+ * Register ONLY the HTTP-only probe drivers (no browser/BrowserPool drivers)
+ * onto the given registry. This is the control-plane's in-process driver set:
+ * the 8 families that need nothing but `fetch` + registry/API calls
+ * (smoke, starter_smoke, image_drift, qa, aimock_wiring, version_drift,
+ * pin_drift, redirect_decommission). The browser `e2e_*` kinds are
+ * deliberately omitted — they run via the worker producer path, not in-process.
+ *
+ * Kept SEPARATE from `registerAllProbeDrivers` (which also registers the e2e
+ * drivers) so the control-plane's `probeRegistry` contains only the HTTP
+ * drivers; paired with the probe-loader's `includeKind` scoping this means a
+ * browser YAML on disk is skipped at load, never rejected.
+ */
+export function registerHttpProbeDrivers(
+  probeRegistry: Pick<ProbeRegistry, "register">,
+): void {
+  probeRegistry.register(aimockWiringDriver);
+  probeRegistry.register(pinDriftDriver);
+  probeRegistry.register(livenessDriver);
+  probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(versionDriftDriver);
+  probeRegistry.register(redirectDecommissionDriver);
+  probeRegistry.register(qaDriver);
+  probeRegistry.register(starterSmokeDriver);
+}
+
+/**
  * Register every probe driver this orchestrator knows about onto the
  * given registry. Single source of truth for the registered probe-kind
  * set so YAML probe configs (`config/probes/*.yml`) and orchestrator
@@ -2223,19 +2265,199 @@ export async function runControlPlane(
   });
   controlPlaneRef = controlPlane;
 
+  // ---- In-process HTTP-only probe families (Phase-1 3c) ----
+  //
+  // The control-plane runs the 8 HTTP-only probe families IN-PROCESS by
+  // lifting the legacy boot() probe-loader machinery: an HTTP-only
+  // `probeRegistry` (no browser drivers), a `createProbeLoader` scoped to the
+  // HTTP `kind`s via `includeKind` (browser `e2e_*` YAMLs are SKIPPED, not
+  // rejected — they route through the worker producer path), and the same
+  // `buildProbeInvoker` loop boot() uses to register one `probe:<id>` entry per
+  // config on THIS control-plane's scheduler. Crons are driven FROM the YAML
+  // (`cfg.schedule`), never hardcoded. Each tick flows through the SAME
+  // status-writer pipeline (`statusWriter`) the worker-result aggregator uses,
+  // so a smoke/qa/image_drift result lands on the dashboard identically.
+  //
+  // The browser families (e2e_d6 / e2e_smoke / e2e_demos / e2e_deep) are NOT
+  // run here — d6 goes via the producer; the rest need a BrowserPool the
+  // control-plane deliberately does not own.
+  const httpProbeRegistry = createProbeRegistry();
+  registerHttpProbeDrivers(httpProbeRegistry);
+  const httpDiscoveryRegistry = createDiscoveryRegistry();
+  // `qa` is a per-service discovery probe (railway-services); `image_drift`
+  // and the pnpm-pinned drift probes use pnpm-packages discovery. Register the
+  // SAME discovery sources boot() wires so the HTTP families fan out to the
+  // identical target set. railway-services is cached (24h TTL) with an
+  // auth-failure tracker, mirroring boot().
+  const httpAuthTracker = new DiscoveryAuthTracker({
+    threshold: 3,
+    writer: statusWriter,
+    logger,
+    now: () => Date.now(),
+  });
+  httpDiscoveryRegistry.register(
+    withCache(railwayServicesSource, {
+      ttlMs: 86_400_000,
+      logger,
+      authTracker: httpAuthTracker,
+    }),
+  );
+  httpDiscoveryRegistry.register(pnpmPackagesDiscoverySource);
+
+  const httpProbeConfigDir =
+    opts.configDir !== undefined
+      ? path.resolve(opts.configDir, "../probes")
+      : path.resolve(process.cwd(), "config/probes");
+  const httpProbeLoader = createProbeLoader(httpProbeConfigDir, {
+    probeRegistry: httpProbeRegistry,
+    discoveryRegistry: httpDiscoveryRegistry,
+    // Scope to HTTP-only kinds — browser YAMLs are skipped at load (see
+    // BROWSER_KINDS). Without this, a browser YAML on disk would fail the
+    // driver-resolution check against the HTTP-only registry and surface a
+    // spurious `probes.reload.failed`.
+    includeKind: (kind) => !BROWSER_KINDS.has(kind),
+    bus: {
+      emit(event, payload) {
+        bus.emit(event, payload);
+      },
+    },
+    logger,
+  });
+
+  // probe_runs writer reused by every per-probe invoker (start/finish a
+  // `running` row per tick), constructed once so its PB client is shared.
+  const httpRunWriter = createProbeRunWriter(pb);
+
+  // Per-cfg map of scheduler-id → config so /health can count the in-process
+  // HTTP rules (and a future /api/probes surface could read it). Keyed by the
+  // prefixed scheduler id (`probe:<cfg.id>`).
+  const httpProbeConfigs = new Map<string, ProbeConfig>();
+
+  async function diffHttpProbeSchedules(
+    configs: ProbeConfig[],
+  ): Promise<void> {
+    const desired = new Map<string, ProbeConfig>();
+    for (const cfg of configs) {
+      desired.set(`probe:${cfg.id}`, cfg);
+    }
+    // Unregister probe ids no longer desired (YAML deleted on a reload).
+    for (const entry of scheduler.list()) {
+      if (!entry.id.startsWith("probe:")) continue;
+      if (!desired.has(entry.id)) {
+        try {
+          await scheduler.unregister(entry.id);
+          httpProbeConfigs.delete(entry.id);
+        } catch (err) {
+          logErrorWithStack(
+            logger,
+            "fleet.control-plane.probe-unregister-failed",
+            err,
+            { id: entry.id },
+          );
+        }
+      }
+    }
+    const baseEnv: Readonly<Record<string, string | undefined>> = {
+      ...process.env,
+    };
+    for (const [id, cfg] of desired) {
+      const driver = httpProbeRegistry.get(cfg.kind);
+      if (!driver) {
+        // Unreachable: the loader already validates kind→driver at load time
+        // (and skips browser kinds via includeKind). Cheap guard.
+        logger.error("fleet.control-plane.probe-driver-missing", {
+          id: cfg.id,
+          kind: cfg.kind,
+        });
+        continue;
+      }
+      const invoker = buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: httpDiscoveryRegistry,
+        writer: statusWriter,
+        logger,
+        fetchImpl: globalThis.fetch,
+        env: envForCfg(cfg, baseEnv),
+        now: () => new Date(),
+        scheduler,
+        schedulerId: id,
+        runWriter: httpRunWriter,
+      });
+      try {
+        scheduler.register({ id, cron: cfg.schedule, handler: invoker });
+        httpProbeConfigs.set(id, cfg);
+      } catch (err) {
+        logErrorWithStack(
+          logger,
+          "fleet.control-plane.probe-register-failed",
+          err,
+          { id, kind: cfg.kind, schedule: cfg.schedule },
+        );
+      }
+    }
+  }
+
+  try {
+    const httpConfigs = await httpProbeLoader.load();
+    await diffHttpProbeSchedules(httpConfigs);
+    bus.emit("probes.reloaded", { count: httpConfigs.length });
+  } catch (err) {
+    // A probe-load failure must NOT take down the control-plane — the d6
+    // producer + fleet-health legs still function. Surface on the bus so
+    // operators can alert on `probes.reload.failed` without blocking boot.
+    logErrorWithStack(
+      logger,
+      "fleet.control-plane.initial-probe-load-failed",
+      err,
+    );
+    bus.emit("probes.reload.failed", {
+      errors: [{ file: "(initial-load)", error: String(err) }],
+    });
+  }
+
+  // Hot-reload: re-diff on YAML edits, mirroring boot()'s fire-and-forget
+  // watch callback (the chokidar callback is sync/void-returning).
+  let unwatchHttpProbes: () => void = () => {};
+  try {
+    unwatchHttpProbes = httpProbeLoader.watch((next) => {
+      diffHttpProbeSchedules(next)
+        .then(() => bus.emit("probes.reloaded", { count: next.length }))
+        .catch((err) => {
+          logErrorWithStack(
+            logger,
+            "fleet.control-plane.probe-watch-reload-failed",
+            err,
+          );
+          bus.emit("probes.reload.failed", {
+            errors: [{ file: "(watch-reload)", error: String(err) }],
+          });
+        });
+    });
+  } catch (err) {
+    logErrorWithStack(
+      logger,
+      "fleet.control-plane.probe-watch-init-failed",
+      err,
+    );
+  }
+
   // Minimal HTTP surface for the role's liveness `port` (fleet-health probes
   // hit this). /health reports OK once the producer's scheduler entry is live.
   const app = buildServer({
     pb,
     logger,
-    // The control-plane is a scheduler/queue/aggregator with NO probe rules —
-    // only the single fleet-job-producer scheduler entry. The role flag drops
-    // /health's `rules > 0` gate so the container reports HEALTHY on its real
-    // liveness signals (pb ok, scheduler started + alive, schedulerJobs>0);
-    // without it /health is degraded forever (rules always 0) and Railway
-    // restart-loops the service.
+    // The control-plane is a scheduler/queue/aggregator. It now ALSO runs the
+    // HTTP-only probe families in-process, so it DOES own probe rules — the
+    // count is the number of in-process HTTP probe configs. We keep
+    // `role: "control-plane"` (its liveness is still governed by the scheduler
+    // signals folded into loopOk — schedulerJobCount>0 covers BOTH the
+    // producer entry AND the probe entries), but `ruleCount` now reflects the
+    // real in-process rule count so the role-drop on the rules>0 gate does not
+    // MASK a probe-loader failure: if the loader silently produced zero HTTP
+    // probes, `rules` reads 0 and the gap is visible on /health rather than
+    // hidden behind the role short-circuit.
     role: "control-plane",
-    ruleCount: () => 0,
+    ruleCount: () => httpProbeConfigs.size,
     schedulerStarted: () => scheduler.isStarted(),
     schedulerJobCount: () => scheduler.list().length,
     schedulerIsStopped: () => scheduler.isStopped(),
@@ -2260,6 +2482,18 @@ export async function runControlPlane(
   // internal intervals. Best-effort: operators see the original bind error, not
   // a teardown-failure shadow.
   async function teardownAfterBindFailure(): Promise<void> {
+    // Tear down the HTTP-probe file watcher so a failed bind never leaks a
+    // chokidar watcher (best-effort; the watcher's own unsubscribe is sync).
+    try {
+      unwatchHttpProbes();
+    } catch (unwatchErr) {
+      logger.error("fleet.control-plane.probe-unwatch-after-bind-failure", {
+        err:
+          unwatchErr instanceof Error
+            ? unwatchErr.message
+            : String(unwatchErr),
+      });
+    }
     await controlPlane.stop().catch((stopErr) =>
       logger.error("fleet.control-plane.stop-after-bind-failure", {
         err: stopErr instanceof Error ? stopErr.message : String(stopErr),
@@ -2326,6 +2560,14 @@ export async function runControlPlane(
     port,
     bus,
     async stop(): Promise<void> {
+      // Tear down the HTTP-probe file watcher first so no reload fires mid-stop.
+      try {
+        unwatchHttpProbes();
+      } catch (err) {
+        logger.error("fleet.control-plane.probe-unwatch-on-stop-failed", {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
       // controlPlane.stop() clears its own internal fleet-health + consumer
       // intervals (REQ-B seams now own that lifecycle).
       await controlPlane.stop();

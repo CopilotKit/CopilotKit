@@ -3281,6 +3281,217 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
   });
 });
 
+/**
+ * In-process HTTP-only probe families on the fleet control-plane.
+ *
+ * The control-plane today only runs the d6 producer; the 8 HTTP-only probe
+ * families (smoke, starter_smoke, image_drift, qa, aimock_wiring,
+ * version_drift, pin_drift, redirect_decommission) are dark on the fleet.
+ * These tests pin the desired end-state:
+ *
+ *   1. `runControlPlane` loads `config/probes/*.yml`, partitions by
+ *      `BROWSER_KINDS`, and registers ONLY the HTTP-kind families on its own
+ *      scheduler under `probe:<id>` entries. Browser kinds (e2e_*) are NOT
+ *      scheduled in-process — they route through the worker producer path.
+ *   2. /health's `rules` count reflects the in-process HTTP probe count (so
+ *      the control-plane role-drop on the rules>0 gate doesn't mask a real
+ *      loader failure), and `schedulerJobs` includes the probe entries.
+ *
+ * The probe config dir is the sibling `../probes` of `opts.configDir` (same
+ * resolution boot() uses), so the test writes a temp alerts dir + sibling
+ * probes dir containing one HTTP family (smoke), one more HTTP family
+ * (image_drift), and one BROWSER family (e2e_smoke) to prove the partition.
+ */
+describe("orchestrator runControlPlane in-process HTTP probes (Phase-1 3c)", () => {
+  let port = 0;
+  let probesDir = "";
+  let alertsDir = "";
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(
+      path.join(os.tmpdir(), "harness-cp-http-probes-"),
+    );
+    alertsDir = path.join(root, "alerts");
+    probesDir = path.join(root, "probes");
+    await fs.mkdir(alertsDir, { recursive: true });
+    await fs.mkdir(probesDir, { recursive: true });
+    // Two HTTP families (single-target shapes keep the YAML minimal) + one
+    // browser family. The browser family must be SKIPPED in-process.
+    await fs.writeFile(
+      path.join(probesDir, "smoke.yml"),
+      [
+        "kind: smoke",
+        "id: smoke",
+        'schedule: "*/5 * * * *"',
+        "target:",
+        "  key: smoke:test",
+        '  url: "https://example.com"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(probesDir, "image-drift.yml"),
+      [
+        "kind: image_drift",
+        "id: image_drift",
+        'schedule: "*/15 * * * *"',
+        "target:",
+        "  key: image_drift:test",
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(probesDir, "e2e-smoke.yml"),
+      [
+        "kind: e2e_smoke",
+        "id: e2e_smoke",
+        'schedule: "*/5 * * * *"',
+        "target:",
+        "  key: e2e_smoke:test",
+        '  url: "https://example.com"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("schedules the HTTP families (smoke, image_drift) in-process but NOT the browser kind", async () => {
+    vi.resetModules();
+
+    // Pin the REAL serve() so this role binds cleanly (immunize against a
+    // sibling test's leaked @hono/node-server doMock).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    // pb fake: health() true so the role boots clean; lookups return null.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // Capture every scheduler.register id so we can assert which probe
+    // families landed as in-process scheduler entries.
+    const registeredIds: string[] = [];
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: { id: string }) => {
+              registeredIds.push(entry.id);
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      // HTTP families register as in-process probe entries.
+      expect(registeredIds).toContain("probe:smoke");
+      expect(registeredIds).toContain("probe:image_drift");
+      // Browser kind is NOT scheduled in-process — it routes to the producer.
+      expect(registeredIds).not.toContain("probe:e2e_smoke");
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  it("/health reflects the in-process HTTP rule count (not a hardcoded 0)", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      const body = (await res.json()) as {
+        status: string;
+        rules: number;
+        schedulerJobs: number;
+      };
+      // Two HTTP families loaded → rules must be >= 2 (the control-plane now
+      // has in-process rules; the role-drop no longer masks a loader failure).
+      expect(body.rules).toBeGreaterThanOrEqual(2);
+      // schedulerJobs includes the producer + the in-process probe entries.
+      expect(body.schedulerJobs).toBeGreaterThanOrEqual(3);
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  it("BROWSER_KINDS is the e2e partition (the in-process exclusion set)", async () => {
+    const orchMod = await import("./orchestrator.js");
+    expect([...orchMod.BROWSER_KINDS].sort()).toEqual(
+      ["e2e_d6", "e2e_deep", "e2e_demos", "e2e_smoke"].sort(),
+    );
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {
