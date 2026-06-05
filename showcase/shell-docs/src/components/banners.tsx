@@ -1,57 +1,48 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { GraduationCap, X } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
-
-// Time in milliseconds before a dismissed banner reappears
-const BANNER_REAPPEAR_DELAY = 3 * 24 * 60 * 60 * 1000; // 3 days
-const BANNER_DISMISSED_KEY = "nd-banner-rotating-banner";
-const BANNER_DISMISSED_TIME_KEY = "nd-banner-rotating-banner-dismissed-at";
+import { ArrowRight, BookOpenCheck, X } from "lucide-react";
 
 type BannerEntry = {
-  icon: React.ReactNode;
   mobileText: string;
-  desktopText: string;
+  title: string;
+  source: string;
   buttonText: string;
   href: string;
 };
 
 const bannerContent: BannerEntry[] = [
   {
-    icon: <GraduationCap className="w-5 h-5 hidden md:block flex-shrink-0" />,
-    mobileText: "Free Generative UI course on DeepLearning.AI",
-    desktopText:
-      "Build Interactive Agents with Generative UI: our new free DeepLearning.AI course",
-    buttonText: "Start the course",
+    mobileText: "Free Generative UI course",
+    title: "Build Interactive Agents with Generative UI",
+    source: "DeepLearning.AI",
+    buttonText: "Start free course",
     href: "https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/",
   },
 ];
 
+const BANNER_REAPPEAR_DELAY = 3 * 24 * 60 * 60 * 1000;
+const BANNER_DISMISSED_KEY = "nd-banner-rotating-banner";
+const BANNER_DISMISSED_TIME_KEY = "nd-banner-rotating-banner-dismissed-at";
+const LEGACY_DISMISSED_STORAGE_KEY = "shell-docs-course-banner-dismissed";
+
+function setBannerHeight(height: "0px" | "40px") {
+  document.documentElement.style.setProperty("--fd-banner-height", height);
+}
+
 export function Banners() {
-  const [currentBanner, setCurrentBanner] = useState(0);
+  const content = bannerContent[0];
   const [dismissed, setDismissed] = useState(false);
-  // Hydration guard — server renders nothing so the banner can't flash
-  // before localStorage state has been read.
   const [hydrated, setHydrated] = useState(false);
 
-  // Rotate banners every 8 seconds (matches canonical implementation).
-  useEffect(() => {
-    if (bannerContent.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentBanner((prev) => (prev + 1) % bannerContent.length);
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Read + maintain dismissal state from localStorage. Banner reappears
-  // after BANNER_REAPPEAR_DELAY has elapsed since dismissal.
   useEffect(() => {
     setHydrated(true);
 
     const checkBannerExpiry = () => {
-      const isDismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+      const isDismissed =
+        localStorage.getItem(BANNER_DISMISSED_KEY) === "true" ||
+        localStorage.getItem(LEGACY_DISMISSED_STORAGE_KEY) === "true";
 
       if (!isDismissed) {
         setDismissed(false);
@@ -60,8 +51,6 @@ export function Banners() {
 
       const dismissedAt = localStorage.getItem(BANNER_DISMISSED_TIME_KEY);
       if (!dismissedAt) {
-        // Backfill timestamp if dismissal flag exists without a timestamp
-        // (e.g., set in another tab or by a legacy build).
         localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
         setDismissed(true);
         return;
@@ -71,6 +60,7 @@ export function Banners() {
       if (elapsed >= BANNER_REAPPEAR_DELAY) {
         localStorage.removeItem(BANNER_DISMISSED_KEY);
         localStorage.removeItem(BANNER_DISMISSED_TIME_KEY);
+        localStorage.removeItem(LEGACY_DISMISSED_STORAGE_KEY);
         setDismissed(false);
       } else {
         setDismissed(true);
@@ -81,9 +71,6 @@ export function Banners() {
 
     const handleStorage = () => checkBannerExpiry();
     window.addEventListener("storage", handleStorage);
-
-    // Periodic re-check so the banner reappears mid-session once the TTL
-    // expires without requiring a reload.
     const interval = setInterval(checkBannerExpiry, 1000);
 
     return () => {
@@ -92,87 +79,61 @@ export function Banners() {
     };
   }, []);
 
-  // Reflect the banner's visible height into `--fd-banner-height` so
-  // Fumadocs's fixed-positioned sidebar shifts down when the banner is
-  // showing and snaps flush under BrandNav when it's dismissed. ~54px
-  // is the rendered banner height across breakpoints; we set the
-  // variable on <html> so all of Fumadocs's `top:` math picks it up.
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.style.setProperty(
-      "--fd-banner-height",
-      !hydrated || dismissed ? "0px" : "54px",
-    );
+    setBannerHeight(!hydrated || dismissed ? "0px" : "40px");
   }, [hydrated, dismissed]);
 
-  const handleDismiss = useCallback(() => {
+  const dismissBanner = useCallback(() => {
     localStorage.setItem(BANNER_DISMISSED_KEY, "true");
     localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
+    localStorage.setItem(LEGACY_DISMISSED_STORAGE_KEY, "true");
     setDismissed(true);
   }, []);
 
-  if (!hydrated || dismissed) return null;
-
-  const content = bannerContent[currentBanner];
+  if (!hydrated || dismissed) {
+    return null;
+  }
 
   return (
-    <div className="w-full px-[22px] mt-2">
-      <div
-        id="rotating-banner"
-        className="relative w-full max-w-[97rem] mx-auto rounded-2xl py-1.5 md:py-2"
-        style={{
-          background: "var(--bg-elevated)",
-          color: "var(--text-secondary)",
-          border: "1px solid var(--border, rgba(0,0,0,0.08))",
-        }}
-      >
-        <div className="flex flex-row items-center justify-center gap-1.5 md:gap-3 w-full px-1 md:px-4 pr-8 md:pr-10">
-          <div
-            key={currentBanner}
-            className="flex items-center gap-1.5 md:gap-2 flex-shrink min-w-0"
-          >
-            {content.icon}
-            <p
-              className="text-xs md:text-base font-normal md:hidden"
-              style={{ fontWeight: 400 }}
-            >
-              {content.mobileText}
-            </p>
-            <p
-              className="text-sm sm:text-base font-normal hidden md:block"
-              style={{ fontWeight: 400 }}
-            >
-              {content.desktopText}
-            </p>
-          </div>
-          <Link
-            href={content.href}
-            target={content.href.startsWith("http") ? "_blank" : undefined}
-            rel={
-              content.href.startsWith("http")
-                ? "noopener noreferrer"
-                : undefined
-            }
-            className="text-xs md:text-sm items-center flex px-2 py-0.5 md:px-4 md:py-1 no-underline whitespace-nowrap rounded-lg flex-shrink-0 transition-all duration-100"
-            style={{
-              background: "var(--accent-light, rgba(109, 69, 249, 0.12))",
-              color: "var(--accent)",
-              boxShadow: "0 0 0 1px var(--accent-light, rgba(109,69,249,0.2))",
-            }}
-          >
-            {content.buttonText}
-          </Link>
-        </div>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          aria-label="Dismiss banner"
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-60 hover:opacity-100 transition-opacity"
-          style={{ color: "var(--text-secondary)" }}
+    <div
+      id="shell-docs-course-banner"
+      className="sticky top-0 z-40 flex h-10 flex-row items-center justify-center overflow-hidden border-b px-4 text-center text-sm font-medium text-white shadow-none shell-docs-course-banner"
+    >
+      <div className="relative z-1 flex w-full min-w-0 items-center justify-center gap-2 pr-8 md:gap-2.5">
+        <span
+          className="shell-docs-radius-icon hidden h-5 w-5 shrink-0 items-center justify-center border border-white/30 bg-white/16 text-white lg:inline-flex"
+          aria-label="Free course"
         >
-          <X className="w-4 h-4" />
-        </button>
+          <BookOpenCheck className="h-3 w-3" aria-hidden="true" />
+        </span>
+        <p className="min-w-0 truncate text-xs font-medium text-white md:text-[13px]">
+          <span className="md:hidden">{content.mobileText}</span>
+          <span className="hidden md:inline">{content.title}</span>
+          <span className="hidden text-white/72 md:inline">
+            {" "}
+            with {content.source}
+          </span>
+        </p>
+        <Link
+          href={content.href}
+          target={content.href.startsWith("http") ? "_blank" : undefined}
+          rel={
+            content.href.startsWith("http") ? "noopener noreferrer" : undefined
+          }
+          className="shell-docs-radius-control inline-flex h-6 shrink-0 items-center gap-1 bg-white px-2.5 text-[11px] font-semibold text-[var(--accent)] no-underline shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-white/90 md:px-3"
+        >
+          {content.buttonText}
+          <ArrowRight className="h-3 w-3" aria-hidden="true" />
+        </Link>
       </div>
+      <button
+        type="button"
+        aria-label="Close Banner"
+        onClick={dismissBanner}
+        className="absolute inset-e-2 top-1/2 z-10 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-white/10 text-white/85 transition-colors duration-100 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/55"
+      >
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
     </div>
   );
 }

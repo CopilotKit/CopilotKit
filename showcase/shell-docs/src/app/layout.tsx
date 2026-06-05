@@ -206,27 +206,14 @@ export default function RootLayout({
                  * (margin: 0 4px; xl: 0 8px 8px 8px). */}
                 <Banners />
                 <BrandNav />
-                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-[15px] mb-2 md:mb-3">
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-3 mb-2 md:mb-3">
                   {children}
                 </main>
               </ShellSearchProvider>
             </RootProvider>
           </FrameworkProvider>
         </PostHogProvider>
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            bottom: "8px",
-            right: "12px",
-            fontSize: "10px",
-            fontFamily: "monospace",
-            color: "rgba(0,0,0,0.15)",
-            pointerEvents: "none",
-            zIndex: 9999,
-            userSelect: "none",
-          }}
-        >
+        <div aria-hidden="true" className="shell-docs-commit-label">
           {commitLabel}
         </div>
         <ScarfPixel />
