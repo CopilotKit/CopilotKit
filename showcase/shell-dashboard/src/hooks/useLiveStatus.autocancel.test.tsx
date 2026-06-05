@@ -122,31 +122,46 @@ afterAll(() => {
   server.close();
 });
 
+// Snapshot of `window.__SHOWCASE_CONFIG__` so beforeEach's injection is
+// reverted in afterEach — otherwise the fake-server URL leaks into any later
+// test in the same worker that reads runtime config.
+let prevShowcaseConfig: unknown;
+let hadShowcaseConfig = false;
+
 beforeEach(() => {
   // jsdom has neither EventSource (PB realtime/SSE) nor a usable localStorage
   // for the SDK's auth store. Stub both so constructing/driving the real
   // PocketBase client doesn't blow up — we never exercise the SSE subscribe
   // path here (the bug under test is in the initial paged fetch).
-  (globalThis as unknown as { EventSource: unknown }).EventSource = class {
-    close(): void {}
-    addEventListener(): void {}
-    removeEventListener(): void {}
-  };
-  const store = new Map<string, string>();
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => store.set(k, v),
-      removeItem: (k: string) => store.delete(k),
-      clear: () => store.clear(),
+  //
+  // Use vi.stubGlobal so vi.unstubAllGlobals() in afterEach fully restores the
+  // originals: the previous Object.defineProperty / raw-assignment approach
+  // overwrote globalThis.EventSource and globalThis.localStorage and never put
+  // them back, contaminating any sibling test that touched those globals.
+  vi.stubGlobal(
+    "EventSource",
+    class {
+      close(): void {}
+      addEventListener(): void {}
+      removeEventListener(): void {}
     },
+  );
+  const store = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, v),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
   });
   // Point the production runtime-config reader at our fake server, then reset
-  // the pb module so getPb() rebuilds its singleton against this URL.
-  (
-    globalThis as unknown as { window: Window & typeof globalThis }
-  ).window.__SHOWCASE_CONFIG__ = {
+  // the pb module so getPb() rebuilds its singleton against this URL. Snapshot
+  // the prior value so afterEach can restore it (window is shared jsdom state,
+  // not a global vi.stubGlobal can track).
+  const win = (globalThis as unknown as { window: Window & typeof globalThis })
+    .window as unknown as { __SHOWCASE_CONFIG__?: unknown };
+  hadShowcaseConfig = "__SHOWCASE_CONFIG__" in win;
+  prevShowcaseConfig = win.__SHOWCASE_CONFIG__;
+  win.__SHOWCASE_CONFIG__ = {
     pocketbaseUrl: baseUrl,
     shellUrl: baseUrl,
     opsBaseUrl: baseUrl,
@@ -155,6 +170,16 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Restore every global we stubbed (EventSource, localStorage) and the
+  // window config we injected, so nothing leaks into sibling tests.
+  vi.unstubAllGlobals();
+  const win = (globalThis as unknown as { window: Window & typeof globalThis })
+    .window as unknown as { __SHOWCASE_CONFIG__?: unknown };
+  if (hadShowcaseConfig) {
+    win.__SHOWCASE_CONFIG__ = prevShowcaseConfig;
+  } else {
+    delete win.__SHOWCASE_CONFIG__;
+  }
   vi.resetModules();
 });
 
@@ -163,16 +188,27 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
     // Import AFTER resetModules + config injection so the hook closes over a
     // freshly-constructed pb singleton pointed at our fake server.
     const { useLiveStatus } = await import("./useLiveStatus");
-    const { result } = renderHook(() => useLiveStatus("smoke"));
+    const { result, unmount } = renderHook(() => useLiveStatus("smoke"));
 
-    // Without `requestKey: null`, pages 2 & 3 share the page-1 auto request
-    // key, get auto-cancelled, Promise.all rejects, and the hook lands in
-    // "error" (or never reaches "live") instead. The fix lets every page
-    // complete → all 1300 rows → "live".
-    await waitFor(() => expect(result.current.status).toBe("live"), {
-      timeout: 5000,
-    });
-    expect(result.current.rows).toHaveLength(TOTAL_ROWS);
-    expect(result.current.error).toBeNull();
+    try {
+      // Without `requestKey: null`, pages 2 & 3 share the page-1 auto request
+      // key, get auto-cancelled, Promise.all rejects, and the hook lands in
+      // "error" (or never reaches "live") instead. The fix lets every page
+      // complete → all 1300 rows → "live".
+      await waitFor(() => expect(result.current.status).toBe("live"), {
+        timeout: 5000,
+      });
+      expect(result.current.rows).toHaveLength(TOTAL_ROWS);
+      expect(result.current.error).toBeNull();
+    } finally {
+      // Reaching "live" starts a 30s setInterval heartbeat that pings the
+      // about-to-close in-process server via the pb singleton. Without an
+      // explicit unmount the effect cleanup never runs, so the interval (and
+      // its pb client) leak past the test and a post-teardown tick fires
+      // against a dead socket. Unmounting runs the effect's cleanup
+      // (clearHeartbeat + teardownSubscription) before afterAll closes the
+      // server.
+      unmount();
+    }
   }, 10000);
 });

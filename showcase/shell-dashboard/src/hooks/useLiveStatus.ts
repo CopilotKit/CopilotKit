@@ -302,7 +302,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         );
       }
       const rest = await Promise.all(restRequests);
-      return [first, ...rest].flatMap((r) => r.items);
+      return [first.items, ...rest.map((r) => r.items)].flat();
     }
 
     async function connect(): Promise<void> {
