@@ -13,11 +13,21 @@
 #
 # Each driver invocation issues FOUR HTTP checks against the deployed base
 # URL and side-emits one row per smoke level plus an aggregate primary
-# (see drivers/starter-smoke.ts):
-#   - health      GET  `${base}/api/health`        → 200 + JSON body
-#   - agent       POST `${base}/api/copilotkit/`    → any non-404 response
-#   - chat        POST `${base}/api/copilotkit/`    → non-empty body (aimock)
-#   - interaction GET  `${base}/`                   → 200 (app shell serves)
+# (see drivers/starter-smoke.ts). The deployed starters mount the v2 runtime
+# in its default PATH-BASED `mode:"multi-route"` at `/api/copilotkit`, so the
+# checks dispatch by URL path (the dead single-route envelope POST to bare
+# `/api/copilotkit` is never issued):
+#   - health      GET  `${base}/api/copilotkit/info` → 200 (lightweight
+#                                                     runtime-mount liveness;
+#                                                     the starter has no
+#                                                     `/api/health` route)
+#   - agent       GET  `${base}/api/copilotkit/info` → 200 JSON carrying a
+#                                                     `version` field
+#   - chat        POST `${base}/api/copilotkit/agent/default/run`
+#                 (Accept: text/event-stream) → AG-UI SSE stream asserting ≥1
+#                 TEXT_MESSAGE_CONTENT delta + terminal RUN_FINISHED + NO
+#                 RUN_ERROR
+#   - interaction GET  `${base}/`                    → 200 (app shell serves)
 #
 # Rows emitted per invocation:
 #   - Primary `starter:<column-slug>`           aggregate { total, passed,

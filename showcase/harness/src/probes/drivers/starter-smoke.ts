@@ -5,6 +5,7 @@ import {
   starterToColumnSlug,
   type StarterLevel,
 } from "../helpers/starter-mapping.js";
+import { parseSseEvents } from "../helpers/sse-interceptor.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -16,26 +17,51 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * starter image and running Playwright in CI, it HTTP-probes each starter's
  * own deployed (scale-to-zero) Railway service on the harness cadence. The
  * model is the *same* probe machinery the `smoke` dimension (`liveness.ts`)
- * already runs against the 19 deployed showcase services — no new harness
+ * already runs against the deployed showcase services — no new harness
  * capability, no Docker-on-harness, no browser.
  *
  * One invocation = one starter service. Per starter the driver issues FOUR
  * HTTP checks against the deployed base URL and side-emits one row per
  * level plus an aggregate primary:
  *
- *   - **health**      GET  `${base}/api/health` → 200 + JSON-parseable body.
- *                     Mirrors the `@health` tag (health endpoint responds).
- *   - **agent**       POST `${base}/api/copilotkit/` with `{}` → any non-404
- *                     response. Reuses the exact `checkAgentEndpoint`
- *                     contract `liveness.ts`'s smoke agent check uses: a
- *                     non-404 proves the CopilotKit runtime is mounted; a
- *                     404 means the route isn't wired.
- *   - **chat**        POST `${base}/api/copilotkit/` with a minimal chat
- *                     round-trip payload (aimock answers it) → a non-empty
- *                     response body. Mirrors the `@chat` tag (chat
- *                     round-trip via aimock returns a response) but over a
- *                     single HTTP turn rather than a browser.
- *   - **interaction** GET `${base}/` → 200 (the app shell serves). Mirrors
+ * The agent + chat rungs verify the PATH-BASED v2 multi-route runtime
+ * protocol — the protocol the DEPLOYED starters actually serve. Every starter
+ * mounts `createCopilotEndpoint` in its default `mode:"multi-route"` at
+ * `basePath:"/api/copilotkit"` via a catch-all
+ * `src/app/api/copilotkit/[[...slug]]/route.ts` (verified across
+ * `examples/integrations/<slug>/`, empirically proven by a local build+curl
+ * gate). `matchRoute`
+ * (`packages/runtime/src/v2/runtime/core/fetch-router.ts`) dispatches by URL
+ * path: `/info` → runtime info, `/agent/:agentId/run` → an agent run. The
+ * single-route envelope POST to bare `/api/copilotkit` is DEAD on these
+ * starters (404) and must NOT be used.
+ *
+ *   - **health**      GET  `${base}/api/copilotkit/info` → 200. The deployed
+ *                     starter has NO `/api/health` route (its only API route
+ *                     is the catch-all `/api/copilotkit/[[...slug]]`), so the
+ *                     health rung repoints at the runtime `info` route as a
+ *                     lightweight HTTP-level liveness check — a 200 proves the
+ *                     runtime mount is up and answering. (Distinct from the
+ *                     agent rung below, which additionally validates the JSON
+ *                     `version` field.)
+ *   - **agent**       GET  `${base}/api/copilotkit/info` → require 200 + a
+ *                     `version` field in the JSON body. CONTENT-LEVEL: an
+ *                     HTML error page, a JSON body lacking `version`, or any
+ *                     4xx FAILS. A real `{version}` info response proves the
+ *                     v2 runtime is mounted and answering.
+ *   - **chat**        POST `${base}/api/copilotkit/agent/default/run` with
+ *                     `Accept: text/event-stream` and the AG-UI run body
+ *                     `{threadId, runId, messages, state, tools, context,
+ *                     forwardedProps}`. Read the AG-UI SSE stream and require
+ *                     ≥1 `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_CHUNK` event
+ *                     carrying a non-empty `delta` AND a terminal
+ *                     `RUN_FINISHED` with NO `RUN_ERROR` anywhere in the
+ *                     stream. A 200 with no text, a stream missing the
+ *                     terminal `RUN_FINISHED`, or a stream carrying
+ *                     `RUN_ERROR`, FAILS. Mirrors the `@chat` tag (chat
+ *                     round-trip returns a response) over a single HTTP turn
+ *                     rather than a browser.
+ *   - **interaction** GET  `${base}/` → 200 (the app shell serves). Mirrors
  *                     the `@interaction` tag, which branches on `hasAppMode`
  *                     (`starter-smoke.spec.ts:123`). We keep this check
  *                     GENERIC — both the App-mode and CopilotSidebar
@@ -145,17 +171,55 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const TIMEOUT_ENV_VAR = "STARTER_SMOKE_TIMEOUT_MS";
 
 /**
- * Minimal chat round-trip payload posted to the CopilotKit runtime. The
- * runtime answers this with a streamed/structured response that aimock
- * fulfils; we only assert the response is non-empty (the `@chat` contract:
- * "chat round-trip via aimock returns a response"). Kept intentionally
- * minimal — a full GraphQL `generateCopilotResponse` body would couple the
- * probe to the runtime's request schema, which drifts; a non-empty body
- * from a non-404 POST is sufficient proof-of-life for the chat path.
+ * Canonical agent id every starter registers in its `agents` map
+ * (`examples/integrations/<slug>/src/app/api/copilotkit/[[...slug]]/route.ts`
+ * registers `{ default: new <Framework>Agent(...) }`). The path-based chat
+ * rung targets `/agent/${CHAT_AGENT_ID}/run`; `matchRoute` reads the id from
+ * the URL segment. Confirmed both in the starter routes and via a deployed
+ * starter's `info` `agents` map.
  */
-const CHAT_PROBE_BODY = JSON.stringify({
-  messages: [{ role: "user", content: "Hello" }],
+const CHAT_AGENT_ID = "default";
+
+/**
+ * The AG-UI run body for the chat rung. Shape matches
+ * `handleRunAgent` + the reference test
+ * `packages/runtime/src/v2/runtime/__tests__/express-single-sse.test.ts`:
+ * `{threadId, runId, messages, state, tools, context, forwardedProps}` — NO
+ * single-route envelope wrapper (the path encodes the route on multi-route).
+ * A single user "Hello" turn; the runtime answers with an AG-UI SSE stream.
+ * The driver asserts only the stream SHAPE it requires (≥1 text-content delta
+ * + terminal RUN_FINISHED + no RUN_ERROR), never a specific reply text.
+ */
+const CHAT_RUN_BODY = JSON.stringify({
+  threadId: "starter-smoke-thread",
+  runId: "starter-smoke-run",
+  messages: [{ id: "u1", role: "user", content: "Hello" }],
+  state: {},
+  tools: [],
+  context: [],
+  forwardedProps: {},
 });
+
+/**
+ * AG-UI text-content event types that carry a streamed assistant `delta`.
+ * `TEXT_MESSAGE_CONTENT` is the canonical per-delta event; `TEXT_MESSAGE_CHUNK`
+ * is the combined-chunk variant some transports emit. Either, with a
+ * non-empty `delta`, is proof the chat round-trip produced assistant text.
+ */
+const CHAT_TEXT_EVENT_TYPES = new Set([
+  "TEXT_MESSAGE_CONTENT",
+  "TEXT_MESSAGE_CHUNK",
+]);
+
+/** AG-UI run-failure event type — a stream carrying this FAILS the chat rung. */
+const RUN_ERROR_EVENT_TYPE = "RUN_ERROR";
+
+/**
+ * AG-UI terminal event type — a complete chat round-trip ends with this. A
+ * 200 stream that carries assistant text but never reaches `RUN_FINISHED`
+ * (e.g. the connection dropped mid-run) FAILS, since the run did not complete.
+ */
+const RUN_FINISHED_EVENT_TYPE = "RUN_FINISHED";
 
 export function createStarterSmokeDriver(
   deps: { timeoutMs?: number } = {},
@@ -209,10 +273,14 @@ export function createStarterSmokeDriver(
       // Per-level URL + probe method. Each level owns its own HTTP call and
       // success criterion so a single hung endpoint can't blind its
       // siblings (the same paired-probe isolation `liveness.ts` keeps).
+      // PATH-BASED multi-route protocol: `matchRoute` dispatches on the URL
+      // path, so health/agent GET `/api/copilotkit/info` and chat POSTs the
+      // per-agent run path `/api/copilotkit/agent/<id>/run`. The dead
+      // single-route envelope POST to bare `/api/copilotkit` is never issued.
       const levelUrls: Record<StarterLevel, string> = {
-        health: `${base}/api/health`,
-        agent: `${base}/api/copilotkit/`,
-        chat: `${base}/api/copilotkit/`,
+        health: `${base}/api/copilotkit/info`,
+        agent: `${base}/api/copilotkit/info`,
+        chat: `${base}/api/copilotkit/agent/${encodeURIComponent(CHAT_AGENT_ID)}/run`,
         interaction: `${base}/`,
       };
 
@@ -222,14 +290,32 @@ export function createStarterSmokeDriver(
 
       for (const level of STARTER_LEVELS) {
         const url = levelUrls[level];
-        const result = await probeLevel({
-          fetchImpl,
-          level,
-          url,
-          timeoutMs,
-          now: ctx.now,
-          abortSignal: ctx.abortSignal,
-        });
+        // Short-circuit on an external (outer-timeout) abort BEFORE issuing a
+        // fresh fetch. Without this, an abort mid-tick still fires a cold-start
+        // request for every remaining level — wasting wake requests and
+        // emitting up to four spurious `aborted` rows. Mirrors
+        // `e2e-readiness.ts`, which checks `abort.signal.aborted` before each
+        // iteration and emits a clean `aborted` row WITHOUT a fetch. The first
+        // level whose fetch races the abort still classifies `aborted` in
+        // `probeLevel`; this guard covers the SUBSEQUENT levels.
+        let result: LevelOutcome;
+        if (ctx.abortSignal?.aborted) {
+          result = {
+            ok: false,
+            errorClass: "aborted",
+            errorDesc: sanitizeErrorDesc("aborted"),
+            latencyMs: 0,
+          };
+        } else {
+          result = await probeLevel({
+            fetchImpl,
+            level,
+            url,
+            timeoutMs,
+            now: ctx.now,
+            abortSignal: ctx.abortSignal,
+          });
+        }
 
         const state = result.ok ? "green" : "red";
         if (result.ok) {
@@ -287,11 +373,18 @@ interface LevelOutcome {
  * Issue one HTTP check for a level and classify the outcome.
  *
  *   - health/interaction: GET, success = 2xx (interaction tolerates any
- *     2xx HTML shell; health additionally requires a JSON-parseable body).
- *   - agent: POST `{}`, success = any non-404 response (proof the runtime
- *     is mounted), 404 = `smoke-failed`.
- *   - chat: POST a minimal chat payload, success = a non-404 response with
- *     a non-empty body (aimock answered).
+ *     2xx HTML shell; health GETs `/api/copilotkit/info` and only requires a
+ *     2xx — a lightweight runtime-mount liveness check).
+ *   - agent: GET `/api/copilotkit/info`, success = 200 + a `version` field in
+ *     the JSON body (the v2 multi-route runtime is mounted and answering). An
+ *     HTML error page, a JSON body lacking `version`, or any 4xx =
+ *     `smoke-failed`.
+ *   - chat: POST `/api/copilotkit/agent/<id>/run` with
+ *     `Accept: text/event-stream`, success = an SSE stream carrying ≥1
+ *     `TEXT_MESSAGE_CONTENT`/`TEXT_MESSAGE_CHUNK` event with a non-empty
+ *     `delta` AND a terminal `RUN_FINISHED` with NO `RUN_ERROR`. A 200 with
+ *     no text, a missing terminal `RUN_FINISHED`, or a `RUN_ERROR` stream =
+ *     `smoke-failed`.
  *
  * Transport failures (timeout / cold-start wake / connection / DNS / abort)
  * are classified `transport-error` (or `aborted` on external abort) so a
@@ -309,47 +402,112 @@ async function probeLevel(opts: {
   const { fetchImpl, level, url, timeoutMs, now, abortSignal } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Track WHY this specific check terminated. The shared `abortSignal` is
+  // LATCHED state: re-reading it at catch-time mislabels a later self-timeout
+  // or a non-abort error (e.g. ECONNREFUSED) as `aborted` once the external
+  // signal has fired for an EARLIER sibling. Instead, flip this local flag
+  // ONLY when THIS check's own abort was driven by the external signal.
+  let externallyAborted = false;
   // Chain the invoker's external abort into this check so an outer timeout
   // releases the socket promptly.
-  const onExternalAbort = (): void => controller.abort();
+  const onExternalAbort = (): void => {
+    externallyAborted = true;
+    controller.abort();
+  };
   if (abortSignal) {
-    if (abortSignal.aborted) controller.abort();
-    else abortSignal.addEventListener("abort", onExternalAbort, { once: true });
+    if (abortSignal.aborted) {
+      externallyAborted = true;
+      controller.abort();
+    } else {
+      abortSignal.addEventListener("abort", onExternalAbort, { once: true });
+    }
   }
   const started = now().getTime();
+  // SINGLE classification for any termination driven by an abort — the body
+  // read OR the fetch itself. `aborted` ONLY when THIS check's abort was
+  // externally driven (the outer tick was abandoned); a self-timeout or a
+  // non-abort error racing a latched external signal is `transport-error`.
+  // Both rungs feed the SAME discriminator (`externallyAborted`) rather than
+  // re-reading the latched `controller.signal.aborted` or keying on `err.name`
+  // alone, so the four rungs classify identically.
+  const abortOutcome = (status: number | undefined): LevelOutcome => ({
+    ok: false,
+    status,
+    errorClass: externallyAborted ? "aborted" : "transport-error",
+    errorDesc: sanitizeErrorDesc(
+      externallyAborted
+        ? "aborted"
+        : `${level} read aborted after ${timeoutMs}ms (cold-start wake or slow stream)`,
+    ),
+    // Recompute at OUTCOME time, not headers-received: a body-abort outcome
+    // must surface the slow-wake latency it exists to flag, not just
+    // time-to-headers.
+    latencyMs: now().getTime() - started,
+  });
   try {
-    const isPost = level === "agent" || level === "chat";
+    // PATH-BASED protocol: only the chat rung is a POST (the per-agent run
+    // path with an AG-UI run body + event-stream negotiation). health, agent
+    // (info) and interaction are all plain GETs.
+    const isChat = level === "chat";
     const res = await fetchImpl(url, {
-      method: isPost ? "POST" : "GET",
-      headers: isPost ? { "Content-Type": "application/json" } : undefined,
-      body: level === "chat" ? CHAT_PROBE_BODY : isPost ? "{}" : undefined,
+      method: isChat ? "POST" : "GET",
+      headers: isChat
+        ? {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          }
+        : undefined,
+      body: isChat ? CHAT_RUN_BODY : undefined,
       signal: controller.signal,
-      // Follow trailing-slash 308s so we judge the FINAL response (an
-      // unmounted route that redirects to a 404 must read red), matching
-      // the smoke agent check.
+      // `follow` transparently handles any host-level (e.g. https) redirect.
       redirect: "follow",
     });
-    const latencyMs = now().getTime() - started;
+    // Latency at headers-received. The body-read rungs below recompute at
+    // OUTCOME time (`outcomeLatency()`) so an emitted latency reflects the time
+    // actually spent — including the body read on a slow cold-start stream —
+    // not just time-to-headers.
+    const outcomeLatency = (): number => now().getTime() - started;
 
-    // agent / chat: a 404 is a real regression (route not mounted).
-    if ((level === "agent" || level === "chat") && res.status === 404) {
-      const body = await safeReadBody(res);
-      return {
-        ok: false,
-        status: 404,
-        errorClass: "smoke-failed",
-        errorDesc: sanitizeErrorDesc(
-          body.length > 0
-            ? `${level} endpoint 404: ${body}`
-            : `${level} endpoint 404 — route not mounted`,
-        ),
-        latencyMs,
-      };
+    // agent: require a 200 `info` response carrying a `version` field. A
+    // 4xx, a JSON body lacking `version`, or an HTML error page must FAIL.
+    if (level === "agent") {
+      const { text: body, completed } = await safeReadBody(res);
+      // A read that did NOT complete was cut short by our timer / the
+      // external signal → route through the shared abort classification, not
+      // a hard `smoke-failed` empty body.
+      if (!completed) return abortOutcome(res.status);
+      const latencyMs = outcomeLatency();
+      if (!res.ok) {
+        return {
+          ok: false,
+          status: res.status,
+          errorClass: "smoke-failed",
+          errorDesc: sanitizeErrorDesc(
+            body.length > 0
+              ? `agent info http ${res.status}: ${body}`
+              : `agent info http ${res.status}`,
+          ),
+          latencyMs,
+        };
+      }
+      const versionErr = verifyInfoVersion(body);
+      if (versionErr) {
+        return {
+          ok: false,
+          status: res.status,
+          errorClass: "smoke-failed",
+          errorDesc: sanitizeErrorDesc(`agent info ${versionErr}`),
+          latencyMs,
+        };
+      }
+      return { ok: true, status: res.status, latencyMs };
     }
 
-    // chat: a non-404 response must carry a non-empty body (aimock answered).
+    // chat: require an SSE stream carrying assistant text content.
     if (level === "chat") {
-      const body = await safeReadBody(res);
+      const { text: body, completed } = await safeReadBody(res);
+      if (!completed) return abortOutcome(res.status);
+      const latencyMs = outcomeLatency();
       if (!res.ok) {
         return {
           ok: false,
@@ -359,26 +517,30 @@ async function probeLevel(opts: {
           latencyMs,
         };
       }
-      if (body.trim().length === 0) {
+      const chatErr = verifyChatStream(body);
+      if (chatErr) {
         return {
           ok: false,
           status: res.status,
           errorClass: "smoke-failed",
-          errorDesc: sanitizeErrorDesc("chat returned empty response body"),
+          errorDesc: sanitizeErrorDesc(`chat ${chatErr}`),
           latencyMs,
         };
       }
       return { ok: true, status: res.status, latencyMs };
     }
 
-    // agent: any non-404 response is proof-of-life.
-    if (level === "agent") {
-      return { ok: true, status: res.status, latencyMs };
-    }
-
-    // health / interaction: require a 2xx.
+    // health / interaction: require a 2xx. The health rung is a lightweight
+    // liveness GET against `/api/copilotkit/info` — a 200 is enough to prove
+    // the runtime mount is up (the agent rung does the content-level
+    // `version` validation).
     if (!res.ok) {
-      const body = await safeReadBody(res);
+      const { text: body, completed } = await safeReadBody(res);
+      // A non-2xx whose body read was cut short by our abort is a cold-start
+      // transport hiccup — these rungs are hit FIRST on a cold wake, so route
+      // them through the SAME shared abort classification the agent/chat rungs
+      // use instead of unconditionally hard-redding `smoke-failed`.
+      if (!completed) return abortOutcome(res.status);
       return {
         ok: false,
         status: res.status,
@@ -388,42 +550,33 @@ async function probeLevel(opts: {
             ? `${level} http ${res.status}: ${body}`
             : `${level} http ${res.status}`,
         ),
-        latencyMs,
+        latencyMs: outcomeLatency(),
       };
     }
 
-    // health additionally requires a JSON-parseable body — a 200 that
-    // serves an HTML error page (misrouted edge) must NOT pass.
-    if (level === "health") {
-      const parseErr = await verifyJsonBody(res);
-      if (parseErr) {
-        return {
-          ok: false,
-          status: res.status,
-          errorClass: "smoke-failed",
-          errorDesc: sanitizeErrorDesc(`health malformed body: ${parseErr}`),
-          latencyMs,
-        };
-      }
-    }
-
-    return { ok: true, status: res.status, latencyMs };
+    // health / interaction 2xx success: no body read, so headers-time latency
+    // is the true outcome time.
+    return { ok: true, status: res.status, latencyMs: outcomeLatency() };
   } catch (err) {
     const latencyMs = now().getTime() - started;
     const isAbortError =
       err instanceof Error &&
       (err.name === "AbortError" || err.name === "TimeoutError");
-    // Distinguish an EXTERNAL abort (invoker outer-timeout) from this
-    // check's own timeout. Either way it's a transport-class failure, but
-    // the keyed class lets dashboards tell "the whole tick was abandoned"
-    // from "this one endpoint was slow to wake".
-    const externallyAborted = abortSignal?.aborted ?? false;
-    const errorClass: StarterFailureClass = externallyAborted
+    // Distinguish an EXTERNAL abort (invoker outer-timeout) from this check's
+    // OWN timeout, using why THIS check terminated — NOT the shared latched
+    // signal. `aborted` ONLY when this check's abort was externally driven AND
+    // the error is an actual abort. A self-timeout (`isAbortError` but not
+    // externally driven) or a non-abort error (e.g. ECONNREFUSED) racing an
+    // external abort is `transport-error` — the keyed class then truthfully
+    // tells "the whole tick was abandoned" from "this one endpoint was slow to
+    // wake / refused".
+    const abortedByExternalSignal = externallyAborted && isAbortError;
+    const errorClass: StarterFailureClass = abortedByExternalSignal
       ? "aborted"
       : "transport-error";
     const errorDesc = sanitizeErrorDesc(
       isAbortError
-        ? externallyAborted
+        ? abortedByExternalSignal
           ? "aborted"
           : `timeout after ${timeoutMs}ms (cold-start wake or hung endpoint)`
         : err instanceof Error
@@ -509,25 +662,102 @@ function resolveTimeoutMs(ctx: ProbeContext, depTimeoutMs?: number): number {
   return depTimeoutMs ?? DEFAULT_TIMEOUT_MS;
 }
 
-/** Best-effort bounded body read; empty string when unreadable. */
-async function safeReadBody(res: Response): Promise<string> {
+/**
+ * Best-effort body read. Reports ONLY whether the read COMPLETED — not why it
+ * didn't. A read that RESOLVED was, by definition, not cut short, so
+ * `completed: true` is returned EVEN when the controller's signal has since
+ * latched (a self-timeout that fires a hair after `res.text()` resolves must
+ * NOT discard a complete valid body). A read that THREW did not complete and
+ * yields `completed: false` regardless of the rejection's `err.name` — the
+ * SINGLE soft-vs-hard decision (abort vs real bad response) lives at the call
+ * site (`abortOutcome`), keyed on the LOCAL `externallyAborted` flag, so a
+ * non-abort body error (decode error, `ERR_STREAM_PREMATURE_CLOSE`, connection
+ * reset) is classified by the same discriminator as the catch block — never by
+ * a re-read of the latched signal or `err.name` alone.
+ */
+async function safeReadBody(
+  res: Response,
+): Promise<{ text: string; completed: boolean }> {
   try {
-    return await res.text();
+    const text = await res.text();
+    return { text, completed: true };
   } catch {
-    return "";
+    return { text: "", completed: false };
   }
 }
 
-/** Returns null when the body is empty or JSON-parseable, else a reason. */
-async function verifyJsonBody(res: Response): Promise<string | null> {
-  const text = await safeReadBody(res);
-  if (!text) return null;
+/**
+ * Validate an `info` response body: it must be JSON carrying a non-empty
+ * `version`. Returns null on success, else a human-readable reason. A JSON
+ * body lacking `version` or an HTML page (parse failure) both fail.
+ */
+function verifyInfoVersion(body: string): string | null {
+  if (body.trim().length === 0) return "returned empty body (expected version)";
+  let parsed: unknown;
   try {
-    JSON.parse(text);
-    return null;
-  } catch (err) {
-    return err instanceof Error ? err.message : String(err);
+    parsed = JSON.parse(body);
+  } catch {
+    return "body is not JSON (expected info {version})";
   }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return "body is not a JSON object (expected info {version})";
+  }
+  const version = (parsed as Record<string, unknown>)["version"];
+  if (typeof version !== "string" || version.trim().length === 0) {
+    return "response missing a non-empty version field";
+  }
+  return null;
+}
+
+/**
+ * Validate a chat `agent/run` SSE body. A passing stream must satisfy ALL of:
+ *   - ≥1 `TEXT_MESSAGE_CONTENT`/`TEXT_MESSAGE_CHUNK` event with a non-empty
+ *     `delta` (the assistant produced text),
+ *   - a terminal `RUN_FINISHED` event (the run completed), AND
+ *   - NO `RUN_ERROR` anywhere in the stream (the run did not fail).
+ *
+ * Matching is on event SHAPE/CONTENT, never on the server-generated
+ * `messageId` (which is a `chatcmpl-<uuid>`). A `RUN_ERROR` stream, a 200
+ * stream with no text, or a stream that produced text but never reached
+ * `RUN_FINISHED` (e.g. a mid-run drop) all FAIL. Returns null on success,
+ * else a human-readable reason.
+ */
+function verifyChatStream(body: string): string | null {
+  if (body.trim().length === 0) return "returned an empty stream body";
+  const events = parseSseEvents(body);
+  let sawTextDelta = false;
+  let sawRunError = false;
+  let sawRunFinished = false;
+  for (const ev of events) {
+    if (ev.kind !== "json") continue;
+    const type = ev.payload["type"];
+    if (typeof type !== "string") continue;
+    if (type === RUN_ERROR_EVENT_TYPE) {
+      sawRunError = true;
+      continue;
+    }
+    if (type === RUN_FINISHED_EVENT_TYPE) {
+      sawRunFinished = true;
+      continue;
+    }
+    if (CHAT_TEXT_EVENT_TYPES.has(type)) {
+      const delta = ev.payload["delta"];
+      if (typeof delta === "string" && delta.length > 0) {
+        sawTextDelta = true;
+      }
+    }
+  }
+  // A RUN_ERROR fails the run regardless of any text that streamed before it.
+  if (sawRunError) {
+    return "stream emitted RUN_ERROR";
+  }
+  if (!sawTextDelta) {
+    return "stream carried no TEXT_MESSAGE_CONTENT/TEXT_MESSAGE_CHUNK with a non-empty delta";
+  }
+  if (!sawRunFinished) {
+    return "stream produced text but never reached a terminal RUN_FINISHED";
+  }
+  return null;
 }
 
 /** Default driver instance — registered by the orchestrator at boot. */
