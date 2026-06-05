@@ -11,6 +11,8 @@ doc_type: reference
 
 Threads are sorted by most recently updated first. The hook supports cursor-based pagination when a `limit` is provided.
 
+`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Managed Enterprise Intelligence provides those endpoints for durable thread metadata and realtime updates. Self-managed runner persistence, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can still persist and replay chat history, but it does not automatically provide the managed `useThreads` list/mutation/realtime contract.
+
 <OpsPlatformCTA
   variant="card"
   title="useThreads needs an Enterprise Intelligence Platform project"
@@ -132,6 +134,7 @@ function ThreadList() {
 ## Behavior
 
 - On mount, fetches the thread list and establishes a realtime WebSocket subscription.
+- If the runtime does not advertise thread endpoints, no `/threads` request is made and `error` explains that thread endpoints are unavailable.
 - Thread creates, renames, archives, and deletes from any client are reflected immediately without polling.
 - All mutation methods use **pessimistic updates** — the UI updates only after the server confirms the operation via WebSocket, not immediately on dispatch. Promises resolve on confirmation (15-second timeout) and reject on failure.
 - The `error` state updates with the most recent error from any operation.
@@ -143,4 +146,3 @@ function ThreadList() {
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **Step-by-step guide:** [Threads](/threads) — set up thread management in your app
 - **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
-

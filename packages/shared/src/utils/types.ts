@@ -31,6 +31,13 @@ export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }
 
+export interface ThreadEndpointRuntimeInfo {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+}
+
 export type RuntimeLicenseStatus =
   | "valid"
   | "none"
@@ -45,6 +52,7 @@ export interface RuntimeInfo {
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  threadEndpoints?: ThreadEndpointRuntimeInfo;
   a2uiEnabled?: boolean;
   openGenerativeUIEnabled?: boolean;
   licenseStatus?: RuntimeLicenseStatus;

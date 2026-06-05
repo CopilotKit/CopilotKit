@@ -674,6 +674,7 @@ export class ɵCpkThreadDetails extends LitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
@@ -701,6 +702,7 @@ export class ɵCpkThreadDetails extends LitElement {
   thread: ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
   /**
@@ -1456,7 +1458,7 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       if (!silent) this._conversation = [];
       return;
     }
@@ -1494,7 +1496,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchEvents(threadId: string): Promise<void> {
     this._eventsNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedEvents = null;
       return;
     }
@@ -1541,7 +1543,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchState(threadId: string): Promise<void> {
     this._stateNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedState = null;
       return;
     }
@@ -2585,12 +2587,14 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    if (core.threadEndpoints?.list !== true) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
       headers: {},
+      wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2639,8 +2643,12 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          for (const agentId of this._ownedThreadStores.keys()) {
-            this.refreshOwnedThreadStore(agentId);
+          if (core.threadEndpoints?.list === true) {
+            for (const agentId of this._ownedThreadStores.keys()) {
+              this.refreshOwnedThreadStore(agentId);
+            }
+          } else {
+            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -5811,6 +5819,9 @@ ${argsString}</pre
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
+                  .threadInspectionAvailable=${
+                    this._core?.threadEndpoints?.inspect === true
+                  }
                   .liveMessageVersion=${
                     this.selectedThreadId
                       ? (this.liveMessageVersion.get(this.selectedThreadId) ??
