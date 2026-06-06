@@ -11,6 +11,7 @@ import type {
   D5Script,
 } from "../helpers/d5-registry.js";
 import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
+import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
 import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
@@ -76,6 +77,23 @@ const inputSchema = z
     notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
+    /**
+     * D5-take-one scoping. When true, the computed `requestedFeatures`
+     * are filtered to ONLY the featureTypes present in the representatives
+     * map (`D5_REPRESENTATIVES`), so the driver runs one representative per
+     * feature category instead of the full D6 matrix. The D5 probe sets
+     * this so it runs under the D6 driver's EXACT conditions (same route,
+     * headers, conversation, pooled launcher) but on a single pill.
+     */
+    representativeOnly: z.boolean().optional(),
+    /**
+     * Dashboard row-key prefix. Threaded through every emitted PB row —
+     * per-cell side rows (`${rowPrefix}:${slug}/${ft}`) and the aggregate
+     * (`${rowPrefix}:${slug}`). Defaults to `"d6"`. The D5 probe sets
+     * `"d5"` so the dashboard's D5 column reads the same conditions the D6
+     * driver greens.
+     */
+    rowPrefix: z.enum(["d5", "d6"]).optional(),
   })
   .passthrough()
   .refine((v) => !!(v.backendUrl ?? v.publicUrl), {
@@ -193,6 +211,13 @@ export interface E2eFullDriverDeps {
   timeoutMs?: number;
   featureTimeoutMs?: number;
   scriptLoader?: E2eFullScriptLoader;
+  /**
+   * The representatives map consulted when an input sets
+   * `representativeOnly: true`. Defaults to `D5_REPRESENTATIVES`. Injectable
+   * so unit tests can narrow the set and exercise the filter
+   * discriminatingly (the live map covers every featureType).
+   */
+  representatives?: Readonly<Partial<Record<D5FeatureType, string>>>;
 }
 
 /**
@@ -520,6 +545,7 @@ export function createE2eFullDriver(
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
   const featureTimeoutMs = deps.featureTimeoutMs ?? DEFAULT_FEATURE_TIMEOUT_MS;
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
+  const representatives = deps.representatives ?? D5_REPRESENTATIVES;
 
   return {
     kind: "e2e_d6",
@@ -532,6 +558,10 @@ export function createE2eFullDriver(
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
 
+      // Dashboard row-key prefix. Defaults to "d6"; the D5 probe passes
+      // "d5" so its dashboard column reads the same run conditions.
+      const rowPrefix = input.rowPrefix ?? "d6";
+
       // Resolve the feature list. ALL features, not one-per-type.
       const featuresFromInput = input.features ?? [];
       const featureSource: readonly string[] =
@@ -539,7 +569,19 @@ export function createE2eFullDriver(
           ? featuresFromInput
           : demosToFeatureTypes(input.demos ?? []);
 
-      const requestedFeatures = featureSource.filter(isKnownFeatureType);
+      let requestedFeatures = featureSource.filter(isKnownFeatureType);
+
+      // D5-take-one scoping: when representativeOnly is set, narrow the
+      // matrix to ONLY the featureTypes that have a configured representative
+      // in the representatives map. This is what makes the D5 probe a
+      // single-representative-pill invocation of THIS driver — everything
+      // else (route, headers, conversation, pooled launcher) is byte-
+      // identical to a full D6 run.
+      if (input.representativeOnly) {
+        requestedFeatures = requestedFeatures.filter(
+          (ft) => representatives[ft] !== undefined,
+        );
+      }
 
       // NSF reclassification: features the integration's manifest
       // declares in `not_supported_features` are architecturally
@@ -577,7 +619,7 @@ export function createE2eFullDriver(
           },
           observedAt,
         };
-        await emitAggregate(ctx, slug, aggregateResult);
+        await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
         return aggregateResult;
       }
 
@@ -599,7 +641,7 @@ export function createE2eFullDriver(
 
             for (const ft of requestedFeatures) {
               await sideEmit(ctx, {
-                key: `d6:${slug}/${ft}`,
+                key: `${rowPrefix}:${slug}/${ft}`,
                 state: "green",
                 signal: {
                   slug,
@@ -626,7 +668,7 @@ export function createE2eFullDriver(
               },
               observedAt,
             };
-            await emitAggregate(ctx, slug, aggregateResult);
+            await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
             return aggregateResult;
           }
         }
@@ -731,14 +773,14 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
         for (const ft of missingScript) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "red",
             signal: {
               slug,
@@ -754,7 +796,7 @@ export function createE2eFullDriver(
         // Emit green side rows for filtered-by-trigger features.
         for (const ft of filteredByTrigger) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
             signal: {
               slug,
@@ -773,7 +815,7 @@ export function createE2eFullDriver(
         // as red, but the side-row carries the reason for auditability.
         for (const ft of incapableFeatures) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
             signal: {
               slug,
@@ -809,7 +851,7 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
@@ -837,7 +879,7 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
@@ -846,7 +888,7 @@ export function createE2eFullDriver(
         const browserRef: E2eFullBrowser = browser!;
 
         const featurePromises = runnable.map(async (ft) => {
-          const sideKey = `d6:${slug}/${ft}`;
+          const sideKey = `${rowPrefix}:${slug}/${ft}`;
           const script = D5_REGISTRY.get(ft)!;
           const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
             demos: input.demos,
@@ -1127,7 +1169,7 @@ export function createE2eFullDriver(
             featureErrors.push(`${ft}: ${errMsg}`);
             try {
               await sideEmit(ctx, {
-                key: `d6:${slug}/${ft}`,
+                key: `${rowPrefix}:${slug}/${ft}`,
                 state: "red",
                 signal: {
                   slug,
@@ -1179,7 +1221,7 @@ export function createE2eFullDriver(
         // or timed out, the dashboard's D6 column needs a `d6:<slug>` row
         // to display red (vs blank). Placed after the loop so per-feature
         // timeouts inside the loop can never skip it.
-        await emitAggregate(ctx, slug, aggregateResult);
+        await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
         return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
@@ -1530,23 +1572,25 @@ async function emitAggregate(
   ctx: ProbeContext,
   slug: string,
   result: ProbeResult<E2eFullAggregateSignal>,
+  rowPrefix: "d5" | "d6",
 ): Promise<void> {
+  const aggKey = `${rowPrefix}:${slug}`;
   if (!ctx.writer) {
     ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {
-      key: `d6:${slug}`,
+      key: aggKey,
     });
     return;
   }
   try {
     await ctx.writer.write({
-      key: `d6:${slug}`,
+      key: aggKey,
       state: result.state,
       signal: result.signal,
       observedAt: result.observedAt,
     });
   } catch (err) {
     ctx.logger.error("probe.e2e-full.aggregate-emit-failed", {
-      key: `d6:${slug}`,
+      key: aggKey,
       err: err instanceof Error ? err.message : String(err),
     });
   }

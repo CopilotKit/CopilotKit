@@ -896,4 +896,145 @@ describe("e2e-full per-feature retry signal isolation", () => {
     const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
     expect(aggRow?.state).toBe("green");
   }, 15_000);
+
+  // --- D5-take-one knobs ---------------------------------------------------
+  //
+  // The D5 probe is now a single-representative-pill invocation of THIS D6
+  // driver: `representativeOnly: true` filters requestedFeatures to only the
+  // featureTypes present in the representatives map, and `rowPrefix: "d5"`
+  // threads the `d5:` dashboard key prefix through every emitted row so the
+  // dashboard's D5 column lights up under D6's exact run conditions.
+  describe("representativeOnly", () => {
+    it("runs only featureTypes present in the representatives map", async () => {
+      // Inject a narrow representatives set so the filter is discriminating:
+      // only `agentic-chat` is a representative; `tool-rendering` is not.
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+        representativeOnly: true,
+      });
+
+      expect(result.state).toBe("green");
+      const signal = result.signal as E2eFullAggregateSignal;
+      // Only the representative feature ran.
+      expect(signal.total).toBe(1);
+      expect(signal.passed).toBe(1);
+
+      // tool-rendering was filtered out — no row emitted for it at all.
+      const toolRow = sideEmits.find((r) => r.key.endsWith("/tool-rendering"));
+      expect(toolRow).toBeUndefined();
+    });
+
+    it("runs ALL featureTypes when representativeOnly is false/absent", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.total).toBe(2);
+    });
+  });
+
+  describe("rowPrefix", () => {
+    it("emits d5:<slug>/<ft> and d5:<slug> keys when rowPrefix is d5", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+        rowPrefix: "d5",
+      });
+
+      expect(result.state).toBe("green");
+
+      // Per-cell side row uses the d5: prefix.
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d5:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      expect(cellRow!.state).toBe("green");
+
+      // Aggregate row uses the d5: prefix.
+      const aggRow = sideEmits.find((r) => r.key === "d5:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+
+      // No d6: rows leaked.
+      const d6Rows = sideEmits.filter((r) => r.key.startsWith("d6:"));
+      expect(d6Rows).toEqual([]);
+    });
+
+    it("defaults to d6: prefix when rowPrefix is absent", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      await driver.run(makeCtx({ writer }), {
+        key: "d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d6:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+    });
+  });
 });
