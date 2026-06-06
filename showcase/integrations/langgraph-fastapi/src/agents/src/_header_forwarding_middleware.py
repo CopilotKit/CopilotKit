@@ -39,6 +39,7 @@ does, without introducing any new forwarding source.
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Awaitable, Callable, Dict
 
 from langchain.agents.middleware import (
@@ -123,6 +124,31 @@ def _instrument_and_breadcrumb() -> None:
         isinstance(headers.get("x-aimock-context"), str)
         and len(headers.get("x-aimock-context", "")) > 0
     )
+
+    # UNGATED diagnostic stamp: record the thread name + forwarded-context
+    # state onto the SAME ContextVar copilotkit's httpx hook forwards from,
+    # independent of the x-aimock-context gate below. Fires even when
+    # x-aimock-context is ABSENT -- so the dropping calls reaching aimock
+    # WITHOUT context still carry x-diag-probe and reveal which thread they
+    # ran on and whether get_forwarded_headers() was populated here.
+    #
+    # NOTE: this backend has no in-repo httpx inject hook (it reuses
+    # copilotkit's _ensure_httpx_hook), so the thread captured here is the
+    # middleware (wrap_model_call) thread, NOT the outbound-request thread.
+    # That is still the datapoint of interest: the hypothesis is that the
+    # native-tool call runs this middleware on a context-losing thread.
+    # Written back via set_forwarded_headers so it rides the outbound call
+    # even on the no-context return path. Never throws.
+    try:
+        ctx = "present" if has_context else "EMPTY"
+        key_count = len(headers)
+        headers["x-diag-probe"] = (
+            f"thread={threading.current_thread().name};"
+            f"ctx={ctx};keys={key_count}"
+        )
+        set_forwarded_headers(headers)
+    except Exception:  # pragma: no cover - diagnostic must never break a call
+        pass
 
     if has_context:
         _cvdiag("configurable-read", headers, "ok")

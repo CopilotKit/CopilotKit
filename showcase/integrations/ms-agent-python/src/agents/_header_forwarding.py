@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import threading
 import warnings
 from typing import Any, Dict, Optional
 
@@ -192,6 +193,31 @@ def _is_async_httpx_target(target: Any) -> bool:
     return False
 
 
+def _stamp_diag_probe(request: Any, headers: Dict[str, str]) -> None:
+    """UNGATED diagnostic stamp: record the thread name + forwarded-context
+    state onto EVERY outbound request, independent of the x-aimock-context
+    gate below.
+
+    This exists purely to localize the native-tool context-loss bug: the
+    aimock journal records all inbound headers, so stamping
+    ``x-diag-probe`` here makes the dropping calls (those reaching aimock
+    WITHOUT x-aimock-context) reveal which thread they ran on and whether
+    ``get_forwarded_headers()`` was populated at hook time. Fires even when
+    x-aimock-context is ABSENT -- that is the whole point.
+
+    Never throws: any failure skips the stamp and leaves the request
+    otherwise untouched.
+    """
+    try:
+        ctx = "present" if _AIMOCK_CONTEXT_HEADER in headers else "EMPTY"
+        request.headers["x-diag-probe"] = (
+            f"thread={threading.current_thread().name};"
+            f"ctx={ctx};keys={len(headers)}"
+        )
+    except Exception:  # pragma: no cover - diagnostic must never break a call
+        pass
+
+
 def _inject_diag_hop(request: Any, headers: Dict[str, str]) -> None:
     """Append this backend's hop tag to ``x-diag-hops`` on the outbound
     request and emit the ``outbound-llm`` CVDIAG breadcrumb.
@@ -265,6 +291,7 @@ def install_httpx_hook(client: Any) -> None:
             headers = get_forwarded_headers()
             for key, value in headers.items():
                 request.headers[key] = value
+            _stamp_diag_probe(request, headers)
             _inject_diag_hop(request, headers)
 
         setattr(_inject_headers_async, _HOOK_MARKER, True)
@@ -275,6 +302,7 @@ def install_httpx_hook(client: Any) -> None:
             headers = get_forwarded_headers()
             for key, value in headers.items():
                 request.headers[key] = value
+            _stamp_diag_probe(request, headers)
             _inject_diag_hop(request, headers)
 
         setattr(_inject_headers, _HOOK_MARKER, True)
