@@ -1,0 +1,466 @@
+{
+  "aimock": {
+    "prod": {
+      "instanceId": "5801d8be-5ad9-4eff-9c9c-7be61d9a023e",
+      "domain": "showcase-aimock-production.up.railway.app",
+      "probe": true,
+      "driver": "aimock",
+      "repoName": "showcase-aimock"
+    },
+    "staging": {
+      "instanceId": "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
+      "domain": "aimock-staging.up.railway.app",
+      "probe": true,
+      "driver": "aimock",
+      "repoName": "showcase-aimock"
+    }
+  },
+  "dashboard": {
+    "prod": {
+      "instanceId": "e68f98fa-b2ef-41cc-82f6-2ed6f9533bf3",
+      "domain": "dashboard.showcase.copilotkit.ai",
+      "probe": true,
+      "driver": "dashboard",
+      "repoName": "showcase-shell-dashboard"
+    },
+    "staging": {
+      "instanceId": "aea7332e-17a0-4fab-921c-ed5baad2a6f2",
+      "domain": "dashboard.showcase.staging.copilotkit.ai",
+      "probe": true,
+      "driver": "dashboard",
+      "repoName": "showcase-shell-dashboard"
+    }
+  },
+  "docs": {
+    "prod": {
+      "instanceId": "b15564fc-f832-49b3-82df-fd36f298fe96",
+      "domain": "docs.copilotkit.ai",
+      "probe": true,
+      "driver": "docs",
+      "repoName": "showcase-shell-docs"
+    },
+    "staging": {
+      "instanceId": "d5caa51d-73ee-4669-bfea-d87bf1488b02",
+      "domain": "docs.staging.copilotkit.ai",
+      "probe": true,
+      "driver": "docs",
+      "repoName": "showcase-shell-docs"
+    }
+  },
+  "dojo": {
+    "prod": {
+      "instanceId": "2ee4f2aa-11ec-4426-9a4a-41a1ad04f16d",
+      "domain": "dojo.showcase.copilotkit.ai",
+      "probe": true,
+      "driver": "dojo",
+      "repoName": "showcase-shell-dojo"
+    },
+    "staging": {
+      "instanceId": "1284d717-0ff5-432c-9326-fab12661df61",
+      "domain": "dojo.showcase.staging.copilotkit.ai",
+      "probe": true,
+      "driver": "dojo",
+      "repoName": "showcase-shell-dojo"
+    }
+  },
+  "harness": {
+    "prod": {
+      "instanceId": "05fbcdf2-8a50-4b71-b4f6-c92c4b17e626",
+      "domain": "showcase-harness-production.up.railway.app",
+      "probe": true,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    },
+    "staging": {
+      "instanceId": "0811f68f-fac4-440e-a350-3a7ca5855b80",
+      "domain": "harness-staging-2ee4.up.railway.app",
+      "probe": true,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    }
+  },
+  "harness-legacy": {
+    "prod": {
+      "instanceId": "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
+      "domain": "showcase-harness-production.up.railway.app",
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    },
+    "staging": {
+      "instanceId": "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
+      "domain": "harness-staging-2ee4.up.railway.app",
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    }
+  },
+  "pocketbase": {
+    "prod": {
+      "instanceId": "1ee376e2-13f2-4464-801e-d0aa0bf76532",
+      "domain": "showcase-pocketbase-production.up.railway.app",
+      "probe": true,
+      "driver": "pocketbase",
+      "repoName": "showcase-pocketbase"
+    },
+    "staging": {
+      "instanceId": "0bc7db7b-5a43-4b33-af46-d07fb53c8610",
+      "domain": "pocketbase-staging-eec0.up.railway.app",
+      "probe": true,
+      "driver": "pocketbase",
+      "repoName": "showcase-pocketbase"
+    }
+  },
+  "shell": {
+    "prod": {
+      "instanceId": "01614ccf-e109-4b30-b41b-7c5551c0a34c",
+      "domain": "showcase.copilotkit.ai",
+      "probe": true,
+      "driver": "shell",
+      "repoName": "showcase-shell"
+    },
+    "staging": {
+      "instanceId": "25b7de41-188c-4f2e-ac07-538212eaeb91",
+      "domain": "showcase.staging.copilotkit.ai",
+      "probe": true,
+      "driver": "shell",
+      "repoName": "showcase-shell"
+    }
+  },
+  "showcase-ag2": {
+    "prod": {
+      "instanceId": "de571c97-03fd-486b-8a54-9767a4a53f95",
+      "domain": "showcase-ag2-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ag2"
+    },
+    "staging": {
+      "instanceId": "ecaf81b3-93a8-4862-92b6-04a016b634ed",
+      "domain": "showcase-ag2-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ag2"
+    }
+  },
+  "showcase-agno": {
+    "prod": {
+      "instanceId": "026d12fb-2844-42af-8f92-b47bc8a06bc8",
+      "domain": "showcase-agno-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-agno"
+    },
+    "staging": {
+      "instanceId": "68964ab6-75ca-4095-a64a-52cacfb684f5",
+      "domain": "showcase-agno-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-agno"
+    }
+  },
+  "showcase-built-in-agent": {
+    "prod": {
+      "instanceId": "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
+      "domain": "showcase-built-in-agent-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-built-in-agent"
+    },
+    "staging": {
+      "instanceId": "b89ae7b3-01cc-4ed4-aca6-23aaa63cd59e",
+      "domain": "showcase-built-in-agent-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-built-in-agent"
+    }
+  },
+  "showcase-claude-sdk-python": {
+    "prod": {
+      "instanceId": "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
+      "domain": "showcase-claude-sdk-python-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-claude-sdk-python"
+    },
+    "staging": {
+      "instanceId": "1ef25aec-5fbd-40b9-8685-57c2681bd45d",
+      "domain": "showcase-claude-sdk-python-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-claude-sdk-python"
+    }
+  },
+  "showcase-claude-sdk-typescript": {
+    "prod": {
+      "instanceId": "bee425e4-9661-4a88-8888-922b8cd4b61d",
+      "domain": "showcase-claude-sdk-typescript-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-claude-sdk-typescript"
+    },
+    "staging": {
+      "instanceId": "92305747-2f55-4122-aad4-882e989558ab",
+      "domain": "showcase-claude-sdk-typescript-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-claude-sdk-typescript"
+    }
+  },
+  "showcase-crewai-crews": {
+    "prod": {
+      "instanceId": "3dab0cc3-cab1-4579-b772-947268088514",
+      "domain": "showcase-crewai-crews-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-crewai-crews"
+    },
+    "staging": {
+      "instanceId": "88c2a14f-435b-499e-a811-ee4f4be18fd8",
+      "domain": "showcase-crewai-crews-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-crewai-crews"
+    }
+  },
+  "showcase-google-adk": {
+    "prod": {
+      "instanceId": "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
+      "domain": "showcase-google-adk-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-google-adk"
+    },
+    "staging": {
+      "instanceId": "7efe2fa0-fa78-4585-bc4c-6d39c326e6d1",
+      "domain": "showcase-google-adk-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-google-adk"
+    }
+  },
+  "showcase-harness-worker": {
+    "prod": {
+      "instanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "domain": "showcase-harness-production.up.railway.app",
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    },
+    "staging": {
+      "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+      "domain": "harness-staging-2ee4.up.railway.app",
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    }
+  },
+  "showcase-langgraph-fastapi": {
+    "prod": {
+      "instanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
+      "domain": "showcase-langgraph-fastapi-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-fastapi"
+    },
+    "staging": {
+      "instanceId": "7899afe0-141b-4217-8dbb-5907813231dc",
+      "domain": "showcase-langgraph-fastapi-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-fastapi"
+    }
+  },
+  "showcase-langgraph-python": {
+    "prod": {
+      "instanceId": "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
+      "domain": "showcase-langgraph-python-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-python"
+    },
+    "staging": {
+      "instanceId": "04d29664-a776-4670-9db3-b1d18bce1669",
+      "domain": "showcase-langgraph-python-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-python"
+    }
+  },
+  "showcase-langgraph-typescript": {
+    "prod": {
+      "instanceId": "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
+      "domain": "showcase-langgraph-typescript-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-typescript"
+    },
+    "staging": {
+      "instanceId": "481ab37f-da8a-4015-bd88-2b28d9eb261a",
+      "domain": "showcase-langgraph-typescript-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langgraph-typescript"
+    }
+  },
+  "showcase-langroid": {
+    "prod": {
+      "instanceId": "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
+      "domain": "showcase-langroid-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langroid"
+    },
+    "staging": {
+      "instanceId": "a213f7d9-2117-4944-988b-05e68d819dd5",
+      "domain": "showcase-langroid-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-langroid"
+    }
+  },
+  "showcase-llamaindex": {
+    "prod": {
+      "instanceId": "b778856e-9f90-4136-9415-fb2b41173f8d",
+      "domain": "showcase-llamaindex-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-llamaindex"
+    },
+    "staging": {
+      "instanceId": "17899ea7-355c-43f2-a152-28cb0b7fa864",
+      "domain": "showcase-llamaindex-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-llamaindex"
+    }
+  },
+  "showcase-mastra": {
+    "prod": {
+      "instanceId": "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
+      "domain": "showcase-mastra-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-mastra"
+    },
+    "staging": {
+      "instanceId": "eec22411-aab5-47a1-8f5b-d097e233d7f8",
+      "domain": "showcase-mastra-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-mastra"
+    }
+  },
+  "showcase-ms-agent-dotnet": {
+    "prod": {
+      "instanceId": "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
+      "domain": "showcase-ms-agent-dotnet-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-dotnet"
+    },
+    "staging": {
+      "instanceId": "9826bc58-c472-41e6-b050-29249d4b2a52",
+      "domain": "showcase-ms-agent-dotnet-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-dotnet"
+    }
+  },
+  "showcase-ms-agent-harness-dotnet": {
+    "prod": {
+      "instanceId": "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
+      "domain": "showcase-ms-agent-harness-dotnet-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-harness-dotnet"
+    },
+    "staging": {
+      "instanceId": "6b0fe181-9156-4a40-9e44-90befe09833a",
+      "domain": "showcase-ms-agent-harness-dotnet-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-harness-dotnet"
+    }
+  },
+  "showcase-ms-agent-python": {
+    "prod": {
+      "instanceId": "323ed911-4d28-45ab-8fc0-7d151828b938",
+      "domain": "showcase-ms-agent-python-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-python"
+    },
+    "staging": {
+      "instanceId": "741725ce-5fa1-4327-aff5-53dcc000c29c",
+      "domain": "showcase-ms-agent-python-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-ms-agent-python"
+    }
+  },
+  "showcase-pydantic-ai": {
+    "prod": {
+      "instanceId": "192cd647-6824-4f01-937a-1da675d83805",
+      "domain": "showcase-pydantic-ai-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-pydantic-ai"
+    },
+    "staging": {
+      "instanceId": "6edf5ca5-6a56-4d28-92c3-2a3360c735db",
+      "domain": "showcase-pydantic-ai-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-pydantic-ai"
+    }
+  },
+  "showcase-spring-ai": {
+    "prod": {
+      "instanceId": "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
+      "domain": "showcase-spring-ai-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-spring-ai"
+    },
+    "staging": {
+      "instanceId": "189ac76f-bd77-45c0-9c45-3853dae763cc",
+      "domain": "showcase-spring-ai-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-spring-ai"
+    }
+  },
+  "showcase-strands": {
+    "prod": {
+      "instanceId": "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
+      "domain": "showcase-strands-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands"
+    },
+    "staging": {
+      "instanceId": "f8a9d2ed-50ec-4f06-85d6-230baced8471",
+      "domain": "showcase-strands-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands"
+    }
+  },
+  "webhooks": {
+    "prod": {
+      "instanceId": "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
+      "domain": "hooks.showcase.copilotkit.ai",
+      "probe": true,
+      "driver": "webhooks",
+      "repoName": "showcase-eval-webhook"
+    },
+    "staging": {
+      "instanceId": "450e87e0-aba5-4aba-afaf-15f4deab03f0",
+      "domain": "hooks.showcase.staging.copilotkit.ai",
+      "probe": true,
+      "driver": "webhooks",
+      "repoName": "showcase-eval-webhook"
+    }
+  }
+}
