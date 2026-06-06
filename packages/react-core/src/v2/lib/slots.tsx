@@ -125,6 +125,22 @@ function renderSlotElement(
 
   // If slot is a plain object (not a React element), treat it as props override
   if (slot && typeof slot === "object" && !React.isValidElement(slot)) {
+    const slotKeys = Object.keys(slot);
+    const defaultPropKeys = Object.keys(props);
+    const recognizedKeys = new Set([...defaultPropKeys, "className", "style", "children", "id"]);
+    const hasValidKeys =
+      slotKeys.length === 0 || slotKeys.some((key) => recognizedKeys.has(key));
+
+    if (!hasValidKeys) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[CopilotKit] Slot received a plain object with unrecognized keys: [${slotKeys.join(", ")}]. ` +
+            `Expected a React element, component, string, or partial props object. Falling back to defaults.`,
+        );
+      }
+      return React.createElement(DefaultComponent, props);
+    }
+
     return React.createElement(DefaultComponent, {
       ...props,
       ...slot,
