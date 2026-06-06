@@ -59,8 +59,9 @@ export const E2E_SMOKE_DRIVER_KIND: DriverKind = "e2e_smoke";
 /**
  * Build a per-service `PayloadToDriverInput` mapping. Re-hydrates the serialized
  * driver input from `payload.driverInputs`, defaulting `key` to the payload's
- * `probeKey`. This re-hydration is IDENTICAL across the browser driver families
- * (d6/d5/demos/smoke): each driver serializes a `{ key, backendUrl, … }`-shaped
+ * `probeKey`. This re-hydration is IDENTICAL across the three browser driver
+ * families (e2e_d6/e2e_demos/e2e_smoke): each driver serializes a
+ * `{ key, backendUrl, … }`-shaped
  * object into `driverInputs`, and each driver's OWN zod schema is the validation
  * gate inside `driver.run` (a malformed input fails LOUD there, surfaced by the
  * loop as a terminal result). So one shared mapper serves every kind — every

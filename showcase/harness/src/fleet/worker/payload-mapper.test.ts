@@ -80,7 +80,7 @@ describe("driver-kind constants", () => {
 });
 
 describe("shared payload mapper", () => {
-  // The four browser driver families share the SAME re-hydration logic (each
+  // The three browser driver families share the SAME re-hydration logic (each
   // serializes a `{ key, backendUrl, … }` object and validates via its own zod
   // schema), so every registry entry wires the single `createPayloadToInput`.
   // `createD6PayloadToInput` is retained as a back-compat alias of it.
