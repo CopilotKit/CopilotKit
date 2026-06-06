@@ -98,16 +98,22 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
-      prodInstanceId: "11111111-1111-1111-1111-111111111111",
-      stagingInstanceId: "22222222-2222-2222-2222-222222222222",
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
-      domains: {
-        staging: "transient-third-party-relay-staging.up.railway.app",
-        prod: "transient-third-party-relay-production.up.railway.app",
+      probeDriver: "agent",
+      environments: {
+        prod: {
+          instanceId: "11111111-1111-1111-1111-111111111111",
+          domain: "transient-third-party-relay-production.up.railway.app",
+          probe: false,
+        },
+        staging: {
+          instanceId: "22222222-2222-2222-2222-222222222222",
+          domain: "transient-third-party-relay-staging.up.railway.app",
+          probe: false,
+        },
       },
-      probe: { staging: false, prod: false, driver: "agent" },
     };
     try {
       const railway = new Set<string>([sentinel, "showcase-mastra"]);
@@ -259,10 +265,10 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
       expect(repoNameFor(serviceKey, "staging")).toBe(expectedRepo);
     });
 
-    it(`carries the repoNameOverride directly on the SERVICES entry for ${serviceKey}`, () => {
+    it(`carries the per-env repoName directly on the SERVICES entry for ${serviceKey}`, () => {
       const entry = SERVICES[serviceKey];
-      expect(entry.repoNameOverride?.prod).toBe(expectedRepo);
-      expect(entry.repoNameOverride?.staging).toBe(expectedRepo);
+      expect(entry.environments.prod.repoName).toBe(expectedRepo);
+      expect(entry.environments.staging.repoName).toBe(expectedRepo);
     });
   }
 

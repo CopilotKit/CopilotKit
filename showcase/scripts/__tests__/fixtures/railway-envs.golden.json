@@ -82,14 +82,14 @@
   "harness-legacy": {
     "prod": {
       "instanceId": "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
-      "domain": "showcase-harness-production.up.railway.app",
+      "domain": null,
       "probe": false,
       "driver": "harness",
       "repoName": "showcase-harness"
     },
     "staging": {
       "instanceId": "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-      "domain": "harness-staging-2ee4.up.railway.app",
+      "domain": null,
       "probe": false,
       "driver": "harness",
       "repoName": "showcase-harness"
@@ -240,16 +240,9 @@
     }
   },
   "showcase-harness-worker": {
-    "prod": {
-      "instanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-      "domain": "showcase-harness-production.up.railway.app",
-      "probe": false,
-      "driver": "harness",
-      "repoName": "showcase-harness"
-    },
     "staging": {
       "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
-      "domain": "harness-staging-2ee4.up.railway.app",
+      "domain": null,
       "probe": false,
       "driver": "harness",
       "repoName": "showcase-harness"

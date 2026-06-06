@@ -12,7 +12,7 @@
  * are appropriate; aimock is not used here.
  */
 import { describe, expect, it, vi } from "vitest";
-import { SERVICES } from "../railway-envs";
+import { SERVICES, domainFor } from "../railway-envs";
 import type { ProbeTarget } from "../verify-deploy";
 // Tests construct `ProbeTarget.host` via `asHost(...)` to satisfy the
 // `Host` brand — the same validator the runtime ingress uses.
@@ -181,7 +181,7 @@ describe("envForTarget", () => {
   it("returns 'staging' when host matches the SSOT staging domain", () => {
     const t: ProbeTarget = {
       name: "docs",
-      host: asHost(SERVICES.docs.domains.staging),
+      host: asHost(domainFor("docs", "staging")),
       driver: "docs",
     };
     expect(envForTarget(t)).toBe("staging");
@@ -190,7 +190,7 @@ describe("envForTarget", () => {
   it("returns 'prod' when host matches the SSOT prod domain", () => {
     const t: ProbeTarget = {
       name: "docs",
-      host: asHost(SERVICES.docs.domains.prod),
+      host: asHost(domainFor("docs", "prod")),
       driver: "docs",
     };
     expect(envForTarget(t)).toBe("prod");
@@ -479,7 +479,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: asHost(SERVICES.docs.domains.staging),
+        host: asHost(domainFor("docs", "staging")),
         driver: "docs",
       },
       {
@@ -512,7 +512,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: asHost(SERVICES.docs.domains.staging),
+        host: asHost(domainFor("docs", "staging")),
         driver: "docs",
       },
       {
@@ -536,7 +536,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: asHost(SERVICES.docs.domains.staging),
+        host: asHost(domainFor("docs", "staging")),
         driver: "docs",
       },
       {
@@ -558,7 +558,7 @@ describe("probeBaseline", () => {
     const out = await probeBaseline(
       {
         name: "docs",
-        host: asHost(SERVICES.docs.domains.staging),
+        host: asHost(domainFor("docs", "staging")),
         driver: "docs",
       },
       {
@@ -713,7 +713,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: asHost(entry.domains.staging),
+          host: asHost(domainFor(service, "staging")),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(true);
@@ -738,7 +738,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         await driver({
           name: service,
-          host: asHost(entry.domains.prod),
+          host: asHost(domainFor(service, "prod")),
           driver: label as ProbeTarget["driver"],
         });
       });
@@ -751,7 +751,7 @@ describe.each(DRIVER_CASES)(
       const expectedHealthCount = label === "dashboard" ? 2 : 1;
       expect(healthUrls).toHaveLength(expectedHealthCount);
       for (const u of healthUrls) {
-        expect(u).toBe(`https://${entry.domains.prod}${expectedHealthPath}`);
+        expect(u).toBe(`https://${domainFor(service, "prod")}${expectedHealthPath}`);
       }
     });
 
@@ -769,7 +769,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         await driver({
           name: service,
-          host: asHost(entry.domains.staging),
+          host: asHost(domainFor(service, "staging")),
           driver: label as ProbeTarget["driver"],
         });
       });
@@ -787,7 +787,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: asHost(entry.domains.staging),
+          host: asHost(domainFor(service, "staging")),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(false);
@@ -806,7 +806,7 @@ describe.each(DRIVER_CASES)(
       await withGlobalSeam(fetchImpl, TOKEN, async () => {
         const out = await driver({
           name: service,
-          host: asHost(entry.domains.staging),
+          host: asHost(domainFor(service, "staging")),
           driver: label as ProbeTarget["driver"],
         });
         expect(out.ok).toBe(false);
@@ -844,10 +844,9 @@ describe("probeDashboard runtime-config sentinel guard", () => {
     });
   }
 
-  const entry = SERVICES.dashboard;
   const target: ProbeTarget = {
     name: "dashboard",
-    host: asHost(entry.domains.prod),
+    host: asHost(domainFor("dashboard", "prod")),
     driver: "dashboard",
   };
 

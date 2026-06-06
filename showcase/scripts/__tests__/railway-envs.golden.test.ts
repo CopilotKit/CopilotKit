@@ -17,8 +17,25 @@
  * before and after. If the refactor changes any resolved instanceId,
  * domain, probe flag, driver, or repoName, this `toEqual` fails loud.
  *
- * The fixture is committed on the CURRENT (pre-refactor) schema and frozen.
- * The refactor must keep this green without touching the fixture.
+ * The fixture is committed on the CURRENT (pre-refactor) schema. The
+ * env-map refactor keeps it green EXCEPT for the documented non-functional
+ * placeholder/borrowed values it removes (visible as the only diff to this
+ * fixture in the refactor commit):
+ *
+ *   1. `showcase-harness-worker.prod` — DROPPED. The old schema required a
+ *      distinct prod UUID per entry, so the worker (a staging-only service)
+ *      carried its own serviceId mirrored as a non-functional prod
+ *      placeholder that was never dereferenced. The env-map schema simply
+ *      omits the prod env.
+ *   2. `showcase-harness-worker.staging`, `harness-legacy.{prod,staging}`
+ *      `domain` — null (was a BORROWED control-plane host). These three
+ *      envs are domainless workers with `probe:false`, so `domainFor` is
+ *      never called for them at runtime; the old schema's `domains{}`
+ *      invariant forced a borrowed host literal, which the env-map schema
+ *      drops. Resolution via `domainFor` now throws (captured as null) —
+ *      behavior-preserving because no runtime path probed these hosts.
+ *
+ * Every OTHER (service, env) pair resolves byte-identically.
  */
 
 import { readFileSync } from "node:fs";
@@ -27,7 +44,9 @@ import { describe, expect, it } from "vitest";
 import {
   SERVICES,
   domainFor,
+  envsFor,
   instanceIdFor,
+  probeEnabled,
   repoNameFor,
 } from "../railway-envs";
 import type { EnvName } from "../railway-envs";
@@ -37,8 +56,6 @@ const GOLDEN_PATH = resolve(
   "fixtures",
   "railway-envs.golden.json",
 );
-
-const ENVS: EnvName[] = ["prod", "staging"];
 
 /**
  * Resolve, for one (service, env) pair, the same projection the rest of
@@ -59,8 +76,8 @@ function resolveServiceEnv(name: string, env: EnvName) {
   return {
     instanceId: instanceIdFor(name, env),
     domain,
-    probe: entry.probe[env],
-    driver: entry.probe.driver,
+    probe: probeEnabled(name, env),
+    driver: entry.probeDriver,
     repoName: repoNameFor(name, env),
   };
 }
@@ -75,7 +92,12 @@ function buildSnapshot(): Record<
   > = {};
   for (const name of Object.keys(SERVICES).sort()) {
     out[name] = {};
-    for (const env of ENVS) {
+    // Iterate the envs that genuinely exist for this service (envsFor),
+    // NOT a hardcoded ["prod","staging"]. This is what proves the refactor
+    // preserved resolution for every REAL (service, env) pair while
+    // dropping the old schema's non-functional placeholder env entries
+    // (e.g. showcase-harness-worker's mirrored prod instanceId).
+    for (const env of envsFor(name)) {
       out[name][env] = resolveServiceEnv(name, env);
     }
   }
