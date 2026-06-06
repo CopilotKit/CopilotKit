@@ -80,7 +80,9 @@ const Heading = ({
     "3": "text-[14px] font-semibold leading-tight",
   } as const;
   return (
-    <Tag className={clsx(sizes[level], "text-[var(--ink)] font-display m-0")}>
+    <Tag
+      className={clsx(sizes[level], "text-[var(--ink)] font-display m-0")}
+    >
       {props.text}
     </Tag>
   );

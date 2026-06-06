@@ -11,9 +11,9 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { SiteNav } from "@/components/SiteNav";
+import { Split } from "@/components/Split";
 import { StockCard } from "@/components/StockCard";
-import { STOCKS, getStock } from "@/lib/stocks";
-import type { Stock } from "@/lib/stocks";
+import { STOCKS, getStock, type Stock } from "@/lib/stocks";
 
 type Mode = "in-chat" | "split";
 
@@ -30,6 +30,7 @@ export default function ControlledPage() {
     })),
   });
 
+  /* In-chat: useComponent renders the card inside the conversation. */
   useComponent({
     name: "showStock",
     description:
@@ -55,6 +56,11 @@ export default function ControlledPage() {
     followUp: false,
   });
 
+  /* In-app: useFrontendTool handler mutates page state. The card
+     renders in the workspace panel, not in the chat. We also pass a
+     small `render` so the chat shows a one-line confirmation log when
+     the agent calls the tool — so the reader can see "this is a tool
+     call" the same way A2UI surfaces show a tool log. */
   useFrontendTool({
     name: "pinStock",
     description:
@@ -124,7 +130,7 @@ export default function ControlledPage() {
         onMode={setMode}
       />
 
-      <main className="flex-1 max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
+      <main className="flex-1 flex flex-col max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
         {mode === "in-chat" ? (
           <SingleChat />
         ) : (
@@ -142,7 +148,7 @@ export default function ControlledPage() {
 
 function SingleChat() {
   return (
-    <div className="h-full min-h-0 max-w-[860px] mx-auto">
+    <div className="flex-1 min-h-0 w-full max-w-[860px] mx-auto">
       <ChromePanel
         caption="Chat"
         hint={
@@ -151,13 +157,15 @@ function SingleChat() {
           </>
         }
       >
-        <CopilotChat
-          agentId="controlled"
-          labels={{
-            chatInputPlaceholder: "Try: show me NVDA",
-            welcomeMessageText: "How can I help?",
-          }}
-        />
+        <div className="h-full flex flex-col copilot-chat-wrapper">
+          <CopilotChat
+            agentId="controlled"
+            labels={{
+              chatInputPlaceholder: "Try: show me NVDA",
+              welcomeMessageText: "How can I help?",
+            }}
+          />
+        </div>
       </ChromePanel>
     </div>
   );
@@ -171,52 +179,60 @@ function SplitView({
   onRemove: (ticker: string) => void;
 }) {
   return (
-    <div className="grid lg:grid-cols-[420px_1fr] gap-4 h-full min-h-0">
-      <ChromePanel
-        caption="Chat"
-        hint={
-          <>
-            Try <Try>show me NVDA</Try>
-          </>
-        }
-      >
-        <CopilotChat
-          agentId="controlled"
-          labels={{
-            chatInputPlaceholder: "Try: pin TSLA to my workspace",
-            welcomeMessageText: "How can I help?",
-          }}
-        />
-      </ChromePanel>
-
-      <ChromePanel
-        caption="Side panel"
-        hint={
-          <>
-            Try <Try>pin NVDA</Try> · <Try>clear the workspace</Try>
-          </>
-        }
-      >
-        <div className="flex-1 overflow-y-auto p-5">
-          {pinned.length === 0 ? (
-            <EmptyState
-              title="Nothing pinned yet"
-              body="Ask the agent to pin a ticker. Cards land here, not in chat."
+    <Split
+      persistKey="ads-controlled-split"
+      initialLeftFraction={0.36}
+      minFraction={0.25}
+      left={
+        <ChromePanel
+          caption="Chat"
+          hint={
+            <>
+              Try <Try>show me NVDA</Try>
+            </>
+          }
+        >
+          <div className="h-full flex flex-col copilot-chat-wrapper">
+            <CopilotChat
+              agentId="controlled"
+              labels={{
+                chatInputPlaceholder: "Try: pin TSLA to my workspace",
+                welcomeMessageText: "How can I help?",
+              }}
             />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pinned.map((s) => (
-                <RemovableCard
-                  key={s.ticker}
-                  stock={s}
-                  onRemove={() => onRemove(s.ticker)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </ChromePanel>
-    </div>
+          </div>
+        </ChromePanel>
+      }
+      right={
+        <ChromePanel
+          caption="Side panel"
+          hint={
+            <>
+              Try <Try>pin NVDA</Try> · <Try>clear the workspace</Try>
+            </>
+          }
+        >
+          <div className="flex-1 overflow-y-auto p-5">
+            {pinned.length === 0 ? (
+              <EmptyState
+                title="Nothing pinned yet"
+                body="Ask the agent to pin a ticker. Cards land here, not in chat."
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {pinned.map((s) => (
+                  <RemovableCard
+                    key={s.ticker}
+                    stock={s}
+                    onRemove={() => onRemove(s.ticker)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </ChromePanel>
+      }
+    />
   );
 }
 
@@ -241,6 +257,8 @@ function RemovableCard({
     </div>
   );
 }
+
+/* ----- shared chrome (used by /controlled, /declarative, /open) ---- */
 
 export function PageHeader({
   title,
@@ -348,7 +366,13 @@ export function Try({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body: string }) {
+export function EmptyState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
   return (
     <div className="h-full flex items-center justify-center text-center px-6">
       <div className="max-w-[320px] flex flex-col items-center gap-2">

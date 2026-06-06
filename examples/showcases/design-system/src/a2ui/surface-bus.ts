@@ -1,3 +1,8 @@
+/**
+ * Tiny pub/sub that mirrors A2UI ops from the chat's activity stream into
+ * the workspace canvas. The chat and the canvas live in different React
+ * subtrees; the bus passes ops between them without coupling contexts.
+ */
 export type A2UIOp = Record<string, unknown> & { version?: string };
 
 type Snapshot = {

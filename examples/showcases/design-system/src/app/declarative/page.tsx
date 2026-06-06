@@ -7,6 +7,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { SiteNav } from "@/components/SiteNav";
+import { Split } from "@/components/Split";
 import { SurfaceCanvas } from "@/a2ui/SurfaceCanvas";
 import {
   ChromePanel,
@@ -36,9 +37,7 @@ function MessagesDebug() {
           "type=",
           (m as { activityType?: string }).activityType,
           "content keys=",
-          Object.keys(
-            (m as { content?: Record<string, unknown> }).content ?? {},
-          ),
+          Object.keys((m as { content?: Record<string, unknown> }).content ?? {}),
           "raw=",
           m,
         );
@@ -80,7 +79,7 @@ export default function DeclarativePage() {
         onMode={setMode}
       />
 
-      <main className="flex-1 max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
+      <main className="flex-1 flex flex-col max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
         {mode === "in-chat" ? <SingleChat /> : <SplitView />}
       </main>
     </div>
@@ -89,7 +88,7 @@ export default function DeclarativePage() {
 
 function SingleChat() {
   return (
-    <div className="h-full min-h-0 max-w-[860px] mx-auto">
+    <div className="flex-1 min-h-0 w-full max-w-[860px] mx-auto">
       <ChromePanel
         caption="Chat"
         hint={
@@ -98,13 +97,15 @@ function SingleChat() {
           </>
         }
       >
-        <CopilotChat
-          agentId="declarative"
-          labels={{
-            chatInputPlaceholder: "Try: compare AAPL, NVDA, and TSLA",
-            welcomeMessageText: "How can I help?",
-          }}
-        />
+        <div className="h-full flex flex-col copilot-chat-wrapper">
+          <CopilotChat
+            agentId="declarative"
+            labels={{
+              chatInputPlaceholder: "Try: compare AAPL, NVDA, and TSLA",
+              welcomeMessageText: "How can I help?",
+            }}
+          />
+        </div>
       </ChromePanel>
     </div>
   );
@@ -112,38 +113,46 @@ function SingleChat() {
 
 function SplitView() {
   return (
-    <div className="grid lg:grid-cols-[420px_1fr] gap-4 h-full min-h-0">
-      <ChromePanel
-        caption="Chat"
-        hint={
-          <>
-            Try <Try>show me MSFT</Try>
-          </>
-        }
-      >
-        <CopilotChat
-          agentId="declarative"
-          labels={{
-            chatInputPlaceholder: "Try: compare AAPL, NVDA, and TSLA",
-            welcomeMessageText: "How can I help?",
-          }}
-        />
-      </ChromePanel>
-
-      <ChromePanel
-        caption="Side panel"
-        hint="The same layout, rendered at full width next to the chat."
-      >
-        <SurfaceCanvas
-          channel="declarative"
-          emptyState={
-            <EmptyState
-              title="Side panel is empty"
-              body="Ask the agent to compare a few stocks. The dashboard appears here at full size."
-            />
+    <Split
+      persistKey="ads-declarative-split"
+      initialLeftFraction={0.36}
+      minFraction={0.25}
+      left={
+        <ChromePanel
+          caption="Chat"
+          hint={
+            <>
+              Try <Try>show me MSFT</Try>
+            </>
           }
-        />
-      </ChromePanel>
-    </div>
+        >
+          <div className="h-full flex flex-col copilot-chat-wrapper">
+            <CopilotChat
+              agentId="declarative"
+              labels={{
+                chatInputPlaceholder: "Try: compare AAPL, NVDA, and TSLA",
+                welcomeMessageText: "How can I help?",
+              }}
+            />
+          </div>
+        </ChromePanel>
+      }
+      right={
+        <ChromePanel
+          caption="Side panel"
+          hint="The same layout, rendered at full width next to the chat."
+        >
+          <SurfaceCanvas
+            channel="declarative"
+            emptyState={
+              <EmptyState
+                title="Side panel is empty"
+                body="Ask the agent to compare a few stocks. The dashboard appears here at full size."
+              />
+            }
+          />
+        </ChromePanel>
+      }
+    />
   );
 }

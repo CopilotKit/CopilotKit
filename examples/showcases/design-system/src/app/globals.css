@@ -1,7 +1,12 @@
 @import "tailwindcss";
 @import "@copilotkit/react-core/v2/styles.css";
 
-/* Theme A: CopilotKit-native */
+/* ============================================================
+   Theme A: CopilotKit-native — pure white surfaces, lilac/mint
+   accents, Plus Jakarta Sans, Spline Sans Mono.
+   Values are pulled directly from the verified CopilotKit brand
+   palette (see references/brand-rules.md in the branding skill).
+   ============================================================ */
 :root,
 [data-theme="copilotkit"] {
   --bg: #fafafc;
@@ -17,12 +22,12 @@
   --line: #dbdbe5;
   --line-2: #e9e9ef;
 
-  --accent: #bec2ff; /* lilac/400 */
+  --accent: #bec2ff;            /* lilac/400 */
   --accent-soft: #bec2ff33;
   --accent-strong: #9396f5;
-  --positive: #189370; /* mint/800 */
-  --positive-soft: #85ecce4d; /* mint/400 30% */
-  --negative: #fa5f67; /* red/400 */
+  --positive: #189370;           /* mint/800 */
+  --positive-soft: #85ecce4d;    /* mint/400 30% */
+  --negative: #fa5f67;           /* red/400 */
   --negative-soft: rgba(250, 95, 103, 0.14);
 
   --font-display: var(--font-jakarta), -apple-system, system-ui, sans-serif;
@@ -38,7 +43,12 @@
   --shadow-md: 0 8px 24px -8px rgba(1, 5, 7, 0.08);
 }
 
-/* Theme B: Linear-ish */
+/* ============================================================
+   Theme B: Linear-ish — a different design system. Dark, mono
+   labels, sharper corners, electric purple accent.
+   This is what "customize the chat to look like our product"
+   ends up looking like in practice.
+   ============================================================ */
 [data-theme="linear"] {
   --bg: #08090a;
   --surface: #121316;
@@ -90,6 +100,9 @@ body {
   font-family: var(--font-mono);
 }
 
+/* ============================================================
+   Surface utilities used across components
+   ============================================================ */
 .surface {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -101,6 +114,7 @@ body {
   border-radius: var(--radius);
 }
 
+/* Mono pill chip (Spline Sans Mono per brand). */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -116,6 +130,7 @@ body {
   color: var(--muted);
 }
 
+/* Code-style inline chip */
 .code-chip {
   font-family: var(--font-mono);
   font-size: 11.5px;
@@ -126,14 +141,55 @@ body {
   color: var(--ink-2);
 }
 
+/* Ambient brand gradient — used very sparingly per brand rules. */
 .brand-gradient-soft {
-  background: linear-gradient(90deg, #bec2ff 0%, #85ecce 45.673%, #ffac4d 100%);
+  background: linear-gradient(
+    90deg,
+    #bec2ff 0%,
+    #85ecce 45.673%,
+    #ffac4d 100%
+  );
   opacity: 0.12;
   filter: blur(40px);
 }
 
-/* Theme C: .ads-warm — cream + serif. Forces chat internals (which
-   ship hardcoded white/black colors) to inherit the warm palette. */
+/* ============================================================
+   Chat theming via the v2 token layer.
+
+   Every CopilotKit v2 primitive renders a [data-copilotkit]
+   element that reads a shadcn-style token set (--background,
+   --foreground, --primary, --border, --input, --ring, --radius,
+   --cpk-default-font-family, …). The base values live on
+   `[data-copilotkit]` in the shipped stylesheet, so a single
+   scoped override — `.scope [data-copilotkit] { … }` — out-
+   specifies them and re-skins the WHOLE chat. No cpk: utility-
+   class targeting, no data-testid hacks, no !important.
+   ============================================================ */
+
+/* --- App-matched: chat shell inherits our design tokens. ----- */
+.ads-chat-themed [data-copilotkit] {
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--surface);
+  --secondary: var(--surface-soft);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-soft);
+  --muted-foreground: var(--muted);
+  --accent: var(--accent-soft);
+  --accent-foreground: var(--ink);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent-strong);
+  --radius: var(--radius);
+  --cpk-default-font-family: var(--font-body);
+}
+
+/* --- .ads-warm: a different design system (cream + serif). ---- */
 .ads-warm {
   --warm-bg: #f7f1e7;
   --warm-bg-deep: #f0e7d3;
@@ -141,164 +197,38 @@ body {
   --warm-muted: #8b7c5c;
   --warm-line: #e6dac4;
   --warm-accent: #c25c34;
-  --warm-serif:
-    "Newsreader", "Iowan Old Style", "Apple Garamond", Georgia,
+  --warm-serif: "Newsreader", "Iowan Old Style", "Apple Garamond", Georgia,
     "Times New Roman", serif;
   background: var(--warm-bg);
   color: var(--warm-ink);
 }
 
-/* Floating chat overlays (feather gradient, scroll-to-bottom button
-   wrapper, anything cpk:absolute / cpk:pointer-events-none / cpk:z-*)
-   MUST stay transparent — painting them cream hides the chat content
-   beneath them. */
-.ads-warm,
-.ads-warm
-  *:where(
-    :not([class*="cpk:absolute"]):not([class*="cpk:pointer-events-none"]):not(
-        [class*="cpk:z-30"]
-      ):not([class*="cpk:z-20"]):not([class*="cpk:z-10"])
-  ) {
-  background-color: var(--warm-bg) !important;
-}
-.ads-warm [class*="cpk:absolute"],
-.ads-warm [class*="cpk:pointer-events-none"],
-.ads-warm [class*="cpk:z-30"],
-.ads-warm [class*="cpk:z-20"],
-.ads-warm [class*="cpk:z-10"] {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-.ads-warm [data-testid="copilot-chat-input"],
-.ads-warm [data-testid="copilot-chat-input"] textarea,
-.ads-warm [data-testid="copilot-chat-input"] input[type="text"],
-.ads-warm .warm-user-bubble,
-.ads-warm .warm-user-bubble * {
-  background: white !important;
-  background-color: white !important;
+.ads-warm [data-copilotkit] {
+  --background: var(--warm-bg);
+  --foreground: var(--warm-ink);
+  --card: var(--warm-bg);
+  --card-foreground: var(--warm-ink);
+  --popover: var(--warm-bg);
+  --popover-foreground: var(--warm-ink);
+  --primary: var(--warm-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--warm-bg-deep);
+  --secondary-foreground: var(--warm-ink);
+  --muted: var(--warm-bg-deep);
+  --muted-foreground: var(--warm-muted);
+  --accent: var(--warm-bg-deep);
+  --accent-foreground: var(--warm-ink);
+  --border: var(--warm-line);
+  --input: var(--warm-line);
+  --ring: var(--warm-accent);
+  --radius: 0px;
+  --cpk-default-font-family: var(--warm-serif);
 }
 
-.ads-warm [class*="copilotKitChat"],
-.ads-warm [class*="copilotKitInput"] {
-  background: var(--warm-bg) !important;
-  color: var(--warm-ink) !important;
-  border-color: var(--warm-line) !important;
-}
-
-.ads-warm,
-.ads-warm * {
-  color: var(--warm-ink);
-}
-.ads-warm [class*="cpk:text-muted"],
-.ads-warm [class*="cpk:text-gray-5"],
-.ads-warm [class*="cpk:text-gray-4"] {
-  color: var(--warm-muted) !important;
-}
-
-.ads-warm h1,
-.ads-warm h2,
-.ads-warm h3,
-.ads-warm [class*="cpk:text-xl"],
-.ads-warm [class*="cpk:text-2xl"] {
-  font-family: var(--warm-serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--warm-ink) !important;
-}
-
-.ads-warm textarea,
-.ads-warm input {
-  background: white !important;
-  color: var(--warm-ink) !important;
-  caret-color: var(--warm-ink) !important;
-  font-family: var(--warm-serif) !important;
-}
-.ads-warm textarea::placeholder,
-.ads-warm input::placeholder {
-  color: var(--warm-muted) !important;
-  font-style: italic;
-}
-
-.ads-warm [class*="cpk:border-"]:not([class*="cpk:border-transparent"]) {
-  border-color: var(--warm-line) !important;
-}
-
-.ads-warm button[class*="cpk:bg-black"],
-.ads-warm button[class*="cpk:bg-primary"] {
-  background: var(--warm-bg-deep) !important;
-  color: var(--warm-ink) !important;
-}
-
-/* Visual reskin only — do NOT override positioning or width. The chat
-   measures the input height to set the scroll-area bottom padding;
-   forcing those values causes content to clip behind it. */
-.ads-warm .copilotKitInput,
-.ads-warm [class*="copilotKitInput"] {
-  border: 1px solid var(--warm-accent) !important;
-  border-radius: 0 !important;
-}
-.ads-warm [class*="copilotKitInput"] *:not(button):not(svg):not(kbd) {
-  background: white !important;
-  background-color: white !important;
-}
-.ads-warm [class*="copilotKitInput"] textarea {
-  padding-top: 8px !important;
-  padding-bottom: 8px !important;
-}
-/* Disclaimer ("AI can make mistakes…") wrapper sits BELOW the input
-   pill on a separate band — force every part to cream so no white
-   bleeds through. */
-.ads-warm [class*="text-muted-foreground"],
-.ads-warm [class*="text-muted-foreground"] *,
-.ads-warm [class*="cpk:text-muted-foreground"],
-.ads-warm [class*="cpk:text-muted-foreground"] * {
-  background: var(--warm-bg) !important;
-  background-color: var(--warm-bg) !important;
-}
-
-.ads-warm button[data-testid="copilot-add-menu-button"] {
-  background: #f5cdb5 !important;
-  background-color: #f5cdb5 !important;
-  border: 0 !important;
-  border-radius: 6px !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-}
-.ads-warm button[data-testid="copilot-add-menu-button"] * {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-.ads-warm button[data-testid="copilot-add-menu-button"] svg {
-  color: var(--warm-accent) !important;
-  stroke: var(--warm-accent) !important;
-}
-
-.ads-warm button[data-testid="copilot-send-button"],
-.ads-warm button[data-testid="copilot-send-button"]:disabled,
-.ads-warm button[data-testid="copilot-send-button"]:hover {
-  background: var(--warm-accent) !important;
-  background-color: var(--warm-accent) !important;
-  border: 0 !important;
-  border-radius: 6px !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-  color: white !important;
-}
-.ads-warm button[data-testid="copilot-send-button"] *,
-.ads-warm button[data-testid="copilot-send-button"]:disabled * {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-.ads-warm button[data-testid="copilot-send-button"] svg,
-.ads-warm button[data-testid="copilot-send-button"]:disabled svg,
-.ads-warm button[data-testid="copilot-send-button"] svg *,
-.ads-warm button[data-testid="copilot-send-button"] svg path,
-.ads-warm button[data-testid="copilot-send-button"] svg rect {
-  color: white !important;
-  stroke: white !important;
-  fill: white !important;
-}
-
+/* ============================================================
+   Default chat — inset the input the same way so its border
+   doesn't kiss the panel edges either.
+   ============================================================ */
 .copilot-chat-inset .copilotKitInput {
   left: 0.75rem !important;
   right: 0.75rem !important;
@@ -306,6 +236,7 @@ body {
   width: auto !important;
 }
 
+/* Markdown content inside our headless bubble. */
 .prose-bubble p {
   margin: 0;
 }
@@ -324,6 +255,16 @@ body {
   font-weight: 600;
 }
 
+/* Breathing room around the chat input. CopilotKit's default is
+ * `width: 95%; margin: 0 auto`, which gives ~2.5% gap each side — too
+ * tight on narrow split panels and visually flush after messages render.
+ * Override width to auto so explicit margins actually inset the bar. */
+.copilot-chat-wrapper .copilotKitInput {
+  width: auto;
+  margin: 0 12px 10px;
+}
+
+/* A2UI surface scope (inherits theme tokens). */
 .a2ui-surface {
   --background: var(--surface);
   --foreground: var(--ink);

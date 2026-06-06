@@ -5,10 +5,15 @@ import { z } from "zod";
 import { createMirrorActivityRenderer } from "@/a2ui/MirrorRenderer";
 import { sandboxBus } from "@/lib/sandbox-bus";
 
+/* A2UI surfaces flow through the runtime as activity messages of type
+   "a2ui-surface". The mirror renderer renders the surface inline in
+   chat AND pushes ops to the surface-bus so the canvas can mirror
+   it. Matches the cpk-a2ui working pattern. */
 const ACTIVITY_RENDERERS = [createMirrorActivityRenderer("declarative")];
 
-/* Iframes call `Websandbox.connection.remote.pinCard({...})`; the handler
-   bridges into the host via sandbox-bus so /open can subscribe. */
+/* Functions exposed to sandboxed Open Gen UI iframes. The iframe can call
+   `Websandbox.connection.remote.pinCard({...})` and it lands in the host
+   app via the sandbox-bus. /open subscribes and updates its workspace. */
 const SANDBOX_FUNCTIONS = [
   {
     name: "pinCard",

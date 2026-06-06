@@ -64,7 +64,11 @@ export function PortfolioBar({
               }}
               cursor={{ fill: "var(--accent-soft)" }}
             />
-            <Bar dataKey="value" fill="var(--accent)" radius={[4, 4, 0, 0]}>
+            <Bar
+              dataKey="value"
+              fill="var(--accent)"
+              radius={[4, 4, 0, 0]}
+            >
               <LabelList
                 dataKey="value"
                 position="top"

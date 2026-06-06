@@ -1,6 +1,12 @@
 "use client";
 
-import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  YAxis,
+} from "recharts";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { Stock } from "@/lib/stocks";
 
@@ -17,6 +23,8 @@ export function StockCard({ stock }: { stock: Stock }) {
   const up = stock.changePct >= 0;
   const sparkData = stock.sparkline.map((value, i) => ({ i, value }));
 
+  /* Derive a small set of stats from the sparkline so the card has
+     real content under the chart, not dead space. */
   const high = Math.max(...stock.sparkline);
   const low = Math.min(...stock.sparkline);
   const open = stock.sparkline[0];

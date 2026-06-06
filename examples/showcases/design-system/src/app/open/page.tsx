@@ -74,11 +74,7 @@ function OpenGenUiChat() {
   useConfigureSuggestions({
     available: "before-first-message",
     suggestions: [
-      {
-        title: "Build a calculator",
-        message: "Build a calculator",
-        isLoading: false,
-      },
+      { title: "Build a calculator", message: "Build a calculator", isLoading: false },
       {
         title: "Sketch a pricing table",
         message: "Sketch a pricing table",
@@ -101,13 +97,15 @@ function OpenGenUiChat() {
         </>
       }
     >
-      <CopilotChat
-        agentId="open"
-        labels={{
-          chatInputPlaceholder: "Try: build a calculator",
-          welcomeMessageText: "How can I help?",
-        }}
-      />
+      <div className="h-full flex flex-col copilot-chat-wrapper">
+        <CopilotChat
+          agentId="open"
+          labels={{
+            chatInputPlaceholder: "Try: build a calculator",
+            welcomeMessageText: "How can I help?",
+          }}
+        />
+      </div>
     </ChromePanel>
   );
 }
@@ -143,13 +141,15 @@ function McpAppsChat() {
         </>
       }
     >
-      <CopilotChat
-        agentId="mcpapps"
-        labels={{
-          chatInputPlaceholder: "Try: sketch a flowchart",
-          welcomeMessageText: "How can I help?",
-        }}
-      />
+      <div className="h-full flex flex-col copilot-chat-wrapper">
+        <CopilotChat
+          agentId="mcpapps"
+          labels={{
+            chatInputPlaceholder: "Try: sketch a flowchart",
+            welcomeMessageText: "How can I help?",
+          }}
+        />
+      </div>
     </ChromePanel>
   );
 }

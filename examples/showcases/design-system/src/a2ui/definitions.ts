@@ -1,3 +1,9 @@
+/**
+ * A2UI custom catalog for the stocks demo.
+ *
+ * Tight set of layout + content primitives + the StockCard. The agent's
+ * server-side render_stocks tool emits A2UI ops referencing these by name.
+ */
 /* a2ui-renderer's createCatalog is typed against Zod v3. We pin the
    v3 namespace here so the catalog types match. The rest of the app
    uses v4 (required by @tanstack/ai). */
@@ -63,6 +69,7 @@ export const definitions = {
 
 export type Definitions = typeof definitions;
 
+/* Plain-text summary for the agent's system prompt so it knows what's available. */
 export const CATALOG_PROMPT = `\
 ## A2UI components you may use
 

@@ -1,3 +1,7 @@
+/**
+ * The A2UI catalog. Pairs definitions (Zod schemas) with React renderers
+ * and exposes it under a stable catalogId the server-side tool references.
+ */
 import { createCatalog } from "@copilotkit/a2ui-renderer";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 import { CATALOG_ID, definitions } from "./definitions";
@@ -12,5 +16,6 @@ export const catalog = createCatalog(
   renderers as unknown as CatalogRenderers<any>,
   { catalogId: CATALOG_ID, includeBasicCatalog: false },
 );
+
 
 export { CATALOG_ID, definitions };

@@ -1,1 +1,0 @@
-../../src/app/api/copilotkit/[[...path]]/route.ts

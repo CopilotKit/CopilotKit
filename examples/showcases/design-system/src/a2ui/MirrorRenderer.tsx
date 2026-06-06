@@ -9,8 +9,7 @@ import {
 } from "@copilotkit/a2ui-renderer";
 import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import { catalog } from "./catalog";
-import { surfaceBus } from "./surface-bus";
-import type { A2UIOp } from "./surface-bus";
+import { surfaceBus, type A2UIOp } from "./surface-bus";
 
 const DEBUG = false;
 
@@ -30,7 +29,13 @@ function getSurfaceId(ops: A2UIOp[]): string | undefined {
   return undefined;
 }
 
-function InChatSurface({ channel, ops }: { channel: string; ops: A2UIOp[] }) {
+function InChatSurface({
+  channel,
+  ops,
+}: {
+  channel: string;
+  ops: A2UIOp[];
+}) {
   const surfaceId = useMemo(() => getSurfaceId(ops), [ops]);
 
   /* Push to bus regardless — canvas (if mounted) will read from there. */
@@ -102,7 +107,8 @@ function ProcessOps({ ops }: { ops: A2UIOp[] }) {
 
     try {
       processMessages(filtered as Record<string, unknown>[]);
-      if (DEBUG) console.log("[MirrorRenderer] processMessages OK");
+      if (DEBUG)
+        console.log("[MirrorRenderer] processMessages OK");
     } catch (err) {
       console.warn("[MirrorRenderer] processMessages threw:", err);
     }

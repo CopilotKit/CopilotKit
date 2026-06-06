@@ -15,13 +15,11 @@ import {
   Wind,
 } from "lucide-react";
 import { z } from "zod";
-import type {
-  CopilotChatAssistantMessageProps,
-  CopilotChatUserMessage,
-} from "@copilotkit/react-core/v2";
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
+  type CopilotChatAssistantMessageProps,
+  CopilotChatUserMessage,
   useAgent,
   useComponent,
   useCopilotKit,
@@ -48,10 +46,20 @@ const SUGGESTIONS = [
   "Give me a fun fact.",
 ];
 
+/* ==================================================================
+   Generative UI: a Weather card the agent can render in the chat.
+   Registered ONCE at the page level — every CopilotChat instance on
+   this page picks it up automatically because they all bind to the
+   same default agent. In the headless variant we render it manually
+   via useRenderToolCall.
+   ================================================================== */
+
 const weatherSchema = z.object({
   city: z.string().describe("City name"),
   temperatureF: z.number().describe("Temperature in Fahrenheit"),
-  condition: z.enum(["sunny", "cloudy", "rainy"]).describe("Weather condition"),
+  condition: z
+    .enum(["sunny", "cloudy", "rainy"])
+    .describe("Weather condition"),
   humidity: z.number().describe("Humidity percent, 0-100"),
   windMph: z.number().describe("Wind speed in miles per hour"),
 });
@@ -66,11 +74,7 @@ function WeatherCard({
   const Icon =
     condition === "sunny" ? Sun : condition === "rainy" ? CloudRain : Cloud;
   const conditionLabel =
-    condition === "sunny"
-      ? "Sunny"
-      : condition === "rainy"
-        ? "Rainy"
-        : "Cloudy";
+    condition === "sunny" ? "Sunny" : condition === "rainy" ? "Rainy" : "Cloudy";
 
   return (
     <div className="my-3 max-w-[360px] surface p-4 flex flex-col gap-3">
@@ -117,7 +121,8 @@ export default function ChatUIPage() {
   const [active, setActive] = useState<Variant>("css");
   const current = VARIANTS.find((v) => v.id === active)!;
 
-  /* followUp: false stops the agent from emitting an extra paragraph
+  /* Register the weather card as a generative-UI tool agent-wide.
+     followUp: false stops the agent from emitting an extra paragraph
      after the card renders — the card IS the answer. */
   useComponent({
     name: "showWeather",
@@ -172,6 +177,10 @@ export default function ChatUIPage() {
   );
 }
 
+/* ==================================================================
+   Variant A — CSS customization
+   ================================================================== */
+
 function CssVariant() {
   return (
     <div className="grid lg:grid-cols-2 gap-4 h-full min-h-0">
@@ -187,19 +196,45 @@ function CssVariant() {
         </div>
       </ChromePanel>
       <ChromePanel caption="Customized with CSS" surface="warm">
-        <div className="ads-warm h-full flex flex-col">
+        {/* The broad reskin is all CSS: `.ads-warm [data-copilotkit]`
+            remaps the v2 token layer (palette, radius, serif font) for
+            every chat primitive. On top of that, a few slot props add
+            the bespoke touches the token layer can't express — an
+            eyebrow welcome, a left-rule user bubble — and close the two
+            spots that hardcode bg-white / bg-black (input + buttons). */}
+        <div className="ads-warm copilot-chat-inset h-full flex flex-col">
           <CopilotChat
             attachments={{ enabled: true }}
             messageView={{
-              className: "!pt-10",
+              className: "!pt-6",
               assistantMessage: {
                 className:
-                  "!bg-transparent !border-0 !border-l-[3px] !border-l-[#c25c34] !rounded-none !pl-6 !pr-2 !my-5 [&_p]:!font-serif [&_p]:!text-[15px] [&_p]:!leading-relaxed [&_li]:!font-serif [&_li]:!text-[14.5px] [&_ul]:!my-2 [&_ol]:!my-2",
+                  "!bg-transparent !border-0 !border-l-[3px] !border-l-[var(--warm-accent)] !rounded-none !pl-6 !pr-2 !my-5",
                 toolbarVisible: false,
               },
-              userMessage: WarmUser as unknown as typeof CopilotChatUserMessage,
+              userMessage:
+                WarmUser as unknown as typeof CopilotChatUserMessage,
             }}
-            input="[&_textarea]:!text-[#1f1a13] [&_textarea::placeholder]:!text-[#8b7c5c] [&_textarea]:!font-serif [&_textarea]:!italic"
+            input={{
+              // The border/sharp-corners belong on the pill itself
+              // (`.copilotKitInput`), not the input container — the
+              // container also wraps the disclaimer, so bordering it
+              // boxes the "AI can make mistakes" line too. There's no
+              // slot for the pill, so target it with a child variant.
+              className:
+                "[&_.copilotKitInput]:!rounded-none [&_.copilotKitInput]:!border [&_.copilotKitInput]:!border-[var(--warm-accent)] [&_.copilotKitInput]:!bg-white [&_.copilotKitInput]:!shadow-none",
+              textArea: { className: "placeholder:!italic" },
+              addMenuButton: {
+                className:
+                  "!bg-[#f5cdb5] !text-[var(--warm-accent)] !rounded-[6px]",
+              },
+              // Force solid terracotta even when disabled (empty input):
+              // the variant's disabled state is a pale grey otherwise.
+              sendButton: {
+                className:
+                  "!rounded-[6px] !bg-[var(--warm-accent)] !text-white disabled:!bg-[var(--warm-accent)] disabled:!text-white disabled:!opacity-100 [&_svg]:!text-white",
+              },
+            }}
             welcomeScreen={WarmWelcome}
             labels={{
               chatInputPlaceholder: "Type a message…",
@@ -211,33 +246,10 @@ function CssVariant() {
   );
 }
 
-function ThemedAssistant(props: CopilotChatAssistantMessageProps) {
-  return (
-    <div className="flex gap-3 my-3 mx-1">
-      <div
-        className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
-        style={{
-          background: "var(--accent-soft)",
-          color: "var(--accent-strong)",
-          border: "1px solid var(--line)",
-        }}
-        aria-hidden
-      >
-        <Bot size={14} strokeWidth={2} />
-      </div>
-      <div
-        className="px-3.5 py-2.5 max-w-[560px] text-[14px] leading-relaxed rounded-[var(--radius)] [&_p]:!m-0 [&_p+p]:!mt-2 [&_ul]:!my-2 [&_li]:!my-0.5"
-        style={{
-          background: "var(--surface-soft)",
-          color: "var(--ink)",
-          border: "1px solid var(--line)",
-        }}
-      >
-        <CopilotChatAssistantMessage {...props} toolbarVisible={false} />
-      </div>
-    </div>
-  );
-}
+/* ---------- Warm-variant slots (eyebrow welcome + left-rule user) ---
+   These add bespoke structure the token layer can't express. Theming
+   (palette/serif) still comes from the .ads-warm tokens; these only
+   add the extra elements (eyebrow, arrow, sharp white box). */
 
 function extractText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -301,8 +313,9 @@ function WarmUser({
   return (
     <div className="flex justify-end my-3 mx-1">
       <div
-        className="warm-user-bubble inline-flex items-center gap-3 pl-5 pr-5 py-2.5 text-[14px]"
+        className="inline-flex items-center gap-3 pl-5 pr-5 py-2.5 text-[14px]"
         style={{
+          background: "#ffffff",
           color: "#1f1a13",
           borderLeft: "4px solid #c25c34",
           borderTop: "1px solid var(--warm-line)",
@@ -318,11 +331,48 @@ function WarmUser({
   );
 }
 
+/* ==================================================================
+   Variant B — slot replacement, with Lucide bot avatar.
+   We render text directly so no inner markdown card brings white in.
+   ================================================================== */
+
+function ThemedAssistant(props: CopilotChatAssistantMessageProps) {
+  return (
+    <div className="flex gap-3 my-3 mx-1">
+      <div
+        className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center"
+        style={{
+          background: "var(--accent-soft)",
+          color: "var(--accent-strong)",
+          border: "1px solid var(--line)",
+        }}
+        aria-hidden
+      >
+        <Bot size={14} strokeWidth={2} />
+      </div>
+      <div
+        className="px-3.5 py-2.5 max-w-[560px] text-[14px] leading-relaxed rounded-[var(--radius)] [&_p]:!m-0 [&_p+p]:!mt-2 [&_ul]:!my-2 [&_li]:!my-0.5"
+        style={{
+          background: "var(--surface-soft)",
+          color: "var(--ink)",
+          border: "1px solid var(--line)",
+        }}
+      >
+        <CopilotChatAssistantMessage {...props} toolbarVisible={false} />
+      </div>
+    </div>
+  );
+}
+
 function SlotsVariant() {
   return (
     <div className="h-full min-h-0 max-w-[860px] mx-auto">
-      <ChromePanel caption="Default shell · custom assistant slot">
-        <div className="copilot-chat-inset h-full flex flex-col">
+      <ChromePanel caption="App-themed shell · custom assistant slot">
+        {/* ads-chat-themed maps our design tokens onto the v2 token
+            layer, so the shell matches the app — and the assistant
+            slot below is swapped for a custom component. Tokens +
+            slot, composed. */}
+        <div className="ads-chat-themed copilot-chat-inset h-full flex flex-col">
           <CopilotChat
             attachments={{ enabled: true }}
             messageView={{
@@ -339,6 +389,10 @@ function SlotsVariant() {
     </div>
   );
 }
+
+/* ==================================================================
+   Variant C — fully headless, matching the "Complete" reference.
+   ================================================================== */
 
 function HeadlessVariant() {
   return (
@@ -534,8 +588,8 @@ function WelcomeState({ onSuggest }: { onSuggest: (text: string) => void }) {
           Built from scratch
         </h3>
         <p className="text-[13px] text-[var(--ink-2)] mt-2 leading-relaxed">
-          Messages, the composer, attachments, generative UI cards — all your
-          own components on top of two CopilotKit hooks.
+          Messages, the composer, attachments, generative UI cards — all
+          your own components on top of two CopilotKit hooks.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 mt-1 max-w-md">
@@ -615,6 +669,10 @@ function HeadlessBubble({ message }: { message: ChatBubbleMessage }) {
   );
 }
 
+/* ==================================================================
+   Shared chrome
+   ================================================================== */
+
 function ChromePanel({
   caption,
   children,
@@ -642,9 +700,7 @@ function ChromePanel({
       >
         <span
           className="w-1.5 h-1.5 rounded-full"
-          style={{
-            background: surface === "warm" ? "#c89b4a" : "var(--accent)",
-          }}
+          style={{ background: surface === "warm" ? "#c89b4a" : "var(--accent)" }}
           aria-hidden
         />
         <span

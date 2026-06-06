@@ -1,1 +1,0 @@
-../../src/app/declarative/page.tsx

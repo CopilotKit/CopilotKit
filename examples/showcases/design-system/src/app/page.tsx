@@ -69,13 +69,13 @@ export default function Home() {
             Most user interaction with your product will run through agents.
             That UI has to respect your brand, your design system, and the
             components your team already ships. CopilotKit gives you four
-            patterns to do that, from a CSS-only reskin of the chat to a full
-            catalog-driven generative UI.
+            patterns to do that, from a CSS-only reskin of the chat to a
+            full catalog-driven generative UI.
           </p>
           <p className="mt-4 text-[14px] text-[var(--muted)] leading-relaxed max-w-[680px]">
-            Each page shows a working example. The Chat UI page also shows the
-            same chat in two design systems so you can see what customization
-            buys you.
+            Each page shows a working example. The Chat UI page also shows
+            the same chat in two design systems so you can see what
+            customization buys you.
           </p>
         </div>
       </section>
