@@ -239,7 +239,21 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     agent.threadId = configThreadId;
   }, [agent, configThreadId, configHasExplicitThreadId]);
 
+  // `isReady` indicates the agent is fully initialized and safe to call
+  // `agent.subscribe()` on. While the runtime is still connecting, useAgent
+  // returns a provisional ProxiedCopilotRuntimeAgent whose internal state
+  // may not be fully initialized — calling subscribe() on it can throw.
+  //
+  // The agent is considered ready when:
+  // - It is a real agent from the registry (not provisional), OR
+  // - The runtime connection status is "connected" (provisional has synced).
+  const isReady =
+    copilotkit.getAgent(agentId) !== undefined ||
+    copilotkit.runtimeConnectionStatus ===
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+
   return {
     agent,
+    isReady,
   };
 }

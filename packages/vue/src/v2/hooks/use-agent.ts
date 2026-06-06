@@ -341,5 +341,19 @@ export function useAgent(props: UseAgentProps = {}) {
     { immediate: true },
   );
 
-  return { agent };
+  // `isReady` indicates the agent is fully initialized and safe to call
+  // `agent.subscribe()` on. While the runtime is still connecting, useAgent
+  // returns a provisional ProxiedCopilotRuntimeAgent whose internal state
+  // may not be fully initialized — calling subscribe() on it can throw.
+  const isReady = computed(() => {
+    const core = copilotkit.value;
+    const id = agentId.value;
+    return (
+      core.getAgent(id) !== undefined ||
+      core.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected
+    );
+  });
+
+  return { agent, isReady };
 }
