@@ -154,6 +154,16 @@ function makeFakeClaim(
   };
 }
 
+/**
+ * An RNG that makes `claimNext`'s Fisher-Yates shuffle a NO-OP (identity order),
+ * so a test that depends on the candidate page being tried in its listed order
+ * (j1 before j2) is deterministic despite the fairness shuffle. For each
+ * descending index `i`, Fisher-Yates picks `j = floor(rng() * (i + 1))`;
+ * returning a value just under 1 yields `j = i` every step, leaving the array
+ * unchanged. (Production omits `rng` and gets `Math.random` → real shuffle.)
+ */
+const IDENTITY_ORDER_RNG = (): number => 0.999999999;
+
 function sampleResult(
   overrides: Partial<ServiceJobResult> = {},
 ): ServiceJobResult {
@@ -286,7 +296,14 @@ describe("FleetQueueClient.claimNext", () => {
         }),
       ),
     });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    // Identity-order rng so j1 (the poison row) is tried before j2 despite the
+    // fairness shuffle — this test pins the decode-failure release on j1.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
 
     // Must NOT throw — the decode failure on the won j1 is contained.
     const claimed = await q.claimNext("worker-7", 30);
@@ -322,7 +339,14 @@ describe("FleetQueueClient.claimNext", () => {
         }),
       ),
     });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    // Identity-order rng so j1 (the bad-meta row) is tried before j2 despite the
+    // fairness shuffle.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
 
     const claimed = await q.claimNext("worker-7", 30);
 
@@ -345,13 +369,167 @@ describe("FleetQueueClient.claimNext", () => {
         };
       }),
     });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    // Identity-order rng so the CAS-loss-then-fall-through is deterministic: j1
+    // is tried first (lost), then j2 (won) — exactly 2 attempts. The fairness
+    // shuffle (production default) would otherwise randomize which is tried
+    // first; this test pins the fall-through mechanism, not the ordering.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
 
     const claimed = await q.claimNext("worker-7", 30);
 
     expect(claim.claimJob).toHaveBeenCalledTimes(2);
     expect(claimed.claimed).toBe(true);
     expect(claimed.lease?.job.id).toBe("j2");
+  });
+});
+
+describe("FleetQueueClient.claimNext — CLAIM FAIRNESS (Part B contention)", () => {
+  // ── ROOT CAUSE ──────────────────────────────────────────────────────────────
+  // Every worker lists the SAME deterministically-ordered pending page (PB's
+  // default order is caller-independent) and USED to attack it HEAD-FIRST — so
+  // all 6 replicas thunder on the same head row every poll. Under the atomic
+  // exactly-one-winner CAS only one wins the head; the losers serialize behind
+  // it, burning extra CAS round-trips walking the list. Those extra round-trips
+  // are latency: a loser re-polls later, claims less, and the worker that keeps
+  // winning the head compounds into a ~4x hot outlier (the staging skew that
+  // tipped legit settles past the per-turn budget).
+  //
+  // ── THE FIX (what this test pins) ────────────────────────────────────────────
+  // `claimNext` now SHUFFLES its candidate-attempt order per poll. The
+  // load-bearing change is the ATTEMPT ORDER: instead of every worker trying the
+  // SAME head row first (the herd), each worker tries a DIFFERENT first
+  // candidate, so the herd spreads across the whole page and a worker rarely has
+  // to walk past a peer-held head to find a free job. These tests assert that
+  // distribution of FIRST-attempted candidates directly: head-first concentrates
+  // every poll on index 0; the shuffle spreads first-attempts uniformly.
+
+  interface ListedRow {
+    id: string;
+    payload: ServiceJobPayload;
+  }
+
+  /** A pb that lists a FIXED ordered pending page (the shared snapshot all
+   *  workers see). Only `list` is exercised — claimNext never mutates here. */
+  function makeOrderedPb(orderedIds: string[]): PbClient {
+    const unsupported = (name: string) => () => {
+      throw new Error(`ordered-pb: ${name} not implemented`);
+    };
+    return {
+      async list<T>(_c: string, opts: ListOpts = {}): Promise<ListResult<T>> {
+        const items: ListedRow[] = orderedIds.map((id) => ({
+          ...jobView({ id, status: "pending" }),
+          payload: samplePayload(),
+        }));
+        return {
+          page: 1,
+          perPage: opts.perPage ?? items.length,
+          totalPages: 1,
+          totalItems: items.length,
+          items: items as unknown as T[],
+        };
+      },
+      create: unsupported("create") as PbClient["create"],
+      getOne: unsupported("getOne") as PbClient["getOne"],
+      getFirst: unsupported("getFirst") as PbClient["getFirst"],
+      update: unsupported("update") as PbClient["update"],
+      upsertByField: unsupported("upsertByField") as PbClient["upsertByField"],
+      delete: unsupported("delete") as PbClient["delete"],
+      deleteByFilter: unsupported(
+        "deleteByFilter",
+      ) as PbClient["deleteByFilter"],
+      health: unsupported("health") as PbClient["health"],
+      createBackup: unsupported("createBackup") as PbClient["createBackup"],
+      downloadBackup: unsupported(
+        "downloadBackup",
+      ) as PbClient["downloadBackup"],
+      deleteBackup: unsupported("deleteBackup") as PbClient["deleteBackup"],
+    };
+  }
+
+  // Seeded deterministic PRNG so the shuffled run is reproducible (mulberry32).
+  function mulberry32(seed: number): () => number {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const PAGE_IDS = Array.from({ length: 12 }, (_, i) => `j${i}`);
+
+  /** Run `polls` claimNext calls and return how many times each candidate index
+   *  was the FIRST one attempted. */
+  async function firstAttemptHistogram(
+    rng: () => number,
+    polls: number,
+  ): Promise<number[]> {
+    const firstAttempts: string[] = [];
+    let sawThisCall = false;
+    const claim: JobClaimClient = {
+      async claimJob(jobId, workerId): Promise<ClaimResult> {
+        if (!sawThisCall) {
+          firstAttempts.push(jobId);
+          sawThisCall = true;
+        }
+        return {
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        };
+      },
+      renewLease: vi.fn(async (): Promise<RenewResult> => ({ renewed: false })),
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: false }),
+      ),
+    };
+    const q = createFleetQueueClient({
+      pb: makeOrderedPb(PAGE_IDS),
+      claim,
+      logger,
+      rng,
+    });
+    for (let i = 0; i < polls; i++) {
+      sawThisCall = false;
+      await q.claimNext(`w${i % 6}`, 30);
+    }
+    const hist = new Array(PAGE_IDS.length).fill(0);
+    for (const id of firstAttempts) {
+      hist[PAGE_IDS.indexOf(id)] += 1;
+    }
+    return hist;
+  }
+
+  it("RED (contrast): head-first order makes EVERY poll attack the same head row (index 0)", async () => {
+    // IDENTITY_ORDER_RNG drives the REAL claimNext in head-first (no-shuffle)
+    // order: the herd concentrates entirely on candidate index 0 every poll —
+    // the exact thundering-herd that compounds into the claim skew.
+    const hist = await firstAttemptHistogram(IDENTITY_ORDER_RNG, 600);
+    // 100% of first-attempts landed on the head; every other slot got zero.
+    expect(hist[0]).toBe(600);
+    expect(hist.slice(1).every((c) => c === 0)).toBe(true);
+  });
+
+  it("GREEN: shuffled order spreads first-attempts ~uniformly across the page (herd dispersed)", async () => {
+    const polls = 600;
+    const hist = await firstAttemptHistogram(mulberry32(98765), polls);
+    const expectedPerSlot = polls / PAGE_IDS.length; // 50
+    // Every candidate slot gets a meaningful share of first-attempts — no single
+    // head row absorbs the herd. A uniform shuffle keeps each slot within a loose
+    // band of the expected count, and the head (index 0) is NOT a hot outlier.
+    for (const count of hist) {
+      expect(count).toBeGreaterThan(expectedPerSlot * 0.4);
+      expect(count).toBeLessThan(expectedPerSlot * 1.6);
+    }
+    const max = Math.max(...hist);
+    const mean = polls / PAGE_IDS.length;
+    expect(max / mean).toBeLessThan(1.6);
   });
 });
 

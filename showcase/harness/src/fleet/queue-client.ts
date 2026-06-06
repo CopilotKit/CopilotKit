@@ -89,6 +89,19 @@ export interface FleetQueueClientConfig {
   /** S0's atomic claim/renew/release primitive. */
   claim: JobClaimClient;
   logger: Logger;
+  /**
+   * Injectable RNG in [0,1) used to RANDOMIZE the candidate-attempt order in
+   * `claimNext` (defaults to `Math.random`). See the claim-fairness note in
+   * `claimNext`: every worker lists the SAME deterministically-ordered pending
+   * page, so attacking it head-first makes the whole fleet thunder on the same
+   * head row each poll — the worker that re-polls fractionally first keeps
+   * winning the head while the losers burn extra CAS round-trips walking the
+   * list (slower → polls less → claims less), skewing the distribution ~4x onto
+   * 2 hot workers. Shuffling each worker's attempt order spreads the herd across
+   * the page so wins distribute evenly. Injected so the fairness test is
+   * deterministic.
+   */
+  rng?: () => number;
 }
 
 /** The persisted `probe_jobs` row shape as the PB records API returns it. */
@@ -199,10 +212,26 @@ export function leaseExpired(
   return t <= nowMs;
 }
 
+/**
+ * In-place Fisher-Yates shuffle used to randomize the candidate-attempt order
+ * so concurrent workers don't all attack the same head-of-page row each poll.
+ * Pure given the injected `rng`; mutates + returns `arr` for call-site brevity.
+ */
+function shuffleInPlace<T>(arr: T[], rng: () => number): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
 export function createFleetQueueClient(
   config: FleetQueueClientConfig,
 ): FleetQueueClient {
   const { pb, claim, logger } = config;
+  const rng = config.rng ?? Math.random;
 
   // Per-client cache of a claimed job's decoded payload, keyed by jobId. The
   // renew CAS returns the lifecycle columns but NOT the payload, and the
@@ -246,7 +275,21 @@ export function createFleetQueueClient(
         perPage: CLAIM_CANDIDATE_PAGE,
         skipTotal: true,
       });
-      for (const candidate of page.items) {
+      // CLAIM FAIRNESS: every worker lists the SAME deterministically-ordered
+      // pending page (PB's default order is stable across callers), so iterating
+      // it head-first makes all 6 replicas thunder on the same head row every
+      // poll. The worker that re-polls fractionally first keeps winning the head;
+      // the losers burn extra CAS round-trips walking down the list, which makes
+      // them slower, poll less often, and claim less — compounding into a ~4x
+      // skew onto 2 hot workers (the observed staging contention that tipped legit
+      // settles past the per-turn budget). RANDOMIZING each worker's attempt
+      // order spreads the herd across the whole candidate page so a peer that
+      // already won the head doesn't force everyone else to serialize behind it —
+      // wins distribute evenly and no worker becomes a hot outlier. The CAS still
+      // guarantees exactly-one-winner per row; this only changes which order a
+      // given worker TRIES candidates, never the atomicity.
+      const candidates = shuffleInPlace([...page.items], rng);
+      for (const candidate of candidates) {
         const result = await claim.claimJob(
           candidate.id,
           workerId,
