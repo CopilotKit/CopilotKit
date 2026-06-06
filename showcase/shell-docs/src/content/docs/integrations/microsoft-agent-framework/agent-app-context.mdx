@@ -73,7 +73,7 @@ This context can then be shared with your AG-UI server and agent logic.
             var app = builder.Build();
 
             string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+            string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
 
             // Create the base agent
             AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
@@ -158,7 +158,7 @@ This context can then be shared with your AG-UI server and agent logic.
         </Callout>
 
         <Callout type="tip">
-          **Configuration & Error Handling**: This example uses environment variables for configuration. Set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT_NAME` via `appsettings.json`, user-secrets, or environment variables. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
+          **Configuration & Error Handling**: This example uses environment variables for configuration. Set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME` via `appsettings.json`, user-secrets, or environment variables. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
         </Callout>
     </Step>
     <Step>
