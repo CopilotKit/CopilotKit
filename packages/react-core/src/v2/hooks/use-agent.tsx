@@ -239,7 +239,13 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     agent.threadId = configThreadId;
   }, [agent, configThreadId, configHasExplicitThreadId]);
 
+  const isReady =
+    copilotkit.getAgent(agentId) !== undefined ||
+    copilotkit.runtimeConnectionStatus ===
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+
   return {
     agent,
+    isReady,
   };
 }

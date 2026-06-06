@@ -156,4 +156,28 @@ describe("useAgent e2e", () => {
       });
     });
   });
+
+  describe("isReady flag", () => {
+    it("returns isReady=true when agent is registered", async () => {
+      const agent = new MockStepwiseAgent();
+      let isReadyValue: boolean | undefined;
+
+      function ReadyTestComponent() {
+        const { agent: hookAgent, isReady } = useAgent();
+        isReadyValue = isReady;
+        return (
+          <div data-testid="agent-id">{hookAgent.agentId}</div>
+        );
+      }
+
+      renderWithCopilotKit({
+        agent,
+        children: <ReadyTestComponent />,
+      });
+
+      await waitFor(() => {
+        expect(isReadyValue).toBe(true);
+      });
+    });
+  });
 });
