@@ -24,6 +24,10 @@ import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+// Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
+// into ALS for the factory's `forwardingFetch` to re-attach on outbound
+// LLM calls. See @/lib/header-forwarding for the full rationale.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
@@ -66,8 +70,12 @@ function getHandler(): (req: Request) => Promise<Response> {
   return cachedHandler;
 }
 
-export const POST = (req: NextRequest) => getHandler()(req);
-export const GET = (req: NextRequest) => getHandler()(req);
-export const PUT = (req: NextRequest) => getHandler()(req);
-export const DELETE = (req: NextRequest) => getHandler()(req);
+export const POST = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const GET = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const PUT = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
+export const DELETE = (req: NextRequest) =>
+  withForwardedHeaders(req, () => getHandler()(req));
 // @endregion[voice-runtime]
