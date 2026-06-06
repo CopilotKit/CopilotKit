@@ -501,11 +501,13 @@ async function runLevel(
           results.push(terminal);
           await bestEffortPbWrite(result, pbWriter, logger);
         } catch (err) {
-          // Use the driver's own aggregate key shape (`d5:<slug>`, built from
-          // rowPrefix in emitAggregate) so a hard driver throw surfaces as a
-          // RED D5 cell on the dashboard instead of a blank/gray row.
+          // Use the SAME primary key the D5 success path writes (`input.key`,
+          // i.e. `d5-single-pill-e2e:<slug>` from buildDeepInputs) so the
+          // thrown-error row is consistent with the success row. The driver's
+          // side-emitted `d5:<slug>/<ft>` rows are what render the dashboard
+          // cells, so the error-path primary key only needs to match success.
           const terminal = errorToTerminal(
-            `d5:${slug}`,
+            input.key,
             err,
             Date.now() - startedAt,
           );
