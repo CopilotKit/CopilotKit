@@ -2,6 +2,11 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { baseServerTools } from "./server-tools";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
 /**
  * Reasoning model used by all three reasoning demos.
@@ -28,7 +33,7 @@ export function createAgenticChatReasoningAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText(REASONING_MODEL),
+        adapter: openaiText(REASONING_MODEL, { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools: [...baseServerTools],
