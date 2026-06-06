@@ -211,8 +211,7 @@ def _stamp_diag_probe(request: Any, headers: Dict[str, str]) -> None:
     try:
         ctx = "present" if _AIMOCK_CONTEXT_HEADER in headers else "EMPTY"
         request.headers["x-diag-probe"] = (
-            f"thread={threading.current_thread().name};"
-            f"ctx={ctx};keys={len(headers)}"
+            f"thread={threading.current_thread().name};ctx={ctx};keys={len(headers)}"
         )
     except Exception:  # pragma: no cover - diagnostic must never break a call
         pass

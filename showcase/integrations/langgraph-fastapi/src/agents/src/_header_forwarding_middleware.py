@@ -143,8 +143,7 @@ def _instrument_and_breadcrumb() -> None:
         ctx = "present" if has_context else "EMPTY"
         key_count = len(headers)
         headers["x-diag-probe"] = (
-            f"thread={threading.current_thread().name};"
-            f"ctx={ctx};keys={key_count}"
+            f"thread={threading.current_thread().name};ctx={ctx};keys={key_count}"
         )
         set_forwarded_headers(headers)
     except Exception:  # pragma: no cover - diagnostic must never break a call
