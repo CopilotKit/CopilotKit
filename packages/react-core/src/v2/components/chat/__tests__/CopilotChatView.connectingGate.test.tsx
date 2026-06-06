@@ -29,17 +29,17 @@ describe("CopilotChatView connect-gating", () => {
     expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
   });
 
-  it("suppresses the welcome screen when hasExplicitThreadId=true", () => {
+  it("still shows the welcome screen on an empty thread when hasExplicitThreadId=true", () => {
     render(
       <TestWrapper>
         <CopilotChatView messages={[]} hasExplicitThreadId />
       </TestWrapper>,
     );
 
-    // A caller-managed thread (threadId prop / config provider) should never
-    // display the generic "start a new chat" welcome — even when the thread
-    // has no messages yet.
-    expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+    // The welcome screen is gated on message emptiness, not thread origin.
+    // Apps that premint a UUID on mount (custom thread drawers, lock-recovery
+    // rotation, BFF sync) must still see the welcome state on an empty thread.
+    expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
   });
 
   it("shows the welcome screen by default for a fresh empty chat", () => {

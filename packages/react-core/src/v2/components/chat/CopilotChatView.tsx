@@ -95,11 +95,13 @@ export type CopilotChatViewProps = WithSlots<
      */
     isConnecting?: boolean;
     /**
-     * When `true`, the caller has explicitly picked a thread (via `threadId`
-     * prop or `CopilotChatConfigurationProvider`). Suppresses the welcome
-     * screen unconditionally — a caller-managed thread targets a specific
-     * conversation and should render its messages (or an empty panel during
-     * connect) rather than a generic "start a new chat" greeting.
+     * Indicates the caller explicitly picked a thread (via `threadId` prop or
+     * `CopilotChatConfigurationProvider`). Forwarded for compatibility with
+     * downstream consumers reading the flag; no longer gates the welcome
+     * screen, which is now driven purely by message emptiness so empty threads
+     * with a caller-minted UUID still render the welcome state. Use
+     * `welcomeScreen={false}` (or the equivalent slot value) to suppress the
+     * welcome screen explicitly.
      */
     hasExplicitThreadId?: boolean;
     /**
@@ -319,13 +321,14 @@ export function CopilotChatView({
   const isEmpty = messages.length === 0;
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
-  // Suppress the welcome screen (1) while the initial connect is in flight
-  // and (2) whenever the caller has picked a specific thread. The caller-
-  // managed case targets a conversation directly, so the generic welcome
-  // greeting is never the right thing to show — even for a thread that
-  // happens to have no messages yet.
+  // The welcome screen is semantically about having no messages, not about
+  // thread origin. Suppress it only while the initial connect is in flight
+  // (so a resumed thread doesn't flash the generic greeting before its
+  // bootstrap messages arrive) or when the caller explicitly disabled it.
+  // Empty threads with a caller-minted UUID (premint-on-mount, custom thread
+  // drawers, lock-recovery rotation, BFF sync) still get the welcome state.
   const shouldShowWelcomeScreen =
-    isEmpty && !welcomeScreenDisabled && !isConnecting && !hasExplicitThreadId;
+    isEmpty && !welcomeScreenDisabled && !isConnecting;
 
   if (shouldShowWelcomeScreen) {
     // Create a separate input for welcome screen with static positioning and disclaimer visible
