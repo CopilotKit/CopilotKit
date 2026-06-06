@@ -124,7 +124,7 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.docs_only).toBe(19);
   });
 
-  it("LGP has 45 cells: 38 wired + 1 stub + 6 unshipped (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 45 cells: 36 wired + 1 stub + 6 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -133,7 +133,9 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    // 45 = 39 LGP-declared features + 4 deprecated features + 2 legacy
+    // 45 = 37 LGP-declared features + 2 quarantined interrupt features
+    // (gen-ui-interrupt / interrupt-headless, now in
+    // `not_supported_features`) + 4 deprecated features + 2 legacy
     // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
     // for the visible URL slugs while every other integration still
     // declares the legacy `byoc-*` IDs; the catalog emits cells for both
@@ -146,10 +148,15 @@ describe("Catalog Generator", () => {
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
+    const unsupported = lgpCells.filter((c: any) => c.status === "unsupported");
 
-    expect(wired.length).toBe(38);
+    // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
+    // (both previously `wired`) into `not_supported_features`, so they now
+    // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
+    expect(wired.length).toBe(36);
     expect(stub.length).toBe(1);
     expect(unshipped.length).toBe(6);
+    expect(unsupported.length).toBe(2);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
