@@ -104,7 +104,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         <Tab value="Python">
             ```python title="agent.py"
             from typing import Any
-            from copilotkit import CopilotKitState
+            from copilotkit import CopilotKitState, CopilotKitMiddleware
             from langchain.agents.middleware import AgentMiddleware # [!code highlight]
             from langgraph.runtime import Runtime
             from langgraph.types import interrupt # [!code highlight]
@@ -122,6 +122,13 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         name = interrupt("Before we start, what would you like to call me?") # [!code highlight]
                         return {"agent_name": name}
                     return None
+            
+            agent = create_deep_agent(
+            model="openai:gpt-4o",
+            tools=[get_weather],
+            middleware=[CopilotKitMiddleware(expose_state=["agent_name"]), AgentNameMiddleware()], # for frontend tools and context
+            system_prompt="You are a helpful research assistant.",
+            )
             ```
         </Tab>
         <Tab value="TypeScript">
@@ -165,6 +172,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     // [!code highlight:15]
     // styles omitted for brevity
     useInterrupt({
+        agentId: "sample_agent",
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
