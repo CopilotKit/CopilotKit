@@ -65,6 +65,12 @@ small card component and feeds user edits back through `setState`.
 
 <Snippet region="notes-card-render" cell="shared-state-read-write" title="frontend/src/app/page.tsx — NotesCard" />
 
+Nothing about this is chat-specific: `useAgent` works in any component under
+`<CopilotKit>`, so you can render `agent.state` in your main view or canvas —
+not just inside the chat panel. See
+**[Render agent state in your app](/shared-state/rendering-in-app)** for the
+full main-view pattern.
+
 ## Streaming partial state updates
 
 By default, agent state only updates *between* node transitions, so a
