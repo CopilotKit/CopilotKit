@@ -501,8 +501,11 @@ async function runLevel(
           results.push(terminal);
           await bestEffortPbWrite(result, pbWriter, logger);
         } catch (err) {
+          // Use the driver's own aggregate key shape (`d5:<slug>`, built from
+          // rowPrefix in emitAggregate) so a hard driver throw surfaces as a
+          // RED D5 cell on the dashboard instead of a blank/gray row.
           const terminal = errorToTerminal(
-            `d5-single-pill-e2e:${slug}`,
+            `d5:${slug}`,
             err,
             Date.now() - startedAt,
           );
