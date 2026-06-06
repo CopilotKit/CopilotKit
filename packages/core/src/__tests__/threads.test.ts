@@ -359,6 +359,63 @@ describe("thread store", () => {
     });
   });
 
+  it("forwards configured headers to all thread REST requests", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          threads: [],
+          nextCursor: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: { "X-CSRF": "1" },
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+
+    store.fetchNextPage();
+    await store.renameThread("thread-1", "Renamed");
+    await store.archiveThread("thread-2");
+    await store.deleteThread("thread-2");
+    await flushEffects();
+
+    const threadCalls = fetchMock.mock.calls.filter(
+      ([url]) => typeof url === "string" && url.includes("/threads"),
+    );
+
+    expect(threadCalls).toHaveLength(6);
+    for (const [, options] of threadCalls) {
+      expect(options.headers).toMatchObject({ "X-CSRF": "1" });
+    }
+  });
+
   it("stores fetch failures in error state", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

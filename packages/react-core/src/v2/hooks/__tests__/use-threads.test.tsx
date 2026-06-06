@@ -190,12 +190,15 @@ function getMockSockets(): MockSocketLike[] {
   return phoenix.sockets;
 }
 
-function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
+function setupCopilotKit(
+  runtimeUrl = "http://localhost:4000",
+  headers: Record<string, string> = { Authorization: "Bearer test-token" },
+) {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl,
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
-      headers: { Authorization: "Bearer test-token" },
+      headers,
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
       },
@@ -289,6 +292,40 @@ describe("useThreads", () => {
     const socket = getMockSockets()[0];
     expect(socket.connected).toBe(true);
     expect(socket.channels[0].topic).toBe("user_meta:jc-1");
+  });
+
+  it("forwards configured headers to thread list and subscribe requests", async () => {
+    setupCopilotKit("http://localhost:4000", { "X-CSRF": "1" });
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const listCall = fetchMock.mock.calls.find(
+      ([url]) => typeof url === "string" && url.includes("/threads?"),
+    );
+    const subscribeCall = fetchMock.mock.calls.find(
+      ([url]) => typeof url === "string" && url.includes("/threads/subscribe"),
+    );
+
+    expect(listCall?.[1]).toMatchObject({
+      method: "GET",
+      headers: { "X-CSRF": "1" },
+    });
+    expect(subscribeCall?.[1]).toMatchObject({
+      method: "POST",
+      headers: expect.objectContaining({
+        "X-CSRF": "1",
+        "Content-Type": "application/json",
+      }),
+    });
   });
 
   it("stores fetch failures in error state", async () => {
