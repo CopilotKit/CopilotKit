@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext } from "playwright";
 import { sampleResourceGauges, readCgroupPids } from "./resource-gauges.js";
 import type { ResourceGauges } from "./resource-gauges.js";
+import { formatCvdiag } from "./cv-diag.js";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium
@@ -701,12 +702,34 @@ export class BrowserPool {
         label: event,
         error: err instanceof Error ? err.message : String(err),
       });
+      // CVDIAG: gauge sampling failed → the snapshot is SKIPPED. Surface the
+      // miss on stdout so a post-wedge lookback can tell "no snapshot row for
+      // this transition" apart from "snapshot fired but PB write dropped".
+      console.log(
+        formatCvdiag({
+          component: `browser-pool:snapshot:${event}`,
+          boundary: "als-snapshot",
+          status: "error",
+          error: `gauge-sample-failed: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
       return;
     }
     this.logger?.info("browser-pool.resource-gauges", {
       label: event,
       ...gauges,
     });
+    // CVDIAG: a snapshot was actually SAMPLED for this pool condition. Emitted
+    // whether or not an `onSnapshot` sink is wired (the durable PB write is the
+    // orchestrator's hook below) so the live fleet logs confirm snapshots fire.
+    console.log(
+      formatCvdiag({
+        component: `browser-pool:snapshot:${event}`,
+        boundary: "als-snapshot",
+        status: "ok",
+        error: this.onSnapshot ? "sink=wired" : "sink=none",
+      }),
+    );
     if (!this.onSnapshot) return;
     try {
       this.onSnapshot({
@@ -720,6 +743,16 @@ export class BrowserPool {
         hook: "onSnapshot",
         error: err instanceof Error ? err.message : String(err),
       });
+      // CVDIAG: the durable snapshot sink threw — the gauges were sampled but
+      // will NOT be persisted, so flag the durability gap on stdout.
+      console.log(
+        formatCvdiag({
+          component: `browser-pool:snapshot:${event}`,
+          boundary: "als-snapshot",
+          status: "error",
+          error: `onSnapshot-hook-failed: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
     }
   }
 
@@ -1345,6 +1378,17 @@ export class BrowserPool {
         // shift()ed this waiter and is mid-`await openContextOn` observes the
         // dead state and closes/rolls back the context instead of orphaning it.
         waiter.settled = true;
+        // CVDIAG: an acquire blocked the full timeout without a context — the
+        // load-bearing wedge symptom (no free contexts / empty browser set).
+        // Surface it so the post-wedge lookback sees the starvation breadcrumb.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:acquire-timeout",
+            boundary: "als-snapshot",
+            status: "error",
+            error: `timeoutMs=${timeoutMs} waiters=${this.waiters.length} browsers=${this.browsers.length} degraded=${this.degraded}`,
+          }),
+        );
         reject(new Error("BrowserPool acquire timeout"));
       }, timeoutMs);
       const origResolve = waiter.resolve;
@@ -1896,6 +1940,16 @@ export class BrowserPool {
           browserIndex: this.browsers.indexOf(entry),
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: relaunch retries exhausted → the entry is evicted (capacity
+        // loss). Breadcrumb for the crash/recycle lookback.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:launch-fail",
+            boundary: "als-snapshot",
+            status: "error",
+            error: `relaunch-exhausted: ${err instanceof Error ? err.message : String(err)}`,
+          }),
+        );
         // FULL durable snapshot: the relaunch retries are exhausted — a
         // launch-fail transition. Capture the resource state so a `pthread_create`
         // EAGAIN at the PID ceiling is correlatable post-restart.
@@ -1925,6 +1979,16 @@ export class BrowserPool {
           browserIndex: this.browsers.indexOf(entry),
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: a hygiene/crash recycle promise rejected unexpectedly —
+        // surface the swallowed error so it is greppable, not silent.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:recycle-failed",
+            boundary: "als-snapshot",
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       })
       .finally(() => {
         // Do NOT reset `entry.recycling` here. Each path already leaves it
@@ -2006,6 +2070,17 @@ export class BrowserPool {
         waiters: this.waiters.length,
         browserCount: this.browserCount,
       });
+      // CVDIAG: mid-life capacity loss — the browser set emptied. Durable
+      // breadcrumb for the post-wedge lookback; the snapshot() call below
+      // additionally persists the gauges via the orchestrator's onSnapshot hook.
+      console.log(
+        formatCvdiag({
+          component: "browser-pool:degraded",
+          boundary: "als-snapshot",
+          status: "error",
+          error: `set-empty waiters=${this.waiters.length} browserCount=${this.browserCount}`,
+        }),
+      );
       // FULL durable snapshot at the degraded transition — the headline
       // forensic moment. This MUST land in PB: the wedge ends in a restart that
       // clears in-memory state, so the degraded-instant gauges are otherwise
@@ -2162,6 +2237,16 @@ export class BrowserPool {
           browserCount: this.browserCount,
           waiters: this.waiters.length,
         });
+        // CVDIAG: self-heal brought the set back to full strength — bookends
+        // the degraded breadcrumb so the recovery window is reconstructable.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:recovered",
+            boundary: "als-snapshot",
+            status: "ok",
+            error: `browsers=${this.browsers.length} waiters=${this.waiters.length}`,
+          }),
+        );
         // FULL durable snapshot at the recovered transition — bookends the
         // degraded snapshot so the resource delta across the recovery window is
         // reconstructable.
@@ -2178,6 +2263,16 @@ export class BrowserPool {
         this.logger?.error?.("browser-pool.self-heal-failed", {
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: the self-heal loop itself threw — the pool may be left
+        // degraded with no active heal path. Surface the swallowed error.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:self-heal-failed",
+            boundary: "als-snapshot",
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       })
       .finally(() => {
         this.selfHealing = false;
@@ -2254,6 +2349,17 @@ export class BrowserPool {
       treeThreadCount,
     };
     this.logger?.error?.("browser-pool.pool-unrecoverable", { ...info });
+    // CVDIAG: terminal give-up — the circuit breaker exhausted every hard
+    // recovery and a redeploy is required. The single most important pool
+    // breadcrumb; names the proven cgroup-PID wedge signal in `error`.
+    console.log(
+      formatCvdiag({
+        component: "browser-pool:unrecoverable",
+        boundary: "als-snapshot",
+        status: "error",
+        error: `give-up pids=${cgroupPidsCurrent}/${cgroupPidsMax} threads=${treeThreadCount} waiters=${this.waiters.length}`,
+      }),
+    );
     // FULL durable snapshot at the TERMINAL give-up — the single most important
     // forensic row. The pool is dead and a redeploy is required; this MUST be in
     // PB because the redeploy clears everything in-memory and the stdout window

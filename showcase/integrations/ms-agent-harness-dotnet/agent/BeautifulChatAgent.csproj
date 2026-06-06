@@ -18,6 +18,7 @@
     <Compile Include="ApiKeyResolver.cs" />
     <Compile Include="AimockHeaderMiddleware.cs" />
     <Compile Include="AimockHeaderPolicy.cs" />
+    <Compile Include="CvDiag.cs" />
   </ItemGroup>
 
   <ItemGroup>

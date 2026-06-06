@@ -11,16 +11,42 @@ public class AimockHeaderPolicy : PipelinePolicy
 {
     public override void Process(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
-        foreach (var header in AimockHeaderContext.Get())
-            message.Request.Headers.Set(header.Key, header.Value);
+        ApplyHeadersAndDiag(message);
         ProcessNext(message, pipeline, currentIndex);
     }
 
     public override async ValueTask ProcessAsync(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
-        foreach (var header in AimockHeaderContext.Get())
-            message.Request.Headers.Set(header.Key, header.Value);
+        ApplyHeadersAndDiag(message);
         await ProcessNextAsync(message, pipeline, currentIndex);
+    }
+
+    // Forwards the captured x-* headers onto the outbound LLM request and emits
+    // the CVDIAG outbound breadcrumb. x-diag-run-id / x-diag-hops rode the
+    // AsyncLocal context the same way as x-aimock-context. This layer appends
+    // its hop tag to x-diag-hops on the outbound call.
+    private static void ApplyHeadersAndDiag(PipelineMessage message)
+    {
+        var headers = AimockHeaderContext.Get();
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.Key, CvDiag.HeaderDiagHops, StringComparison.OrdinalIgnoreCase))
+                continue; // set once below with this layer's hop appended
+            message.Request.Headers.Set(header.Key, header.Value);
+        }
+        // GATING RULE: only deviate from original control flow (append the
+        // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+        // diagnostic header is actually present. On non-diagnostic traffic the
+        // outbound request stays byte-identical to pre-instrumentation behavior
+        // (the inbound x-* forward loop above is original behavior).
+        bool diagnosticPresent = headers.ContainsKey(CvDiag.HeaderDiagRunId)
+                || headers.ContainsKey(CvDiag.HeaderAimockContext);
+        if (diagnosticPresent)
+        {
+            headers.TryGetValue(CvDiag.HeaderDiagHops, out var existingHops);
+            message.Request.Headers.Set(CvDiag.HeaderDiagHops, CvDiag.AppendHop(existingHops, "backend-ms-agent-dotnet"));
+            CvDiag.LogOutbound("backend-ms-agent-dotnet", headers, CvDiag.HopCount(existingHops));
+        }
     }
 
     /// <summary>

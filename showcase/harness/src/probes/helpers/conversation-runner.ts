@@ -27,6 +27,8 @@
  * structural typing makes it transparent.
  */
 
+import { formatCvdiag } from "./cv-diag.js";
+
 /** Chat-input selector cascade — matches `e2e-demos.ts` READY_SELECTORS.
  *
  * Ordering (load-bearing — Playwright `fill()` only works on
@@ -364,9 +366,22 @@ export async function runConversation(
       "[conversation-runner] initial baseline assistant message count (boot)",
       { baselineCount },
     );
-  } catch {
+  } catch (bootErr) {
     console.debug(
       "[conversation-runner] chat input cascade did not resolve at boot — deferring to post-preFill (auth shape)",
+    );
+    // CVDIAG: surface the previously-silent boot-time cascade miss. Control
+    // flow is unchanged (the deferred post-preFill path still runs); this is
+    // just visibility so a never-mounting chat surface (which can correlate
+    // with an app that never booted / never forwarded the context header)
+    // is greppable. No slug/runId in scope here — this helper is generic.
+    console.warn(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `chat-input cascade miss at boot: ${errorMessage(bootErr).slice(0, 120)}`,
+      }),
     );
   }
 
@@ -505,8 +520,20 @@ export async function runConversation(
             bodyText.includes("Internal Server Error");
           return { bodyText, hasTextarea, hasErrorBoundary };
         });
-      } catch {
+      } catch (diagErr) {
         /* diagnostics are best-effort */
+        // CVDIAG: surface the previously-silent diagnostics-capture failure
+        // on the turn-failure path. The turn failure itself is reported by
+        // the caller; this only makes the swallowed capture error greppable
+        // (a closed/crashed page can correlate with a dropped-header 503).
+        console.warn(
+          formatCvdiag({
+            component: "conversation-runner",
+            boundary: "fixture-match",
+            status: "error",
+            error: `failure-diagnostics capture failed: ${errorMessage(diagErr).slice(0, 120)}`,
+          }),
+        );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
         error: errorMessage(err),
@@ -568,7 +595,20 @@ export async function readUserMessageCount(page: Page): Promise<number> {
       );
       return fallback.length;
     });
-  } catch {
+  } catch (readErr) {
+    // CVDIAG: surface the previously-silent user-message read error. This
+    // helper is polled in a tight loop (fillAndVerifySend), so the line is
+    // routed through console.debug (still `grep CVDIAG`-greppable) to avoid
+    // flooding warn-level logs on a transient per-poll DOM-read hiccup.
+    // Control flow is unchanged — the caller still retries on the returned 0.
+    console.debug(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `user-message read failed: ${errorMessage(readErr).slice(0, 120)}`,
+      }),
+    );
     return 0;
   }
 }

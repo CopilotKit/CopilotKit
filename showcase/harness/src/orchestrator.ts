@@ -3,6 +3,7 @@ import url from "node:url";
 import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
+import type { DiagSinkClient } from "./storage/diag-sink.js";
 import {
   createAlertStateStore,
   assertSafeKey,
@@ -56,6 +57,8 @@ import {
 } from "./probes/drivers/d6-all-pills.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createResourceSnapshotWriter } from "./probes/helpers/resource-snapshot-writer.js";
+import { formatCvdiag, mintRunId } from "./probes/helpers/cv-diag.js";
+import { writeDiagEvent } from "./storage/diag-sink.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
@@ -356,6 +359,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
     logger.error("boot.sweep-stale-runs-failed", {
       error: err instanceof Error ? err.message : String(err),
     });
+    // CVDIAG: the boot-time stale-run sweep failed — orphaned `running`
+    // probe_runs rows from a prior crash may persist. Surface the swallowed
+    // error (boot continues regardless).
+    console.log(
+      formatCvdiag({
+        component: "harness-orchestrator:boot-sweep-stale-runs-failed",
+        boundary: "inbound",
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 
   // Context-pooled BrowserPool: a fixed small set of long-lived browser
@@ -403,6 +417,29 @@ export async function boot(opts: BootOptions = {}): Promise<{
         snapshot.stats,
         snapshot.perBrowser,
       );
+      // CVDIAG: confirm from the orchestrator side that a pool snapshot was
+      // RECEIVED and routed to the durable writer. The pool's own snapshot()
+      // emits a stdout line at the sample point; this line proves the wiring
+      // back into the orchestrator's writer is live. For SIGNIFICANT (non-
+      // heartbeat) conditions also persist a durable diag_events row so the
+      // breadcrumb survives the restart that ends a wedge.
+      console.log(
+        formatCvdiag({
+          component: `harness-orchestrator:pool-snapshot:${snapshot.event}`,
+          boundary: "als-snapshot",
+          status: "ok",
+          error: `pidsCur=${snapshot.gauges.cgroupPidsCurrent} pidsMax=${snapshot.gauges.cgroupPidsMax} inUse=${snapshot.stats.inUse}`,
+        }),
+      );
+      if (snapshot.event !== "heartbeat") {
+        void writeDiagEvent(pb, {
+          run_id: mintRunId(),
+          component: `pool-snapshot:${snapshot.event}`,
+          boundary: "als-snapshot",
+          status: snapshot.event === "recovered" ? "ok" : "error",
+          error: `pidsCur=${snapshot.gauges.cgroupPidsCurrent} pidsMax=${snapshot.gauges.cgroupPidsMax} threads=${snapshot.gauges.treeThreadCount} inUse=${snapshot.stats.inUse}`,
+        });
+      }
     },
     // FIX #2 — wire the pool's mid-life capacity-loss + recovery hooks to the
     // SAME degraded-signal write path. When the browser set empties mid-life the
@@ -436,6 +473,24 @@ export async function boot(opts: BootOptions = {}): Promise<{
     await writeBrowserPoolHealthy();
   } catch (err) {
     logger.error("boot.browser-pool-init-failed", { error: String(err) });
+    // CVDIAG: the BrowserPool failed to launch ANY browser at boot — every
+    // e2e acquire will time out. Surface + persist a durable row so this boot
+    // outage is post-restart retrievable, not just a warn that rolls off.
+    console.log(
+      formatCvdiag({
+        component: "harness-orchestrator:browser-pool-init-failed",
+        boundary: "als-snapshot",
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    void writeDiagEvent(pb, {
+      run_id: mintRunId(),
+      component: "browser-pool-init-failed",
+      boundary: "als-snapshot",
+      status: "error",
+      error: err instanceof Error ? err.message : String(err),
+    });
     await writeBrowserPoolDegraded(
       err instanceof Error ? err.message : String(err),
     );
@@ -816,10 +871,30 @@ export async function boot(opts: BootOptions = {}): Promise<{
             .toISOString()
             .replace(/[:.]/g, "-")}.zip`;
           await pb.createBackup(name);
+          // CVDIAG: a PB backup (SQLite-checkpoint snapshot) was actually
+          // written — confirm from logs that the daily backup snapshot fires.
+          console.log(
+            formatCvdiag({
+              component: "harness-orchestrator:pb-backup-created",
+              boundary: "als-snapshot",
+              status: "ok",
+              error: `name=${name}`,
+            }),
+          );
           let data: Uint8Array;
           try {
             data = await pb.downloadBackup(name);
           } catch (err) {
+            // CVDIAG: the snapshot zip was created but could NOT be downloaded
+            // for upload — surface the failure path.
+            console.log(
+              formatCvdiag({
+                component: "harness-orchestrator:pb-backup-download-failed",
+                boundary: "als-snapshot",
+                status: "error",
+                error: `name=${name} ${err instanceof Error ? err.message : String(err)}`,
+              }),
+            );
             // Attempt cleanup even if download failed — the create did
             // succeed so the zip is on disk. Await the delete so process
             // death between here and the next tick doesn't orphan the
@@ -880,6 +955,23 @@ export async function boot(opts: BootOptions = {}): Promise<{
       // `internal.backup.init-failed` to surface the degraded state.
       logErrorWithStack(logger, "orchestrator.s3-backup-init-failed", err, {
         bucket: s3Bucket,
+      });
+      // CVDIAG: the S3 backup uploader failed to initialize — backups will
+      // silently never run while the service boots green. Surface + persist.
+      console.log(
+        formatCvdiag({
+          component: "harness-orchestrator:s3-backup-init-failed",
+          boundary: "als-snapshot",
+          status: "error",
+          error: String(err).slice(0, 160),
+        }),
+      );
+      void writeDiagEvent(pb, {
+        run_id: mintRunId(),
+        component: "s3-backup-init-failed",
+        boundary: "als-snapshot",
+        status: "error",
+        error: String(err).slice(0, 160),
       });
       bus.emit("internal.backup.init-failed", {
         err: String(err),
@@ -1074,6 +1166,16 @@ export async function boot(opts: BootOptions = {}): Promise<{
 export function buildPooledBrowserDrivers(
   pool: BrowserPool,
   log: Logger,
+  /**
+   * CVDIAG diag_events sink (best-effort, optional). When provided, the D6
+   * driver writes a durable `diag_events` row at its post-run aimock-journal
+   * join so the CV-propagation chain survives Railway's stdout log rolloff.
+   * The fleet worker threads its own `PbClient` here (it already owns one);
+   * the in-process probe-registry path leaves it undefined (the CVDIAG
+   * cv-verdict line is still logged to stdout, only the durable row is
+   * skipped). Never load-bearing — a write failure can't break a probe.
+   */
+  diagPb?: DiagSinkClient,
 ): {
   smoke: ReturnType<typeof createE2eSmokeDriver>;
   demos: ReturnType<typeof createE2eDemosDriver>;
@@ -1088,6 +1190,7 @@ export function buildPooledBrowserDrivers(
     }),
     d6: createE2eFullDriver({
       launcher: createPooledE2eFullLauncher(pool, log),
+      diagPb,
     }),
   };
 }
@@ -2066,6 +2169,11 @@ export function createRailwayAdapter(
 export interface CommErrorSurfacePb {
   getOne<T>(collection: string, id: string): Promise<T | null>;
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
+  // CVDIAG: the surfacer persists a durable diag_events row when a comm-error
+  // surface fails, so the dropped crash overlay survives the restart that ends
+  // a wedge. That goes through `writeDiagEvent`, which needs `.create` — the
+  // real `PbClient` already satisfies it.
+  create<T>(collection: string, record: Record<string, unknown>): Promise<T>;
 }
 
 /** Deps for the REQ-B comm-error surfacer (injectable for unit tests). */
@@ -2120,6 +2228,16 @@ export async function surfaceReclaimedCommErrors(
         logger.warn("fleet.control-plane.commerror-no-probekey", {
           jobId: err.jobId,
         });
+        // CVDIAG: a reclaimed crashed-worker job had no probe_key, so its comm
+        // error cannot be surfaced onto the dashboard — breadcrumb the drop.
+        console.log(
+          formatCvdiag({
+            component: "harness-orchestrator:commerror-no-probekey",
+            boundary: "inbound",
+            status: "error",
+            error: `jobId=${err.jobId} kind=${err.kind}`,
+          }),
+        );
         continue;
       }
       const existing = await pb.getFirst<{ state?: string; signal?: unknown }>(
@@ -2155,6 +2273,24 @@ export async function surfaceReclaimedCommErrors(
       logger.warn("fleet.control-plane.commerror-surface-failed", {
         jobId: err.jobId,
         err: writeErr instanceof Error ? writeErr.message : String(writeErr),
+      });
+      // CVDIAG: surfacing a reclaimed (crashed-worker) job's comm error onto
+      // the dashboard failed — the cell will stay stale. Best-effort surface +
+      // durable row so the dropped crash overlay is post-wedge retrievable.
+      console.log(
+        formatCvdiag({
+          component: "harness-orchestrator:commerror-surface-failed",
+          boundary: "inbound",
+          status: "error",
+          error: `jobId=${err.jobId} ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
+        }),
+      );
+      void writeDiagEvent(pb, {
+        run_id: mintRunId(),
+        component: "commerror-surface-failed",
+        boundary: "inbound",
+        status: "error",
+        error: `jobId=${err.jobId} ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
       });
     }
   }
@@ -2233,6 +2369,17 @@ export async function runControlPlane(
         aggregateKey,
         err: err instanceof Error ? err.message : String(err),
       });
+      // CVDIAG: the prior-colour lookup threw → the comm-error overlay falls
+      // back to no-data instead of preserving a previously-RED service. Surface
+      // the swallowed read so a stomped colour is diagnosable.
+      console.log(
+        formatCvdiag({
+          component: "harness-orchestrator:prior-state-lookup-failed",
+          boundary: "inbound",
+          status: "error",
+          error: `key=${aggregateKey} ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
       return null;
     }
   };
@@ -2344,6 +2491,17 @@ export async function runControlPlane(
         jobId: commError.jobId,
         err: err instanceof Error ? err.message : String(err),
       });
+      // CVDIAG: the swept (lease-expiry) comm error's aggregate-key lookup
+      // threw → the error is skipped and never reaches the dashboard. Surface
+      // the swallowed read so a dropped crash overlay is diagnosable.
+      console.log(
+        formatCvdiag({
+          component: "harness-orchestrator:sweep-aggregate-key-lookup-failed",
+          boundary: "inbound",
+          status: "error",
+          error: `jobId=${commError.jobId} ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
       return null;
     }
   };
@@ -2464,6 +2622,16 @@ export async function runControlPlane(
     logger.error("fleet.control-plane.sweep-stale-runs-failed", {
       error: err instanceof Error ? err.message : String(err),
     });
+    // CVDIAG: the control-plane's boot stale-run sweep failed — orphaned
+    // `running` rows may leak. Surface the swallowed error (boot continues).
+    console.log(
+      formatCvdiag({
+        component: "harness-orchestrator:control-plane-sweep-stale-runs-failed",
+        boundary: "inbound",
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
   }
 
   const httpProbeRegistry = createProbeRegistry();
@@ -2955,6 +3123,17 @@ export async function verifyWorkerRegistered(deps: {
       workerId,
       err: err instanceof Error ? err.message : String(err),
     });
+    // CVDIAG: the read-back verify itself errored — surface the swallowed
+    // failure (we return false best-effort) so a PB blip during verify is
+    // greppable rather than silently reporting the worker unregistered.
+    console.log(
+      formatCvdiag({
+        component: "harness-orchestrator:worker-registration-verify",
+        boundary: "inbound",
+        status: "error",
+        error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+      }),
+    );
     return false;
   }
   if (!registered) {
@@ -2962,6 +3141,17 @@ export async function verifyWorkerRegistered(deps: {
       workerId,
       msg: "worker registration row did not persist — /health will report unregistered until a heartbeat lands it",
     });
+    // CVDIAG: verify succeeded but found NO row — the worker_id upsert was
+    // swallowed by registerWorker and never landed. This is exactly the
+    // "worker_id stamping not emitting live" residual; surface it loudly.
+    console.log(
+      formatCvdiag({
+        component: "harness-orchestrator:worker-registration-not-persisted",
+        boundary: "inbound",
+        status: "error",
+        error: `workerId=${workerId} row-absent`,
+      }),
+    );
   }
   return registered;
 }
@@ -3050,6 +3240,28 @@ export async function runWorker(
         snapshot.stats,
         snapshot.perBrowser,
       );
+      // CVDIAG: prove the fleet-WORKER replica's snapshot wiring is live (this
+      // is the path that went dark when staging moved to the fleet model — see
+      // the comment above). Stamp the worker_id so the 6 concurrent replicas'
+      // snapshots are attributable in the shared log/collection. Persist a
+      // durable row for SIGNIFICANT (non-heartbeat) conditions.
+      console.log(
+        formatCvdiag({
+          component: `harness-orchestrator:worker-pool-snapshot:${snapshot.event}`,
+          boundary: "als-snapshot",
+          status: "ok",
+          error: `workerId=${workerId} pidsCur=${snapshot.gauges.cgroupPidsCurrent} pidsMax=${snapshot.gauges.cgroupPidsMax} inUse=${snapshot.stats.inUse}`,
+        }),
+      );
+      if (snapshot.event !== "heartbeat") {
+        void writeDiagEvent(pb, {
+          run_id: mintRunId(),
+          component: `worker-pool-snapshot:${snapshot.event}`,
+          boundary: "als-snapshot",
+          status: snapshot.event === "recovered" ? "ok" : "error",
+          error: `workerId=${workerId} pidsCur=${snapshot.gauges.cgroupPidsCurrent} pidsMax=${snapshot.gauges.cgroupPidsMax} threads=${snapshot.gauges.treeThreadCount} inUse=${snapshot.stats.inUse}`,
+        });
+      }
     },
   });
   await pool.init();
@@ -3063,7 +3275,12 @@ export async function runWorker(
   // d6/d5/demos/smoke jobs. Each kind carries the shared re-hydration mapper
   // (`createPayloadToInput`) since the four driver input shapes are identical and
   // each driver's own zod schema is the validation gate.
-  const pooled = buildPooledBrowserDrivers(pool, logger);
+  //
+  // CVDIAG: thread the worker's own `pb` client as the D6 driver's diag_events
+  // sink. This is the production path that actually runs D5/D6 jobs, so the
+  // post-run aimock-journal join can persist a durable cv-verdict row here
+  // (best-effort; never breaks a probe).
+  const pooled = buildPooledBrowserDrivers(pool, logger, pb);
 
   // Construction-time fail-loud: each factory's self-reported `kind` MUST equal
   // the key constant we register it under, BEFORE the concrete `ProbeDriver` is
@@ -3133,6 +3350,27 @@ export async function runWorker(
   // regardless; this flag only governs what /health reports.
   registered = await verifyWorkerRegistered({ pb, workerId, logger });
 
+  // CVDIAG: worker REGISTRATION outcome. `registerWorker` is best-effort and
+  // swallows its upsert failure, so the only proof the worker_id row actually
+  // landed is the read-back verify. Surface the verified state (and a durable
+  // row) so the live fleet shows whether worker_id stamping into the `workers`
+  // collection is firing — the known residual the instrumentation targets.
+  console.log(
+    formatCvdiag({
+      component: "harness-orchestrator:worker-registration",
+      boundary: "inbound",
+      status: registered ? "ok" : "error",
+      error: `workerId=${workerId} persisted=${registered}`,
+    }),
+  );
+  void writeDiagEvent(pb, {
+    run_id: mintRunId(),
+    component: "worker-registration",
+    boundary: "inbound",
+    status: registered ? "ok" : "error",
+    error: `workerId=${workerId} persisted=${registered}`,
+  });
+
   let worker: Awaited<ReturnType<typeof runFleetWorker>>;
   try {
     worker = await runFleetWorker(config, {
@@ -3157,6 +3395,28 @@ export async function runWorker(
       // the call, so this can never break the worker.
       onCurrentJobChange: (currentJobId) => {
         void registration.heartbeat(currentJobId);
+        // CVDIAG: worker CLAIM lifecycle. This fires with the claimed jobId
+        // when a worker wins a job (claim/start) and with null when the job
+        // settles (finish). The jobId is the `probe_jobs` row whose
+        // `claimed_by` IS this worker_id — so this line is the live proof that
+        // (a) claims fire and (b) worker_id stamping reaches the claim row.
+        // Persist a durable row so the claim trail survives the restart.
+        const claiming = currentJobId !== null;
+        console.log(
+          formatCvdiag({
+            component: `harness-orchestrator:worker-claim:${claiming ? "start" : "finish"}`,
+            boundary: "inbound",
+            status: "ok",
+            error: `workerId=${workerId} jobId=${currentJobId ?? "none"}`,
+          }),
+        );
+        void writeDiagEvent(pb, {
+          run_id: mintRunId(),
+          component: `worker-claim:${claiming ? "start" : "finish"}`,
+          boundary: "inbound",
+          status: "ok",
+          error: `workerId=${workerId} jobId=${currentJobId ?? "none"}`,
+        });
       },
     });
   } catch (err) {
@@ -3176,12 +3436,22 @@ export async function runWorker(
       // construct its own pool — its stop() only drains the in-flight job and
       // stops the loop. WE own the pool, so we shut it down ourselves below.
       await worker.stop();
-      await pool.shutdown().catch((err) =>
+      await pool.shutdown().catch((err) => {
         logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
           workerId,
           err: err instanceof Error ? err.message : String(err),
-        }),
-      );
+        });
+        // CVDIAG: the worker's pool shutdown threw — chromium processes may be
+        // stranded. Surface the swallowed error with the worker_id.
+        console.log(
+          formatCvdiag({
+            component: "harness-orchestrator:worker-pool-shutdown-failed",
+            boundary: "als-snapshot",
+            status: "error",
+            error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+          }),
+        );
+      });
     },
   };
 }
