@@ -40,8 +40,6 @@ import type { TerminalResult, PbWriteConfig } from "./results.js";
 
 import { livenessDriver } from "../probes/drivers/liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
-import { createE2eDeepDriver } from "../probes/drivers/d5-single-pill.js";
-import type { E2eDeepBrowser } from "../probes/drivers/d5-single-pill.js";
 import { createE2eFullDriver } from "../probes/drivers/d6-all-pills.js";
 import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
@@ -240,84 +238,17 @@ export async function run(
     ...(pbWriter !== null && { writer: pbWriter }),
   };
 
-  // -- 6. Create headed-mode deep driver if needed --------------------------
-  // The D5 driver launches Playwright internally. For --headed mode, we
+  // -- 6. Create headed-mode driver if needed -------------------------------
+  // The D6 driver launches Playwright internally. For --headed mode, we
   // create a custom driver instance with a launcher that passes
   // headless: false. The e2e-chat-tools driver also launches Playwright
-  // but doesn't expose a headed toggle — we pass HEADED=1 via env.
+  // but doesn't expose a headed toggle — we pass HEADED=1 via env. D5 now
+  // runs this SAME D6 driver ("D5 take-one"), differentiated only by its
+  // inputs (`representativeOnly` + `rowPrefix: "d5"`), so one driver instance
+  // serves both the d5 and d6 levels.
   if (options.headed) {
     ctx.env = { ...ctx.env, HEADED: "1", PLAYWRIGHT_HEADLESS: "0" };
   }
-
-  const deepDriver = options.headed
-    ? createE2eDeepDriver({
-        launcher: async (): Promise<E2eDeepBrowser> => {
-          const mod =
-            (await import("playwright")) as typeof import("playwright");
-          const browser = await mod.chromium.launch({
-            headless: false,
-            args: ["--no-sandbox", "--disable-dev-shm-usage"],
-          });
-          return {
-            async newContext(contextOpts?: {
-              extraHTTPHeaders?: Record<string, string>;
-            }) {
-              const bCtx = await browser.newContext({
-                extraHTTPHeaders: {
-                  "X-AIMock-Strict": "true",
-                  ...contextOpts?.extraHTTPHeaders,
-                },
-              });
-              return {
-                async newPage() {
-                  const page = await bCtx.newPage();
-                  const consoleLogs: string[] = [];
-                  const requestFailures: string[] = [];
-                  page.on(
-                    "console",
-                    (msg: { type(): string; text(): string }) => {
-                      const t = msg.type();
-                      if (t === "error" || t === "warning") {
-                        consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
-                      }
-                    },
-                  );
-                  page.on(
-                    "requestfailed",
-                    (request: {
-                      method(): string;
-                      url(): string;
-                      failure(): { errorText: string } | null;
-                    }) => {
-                      requestFailures.push(
-                        `${request.method()} ${request.url().slice(0, 200)} => ${
-                          request.failure()?.errorText || "unknown"
-                        }`,
-                      );
-                    },
-                  );
-                  return Object.assign(page, {
-                    getDiagnostics: () => ({
-                      consoleLogs: consoleLogs.slice(-20),
-                      requestFailures: requestFailures.slice(-10),
-                    }),
-                    isClosed: () => page.isClosed(),
-                    locator: (s: string) => page.locator(s),
-                    route: (
-                      u: string | RegExp,
-                      handler: Parameters<typeof page.route>[1],
-                    ) => page.route(u, handler),
-                    unroute: (u: string | RegExp) => page.unroute(u),
-                  }) as unknown as import("../probes/drivers/d5-single-pill.js").E2eDeepPage;
-                },
-                close: () => bCtx.close(),
-              };
-            },
-            close: () => browser.close(),
-          };
-        },
-      })
-    : createE2eDeepDriver();
 
   const fullDriver = options.headed
     ? createE2eFullDriver({
@@ -416,7 +347,6 @@ export async function run(
             testTarget,
             ctx,
             config,
-            deepDriver,
             fullDriver,
             pbWriter,
             logger,
@@ -499,7 +429,6 @@ async function runLevel(
   testTarget: TestTarget,
   ctx: ProbeContext,
   config: LocalConfig,
-  deepDriver: ProbeDriver<unknown, unknown>,
   fullDriver: ProbeDriver<unknown, unknown>,
   pbWriter: StatusWriter | null,
   logger: Logger,
@@ -559,12 +488,14 @@ async function runLevel(
     }
 
     case "d5": {
+      // D5 = "D6 take-one": run the SAME D6 driver, scoped by the inputs
+      // (`representativeOnly` + `rowPrefix: "d5"`) that buildDeepInputs stamps.
       const inputs = buildDeepInputs(testTarget, config);
       for (const input of inputs) {
         if (ctx.abortSignal?.aborted) break;
         const startedAt = Date.now();
         try {
-          const result = await deepDriver.run(ctx, input);
+          const result = await fullDriver.run(ctx, input);
           const terminal = probeResultToTerminal(result, startedAt);
           printResult(terminal);
           results.push(terminal);

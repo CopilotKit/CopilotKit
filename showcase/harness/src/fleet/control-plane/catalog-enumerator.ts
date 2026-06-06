@@ -53,7 +53,6 @@ import type {
 import {
   E2E_SMOKE_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
-  E2E_DEEP_DRIVER_KIND,
 } from "../worker/payload-mapper.js";
 
 /** The d6 driver kind every enumerated spec runs under. */
@@ -379,11 +378,25 @@ export function createE2eSmokeServiceEnumerator(
 }
 
 /**
- * Build the real e2e-deep (`d5-single-pill-e2e`) `ServiceEnumerator` — a thin
- * specialization of `createServiceEnumerator` with the shared showcase filter,
- * the `e2e_deep` driver kind, and the `d5-single-pill-e2e:<slug>` probeKey prefix
- * (matching `src/cli/targets.ts` `d5-single-pill-e2e:<slug>` and
- * `config/probes/e2e-deep.yml`).
+ * Build the real e2e-deep (`d5-single-pill-e2e`) `ServiceEnumerator`.
+ *
+ * D5 is now LITERALLY "D6 take-one": the enumerated specs run under the D6
+ * driver (`e2e_d6`) — the SAME route, headers, conversation, and pooled
+ * launcher — but scoped to a single representative pill per feature category
+ * and emitting the `d5:` dashboard key prefix. This eliminated the separate
+ * D5 driver / launcher whose own launcher instance + cadence systematically
+ * lost the `x-aimock-context` header against the shared fleet pool (aimock
+ * strict 503 → red). Two conveyed `driverInputs` make the D6 driver behave
+ * as D5:
+ *   - `representativeOnly: true` — filter the D6 matrix to only the
+ *     featureTypes present in `D5_REPRESENTATIVES`.
+ *   - `rowPrefix: "d5"` — thread the `d5:` prefix through every emitted PB
+ *     row (per-cell `d5:<slug>/<ft>` and aggregate `d5:<slug>`).
+ *
+ * The probeKey prefix stays `d5-single-pill-e2e:<slug>` (matching
+ * `src/cli/targets.ts` and `config/probes/e2e-deep.yml`) so the claim/dashboard
+ * join key is unchanged; only the driver KIND and the two scoping inputs differ
+ * from a full D6 run.
  */
 export function createE2eDeepServiceEnumerator(
   deps: D6ServiceEnumeratorDeps,
@@ -396,9 +409,10 @@ export function createE2eDeepServiceEnumerator(
     env,
     fetchImpl,
     logger,
-    driverKind: E2E_DEEP_DRIVER_KIND,
+    driverKind: D6_DRIVER_KIND,
     probeKeyPrefix: "d5-single-pill-e2e",
     filter,
+    extraDriverInputs: { representativeOnly: true, rowPrefix: "d5" },
   });
 }
 

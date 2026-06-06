@@ -71,17 +71,23 @@ export interface ChatToolsInput {
 }
 
 /**
- * e2e-deep (D5) driver input — mirrors the `inputSchema` in
- * `src/probes/drivers/e2e-deep.ts`. `backendUrl` or `publicUrl` is
- * required. The CLI sets `backendUrl` from local-ports and populates
- * `demos` from the manifest's top-level `features` array (registry IDs
- * that the driver maps to D5 feature types via `demosToFeatureTypes()`).
+ * e2e-deep (D5) driver input. D5 is now "D6 take-one": it runs the SAME D6
+ * driver (`createE2eFullDriver`) but scoped to a single representative pill
+ * per feature category and emitting the `d5:` dashboard prefix. So the input
+ * mirrors the D6 `inputSchema` (`src/probes/drivers/d6-all-pills.ts`) plus the
+ * two scoping knobs: `representativeOnly: true` filters to the representatives
+ * map, and `rowPrefix: "d5"` threads the `d5:` key prefix through every emitted
+ * row. `backendUrl` or `publicUrl` is required; the CLI sets `backendUrl` from
+ * local-ports and populates `demos` from the manifest's top-level `features`
+ * array (registry IDs the driver maps via `demosToFeatureTypes()`).
  */
 export interface DeepInput {
   key: string;
   backendUrl: string;
   name: string;
   demos: string[];
+  representativeOnly: true;
+  rowPrefix: "d5";
   shape: "package";
 }
 
@@ -286,9 +292,11 @@ export function buildChatToolsInputs(
 }
 
 /**
- * Build e2e-deep (D5) driver inputs. Reads the manifest's top-level
- * `features` array. When `target.demo` is set, filters features to
- * just that demo ID (the features list in the manifest uses the same
+ * Build e2e-deep (D5) driver inputs for the D6 driver ("D5 take-one"). Reads
+ * the manifest's top-level `features` array and stamps `representativeOnly` +
+ * `rowPrefix: "d5"` so the shared D6 driver runs one representative pill per
+ * category and emits `d5:` rows. When `target.demo` is set, filters features
+ * to just that demo ID (the features list in the manifest uses the same
  * identifiers as demo IDs).
  */
 export function buildDeepInputs(
@@ -317,6 +325,10 @@ export function buildDeepInputs(
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
+        // D5 = D6-take-one: scope the D6 driver to one representative pill per
+        // category and emit under the `d5:` dashboard prefix.
+        representativeOnly: true as const,
+        rowPrefix: "d5" as const,
         shape: "package" as const,
       };
     })

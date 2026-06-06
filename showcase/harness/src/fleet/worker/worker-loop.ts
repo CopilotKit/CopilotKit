@@ -269,6 +269,22 @@ function cellIdFromKey(key: string): string {
 }
 
 /**
+ * Read an explicit `rowPrefix` ("d5" | "d6") off a payload's serialized driver
+ * inputs. The D5 "take-one" path runs the `e2e_d6` driver but emits rows under
+ * the `d5:` prefix, so the worker must derive the aggregate-key scheme from the
+ * per-job input rather than the (prefix-agnostic) registry entry. Returns
+ * undefined for any non-d5/d6 value so the caller falls back to the entry's
+ * default builder.
+ */
+function readRowPrefix(driverInputs: unknown): "d5" | "d6" | undefined {
+  if (driverInputs === null || typeof driverInputs !== "object") {
+    return undefined;
+  }
+  const prefix = (driverInputs as Record<string, unknown>).rowPrefix;
+  return prefix === "d5" || prefix === "d6" ? prefix : undefined;
+}
+
+/**
  * The browser pool's OWN unavailability signal.
  *
  * `BrowserPool` (`probes/helpers/browser-pool.ts`) does NOT define a custom
@@ -615,7 +631,18 @@ export async function runClaimedJob(
   // out of the captured cells (the loop captures the aggregate from the primary
   // return). Per-cell rows are `<scheme>:<slug>/<featureId>` and are kept. The
   // key scheme is per-driver-family, resolved from the registry entry above.
-  const aggregateSlugKey = buildAggregateSlugKey(payload.serviceSlug);
+  //
+  // ROW-PREFIX OVERRIDE: the D5 probe runs the `e2e_d6` driver with
+  // `driverInputs.rowPrefix === "d5"` (the "D5 take-one" path), so its aggregate
+  // is emitted under `d5:<slug>`, NOT `d6:<slug>`. The single `e2e_d6` registry
+  // entry's builder can't know the per-job prefix, so honor an explicit
+  // `rowPrefix` carried on the payload's driver inputs here — otherwise the
+  // `d5:<slug>` aggregate would leak into the captured per-cell set.
+  const rowPrefixOverride = readRowPrefix(payload.driverInputs);
+  const aggregateSlugKey =
+    rowPrefixOverride !== undefined
+      ? `${rowPrefixOverride}:${payload.serviceSlug}`
+      : buildAggregateSlugKey(payload.serviceSlug);
   const capture = createCellCapture(aggregateSlugKey);
 
   // Heartbeat-renew the lease while the (long) driver run is in flight. A renew

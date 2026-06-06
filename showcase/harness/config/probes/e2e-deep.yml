@@ -80,7 +80,24 @@
 # Infra services are excluded — same list as smoke / e2e-smoke / e2e-
 # demos so a new infra service added there lands here too during review.
 # Starters short-circuit green inside the driver (no /demos routing).
-kind: e2e_deep
+# D5 is now LITERALLY "D6 take-one": this probe runs the SAME D6 driver
+# (`kind: e2e_d6`) under D6's exact conditions (route, headers, conversation,
+# pooled launcher), but scoped to a single representative pill per feature
+# category and emitting the `d5:` dashboard prefix. The separate D5
+# driver/launcher was deleted because its own launcher instance + cadence
+# systematically lost the `x-aimock-context` header against the shared fleet
+# pool (aimock strict 503 → red).
+#
+# The D5-scoping inputs (`representativeOnly: true`, `rowPrefix: "d5"`) are NOT
+# expressed in this YAML — the probe-config schema is `.strict()` and rejects
+# unknown top-level keys. Instead they are stamped onto the driver inputs by
+# the run paths that actually construct them: the fleet producer's
+# `createE2eDeepServiceEnumerator` (`extraDriverInputs`) and the CLI's
+# `buildDeepInputs` (`src/cli/targets.ts`). This YAML retains the
+# `d5-single-pill-e2e` id, the staggered cadence, and the discovery filter that
+# enumerate the D5 service set; the `kind: e2e_d6` line just points it at the
+# unified driver.
+kind: e2e_d6
 id: d5-single-pill-e2e
 schedule: "5,20,35,50 * * * *"
 timeout_ms: 600000
