@@ -1037,4 +1037,64 @@ describe("e2e-full per-feature retry signal isolation", () => {
       expect(aggRow).toBeDefined();
     });
   });
+
+  // --- Composed: the REAL D5 invocation shape ------------------------------
+  //
+  // buildDeepInputs stamps BOTH knobs together (`representativeOnly: true` AND
+  // `rowPrefix: "d5"`). The isolated knob tests above don't exercise them in
+  // combination; this asserts the actual D5 contract: only representative
+  // featureTypes run, AND every emitted key (per-cell + aggregate) uses the
+  // `d5:` prefix.
+  describe("representativeOnly + rowPrefix:d5 (real D5 invocation shape)", () => {
+    it("runs only D5_REPRESENTATIVES featureTypes and emits d5:<slug>/<ft> + d5:<slug> keys", async () => {
+      // agentic-chat is a representative; tool-rendering is not.
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+        representativeOnly: true,
+        rowPrefix: "d5",
+      });
+
+      expect(result.state).toBe("green");
+
+      // (a) Only the representative featureType ran (tool-rendering filtered).
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.total).toBe(1);
+      expect(signal.passed).toBe(1);
+      const toolRow = sideEmits.find((r) => r.key.endsWith("/tool-rendering"));
+      expect(toolRow).toBeUndefined();
+
+      // (b) Per-cell key uses the d5: prefix: d5:<slug>/<ft>.
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d5:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      expect(cellRow!.state).toBe("green");
+
+      // (b) Aggregate key uses the d5: prefix: d5:<slug>.
+      const aggRow = sideEmits.find((r) => r.key === "d5:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+
+      // No d6: rows leaked under the composed D5 shape.
+      const d6Rows = sideEmits.filter((r) => r.key.startsWith("d6:"));
+      expect(d6Rows).toEqual([]);
+    });
+  });
 });
