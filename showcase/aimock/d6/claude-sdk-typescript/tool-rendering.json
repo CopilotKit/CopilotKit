@@ -114,9 +114,36 @@
       }
     },
     {
+      "_comment": "Stock price — follow-up content fallback for multi-pill sessions (chat/responses shape). The toolCallId chain above misses when get_stock_price is preceded by a PRIOR pill's tool result. Anchored on hasToolResult:true; carries no toolCalls so it is loop-safe. MUST precede the tool-emit fixtures below.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": true,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "turnIndex": 0,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Stock price — first-turn tool-emit fallback for multi-pill sessions where the turnIndex:0 fixture misses: on the Anthropic /v1/messages shape there is no `tool` role (tool results live in user content blocks), so a prior get_weather assistant turn makes turnIndex (assistant count) = 1, not 0. This ungated fixture emits get_stock_price whenever the fresh AAPL prompt is the last user text. Loop-safe: after get_stock_price runs, the follow-up turn's last user message is a tool_result block with no text, so getTextContent returns null and this userMessage fixture is skipped — no re-emit.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
         "context": "claude-sdk-typescript"
       },
       "response": {
