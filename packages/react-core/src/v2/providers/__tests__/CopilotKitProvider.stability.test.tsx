@@ -1,4 +1,5 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -734,6 +735,71 @@ describe("CopilotKitProvider stability", () => {
       expect(renderToolCalls.find((r) => r.name === "propToolB")).toBeDefined();
       // hookTool should survive the prop change
       expect(renderToolCalls.find((r) => r.name === "hookTool")).toBeDefined();
+    });
+  });
+
+  describe("runtime feature tools", () => {
+    it("preserves hook-registered tools when runtime enables openGenerativeUI", async () => {
+      let capturedInstance: CopilotKitCoreReact | null = null;
+      let runtimeOpenGenUIEnabled = false;
+      let emitRuntimeStatusChanged: (() => void | Promise<void>) | undefined;
+      let subscribeWrapped = false;
+
+      function DynamicToolChild() {
+        const { copilotkit } = useCopilotKit();
+        capturedInstance = copilotkit;
+
+        if (!subscribeWrapped) {
+          Object.defineProperty(copilotkit, "openGenerativeUIEnabled", {
+            configurable: true,
+            get: () => runtimeOpenGenUIEnabled,
+          });
+
+          const originalSubscribe = copilotkit.subscribe.bind(copilotkit);
+          copilotkit.subscribe = (subscriber) => {
+            if (subscriber.onRuntimeConnectionStatusChanged) {
+              emitRuntimeStatusChanged = () =>
+                subscriber.onRuntimeConnectionStatusChanged?.({
+                  copilotkit,
+                  status: CopilotKitCoreRuntimeConnectionStatus.Connected,
+                });
+            }
+            return originalSubscribe(subscriber);
+          };
+          subscribeWrapped = true;
+        }
+
+        useFrontendTool({
+          name: "hookTool",
+          description: "Registered via useFrontendTool",
+          handler: async () => "ok",
+        });
+
+        return null;
+      }
+
+      render(
+        <CopilotKitProvider>
+          <DynamicToolChild />
+        </CopilotKitProvider>,
+      );
+
+      expect(capturedInstance).not.toBeNull();
+      expect(capturedInstance!.getTool({ toolName: "hookTool" })).toBeDefined();
+      expect(
+        capturedInstance!.getTool({ toolName: "generateSandboxedUi" }),
+      ).toBeUndefined();
+      expect(emitRuntimeStatusChanged).toBeDefined();
+
+      runtimeOpenGenUIEnabled = true;
+      await act(async () => {
+        await emitRuntimeStatusChanged?.();
+      });
+
+      expect(capturedInstance!.getTool({ toolName: "hookTool" })).toBeDefined();
+      expect(
+        capturedInstance!.getTool({ toolName: "generateSandboxedUi" }),
+      ).toBeDefined();
     });
   });
 
