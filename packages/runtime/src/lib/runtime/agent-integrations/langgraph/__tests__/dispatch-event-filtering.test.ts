@@ -35,6 +35,22 @@ function makeTextEvent(
   };
 }
 
+function makeToolEvent(
+  type: EventType,
+  metadata: Record<string, any>,
+  toolCallId = "tc-1",
+  toolCallName?: string,
+) {
+  return {
+    type,
+    toolCallId,
+    ...(toolCallName !== undefined ? { toolCallName } : {}),
+    ...(type === EventType.TOOL_CALL_START ? { parentMessageId: "msg-1" } : {}),
+    ...(type === EventType.TOOL_CALL_ARGS ? { delta: '{"value":true}' } : {}),
+    rawEvent: { metadata },
+  };
+}
+
 function makeCustomEvent(name: string, value: any) {
   return {
     type: EventType.CUSTOM,
@@ -172,6 +188,106 @@ describe("dispatchEvent emit-tool-calls filtering", () => {
 
     expect(result).toBe(true);
     expect(events).toHaveLength(1);
+  });
+
+  it("filters tool event sequences by string whitelist", () => {
+    const { agent, events } = createAgent();
+    const metadata = { "copilotkit:emit-tool-calls": "draft_email_structured" };
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(
+          EventType.TOOL_CALL_START,
+          metadata,
+          "tc-allowed",
+          "draft_email_structured",
+        ) as any,
+      ),
+    ).toBe(true);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_ARGS, metadata, "tc-allowed") as any,
+      ),
+    ).toBe(true);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_END, metadata, "tc-allowed") as any,
+      ),
+    ).toBe(true);
+    expect(events).toHaveLength(3);
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(
+          EventType.TOOL_CALL_START,
+          metadata,
+          "tc-blocked",
+          "list_polish_operations",
+        ) as any,
+      ),
+    ).toBe(false);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_ARGS, metadata, "tc-blocked") as any,
+      ),
+    ).toBe(false);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_END, metadata, "tc-blocked") as any,
+      ),
+    ).toBe(false);
+    expect(events).toHaveLength(3);
+  });
+
+  it("filters tool event sequences by array whitelist", () => {
+    const { agent, events } = createAgent();
+    const metadata = {
+      "copilotkit:emit-tool-calls": ["draft_email_structured", "preview_email"],
+    };
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(
+          EventType.TOOL_CALL_START,
+          metadata,
+          "tc-allowed",
+          "preview_email",
+        ) as any,
+      ),
+    ).toBe(true);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_ARGS, metadata, "tc-allowed") as any,
+      ),
+    ).toBe(true);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_END, metadata, "tc-allowed") as any,
+      ),
+    ).toBe(true);
+    expect(events).toHaveLength(3);
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(
+          EventType.TOOL_CALL_START,
+          metadata,
+          "tc-blocked",
+          "list_polish_operations",
+        ) as any,
+      ),
+    ).toBe(false);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_ARGS, metadata, "tc-blocked") as any,
+      ),
+    ).toBe(false);
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_END, metadata, "tc-blocked") as any,
+      ),
+    ).toBe(false);
+    expect(events).toHaveLength(3);
   });
 });
 

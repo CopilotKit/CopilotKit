@@ -13,6 +13,8 @@ from ag_ui.core import (
     TextMessageStartEvent,
     TextMessageContentEvent,
     ToolCallStartEvent,
+    ToolCallArgsEvent,
+    ToolCallEndEvent,
 )
 from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
@@ -45,6 +47,27 @@ def _make_tool_event(metadata: dict) -> ToolCallStartEvent:
     )
 
 
+def _make_tool_args_event(
+    metadata: dict, tool_call_id: str = "tc-1"
+) -> ToolCallArgsEvent:
+    """Create a TOOL_CALL_ARGS event with a dict raw_event carrying metadata."""
+    return ToolCallArgsEvent(
+        toolCallId=tool_call_id,
+        delta='{"value":true}',
+        rawEvent={"metadata": metadata},
+    )
+
+
+def _make_tool_end_event(
+    metadata: dict, tool_call_id: str = "tc-1"
+) -> ToolCallEndEvent:
+    """Create a TOOL_CALL_END event with a dict raw_event carrying metadata."""
+    return ToolCallEndEvent(
+        toolCallId=tool_call_id,
+        rawEvent={"metadata": metadata},
+    )
+
+
 # ---------- Bug 1: dict metadata reading via .get() ----------
 
 
@@ -62,6 +85,75 @@ class TestDictMetadataReading:
         event = _make_tool_event({"copilotkit:emit-tool-calls": False})
         result = agent._dispatch_event(event)
         assert result is None
+
+    def test_emit_tool_calls_string_whitelist_filters_other_tools(self, agent):
+        """A string whitelist should only emit events for the named tool."""
+        metadata = {"copilotkit:emit-tool-calls": "draft_email_structured"}
+
+        matching_start = ToolCallStartEvent(
+            toolCallId="tc-allowed",
+            toolCallName="draft_email_structured",
+            rawEvent={"metadata": metadata},
+        )
+        assert agent._dispatch_event(matching_start) is not None
+        assert (
+            agent._dispatch_event(_make_tool_args_event(metadata, "tc-allowed"))
+            is not None
+        )
+        assert (
+            agent._dispatch_event(_make_tool_end_event(metadata, "tc-allowed"))
+            is not None
+        )
+
+        blocked_start = ToolCallStartEvent(
+            toolCallId="tc-blocked",
+            toolCallName="list_polish_operations",
+            rawEvent={"metadata": metadata},
+        )
+        assert agent._dispatch_event(blocked_start) is None
+        assert (
+            agent._dispatch_event(_make_tool_args_event(metadata, "tc-blocked")) is None
+        )
+        assert (
+            agent._dispatch_event(_make_tool_end_event(metadata, "tc-blocked")) is None
+        )
+
+    def test_emit_tool_calls_list_whitelist_filters_other_tools(self, agent):
+        """A list whitelist should only emit events for tools in the list."""
+        metadata = {
+            "copilotkit:emit-tool-calls": [
+                "draft_email_structured",
+                "preview_email",
+            ]
+        }
+
+        matching_start = ToolCallStartEvent(
+            toolCallId="tc-allowed",
+            toolCallName="preview_email",
+            rawEvent={"metadata": metadata},
+        )
+        assert agent._dispatch_event(matching_start) is not None
+        assert (
+            agent._dispatch_event(_make_tool_args_event(metadata, "tc-allowed"))
+            is not None
+        )
+        assert (
+            agent._dispatch_event(_make_tool_end_event(metadata, "tc-allowed"))
+            is not None
+        )
+
+        blocked_start = ToolCallStartEvent(
+            toolCallId="tc-blocked",
+            toolCallName="list_polish_operations",
+            rawEvent={"metadata": metadata},
+        )
+        assert agent._dispatch_event(blocked_start) is None
+        assert (
+            agent._dispatch_event(_make_tool_args_event(metadata, "tc-blocked")) is None
+        )
+        assert (
+            agent._dispatch_event(_make_tool_end_event(metadata, "tc-blocked")) is None
+        )
 
     def test_emit_messages_true_passes_through(self, agent):
         """emit-messages=True should NOT filter — event passes to super()."""

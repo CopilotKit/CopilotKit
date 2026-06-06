@@ -68,6 +68,48 @@ class LangGraphAGUIAgent(LangGraphAgent):
     ):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        self._tool_call_names_by_id: Dict[str, str] = {}
+
+    def _remember_tool_call_name(self, event: ToolCallEvents) -> None:
+        if event.type != EventType.TOOL_CALL_START:
+            return
+
+        tool_call_id = getattr(event, "tool_call_id", None)
+        tool_call_name = getattr(event, "tool_call_name", None)
+        if isinstance(tool_call_id, str) and isinstance(tool_call_name, str):
+            self._tool_call_names_by_id[tool_call_id] = tool_call_name
+
+    def _forget_tool_call_name(self, event: ToolCallEvents) -> None:
+        if event.type != EventType.TOOL_CALL_END:
+            return
+
+        tool_call_id = getattr(event, "tool_call_id", None)
+        if isinstance(tool_call_id, str):
+            self._tool_call_names_by_id.pop(tool_call_id, None)
+
+    def _tool_call_name_for_event(self, event: ToolCallEvents) -> Optional[str]:
+        tool_call_name = getattr(event, "tool_call_name", None)
+        if isinstance(tool_call_name, str):
+            return tool_call_name
+
+        tool_call_id = getattr(event, "tool_call_id", None)
+        if isinstance(tool_call_id, str):
+            return self._tool_call_names_by_id.get(tool_call_id)
+
+        return None
+
+    def _should_emit_tool_call(
+        self,
+        emit_tool_calls: Union[bool, str, List[str], Any],
+        tool_call_name: Optional[str],
+    ) -> bool:
+        if emit_tool_calls is False:
+            return False
+        if isinstance(emit_tool_calls, str):
+            return tool_call_name == emit_tool_calls
+        if isinstance(emit_tool_calls, list):
+            return tool_call_name in emit_tool_calls
+        return True
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -234,8 +276,19 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 else getattr(raw_event, "metadata", {})
             ) or {}
 
-            if "copilotkit:emit-tool-calls" in metadata:
-                if metadata["copilotkit:emit-tool-calls"] is False and is_tool_event:
+            if is_tool_event:
+                self._remember_tool_call_name(event)
+
+                should_emit_tool_call = True
+                if "copilotkit:emit-tool-calls" in metadata:
+                    should_emit_tool_call = self._should_emit_tool_call(
+                        metadata["copilotkit:emit-tool-calls"],
+                        self._tool_call_name_for_event(event),
+                    )
+
+                self._forget_tool_call_name(event)
+
+                if not should_emit_tool_call:
                     return None  # Don't dispatch this event
 
             if "copilotkit:emit-messages" in metadata:

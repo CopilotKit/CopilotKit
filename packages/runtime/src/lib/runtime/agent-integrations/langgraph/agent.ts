@@ -10,9 +10,8 @@ import type {
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
-  type LangGraphAgentConfig,
-  type State,
 } from "@ag-ui/langgraph";
+import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 
@@ -35,9 +34,68 @@ import type {
 import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
+type ToolCallEventLike = Partial<ToolCallEvents> & {
+  toolCallId?: string;
+  toolCallName?: string;
+};
+
 export class LangGraphAgent extends AGUILangGraphAgent {
+  private toolCallNamesById = new Map<string, string>();
+
   constructor(config: LangGraphAgentConfig) {
     super(config);
+  }
+
+  private rememberToolCallName(event: ProcessedEvents): void {
+    if (event.type !== EventType.TOOL_CALL_START) {
+      return;
+    }
+
+    const toolEvent = event as ToolCallEventLike;
+    if (
+      typeof toolEvent.toolCallId === "string" &&
+      typeof toolEvent.toolCallName === "string"
+    ) {
+      this.toolCallNamesById.set(toolEvent.toolCallId, toolEvent.toolCallName);
+    }
+  }
+
+  private forgetToolCallName(event: ProcessedEvents): void {
+    if (event.type !== EventType.TOOL_CALL_END) {
+      return;
+    }
+
+    const toolCallId = (event as ToolCallEventLike).toolCallId;
+    if (typeof toolCallId === "string") {
+      this.toolCallNamesById.delete(toolCallId);
+    }
+  }
+
+  private toolCallNameForEvent(event: ProcessedEvents): string | undefined {
+    const toolEvent = event as ToolCallEventLike;
+    if (typeof toolEvent.toolCallName === "string") {
+      return toolEvent.toolCallName;
+    }
+    if (typeof toolEvent.toolCallId === "string") {
+      return this.toolCallNamesById.get(toolEvent.toolCallId);
+    }
+    return undefined;
+  }
+
+  private shouldEmitToolCall(
+    emitToolCalls: unknown,
+    toolCallName: string | undefined,
+  ): boolean {
+    if (emitToolCalls === false) {
+      return false;
+    }
+    if (typeof emitToolCalls === "string") {
+      return toolCallName === emitToolCalls;
+    }
+    if (Array.isArray(emitToolCalls)) {
+      return toolCallName !== undefined && emitToolCalls.includes(toolCallName);
+    }
+    return true;
   }
 
   dispatchEvent(event: ProcessedEvents) {
@@ -130,11 +188,21 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       event.type === EventType.TOOL_CALL_START ||
       event.type === EventType.TOOL_CALL_ARGS ||
       event.type === EventType.TOOL_CALL_END;
-    if ("copilotkit:emit-tool-calls" in (rawEvent.metadata || {})) {
-      if (
-        rawEvent.metadata["copilotkit:emit-tool-calls"] === false &&
-        isToolEvent
-      ) {
+
+    if (isToolEvent) {
+      this.rememberToolCallName(event);
+
+      let shouldEmitToolCall = true;
+      if ("copilotkit:emit-tool-calls" in (rawEvent.metadata || {})) {
+        shouldEmitToolCall = this.shouldEmitToolCall(
+          rawEvent.metadata["copilotkit:emit-tool-calls"],
+          this.toolCallNameForEvent(event),
+        );
+      }
+
+      this.forgetToolCallName(event);
+
+      if (!shouldEmitToolCall) {
         return false;
       }
     }
