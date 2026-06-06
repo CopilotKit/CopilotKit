@@ -77,7 +77,11 @@ export const pnpmPackagesDiscoverySource: DiscoverySource<PnpmPackageRecord> = {
     const workspacePath = path.join(rootDir, "pnpm-workspace.yaml");
 
     const patterns = await readWorkspacePatterns(workspacePath);
-    const matchedDirs = await expandPatterns(rootDir, patterns, filter.pathPrefix);
+    const matchedDirs = await expandPatterns(
+      rootDir,
+      patterns,
+      filter.pathPrefix,
+    );
 
     const records: PnpmPackageRecord[] = [];
     for (const relDir of matchedDirs) {
