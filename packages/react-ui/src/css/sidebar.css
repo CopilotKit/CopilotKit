@@ -37,6 +37,14 @@
   overflow: visible;
   margin-right: 0px;
   transition: margin-right 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.copilotKitSidebarContentWrapper > .copilotKitModalChildrenWrapper {
+  flex: 1;
+  height: 100%;
 }
 
 @media (min-width: 640px) {
