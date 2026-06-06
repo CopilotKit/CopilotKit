@@ -6,6 +6,7 @@ import {
   actionParametersToJsonSchema,
 } from "@copilotkit/shared";
 import React from "react";
+import type { RespondOptions } from "../v2/types/human-in-the-loop";
 
 interface InProgressState<T extends Parameter[] | [] = []> {
   status: "inProgress";
@@ -57,7 +58,7 @@ interface ExecutingStateWait<T extends Parameter[] | [] = []> {
   args: MappedParameterTypes<T>;
   /** @deprecated use respond instead */
   handler: (result: any) => void;
-  respond: (result: any) => void;
+  respond: (result: any, options?: RespondOptions) => void;
   result: undefined;
 }
 
@@ -84,7 +85,7 @@ interface ExecutingStateNoArgsWait<T extends Parameter[] | [] = []> {
   args: MappedParameterTypes<T>;
   /** @deprecated use respond instead */
   handler: (result: any) => void;
-  respond: (result: any) => void;
+  respond: (result: any, options?: RespondOptions) => void;
   result: undefined;
 }
 

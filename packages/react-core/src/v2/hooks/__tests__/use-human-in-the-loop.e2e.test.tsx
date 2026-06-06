@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { vi } from "vitest";
 import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
-import { ReactHumanInTheLoop } from "../../types";
+import type { ReactHumanInTheLoop } from "../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
   MockStepwiseAgent,
   MockReconnectableAgent,
@@ -1257,5 +1258,172 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // The respond button should be present (status is executing)
     expect(screen.getByTestId("remount-respond")).toBeDefined();
+  });
+});
+
+describe("useHumanInTheLoop respond options", () => {
+  /**
+   * Helper that drives a single HITL turn: submits a message, emits a tool
+   * call with the given name, and resolves once the respond button is on
+   * screen. Returns the agent.run spy and the rendered respond button.
+   */
+  const setupHitlTurn = async (opts: {
+    toolName: string;
+    designTimeFollowUp?: boolean;
+    onClick: (
+      respond: (
+        result: unknown,
+        opts?: { followUp?: boolean },
+      ) => Promise<void>,
+    ) => void;
+  }) => {
+    const agent = new MockStepwiseAgent();
+    const runSpy = vi.spyOn(agent, "run");
+
+    const Component: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: opts.toolName,
+        description: "respond-options test tool",
+        parameters: z.object({ action: z.string() }),
+        ...(opts.designTimeFollowUp !== undefined && {
+          followUp: opts.designTimeFollowUp,
+        }),
+        render: ({ status, respond }) => (
+          <div>
+            <div data-testid="status">{status}</div>
+            {status === ToolCallStatus.Executing && respond && (
+              <button
+                data-testid="respond"
+                onClick={() => opts.onClick(respond)}
+              >
+                Respond
+              </button>
+            )}
+          </div>
+        ),
+      };
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <Component />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Trigger" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Trigger")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: opts.toolName,
+        parentMessageId: messageId,
+        delta: '{"action":"do-it"}',
+      }),
+    );
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    const respondButton = await screen.findByTestId("respond");
+    return { agent, runSpy, respondButton };
+  };
+
+  /**
+   * Wait for the framework to settle its follow-up decision, then assert the
+   * run-count. The framework yields via waitForPendingFrameworkUpdates() and
+   * then conditionally calls runAgent, so we wait for status=Complete (a
+   * visible signal that the handler resolution propagated) plus one event-
+   * loop tick for any queued follow-up runAgent to actually fire.
+   */
+  const waitForFollowUpDecision = async () => {
+    await waitFor(() => {
+      expect(screen.getByTestId("status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+  };
+
+  it("respond({ followUp: false }) stops the agent loop when followUp defaults to true", async () => {
+    const { runSpy, respondButton } = await setupHitlTurn({
+      toolName: "rejectTool",
+      // No design-time followUp → core defaults to continue
+      onClick: (respond) =>
+        void respond(JSON.stringify({ ok: false }), { followUp: false }),
+    });
+
+    expect(runSpy).toHaveBeenCalledTimes(1); // initial run only
+
+    fireEvent.click(respondButton);
+    await waitForFollowUpDecision();
+
+    expect(runSpy).toHaveBeenCalledTimes(1); // override prevented re-run
+  });
+
+  it("respond({ followUp: true }) re-runs the agent on a tool whose design-time followUp is false", async () => {
+    const { runSpy, respondButton } = await setupHitlTurn({
+      toolName: "continueTool",
+      designTimeFollowUp: false,
+      onClick: (respond) =>
+        void respond(JSON.stringify({ ok: true }), { followUp: true }),
+    });
+
+    expect(runSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(respondButton);
+
+    await waitFor(() => {
+      expect(runSpy).toHaveBeenCalledTimes(2); // override forced a re-run
+    });
+  });
+
+  it("respond() without options preserves design-time followUp: false", async () => {
+    const { runSpy, respondButton } = await setupHitlTurn({
+      toolName: "haltTool",
+      designTimeFollowUp: false,
+      onClick: (respond) => void respond(JSON.stringify({ ok: true })),
+    });
+
+    expect(runSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(respondButton);
+    await waitForFollowUpDecision();
+
+    expect(runSpy).toHaveBeenCalledTimes(1); // design-time value preserved
+  });
+
+  it("respond({ followUp: undefined }) is a no-op and preserves design-time followUp: false", async () => {
+    const { runSpy, respondButton } = await setupHitlTurn({
+      toolName: "explicitUndefinedTool",
+      designTimeFollowUp: false,
+      onClick: (respond) =>
+        void respond(JSON.stringify({ ok: true }), { followUp: undefined }),
+    });
+
+    expect(runSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(respondButton);
+    await waitForFollowUpDecision();
+
+    expect(runSpy).toHaveBeenCalledTimes(1); // explicit undefined treated as no-op
   });
 });

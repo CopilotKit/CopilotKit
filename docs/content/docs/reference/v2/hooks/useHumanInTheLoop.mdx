@@ -47,7 +47,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
     **When `status` is `ToolCallStatus.Executing`:**
     - `args: T` -- fully resolved arguments
-    - `respond: (result: unknown) => Promise<void>` -- call this to send the user's response back to the agent and resume execution
+    - `respond: (result: unknown, options?: RespondOptions) => Promise<void>` -- call this to send the user's response back to the agent and resume execution. The optional second arg overrides the tool's design-time `followUp` for this single response (e.g. `respond(result, { followUp: false })` halts the agent loop after a rejection).
     - `result: undefined`
 
     **When `status` is `ToolCallStatus.Complete`:**
@@ -258,6 +258,30 @@ function ExpenseApproval() {
   return null;
 }
 ```
+
+### Overriding `followUp` at response time
+
+`useHumanInTheLoop` inherits the `followUp` setting from `useFrontendTool`: `true` (default) means the agent continues after the response, `false` means it halts. You can override this per call by passing `RespondOptions` as `respond`'s second argument. This is useful when one branch of the response (e.g. rejection) should halt the loop while the other (approval) should continue it, without registering two tools or changing the design-time configuration.
+
+```tsx
+render: ({ status, respond }) => {
+  if (status === ToolCallStatus.Executing && respond) {
+    return (
+      <div>
+        <button onClick={() => respond({ approved: true })}>
+          Approve and continue
+        </button>
+        <button onClick={() => respond({ approved: false }, { followUp: false })}>
+          Reject and stop
+        </button>
+      </div>
+    );
+  }
+  return null;
+};
+```
+
+Omitting `options` (or passing `{ followUp: undefined }`) keeps the tool's design-time behavior.
 
 ## Behavior
 
