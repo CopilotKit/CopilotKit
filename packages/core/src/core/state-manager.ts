@@ -1,4 +1,4 @@
-import {
+import type {
   AbstractAgent,
   Message,
   State,
@@ -6,8 +6,11 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
-  randomUUID,
+  AgentStateMutation,
+  ToolCallArgsEvent,
+  ToolCallEndEvent,
 } from "@ag-ui/client";
+import { randomUUID } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 
 /**
@@ -24,6 +27,9 @@ export class StateManager {
 
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
+
+  // Tool call args streamed after a snapshot are authoritative for renderers.
+  private toolCallArgsById: Map<string, string> = new Map();
 
   // Agent subscriptions for cleanup
   private agentSubscriptions: Map<string, () => void> = new Map();
@@ -117,14 +123,17 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
-      onMessagesSnapshotEvent: ({ event, input, messages }) => {
+      onMessagesSnapshotEvent: ({ event, input }) => {
         if (revoked) return;
-        this.handleMessagesSnapshot(
-          agent,
-          event,
-          effectiveInput(input),
-          messages,
-        );
+        this.handleMessagesSnapshot(agent, event, effectiveInput(input));
+      },
+      onToolCallArgsEvent: ({ event, messages }) => {
+        if (revoked) return;
+        return this.handleToolCallArgs(agent, event, messages);
+      },
+      onToolCallEndEvent: ({ event, messages }) => {
+        if (revoked) return;
+        return this.handleToolCallEnd(agent, event, messages);
       },
       onNewMessage: ({ message, input }) => {
         if (revoked) return;
@@ -272,7 +281,6 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: Message[],
   ): void {
     if (!agent.agentId) return;
 
@@ -312,6 +320,82 @@ export class StateManager {
 
     const { threadId, runId } = input;
     this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+  }
+
+  /**
+   * Handle streamed tool call args.
+   */
+  private handleToolCallArgs(
+    agent: AbstractAgent,
+    event: ToolCallArgsEvent,
+    messages: ReadonlyArray<Readonly<Message>>,
+  ): AgentStateMutation | void {
+    if (!agent.agentId) return;
+
+    const key = this.toolCallArgsKey(agent, event.toolCallId);
+    const args = (this.toolCallArgsById.get(key) ?? "") + event.delta;
+    this.toolCallArgsById.set(key, args);
+
+    return this.updateToolCallArguments(messages, event.toolCallId, args);
+  }
+
+  /**
+   * Handle tool call completion.
+   */
+  private handleToolCallEnd(
+    agent: AbstractAgent,
+    event: ToolCallEndEvent,
+    messages: ReadonlyArray<Readonly<Message>>,
+  ): AgentStateMutation | void {
+    if (!agent.agentId) return;
+
+    const key = this.toolCallArgsKey(agent, event.toolCallId);
+    const args = this.toolCallArgsById.get(key);
+    this.toolCallArgsById.delete(key);
+
+    if (args === undefined) return;
+    return this.updateToolCallArguments(messages, event.toolCallId, args);
+  }
+
+  private updateToolCallArguments(
+    messages: ReadonlyArray<Readonly<Message>>,
+    toolCallId: string,
+    args: string,
+  ): AgentStateMutation | void {
+    let didUpdate = false;
+
+    const nextMessages = messages.map((message) => {
+      if (message.role !== "assistant" || !message.toolCalls) {
+        return message as Message;
+      }
+
+      const nextToolCalls = message.toolCalls.map((toolCall) => {
+        if (toolCall.id !== toolCallId) {
+          return toolCall;
+        }
+
+        didUpdate = true;
+        return {
+          ...toolCall,
+          function: {
+            ...toolCall.function,
+            arguments: args,
+          },
+        };
+      });
+
+      return {
+        ...message,
+        toolCalls: nextToolCalls,
+      };
+    });
+
+    if (!didUpdate) return;
+    return { messages: nextMessages };
+  }
+
+  private toolCallArgsKey(agent: AbstractAgent, toolCallId: string): string {
+    return `${agent.agentId ?? ""}:${agent.threadId}:${toolCallId}`;
   }
 
   /**
