@@ -2616,6 +2616,11 @@ describe("orchestrator.surfaceReclaimedCommErrors never-observed key (CR-FIX #2)
       getFirst<T>(): Promise<T | null> {
         return Promise.resolve(opts.statusRow as T | null);
       },
+      // CVDIAG durable diag_events write — best-effort; these tests assert on
+      // statusWriter, not on this sink, so a no-op create is sufficient.
+      create<T>(): Promise<T> {
+        return Promise.resolve(undefined as T);
+      },
     };
   }
 
