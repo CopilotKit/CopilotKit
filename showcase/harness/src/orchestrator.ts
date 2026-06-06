@@ -3017,11 +3017,41 @@ export async function runWorker(
   });
   const queue = createFleetQueueClient({ pb, claim, logger });
 
+  // DURABLE forensic snapshot writer for THIS worker replica. Mirrors the
+  // legacy boot() path (which wired `onSnapshot` → resourceSnapshotWriter.write
+  // at construction) — but that wiring lived ONLY in boot(); the fleet
+  // runWorker path constructed a bare `new BrowserPool({ logger })` with NO
+  // onSnapshot hook, so once staging moved to the fleet path the
+  // `resource_snapshots` trail went dark. Wire it here so per-replica gauge
+  // history is persisted again. The writer is STAMPED with this worker's id so
+  // the 6 concurrent replicas writing the SAME collection are attributable and
+  // each prunes only its OWN partition (see resource-snapshot-writer.ts
+  // MULTI-WRITER note). Writes are best-effort (the writer swallows PB errors so
+  // a missing migration / PB hiccup never breaks the pool).
+  const resourceSnapshotWriter = createResourceSnapshotWriter({
+    pb,
+    logger,
+    workerId,
+  });
+
   // The worker's own pool: the self-bounded context budget that gates claiming
   // and keeps the worker under its cgroup pids ceiling. We construct it HERE
   // (rather than letting fleet runWorker construct its own) so the SAME pool
   // backs both the registration capacity heartbeat (S9) and the driver runs.
-  const pool = new BrowserPool({ logger });
+  const pool = new BrowserPool({
+    logger,
+    // DURABLE forensic logging (parity with boot()): fire-and-forget the full
+    // gauge snapshot to PB on every meaningful pool condition + heartbeat. The
+    // hook is synchronous; the write is async + best-effort (never throws back).
+    onSnapshot: (snapshot) => {
+      void resourceSnapshotWriter.write(
+        snapshot.event,
+        snapshot.gauges,
+        snapshot.stats,
+        snapshot.perBrowser,
+      );
+    },
+  });
   await pool.init();
 
   // Build the worker's DRIVER REGISTRY: every per-service browser driver family
