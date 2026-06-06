@@ -39,6 +39,28 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
 ```
 
+#### Hook mapping (v1 → v2)
+
+Use this table to find the v2 replacement for each v1 hook:
+
+| v1 hook | v2 hook |
+| --- | --- |
+| `useCopilotAction` | `useFrontendTool` |
+| `useCopilotReadable` | `useAgentContext` |
+| `useCopilotAdditionalInstructions` | `useAgentContext` |
+| `useCoAgent` | `useAgent` |
+| `useCopilotChat` | `useAgent` (low-level headless chat: `useCopilotChatHeadless_c`) |
+
+Chat-UI customization props were also renamed in v2:
+
+| v1 (component prop) | v2 (slot / prop) |
+| --- | --- |
+| `AssistantMessage` | `assistantMessage` slot (under `messageView`) |
+| `markdownTagRenderers` | `markdownRenderer` slot (under `assistantMessage`) |
+
+See [Slots](/custom-look-and-feel/slots) for how the v2 slot system replaces the
+v1 component-override props.
+
 </Step>
 <Step>
 ### Replace `@copilotkit/react-ui` imports
