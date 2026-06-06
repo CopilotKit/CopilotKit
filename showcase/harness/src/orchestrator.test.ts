@@ -33,12 +33,10 @@ import {
 } from "./fleet/control-plane/control-plane.js";
 import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
-import { createE2eDeepDriver } from "./probes/drivers/d5-single-pill.js";
 import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
 import { createE2eSmokeDriver } from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   E2E_D6_DRIVER_KIND,
-  E2E_DEEP_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
@@ -47,10 +45,8 @@ import type {
   WorkerRegistryReadPb,
 } from "./orchestrator.js";
 import type { State, ProbeResult } from "./types/index.js";
-import {
-  FLEET_COMM_ERROR_SIGNAL_KEY,
-  type PoolCommError,
-} from "./fleet/contracts.js";
+import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
@@ -2252,7 +2248,6 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     expect(kinds).toEqual(
       [
         "aimock_wiring",
-        "e2e_deep",
         "e2e_demos",
         "e2e_d6",
         "e2e_smoke",
@@ -2267,16 +2262,17 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     );
   });
 
-  it("includes e2e_deep and e2e_d6 (the #4292 regressors)", () => {
-    // Tighter assertion narrowed to the two kinds that triggered the
-    // production probe-loader.file-failed alert. If a future refactor
-    // accidentally drops just these two registrations, the broader
-    // equality check above still catches it — but this test names the
-    // exact regression for whoever finds it red in CI.
+  it("includes e2e_d6 (the #4292 regressor; D5 now runs under e2e_d6)", () => {
+    // Tighter assertion narrowed to the kind that triggered the production
+    // probe-loader.file-failed alert. `e2e_deep` is intentionally GONE: D5 is
+    // now "D6 take-one" — `config/probes/e2e-deep.yml` declares `kind: e2e_d6`
+    // and the separate D5 driver was deleted, so there is no `e2e_deep` kind to
+    // register. If a future refactor accidentally drops the e2e_d6
+    // registration, the broader equality check above still catches it.
     const registry = createProbeRegistry();
     registerAllProbeDrivers(registry);
     const kinds = registry.list();
-    expect(kinds).toContain("e2e_deep");
+    expect(kinds).not.toContain("e2e_deep");
     expect(kinds).toContain("e2e_d6");
   });
 });
@@ -2297,8 +2293,8 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
  */
 describe("fleet worker driver-kind lock-step + registry wiring", () => {
   it("each driver factory's self-reported kind equals its constant (lock-step)", () => {
+    // D5 runs the d6 driver ("D5 take-one") — there is no separate deep driver.
     expect(createE2eFullDriver().kind).toBe(E2E_D6_DRIVER_KIND);
-    expect(createE2eDeepDriver().kind).toBe(E2E_DEEP_DRIVER_KIND);
     expect(createE2eDemosDriver().kind).toBe(E2E_DEMOS_DRIVER_KIND);
     expect(createE2eSmokeDriver().kind).toBe(E2E_SMOKE_DRIVER_KIND);
   });
@@ -2309,7 +2305,6 @@ describe("fleet worker driver-kind lock-step + registry wiring", () => {
     const pool = new BrowserPool({ logger });
     const pooled = buildPooledBrowserDrivers(pool, logger);
     expect(pooled.d6.kind).toBe(E2E_D6_DRIVER_KIND);
-    expect(pooled.deep.kind).toBe(E2E_DEEP_DRIVER_KIND);
     expect(pooled.demos.kind).toBe(E2E_DEMOS_DRIVER_KIND);
     expect(pooled.smoke.kind).toBe(E2E_SMOKE_DRIVER_KIND);
   });
@@ -3563,9 +3558,12 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
   });
 
   it("BROWSER_KINDS is the e2e partition (the in-process exclusion set)", async () => {
+    // `e2e_deep` is gone: D5 runs the `e2e_d6` driver ("D5 take-one"), so its
+    // YAML (`config/probes/e2e-deep.yml`) now declares `kind: e2e_d6` and is
+    // excluded in-process via the existing `e2e_d6` browser-kind entry.
     const orchMod = await import("./orchestrator.js");
     expect([...orchMod.BROWSER_KINDS].sort()).toEqual(
-      ["e2e_d6", "e2e_deep", "e2e_demos", "e2e_smoke"].sort(),
+      ["e2e_d6", "e2e_demos", "e2e_smoke"].sort(),
     );
   });
 
@@ -4155,7 +4153,7 @@ describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift
     const httpRegistry = createProbeRegistry();
     orchMod.registerHttpProbeDrivers(httpRegistry);
     const httpKinds = new Set(httpRegistry.list());
-    const browserKinds = new Set<string>([...orchMod.BROWSER_KINDS]);
+    const browserKinds = new Set<string>(orchMod.BROWSER_KINDS);
 
     // Disjoint: no kind is in both sets.
     for (const k of httpKinds) {

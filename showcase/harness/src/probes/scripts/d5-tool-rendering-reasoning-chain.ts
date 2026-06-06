@@ -54,7 +54,7 @@ import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 /** The harness `Page` interface intentionally narrows the surface to
  *  `waitForSelector` + `evaluate` (see conversation-runner.ts). For
  *  count-based polling we need `Page.locator(sel).count()` — that method
- *  is exposed by the e2e-deep wrapper (`E2eDeepPage.locator`). We cast
+ *  is exposed by the D6 driver's page wrapper (`E2eFullPage.locator`). We cast
  *  to a local interface so this script doesn't depend on the wider
  *  Playwright Page type. Sleep between polls uses native `setTimeout`
  *  rather than Playwright's `page.waitForTimeout`, which is not part of

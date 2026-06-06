@@ -12,7 +12,6 @@ import {
 import {
   E2E_SMOKE_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
-  E2E_DEEP_DRIVER_KIND,
 } from "../worker/payload-mapper.js";
 import type { DiscoverySource } from "../../probes/types.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
@@ -397,7 +396,12 @@ describe("createE2eSmokeServiceEnumerator", () => {
 });
 
 describe("createE2eDeepServiceEnumerator", () => {
-  it("stamps the e2e_deep kind + d5-single-pill-e2e:<slug> probeKey and carries driver inputs", async () => {
+  // D5 is now "D6 take-one": the enumerator stamps the `e2e_d6` driver kind
+  // (NOT a separate `e2e_deep` kind) and conveys `representativeOnly: true` +
+  // `rowPrefix: "d5"` so the shared D6 driver runs one representative pill and
+  // emits the `d5:` dashboard prefix. The probeKey prefix stays
+  // `d5-single-pill-e2e:<slug>` (the claim/dashboard join key).
+  it("stamps the e2e_d6 kind + d5-single-pill-e2e:<slug> probeKey + D5-scoping inputs", async () => {
     const source = fakeSource([
       svc({ name: "showcase-langgraph-python" }),
       svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
@@ -413,17 +417,23 @@ describe("createE2eDeepServiceEnumerator", () => {
 
     expect(specs).toHaveLength(2);
     const lg = specs.find((s) => s.serviceSlug === "langgraph-python");
-    expect(lg?.driverKind).toBe(E2E_DEEP_DRIVER_KIND);
+    expect(lg?.driverKind).toBe(D6_DRIVER_KIND);
     expect(lg?.probeKey).toBe("d5-single-pill-e2e:langgraph-python");
     expect(lg?.driverInputs?.key).toBe("d5-single-pill-e2e:langgraph-python");
     expect(lg?.driverInputs?.name).toBe("showcase-langgraph-python");
     expect(lg?.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
     expect(lg?.driverInputs?.demos).toEqual(["agentic_chat", "shared_state"]);
     expect(lg?.driverInputs?.notSupportedFeatures).toEqual([]);
+    // D5-take-one scoping inputs conveyed onto every spec.
+    expect(lg?.driverInputs?.representativeOnly).toBe(true);
+    expect(lg?.driverInputs?.rowPrefix).toBe("d5");
     expect(lg?.driverInputs).not.toHaveProperty("timeout_ms");
 
     const cr = specs.find((s) => s.serviceSlug === "crewai");
     expect(cr?.probeKey).toBe("d5-single-pill-e2e:crewai");
+    expect(cr?.driverKind).toBe(D6_DRIVER_KIND);
+    expect(cr?.driverInputs?.representativeOnly).toBe(true);
+    expect(cr?.driverInputs?.rowPrefix).toBe("d5");
   });
 
   it("passes the shared d6 discovery filter to the source", async () => {

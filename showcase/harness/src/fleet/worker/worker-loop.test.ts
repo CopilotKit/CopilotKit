@@ -5,12 +5,14 @@ import {
   computeRollup,
   buildServiceJobResult,
   buildCommErrorResult,
-  type ServiceJobDriver,
-  type ServiceDriverContext,
-  type BudgetSource,
-  type DriverRegistry,
-  type DriverRegistryEntry,
-  type WorkerLoopHandle,
+} from "./worker-loop.js";
+import type {
+  ServiceJobDriver,
+  ServiceDriverContext,
+  BudgetSource,
+  DriverRegistry,
+  DriverRegistryEntry,
+  WorkerLoopHandle,
 } from "./worker-loop.js";
 import type { DriverKind } from "./payload-mapper.js";
 import type {
@@ -984,7 +986,7 @@ describe("driver registry (driverKind → driver)", () => {
   }
 
   it("routes an e2e_smoke payload to the smoke driver", async () => {
-    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const drivers = registry("e2e_d6", "e2e_smoke", "e2e_demos");
     const result = await runClaimedJob(
       baseRegistryDeps(drivers),
       makeLease({ payload: { driverKind: "e2e_smoke" } }),
@@ -996,20 +998,8 @@ describe("driver registry (driverKind → driver)", () => {
     expect(result.commError).toBeUndefined();
   });
 
-  it("routes an e2e_deep payload to the deep driver", async () => {
-    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
-    const result = await runClaimedJob(
-      baseRegistryDeps(drivers),
-      makeLease({ payload: { driverKind: "e2e_deep" } }),
-      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
-    );
-    expect(result.aggregateKey).toBe("e2e_deep:routed");
-    expect(result.aggregateSignal).toMatchObject({ routedKind: "e2e_deep" });
-    expect(result.commError).toBeUndefined();
-  });
-
   it("routes an e2e_d6 payload to the d6 driver (equivalence)", async () => {
-    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const drivers = registry("e2e_d6", "e2e_smoke", "e2e_demos");
     const result = await runClaimedJob(
       baseRegistryDeps(drivers),
       makeLease({ payload: { driverKind: "e2e_d6" } }),
@@ -1021,7 +1011,7 @@ describe("driver registry (driverKind → driver)", () => {
   });
 
   it("maps an unknown driverKind to a worker-protocol-violation terminal result", async () => {
-    const drivers = registry("e2e_d6", "e2e_deep");
+    const drivers = registry("e2e_d6", "e2e_demos");
     const result = await runClaimedJob(
       baseRegistryDeps(drivers),
       makeLease({ payload: { driverKind: "e2e_unknown" } }),
@@ -1102,7 +1092,7 @@ describe("driver registry (driverKind → driver)", () => {
     // row is `custom:<slug>` and must be filtered; the per-cell row is kept.
     const drivers = new Map<DriverKind, DriverRegistryEntry>([
       [
-        "e2e_deep",
+        "e2e_demos",
         {
           driver: makeSchemeDriver("custom", "langgraph-python"),
           payloadToInput: passInput,
@@ -1112,13 +1102,47 @@ describe("driver registry (driverKind → driver)", () => {
     ]);
     const result = await runClaimedJob(
       baseRegistryDeps(drivers),
-      makeLease({ payload: { driverKind: "e2e_deep" } }),
+      makeLease({ payload: { driverKind: "e2e_demos" } }),
       { leaseSeconds: 300, heartbeatMs: 1_000_000 },
     );
     // Exactly the per-cell row is captured; the `custom:<slug>` aggregate side
     // row was filtered (NOT counted as a cell).
     expect(result.cells).toHaveLength(1);
     expect(result.cells[0]!.cellKey).toBe("custom:langgraph-python/feat-1");
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("honors driverInputs.rowPrefix=d5 over the entry's d6 aggregate filter (D5 take-one)", async () => {
+    // The D5 "take-one" probe runs the `e2e_d6` driver with
+    // `driverInputs.rowPrefix === "d5"`, so its aggregate side row is
+    // `d5:<slug>` — NOT the `d6:<slug>` the entry's default builder would
+    // produce. The loop must read the per-job rowPrefix and filter the
+    // `d5:<slug>` aggregate out of the captured cells, leaving only the
+    // `d5:<slug>/<feature>` per-cell row.
+    const drivers = new Map<DriverKind, DriverRegistryEntry>([
+      [
+        "e2e_d6",
+        {
+          driver: makeSchemeDriver("d5", "langgraph-python"),
+          payloadToInput: passInput,
+          aggregateSlugKey: (serviceSlug) => `d6:${serviceSlug}`,
+        },
+      ],
+    ]);
+    const result = await runClaimedJob(
+      baseRegistryDeps(drivers),
+      makeLease({
+        payload: {
+          driverKind: "e2e_d6",
+          driverInputs: { rowPrefix: "d5" },
+        },
+      }),
+      { leaseSeconds: 300, heartbeatMs: 1_000_000 },
+    );
+    // The `d5:<slug>` aggregate side row was filtered (not counted as a cell);
+    // only the per-cell `d5:<slug>/feat-1` row survives.
+    expect(result.cells).toHaveLength(1);
+    expect(result.cells[0]!.cellKey).toBe("d5:langgraph-python/feat-1");
     expect(result.commError).toBeUndefined();
   });
 
@@ -1145,11 +1169,11 @@ describe("driver registry (driverKind → driver)", () => {
   });
 
   it("startWorkerLoop dispatches a claimed job by driverKind through the registry", async () => {
-    const drivers = registry("e2e_d6", "e2e_deep", "e2e_smoke", "e2e_demos");
+    const drivers = registry("e2e_d6", "e2e_smoke", "e2e_demos");
     const queue = makeQueue([
       {
         claimed: true,
-        lease: makeLease({ payload: { driverKind: "e2e_deep" } }),
+        lease: makeLease({ payload: { driverKind: "e2e_demos" } }),
       },
     ]);
     const handle = startWorkerLoop({
@@ -1167,6 +1191,6 @@ describe("driver registry (driverKind → driver)", () => {
     });
     await vi.waitFor(() => expect(queue.reports).toHaveLength(1));
     await handle.stop();
-    expect(queue.reports[0]!.aggregateKey).toBe("e2e_deep:routed");
+    expect(queue.reports[0]!.aggregateKey).toBe("e2e_demos:routed");
   });
 });

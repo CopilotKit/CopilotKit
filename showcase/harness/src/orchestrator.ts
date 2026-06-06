@@ -50,11 +50,6 @@ import {
   createPooledE2eDemosLauncher,
 } from "./probes/drivers/e2e-readiness.js";
 import {
-  e2eDeepDriver,
-  createE2eDeepDriver,
-  createPooledE2eDeepLauncher,
-} from "./probes/drivers/d5-single-pill.js";
-import {
   e2eFullDriver,
   createE2eFullDriver,
   createPooledE2eFullLauncher,
@@ -87,13 +82,12 @@ import {
 import {
   commErrorToStatusSignal,
   WORKERS_COLLECTION,
-  type PoolCommError,
 } from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import {
   createPayloadToInput,
   E2E_D6_DRIVER_KIND,
-  E2E_DEEP_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
@@ -107,8 +101,8 @@ import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
 import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
-  type RestartWorkerHook,
 } from "./fleet/control-plane/fleet-health.js";
+import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
 import {
   createD6ServiceEnumerator,
   createE2eSmokeServiceEnumerator,
@@ -1083,7 +1077,6 @@ export function buildPooledBrowserDrivers(
 ): {
   smoke: ReturnType<typeof createE2eSmokeDriver>;
   demos: ReturnType<typeof createE2eDemosDriver>;
-  deep: ReturnType<typeof createE2eDeepDriver>;
   d6: ReturnType<typeof createE2eFullDriver>;
 } {
   return {
@@ -1092,9 +1085,6 @@ export function buildPooledBrowserDrivers(
     }),
     demos: createE2eDemosDriver({
       launcher: createPooledE2eDemosLauncher(pool, log),
-    }),
-    deep: createE2eDeepDriver({
-      launcher: createPooledE2eDeepLauncher(pool, log),
     }),
     d6: createE2eFullDriver({
       launcher: createPooledE2eFullLauncher(pool, log),
@@ -1116,7 +1106,7 @@ export function buildPooledBrowserDrivers(
  */
 export const BROWSER_KINDS: ReadonlySet<ProbeConfig["kind"]> = new Set<
   ProbeConfig["kind"]
->(["e2e_d6", "e2e_smoke", "e2e_demos", "e2e_deep"]);
+>(["e2e_d6", "e2e_smoke", "e2e_demos"]);
 
 /**
  * Register ONLY the HTTP-only probe drivers (no browser/BrowserPool drivers)
@@ -1271,12 +1261,10 @@ export function registerAllProbeDrivers(
     const pooled = buildPooledBrowserDrivers(pool, logger);
     probeRegistry.register(pooled.smoke);
     probeRegistry.register(pooled.demos);
-    probeRegistry.register(pooled.deep);
     probeRegistry.register(pooled.d6);
   } else {
     probeRegistry.register(e2eChatToolsDriver);
     probeRegistry.register(e2eReadinessDriver);
-    probeRegistry.register(e2eDeepDriver);
     probeRegistry.register(e2eFullDriver);
   }
 
@@ -2455,9 +2443,10 @@ export async function runControlPlane(
   // status-writer pipeline (`statusWriter`) the worker-result aggregator uses,
   // so a smoke/qa/image_drift result lands on the dashboard identically.
   //
-  // The browser families (e2e_d6 / e2e_smoke / e2e_demos / e2e_deep) are NOT
-  // run here — d6 goes via the producer; the rest need a BrowserPool the
-  // control-plane deliberately does not own.
+  // The browser families (e2e_d6 / e2e_smoke / e2e_demos) are NOT run here —
+  // d6 goes via the producer; the rest need a BrowserPool the control-plane
+  // deliberately does not own. (D5 is no longer its own kind: it runs the
+  // e2e_d6 driver via its own producer/enumerator, differentiated by inputs.)
 
   // Crash-recovery parity with boot(): finalize any `running` probe_runs rows
   // orphaned by a prior crash BEFORE registering the in-process HTTP probes.
@@ -3053,7 +3042,6 @@ export async function runWorker(
   // (visible in deploy CI / Railway health-check).
   const kindChecks: Array<[string, { kind: string }]> = [
     [E2E_D6_DRIVER_KIND, pooled.d6],
-    [E2E_DEEP_DRIVER_KIND, pooled.deep],
     [E2E_DEMOS_DRIVER_KIND, pooled.demos],
     [E2E_SMOKE_DRIVER_KIND, pooled.smoke],
   ];
@@ -3072,13 +3060,6 @@ export async function runWorker(
         driver: pooled.d6,
         payloadToInput: createPayloadToInput(),
         aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
-      },
-    ],
-    [
-      E2E_DEEP_DRIVER_KIND,
-      {
-        driver: pooled.deep,
-        payloadToInput: createPayloadToInput(),
       },
     ],
     [
