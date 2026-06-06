@@ -48,11 +48,12 @@ export const DIMENSIONS = [
   // `keyFor("e2e", slug, featureId)` lookup in live-status.ts#resolveCell.
   "e2e_demos",
   "e2e",
-  // D5 — multi-turn conversation driver. The `e2e_deep` dimension is the
-  // primary `kind:` literal in `config/probes/e2e-deep.yml`; the driver
-  // emits per-feature side rows under `d5:<slug>/<featureType>` keys so
-  // both the YAML kind and the side-row dimension need closed-enum slots
-  // here for probe-config + rule-YAML validation at load time.
+  // D5 — "D6 take-one". D5 no longer has its own driver kind: the
+  // `config/probes/e2e-deep.yml` probe runs `kind: e2e_d6` scoped to a
+  // single representative pill per feature category, emitting per-feature
+  // side rows under `d5:<slug>/<featureType>` keys. `e2e_deep` and `d5`
+  // are retained ONLY as closed-enum dimension/emit literals (rule YAMLs
+  // and legacy rows still reference them); neither is a live driver kind.
   "e2e_deep",
   "d5",
   // D6 — full end-to-end driver. `e2e_d6` is the primary `kind:` literal
@@ -82,7 +83,7 @@ export const DIMENSIONS = [
   // `starter_smoke` is the probe KIND literal (`kind: starter_smoke` in
   // config/probes/starter_smoke.yml, and the `kind` the starterSmokeDriver
   // registers under), distinct from the `starter` EMIT-prefix dimension
-  // above — the same kind/emit-prefix split as e2e_d6/d6, e2e_deep/d5, and
+  // above — the same kind/emit-prefix split as e2e_d6/d6 and
   // e2e_demos/e2e. Without this closed-enum slot the probe-loader's Zod
   // `kind` enum rejects starter_smoke.yml at parse time (union failure
   // surfacing as "Unrecognized key(s): 'discovery'"), so the probe never

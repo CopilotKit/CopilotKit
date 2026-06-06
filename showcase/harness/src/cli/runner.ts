@@ -238,7 +238,7 @@ export async function run(
     ...(pbWriter !== null && { writer: pbWriter }),
   };
 
-  // -- 6. Create headed-mode driver if needed -------------------------------
+  // -- 8. Create headed-mode driver if needed -------------------------------
   // The D6 driver launches Playwright internally. For --headed mode, we
   // create a custom driver instance with a launcher that passes
   // headless: false. The e2e-chat-tools driver also launches Playwright
@@ -320,7 +320,7 @@ export async function run(
       })
     : createE2eFullDriver();
 
-  // -- 7. Run probes --------------------------------------------------------
+  // -- 9. Run probes --------------------------------------------------------
   const repeatCount = Math.max(1, options.repeat ?? 1);
 
   try {
@@ -359,7 +359,7 @@ export async function run(
   } finally {
     process.removeListener("SIGINT", onSigint);
 
-    // -- 8. Stop auto-started services if not --keep -------------------------
+    // -- 10. Stop auto-started services if not --keep ------------------------
     if (!options.keep && autoStarted.length > 0) {
       console.log(
         `\n  \x1b[2mStopping auto-started services: ${autoStarted.join(", ")}\x1b[0m`,
@@ -374,7 +374,7 @@ export async function run(
     }
   }
 
-  // -- 9. Print summary -----------------------------------------------------
+  // -- 11. Print summary ----------------------------------------------------
   printSummary(allResults);
 
   const passed = allResults.filter((r) => r.state === "green").length;

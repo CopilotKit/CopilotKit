@@ -26,7 +26,7 @@
  * Phase-2A.
  *
  * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `e2e-deep.ts` discovers it via the `d5-*` filename
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
  * convention.
  */
 

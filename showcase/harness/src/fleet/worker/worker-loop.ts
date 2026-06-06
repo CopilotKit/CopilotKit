@@ -106,8 +106,8 @@ export type PayloadToDriverInput = (
 /**
  * One entry of the worker's driver REGISTRY: a `ServiceJobDriver` paired with
  * the `PayloadToDriverInput` mapper that re-hydrates the per-service input that
- * driver's zod schema validates. The registry is keyed by `driverKind` (e.g.
- * `e2e_d6`, `e2e_deep`, `e2e_smoke`, `e2e_demos`), so a single worker can host
+ * driver's zod schema validates. The registry is keyed by `driverKind` (the
+ * live kinds are `e2e_d6`, `e2e_demos`, `e2e_smoke`), so a single worker can host
  * MULTIPLE browser-driver families — the loop dispatches each claimed job to the
  * entry whose key matches `payload.driverKind`.
  */

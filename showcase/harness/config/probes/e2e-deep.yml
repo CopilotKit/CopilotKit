@@ -1,14 +1,18 @@
-# Probe: e2e-deep (D5 — multi-turn complex-interact parity vs reference)
+# Probe: e2e-deep (D5 — "D6 take-one", multi-turn complex-interact parity)
 #
-# Drives a Playwright multi-turn conversation through every D5 feature
-# type wired on each showcase Railway service. Where `e2e-demos` does a
-# cheap goto + chat-input-ready check (1 page-load per cell) and
-# `e2e-smoke` does a single chat round-trip on two canonical demos,
-# `e2e-deep` runs the full conversation script — multiple turns,
-# tool-call routing, hitl, gen-ui — captured as fixtures under
-# `showcase/harness/fixtures/d5/`.
+# D5 runs the SAME D6 driver (`kind: e2e_d6`,
+# `src/probes/drivers/d6-all-pills.ts`) scoped to a single representative
+# pill per feature category (`representativeOnly: true`, `rowPrefix:
+# "d5"`). It drives a Playwright multi-turn conversation through the
+# representative D5 feature types wired on each showcase Railway service.
+# Where `e2e-demos` does a cheap goto + chat-input-ready check (1
+# page-load per cell) and `e2e-smoke` does a single chat round-trip on
+# two canonical demos, this probe runs the full conversation script —
+# multiple turns, tool-call routing, hitl, gen-ui — captured as fixtures
+# under `showcase/harness/fixtures/d5/`. (The separate `d5-single-pill.ts`
+# driver was deleted; see the "D5 take-one" note below.)
 #
-# Rows emitted per driver invocation (see `src/probes/drivers/d5-single-pill.ts`):
+# Rows emitted per driver invocation (d6-all-pills.ts under the `d5` rowPrefix):
 #   - Primary `e2e-deep:<slug>`     ProbeResult carrying the aggregate
 #                                   { total, passed, failed[], skipped[],
 #                                     shape, backendUrl } signal.
@@ -43,7 +47,7 @@
 # Outer driver-invocation cap. Per-feature run subdivides further: the
 # conversation-runner's per-turn `responseTimeoutMs` defaults to 30s,
 # the driver's per-page goto timeout is 30s, and the per-feature
-# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in d5-single-pill.ts) is 5
+# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in d6-all-pills.ts) is 5
 # min so a single wedged feature can't drain the global budget for
 # downstream features.
 #
@@ -54,9 +58,9 @@
 # at current feature count; lighter integrations (5–10 features) still
 # finish in <60s and exit early without sitting on the cap.
 #
-# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY` (in
-# d5-single-pill.ts, currently 2) cuts wall-clock proportionally but doubles
-# concurrent Chromium contexts; revisit before raising the cap further.
+# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY_D6` (in
+# d6-all-pills.ts) cuts wall-clock proportionally but doubles concurrent
+# Chromium contexts; revisit before raising the cap further.
 #
 # ── max_concurrency: 4 ──────────────────────────────────────────────────
 #

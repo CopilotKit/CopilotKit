@@ -48,8 +48,10 @@ import type playwright from "playwright";
  *   - green  — every feature completed with no assertion failure.
  *   - red    — any feature failed, any script missing, or launcher error.
  *
- * Reuses Semaphore, D5_REGISTRY scripts, runConversation, deploy-churn
- * grace window, and abort plumbing from e2e-deep.ts.
+ * Uses Semaphore, D5_REGISTRY scripts, runConversation, deploy-churn
+ * grace window, and abort plumbing (this driver now owns these directly;
+ * the former separate e2e-deep.ts driver was deleted when D5 became
+ * "D6 take-one").
  */
 
 /**
@@ -157,8 +159,7 @@ export interface E2eFullAggregateSignal {
 }
 
 /**
- * Minimal page surface the driver depends on. Same shape as E2eDeepPage
- * from e2e-deep.ts.
+ * Minimal page surface the driver depends on. Exported as `E2eFullPage`.
  */
 export interface E2eFullPage extends Page {
   goto(

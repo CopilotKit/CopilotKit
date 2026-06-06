@@ -77,9 +77,10 @@ export interface ServiceJobPayload {
   /**
    * The driver kind that runs the cells. The producer currently stamps
    * `"e2e_d6"` (the per-service d6 unit), but the WORKER now routes by this
-   * field through its `DriverRegistry` — so any registered kind (e2e_d6 /
-   * e2e_deep / e2e_demos / e2e_smoke) dispatches to the matching driver, and an
-   * unregistered kind is reported as a `worker-protocol-violation`. Kept a
+   * field through its `DriverRegistry` — so any registered kind (the live
+   * kinds being e2e_d6 / e2e_demos / e2e_smoke) dispatches to the matching
+   * driver, and an unregistered kind is reported as a
+   * `worker-protocol-violation`. Kept a
    * `string` (not narrowed to the worker's `DriverKind` union) because this is
    * the WIRE boundary that receives whatever the producer serialized; the
    * runtime unknown-kind guard is the validation gate.
