@@ -452,8 +452,37 @@ describe("railway-envs SSOT — domains + probe", () => {
   it("envsFor lists exactly the envs a service declares", () => {
     // Dual-env services declare both; the staging-only worker declares one.
     expect(envsFor("aimock")).toEqual(["prod", "staging"]);
-    expect(envsFor("showcase-harness-worker")).toEqual(["staging"]);
+    expect(envsFor("harness-workers")).toEqual(["staging"]);
     expect(envsFor("harness-legacy")).toEqual(["prod", "staging"]);
+  });
+
+  it("harness-workers is a staging-only, domainless, probe-disabled worker", () => {
+    // The pool-fleet worker is the canonical single-env / domainless shape
+    // the env-map schema enables (the old schema forced a placeholder prod
+    // instanceId + a borrowed control-plane domain). Pin every facet:
+    const worker = SERVICES["harness-workers"];
+    // Staging-only: no prod env at all (no placeholder).
+    expect(worker.environments.prod).toBeUndefined();
+    expect(worker.environments.staging).toBeDefined();
+    // Domainless: the staging env omits a public host entirely (it is a
+    // queue consumer, not HTTP-exposed). domainFor MUST throw rather than
+    // return a borrowed host.
+    expect(worker.environments.staging.domain).toBeUndefined();
+    expect(() => domainFor("harness-workers", "staging")).toThrow(
+      /malformed\/missing staging domain/,
+    );
+    // Probe disabled (covered by the control-plane harness probe + the
+    // Railway-internal healthcheck).
+    expect(probeEnabled("harness-workers", "staging")).toBe(false);
+    // Runs the shared showcase-harness image; not separately CI-built; kept
+    // out of both gate directions via gateIgnore.
+    expect(worker.environments.staging.repoName).toBe("showcase-harness");
+    expect(worker.ciBuilt).toBe(false);
+    expect(worker.gateIgnore).toBe(true);
+    expect(worker.serviceId).toBe("c2aa8a0b-350e-4b76-8541-3012dfac41d0");
+    expect(worker.environments.staging.instanceId).toBe(
+      "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+    );
   });
 
   it("domainFor returns the no-scheme host for known service+env", () => {

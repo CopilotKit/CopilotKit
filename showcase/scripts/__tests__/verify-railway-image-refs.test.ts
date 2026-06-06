@@ -23,12 +23,12 @@ describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
     // Every real SSOT entry has gateIgnore unset (undefined / falsy),
     // EXCEPT two deliberately gateIgnore:true entries: the staging-only
-    // `showcase-harness-worker` pool-fleet worker (no public domain, does not
+    // `harness-workers` pool-fleet worker (no public domain, does not
     // fit the symmetric dual-env shape the gate validates) and the interim
     // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
     // digest, not the canonical :latest/@sha256 shape). See their SSOT
     // entries in railway-envs.ts for the rationale.
-    const GATE_IGNORED = new Set(["showcase-harness-worker", "harness-legacy"]);
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
       if (GATE_IGNORED.has(name)) {
@@ -246,11 +246,11 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
     // Two intentional gateValidated:false entries: the staging-only
-    // `showcase-harness-worker` (gateIgnore:true — no public domain) and the
+    // `harness-workers` (gateIgnore:true — no public domain) and the
     // interim `harness-legacy` fleet-migration bridge (gateIgnore:true — runs
     // a pinned out-of-band digest). Every OTHER service must be
     // gateValidated:true.
-    const GATE_IGNORED = new Set(["showcase-harness-worker", "harness-legacy"]);
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     const unvalidated = Object.entries(SERVICES)
       .filter(
         ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),

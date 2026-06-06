@@ -340,7 +340,11 @@ export const SERVICES: Record<
       },
     },
   },
-  "showcase-harness-worker": {
+  // SSOT key MUST equal the EXACT Railway service name. The Railway service
+  // is `harness-workers` (PLURAL) — the image-ref gate matches SSOT keys to
+  // Railway service names verbatim, so the key here is `harness-workers`,
+  // not `showcase-harness-worker`.
+  "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
     // STAGING-ONLY worker (pool-fleet cutover). There is no prod
     // serviceInstance — the pool-fleet runs in staging only for now. Under
@@ -365,7 +369,7 @@ export const SERVICES: Record<
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
-    // no `showcase-harness-worker` build slot. Hence ciBuilt:false. The
+    // no `harness-workers` build slot. Hence ciBuilt:false. The
     // repoName override points at `showcase-harness` so the image-ref shape
     // resolves correctly if the gate ever validates it.
     //
@@ -411,7 +415,7 @@ export const SERVICES: Record<
     // gateIgnore: deliberately-untracked for the image-ref gate. This
     // interim service runs a pinned digest (not the canonical :latest /
     // @sha256 shape the gate enforces) and is short-lived. Mirrors
-    // showcase-harness-worker exactly (minus the worker's single-env shape —
+    // harness-workers exactly (minus the worker's single-env shape —
     // harness-legacy DOES exist in both envs).
     gateValidated: false,
     gateIgnore: true,

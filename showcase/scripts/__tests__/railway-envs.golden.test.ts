@@ -22,12 +22,12 @@
  * placeholder/borrowed values it removes (visible as the only diff to this
  * fixture in the refactor commit):
  *
- *   1. `showcase-harness-worker.prod` — DROPPED. The old schema required a
+ *   1. `harness-workers.prod` — DROPPED. The old schema required a
  *      distinct prod UUID per entry, so the worker (a staging-only service)
  *      carried its own serviceId mirrored as a non-functional prod
  *      placeholder that was never dereferenced. The env-map schema simply
  *      omits the prod env.
- *   2. `showcase-harness-worker.staging`, `harness-legacy.{prod,staging}`
+ *   2. `harness-workers.staging`, `harness-legacy.{prod,staging}`
  *      `domain` — null (was a BORROWED control-plane host). These three
  *      envs are domainless workers with `probe:false`, so `domainFor` is
  *      never called for them at runtime; the old schema's `domains{}`
@@ -96,7 +96,7 @@ function buildSnapshot(): Record<
     // NOT a hardcoded ["prod","staging"]. This is what proves the refactor
     // preserved resolution for every REAL (service, env) pair while
     // dropping the old schema's non-functional placeholder env entries
-    // (e.g. showcase-harness-worker's mirrored prod instanceId).
+    // (e.g. harness-workers's mirrored prod instanceId).
     for (const env of envsFor(name)) {
       out[name][env] = resolveServiceEnv(name, env);
     }

@@ -95,6 +95,15 @@
       "repoName": "showcase-harness"
     }
   },
+  "harness-workers": {
+    "staging": {
+      "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+      "domain": null,
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    }
+  },
   "pocketbase": {
     "prod": {
       "instanceId": "1ee376e2-13f2-4464-801e-d0aa0bf76532",
@@ -237,15 +246,6 @@
       "probe": true,
       "driver": "agent",
       "repoName": "showcase-google-adk"
-    }
-  },
-  "showcase-harness-worker": {
-    "staging": {
-      "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
-      "domain": null,
-      "probe": false,
-      "driver": "harness",
-      "repoName": "showcase-harness"
     }
   },
   "showcase-langgraph-fastapi": {
