@@ -412,6 +412,42 @@
       "name": "Declarative UI: json-render",
       "category": "byoc",
       "description": "Streaming structured-output generative UI via @json-render/react"
+    },
+    {
+      "id": "home-basic-chat",
+      "name": "Homepage: Basic Chat",
+      "category": "chat-ui",
+      "description": "The minimum-viable CopilotChat surface — homepage-dojo entry point"
+    },
+    {
+      "id": "home-controlled-gen-ui",
+      "name": "Homepage: Controlled Gen UI",
+      "category": "controlled-generative-ui",
+      "description": "Bare-minimum useComponent registration for a pie chart — homepage-dojo entry point"
+    },
+    {
+      "id": "home-declarative-gen-ui",
+      "name": "Homepage: Declarative Gen UI",
+      "category": "declarative-generative-ui",
+      "description": "Bare-minimum A2UI catalog wiring — homepage-dojo entry point"
+    },
+    {
+      "id": "home-shared-state",
+      "name": "Homepage: Shared State",
+      "category": "agent-state",
+      "description": "Bare-minimum bidirectional useAgent setup — homepage-dojo entry point"
+    },
+    {
+      "id": "home-mcp-apps",
+      "name": "Homepage: MCP Apps",
+      "category": "open-generative-ui",
+      "description": "Bare-minimum MCP Apps provider wiring — homepage-dojo entry point"
+    },
+    {
+      "id": "home-open-gen-ui",
+      "name": "Homepage: Open Ended Gen UI",
+      "category": "open-generative-ui",
+      "description": "Bare-minimum openGenerativeUI provider wiring — homepage-dojo entry point"
     }
   ]
 }
