@@ -37,23 +37,22 @@ import type { ServiceJobPayload } from "../contracts.js";
  * `kind` each driver factory reports (`createE2eFullDriver().kind === "e2e_d6"`,
  * etc. in `probes/drivers/*`).
  *
- * `E2E_DRIVER_KINDS` is the closed set; `DriverKind` is its union type. The four
+ * `E2E_DRIVER_KINDS` is the closed set; `DriverKind` is its union type. The
  * `E2E_*_DRIVER_KIND` constants below are each typed `DriverKind` (not widened to
  * `string`) so the registry map's key type stays the closed union. NOTE: this is
  * the WORKER-INTERNAL kind space — `contracts.ts`'s `driverKind: string` stays a
  * `string` (it's the wire boundary that receives external producer strings; the
  * runtime unknown-kind guard handles anything off this set).
+ *
+ * D5 is NOT a separate kind: the D5 ("take-one") probe runs the `e2e_d6` driver,
+ * differentiated only by its `driverInputs` (`representativeOnly` + `rowPrefix`).
+ * So `e2e_deep` was removed from this closed set when the separate D5 driver was
+ * deleted.
  */
-export const E2E_DRIVER_KINDS = [
-  "e2e_d6",
-  "e2e_deep",
-  "e2e_demos",
-  "e2e_smoke",
-] as const;
+export const E2E_DRIVER_KINDS = ["e2e_d6", "e2e_demos", "e2e_smoke"] as const;
 export type DriverKind = (typeof E2E_DRIVER_KINDS)[number];
 
 export const E2E_D6_DRIVER_KIND: DriverKind = "e2e_d6";
-export const E2E_DEEP_DRIVER_KIND: DriverKind = "e2e_deep";
 export const E2E_DEMOS_DRIVER_KIND: DriverKind = "e2e_demos";
 export const E2E_SMOKE_DRIVER_KIND: DriverKind = "e2e_smoke";
 

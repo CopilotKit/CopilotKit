@@ -3,7 +3,6 @@ import {
   createD6PayloadToInput,
   createPayloadToInput,
   E2E_D6_DRIVER_KIND,
-  E2E_DEEP_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
   E2E_SMOKE_DRIVER_KIND,
 } from "./payload-mapper.js";
@@ -71,9 +70,10 @@ describe("createD6PayloadToInput", () => {
 });
 
 describe("driver-kind constants", () => {
-  it("expose the four browser driver kinds matching the driver factories", () => {
+  it("expose the browser driver kinds matching the driver factories", () => {
+    // `e2e_deep` was removed: D5 now runs the `e2e_d6` driver, differentiated
+    // by its driver inputs (`representativeOnly` + `rowPrefix`), not by kind.
     expect(E2E_D6_DRIVER_KIND).toBe("e2e_d6");
-    expect(E2E_DEEP_DRIVER_KIND).toBe("e2e_deep");
     expect(E2E_DEMOS_DRIVER_KIND).toBe("e2e_demos");
     expect(E2E_SMOKE_DRIVER_KIND).toBe("e2e_smoke");
   });
