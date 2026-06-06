@@ -12,7 +12,6 @@ import com.agui.core.message.AssistantMessage;
 import com.agui.core.message.Role;
 import com.agui.core.state.State;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import org.springframework.ai.chat.client.ChatClient;
@@ -147,7 +146,7 @@ public class SubagentsController {
      * into the {@code delegations} slot of shared state and emits a
      * {@code STATE_SNAPSHOT} so the live frontend log updates incrementally.
      */
-    static class SubagentsAgent extends LocalAgent {
+    static class SubagentsAgent extends PropagatingLocalAgent {
 
         private final ChatClient supervisorClient;
         private final ChatModel chatModel;

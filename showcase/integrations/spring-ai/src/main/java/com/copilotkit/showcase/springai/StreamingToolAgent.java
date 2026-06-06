@@ -13,7 +13,6 @@ import com.agui.core.message.ToolMessage;
 import com.agui.core.state.State;
 import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -80,7 +79,7 @@ import static com.agui.server.EventFactory.toolCallStartEvent;
  * the tool call request) and the {@code .call()} path produces the complete
  * response including tool execution.
  */
-public class StreamingToolAgent extends LocalAgent {
+public class StreamingToolAgent extends PropagatingLocalAgent {
 
     private static final Logger log = LoggerFactory.getLogger(StreamingToolAgent.class);
 

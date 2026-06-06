@@ -11,7 +11,6 @@ import com.agui.core.message.AssistantMessage;
 import com.agui.core.message.Role;
 import com.agui.core.state.State;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import org.springframework.ai.chat.client.ChatClient;
@@ -105,7 +104,7 @@ public class SharedStateStreamingController {
      * STATE_SNAPSHOT events as the {@code write_document.content} argument
      * grows token-by-token.
      */
-    static class SharedStateStreamingAgent extends LocalAgent {
+    static class SharedStateStreamingAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
 

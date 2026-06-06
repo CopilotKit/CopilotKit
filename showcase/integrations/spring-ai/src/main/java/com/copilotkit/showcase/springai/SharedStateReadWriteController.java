@@ -112,7 +112,7 @@ public class SharedStateReadWriteController {
      * into the system prompt, and exposes a {@code set_notes} tool that
      * mutates {@code state.notes} and emits a {@code STATE_SNAPSHOT}.
      */
-    static class SharedStateAgent extends LocalAgent {
+    static class SharedStateAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
 
