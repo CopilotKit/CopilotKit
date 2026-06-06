@@ -6,7 +6,6 @@ import com.agui.core.agent.RunAgentInput;
 import com.agui.core.exception.AGUIException;
 import com.agui.core.message.AssistantMessage;
 import com.agui.core.state.State;
-import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import org.springframework.ai.chat.client.ChatClient;
@@ -79,7 +78,7 @@ public class ByocJsonRenderController {
      * {@code JsonRenderAssistantMessage} parses and renders via
      * {@code @json-render/react}.
      */
-    static class ByocJsonRenderAgent extends LocalAgent {
+    static class ByocJsonRenderAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
 

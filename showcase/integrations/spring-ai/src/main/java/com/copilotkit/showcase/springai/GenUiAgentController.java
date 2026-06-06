@@ -10,7 +10,6 @@ import com.agui.core.message.AssistantMessage;
 import com.agui.core.message.Role;
 import com.agui.core.state.State;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import org.springframework.ai.chat.client.ChatClient;
@@ -130,7 +129,7 @@ public class GenUiAgentController {
      * tool execution loop drives the multi-call sequence (pending -&gt;
      * in_progress -&gt; completed) inside a single {@code .call()}.
      */
-    static class GenUiAgent extends LocalAgent {
+    static class GenUiAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
 
