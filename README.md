@@ -278,3 +278,8 @@ A lefthook pre-commit check (`pnpm check:plugin-skills`) rejects commits that dr
 ## 📄 License
 
 This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
+
+
+## Getting Started
+
+Clone the repo and follow the installation instructions in the docs.
