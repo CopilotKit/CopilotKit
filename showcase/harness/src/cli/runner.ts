@@ -43,6 +43,8 @@ import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
 import { createE2eFullDriver } from "../probes/drivers/d6-all-pills.js";
 import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
+import { runViaControlPlane } from "./control-plane-run.js";
+import type { ControlPlaneLevel } from "./control-plane-run.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +64,14 @@ export interface RunOptions {
   rebuild?: boolean;
   /** Enable verbose logging output. */
   verbose?: boolean;
+  /**
+   * Legacy/debug escape hatch: run d5/d6 via the in-process `runLevel()`
+   * driver instead of the fleet control-plane. Default (false) drives d5/d6
+   * through the producer → queue → worker → aggregator wiring so the dev tool
+   * exercises the IDENTICAL path staging runs. Has no effect on smoke/d4
+   * (those have no fleet path and always run in-process).
+   */
+  direct?: boolean;
 }
 
 export interface RunResult {
@@ -341,6 +351,25 @@ export async function run(
 
         for (const depth of levelList) {
           if (abortController.signal.aborted) break;
+
+          // d5/d6 default to the fleet CONTROL-PLANE path (producer → queue →
+          // worker → aggregator), making this dev tool faithful to staging by
+          // construction. `--direct` forces the legacy in-process runLevel()
+          // driver. smoke/d4 have no fleet path and always run in-process.
+          if ((depth === "d5" || depth === "d6") && !options.direct) {
+            const iterResults = await runViaControlPlane(
+              [testTarget],
+              {
+                level: depth as ControlPlaneLevel,
+                verbose: options.verbose,
+              },
+              config,
+              logger,
+            );
+            for (const r of iterResults) printResult(r);
+            allResults.push(...iterResults);
+            continue;
+          }
 
           const iterResults = await runLevel(
             depth,

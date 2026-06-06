@@ -231,6 +231,17 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
   };
 }
 
+/**
+ * Return the demo ids for a slug from its manifest. Used by the control-plane
+ * runner to synthesize the `LOCAL_SERVICES_JSON` discovery record's `demos`
+ * array (load-bearing: the d6 all-pills driver derives its feature matrix
+ * from `demos`, so an empty array short-circuits to a zero-cell false-green).
+ */
+export function demosForSlug(slug: string, config: LocalConfig): string[] {
+  const manifest = loadManifest(slug, config);
+  return manifest.demos.map((d) => d.id);
+}
+
 // ---------------------------------------------------------------------------
 // Driver input builders
 // ---------------------------------------------------------------------------

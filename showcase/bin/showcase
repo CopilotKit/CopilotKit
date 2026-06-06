@@ -68,21 +68,34 @@ cmd_up() {
   export HARNESS_POOL_COUNT="$pool_count"
 
   # Split args: bare slugs → `--profile <slug>`; flags (-*) → pass through.
+  # `--dev` is intercepted (not passed to compose): it layers the dev overlay
+  # (docker-compose.dev.yml) which bind-mounts integration source + overrides
+  # the run command to a hot-reload entrypoint — fast iteration without an
+  # image rebuild. The built-image mode (no --dev) stays the faithful default.
   local profile_args=()
   local passthrough_args=()
+  local dev_mode=false
   local arg
   for arg in "$@"; do
-    if [[ "$arg" == -* ]]; then
+    if [[ "$arg" == "--dev" ]]; then
+      dev_mode=true
+    elif [[ "$arg" == -* ]]; then
       passthrough_args+=("$arg")
     else
       profile_args+=(--profile "$arg")
     fi
   done
 
+  local compose_cmd="$COMPOSE_CMD"
+  if $dev_mode; then
+    compose_cmd="$compose_cmd -f $SHOWCASE_ROOT/docker-compose.dev.yml"
+    info "DEV MODE: bind-mounting integration source + hot reload (NOT the faithful built-image path)"
+  fi
+
   info "Launching fleet topology: control-plane + ${pool_count} worker(s) + PocketBase + demos + aimock (HARNESS_POOL_COUNT=${pool_count})"
   # bash 3.2 (macOS default) errors on `${arr[@]}` for an EMPTY array under
   # `set -u`; the `${arr[@]+...}` guard expands to nothing when unset/empty.
-  $COMPOSE_CMD --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d --build \
+  $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d --build \
     --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
 }
 
@@ -116,6 +129,8 @@ Usage: showcase <command> [options]
 
 Core commands:
   up [slug...]      Start containers (rebuilds if source changed)
+                    --dev  bind-mount integration source + hot reload
+                           (fast iteration; NOT the faithful built-image path)
   down [slug...]    Stop containers
   build [slug...]   Build Docker images
   ps                Show running containers

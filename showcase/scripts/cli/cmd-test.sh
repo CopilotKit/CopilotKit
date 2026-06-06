@@ -11,9 +11,11 @@ Usage: showcase test <slug> [options]
 Run probe tests against a showcase service (via Docker containers).
 
 Options:
-  --d6             Run D6 (e2e-full) probes only
-  --d5             Run D5 (e2e-deep) probes only
+  --d6             Run D6 (e2e-full) probes only (via fleet control-plane)
+  --d5             Run D5 (e2e-deep) probes only (via fleet control-plane)
   --d4             Run D4 probes only
+  --direct         Legacy/debug: run d5/d6 via the in-process driver
+                   instead of the fleet control-plane (producer->queue->worker)
   --smoke          Run smoke probes only
   --verbose        Verbose test output
   --headed         Run Playwright in headed (visible) mode
@@ -55,6 +57,7 @@ cmd_test() {
       --keep)    harness_args+=(--keep);    shift ;;
       --live)    harness_args+=(--live);    shift ;;
       --rebuild) harness_args+=(--rebuild); shift ;;
+      --direct)  harness_args+=(--direct);  shift ;;
       --cycle)   cycle=1;                   shift ;;
       --isolate)
         use_isolate=true
