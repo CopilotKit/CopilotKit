@@ -75,6 +75,8 @@ async def authenticate(authorization: str | None):
 ### Access User in Agent
 
 ```python
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     # Access user from LangGraph Platform authentication
     user_info = config["configuration"]["langgraph_auth_user"]
@@ -116,6 +118,8 @@ sdk = CopilotKitRemoteEndpoint(
 ### Access User in Agent
 
 ```python
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     # Handle authentication for self-hosted mode
     auth_token = config["configurable"].get("copilotkit_auth")
@@ -136,6 +140,8 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 For agents that work in both environments, use this pattern:
 
 ```python
+from langchain_core.runnables import RunnableConfig
+
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     user_id = "anonymous"
     user_role = None
