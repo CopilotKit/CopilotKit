@@ -41,12 +41,62 @@ Scope and limits
 from __future__ import annotations
 
 import contextvars
+import logging
 import warnings
 from typing import Any, Dict, Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+logger = logging.getLogger(__name__)
+
+# CVDIAG correlation-header instrumentation tag for this integration. Each
+# showcase backend that copies this shim sets a distinct framework tag so the
+# CVDIAG breadcrumb trail identifies which backend captured/forwarded headers.
+_CVDIAG_FRAMEWORK = "crewai-crews"
+
+# Correlation headers carried end-to-end through the showcase request chain.
+_DIAG_RUN_ID_HEADER = "x-diag-run-id"
+_DIAG_HOPS_HEADER = "x-diag-hops"
+_AIMOCK_CONTEXT_HEADER = "x-aimock-context"
+_TEST_ID_HEADER = "x-test-id"
+
+
+def _cvdiag(
+    boundary: str,
+    headers: Dict[str, str],
+    *,
+    status: str,
+    hop: object = "-",
+    error: str = "",
+) -> None:
+    """Emit a single standardized CVDIAG breadcrumb line.
+
+    Logs ONLY header presence + a short value prefix (never full header
+    values). ``headers`` is the lowercased ``x-*`` header mapping for the
+    current request context.
+    """
+    slug = headers.get(_AIMOCK_CONTEXT_HEADER)
+    run_id = headers.get(_DIAG_RUN_ID_HEADER, "none")
+    test_id = headers.get(_TEST_ID_HEADER, "none")
+    present = slug is not None
+    prefix = (slug or "")[:12]
+    logger.info(
+        "CVDIAG component=backend-%s boundary=%s run_id=%s slug=%s "
+        "header_present=%s header_value_prefix=%s hop=%s status=%s "
+        "test_id=%s error=%s",
+        _CVDIAG_FRAMEWORK,
+        boundary,
+        run_id,
+        slug if present else "MISSING",
+        "true" if present else "false",
+        prefix,
+        hop,
+        status,
+        test_id,
+        error,
+    )
 
 
 # Per-request storage for the headers the application has asked to forward
@@ -95,6 +145,12 @@ class HeaderForwardingHTTPMiddleware(BaseHTTPMiddleware):
             k: v for k, v in request.headers.items() if k.lower().startswith("x-")
         }
         set_forwarded_headers(headers)
+        captured = {k.lower(): v for k, v in headers.items()}
+        _cvdiag(
+            "contextvar-capture",
+            captured,
+            status="ok" if _AIMOCK_CONTEXT_HEADER in captured else "miss",
+        )
         return await call_next(request)
 
 
@@ -136,6 +192,40 @@ def _is_async_httpx_target(target: Any) -> bool:
     return False
 
 
+def _inject_diag_hop(request: Any, headers: Dict[str, str]) -> None:
+    """Append this backend's hop tag to ``x-diag-hops`` on the outbound
+    request and emit the ``outbound-llm`` CVDIAG breadcrumb.
+
+    ``x-diag-hops`` is a comma-separated trail of the backends that touched
+    the request; appending ``backend-<framework>`` here records that this
+    integration forwarded the correlation headers onto the LLM/provider
+    call. ``x-diag-run-id`` is carried verbatim (already copied above via
+    the ``headers`` loop) the same way ``x-aimock-context`` is.
+
+    GATED on diagnostic-header presence: the breadcrumb append and the
+    outbound CVDIAG log fire ONLY when the forwarded headers carry a
+    diagnostic header (``x-diag-run-id`` OR ``x-aimock-context``). When
+    NEITHER is present this is a no-op, so the outbound request is
+    byte-identical to pre-instrumentation behavior.
+    """
+    if _DIAG_RUN_ID_HEADER not in headers and _AIMOCK_CONTEXT_HEADER not in headers:
+        return
+
+    hop_tag = f"backend-{_CVDIAG_FRAMEWORK}"
+    existing = headers.get(_DIAG_HOPS_HEADER, "")
+    trail = [h for h in (existing.split(",") if existing else []) if h]
+    trail.append(hop_tag)
+    new_hops = ",".join(trail)
+    request.headers[_DIAG_HOPS_HEADER] = new_hops
+
+    _cvdiag(
+        "outbound-llm",
+        headers,
+        status="ok" if _AIMOCK_CONTEXT_HEADER in headers else "miss",
+        hop=len(trail),
+    )
+
+
 def install_httpx_hook(client: Any) -> None:
     """Attach an httpx request event hook to ``client``'s httpx client.
 
@@ -175,6 +265,7 @@ def install_httpx_hook(client: Any) -> None:
             headers = get_forwarded_headers()
             for key, value in headers.items():
                 request.headers[key] = value
+            _inject_diag_hop(request, headers)
 
         setattr(_inject_headers_async, _HOOK_MARKER, True)
         request_hooks.append(_inject_headers_async)
@@ -184,6 +275,7 @@ def install_httpx_hook(client: Any) -> None:
             headers = get_forwarded_headers()
             for key, value in headers.items():
                 request.headers[key] = value
+            _inject_diag_hop(request, headers)
 
         setattr(_inject_headers, _HOOK_MARKER, True)
         request_hooks.append(_inject_headers)
@@ -227,15 +319,25 @@ def install_global_httpx_hook() -> None:
         _orig_sync_init(self, *args, **kwargs)
         try:
             install_httpx_hook(self)
-        except Exception:  # pragma: no cover - never break client construction
-            pass
+        except Exception as exc:  # pragma: no cover - never break client construction
+            _cvdiag(
+                "hook-install",
+                {},
+                status="error",
+                error=f"{type(exc).__name__}: {exc}"[:80],
+            )
 
     def _patched_async_init(self, *args, **kwargs):
         _orig_async_init(self, *args, **kwargs)
         try:
             install_httpx_hook(self)
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            _cvdiag(
+                "hook-install",
+                {},
+                status="error",
+                error=f"{type(exc).__name__}: {exc}"[:80],
+            )
 
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init

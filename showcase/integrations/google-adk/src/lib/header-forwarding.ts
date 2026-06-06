@@ -37,6 +37,38 @@ export function extractForwardedHeaders(
       out[key] = value;
     }
   });
+
+  // CVDIAG instrumentation: light up the Node inbound hop. Every ADK
+  // copilotkit-* route funnels through this helper before building its
+  // HttpAgent, so this is the single Node-side observation point for the
+  // x-aimock-context conveyance. We log presence (never the full value)
+  // and append this layer's breadcrumb tag to x-diag-hops on the OUTBOUND
+  // header set so the Python middleware / httpx hook can extend the chain.
+  const slug = out["x-aimock-context"];
+  const runId = out["x-diag-run-id"];
+  const testId = out["x-test-id"];
+  const present = typeof slug === "string" && slug.length > 0;
+  // Gate the breadcrumb append on diagnostic-header presence: only extend
+  // x-diag-hops when a diagnostic header (x-diag-run-id OR x-aimock-context)
+  // is present. When NEITHER is present the outbound header set is left
+  // byte-identical to pre-instrumentation behavior.
+  const hasDiagHeader =
+    typeof runId === "string" || typeof slug === "string";
+  if (hasDiagHeader) {
+    const HOP_TAG = "route-google-adk";
+    const prevHops = out["x-diag-hops"] ?? "";
+    out["x-diag-hops"] = prevHops ? `${prevHops},${HOP_TAG}` : HOP_TAG;
+  }
+  // eslint-disable-next-line no-console
+  console.log(
+    `CVDIAG component=route-google-adk boundary=inbound ` +
+      `run_id=${runId ?? "none"} slug=${present ? slug : "MISSING"} ` +
+      `header_present=${present} ` +
+      `header_value_prefix=${present ? slug.slice(0, 12) : ""} ` +
+      `hop=- status=${present ? "ok" : "miss"} ` +
+      `test_id=${testId ?? "none"} error=`,
+  );
+
   return out;
 }
 
