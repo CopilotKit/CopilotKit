@@ -149,9 +149,7 @@ class HeaderForwardingHTTPMiddleware(BaseHTTPMiddleware):
         if "x-diag-run-id" in headers or "x-aimock-context" in headers:
             prev_hops = headers.get("x-diag-hops", "")
             headers["x-diag-hops"] = (
-                f"{prev_hops},backend-google-adk"
-                if prev_hops
-                else "backend-google-adk"
+                f"{prev_hops},backend-google-adk" if prev_hops else "backend-google-adk"
             )
         set_forwarded_headers(headers)
         # set_forwarded_headers lower-cases keys; read back the canonical set

@@ -1808,7 +1808,7 @@ async function joinAimockJournal(opts: {
     const entries: AimockJournalEntry[] = Array.isArray(body)
       ? (body as AimockJournalEntry[])
       : Array.isArray((body as { entries?: unknown })?.entries)
-        ? ((body as { entries: AimockJournalEntry[] }).entries)
+        ? (body as { entries: AimockJournalEntry[] }).entries
         : [];
 
     // Filter to THIS run: the breadcrumb run-id must match, and the
@@ -1823,8 +1823,7 @@ async function joinAimockJournal(opts: {
     const runEntries = entries.filter(matchesRun);
     const slugEntries = entries.filter(matchesSlug);
     const entry =
-      runEntries[runEntries.length - 1] ??
-      slugEntries[slugEntries.length - 1];
+      runEntries[runEntries.length - 1] ?? slugEntries[slugEntries.length - 1];
 
     if (!entry) {
       // No journal entry for this run at all — the request may never have
@@ -1864,17 +1863,18 @@ async function joinAimockJournal(opts: {
     const hops = readHeaderCI(entry.headers, X_DIAG_HOPS);
     const httpStatus = entry.status ?? entry.statusCode;
     const matched =
-      entry.matched ?? (httpStatus !== undefined ? httpStatus < 400 : undefined);
+      entry.matched ??
+      (httpStatus !== undefined ? httpStatus < 400 : undefined);
     const verdictStatus: "ok" | "miss" = matched === false ? "miss" : "ok";
     const missReason =
       verdictStatus === "miss"
-        ? entry.reason ??
+        ? (entry.reason ??
           entry.error ??
           (httpStatus === 503
             ? "no_fixture_match (503)"
             : httpStatus !== undefined
               ? `status ${httpStatus}`
-              : featureError)
+              : featureError))
         : undefined;
 
     // CVDIAG cv-verdict line: pass the RAW header value seen at aimock so the
@@ -1920,7 +1920,9 @@ async function joinAimockJournal(opts: {
         testId,
         status: "error",
         error: `journal-join failed: ${
-          err instanceof Error ? err.message.slice(0, 160) : String(err).slice(0, 160)
+          err instanceof Error
+            ? err.message.slice(0, 160)
+            : String(err).slice(0, 160)
         }`,
       }),
     );

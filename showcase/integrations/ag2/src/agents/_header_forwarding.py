@@ -343,6 +343,7 @@ def install_global_httpx_hook() -> None:
     httpx.AsyncClient.__init__ = _patched_async_init
     _GLOBAL_HTTPX_PATCHED = True
 
+
 # Module-scope sentinel preventing repeated executor patching.
 _EXECUTOR_CTXVAR_PATCHED = False
 

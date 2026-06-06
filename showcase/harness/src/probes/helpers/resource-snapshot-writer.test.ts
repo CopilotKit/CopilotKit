@@ -857,9 +857,7 @@ describe("resource-snapshot-writer", () => {
           const sorted = [...scoped].sort(cmp);
           // es2022-safe reverse (avoid toReversed; the harness tsconfig lib is
           // es2022).
-          const ordered = sort.startsWith("-")
-            ? sorted
-            : [...sorted].reverse();
+          const ordered = sort.startsWith("-") ? sorted : [...sorted].reverse();
           const perPage = opts?.perPage ?? 30;
           const page = opts?.page ?? 1;
           const start = (page - 1) * perPage;

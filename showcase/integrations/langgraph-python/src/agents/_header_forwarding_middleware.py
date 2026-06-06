@@ -119,9 +119,10 @@ def _instrument_and_breadcrumb() -> None:
     SAME ContextVar so the breadcrumb rides the existing forwarding path.
     """
     headers = dict(get_forwarded_headers())
-    has_context = isinstance(headers.get("x-aimock-context"), str) and len(
-        headers.get("x-aimock-context", "")
-    ) > 0
+    has_context = (
+        isinstance(headers.get("x-aimock-context"), str)
+        and len(headers.get("x-aimock-context", "")) > 0
+    )
 
     if has_context:
         _cvdiag("configurable-read", headers, "ok")

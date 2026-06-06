@@ -52,8 +52,7 @@ export function extractForwardedHeaders(
   // x-diag-hops when a diagnostic header (x-diag-run-id OR x-aimock-context)
   // is present. When NEITHER is present the outbound header set is left
   // byte-identical to pre-instrumentation behavior.
-  const hasDiagHeader =
-    typeof runId === "string" || typeof slug === "string";
+  const hasDiagHeader = typeof runId === "string" || typeof slug === "string";
   if (hasDiagHeader) {
     const HOP_TAG = "route-google-adk";
     const prevHops = out["x-diag-hops"] ?? "";
