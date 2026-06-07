@@ -63,7 +63,17 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # on Railway starting 04-20 16:54 UTC — the 90s (3-strike) budget was
 # shorter than the cold-start path on a fresh container. Wait up to 180s
 # for the first successful health probe before arming the strike counter
-# so slow cold-starts aren't killed in a loop.
+# so slow cold-starts aren't killed in a loop. The grace window only gates
+# the agent-side strike counter; Next.js boots fast enough that no grace is
+# needed there (its strike counter is armed from t=0 alongside the steady
+# state).
+#
+# Same logic for Next.js on :$PORT/api/health. Earned by the 05-26 outage on
+# crewai-crews: Next.js silently died, the agent's localhost /health kept
+# passing, the watchdog was blind, the public $PORT was unbound, and the edge
+# returned 502 for 24h+ while Railway showed the service Online. Kill
+# $NEXTJS_PID (NOT $AGENT_PID) on Next.js-side failures so the diagnostic logs
+# name the right process and so the restart is symmetric with the agent path.
 (
   GRACE=180
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
@@ -84,8 +94,9 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
     echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
   fi
   FAILS=0
+  NEXTJS_FAILS=0
   while sleep 30; do
-    if ! kill -0 $AGENT_PID 2>/dev/null; then
+    if ! kill -0 $AGENT_PID 2>/dev/null || ! kill -0 $NEXTJS_PID 2>/dev/null; then
       break
     fi
     if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
@@ -96,6 +107,17 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       if [ $FAILS -ge 3 ]; then
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
         kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:${PORT:-10000}/api/health > /dev/null 2>&1; then
+      NEXTJS_FAILS=0
+    else
+      NEXTJS_FAILS=$((NEXTJS_FAILS + 1))
+      echo "[watchdog] Next.js health probe failed (count=$NEXTJS_FAILS)"
+      if [ $NEXTJS_FAILS -ge 3 ]; then
+        echo "[watchdog] Next.js unresponsive for ~90s — killing PID $NEXTJS_PID to trigger container restart"
+        kill -9 $NEXTJS_PID 2>/dev/null || true
         break
       fi
     fi
