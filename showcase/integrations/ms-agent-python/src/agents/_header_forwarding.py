@@ -369,3 +369,60 @@ def install_global_httpx_hook() -> None:
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init
     _GLOBAL_HTTPX_PATCHED = True
+
+
+# Module-scope sentinel preventing repeated executor patching.
+_EXECUTOR_CTXVAR_PATCHED = False
+
+
+def install_executor_contextvar_propagation() -> None:
+    """Patch ``asyncio.events.AbstractEventLoop.run_in_executor`` so the
+    parent task's ContextVars are propagated into the executor thread.
+
+    Why this exists
+    ---------------
+    Frameworks that dispatch a SYNC callable (e.g. agent_framework running
+    a sync tool, or a hand-rolled secondary LLM call) onto the default
+    thread pool via ``loop.run_in_executor(None, functools.partial(...))``
+    lose the caller's context: the stock ``run_in_executor`` does NOT copy
+    the caller's :pep:`567` context to the worker thread — so the
+    :class:`HeaderForwardingHTTPMiddleware` ContextVar (set on the inbound
+    request task) is empty inside the executor, and our outbound httpx
+    hook sees no headers to forward.
+
+    ``asyncio.to_thread`` (Python 3.9+) does copy context the right way;
+    this patch makes plain ``run_in_executor`` behave the same. It only
+    affects functions submitted via ``run_in_executor`` — coroutines and
+    other constructs are unaffected.
+
+    Safe to call at import time. Idempotent via a module-scope sentinel.
+    Pre-existing event-loop instances inherit the patch because
+    ``run_in_executor`` is defined on ``BaseEventLoop`` and looked up
+    per-call via normal method resolution.
+    """
+    global _EXECUTOR_CTXVAR_PATCHED
+    if _EXECUTOR_CTXVAR_PATCHED:
+        return
+
+    import asyncio.base_events as _base_events
+
+    _orig_run_in_executor = _base_events.BaseEventLoop.run_in_executor
+
+    def _patched_run_in_executor(self, executor, func, *args):
+        # Capture the CURRENT task's context at submit time, then run the
+        # submitted callable inside that context on the worker thread.
+        ctx = contextvars.copy_context()
+
+        def _ctx_wrapper(*a, **kw):
+            return ctx.run(func, *a, **kw)
+
+        # Preserve __name__/__qualname__ for nicer tracebacks where possible.
+        try:
+            _ctx_wrapper.__wrapped__ = func  # type: ignore[attr-defined]
+        except Exception:  # pragma: no cover
+            pass
+
+        return _orig_run_in_executor(self, executor, _ctx_wrapper, *args)
+
+    _base_events.BaseEventLoop.run_in_executor = _patched_run_in_executor
+    _EXECUTOR_CTXVAR_PATCHED = True

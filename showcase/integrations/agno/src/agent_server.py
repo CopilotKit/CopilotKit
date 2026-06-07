@@ -25,10 +25,19 @@ from typing import Any, AsyncIterator, List, Optional, Set, Union
 # import time, so the patch must be in place before those imports run.
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
     install_global_httpx_hook,
 )
 
 install_global_httpx_hook()
+# Agno dispatches SYNC tools (e.g. the declarative gen-ui `generate_a2ui`
+# tool, which makes a secondary OpenAI call) onto the default
+# ThreadPoolExecutor via loop.run_in_executor(...), which does NOT
+# propagate ContextVars to the worker thread. Without this, the
+# forwarded-header ContextVar set on the inbound request task is empty by
+# the time the secondary call's outbound httpx hook fires, and aimock
+# can't match the right fixture for the request.
+install_executor_contextvar_propagation()
 
 import dotenv
 from ag_ui.core import (
