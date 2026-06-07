@@ -18,7 +18,6 @@ import {
 
 @Component({
   selector: "copilot-chat-audio-recorder",
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

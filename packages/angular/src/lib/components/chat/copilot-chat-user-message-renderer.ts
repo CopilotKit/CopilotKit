@@ -5,13 +5,12 @@ import {
   ViewEncapsulation,
   computed,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 @Component({
   selector: "copilot-chat-user-message-renderer",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {

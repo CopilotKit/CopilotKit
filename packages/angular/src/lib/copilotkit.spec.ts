@@ -12,11 +12,11 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  CopilotA2UIToolRenderer,
   RENDER_A2UI_TOOL_NAME,
-} from "./components/a2ui/a2ui-tool-renderer";
+} from "./components/a2ui/a2ui-tool-types";
 import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/a2ui-renderer/web-components";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
@@ -101,7 +101,6 @@ describe("CopilotKit", () => {
 
   it("initialises core with transformed tool and renderer config", () => {
     @Component({
-      standalone: true,
       selector: "dummy-tool",
       template: "",
     })

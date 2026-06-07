@@ -64,6 +64,7 @@ export * from "./lib/components/chat/copilot-chat-view-scroll-view";
 export * from "./lib/components/chat/copilot-chat-view.types";
 export * from "./lib/components/a2ui/a2ui-activity-renderer";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
+export * from "./lib/components/a2ui/a2ui-tool-types";
 export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
 export * from "./lib/components/open-generative-ui/open-generative-ui-tool-renderer";
 export type {

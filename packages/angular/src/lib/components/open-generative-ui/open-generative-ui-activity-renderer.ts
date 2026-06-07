@@ -59,7 +59,6 @@ type OpenGenerativeUIRenderState = {
 
 @Component({
   selector: "copilot-open-generative-ui-renderer",
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -576,7 +575,6 @@ export class CopilotOpenGenerativeUIRenderer {
 
 @Component({
   selector: "copilot-open-generative-ui-activity-renderer",
-  standalone: true,
   imports: [CopilotOpenGenerativeUIRenderer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

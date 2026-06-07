@@ -5,13 +5,12 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 @Component({
   selector: "div[copilotChatToolbar]",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {

@@ -5,7 +5,7 @@ import {
   ViewEncapsulation,
   computed,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 /**
@@ -14,8 +14,7 @@ import { cn } from "../../utils";
  */
 @Component({
   selector: "copilot-chat-message-view-cursor",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

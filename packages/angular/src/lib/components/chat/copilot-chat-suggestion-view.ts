@@ -6,7 +6,6 @@ import {
   input,
   output,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
 import type { Suggestion } from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatSuggestionPill } from "./copilot-chat-suggestion-pill";
@@ -17,9 +16,8 @@ const suggestionViewClass = cn(
 );
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-suggestion-view",
-  imports: [CommonModule, CopilotChatSuggestionPill],
+  imports: [CopilotChatSuggestionPill],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { "data-copilotkit": "" },

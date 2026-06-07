@@ -5,7 +5,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { LucideAngularModule, ChevronDown } from "lucide-angular";
 import { cn } from "../../utils";
 
@@ -14,9 +14,8 @@ import { cn } from "../../utils";
  * Matches React implementation exactly with same Tailwind classes
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view-scroll-to-bottom-button",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

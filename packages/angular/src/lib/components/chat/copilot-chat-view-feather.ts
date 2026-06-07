@@ -4,7 +4,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 /**
@@ -14,8 +14,7 @@ import { cn } from "../../utils";
  */
 @Component({
   selector: "copilot-chat-view-feather",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
