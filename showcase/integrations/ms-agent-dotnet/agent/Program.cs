@@ -22,10 +22,20 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddAGUI();
+// STOPGAP: IHttpContextAccessor lets AimockHeaderPolicy read the current
+// request's forwarded x-* headers (stashed on HttpContext.Items by
+// AimockHeaderMiddleware) at outbound-LLM-call time. HttpContext flows across
+// the AG-UI SSE-pump ExecutionContext boundary, unlike a middleware-set
+// AsyncLocal. TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation.
+builder.Services.AddHttpContextAccessor();
 
 WebApplication app = builder.Build();
 
-// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests into AsyncLocal
+// STOPGAP: seed the static accessor the outbound header-forwarding policy reads
+// (the policy is created without DI, mirroring CvDiag.Logger).
+AimockHeaderPolicy.HttpContextAccessor = app.Services.GetRequiredService<IHttpContextAccessor>();
+
+// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests onto HttpContext.Items
 // so AimockHeaderPolicy can forward them to outgoing OpenAI calls.
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 app.UseMiddleware<AimockHeaderMiddleware>();
