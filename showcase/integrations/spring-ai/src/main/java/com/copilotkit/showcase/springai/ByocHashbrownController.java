@@ -34,38 +34,41 @@ import static com.agui.server.EventFactory.textMessageEndEvent;
 import static com.agui.server.EventFactory.textMessageStartEvent;
 
 /**
- * BYOC json-render demo controller.
+ * BYOC hashbrown demo controller.
  *
  * <p>Runs a zero-tool agent whose system prompt instructs the LLM to emit a
- * single JSON object matching the {@code @json-render/react} flat-spec format:
- * {@code { root, elements }}. The frontend parses the JSON and renders it
- * through a Zod-validated catalog of three components (MetricCard, BarChart,
- * PieChart).
+ * single JSON object matching the {@code @hashbrownai/react} UI kit envelope:
+ * {@code { "ui": [ { "<component>": { "props": { ... } } }, ... ] }}. The
+ * frontend renderer ({@code declarative-hashbrown/hashbrown-renderer.tsx})
+ * parses the streaming content via {@code useJsonParser} + {@code useUiKit}
+ * and renders MetricCard / PieChart / BarChart / DealCard / Markdown.
  *
- * <p>The system prompt is explicit about JSON-only output; the frontend's
- * parser tolerates code fences and prose preamble defensively.
+ * <p>The shared {@code /} agent cannot emit this envelope, so this dedicated
+ * controller specializes the prompt — mirrors {@link ByocJsonRenderController}
+ * and the Python reference agents (strands {@code byoc_hashbrown.py}, agno
+ * {@code byoc_hashbrown_agent.py}).
  */
 @RestController
-public class ByocJsonRenderController {
+public class ByocHashbrownController {
 
     private static final Logger log =
-            LoggerFactory.getLogger(ByocJsonRenderController.class);
+            LoggerFactory.getLogger(ByocHashbrownController.class);
 
-    private static final String AGENT_ID = "byoc_json_render";
+    private static final String AGENT_ID = "byoc_hashbrown";
 
     private final AgUiService agUiService;
     private final ChatModel chatModel;
 
     @Autowired
-    public ByocJsonRenderController(AgUiService agUiService, ChatModel chatModel) {
+    public ByocHashbrownController(AgUiService agUiService, ChatModel chatModel) {
         this.agUiService = agUiService;
         this.chatModel = chatModel;
     }
 
-    @PostMapping("/byoc-json-render/run")
+    @PostMapping("/byoc-hashbrown/run")
     public ResponseEntity<SseEmitter> run(@RequestBody AgUiParameters params) {
         MessageListFilter.filterNulls(params);
-        ByocJsonRenderAgent agent = new ByocJsonRenderAgent(chatModel);
+        ByocHashbrownAgent agent = new ByocHashbrownAgent(chatModel);
         SseEmitter emitter = agUiService.runAgent(agent, params);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
@@ -73,16 +76,15 @@ public class ByocJsonRenderController {
     }
 
     /**
-     * Per-request agent. Zero tools, JSON-object response format, sales-dashboard
+     * Per-request agent. Zero tools, JSON-object response, hashbrown UI-kit
      * system prompt. The model emits a single JSON object that the frontend's
-     * {@code JsonRenderAssistantMessage} parses and renders via
-     * {@code @json-render/react}.
+     * hashbrown renderer parses and renders via {@code @hashbrownai/react}.
      */
-    static class ByocJsonRenderAgent extends PropagatingLocalAgent {
+    static class ByocHashbrownAgent extends PropagatingLocalAgent {
 
         private final ChatClient chatClient;
 
-        ByocJsonRenderAgent(ChatModel chatModel) {
+        ByocHashbrownAgent(ChatModel chatModel) {
             super(AGENT_ID, new State(), new ArrayList<>());
             this.chatClient = ChatClient.builder(chatModel).build();
         }
@@ -160,131 +162,67 @@ public class ByocJsonRenderController {
     }
 
     /**
-     * System prompt instructing the LLM to emit a flat-spec JSON object for
-     * {@code @json-render/react}. Matches the Python reference agent's prompt.
+     * System prompt instructing the LLM to emit a hashbrown UI-kit envelope.
+     * Matches the Python reference agents' prompt (strands
+     * {@code byoc_hashbrown.py}, agno {@code byoc_hashbrown_agent.py}) and the
+     * component schema declared in {@code hashbrown-renderer.tsx}.
      */
     static final String SYSTEM_PROMPT = """
-        You are a sales-dashboard UI generator for a BYOC json-render demo.
-
-        When the user asks for a UI, respond with **exactly one JSON object** and
-        nothing else — no prose, no markdown fences, no leading explanation. The
-        object must match this schema (the "flat element map" format consumed by
-        `@json-render/react`):
+        You are a sales-dashboard composer. Your output MUST be a SINGLE valid
+        JSON object — no markdown fences, no commentary, no leading explanation
+        — shaped exactly like the hashbrown UI kit envelope:
 
         {
-          "root": "<id of the root element>",
-          "elements": {
-            "<id>": {
-              "type": "<component name>",
-              "props": { ... component-specific props ... },
-              "children": [ "<id>", ... ]
-            },
-            ...
-          }
+          "ui": [
+            { "metric":   { "props": { "label": "<string>", "value": "<string>" } } },
+            { "pieChart": { "props": { "title": "<string>", "data": "<JSON-string of [{label,value}, ...]>" } } },
+            { "barChart": { "props": { "title": "<string>", "data": "<JSON-string of [{label,value}, ...]>" } } },
+            { "dealCard": { "props": { "title": "<string>", "stage": "<one of: prospect|qualified|proposal|negotiation|closed-won|closed-lost>", "value": <number> } } },
+            { "Markdown": { "props": { "children": "<string>" } } }
+          ]
         }
 
-        Available components (use each name verbatim as "type"):
+        Available components and their prop schemas:
 
-        - MetricCard
-          props: { "label": string, "value": string, "trend": string | null }
-          Example trend strings: "+12% vs last quarter", "-3% vs last month", null.
+        - "metric": { "props": { "label": string, "value": string } }
+            A KPI card. `value` is a pre-formatted string like "$1.2M" or "248".
 
-        - BarChart
-          props: {
-            "title": string,
-            "description": string | null,
-            "data": [ { "label": string, "value": number }, ... ]
-          }
+        - "pieChart": { "props": { "title": string, "data": string } }
+            A donut chart. `data` is a JSON-encoded STRING (embedded JSON) of an
+            array of {label, value} objects with at least 3 segments.
 
-        - PieChart
-          props: {
-            "title": string,
-            "description": string | null,
-            "data": [ { "label": string, "value": number }, ... ]
-          }
+        - "barChart": { "props": { "title": string, "data": string } }
+            A vertical bar chart. `data` is a JSON-encoded STRING of an array of
+            {label, value} objects with at least 3 bars, typically time-ordered.
+
+        - "dealCard": { "props": { "title": string, "stage": string, "value": number } }
+            A single sales deal. `stage` MUST be one of: "prospect", "qualified",
+            "proposal", "negotiation", "closed-won", "closed-lost". `value` is a
+            raw number (no currency symbol or comma).
+
+        - "Markdown": { "props": { "children": string } }
+            Short explanatory text. Use for section headings and brief summaries.
 
         Rules:
+        - Output ONE top-level object with a "ui" array of component invocations.
+        - Each entry in the "ui" array has exactly one key — the component name —
+          whose value is `{ "props": { ... } }`.
+        - For pieChart and barChart, the `data` prop is a JSON-encoded *string*,
+          not a real array. Escape inner quotes, e.g.:
+          "data": "[{\\"label\\":\\"Enterprise\\",\\"value\\":600000}]"
+        - Always produce plausible sample data when asked for a dashboard or
+          chart — do not refuse for lack of data.
+        - Prefer 3-6 rows of data in charts; keep labels short.
+        - Do not emit components that are not listed above.
 
-        1. Output **only** valid JSON. No markdown code fences. No text outside
-           the object.
-        2. Every id referenced in `root` or any `children` array must be a key
-           in `elements`.
-        3. For a multi-component dashboard, use a root MetricCard and list the
-           charts in its `children` array, OR pick any element as root and list
-           the others as its children. Do not emit orphan elements.
-        4. Use realistic sales-domain values (revenue, pipeline, conversion,
-           categories, months) — the demo is a sales dashboard.
-        5. `children` is optional but when present must be an array of strings.
-        6. Never invent component types outside the three listed above.
-
-        ### Worked example — "Show me the sales dashboard with metrics and a revenue chart"
+        ### Worked example — "Show me a Q4 sales dashboard with a revenue metric, a pie chart by segment, and a bar chart of monthly revenue"
 
         {
-          "root": "revenue-metric",
-          "elements": {
-            "revenue-metric": {
-              "type": "MetricCard",
-              "props": {
-                "label": "Revenue (Q3)",
-                "value": "$1.24M",
-                "trend": "+18% vs Q2"
-              },
-              "children": ["revenue-bar"]
-            },
-            "revenue-bar": {
-              "type": "BarChart",
-              "props": {
-                "title": "Monthly revenue",
-                "description": "Revenue by month across Q3",
-                "data": [
-                  { "label": "Jul", "value": 380000 },
-                  { "label": "Aug", "value": 410000 },
-                  { "label": "Sep", "value": 450000 }
-                ]
-              }
-            }
-          }
-        }
-
-        ### Worked example — "Break down revenue by category as a pie chart"
-
-        {
-          "root": "category-pie",
-          "elements": {
-            "category-pie": {
-              "type": "PieChart",
-              "props": {
-                "title": "Revenue by category",
-                "description": "Share of total revenue by product category",
-                "data": [
-                  { "label": "Enterprise", "value": 540000 },
-                  { "label": "SMB", "value": 310000 },
-                  { "label": "Self-serve", "value": 220000 },
-                  { "label": "Partner", "value": 170000 }
-                ]
-              }
-            }
-          }
-        }
-
-        ### Worked example — "Show me monthly expenses as a bar chart"
-
-        {
-          "root": "expense-bar",
-          "elements": {
-            "expense-bar": {
-              "type": "BarChart",
-              "props": {
-                "title": "Monthly expenses",
-                "description": "Operating expenses by month",
-                "data": [
-                  { "label": "Jul", "value": 210000 },
-                  { "label": "Aug", "value": 225000 },
-                  { "label": "Sep", "value": 240000 }
-                ]
-              }
-            }
-          }
+          "ui": [
+            { "metric": { "props": { "label": "Total Revenue (Q4)", "value": "$1.24M" } } },
+            { "pieChart": { "props": { "title": "Revenue by Segment", "data": "[{\\"label\\":\\"Enterprise\\",\\"value\\":600000},{\\"label\\":\\"SMB\\",\\"value\\":400000},{\\"label\\":\\"Startup\\",\\"value\\":240000}]" } } },
+            { "barChart": { "props": { "title": "Monthly Revenue", "data": "[{\\"label\\":\\"Oct\\",\\"value\\":380000},{\\"label\\":\\"Nov\\",\\"value\\":410000},{\\"label\\":\\"Dec\\",\\"value\\":450000}]" } } }
+          ]
         }
 
         Respond with the JSON object only.

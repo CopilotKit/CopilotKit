@@ -64,8 +64,8 @@ features:
   - voice
   - auth
   - agent-config
-  - byoc-hashbrown
-  - byoc-json-render
+  - declarative-hashbrown
+  - declarative-json-render
   - open-gen-ui
   - open-gen-ui-advanced
   - mcp-apps
@@ -432,6 +432,42 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown.py
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
+      - src/app/demos/declarative-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/declarative-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render.py
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/demos/declarative-json-render/metric-card.tsx
+      - src/app/demos/declarative-json-render/charts/bar-chart.tsx
+      - src/app/demos/declarative-json-render/charts/pie-chart.tsx
+      - src/app/demos/declarative-json-render/types.ts
+      - src/app/demos/declarative-json-render/suggestions.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
   - id: open-gen-ui
     name: Open Generative UI (Minimal)
     description: Agent-authored HTML/CSS/SVG in a sandboxed iframe, minimal variant
