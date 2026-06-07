@@ -108,6 +108,16 @@ const inputSchema = z
      * driver greens.
      */
     rowPrefix: z.enum(["d5", "d6"]).optional(),
+    /**
+     * Driver-invocation outer-cap (ms) conveyed by the fleet enumerator so the
+     * worker's pooled d6 driver honors the YAML `timeout_ms`
+     * (`d6-all-pills-e2e.yml` 20 min / `e2e-deep.yml` 10 min). The fleet worker
+     * never runs the legacy in-process `probe-invoker` boot path that applies
+     * `cfg.timeout_ms`, so without this the driver falls back to its hardcoded
+     * `DEFAULT_TIMEOUT_MS` (10 min) and a slow backend false-aborts. See the
+     * timeout-resolution block in `e2eFullDriver.run`.
+     */
+    timeout_ms: z.number().int().positive().optional(),
   })
   .passthrough()
   .refine((v) => !!(v.backendUrl ?? v.publicUrl), {
@@ -566,7 +576,11 @@ export function createE2eFullDriver(
   deps: E2eFullDriverDeps = {},
 ): ProbeDriver<E2eFullDriverInput, E2eFullAggregateSignal> {
   const launcher = deps.launcher ?? defaultLauncher;
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Construction-time fallback cap. The EFFECTIVE per-run cap is resolved inside
+  // `run()` so the fleet enumerator's conveyed `input.timeout_ms` (the YAML
+  // budget) wins over this singleton-registration default. See the resolution
+  // block in `run()`.
+  const depTimeoutMs = deps.timeoutMs;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
   const featureTimeoutMs = deps.featureTimeoutMs ?? DEFAULT_FEATURE_TIMEOUT_MS;
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
@@ -583,6 +597,22 @@ export function createE2eFullDriver(
       const observedAt = ctx.now().toISOString();
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+
+      // Resolve the outer-cap per `run()`. Fleet path: the enumerator conveys
+      // the YAML cap in `input.timeout_ms` (the worker never runs the in-process
+      // `probe-invoker` boot path that applies `cfg.timeout_ms`). Validated by
+      // the schema (positive int), but guard defensively here too so a bad value
+      // falls through to the dep/default rather than silently disabling the cap.
+      // Resolution order: input cap → construction dep → hardcoded default.
+      const inputTimeoutMs =
+        typeof input.timeout_ms === "number" &&
+        Number.isFinite(input.timeout_ms) &&
+        input.timeout_ms > 0
+          ? input.timeout_ms
+          : NaN;
+      const timeoutMs = Number.isFinite(inputTimeoutMs)
+        ? inputTimeoutMs
+        : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
 
       // Dashboard row-key prefix. Defaults to "d6"; the D5 probe passes
       // "d5" so its dashboard column reads the same run conditions.

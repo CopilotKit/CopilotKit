@@ -269,7 +269,14 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   { name: "Google ADK", slug: "google-adk" },
   { name: "MS Agent Framework (Python)", slug: "ms-agent-python" },
   { name: "MS Agent Framework (.NET)", slug: "ms-agent-dotnet" },
-  { name: "MS Agent Harness (.NET)", slug: "ms-agent-harness-dotnet" },
+  // ms-agent-harness-dotnet is intentionally NOT rendered. It is deployed but
+  // NOT probe-wired: it is excluded from EVERY harness probe (d5, d6, e2e-smoke,
+  // e2e-demos, smoke, aimock-wiring) because it has no aimock fixtures and shares
+  // the ms-agent-dotnet AsyncLocal bug. Rendering its column would produce cells
+  // with no fresh probe data → perpetual stale red in both the Baseline and
+  // Live-status dimensions. RENDERING must stay consistent with PROBING. Re-add
+  // this entry (and the sort-order.ts slot) only once it is fully probe-wired:
+  // deploy + aimock fixtures + inclusion in the probe configs + the AsyncLocal fix.
   { name: "Strands", slug: "strands" },
   { name: "Mastra", slug: "mastra" },
   { name: "CrewAI", slug: "crewai-crews" },

@@ -8,6 +8,8 @@ import {
   D6_DRIVER_KIND,
   D6_DISCOVERY_FILTER,
   E2E_DEMOS_TIMEOUT_MS,
+  D6_E2E_TIMEOUT_MS,
+  D5_E2E_TIMEOUT_MS,
 } from "./catalog-enumerator.js";
 import {
   E2E_SMOKE_DRIVER_KIND,
@@ -195,9 +197,49 @@ describe("createD6ServiceEnumerator", () => {
     // No redundant `publicUrl` key — backendUrl carries the value.
     expect(lg!.driverInputs).not.toHaveProperty("publicUrl");
     expect(lg!.driverInputs?.backendUrl).toBe("http://langgraph-python:10000");
-    // EQUIVALENCE: d6 conveys NO `timeout_ms` (only the demos family does) — the
-    // generic-seam `extraDriverInputs` change must not alter d6's emitted shape.
-    expect(lg!.driverInputs).not.toHaveProperty("timeout_ms");
+    // d6 conveys its YAML outer-cap in `timeout_ms` (so the fleet worker honors
+    // the d6-all-pills-e2e.yml budget); the conveyed cap parses through the
+    // driver's own schema (the worker's gate).
+    expect(lg!.driverInputs?.timeout_ms).toBe(D6_E2E_TIMEOUT_MS);
+  });
+
+  it("conveys the d6 YAML outer-cap in driverInputs.timeout_ms (default = d6-all-pills-e2e.yml value)", async () => {
+    // R-TIMEOUT (Fix B): the d6 enumerator conveys the 20-min outer cap per-job
+    // so the fleet worker's pooled d6 driver reads it from the payload — the
+    // worker never runs the in-process probe-invoker that applies cfg.timeout_ms.
+    // Without it the driver falls back to DEFAULT_TIMEOUT_MS (10 min) and a slow
+    // backend false-aborts.
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    const specs = await enumerate(CTX);
+    expect(D6_E2E_TIMEOUT_MS).toBe(1_200_000);
+    for (const s of specs) {
+      expect(s.driverInputs?.timeout_ms).toBe(D6_E2E_TIMEOUT_MS);
+      // The conveyed cap survives the driver's own schema (the worker's gate).
+      const parsed = e2eFullDriver.inputSchema.safeParse(s.driverInputs);
+      expect(parsed.success).toBe(true);
+    }
+  });
+
+  it("honors an explicit timeoutMs override on the conveyed d6 timeout_ms", async () => {
+    const source = fakeSource([svc({ name: "showcase-langgraph-python" })]);
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      timeoutMs: 777_000,
+    });
+    const specs = await enumerate(CTX);
+    expect(specs[0]?.driverInputs?.timeout_ms).toBe(777_000);
   });
 
   it("produces a NON-EMPTY spec set for the real-shaped service catalog", async () => {
@@ -427,13 +469,50 @@ describe("createE2eDeepServiceEnumerator", () => {
     // D5-take-one scoping inputs conveyed onto every spec.
     expect(lg?.driverInputs?.representativeOnly).toBe(true);
     expect(lg?.driverInputs?.rowPrefix).toBe("d5");
-    expect(lg?.driverInputs).not.toHaveProperty("timeout_ms");
+    // D5 also conveys its YAML outer-cap (e2e-deep.yml, 10 min) so the fleet
+    // worker's shared d6 driver honors the budget.
+    expect(lg?.driverInputs?.timeout_ms).toBe(D5_E2E_TIMEOUT_MS);
 
     const cr = specs.find((s) => s.serviceSlug === "crewai");
     expect(cr?.probeKey).toBe("d5-single-pill-e2e:crewai");
     expect(cr?.driverKind).toBe(D6_DRIVER_KIND);
     expect(cr?.driverInputs?.representativeOnly).toBe(true);
     expect(cr?.driverInputs?.rowPrefix).toBe("d5");
+  });
+
+  it("conveys the d5 YAML outer-cap in driverInputs.timeout_ms (default = e2e-deep.yml value)", async () => {
+    // R-TIMEOUT (Fix B): D5 runs the shared d6 driver scoped take-one, so it
+    // conveys its own (10-min) YAML cap per-job alongside the scoping inputs.
+    const source = fakeSource([
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai", publicUrl: "http://crewai:10000" }),
+    ]);
+    const enumerate = createE2eDeepServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+    });
+    const specs = await enumerate(CTX);
+    expect(D5_E2E_TIMEOUT_MS).toBe(600_000);
+    for (const s of specs) {
+      expect(s.driverInputs?.timeout_ms).toBe(D5_E2E_TIMEOUT_MS);
+      const parsed = e2eFullDriver.inputSchema.safeParse(s.driverInputs);
+      expect(parsed.success).toBe(true);
+    }
+  });
+
+  it("honors an explicit timeoutMs override on the conveyed d5 timeout_ms", async () => {
+    const source = fakeSource([svc({ name: "showcase-langgraph-python" })]);
+    const enumerate = createE2eDeepServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      timeoutMs: 333_000,
+    });
+    const specs = await enumerate(CTX);
+    expect(specs[0]?.driverInputs?.timeout_ms).toBe(333_000);
   });
 
   it("passes the shared d6 discovery filter to the source", async () => {

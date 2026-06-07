@@ -39,6 +39,12 @@ import type {
 interface PageScript {
   throwOnGoto?: Error;
   stallEvaluate?: boolean;
+  /**
+   * When true, `goto` never resolves — used to exercise the driver's
+   * outer-cap timeout (the abort fires while the page is hung) so a test can
+   * assert WHICH timeout value the driver resolved.
+   */
+  stallGoto?: boolean;
 }
 
 function makePage(script: PageScript = {}): E2eFullPage {
@@ -46,6 +52,10 @@ function makePage(script: PageScript = {}): E2eFullPage {
   return {
     async goto() {
       if (script.throwOnGoto) throw script.throwOnGoto;
+      if (script.stallGoto) {
+        // Hang until the run's outer-cap abort tears the page down.
+        await new Promise<void>(() => {});
+      }
     },
     async waitForSelector() {},
     async fill() {},
@@ -1096,5 +1106,80 @@ describe("e2e-full per-feature retry signal isolation", () => {
       const d6Rows = sideEmits.filter((r) => r.key.startsWith("d6:"));
       expect(d6Rows).toEqual([]);
     });
+  });
+
+  // Fix B: the fleet enumerator conveys the YAML outer-cap in
+  // `input.timeout_ms`; the driver must HONOR it over the dep/default. Without
+  // the per-run read the driver falls back to DEFAULT_TIMEOUT_MS (10 min) and a
+  // slow backend false-aborts at 10 min instead of the YAML budget.
+  describe("input.timeout_ms is honored over the construction dep/default", () => {
+    it("aborts at the conveyed input.timeout_ms (queued feature errorDesc names the conveyed value, not the 600000 default)", async () => {
+      // Saturate the semaphore: more features than FEATURE_CONCURRENCY_D6 so at
+      // least one feature is still QUEUED when the outer cap fires. The running
+      // features have a slow goto; the tiny outer `timeout_ms` aborts mid-goto.
+      // When the queued feature then acquires its slot it hits the pre-feature
+      // abort check, which emits `timeout after <resolved-cap>ms` — the exact
+      // value the driver resolved. With the bug (dep/default used) that text
+      // would read 600000ms; with the fix it reads the conveyed 5ms.
+      const featureTypes = [
+        "agentic-chat",
+        "tool-rendering",
+        "shared-state-read",
+        "shared-state-write",
+        "hitl-text-input",
+      ] as const;
+      expect(featureTypes.length).toBeGreaterThan(FEATURE_CONCURRENCY_D6);
+      for (const ft of featureTypes) {
+        registerD5Script(makeScript([ft]));
+      }
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const { launcher } = makeSlowTeardownLauncherFull({
+        gotoDelayMs: 200,
+        closeDelayMs: 5,
+      });
+      const driver = createE2eFullDriver({
+        launcher,
+        scriptLoader: noopScriptLoader(),
+        // Construction-time dep is the 10-min default; the conveyed input cap
+        // must win.
+        timeoutMs: 600_000,
+        // Large enough that the OUTER cap (not the per-feature timer) drives the
+        // abort.
+        featureTimeoutMs: 60_000,
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: [...featureTypes],
+        // The fleet enumerator's conveyed cap — tiny so the test resolves fast.
+        timeout_ms: 5,
+      });
+
+      expect(result.state).toBe("red");
+      // Some feature side-row reports the OUTER-cap timeout with the conveyed
+      // value (the queued feature that hit the pre-feature abort check).
+      const timeoutRows = sideEmits.filter((r) => {
+        const sig = r.signal as E2eFullFeatureSignal;
+        return (
+          typeof sig?.errorDesc === "string" &&
+          sig.errorDesc.startsWith("timeout after ")
+        );
+      });
+      expect(timeoutRows.length).toBeGreaterThan(0);
+      for (const r of timeoutRows) {
+        const sig = r.signal as E2eFullFeatureSignal;
+        // PROOF the driver read input.timeout_ms (5), NOT the dep/default
+        // (600000).
+        expect(sig.errorDesc).toBe("timeout after 5ms");
+        expect(sig.errorDesc).not.toContain("600000");
+      }
+    }, 20_000);
   });
 });
