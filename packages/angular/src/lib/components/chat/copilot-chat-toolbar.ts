@@ -10,7 +10,6 @@ import { cn } from "../../utils";
 
 @Component({
   selector: "div[copilotChatToolbar]",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {

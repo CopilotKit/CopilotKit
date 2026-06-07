@@ -14,7 +14,6 @@ import { cn } from "../../utils";
  */
 @Component({
   selector: "copilot-chat-view-feather",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
