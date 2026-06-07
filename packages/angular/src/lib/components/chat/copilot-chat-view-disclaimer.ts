@@ -15,7 +15,6 @@ import { injectChatLabels } from "../../chat-config";
  */
 @Component({
   selector: "copilot-chat-view-disclaimer",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

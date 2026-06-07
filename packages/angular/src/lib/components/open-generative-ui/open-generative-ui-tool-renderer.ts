@@ -13,6 +13,7 @@ import type { GenerateSandboxedUiArgs } from "../../open-generative-ui";
 
 @Component({
   selector: "copilot-open-generative-ui-tool-renderer",
+  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (visibleMessage(); as message) {

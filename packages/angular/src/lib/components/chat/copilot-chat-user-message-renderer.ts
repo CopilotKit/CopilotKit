@@ -10,7 +10,6 @@ import { cn } from "../../utils";
 
 @Component({
   selector: "copilot-chat-user-message-renderer",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {
