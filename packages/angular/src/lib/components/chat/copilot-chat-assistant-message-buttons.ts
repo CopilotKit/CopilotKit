@@ -25,7 +25,6 @@ import { copyToClipboard } from "@copilotkit/shared";
 // Base toolbar button component
 @Component({
   selector: "button[copilotChatAssistantMessageToolbarButton]",
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
