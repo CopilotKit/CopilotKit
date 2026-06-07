@@ -30,7 +30,7 @@
     "@mastra/memory": "beta",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-separator": "^1.1.8",
-    "ai": "^4.0.0",
+    "ai": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^0.2.1",
