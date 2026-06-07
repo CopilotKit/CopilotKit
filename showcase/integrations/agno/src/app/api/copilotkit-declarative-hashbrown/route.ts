@@ -50,7 +50,9 @@ export const POST = async (req: NextRequest) => {
     return response;
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
-    console.error(`[copilotkit-declarative-hashbrown/route] ERROR: ${e.message}`);
+    console.error(
+      `[copilotkit-declarative-hashbrown/route] ERROR: ${e.message}`,
+    );
     console.error(`[copilotkit-declarative-hashbrown/route] Stack: ${e.stack}`);
     return NextResponse.json(
       { error: "Internal Server Error" },

@@ -92,9 +92,7 @@ class _CapturingOpenAI:
                 "data": {},
             }
         )
-        return _FakeResponse(
-            [_FakeChoice(_FakeMessage([_FakeToolCall(valid_args)]))]
-        )
+        return _FakeResponse([_FakeChoice(_FakeMessage([_FakeToolCall(valid_args)]))])
 
 
 def _build_ctx() -> RunContext:
