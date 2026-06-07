@@ -3,6 +3,7 @@
   "icon": "lucide/LayoutDashboard",
   "pages": [
     "slots",
+    "css-theming",
     "headless-ui"
   ]
 }

@@ -1,0 +1,204 @@
+---
+title: "Theming with CSS"
+icon: "lucide/Palette"
+description: "Reskin the CopilotKit v2 chat by overriding CSS custom properties, with no component replacement and no change to the default look."
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+## What is this?
+
+Every CopilotKit v2 chat primitive renders inside an element carrying the `data-copilotkit` attribute, and that element reads its colors, radius, and font from CSS custom properties. Override those properties in your own stylesheet and the chat picks up your design system. You do not replace any components and you do not target internal class names.
+
+<Callout type="info">
+Every variable defaults to the value the chat already ships with, in both light and dark mode. Overriding is purely additive: if you set nothing, the chat looks exactly as it does today.
+</Callout>
+
+## When should I use this?
+
+Use CSS theming when you want to:
+
+- Recolor the chat to match your product (surface, text, accent, borders)
+- Restyle the input pill, send button, or slash menu
+- Change the corner radius or font across the chat
+- Support a custom light or dark palette
+
+Reach for [slots](/custom-look-and-feel/slots) instead when you need to change layout or structure, or replace a component entirely. The two approaches compose: theme the palette with CSS, then use a slot for any one-off structural tweak.
+
+## The core idea
+
+The chat ships its default variable values on the `[data-copilotkit]` selector. To override them, scope your own block to a wrapper class around the chat. A class plus the attribute is more specific than the shipped single-attribute rule, so your values win without `!important`.
+
+```tsx title="src/app/page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <div className="my-chat">
+      <CopilotChat />
+    </div>
+  );
+}
+```
+
+```css title="src/app/globals.css"
+.my-chat [data-copilotkit] {
+  /* Overall palette */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --muted: #f4f4f5;
+  --border: #e5e7eb;
+  --radius: 0.5rem;
+
+  /* Chat controls */
+  --cpk-send-button-background: #4f46e5;
+  --cpk-send-button-foreground: #ffffff;
+}
+```
+
+<Callout type="info">
+Because the override is scoped to `.my-chat`, it only affects that chat instance. To theme every chat in the app, drop the wrapper class and target `[data-copilotkit]` directly.
+</Callout>
+
+## Theme tokens
+
+These set the overall palette, typography, and radius. They are shared with the rest of the component library, so they also flow into cards, menus, and message bubbles. Colors accept any valid CSS color (hex, `rgb()`, `oklch()`, or a `var()` reference to your own design tokens).
+
+| Variable | Controls |
+|---|---|
+| `--background` | Chat surface background |
+| `--foreground` | Default text color |
+| `--card` | Card and elevated surface background |
+| `--card-foreground` | Text on cards |
+| `--popover` | Dropdown and popover background |
+| `--popover-foreground` | Text inside popovers |
+| `--primary` | Primary accent for default buttons and links |
+| `--primary-foreground` | Text and icons on the primary accent |
+| `--muted` | User message bubble and muted surfaces |
+| `--muted-foreground` | Secondary and helper text |
+| `--accent` | Hover background for ghost buttons |
+| `--accent-foreground` | Text on accent backgrounds |
+| `--border` | Borders for dividers and inputs |
+| `--input` | Input border color |
+| `--ring` | Focus ring color |
+| `--radius` | Corner radius for buttons, cards, and menus |
+| `--cpk-default-font-family` | Font family for all chat text |
+
+## Chat element variables
+
+A few controls have their own dedicated variables so you can recolor them without touching the shared palette. Each one defaults to the chat's original color and flips automatically in dark mode.
+
+| Variable | Controls |
+|---|---|
+| `--cpk-input-background` | Input pill background |
+| `--cpk-send-button-background` | Send button background |
+| `--cpk-send-button-foreground` | Send button icon color |
+| `--cpk-send-button-disabled-background` | Send button background when disabled |
+| `--cpk-send-button-disabled-foreground` | Send button icon when disabled |
+| `--cpk-toolbar-button-foreground` | Input toolbar button color (add, mic) |
+| `--cpk-toolbar-button-hover-background` | Input toolbar button hover background |
+| `--cpk-toolbar-button-hover-foreground` | Input toolbar button hover color |
+| `--cpk-message-toolbar-button-foreground` | Assistant message action icons (copy, regenerate) |
+| `--cpk-message-toolbar-button-hover-background` | Assistant message action hover background |
+| `--cpk-menu-background` | Slash command menu background |
+| `--cpk-menu-border` | Slash command menu border |
+| `--cpk-menu-item-active-background` | Slash command active and hovered item background |
+
+## Custom fonts
+
+Set `--cpk-default-font-family` to change the typeface across the whole chat:
+
+```css title="src/app/globals.css"
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
+.my-chat [data-copilotkit] {
+  --cpk-default-font-family: "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
+}
+```
+
+## Dark mode
+
+The chat applies its dark values whenever a `.dark` class is present on or above the `[data-copilotkit]` element. Provide your dark palette under the same `.dark` scope:
+
+```css title="src/app/globals.css"
+.my-chat [data-copilotkit] {
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --cpk-send-button-background: #4f46e5;
+}
+
+.dark .my-chat [data-copilotkit] {
+  --background: #0b0b0c;
+  --foreground: #f4f4f5;
+  --cpk-send-button-background: #818cf8;
+}
+```
+
+## Tokens vs slots
+
+Both approaches customize the chat, but they solve different problems.
+
+| Use CSS variables for | Use [slots](/custom-look-and-feel/slots) for |
+|---|---|
+| Palette: surface, text, accent, borders | Layout and structure changes |
+| Recoloring the input, send button, or menu | Restyling a shape a variable does not reach |
+| One radius or font for the whole chat | Replacing a component with your own |
+| Light and dark themes | Adding new elements (avatars, indicators) |
+
+Some shapes are intentionally fixed and not driven by a variable. For example, the input keeps its pill radius regardless of `--radius`. To square it, pass a class to the input slot:
+
+```tsx title="src/app/page.tsx"
+<CopilotChat
+  input={{ className: "[&_.copilotKitInput]:!rounded-none" }}
+/>
+```
+
+## Full example
+
+A complete theme that recolors the surface and controls, sets a custom font, and adds a dark palette:
+
+```css title="src/app/globals.css"
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
+.my-chat [data-copilotkit] {
+  /* Overall palette */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #1a1a1a;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #4f46e5;
+  --radius: 0.5rem;
+  --cpk-default-font-family: "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
+
+  /* Chat controls */
+  --cpk-input-background: #ffffff;
+  --cpk-send-button-background: #4f46e5;
+  --cpk-send-button-foreground: #ffffff;
+  --cpk-menu-background: #ffffff;
+}
+
+.dark .my-chat [data-copilotkit] {
+  --background: #0b0b0c;
+  --foreground: #f4f4f5;
+  --card: #131316;
+  --popover: #131316;
+  --muted: #1f1f23;
+  --muted-foreground: #a1a1aa;
+  --accent: #1f1f23;
+  --accent-foreground: #f4f4f5;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #818cf8;
+
+  --cpk-input-background: #131316;
+  --cpk-send-button-background: #818cf8;
+  --cpk-send-button-foreground: #0b0b0c;
+  --cpk-menu-background: #131316;
+}
+```
