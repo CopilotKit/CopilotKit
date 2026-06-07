@@ -3,9 +3,10 @@
 // The demo page wraps CopilotChat in HashBrownDashboard and overrides the
 // assistant message slot with a renderer that consumes hashbrown-shaped
 // structured output via `@hashbrownai/react`'s `useUiKit` + `useJsonParser`.
-// The Spring AI backend has no dedicated hashbrown controller, so this route
-// proxies to the main agent at "/" (see the `@PostMapping("/")` controller);
-// the hashbrown envelope shape is driven by the frontend renderer. The page
+// The Spring AI backend runs a dedicated controller at /byoc-hashbrown/run
+// (ByocHashbrownController) whose system prompt instructs the LLM to emit the
+// hashbrown UI-kit envelope (`{ "ui": [ { "<component>": { "props": {...} } } ] }`);
+// this route proxies to it rather than the generic "/" agent. The page
 // mounts <CopilotKit agent="declarative-hashbrown-demo">.
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,12 +20,13 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/byoc-hashbrown/run` });
 }
 
+const declarativeHashbrownAgent = createAgent();
 const agents: Record<string, AbstractAgent> = {
-  "declarative-hashbrown-demo": createAgent(),
-  default: createAgent(),
+  "declarative-hashbrown-demo": declarativeHashbrownAgent,
+  default: declarativeHashbrownAgent,
 };
 
 export const POST = async (req: NextRequest) => {
@@ -33,7 +35,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
       }),
     });

@@ -40,7 +40,10 @@ import type { TerminalResult, PbWriteConfig } from "./results.js";
 
 import { livenessDriver } from "../probes/drivers/liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
-import { createE2eFullDriver } from "../probes/drivers/d6-all-pills.js";
+import {
+  createE2eFullDriver,
+  openGuardedContext,
+} from "../probes/drivers/d6-all-pills.js";
 import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
 import { runViaControlPlane } from "./control-plane-run.js";
@@ -273,7 +276,13 @@ export async function run(
             async newContext(contextOpts?: {
               extraHTTPHeaders?: Record<string, string>;
             }) {
-              const bCtx = await browser.newContext({
+              // GUARD: same shared-browser disconnect guard as defaultLauncher
+              // — refuse to open on a dead browser and convert a mid-open
+              // disconnect into a clean BrowserDisconnectedError rather than
+              // leaking Playwright's raw "has been closed" string.
+              const bCtx = await openGuardedContext<
+                Awaited<ReturnType<typeof browser.newContext>>
+              >(browser, {
                 extraHTTPHeaders: {
                   "X-AIMock-Strict": "true",
                   ...contextOpts?.extraHTTPHeaders,

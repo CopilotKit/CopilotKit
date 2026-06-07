@@ -1,11 +1,10 @@
 // Dedicated runtime for the declarative-hashbrown demo (Strands).
 //
-// The shared Strands backend (agent_server.py) hosts a single Strands Agent
-// instance. For the declarative-hashbrown demo we need the LLM to emit a
-// strict hashbrown JSON envelope (see src/agents/byoc_hashbrown.py for the
-// canonical prompt). This route currently proxies to the shared backend
-// agent at "/"; backend prompt specialization for this demo is tracked
-// separately and not wired through this route yet.
+// The declarative-hashbrown demo needs the LLM to emit a strict hashbrown
+// JSON envelope (see src/agents/byoc_hashbrown.py for the canonical prompt).
+// The shared Strands agent at "/" cannot produce that envelope, so the
+// backend mounts a dedicated, prompt-specialized agent at `/byoc-hashbrown/`
+// (see agent_server.py) and this route proxies to it.
 //
 // The demo folder + route + agent slug were renamed from `byoc-hashbrown` to
 // the canonical `declarative-hashbrown` surface; the page mounts
@@ -22,7 +21,7 @@ import { HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/byoc-hashbrown/` });
 }
 
 const declarativeHashbrownAgent = createAgent();
@@ -37,7 +36,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
     });

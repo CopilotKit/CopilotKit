@@ -310,6 +310,86 @@ const isKnownFeatureType: (value: string) => value is D5FeatureType =
   isD5FeatureType;
 
 /**
+ * Minimal shape of a raw Playwright `Browser` the guarded-open helper needs:
+ * an `isConnected()` liveness predicate plus `newContext`. Lets the guard be
+ * unit-tested with a fake whose connectivity toggles, without launching a real
+ * Chromium.
+ */
+export interface GuardableBrowser {
+  isConnected(): boolean;
+  newContext(opts?: {
+    extraHTTPHeaders?: Record<string, string>;
+  }): Promise<unknown>;
+}
+
+/**
+ * Sentinel error class for the "the shared browser is no longer live" case so
+ * the feature loop can classify it distinctly (and so a regression test can
+ * assert the exact failure mode rather than matching Playwright's internal
+ * "Target page, context or browser has been closed" string).
+ */
+export class BrowserDisconnectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BrowserDisconnectedError";
+  }
+}
+
+/**
+ * Open a context on a SINGLE shared raw browser, guarding the open against the
+ * browser having disconnected/crashed.
+ *
+ * The single-shared-browser launcher (`defaultLauncher`, and the CLI's headed
+ * launcher) opens one Chromium and then opens a CONTEXT per feature on it,
+ * concurrently (bounded by `FEATURE_CONCURRENCY_D6`). Under the D6 fan-out's
+ * Chromium-spawn / memory burst — heaviest for byoc — the shared browser can
+ * crash or be disconnected mid-run. The unguarded code called
+ * `browser.newContext()` directly, so every feature that acquired AFTER the
+ * disconnect threw the raw Playwright `browser.newContext: Target page, context
+ * or browser has been closed`, which the feature loop classified as an opaque
+ * `driver-error` (or `abort`) on ~every remaining cell.
+ *
+ * The guarded open mirrors the POOLED launcher's lifecycle model ("only open
+ * contexts on a LIVE browser"): it (1) refuses to open on an already-dead
+ * browser, and (2) re-checks liveness after the open settles so a disconnect
+ * DURING the in-flight `newContext()` is reported as a clean, classifiable
+ * `BrowserDisconnectedError` instead of leaking Playwright's internal "has been
+ * closed" string. Either way the feature goes red with a clear reason — it does
+ * NOT throw the opaque raw error.
+ */
+export async function openGuardedContext<C>(
+  browser: GuardableBrowser,
+  opts?: { extraHTTPHeaders?: Record<string, string> },
+): Promise<C> {
+  // (1) The browser already died before we even tried — fail this feature
+  //     cleanly rather than calling newContext() on a dead process (which would
+  //     throw the raw "has been closed").
+  if (!browser.isConnected()) {
+    throw new BrowserDisconnectedError(
+      "shared browser disconnected before context open",
+    );
+  }
+  let ctx: C;
+  try {
+    ctx = (await browser.newContext(opts)) as C;
+  } catch (err) {
+    // (2a) The browser disconnected WHILE the open was in flight: Playwright
+    //      throws the raw "has been closed". Re-throw as the sentinel so the
+    //      feature loop classifies it distinctly instead of surfacing the
+    //      opaque internal string.
+    if (!browser.isConnected()) {
+      throw new BrowserDisconnectedError(
+        "shared browser disconnected during context open",
+      );
+    }
+    // (2b) A genuinely transient open error on a STILL-live browser — surface
+    //      the original error unchanged (this feature fails, siblings continue).
+    throw err;
+  }
+  return ctx;
+}
+
+/**
  * Default Playwright-backed launcher. Sets X-AIMock-Strict header at the
  * browser level. Per-context headers (X-AIMock-Context, X-Test-Id) are
  * set per-feature in newContext calls from the feature loop.
@@ -325,12 +405,20 @@ const defaultLauncher: E2eFullBrowserLauncher =
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
+        // GUARD: open the context on the shared browser only while it is LIVE,
+        // and convert a mid-open disconnect into a clean BrowserDisconnectedError
+        // instead of leaking Playwright's raw "has been closed" string (which
+        // the feature loop would surface as an opaque driver-error on every
+        // remaining byoc cell). See openGuardedContext for the full rationale.
+        const ctx = await openGuardedContext<playwright.BrowserContext>(
+          browser,
+          {
+            extraHTTPHeaders: {
+              "X-AIMock-Strict": "true",
+              ...contextOpts?.extraHTTPHeaders,
+            },
           },
-        });
+        );
         return {
           async newPage(): Promise<E2eFullPage> {
             const page = await ctx.newPage();

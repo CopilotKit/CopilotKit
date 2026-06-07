@@ -121,15 +121,30 @@ public class ByocJsonRenderController {
                         .call()
                         .chatResponse();
 
-                String text = response != null
-                        ? response.getResult().getOutput().getText()
-                        : null;
-                if (StringUtils.hasText(text)) {
-                    this.emitEvent(textMessageContentEvent(messageId, text), subscriber);
-                    assistantMessage.setContent(text);
+                if (response == null
+                        || response.getResult() == null
+                        || response.getResult().getOutput() == null) {
+                    log.warn("ChatClient returned an empty result (no output)");
+                    this.emitEvent(textMessageEndEvent(messageId), subscriber);
+                    this.emitEvent(runErrorEvent(
+                            "agent run failed: model returned an empty result"), subscriber);
+                    return;
                 }
+
+                String text = response.getResult().getOutput().getText();
+                if (!StringUtils.hasText(text)) {
+                    log.warn("ChatClient returned a null/blank text response");
+                    this.emitEvent(textMessageEndEvent(messageId), subscriber);
+                    this.emitEvent(runErrorEvent(
+                            "agent run failed: model returned an empty response"), subscriber);
+                    return;
+                }
+
+                this.emitEvent(textMessageContentEvent(messageId, text), subscriber);
+                assistantMessage.setContent(text);
             } catch (Exception e) {
                 log.error("ChatClient call failed", e);
+                this.emitEvent(textMessageEndEvent(messageId), subscriber);
                 this.emitEvent(runErrorEvent(String.format(
                         "agent run failed: %s (see server logs)",
                         e.getClass().getSimpleName())), subscriber);

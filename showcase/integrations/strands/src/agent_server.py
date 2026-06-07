@@ -117,6 +117,8 @@ from starlette.responses import JSONResponse  # noqa: E402
 
 from ag_ui_strands import create_strands_app  # noqa: E402  (must follow instrumentor patch)
 from agents.agent import build_showcase_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.byoc_hashbrown import build_byoc_hashbrown_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.byoc_json_render import build_byoc_json_render_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.voice_agent import build_voice_agent  # noqa: E402  (must follow instrumentor patch)
 
 load_dotenv()
@@ -130,6 +132,19 @@ agui_agent = build_showcase_agent()
 voice_agui_agent = build_voice_agent()
 voice_app = create_strands_app(voice_agui_agent, "/")
 
+# Declarative-hashbrown agent: tool-free, emits a strict hashbrown `{ "ui": [...] }`
+# JSON envelope (see agents/byoc_hashbrown.py) consumed by `@hashbrownai/react`'s
+# useJsonParser + useUiKit. The shared showcase agent at "/" cannot emit this
+# envelope, so the declarative-hashbrown demo gets a dedicated specialized agent.
+byoc_hashbrown_agui_agent = build_byoc_hashbrown_agent()
+byoc_hashbrown_app = create_strands_app(byoc_hashbrown_agui_agent, "/")
+
+# Declarative-json-render agent: tool-free, emits a `@json-render/react` flat-spec
+# JSON object (`{ root, elements }`, see agents/byoc_json_render.py). Mounted as a
+# dedicated specialized agent so the demo no longer relies on the generic "/" agent.
+byoc_json_render_agui_agent = build_byoc_json_render_agent()
+byoc_json_render_app = create_strands_app(byoc_json_render_agui_agent, "/")
+
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
@@ -137,6 +152,14 @@ app = create_strands_app(agui_agent, agent_path)
 # Mount the voice agent as a sub-application at /voice so the Next.js
 # voice runtime can point HttpAgent at AGENT_URL/voice/ for tool-free chat.
 app.mount("/voice", voice_app)
+
+# Mount the specialized declarative-demo agents as sub-applications so each
+# Next.js route can point HttpAgent at a dedicated, prompt-tuned endpoint
+# (mirrors agno's /byoc-hashbrown and /byoc-json-render mounts). The Next.js
+# routes proxy to AGENT_URL/byoc-hashbrown/ and AGENT_URL/byoc-json-render/
+# (trailing slash) so the sub-application's root route resolves.
+app.mount("/byoc-hashbrown", byoc_hashbrown_app)
+app.mount("/byoc-json-render", byoc_json_render_app)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.
@@ -162,11 +185,12 @@ app.add_middleware(HeaderForwardingHTTPMiddleware)
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
+    reload = os.getenv("UVICORN_RELOAD", "").lower() == "true"
     uvicorn.run(
         "agent_server:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=reload,
     )
 
 
