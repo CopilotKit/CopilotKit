@@ -41,7 +41,6 @@ import { cn } from "../../utils";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message",
   host: { "data-copilotkit": "" },
   imports: [

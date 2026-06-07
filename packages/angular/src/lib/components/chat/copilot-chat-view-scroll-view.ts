@@ -15,7 +15,7 @@ import {
   PLATFORM_ID,
   ChangeDetectorRef,
 } from "@angular/core";
-import { CommonModule, isPlatformBrowser } from "@angular/common";
+import { isPlatformBrowser } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatMessageView } from "./copilot-chat-message-view";
@@ -32,11 +32,9 @@ import { takeUntil } from "rxjs/operators";
  * Handles auto-scrolling and scroll position management
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view-scroll-view",
   host: { class: "cpk:block cpk:flex-1 cpk:min-h-0" },
   imports: [
-    CommonModule,
     ScrollingModule,
     CopilotSlot,
     CopilotChatMessageView,

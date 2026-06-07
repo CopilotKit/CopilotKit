@@ -15,7 +15,7 @@ import {
   ElementRef,
   DestroyRef,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { CopilotChatView } from "./copilot-chat-view";
 
 import {
@@ -53,8 +53,7 @@ import { isCopilotKitAgent } from "./copilot-chat-agent-utils";
  */
 @Component({
   selector: "copilot-chat",
-  standalone: true,
-  imports: [CommonModule, CopilotChatView],
+  imports: [CopilotChatView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { "data-copilotkit": "", class: "cpk:block cpk:h-full cpk:min-h-0" },
@@ -405,7 +404,9 @@ export class CopilotChat extends ChatState {
         config.onUploadFailed?.({
           reason: "file-too-large",
           file,
-          message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
+          message: `File "${
+            file.name
+          }" exceeds the maximum size of ${formatFileSize(maxSize)}`,
         });
         continue;
       }

@@ -50,7 +50,6 @@ export interface ToolbarContext {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-input",
   host: { "data-copilotkit": "" },
   imports: [

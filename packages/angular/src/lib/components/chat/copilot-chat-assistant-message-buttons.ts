@@ -7,7 +7,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import {
   LucideAngularModule,
   Copy,
@@ -24,9 +24,8 @@ import { copyToClipboard } from "@copilotkit/shared";
 
 // Base toolbar button component
 @Component({
-  standalone: true,
   selector: "button[copilotChatAssistantMessageToolbarButton]",
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -82,13 +81,8 @@ export class CopilotChatAssistantMessageToolbarButton {
 
 // Copy button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-copy-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -134,13 +128,8 @@ export class CopilotChatAssistantMessageCopyButton {
 
 // Thumbs up button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-thumbs-up-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -173,13 +162,8 @@ export class CopilotChatAssistantMessageThumbsUpButton {
 
 // Thumbs down button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-thumbs-down-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -212,13 +196,8 @@ export class CopilotChatAssistantMessageThumbsDownButton {
 
 // Read aloud button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-read-aloud-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -251,13 +230,8 @@ export class CopilotChatAssistantMessageReadAloudButton {
 
 // Regenerate button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-regenerate-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

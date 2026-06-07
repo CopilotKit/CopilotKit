@@ -16,7 +16,6 @@ import { injectChatState } from "../../chat-state";
 
 @Component({
   selector: "textarea[copilotChatTextarea]",
-  standalone: true,
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,

@@ -8,7 +8,6 @@ import {
   input,
   signal,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
@@ -16,8 +15,7 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
 
 @Component({
   selector: "copilot-chat-reasoning-message",
-  standalone: true,
-  imports: [CommonModule, CopilotChatAssistantMessageRenderer],
+  imports: [CopilotChatAssistantMessageRenderer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div

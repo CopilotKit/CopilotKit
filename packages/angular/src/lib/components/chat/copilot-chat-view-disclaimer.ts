@@ -4,7 +4,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../..//utils";
 import { injectChatLabels } from "../../chat-config";
 
@@ -15,8 +15,7 @@ import { injectChatLabels } from "../../chat-config";
  */
 @Component({
   selector: "copilot-chat-view-disclaimer",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

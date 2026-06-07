@@ -1,10 +1,10 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it } from "vitest";
+import { CopilotA2UIToolRenderer } from "../a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  CopilotA2UIToolRenderer,
   type RenderA2UIArgs,
-} from "../a2ui-tool-renderer";
+} from "../a2ui-tool-types";
 import { COPILOT_KIT_CONFIG } from "../../../config";
 import type { AngularToolCall } from "../../../tools";
 

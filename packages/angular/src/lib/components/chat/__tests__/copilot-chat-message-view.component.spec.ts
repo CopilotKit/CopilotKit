@@ -33,7 +33,6 @@ const reasoningMessage: ReasoningMessage = {
 };
 
 @Component({
-  standalone: true,
   imports: [CopilotChatMessageView],
   template: `
     <copilot-chat-message-view

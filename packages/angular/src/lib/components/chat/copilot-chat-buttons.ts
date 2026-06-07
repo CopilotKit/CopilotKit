@@ -7,7 +7,7 @@ import {
   computed,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import {
   LucideAngularModule,
   ArrowUp,
@@ -69,9 +69,8 @@ const chatInputToolbarSecondary = cn(
 );
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-send-button",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -103,9 +102,8 @@ export class CopilotChatSendButton {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-start-transcribe-button",
-  imports: [CommonModule, LucideAngularModule, CopilotTooltip],
+  imports: [LucideAngularModule, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -143,9 +141,8 @@ export class CopilotChatStartTranscribeButton {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-cancel-transcribe-button",
-  imports: [CommonModule, LucideAngularModule, CopilotTooltip],
+  imports: [LucideAngularModule, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -183,9 +180,8 @@ export class CopilotChatCancelTranscribeButton {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-finish-transcribe-button",
-  imports: [CommonModule, LucideAngularModule, CopilotTooltip],
+  imports: [LucideAngularModule, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -223,9 +219,8 @@ export class CopilotChatFinishTranscribeButton {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-add-file-button",
-  imports: [CommonModule, LucideAngularModule, CopilotTooltip],
+  imports: [LucideAngularModule, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -264,9 +259,8 @@ export class CopilotChatAddFileButton {
 
 // Base toolbar button component that other buttons can use
 @Component({
-  standalone: true,
   selector: "copilot-chat-toolbar-button",
-  imports: [CommonModule, CopilotTooltip],
+  imports: [CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

@@ -38,7 +38,6 @@ import {
 } from "./copilot-chat-user-message-utils";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message",
   host: { "data-copilotkit": "" },
   imports: [

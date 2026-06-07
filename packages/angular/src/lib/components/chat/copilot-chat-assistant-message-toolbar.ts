@@ -2,7 +2,6 @@ import { Directive, input, computed } from "@angular/core";
 import { cn } from "../../utils";
 
 @Directive({
-  standalone: true,
   selector: "[copilotChatAssistantMessageToolbar]",
   host: {
     "[class]": "computedClass()",

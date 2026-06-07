@@ -6,7 +6,6 @@ import {
   output,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
 import type { Attachment } from "@copilotkit/shared";
 import {
   formatFileSize,
@@ -17,8 +16,6 @@ import { cn } from "../../utils";
 
 @Component({
   selector: "copilot-chat-attachment-queue",
-  standalone: true,
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { "data-copilotkit": "" },

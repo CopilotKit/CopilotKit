@@ -10,7 +10,7 @@ import {
   computed,
   inject,
 } from "@angular/core";
-import { CommonModule, NgComponentOutlet } from "@angular/common";
+import { NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import type { ActivityMessage, Message, ReasoningMessage } from "@ag-ui/core";
 import { CopilotChatAssistantMessage } from "./copilot-chat-assistant-message";
@@ -28,10 +28,9 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
  */
 @Component({
   selector: "copilot-chat-message-view",
-  standalone: true,
   host: { "data-copilotkit": "" },
   imports: [
-    CommonModule,
+    NgTemplateOutlet,
     NgComponentOutlet,
     CopilotSlot,
     CopilotChatAssistantMessage,
@@ -102,10 +101,8 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
             @let activityRender = resolveActivityRender(message);
             @if (activityRender) {
               <ng-container
-                *ngComponentOutlet="
-                  activityRender.component;
-                  inputs: activityRender.inputs
-                "
+                [ngComponentOutlet]="activityRender.component"
+                [ngComponentOutletInputs]="activityRender.inputs"
               />
             }
           }
