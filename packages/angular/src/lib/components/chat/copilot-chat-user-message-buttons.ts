@@ -7,7 +7,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { LucideAngularModule, Copy, Check, Edit } from "lucide-angular";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
@@ -17,8 +17,7 @@ import { copyToClipboard } from "@copilotkit/shared";
 // Base toolbar button component
 @Component({
   selector: "button[copilotChatUserMessageToolbarButton]",
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -70,13 +69,8 @@ export class CopilotChatUserMessageToolbarButton {
 
 // Copy button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message-copy-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatUserMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -122,12 +116,7 @@ export class CopilotChatUserMessageCopyButton {
 // Edit button component
 @Component({
   selector: "copilot-chat-user-message-edit-button",
-  standalone: true,
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatUserMessageToolbarButton,
-  ],
+  imports: [LucideAngularModule, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

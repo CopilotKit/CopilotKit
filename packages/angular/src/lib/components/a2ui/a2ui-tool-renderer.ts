@@ -22,37 +22,15 @@ import {
   type A2UISurfaceElement,
 } from "./a2ui-surface-host";
 import { getRenderedA2UIOperations } from "./a2ui-tool-operations";
-export {
-  AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  RENDER_A2UI_TOOL_NAME,
-  RenderA2UIArgsSchema,
-  type RenderA2UIArgs,
-} from "./a2ui-tool-types";
+import { A2UI_TOOL_SKELETON_ROWS } from "./a2ui-skeleton-rows";
+import { A2UI_SURFACE_SCROLL_STYLES } from "./a2ui-shared-styles";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   type RenderA2UIArgs,
 } from "./a2ui-tool-types";
 
-type SkeletonRow = {
-  phase: number;
-  delay: number;
-  segments: Array<
-    | { type: "dot" }
-    | { type: "spacer" }
-    | {
-        type: "bar";
-        width: number;
-        height: number;
-        background: string;
-        animationDelay?: number;
-        opacity?: number;
-      }
-  >;
-};
-
 @Component({
   selector: "copilot-a2ui-tool-renderer",
-  standalone: true,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -87,7 +65,7 @@ type SkeletonRow = {
           </div>
 
           <div class="copilot-a2ui-lines">
-            @for (row of rows; track $index) {
+            @for (row of skeletonRows; track $index) {
               <div
                 class="copilot-a2ui-row"
                 [style.opacity]="phase() >= row.phase ? 1 : 0"
@@ -132,27 +110,8 @@ type SkeletonRow = {
     }
   `,
   styles: [
+    A2UI_SURFACE_SCROLL_STYLES,
     `
-      :host {
-        display: block;
-        min-width: 0;
-        max-width: 100%;
-      }
-
-      .copilot-a2ui-surface-scroll {
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        overflow-x: auto;
-        overflow-y: visible;
-        padding: 4px 0 8px;
-      }
-
-      .copilot-a2ui-surface-scroll cpk-a2ui-surface {
-        display: block;
-        min-width: 100%;
-      }
-
       .copilot-a2ui-progress {
         margin: 12px 0;
         max-width: 320px;
@@ -349,161 +308,5 @@ export class CopilotA2UIToolRenderer implements ToolRenderer<RenderA2UIArgs> {
     );
   }
 
-  protected readonly rows: SkeletonRow[] = [
-    {
-      phase: 0,
-      delay: 0,
-      segments: [
-        {
-          type: "bar",
-          width: 36,
-          height: 7,
-          background: "rgba(147,197,253,0.7)",
-          animationDelay: 0,
-        },
-        {
-          type: "bar",
-          width: 80,
-          height: 7,
-          background: "rgba(219,234,254,0.8)",
-          animationDelay: 0.2,
-        },
-      ],
-    },
-    {
-      phase: 0,
-      delay: 0.1,
-      segments: [
-        { type: "spacer" },
-        { type: "dot" },
-        {
-          type: "bar",
-          width: 100,
-          height: 7,
-          background: "rgba(24,24,27,0.2)",
-          animationDelay: 0.3,
-        },
-      ],
-    },
-    {
-      phase: 1,
-      delay: 0.15,
-      segments: [
-        { type: "spacer" },
-        {
-          type: "bar",
-          width: 48,
-          height: 7,
-          background: "rgba(24,24,27,0.15)",
-          animationDelay: 0.1,
-        },
-        {
-          type: "bar",
-          width: 40,
-          height: 7,
-          background: "rgba(153,246,228,0.6)",
-          animationDelay: 0.5,
-        },
-        {
-          type: "bar",
-          width: 56,
-          height: 7,
-          background: "rgba(147,197,253,0.6)",
-          animationDelay: 0.3,
-        },
-      ],
-    },
-    {
-      phase: 1,
-      delay: 0.2,
-      segments: [
-        { type: "spacer" },
-        { type: "dot" },
-        {
-          type: "bar",
-          width: 60,
-          height: 7,
-          background: "rgba(24,24,27,0.15)",
-          animationDelay: 0.4,
-        },
-      ],
-    },
-    {
-      phase: 2,
-      delay: 0.25,
-      segments: [
-        {
-          type: "bar",
-          width: 40,
-          height: 7,
-          background: "rgba(153,246,228,0.5)",
-          animationDelay: 0.2,
-        },
-        { type: "dot" },
-        {
-          type: "bar",
-          width: 48,
-          height: 7,
-          background: "rgba(24,24,27,0.15)",
-          animationDelay: 0.6,
-        },
-        {
-          type: "bar",
-          width: 64,
-          height: 7,
-          background: "rgba(147,197,253,0.5)",
-          animationDelay: 0.1,
-        },
-      ],
-    },
-    {
-      phase: 2,
-      delay: 0.3,
-      segments: [
-        {
-          type: "bar",
-          width: 36,
-          height: 7,
-          background: "rgba(147,197,253,0.6)",
-          animationDelay: 0.5,
-        },
-        {
-          type: "bar",
-          width: 36,
-          height: 7,
-          background: "rgba(24,24,27,0.12)",
-          animationDelay: 0.7,
-        },
-      ],
-    },
-    {
-      phase: 3,
-      delay: 0.35,
-      segments: [
-        { type: "dot" },
-        {
-          type: "bar",
-          width: 44,
-          height: 7,
-          background: "rgba(24,24,27,0.18)",
-          animationDelay: 0.3,
-        },
-        { type: "dot" },
-        {
-          type: "bar",
-          width: 56,
-          height: 7,
-          background: "rgba(153,246,228,0.5)",
-          animationDelay: 0.8,
-        },
-        {
-          type: "bar",
-          width: 48,
-          height: 7,
-          background: "rgba(147,197,253,0.5)",
-          animationDelay: 0.4,
-        },
-      ],
-    },
-  ];
+  protected readonly skeletonRows = A2UI_TOOL_SKELETON_ROWS;
 }

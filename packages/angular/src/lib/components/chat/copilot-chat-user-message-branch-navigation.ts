@@ -6,16 +6,15 @@ import {
   ViewEncapsulation,
   computed,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { LucideAngularModule, ChevronLeft, ChevronRight } from "lucide-angular";
 import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
 import { UserMessage } from "@ag-ui/core";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message-branch-navigation",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

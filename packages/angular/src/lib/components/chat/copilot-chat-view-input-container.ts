@@ -7,7 +7,7 @@ import {
   ElementRef,
   inject,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
@@ -22,14 +22,8 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
  * Uses ForwardRef for DOM access
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view-input-container",
-  imports: [
-    CommonModule,
-    CopilotSlot,
-    CopilotChatAttachmentQueue,
-    CopilotChatSuggestionView,
-  ],
+  imports: [CopilotSlot, CopilotChatAttachmentQueue, CopilotChatSuggestionView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [

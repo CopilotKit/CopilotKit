@@ -52,7 +52,6 @@ import { injectChatLabels } from "../../chat-config";
  * ```
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view",
   imports: [
     CommonModule,

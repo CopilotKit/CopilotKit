@@ -1,12 +1,11 @@
 import { Component, ChangeDetectionStrategy, input } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { RenderToolCalls } from "../../render-tool-calls";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-tool-calls-view",
-  imports: [CommonModule, RenderToolCalls],
+  imports: [RenderToolCalls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <copilot-render-tool-calls

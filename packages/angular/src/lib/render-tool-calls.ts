@@ -38,7 +38,6 @@ type ToolCallHandler =
 
 @Component({
   selector: "copilot-render-tool-calls",
-  standalone: true,
   imports: [NgComponentOutlet],
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {

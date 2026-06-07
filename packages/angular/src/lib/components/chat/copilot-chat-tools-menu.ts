@@ -5,7 +5,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { CdkMenuModule } from "@angular/cdk/menu";
 import { OverlayModule } from "@angular/cdk/overlay";
 import { LucideAngularModule, Plus, ChevronRight } from "lucide-angular";
@@ -16,14 +16,7 @@ import { CopilotTooltip } from "../../directives/tooltip";
 
 @Component({
   selector: "copilot-chat-tools-menu",
-  standalone: true,
-  imports: [
-    CommonModule,
-    CdkMenuModule,
-    OverlayModule,
-    LucideAngularModule,
-    CopilotTooltip,
-  ],
+  imports: [CdkMenuModule, OverlayModule, LucideAngularModule, CopilotTooltip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

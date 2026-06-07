@@ -23,7 +23,6 @@ describe("CopilotKitAgentContext", () => {
 
   it("adds and removes context for separate description/value inputs", () => {
     @Component({
-      standalone: true,
       imports: [CopilotKitAgentContext],
       template: `
         <div copilotkitAgentContext [description]="description()" [value]="value"></div>
@@ -58,7 +57,6 @@ describe("CopilotKitAgentContext", () => {
 
   it("supports passing full context object via directive binding", () => {
     @Component({
-      standalone: true,
       imports: [CopilotKitAgentContext],
       template: `
         <div [copilotkitAgentContext]="context"></div>

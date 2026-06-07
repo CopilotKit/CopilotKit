@@ -40,12 +40,12 @@ import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  CopilotA2UIToolRenderer,
   RENDER_A2UI_TOOL_NAME,
   RenderA2UIArgsSchema,
-} from "./components/a2ui/a2ui-tool-renderer";
+} from "./components/a2ui/a2ui-tool-types";
 import {
   DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
   GENERATE_SANDBOXED_UI_DESCRIPTION,
