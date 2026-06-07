@@ -1,4 +1,4 @@
-FROM ghcr.io/copilotkit/aimock:latest
+FROM ghcr.io/copilotkit/aimock:1.28.0
 
 # Depth-organized fixture directories
 COPY shared/ /fixtures/shared/
