@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  BrowserDisconnectedError,
   createE2eFullDriver,
   createPooledE2eFullLauncher,
   DEPLOY_CHURN_GRACE_MS,
   e2eFullDriver,
   FEATURE_CONCURRENCY_D6,
+  openGuardedContext,
   Semaphore,
 } from "./d6-all-pills.js";
+import type { GuardableBrowser } from "./d6-all-pills.js";
 import type {
   E2eFullAggregateSignal,
   E2eFullBrowser,
@@ -505,6 +508,165 @@ describe("e2e-full driver", () => {
 
       expect(result.state).toBe("red");
       expect(result.signal.errorDesc).toBe("launcher-error");
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // Shared-browser disconnect guard (byoc "...has been closed" race).
+  //
+  // The single-shared-browser launcher (defaultLauncher / CLI headed
+  // launcher) opens one Chromium and a CONTEXT per feature on it. Under
+  // the D6 fan-out's spawn/memory burst (heaviest for byoc) the shared
+  // browser can disconnect mid-run; the unguarded code then threw the raw
+  // Playwright "Target page, context or browser has been closed" on every
+  // remaining feature's newContext(), surfacing as an opaque driver-error.
+  // openGuardedContext mirrors the pooled launcher's "open only on a LIVE
+  // browser" model so the failure is a clean, classifiable
+  // BrowserDisconnectedError instead of the raw string.
+  // --------------------------------------------------------------------
+  describe("openGuardedContext (shared-browser disconnect guard)", () => {
+    it("opens a context when the browser is connected", async () => {
+      const sentinel = { id: "ctx" };
+      const browser: GuardableBrowser = {
+        isConnected: () => true,
+        newContext: async () => sentinel,
+      };
+      const ctx = await openGuardedContext<typeof sentinel>(browser);
+      expect(ctx).toBe(sentinel);
+    });
+
+    it("throws BrowserDisconnectedError when the browser is already disconnected (never calls newContext)", async () => {
+      let called = false;
+      const browser: GuardableBrowser = {
+        isConnected: () => false,
+        newContext: async () => {
+          called = true;
+          return {};
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toBeInstanceOf(
+        BrowserDisconnectedError,
+      );
+      expect(called).toBe(false);
+    });
+
+    it("converts a mid-open disconnect (raw 'has been closed') into BrowserDisconnectedError", async () => {
+      let connected = true;
+      const browser: GuardableBrowser = {
+        isConnected: () => connected,
+        newContext: async () => {
+          // Simulate the browser dying WHILE newContext() is in flight: the
+          // process disconnects and Playwright rejects with the raw string.
+          connected = false;
+          throw new Error(
+            "browser.newContext: Target page, context or browser has been closed",
+          );
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toBeInstanceOf(
+        BrowserDisconnectedError,
+      );
+    });
+
+    it("surfaces a transient open error unchanged when the browser is still live", async () => {
+      const browser: GuardableBrowser = {
+        isConnected: () => true,
+        newContext: async () => {
+          throw new Error("transient open hiccup");
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toThrow(
+        "transient open hiccup",
+      );
+    });
+  });
+
+  describe("shared-browser disconnect mid-run (integration)", () => {
+    it("fails features cleanly (no raw 'has been closed') when the shared browser disconnects mid-fanout", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      // Single shared raw browser that disconnects after the FIRST context
+      // open — exactly the byoc burst scenario. The launcher routes every
+      // newContext() through openGuardedContext, so the second feature gets a
+      // clean BrowserDisconnectedError instead of the raw Playwright string.
+      let connected = true;
+      let opened = false;
+      const rawBrowser: GuardableBrowser & { close(): Promise<void> } = {
+        isConnected: () => connected,
+        newContext: async () => {
+          if (!connected) {
+            // Browser already torn down — Playwright's raw throw. The guard's
+            // start-check should normally prevent reaching here, but the
+            // post-open re-check converts a mid-open disconnect too.
+            throw new Error(
+              "browser.newContext: Target page, context or browser has been closed",
+            );
+          }
+          if (opened) {
+            // A second open while still "connected": simulate the crash landing
+            // exactly during this in-flight open (the mid-open window).
+            connected = false;
+            throw new Error(
+              "browser.newContext: Target page, context or browser has been closed",
+            );
+          }
+          // First open succeeds, then the shared Chromium disconnects.
+          opened = true;
+          connected = false;
+          return {
+            newPage: async () => makePage(),
+            close: async () => {},
+          };
+        },
+        close: async () => {},
+      };
+
+      const sideEmits: ProbeResult<E2eFullFeatureSignal>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r as ProbeResult<E2eFullFeatureSignal>);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async (): Promise<E2eFullBrowser> => ({
+          async newContext(contextOpts?: {
+            extraHTTPHeaders?: Record<string, string>;
+          }): Promise<E2eFullBrowserContext> {
+            const ctx = await openGuardedContext<{
+              newPage: () => Promise<E2eFullPage>;
+              close: () => Promise<void>;
+            }>(rawBrowser, contextOpts);
+            return ctx;
+          },
+          close: () => rawBrowser.close(),
+        }),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "e2e_d6:byoc",
+        backendUrl: "https://byoc.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      expect(result.state).toBe("red");
+      // The failing feature's reason must be the clean sentinel reason, NOT
+      // the raw Playwright "has been closed" string.
+      const failureSummary = result.signal.failureSummary ?? "";
+      expect(failureSummary).toContain("shared browser disconnected");
+      expect(failureSummary).not.toContain(
+        "Target page, context or browser has been closed",
+      );
+
+      // And no per-feature side row leaked the raw string either.
+      for (const emit of sideEmits) {
+        const desc = emit.signal?.errorDesc ?? "";
+        expect(desc).not.toContain(
+          "Target page, context or browser has been closed",
+        );
+      }
     });
   });
 
