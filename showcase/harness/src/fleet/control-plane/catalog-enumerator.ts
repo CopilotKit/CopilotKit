@@ -72,6 +72,33 @@ export const D6_DRIVER_KIND = "e2e_d6";
 export const E2E_DEMOS_TIMEOUT_MS = 1_200_000;
 
 /**
+ * The d6 (`d6-all-pills-e2e`) full-matrix outer-cap timeout (ms) — the SINGLE
+ * SOURCE OF TRUTH mirroring `config/probes/d6-all-pills-e2e.yml`'s `timeout_ms`
+ * (20 min). Like the demos family, the d6 enumerator CONVEYS this cap per-job in
+ * `driverInputs.timeout_ms` so the fleet WORKER's pooled d6 driver honors the
+ * YAML budget. The legacy in-process path threads the YAML `timeout_ms` into the
+ * driver via `probe-invoker`'s `cfg.timeout_ms` guard; the fleet worker never
+ * runs that boot path, so without this conveyance the d6 driver silently falls
+ * back to its hardcoded `DEFAULT_TIMEOUT_MS` (10 min) and a slow backend
+ * false-aborts at 10 min instead of the YAML's 20. Keep this in lockstep with
+ * the YAML until the in-process and fleet run paths converge on one config.
+ */
+export const D6_E2E_TIMEOUT_MS = 1_200_000;
+
+/**
+ * The d5 (`e2e-deep` / `d5-single-pill-e2e`) take-one outer-cap timeout (ms) —
+ * the SINGLE SOURCE OF TRUTH mirroring `config/probes/e2e-deep.yml`'s
+ * `timeout_ms` (10 min). D5 runs the SAME d6 driver scoped to one representative
+ * pill per feature, so it conveys its own (smaller) YAML cap per-job in
+ * `driverInputs.timeout_ms`. Without it the d5 specs run under the d6 driver's
+ * hardcoded `DEFAULT_TIMEOUT_MS` (10 min) — which happens to coincide today, but
+ * pinning the conveyance to the YAML keeps the two run paths honest and prevents
+ * silent drift if either YAML budget changes. Keep this in lockstep with the
+ * YAML until the in-process and fleet run paths converge on one config.
+ */
+export const D5_E2E_TIMEOUT_MS = 600_000;
+
+/**
  * The d6 service-set filter — the SINGLE SOURCE OF TRUTH mirroring
  * `config/probes/d6-all-pills-e2e.yml`'s `discovery.filter`. Selects the
  * `showcase-*` demo services and excludes infra/shell services and the
@@ -88,7 +115,12 @@ export const D6_DISCOVERY_FILTER = {
     "showcase-shell-dashboard",
     "showcase-shell-docs",
     "showcase-shell-dojo",
-    // Harness service for .NET integration testing — not a demo service.
+    // Harness service for .NET integration testing — deployed: true in its
+    // manifest but NOT probe-wired yet (no aimock fixtures; shares the
+    // ms-agent-dotnet AsyncLocal bug). Excluded from every probe AND not
+    // rendered on the dashboard (see shell-dashboard baseline-types.ts) so an
+    // unprobed service never shows stale red. Re-include only once it is fully
+    // probe-wired.
     "showcase-ms-agent-harness-dotnet",
     // Decommissioned starters.
     "showcase-starter-ag2",
@@ -134,6 +166,15 @@ export interface D6ServiceEnumeratorDeps {
    * (or a future operator config) can narrow the set without editing the SSOT.
    */
   filter?: ServiceSetFilter;
+  /**
+   * The driver-invocation outer-cap timeout (ms), conveyed per-job in
+   * `driverInputs.timeout_ms` so the fleet worker's pooled d6 driver reads the
+   * YAML budget from the payload (the worker never runs the legacy in-process
+   * `probe-invoker` boot path that applies `cfg.timeout_ms`). Each family
+   * defaults to its own YAML value (`D6_E2E_TIMEOUT_MS` for d6,
+   * `D5_E2E_TIMEOUT_MS` for d5). Exposed so a test can override.
+   */
+  timeoutMs?: number;
 }
 
 /**
@@ -340,6 +381,7 @@ export function createD6ServiceEnumerator(
 ): ServiceEnumerator {
   const { source, env, fetchImpl, logger } = deps;
   const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+  const timeoutMs = deps.timeoutMs ?? D6_E2E_TIMEOUT_MS;
 
   return createServiceEnumerator({
     source,
@@ -349,6 +391,9 @@ export function createD6ServiceEnumerator(
     driverKind: D6_DRIVER_KIND,
     probeKeyPrefix: "d6",
     filter,
+    // Convey the YAML outer-cap so the fleet worker's d6 driver honors the
+    // `d6-all-pills-e2e.yml` budget instead of its hardcoded DEFAULT_TIMEOUT_MS.
+    extraDriverInputs: { timeout_ms: timeoutMs },
   });
 }
 
@@ -403,6 +448,7 @@ export function createE2eDeepServiceEnumerator(
 ): ServiceEnumerator {
   const { source, env, fetchImpl, logger } = deps;
   const filter = deps.filter ?? D6_DISCOVERY_FILTER;
+  const timeoutMs = deps.timeoutMs ?? D5_E2E_TIMEOUT_MS;
 
   return createServiceEnumerator({
     source,
@@ -412,7 +458,14 @@ export function createE2eDeepServiceEnumerator(
     driverKind: D6_DRIVER_KIND,
     probeKeyPrefix: "d5-single-pill-e2e",
     filter,
-    extraDriverInputs: { representativeOnly: true, rowPrefix: "d5" },
+    // Convey the YAML outer-cap alongside the D5-take-one scoping so the fleet
+    // worker's d6 driver honors the `e2e-deep.yml` budget rather than its
+    // hardcoded DEFAULT_TIMEOUT_MS.
+    extraDriverInputs: {
+      representativeOnly: true,
+      rowPrefix: "d5",
+      timeout_ms: timeoutMs,
+    },
   });
 }
 

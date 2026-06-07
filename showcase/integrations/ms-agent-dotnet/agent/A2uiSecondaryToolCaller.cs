@@ -31,7 +31,12 @@ internal static class A2uiSecondaryToolCaller
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        foreach (var header in AimockHeaderContext.Get())
+        // Forward the inbound x-* headers (incl. x-aimock-context) read off the
+        // current request's HttpContext.Items via the seeded accessor. This
+        // secondary outbound call runs on the SSE-pump ExecutionContext, so it
+        // must read through the accessor (not a middleware-set AsyncLocal) for
+        // the value to be present at call time.
+        foreach (var header in AimockHeaderContext.Get(AimockHeaderPolicy.HttpContextAccessor?.HttpContext))
         {
             request.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }

@@ -183,7 +183,10 @@ export const generateA2uiTool = createTool({
       tools: {
         render_a2ui: aiTool({
           description: "Render a dynamic A2UI v0.9 surface.",
-          parameters: z.object({
+          // AI SDK v5 renamed the tool schema key from `parameters` to
+          // `inputSchema`; under v5 a `parameters` key is ignored, so the
+          // render_a2ui schema would never reach the model.
+          inputSchema: z.object({
             surfaceId: z.string().describe("Unique surface identifier."),
             catalogId: z.string().describe("The catalog ID."),
             components: z
@@ -204,8 +207,13 @@ export const generateA2uiTool = createTool({
       return JSON.stringify({ error: "LLM did not call render_a2ui" });
     }
 
+    // AI SDK v5 renamed the typed tool-call arguments from `.args` to
+    // `.input` (the `ai` v4 shape was `toolCall.args`). Read `.input` so the
+    // a2ui builder gets the render_a2ui arguments instead of `undefined`.
     return JSON.stringify(
-      buildA2uiOperationsFromToolCall(toolCall.args as Record<string, unknown>),
+      buildA2uiOperationsFromToolCall(
+        toolCall.input as Record<string, unknown>,
+      ),
     );
   },
 });

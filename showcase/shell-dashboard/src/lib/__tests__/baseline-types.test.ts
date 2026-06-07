@@ -148,8 +148,8 @@ describe("FEATURE_CATEGORIES", () => {
 /*  BASELINE_PARTNERS                                                  */
 /* ------------------------------------------------------------------ */
 describe("BASELINE_PARTNERS", () => {
-  it("has exactly 26 partners", () => {
-    expect(BASELINE_PARTNERS).toHaveLength(26);
+  it("has exactly 25 partners", () => {
+    expect(BASELINE_PARTNERS).toHaveLength(25);
   });
 
   it("each partner has name and slug", () => {
@@ -164,6 +164,18 @@ describe("BASELINE_PARTNERS", () => {
   it("slugs are unique", () => {
     const slugs = BASELINE_PARTNERS.map((p) => p.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  // Fix C: ms-agent-harness-dotnet is deployed but NOT probe-wired (excluded
+  // from EVERY probe — d5/d6/e2e-smoke/e2e-demos/smoke/aimock-wiring). Rendering
+  // its column would produce cells with no fresh probe data → perpetual stale
+  // red in both the Baseline and Live-status dimensions. RENDERING must stay
+  // consistent with PROBING: an unprobed service contributes no rendered cells.
+  // Do NOT re-add it here until it is fully probe-wired (deploy + aimock
+  // fixtures + probe inclusion + the ms-agent-dotnet AsyncLocal fix).
+  it("does not render the unprobed ms-agent-harness-dotnet partner column", () => {
+    const slugs = BASELINE_PARTNERS.map((p) => p.slug);
+    expect(slugs).not.toContain("ms-agent-harness-dotnet");
   });
 });
 
