@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * Beautiful Chat (Claude Agent SDK Python port — simplified).
+ * Beautiful Chat (Claude Agent SDK Python port).
  *
  * A polished landing-style chat cell with brand theming, seeded suggestion
- * pills, and a small glanceable side panel of decorative charts/cards.
+ * pills, and a small glanceable side panel — plus the three controlled
+ * generative-UI surfaces the dashboard probes exercise:
+ *   - `pieChart` / `barChart`  → recharts/SVG charts (useComponent)
+ *   - `scheduleTime`           → meeting time picker (useHumanInTheLoop)
+ *   - `toggleTheme`            → frontend theme toggle (already green)
  *
- * The canonical langgraph-python version of this demo ships a much larger
- * surface (ExampleCanvas, GenerativeUIExamples, per-tool renderers wired
- * through an A2UI declarative-generative-ui catalog). That ecosystem
- * depends on streaming-structured-output primitives that the
- * claude-sdk-python integration does not currently expose to the
- * showcase, so this port ships the polished chat shell over the shared
- * Claude agent and documents the remaining canvas behavior as out-of-scope
- * (see the beautiful-chat A2UI catalog work in langgraph-python).
+ * These renderers are ported from the langgraph-python flagship and wired
+ * to the same tool names the backend emits. The CopilotKit runtime forwards
+ * the frontend tool definitions to the Claude agent (see the Python
+ * backend's `_build_frontend_tools`), so the agent — or the aimock fixture
+ * — calls them by name and the matching renderer paints inline.
  *
- * Runtime: shared `/api/copilotkit` endpoint. Backend: the same default
- * Claude agent the agentic-chat cell uses. The cosmetic layer (suggestions,
- * theming, composer skin, decorative side panel) lives entirely on the
- * frontend.
+ * Runtime: shared `/api/copilotkit` endpoint. Backend: the default Claude
+ * agent (the route maps `beautiful-chat` to the root agent). The A2UI
+ * fixed-schema / dynamic-dashboard surfaces remain out of scope — only the
+ * controlled-gen-UI + HITL pills are ported here.
  */
 
 import React from "react";
@@ -27,6 +28,10 @@ import {
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+
+import { ThemeProvider } from "./hooks/use-theme";
+import { useGenerativeUIExamples } from "./hooks/use-generative-ui-examples";
+import "./lib/theme.css";
 
 const AGENT_ID = "beautiful-chat";
 
@@ -50,9 +55,19 @@ const BRAND_SUGGESTIONS = [
 
 export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <ThemeProvider>
+      <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+        <BeautifulChatSurface />
+      </CopilotKit>
+    </ThemeProvider>
+  );
+}
+
+function BeautifulChatSurface() {
+  return (
+    <>
       <div
-        className="relative flex h-screen w-full overflow-hidden"
+        className="beautiful-chat-root relative flex h-screen w-full overflow-hidden"
         style={{
           background:
             "radial-gradient(1200px 600px at 10% 10%, rgba(99,102,241,0.20), transparent 50%), radial-gradient(1000px 500px at 90% 90%, rgba(133,236,206,0.18), transparent 55%), linear-gradient(180deg, #FBFBFE 0%, #F4F4F8 100%)",
@@ -88,11 +103,16 @@ export default function BeautifulChatPage() {
           </aside>
         </div>
       </div>
-    </CopilotKit>
+    </>
   );
 }
 
 function Chat() {
+  // Register the controlled-gen-UI + HITL renderers (pieChart, barChart,
+  // scheduleTime) and the toggleTheme frontend tool. Must run inside the
+  // CopilotKit provider so the tool definitions are forwarded to the agent.
+  useGenerativeUIExamples();
+
   useConfigureSuggestions({
     suggestions: BRAND_SUGGESTIONS,
     available: "always",
