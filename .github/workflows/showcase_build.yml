@@ -354,7 +354,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          lfs: ${{ matrix.service.lfs }}
+          # Always pull LFS. Nearly every integration ships LFS-tracked demo
+          # assets under public/ (public/demo-files/*.png|*.pdf,
+          # public/demo-audio/*.wav per root .gitattributes). With lfs:false
+          # these check out as 130-byte LFS pointer stubs and get COPYed into
+          # the image as text — the deployed image then serves the pointer
+          # with HTTP 200 and the frontend's magic-bytes guard rejects it,
+          # breaking the multimodal test pill. The per-slot matrix.service.lfs
+          # flag was true only for shell/shell-dashboard/shell-docs, leaving
+          # every framework integration shipping pointer stubs. Uniform
+          # lfs:true is the least-error-prone fix: a new integration that adds
+          # demo assets is covered automatically, with no matrix flag to
+          # forget.
+          lfs: true
           persist-credentials: false
 
       - name: Setup Depot
