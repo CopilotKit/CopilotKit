@@ -50,6 +50,11 @@ const inputSchema = z
     name: z.string().optional(),
     demos: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
+    // Optional outer-cap (ms) conveyed by the fleet enumerator so the worker's
+    // pooled demos driver reads the YAML `timeout_ms` from the payload (the
+    // worker never sets the legacy `E2E_DEMOS_TIMEOUT_MS` env). See the
+    // `TIMEOUT_ENV_VAR` resolution-order block.
+    timeout_ms: z.number().int().positive().optional(),
   })
   .passthrough()
   .refine((v) => !!(v.backendUrl ?? v.publicUrl), {
@@ -197,9 +202,13 @@ const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
  * invoker's outer race (1_200_000ms in production today).
  *
  * Resolution order (highest precedence first):
- *   1. `ctx.env.E2E_DEMOS_TIMEOUT_MS` — orchestrator-threaded YAML value.
- *   2. `deps.timeoutMs` — explicit per-driver override (used by tests).
- *   3. `DEFAULT_TIMEOUT_MS` — fallback (5 min).
+ *   1. `ctx.env.E2E_DEMOS_TIMEOUT_MS` — orchestrator-threaded YAML value
+ *      (legacy in-process path).
+ *   2. `input.timeout_ms` — per-job cap conveyed by the fleet enumerator
+ *      (`createE2eDemosServiceEnumerator`), since the fleet worker never sets
+ *      the env var.
+ *   3. `deps.timeoutMs` — explicit per-driver override (used by tests).
+ *   4. `DEFAULT_TIMEOUT_MS` — fallback (5 min).
  *
  * Env values that don't parse as positive integers fall through to the
  * dep / default — a typo'd env var must NOT silently disable the cap.
@@ -543,10 +552,22 @@ export function createE2eDemosDriver(
         typeof envRaw === "string" && /^\d+$/.test(envRaw.trim())
           ? Number.parseInt(envRaw.trim(), 10)
           : NaN;
+      // Fleet path: the enumerator conveys the YAML cap in `input.timeout_ms`
+      // (the worker never sets `E2E_DEMOS_TIMEOUT_MS`). Validated by the schema
+      // (positive int), but guard defensively here too so a bad value falls
+      // through to the dep/default rather than silently disabling the cap.
+      const inputTimeoutMs =
+        typeof input.timeout_ms === "number" &&
+        Number.isFinite(input.timeout_ms) &&
+        input.timeout_ms > 0
+          ? input.timeout_ms
+          : NaN;
       const timeoutMs =
         Number.isFinite(envParsed) && envParsed > 0
           ? envParsed
-          : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
+          : Number.isFinite(inputTimeoutMs)
+            ? inputTimeoutMs
+            : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
 
       // Per-run side-emit closure. Captures ctx + a warnedNoWriter flag
       // so the writer-missing warn fires once per run instead of per

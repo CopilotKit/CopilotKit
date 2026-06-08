@@ -40,9 +40,8 @@ const runtime = new CopilotRuntime({
   agents,
   openGenerativeUI: true,
   a2ui: {
-    // The backend graph has its own `generate_a2ui` tool, so we must NOT
-    // inject the runtime's default A2UI tool on top.
-    injectA2UITool: false,
+    // Inject the dynamic `generate_a2ui` tool into the agent
+    injectA2UITool: true,
   },
   mcpApps: {
     servers: [

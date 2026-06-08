@@ -124,7 +124,10 @@ export interface E2eSmokeLevelSignal {
 export interface E2ePage {
   goto(
     url: string,
-    opts?: { waitUntil?: "networkidle"; timeout?: number },
+    opts?: {
+      waitUntil?: "networkidle" | "domcontentloaded" | "load";
+      timeout?: number;
+    },
   ): Promise<unknown>;
   type(
     selector: string,
@@ -753,7 +756,13 @@ async function runLevel(opts: {
     });
     page = await context.newPage();
     const url = `${backendUrl}${demoPath}`;
-    await page.goto(url, { waitUntil: "networkidle", timeout: pageTimeoutMs });
+    // Use `waitUntil: "load"` (NOT "networkidle") to mirror the d5/d6
+    // drivers (d6-all-pills.ts). CopilotKit demo pages hold a persistent
+    // agent SSE stream, so "networkidle" never settles and D4 times out.
+    // Readiness is asserted explicitly below by waiting for the chat
+    // <textarea> selector — that wait, not network quiescence, is what
+    // guarantees the page is interactive.
+    await page.goto(url, { waitUntil: "load", timeout: pageTimeoutMs });
 
     // Wait for the chat textarea, type, and submit. Selector mirrors the
     // reference helper (showcase/tests/e2e/helpers.ts) — CopilotKit

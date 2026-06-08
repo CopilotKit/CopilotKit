@@ -1,8 +1,10 @@
 # D5 Multi-Turn aimock Fixtures
 
-Nine feature-type fixtures used by the D5 (complex interact) probes in
-`showcase/harness/src/probes/drivers/e2e-deep.ts` (forthcoming) against the LangGraph
-Python (LGP) showcase as the reference implementation.
+Nine feature-type fixtures used by the D5 (complex interact) probes. D5
+runs the D6 driver `showcase/harness/src/probes/drivers/d6-all-pills.ts`
+as "D6 take-one" (the former separate `e2e-deep.ts` driver was deleted),
+scoped to representative pills against the LangGraph Python (LGP) showcase
+as the reference implementation.
 
 ## What "multi-turn" means in aimock
 

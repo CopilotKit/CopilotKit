@@ -68,8 +68,23 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    expect(langgraph.features.length).toBe(39);
-    expect(langgraph.demos.length).toBe(39);
+
+    // Derive the expected counts from the manifest the generator reads, rather
+    // than pinning magic numbers — the generator copies `features`/`demos`
+    // straight through, so this can't rot when the wired-feature set changes
+    // (e.g. the interrupt-pill quarantine that moved gen-ui-interrupt /
+    // interrupt-headless from `features:` to `not_supported_features:`).
+    const manifestPath = path.resolve(
+      SCRIPTS_DIR,
+      "..",
+      "integrations",
+      "langgraph-python",
+      "manifest.yaml",
+    );
+    const yaml = await import("yaml");
+    const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
+    expect(langgraph.features.length).toBe(manifest.features.length);
+    expect(langgraph.demos.length).toBe(manifest.demos.length);
   });
 
   it("sorts integrations by sort_order", () => {

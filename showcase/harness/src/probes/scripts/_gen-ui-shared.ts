@@ -15,8 +15,8 @@
  *      further and asserts the exact shape (e.g. an SVG donut chart for
  *      `render_pie_chart`).
  *
- * Why a leading-underscore filename? The D5 driver's script loader
- * (`drivers/e2e-deep.ts → defaultScriptLoader`) matches files against
+ * Why a leading-underscore filename? The D5 script loader
+ * (`drivers/d6-all-pills.ts → defaultScriptLoader`) matches files against
  * `^d5-.*\.(js|ts)$`. Files prefixed with `_` (or any non-`d5-` prefix)
  * are skipped, so this helper file co-exists in `scripts/` without the
  * loader trying to import it as a script.

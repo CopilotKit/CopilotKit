@@ -104,7 +104,82 @@ function extractForwardedHeaders(req: Request): Record<string, string> {
       out[key] = value;
     }
   }
+  // CVDIAG (als-snapshot): record whether the inbound x-aimock-context
+  // discriminator was present at the moment we capture the inbound
+  // headers off the Express request. Never log the full value — prefix
+  // only. Header lookups are case-insensitive against the captured map.
+  const lookup = (name: string): string | undefined => {
+    for (const [k, v] of Object.entries(out)) {
+      if (k.toLowerCase() === name) return v;
+    }
+    return undefined;
+  };
+  const slug = lookup("x-aimock-context");
+  const runId = lookup("x-diag-run-id");
+  const hops = lookup("x-diag-hops");
+  const hopCount = hops ? hops.split(",").filter(Boolean).length : 0;
+  console.log(
+    `CVDIAG component=route-claude-sdk-ts boundary=als-snapshot ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hops ? hopCount : "-"} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${lookup("x-test-id") ?? "none"} error=`,
+  );
   return out;
+}
+
+/**
+ * CVDIAG (outbound-llm) choke-point for the claude-sdk-ts backend. Returns
+ * a NEW headers map (never mutates the caller's) with this layer's hop tag
+ * appended to the x-diag-hops breadcrumb, and logs header presence at the
+ * moment the outbound Anthropic request is built. x-diag-run-id /
+ * x-diag-hops ride the same x-* forwarding path as x-aimock-context (both
+ * captured by `extractForwardedHeaders`); we only append the breadcrumb hop
+ * here. Returns the augmented map so callers spread it into the SDK
+ * `RequestOptions.headers`.
+ */
+function diagOutboundHeaders(
+  forwardedHeaders: Record<string, string>,
+): Record<string, string> {
+  const lookup = (name: string): string | undefined => {
+    for (const [k, v] of Object.entries(forwardedHeaders)) {
+      if (k.toLowerCase() === name) return v;
+    }
+    return undefined;
+  };
+  const slug = lookup("x-aimock-context");
+  const runId = lookup("x-diag-run-id");
+  // GATING RULE: only deviate from the original control flow (append the
+  // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+  // diagnostic header is present (x-diag-run-id OR x-aimock-context). On
+  // non-diagnostic traffic return the forwarded headers UNCHANGED so the
+  // outbound Anthropic request is byte-identical to pre-instrumentation, and
+  // skip the noisy per-outbound log.
+  const diagnosticPresent = runId != null || slug != null;
+  if (!diagnosticPresent) {
+    return forwardedHeaders;
+  }
+  const priorHops = lookup("x-diag-hops") ?? "";
+  const nextHops = priorHops
+    ? `${priorHops},backend-claude-sdk-ts`
+    : "backend-claude-sdk-ts";
+  // Build a fresh map so we don't mutate the shared forwardedHeaders that
+  // may be reused across multiple outbound calls in the agentic loop.
+  const augmented: Record<string, string> = {
+    ...forwardedHeaders,
+    "x-diag-hops": nextHops,
+  };
+  const hopCount = nextHops.split(",").filter(Boolean).length;
+  console.log(
+    `CVDIAG component=backend-claude-sdk-ts boundary=outbound-llm ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hopCount} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${lookup("x-test-id") ?? "none"} error=`,
+  );
+  return augmented;
 }
 
 /**
@@ -432,7 +507,7 @@ function makeAgentHandler(config: DemoConfig = {}) {
 
       try {
         const stream = await anthropic.messages.stream(claudeRequest, {
-          headers: forwardedHeaders,
+          headers: diagOutboundHeaders(forwardedHeaders),
         });
 
         for await (const event of stream) {
@@ -610,7 +685,7 @@ async function invokeSubAgent(
       system: systemPrompt,
       messages: [{ role: "user", content: task }],
     },
-    { headers: forwardedHeaders },
+    { headers: diagOutboundHeaders(forwardedHeaders) },
   );
   const parts = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
@@ -862,7 +937,7 @@ async function runAgenticLoop(
             stream: true,
             ...(tools.length > 0 ? { tools } : {}),
           },
-          { headers: forwardedHeaders },
+          { headers: diagOutboundHeaders(forwardedHeaders) },
         );
 
         for await (const event of stream) {

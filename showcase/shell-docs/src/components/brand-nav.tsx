@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { ChefHat, Lightbulb } from "lucide-react";
+import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
+import { ThemeSwitch } from "./theme-switch";
 import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
@@ -19,40 +20,29 @@ export const INTELLIGENCE_CTA_HREF =
 export const TALK_TO_ENGINEER_HREF =
   "https://copilotkit.ai/talk-to-an-engineer";
 
-// LEFT cluster — Docs / Reference / Intelligence sign-up. Visual pattern
-// (icon-next-to-label) mirrors canonical. The third slot label matches the
-// in-content OpsPlatformCTA default ("Get Intelligence free") so the
-// conversion path reads consistently from navbar to body to footer.
+// Center cluster — primary docs destinations only. Conversion CTAs live in
+// the right utility cluster so the center nav stays balanced.
 type LeftLink = {
   href: string;
   label: string;
   icon: React.ReactNode;
-  target?: "_blank" | "_self";
-  showExternalLinkIcon?: boolean;
 };
 
 const LEFT_LINKS: LeftLink[] = [
   {
-    icon: <BookIcon className="text-[var(--text-secondary)]" />,
+    icon: <BookIcon className="text-current" />,
     label: "Docs",
     href: "/",
   },
   {
-    icon: <ConsoleIcon className="text-[var(--text-secondary)]" />,
+    icon: <ConsoleIcon className="text-current" />,
     label: "Reference",
     href: "/reference",
   },
   {
-    icon: <ChefHat className="w-5 h-5 text-[var(--text-secondary)]" />,
+    icon: <ChefHat className="w-5 h-5 text-current" />,
     label: "Cookbook",
     href: "/cookbook",
-  },
-  {
-    icon: <Lightbulb className="w-5 h-5 text-[var(--text-secondary)]" />,
-    label: "Get Intelligence free",
-    href: INTELLIGENCE_CTA_HREF,
-    target: "_blank",
-    showExternalLinkIcon: true,
   },
 ];
 
@@ -84,18 +74,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
   };
 
   const handleFreeDeveloperAccessClick = () => {
-    posthog?.capture("try_for_free_clicked", { location: "docs_navbar_left" });
+    posthog?.capture("try_for_free_clicked", { location: "docs_navbar_right" });
   };
 
   return (
-    <nav className="relative hidden h-[86px] bg-[var(--bg)] px-[22px] py-3 md:block">
-      <div
-        className="shell-docs-brand-nav-inner mx-auto flex h-full items-center gap-5 rounded-lg border border-[var(--border)] px-5 shadow-[0_1px_0_rgba(1,5,7,0.03)] backdrop-blur-lg"
-        style={{ backgroundColor: "var(--nav-surface)" }}
-      >
+    <nav className="shell-docs-brand-nav relative hidden h-16 bg-[var(--bg)] xl:mx-[22px] xl:block">
+      <div className="shell-docs-brand-nav-inner relative grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 bg-[var(--nav-surface)]">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2"
+          className="shell-docs-brand-link flex min-w-0 shrink-0 items-center gap-2 justify-self-start"
           aria-label="CopilotKit Docs"
         >
           <CopilotKitMark />
@@ -103,41 +90,24 @@ export function BrandNav(_props: BrandNavProps = {}) {
             CopilotKit
           </span>
           <span
-            className="ml-1 rounded-lg border border-[var(--border)] bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]"
+            className="shell-docs-radius-control ml-1 border border-[var(--border)] bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]"
             aria-hidden="true"
           >
             Docs
           </span>
         </Link>
-        <ul className="hidden h-full items-center gap-1 md:flex">
+        <ul className="hidden min-w-0 items-center gap-2 justify-self-center xl:flex">
           {LEFT_LINKS.map((link) => {
             const isActive = activeRoute === link.href;
-            const isFreeDevAccess = link.label === "Get Intelligence free";
             return (
-              <li
-                key={link.href}
-                className={`relative h-full group ${
-                  isFreeDevAccess ? "hidden [@media(width>=960px)]:block" : ""
-                }`}
-              >
+              <li key={link.href} className="relative h-full group">
                 <Link
                   href={link.href}
-                  target={link.target}
-                  onClick={
-                    isFreeDevAccess ? handleFreeDeveloperAccessClick : undefined
-                  }
-                  className={`flex h-full items-center rounded-lg px-3 transition-colors duration-200 ${
+                  className={`shell-docs-radius-control flex h-10 items-center px-4 transition-colors duration-200 ${
                     isActive
-                      ? "text-[var(--text)]"
-                      : "text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]/70 hover:text-[var(--text)]"
+                      ? "shell-docs-nav-link-active"
+                      : "shell-docs-nav-link-idle"
                   }`}
-                  // HubSpot's analytics tag rewrites the
-                  // dashboard.operations.copilotkit.ai href client-side to
-                  // attach `__hstc` / `__hssc` / `__hsfp` cross-domain
-                  // tracking params, which trips React's hydration diff.
-                  // Suppress only on the Intelligence link so genuine
-                  // mismatches on other nav items still surface.
-                  suppressHydrationWarning={isFreeDevAccess}
                 >
                   <span className="flex items-center gap-2">
                     <span className="[@media(width<808px)]:hidden">
@@ -146,28 +116,33 @@ export function BrandNav(_props: BrandNavProps = {}) {
                     <span className="text-sm font-medium whitespace-nowrap">
                       {link.label}
                     </span>
-                    {link.showExternalLinkIcon && (
-                      <ExternalLinkIcon className="text-current opacity-60" />
-                    )}
                   </span>
                 </Link>
-                <div
-                  className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full bg-[#7076D5] transition-opacity duration-200"
-                  style={{ opacity: isActive ? 1 : 0 }}
-                  aria-hidden="true"
-                />
               </li>
             );
           })}
         </ul>
 
-        <div className="ml-auto flex min-w-0 items-center gap-2 pl-2">
+        <div className="flex min-w-0 items-center gap-2 justify-self-end pl-2">
+          <SearchTrigger iconOnly />
+          <Link
+            href={INTELLIGENCE_CTA_HREF}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleFreeDeveloperAccessClick}
+            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
+            aria-label="Get Intelligence free"
+            suppressHydrationWarning
+          >
+            Get Intelligence free
+            <ExternalLinkIcon className="text-current opacity-70" />
+          </Link>
           {/* Talk to an engineer. Secondary in the docs nav so search can own
            * the far-right utility slot. */}
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
-            className="hidden h-9 cursor-pointer items-center whitespace-nowrap rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-3.5 text-sm font-medium text-[var(--accent)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors duration-200 hover:bg-[var(--accent)] hover:text-white [@media(width>=1100px)]:flex"
+            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center whitespace-nowrap border px-4 text-sm font-medium shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1500px)]:flex"
             aria-label="Talk to an engineer"
           >
             Talk to an engineer
@@ -175,27 +150,13 @@ export function BrandNav(_props: BrandNavProps = {}) {
           <button
             type="button"
             onClick={handleTalkToEngineersClick}
-            className="hidden h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)] shadow-[0_1px_0_rgba(1,5,7,0.03)] transition-colors duration-200 hover:bg-[var(--accent)] hover:text-white md:flex [@media(width>=1100px)]:hidden"
+            className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 w-10 cursor-pointer items-center justify-center border shadow-[var(--shadow-control)] transition-colors duration-200 xl:flex [@media(width>=1500px)]:hidden"
             aria-label="Talk to an engineer"
             title="Talk to an engineer"
           >
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
+            <CalendarDays className="h-4 w-4" />
           </button>
-          <SearchTrigger iconOnly />
+          <ThemeSwitch />
         </div>
       </div>
     </nav>

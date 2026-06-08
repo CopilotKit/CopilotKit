@@ -76,9 +76,37 @@
       }
     },
     {
+      "_comment": "Weather in SF — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the `call_tr_weather_sf_001` toolCallId chain above never matches the follow-up turn. Anchored on hasToolResult:true so it only fires AFTER get_weather has run (preventing a tool-emit loop) and never swallows the first turn. Must precede the turnIndex:0 tool-emit fixture below.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
         "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Weather in SF — first-turn tool-emit fallback for multi-pill demo sessions where a PRIOR pill already left an assistant message in the thread, so turnIndex (thread-global assistant count) is not 0 and the fixture above is skipped. Anchored on hasToolResult:false so it only emits get_weather BEFORE any tool has run; the hasToolResult:true content fixture above handles the follow-up turn, so no loop.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {

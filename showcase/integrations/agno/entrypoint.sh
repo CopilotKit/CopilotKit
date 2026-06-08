@@ -36,7 +36,16 @@ fi
 # and tracebacks reach Railway's log stream line-at-a-time rather than
 # block-buffered in pipe buffers.
 echo "[entrypoint] Starting Python agent on port 8000..."
-python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
+# --loop asyncio pins uvicorn to the stdlib asyncio event loop instead of its
+# default `auto`, which would select uvloop (pulled in by uvicorn[standard]).
+# This is load-bearing: the secondary OpenAI call inside the sync `generate_a2ui`
+# tool runs on a `loop.run_in_executor(...)` worker thread, and the
+# install_executor_contextvar_propagation() shim only propagates the
+# forwarded-header ContextVar into that thread under a stdlib BaseEventLoop —
+# it is inert under uvloop, so under uvloop the secondary call drops
+# x-aimock-context and aimock returns 503. This is the prod launch path
+# (agent_server.main()'s agent_os.serve(loop="asyncio") is not used here).
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --loop asyncio &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then

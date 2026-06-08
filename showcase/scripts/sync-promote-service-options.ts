@@ -65,6 +65,20 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SERVICES } from "./railway-envs";
+import type { ServiceEntry } from "./railway-envs";
+
+/**
+ * Whether an entry is prod-promotable: it declares a `prod` env whose probe
+ * is enabled (`probe` defaults to true when omitted). Operates on the passed
+ * entry (NOT the global SSOT) so `computeOptionTokens` can be exercised with
+ * an injected synthetic services map in tests. Mirrors the workflow resolve
+ * step's `select(.probe.prod == true)` against the emitted JSON.
+ */
+function isProdPromotable(entry: Pick<ServiceEntry, "environments">): boolean {
+  const prod = entry.environments?.prod;
+  if (!prod) return false;
+  return prod.probe ?? true;
+}
 
 /** Selecting this option aborts the promote run (rejected by resolve step). */
 export const SENTINEL = "__select_a_service__";
@@ -109,7 +123,7 @@ export function computeOptionTokens(
   services: typeof SERVICES = SERVICES,
 ): string[] {
   const promotable = Object.entries(services)
-    .filter(([, entry]) => entry.probe.prod === true)
+    .filter(([, entry]) => isProdPromotable(entry))
     .map(([name, entry]) => {
       const token = entry.dispatchName ?? name;
       // Fail loud (routes through the exit-3 render path) rather than emit a
@@ -176,7 +190,7 @@ export function computeOptionTokens(
     // chained `select`s in the opposite order).
     const matches = allEntries.filter(
       ([name, entry]) =>
-        entry.probe.prod === true &&
+        isProdPromotable(entry) &&
         (name === token || entry.dispatchName === token),
     );
     if (matches.length !== 1) {

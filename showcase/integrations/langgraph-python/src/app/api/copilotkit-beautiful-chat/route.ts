@@ -37,13 +37,11 @@ const agents: Record<string, LangGraphAgent> = {
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
-  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
+  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
   a2ui: {
-    // The backend graph has its own `generate_a2ui` tool, so we must NOT
-    // inject the runtime's default A2UI tool on top (that would double-bind
-    // the tool slot and confuse the LLM).
-    injectA2UITool: false,
+    // Inject the dynamic `generate_a2ui` tool into the agent
+    injectA2UITool: true,
   },
   mcpApps: {
     servers: [

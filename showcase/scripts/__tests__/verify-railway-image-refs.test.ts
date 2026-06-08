@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import {
   findMissingServices,
   findUntrackedServices,
+  isStarterFleetService,
   summarizeFailures,
   validateImage,
 } from "../verify-railway-image-refs";
@@ -20,9 +21,20 @@ import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
-    // Every real SSOT entry has gateIgnore unset (undefined / falsy).
+    // Every real SSOT entry has gateIgnore unset (undefined / falsy),
+    // EXCEPT two deliberately gateIgnore:true entries: the staging-only
+    // `harness-workers` pool-fleet worker (no public domain, does not
+    // fit the symmetric dual-env shape the gate validates) and the interim
+    // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
+    // digest, not the canonical :latest/@sha256 shape). See their SSOT
+    // entries in railway-envs.ts for the rationale.
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
+      if (GATE_IGNORED.has(name)) {
+        expect(gi, `${name} gateIgnore`).toBe(true);
+        continue;
+      }
       expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
     }
   });
@@ -53,21 +65,55 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     expect(findUntrackedServices(railway)).toEqual(["alpha-svc", "zeta-svc"]);
   });
 
+  it("does NOT flag a `starter-*` live service that is absent from the SSOT", () => {
+    // The starter container fleet (starter-<slug>) is auto-discovered by
+    // the starter_smoke probe (railway-services source, namePrefix
+    // "starter-") and is intentionally DECOUPLED from this 27-service
+    // SSOT. Provisioning a starter-* service must NOT trip the
+    // Railway->SSOT drift gate (which previously SKIPPED the build).
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "starter-langgraph-python", // starter fleet, decoupled — tolerated
+      "starter-mastra", // starter fleet, decoupled — tolerated
+    ]);
+    expect(findUntrackedServices(railway)).toEqual([]);
+  });
+
+  it("STILL flags a real (non-starter) untracked Railway service", () => {
+    // Drift detection for the tracked fleet must be preserved: a genuine
+    // out-of-band service (here a rogue `showcase-*`) is still a hard fail
+    // even when a tolerated starter-* service is present alongside it.
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "starter-mastra", // starter fleet — tolerated
+      "showcase-rogue-untracked", // real drift — must be flagged
+    ]);
+    expect(findUntrackedServices(railway)).toEqual([
+      "showcase-rogue-untracked",
+    ]);
+  });
+
   it("does NOT flag a service that the SSOT marks gateIgnore: true", () => {
     // Inject a transient entry into SERVICES for this test, then remove.
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
-      prodInstanceId: "11111111-1111-1111-1111-111111111111",
-      stagingInstanceId: "22222222-2222-2222-2222-222222222222",
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
-      domains: {
-        staging: "transient-third-party-relay-staging.up.railway.app",
-        prod: "transient-third-party-relay-production.up.railway.app",
+      probeDriver: "agent",
+      environments: {
+        prod: {
+          instanceId: "11111111-1111-1111-1111-111111111111",
+          domain: "transient-third-party-relay-production.up.railway.app",
+          probe: false,
+        },
+        staging: {
+          instanceId: "22222222-2222-2222-2222-222222222222",
+          domain: "transient-third-party-relay-staging.up.railway.app",
+          probe: false,
+        },
       },
-      probe: { staging: false, prod: false, driver: "agent" },
     };
     try {
       const railway = new Set<string>([sentinel, "showcase-mastra"]);
@@ -75,6 +121,38 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     } finally {
       delete (SERVICES as Record<string, ServiceEntry>)[sentinel];
     }
+  });
+});
+
+describe("isStarterFleetService predicate", () => {
+  it("matches names that start with the `starter-` prefix", () => {
+    expect(isStarterFleetService("starter-mastra")).toBe(true);
+    expect(isStarterFleetService("starter-langgraph-python")).toBe(true);
+    expect(isStarterFleetService("starter-")).toBe(true);
+  });
+
+  it("does NOT match tracked showcase / infra service names", () => {
+    expect(isStarterFleetService("showcase-mastra")).toBe(false);
+    expect(isStarterFleetService("dashboard")).toBe(false);
+    expect(isStarterFleetService("pocketbase")).toBe(false);
+    // The decommissioned `showcase-starter-*` services use the
+    // `showcase-` prefix, NOT `starter-`, so they are NOT starter-fleet.
+    expect(isStarterFleetService("showcase-starter-ag2")).toBe(false);
+  });
+});
+
+describe("findMissingServices — starter fleet is never required", () => {
+  it("does not require any `starter-*` service (none are in the SSOT)", () => {
+    // Starter services are decoupled from the SSOT, so they are never
+    // gateValidated SSOT entries and findMissingServices never demands
+    // them. A present-set containing only a starter service must still
+    // report the real gateValidated services as missing — and never the
+    // starter itself.
+    const present = new Set<string>(["starter-mastra"]);
+    const missing = findMissingServices("prod", present);
+    expect(missing).not.toContain("starter-mastra");
+    // Sanity: the tracked fleet is still required when absent.
+    expect(missing).toContain("showcase-mastra");
   });
 });
 
@@ -153,7 +231,7 @@ describe("summarizeFailures", () => {
   });
 });
 
-describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
+describe("WS-C: all gate-managed services gateValidated, with correct overrides", () => {
   const FIVE_NEW = [
     ["dashboard", "showcase-shell-dashboard"],
     ["docs", "showcase-shell-docs"],
@@ -162,13 +240,21 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 27 services in the SSOT", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(27);
+  it("has 29 services in the SSOT", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(29);
   });
 
-  it("marks every service gateValidated (no Phase-2 holdouts)", () => {
+  it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
+    // Two intentional gateValidated:false entries: the staging-only
+    // `harness-workers` (gateIgnore:true — no public domain) and the
+    // interim `harness-legacy` fleet-migration bridge (gateIgnore:true — runs
+    // a pinned out-of-band digest). Every OTHER service must be
+    // gateValidated:true.
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     const unvalidated = Object.entries(SERVICES)
-      .filter(([, entry]) => !entry.gateValidated)
+      .filter(
+        ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),
+      )
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -179,10 +265,10 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
       expect(repoNameFor(serviceKey, "staging")).toBe(expectedRepo);
     });
 
-    it(`carries the repoNameOverride directly on the SERVICES entry for ${serviceKey}`, () => {
+    it(`carries the per-env repoName directly on the SERVICES entry for ${serviceKey}`, () => {
       const entry = SERVICES[serviceKey];
-      expect(entry.repoNameOverride?.prod).toBe(expectedRepo);
-      expect(entry.repoNameOverride?.staging).toBe(expectedRepo);
+      expect(entry.environments.prod.repoName).toBe(expectedRepo);
+      expect(entry.environments.staging.repoName).toBe(expectedRepo);
     });
   }
 

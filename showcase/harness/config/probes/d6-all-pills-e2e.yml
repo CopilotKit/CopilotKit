@@ -15,20 +15,44 @@
 # :40 is offset off every other Playwright probe so none co-fire for the
 # shared browser pool: e2e-smoke (`*/15` = :00/:15/:30/:45), e2e-demos (:10),
 # and e2e-deep/D5 (:05/:20/:35/:50). With BROWSER_POOL_BROWSERS=3
-# chromium processes and FEATURE_CONCURRENCY=4, estimated runtime ~7-10 min.
+# chromium processes and FEATURE_CONCURRENCY=4, the slowest round of the
+# fan-out runs ~200s per service under CPU contention.
 #
-# -- timeout_ms: 600_000 (10 min) --
-# -- max_concurrency: 8 --
+# -- timeout_ms: 1_200_000 (20 min) --
+# -- max_concurrency: 5 --
 #
-# 8 services x 4 features = 32 concurrent contexts, drawn from 3 chromium
-# processes. The global context cap is BROWSER_POOL_MAX_CONTEXTS=40 (D6 peak
-# 32 + D5 peak 8); contexts (not processes) are the scaling knob since the
-# PID ceiling of 1000 is the binding constraint.
+# Fleet sizing: discovery now enumerates ~18 showcase demo services (NOT the
+# legacy "8 services x 4 features" assumption this header carried before).
+# With max_concurrency: 5, the fan-out runs in ceil(18/5) = 4 serialized
+# rounds. Later rounds start late and execute under CPU contention, so each
+# service's wall-clock stretches toward ~200s. The previous 600_000 (10 min)
+# outer cap was sized for a single round; under multiple rounds the late
+# rounds blew the per-service budget and ALL 18 services went red with
+# `driver timeout after 600000ms`. The corrected 1_200_000 (20 min) cap fits
+# 4 rounds x ~200s with comfortable headroom and matches the sibling
+# 18-service `e2e-demos` probe (same fleet, same 20-min budget). The
+# concurrency itself (5, lowered from 8) is justified in the OVERLAP block
+# below — the round count here is just the budget-sizing consequence.
+#
+# -- Concurrency LOWERED 8 -> 5: cgroup pids.max=1000 ceiling, OVERLAP case --
+#
+# The PROVEN wedge is OS thread/PID exhaustion against the container cgroup
+# `pids.max=1000` ceiling: each concurrent feature-worker drives a chromium
+# renderer (~15 threads), and the live wedge peaked 998/1000 specifically
+# during a d6+d5 OVERLAP — the simultaneous renderers of BOTH probes summed
+# past the ceiling → pthread_create EAGAIN → "Target page ... has been closed"
+# → crash-loop. Fewer concurrent d6 feature-workers cut the simultaneous-
+# renderer thread peak, leaving headroom for a co-firing d5 (or a recovery
+# relaunch) without crossing 1000. This is the complementary lever to
+# BROWSER_POOL_MAX_CONTEXTS (already lowered 40 -> 24): max_concurrency caps
+# the d6 fan-out width (the overlap-peak driver), the context cap bounds the
+# global context/renderer count. 5 services x 4 features = 20 concurrent
+# contexts, comfortably under the 24-context global cap with overlap room.
 kind: e2e_d6
 id: d6-all-pills-e2e
 schedule: "40 * * * *"
-timeout_ms: 600000
-max_concurrency: 8
+timeout_ms: 1200000
+max_concurrency: 5
 discovery:
   source: railway-services
   filter:
@@ -42,7 +66,11 @@ discovery:
       - showcase-shell-docs
       - showcase-shell-dojo
       # Harness service for .NET integration testing — not a demo service,
-      # deployed: false in manifest, no aimock wiring yet.
+      # deployed: true in manifest, but NOT probe-wired yet: no aimock fixtures
+      # and it shares the ms-agent-dotnet AsyncLocal bug. Excluded from every
+      # probe AND not rendered on the dashboard (see baseline-types.ts) so an
+      # unprobed service never shows stale red. Remove this exclusion only once
+      # it is fully probe-wired (aimock fixtures + the AsyncLocal fix).
       - showcase-ms-agent-harness-dotnet
       # Decommissioned starters
       - showcase-starter-ag2

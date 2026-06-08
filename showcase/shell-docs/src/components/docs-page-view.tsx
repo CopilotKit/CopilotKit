@@ -219,10 +219,10 @@ export async function DocsPageView({
         tableOfContentPopover={{ enabled: false }}
       >
         <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-          {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb:
-           * text-sm with a ChevronRight separator, intermediate links
-           * muted, last segment in primary text + medium weight. */}
-          <nav className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] mb-4 flex-wrap">
+          {/* Breadcrumb styling tracks canonical fumadocs PageBreadcrumb,
+           * but tighter: this should read as quiet page chrome, not a
+           * second title row above the H1. */}
+          <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
             {breadcrumbs.map((crumb, i) => {
               const isLast = i === breadcrumbs.length - 1;
               const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
@@ -230,7 +230,7 @@ export async function DocsPageView({
                 <React.Fragment key={i}>
                   {i > 0 && (
                     <ChevronRight
-                      className="size-3.5 shrink-0"
+                      className="size-3 shrink-0"
                       aria-hidden="true"
                     />
                   )}
@@ -278,7 +278,7 @@ export async function DocsPageView({
               .replace(/^\/+/, "/");
             const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
             return (
-              <div className="flex flex-row gap-2 items-center my-6">
+              <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
                 <MarkdownCopyButton markdownUrl={markdownUrl} />
                 <ViewOptionsPopover
                   markdownUrl={markdownUrl}

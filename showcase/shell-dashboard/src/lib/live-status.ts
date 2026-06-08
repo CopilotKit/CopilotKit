@@ -18,10 +18,149 @@ import { formatTs } from "./format-ts";
 import {
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
   isStale,
 } from "./staleness";
 
 export type State = "green" | "red" | "degraded";
+
+/* ------------------------------------------------------------------ */
+/*  Pool comm-error surface (REQ-B)                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Pool COMMUNICATION-failure taxonomy + signal decode — the DASHBOARD-side
+ * mirror of the harness fleet contract (`showcase/harness/src/fleet/contracts.ts`).
+ *
+ * WHY MIRRORED, NOT IMPORTED: the dashboard imports only `@/*` and never
+ * reaches across the package boundary into harness source at runtime (same
+ * rule that makes `CATALOG_TO_D5_KEY` / `STARTER_COLUMNS` local copies of
+ * harness producer constants). The harness owns the producer side; the
+ * dashboard carries a structural copy of the read shape it consumes. The
+ * `commError-contract-drift.test.ts` lint test guards the two against drift.
+ *
+ * The comm error rides in the status-row SIGNAL under the well-known
+ * `FLEET_COMM_ERROR_SIGNAL_KEY` ("__fleetCommError") — the persisted `State`
+ * enum is deliberately NOT widened (that would force every state-machine
+ * consumer — alert engine, transition detector, flap counter — to learn a new
+ * value). The row's `state` keeps carrying the last-known probe colour; the
+ * comm error is a SEPARATE overlay the dashboard renders as the DISTINCT
+ * `"unreachable"` surface state so an operator can tell "couldn't reach the
+ * pool" apart from "the test went red".
+ */
+export const POOL_COMM_ERROR_KINDS = [
+  /** Worker host/endpoint did not respond at all (connect refused, DNS, etc). */
+  "worker-unreachable",
+  /** A claim or lease CAS call failed at the transport layer (not a lost CAS). */
+  "claim-comm-failure",
+  /** The worker exceeded the protocol response deadline (hung, no crash). */
+  "worker-protocol-timeout",
+  /** The worker died mid-job: lease expired with no terminal report. */
+  "worker-crashed-mid-job",
+  /** A report arrived but failed schema/shape validation (protocol mismatch). */
+  "worker-protocol-violation",
+  /**
+   * A lease lapsed and the control-plane sweeper RE-QUEUED the job to pending.
+   * The sweep boundary cannot tell a real crash from an expected platform
+   * teardown, but either way the job is back in flight — so the dashboard
+   * renders this as a NEUTRAL "re-queued / pending" surface (gray), NOT the red
+   * "unreachable" overlay. Mirror of the harness `worker-reclaimed-pending`
+   * kind; the cross-package drift test pins the two lists equal.
+   */
+  "worker-reclaimed-pending",
+] as const;
+
+/** A single pool communication-failure kind. */
+export type PoolCommErrorKind = (typeof POOL_COMM_ERROR_KINDS)[number];
+
+/** Type guard for a valid PoolCommErrorKind. */
+export function isPoolCommErrorKind(
+  value: string | undefined,
+): value is PoolCommErrorKind {
+  return (
+    value !== undefined &&
+    (POOL_COMM_ERROR_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * A structured pool communication error — the read shape the dashboard
+ * surfaces. Mirror of the harness `PoolCommError` interface.
+ */
+export interface PoolCommError {
+  kind: PoolCommErrorKind;
+  /** Human-readable detail for the dashboard tooltip / operator log. */
+  message: string;
+  /** The worker involved, when known (unreachable workers may be unknown). */
+  workerId?: string;
+  /** The job involved, when the failure is tied to a specific job. */
+  jobId?: string;
+  /** ISO timestamp the failure was observed. */
+  observedAt: string;
+}
+
+/** Signal-blob key under which a comm error is mirrored onto a status row. */
+export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
+
+/**
+ * The dashboard's per-cell presentation state: the cell's resolved colour
+ * vocabulary (`green` | `amber` | `red` | `gray`, i.e. the `ChipColor` the cell
+ * already renders) PLUS the comm-error overlay `"unreachable"`. A PRESENTATION
+ * type only — never a persisted column.
+ *
+ * This is the dashboard analogue of the harness `FleetSurfaceState`
+ * (`ProbeState | "unreachable"`). The dashboard's cell render model uses
+ * `ChipColor` (with `gray` for no-data and `amber` for degraded) rather than
+ * the raw probe `State`, so the union is expressed over `ChipColor` to avoid an
+ * unsafe widen of the no-data `gray` case through `State`.
+ */
+export type FleetSurfaceState =
+  | "green"
+  | "amber"
+  | "red"
+  | "gray"
+  | "unreachable"
+  // A `worker-reclaimed-pending` comm error: the job's lease lapsed and the
+  // control-plane re-queued it (back in flight). A NEUTRAL surface — the
+  // renderer paints it gray, distinct from both the red `"unreachable"` crash
+  // overlay and the cell's last-known probe colour — so a routine teardown
+  // never flaps the service red.
+  | "pending";
+
+/**
+ * Extract a `PoolCommError` from a status-row signal blob, or `undefined` when
+ * none is present / the embedded value is malformed. Inverse of the harness
+ * `commErrorToStatusSignal` writer; structurally identical to the harness
+ * `commErrorFromStatusSignal` reader. Pure; unit-tested.
+ *
+ * The dashboard read layer (REQ-B) uses this to decide whether to render the
+ * distinct `"unreachable"` overlay on a cell. Malformed payloads decode to
+ * `undefined` (fail-safe to the normal probe colour) rather than rendering a
+ * half-populated overlay.
+ */
+export function commErrorFromStatusSignal(
+  signal: unknown,
+): PoolCommError | undefined {
+  if (signal === null || typeof signal !== "object") return undefined;
+  const raw = (signal as Record<string, unknown>)[FLEET_COMM_ERROR_SIGNAL_KEY];
+  if (raw === null || typeof raw !== "object") return undefined;
+  const candidate = raw as Partial<PoolCommError>;
+  if (
+    !isPoolCommErrorKind(candidate.kind) ||
+    typeof candidate.message !== "string" ||
+    typeof candidate.observedAt !== "string"
+  ) {
+    return undefined;
+  }
+  const out: PoolCommError = {
+    kind: candidate.kind,
+    message: candidate.message,
+    observedAt: candidate.observedAt,
+  };
+  if (typeof candidate.workerId === "string") out.workerId = candidate.workerId;
+  if (typeof candidate.jobId === "string") out.jobId = candidate.jobId;
+  return out;
+}
 
 export interface StatusRow {
   id: string;
@@ -36,6 +175,24 @@ export interface StatusRow {
 }
 
 export type LiveStatusMap = Map<string, StatusRow>;
+
+/**
+ * Comma-joined PocketBase `fields` projection for the INITIAL status fetch —
+ * every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe output:
+ * error messages, diffs, nested objects) is ~61% of the status payload by
+ * size but is only ever read in the drilldown panel and the per-cell banner,
+ * both of which lazy-load the full row on demand. Dropping it from the bulk
+ * initial fetch (~2455 rows across ~5 pages) is the dominant transfer-size win
+ * for first paint; the live SSE subscription still delivers full rows
+ * (`signal` included) for every subsequent delta, so the drilldown/banner are
+ * unaffected once a row updates.
+ *
+ * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
+ * minus `signal`, so a new `StatusRow` field forces a conscious decision about
+ * whether it belongs in the lightweight initial projection.
+ */
+export const STATUS_LIST_FIELDS =
+  "id,key,dimension,state,observed_at,transitioned_at,fail_count,first_failure_at";
 
 /**
  * Extends BadgeTone to include the hook-level "error" case (spec §5.4
@@ -204,6 +361,23 @@ const WORST_STATE_RANK: Readonly<Record<State, number>> = {
 };
 
 /**
+ * Worst-state rank for an arbitrary row state (Fix A2). `StatusRow.state` is
+ * typed `State` (green|red|degraded), but the harness CAN persist an
+ * out-of-vocabulary value at runtime — notably `"error"` (the no-data
+ * representation; see harness result-aggregator.ts). A bare
+ * `WORST_STATE_RANK[state]` for such a value is `undefined`, and the fold
+ * comparison `undefined > n` is `false`, so the row is SILENTLY DROPPED from the
+ * worst-state fold instead of surfacing. Treat an unknown state as the MOST
+ * SEVERE (a rank above every known state) so it surfaces as the worst rather
+ * than vanishing — an unrecognized signal must never be silently swallowed.
+ * Mirrors `cell-model.ts`'s `rankOfState`.
+ */
+const UNKNOWN_WORST_STATE_RANK = Number.POSITIVE_INFINITY;
+function worstStateRank(state: string): number {
+  return WORST_STATE_RANK[state as State] ?? UNKNOWN_WORST_STATE_RANK;
+}
+
+/**
  * Effective state for staleness folding: a green row whose `observed_at` is
  * older than `maxAgeMs` folds in as `degraded`, so a frozen-green driver can
  * never win the all-green tie and mask a fresh-green sibling. Only green is
@@ -274,7 +448,7 @@ function resolveD5Row(
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
     if (
       worstState === null ||
-      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+      worstStateRank(eff) > worstStateRank(worstState)
     ) {
       worst = row;
       worstState = eff;
@@ -303,7 +477,8 @@ function resolveD5Row(
  *
  * Identical semantics to `resolveD5Row`: worst-state across the mapped family
  * (red > degraded > green), per-sub-row stale-green→degraded fold (E2E 6h
- * window) applied BEFORE the fold, and STRICT on missing sub-rows — a missing
+ * window) applied BEFORE the worst-state comparison, and STRICT on missing
+ * sub-rows — a missing
  * mapped sub-row collapses a present green/degraded fold to `null` (no-data →
  * gray badge) UNLESS a present sub-row is red (red dominates no-data). An
  * unmapped feature returns `null` (no D6 test exists for it).
@@ -330,7 +505,7 @@ function resolveD6Row(
     const eff = effectiveState(row, now, E2E_STALE_AFTER_MS);
     if (
       worstState === null ||
-      WORST_STATE_RANK[eff] > WORST_STATE_RANK[worstState]
+      worstStateRank(eff) > worstStateRank(worstState)
     ) {
       worst = row;
       worstState = eff;
@@ -340,6 +515,154 @@ function resolveD6Row(
     return null;
   }
   return worst;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d / §a)                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four smoke levels probed per starter, in dashboard sub-row order.
+ * Mirrors `STARTER_LEVELS` in
+ * `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
+ * the producer-side list, the dashboard carries its own copy because the two
+ * packages do not share a module boundary (the dashboard imports only `@/*`).
+ */
+export const STARTER_LEVELS = [
+  "health",
+  "agent",
+  "chat",
+  "interaction",
+] as const;
+
+export type StarterLevel = (typeof STARTER_LEVELS)[number];
+
+/**
+ * The dashboard column slugs that HAVE a smoke starter (the 12 mapped columns,
+ * §a). This is the dashboard's own copy of the *value set* of `STARTER_TO_COLUMN`
+ * in `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
+ * the producer-side remap and the dashboard cannot import across the package
+ * boundary, so the column list is mirrored here. The
+ * `starter-mapping-drift.test.ts` lint test guards the harness side against slug
+ * drift; `live-status.test.ts` asserts THIS set has exactly 12 entries so the
+ * 12-mapped / 7-not-supported split (12 + 7 = 19) can never silently rot.
+ *
+ * A column ABSENT from this set has NO starter and renders the dashboard's
+ * existing grey "not supported" ✗ state (§d) — keyed off the MAPPING, never off
+ * a missing row, so it never collides with the gray `?` not-yet-run state.
+ */
+export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
+  // 5 drift columns (starter slug ≠ column slug on the producer side)
+  "google-adk",
+  "langgraph-typescript",
+  "strands",
+  "ms-agent-dotnet",
+  "ms-agent-python",
+  // 7 direct columns (starter slug === column slug)
+  "crewai-crews",
+  "langgraph-fastapi",
+  "langgraph-python",
+  "agno",
+  "llamaindex",
+  "mastra",
+  "pydantic-ai",
+]);
+
+/** `true` when `columnSlug` has a mapped smoke starter (§a). */
+export function starterIsSupported(columnSlug: string): boolean {
+  return STARTER_COLUMNS.has(columnSlug);
+}
+
+/**
+ * Resolve the `starter:<columnSlug>/<level>` row for one starter sub-cell.
+ *
+ * Sibling to `resolveD5Row`/`resolveD6Row`, but the starter keyspace is flat:
+ * one row per (column, level) — there is no multi-key fan-out to fold, so this
+ * is a direct lookup, not a worst-state reduction. The 5-state cell vocabulary
+ * (§d) is produced by `buildStarterBadge`; this helper only returns the raw
+ * row (or `null` for not-yet-run). The not-supported state is mapping-derived
+ * and handled by the caller via `starterIsSupported`, NOT inferred here from a
+ * missing row.
+ */
+export function resolveStarterRow(
+  live: LiveStatusMap,
+  columnSlug: string,
+  level: StarterLevel,
+): StatusRow | null {
+  return live.get(keyFor("starter", columnSlug, level)) ?? null;
+}
+
+/** Per-level tooltip copy (§d). `interaction` stays generic. */
+const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
+  health: "health endpoint responded",
+  agent: "agent endpoint reachable (non-404)",
+  chat: "chat round-trip via aimock returned a response",
+  interaction: "UI interactions work, no console errors",
+};
+
+/**
+ * Build a `BadgeRender` for one starter sub-cell, applying the FULL 5-state
+ * cell vocabulary (§d):
+ *
+ *   - not-supported  → 🚫 unsupported chip, mapping-derived (`!isSupported`),
+ *                      tooltip "Not supported by this framework". An
+ *                      integration with NO starter is architecturally
+ *                      unsupported in this row, so it renders the SAME 🚫
+ *                      treatment the depth-chip/unified-cell already use for
+ *                      "framework cannot support this feature" — NOT a
+ *                      grey/no-data `?` ("we expected data and got none") and
+ *                      NOT a red smoke-failed ✗ ("we tried and failed").
+ *                      Resolved FIRST so it can never collide with the gray
+ *                      `?` initial state.
+ *   - gray `?`       → no row yet (not-yet-run / initial).
+ *   - ✓ green        → last probe passed.
+ *   - red ✗          → last probe failed (actionable regression).
+ *   - `~` amber      → stale: a green row older than STARTER_STALE_AFTER_MS is
+ *                      downgraded to degraded (delegated to `buildBadge`).
+ *
+ * The data-bearing states (green/red/stale/gray) are delegated to the shared
+ * `buildBadge` path under the `health` dimension label so the level glyphs/copy
+ * reuse the same staleness downgrade + tooltip machinery as every other badge;
+ * the per-level descriptor is appended to the tooltip.
+ */
+export function buildStarterBadge(
+  level: StarterLevel,
+  isSupported: boolean,
+  row: StatusRow | null,
+  now: number,
+  connection: ConnectionStatus,
+): BadgeRender {
+  if (!isSupported) {
+    // Mapping-derived: this column has no starter (§a). Renders the 🚫
+    // "unsupported" treatment (matching depth-chip/unified-cell), which is
+    // distinct from BOTH the gray `?` no-data state AND the red smoke-failed
+    // ✗. NOT data-derived, so it renders identically before and after the
+    // first probe tick. Tone stays slate/gray (the muted unsupported fill);
+    // the 🚫 glyph — not the tone — is what communicates "unsupported".
+    return {
+      tone: "gray",
+      label: "🚫",
+      tooltip: "Not supported by this framework",
+      row: null,
+    };
+  }
+  const base = buildBadge(
+    "starter",
+    row,
+    now,
+    STARTER_STALE_AFTER_MS,
+    connection,
+  );
+  const descriptor = STARTER_LEVEL_DESCRIPTION[level];
+  // Suffix the level descriptor onto the resolved-state tooltip (state +
+  // observed_at come from the shared path). For not-yet-run there is no row,
+  // so keep buildBadge's "probe pending" copy but still name what would be
+  // checked.
+  return {
+    ...base,
+    tooltip:
+      connection === "error" ? base.tooltip : `${descriptor} — ${base.tooltip}`,
+  };
 }
 
 function rowTone(row: StatusRow | null): BadgeTone {
@@ -373,7 +696,8 @@ export type LiveDimension =
   | "chat"
   | "tools"
   | "d5"
-  | "d6";
+  | "d6"
+  | "starter";
 
 function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (!row) return "?";
@@ -647,9 +971,22 @@ export function resolveCell(
 
 /**
  * Shallow equality on the row fields that change observably between
- * SSE updates. We deliberately avoid deep-equal on `signal` because it
- * may be a large nested object — the producer-side state machine
- * already collapses semantically equivalent signals upstream.
+ * SSE updates: `key`, `state`, `observed_at`, `transitioned_at`, plus the
+ * PRESENCE (not content) of `signal`.
+ *
+ * Signal handling: the initial fetch projection drops `signal`, so initial
+ * rows arrive with `signal === undefined` and rely on SSE deltas to deliver
+ * the populated signal (the "SSE delivers full rows" contract that
+ * cell-pieces.tsx / cell-drilldown.tsx rely on). A delta that flips signal
+ * PRESENCE — `undefined` ⇄ defined — is therefore observable and must NOT be a
+ * no-op, or the signal-bearing row would be discarded and the signal-less row
+ * would survive. We compare presence only (`(a.signal === undefined) !==
+ * (b.signal === undefined)`), keeping the cheap-comparison philosophy: we still
+ * avoid a deep-equal on `signal` because it may be a large nested object, and a
+ * same-presence content change is acceptable to treat as a no-op since
+ * `observed_at` / `transitioned_at` normally move when content meaningfully
+ * changes (and the producer-side state machine already collapses semantically
+ * equivalent signals upstream).
  */
 function rowsAreNoop(prev: unknown, next: unknown): boolean {
   if (prev === next) return true;
@@ -666,7 +1003,8 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
     a.key === b.key &&
     a.state === b.state &&
     a.observed_at === b.observed_at &&
-    a.transitioned_at === b.transitioned_at
+    a.transitioned_at === b.transitioned_at &&
+    (a.signal === undefined) === (b.signal === undefined)
   );
 }
 
@@ -675,9 +1013,9 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
  * live-subscribe reducer when the SSE stream emits a record update.
  *
  * Returns the SAME array reference when the incoming row is a no-op
- * (key + state + observed_at + transitioned_at unchanged) so React's
- * reference-equality short-circuit can skip re-rendering downstream
- * memoised components.
+ * (key + state + observed_at + transitioned_at unchanged AND signal
+ * presence unchanged) so React's reference-equality short-circuit can
+ * skip re-rendering downstream memoised components.
  */
 export function upsertByKey<T extends { key: string }>(
   rows: T[],
@@ -705,7 +1043,8 @@ export function upsertByKey<T extends { key: string }>(
  *
  * The warning fires only on GENUINE divergence — two rows with the same key
  * but a different observable state (compared via `rowsAreNoop`, the same
- * key/state/observed_at/transitioned_at shallow check the reducer uses).
+ * key/state/observed_at/transitioned_at + signal-presence shallow check the
+ * reducer uses).
  * Identical-content-but-different-reference rows (e.g. the same producer row
  * re-allocated across two groups) are NOT a real invariant violation and used
  * to fire a noisy false warning under the old reference-based `prior !== r`

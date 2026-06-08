@@ -1,9 +1,5 @@
-import {
-  execSync,
-  execFileSync,
-  spawn,
-  type SpawnOptions,
-} from "node:child_process";
+import { execSync, execFileSync, spawn } from "node:child_process";
+import type { SpawnOptions } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -84,12 +80,14 @@ function compose(...args: string[]): string {
     ) {
       throw new Error(
         "Docker not found. Please install Docker Desktop and ensure 'docker' is on your PATH.",
+        { cause: err },
       );
     }
     const e = err as { stderr?: string; status?: number };
     const stderr = typeof e.stderr === "string" ? e.stderr.trim() : "";
     throw new Error(
       `docker compose failed (exit ${e.status ?? "?"}): docker ${fullArgs.join(" ")}\n${stderr}`,
+      { cause: err },
     );
   }
 }
@@ -318,8 +316,15 @@ export async function down(
 /**
  * Rebuild Docker images, optionally for specific services.
  *
- * Stages shared modules first, builds images, then restarts any services
- * that were running before the rebuild.
+ * Stages shared modules first, builds images, then force-recreates the
+ * targeted services so a stale running container is always replaced with
+ * the freshly-built image (a rebuild that left the old container running
+ * was a silent no-op — see the 36h-stale-image false-positive).
+ *
+ * The `infra` profile is always included alongside the targeted slugs so
+ * compose can resolve infra `depends_on` deps (e.g. `aimock`). Without it,
+ * `docker compose --profile <slug> build <slug>` fails with
+ * "service <slug> depends on undefined service aimock".
  */
 export async function rebuild(
   slugs: string[],
@@ -327,36 +332,46 @@ export async function rebuild(
 ): Promise<void> {
   try {
     stageSharedModules();
-    // When no specific slugs, check ALL running services for restart
-    const servicesToCheck = slugs.length > 0 ? slugs : listRunningServices();
-    const runningBefore: string[] = [];
-    if (slugs.length > 0) {
-      for (const slug of servicesToCheck) {
-        if (await isRunning(slug)) {
-          runningBefore.push(slug);
-        }
-      }
-    } else {
-      runningBefore.push(...servicesToCheck);
-    }
 
     log.info("rebuilding images", {
       slugs: slugs.length ? slugs : ["all"],
     });
 
     if (slugs.length > 0) {
-      const profileArgs = slugs.flatMap((s) => ["--profile", s]);
+      // Always include the infra profile so infra `depends_on` deps
+      // (aimock, pocketbase, dashboard) are defined for the targeted slugs.
+      const profileArgs = ["--profile", "infra"];
+      for (const slug of slugs) {
+        profileArgs.push("--profile", slug);
+      }
       compose(...profileArgs, "build", ...slugs);
-    } else {
-      compose("--profile", "all", "build");
-    }
 
-    if (runningBefore.length > 0) {
-      log.info("restarting previously-running services", {
-        services: runningBefore,
+      // Force-recreate the targeted containers so the freshly-built image
+      // is actually adopted even if they were already running. `up -d`
+      // without --force-recreate would leave a stale container in place.
+      log.info("recreating services with freshly-built images", {
+        services: slugs,
       });
-      const restartProfiles = runningBefore.flatMap((s) => ["--profile", s]);
-      compose(...restartProfiles, "up", "-d", ...runningBefore);
+      compose(...profileArgs, "up", "-d", "--force-recreate", ...slugs);
+    } else {
+      // No specific slugs: rebuild everything, then recreate whatever was
+      // running before so we don't spin up services that were down.
+      const runningBefore = listRunningServices();
+      compose("--profile", "all", "build");
+
+      if (runningBefore.length > 0) {
+        log.info("recreating previously-running services", {
+          services: runningBefore,
+        });
+        const restartProfiles = runningBefore.flatMap((s) => ["--profile", s]);
+        compose(
+          ...restartProfiles,
+          "up",
+          "-d",
+          "--force-recreate",
+          ...runningBefore,
+        );
+      }
     }
   } finally {
     restoreSymlinks();

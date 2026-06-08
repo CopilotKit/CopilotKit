@@ -85,7 +85,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    ```
 
-   Alternatively, use [Copilot Cloud](https://cloud.copilotkit.ai) by setting:
+   Alternatively, use [Copilot Cloud](https://dashboard.operations.copilotkit.ai) by setting:
 
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key

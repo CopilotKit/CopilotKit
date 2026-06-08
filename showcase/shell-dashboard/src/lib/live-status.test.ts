@@ -1,14 +1,24 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   CATALOG_TO_D5_KEY,
+  STARTER_COLUMNS,
+  STARTER_LEVELS,
+  STATUS_LIST_FIELDS,
+  buildStarterBadge,
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveStarterRow,
+  starterIsSupported,
   upsertByKey,
 } from "./live-status";
-import type { LiveStatusMap, StatusRow } from "./live-status";
+import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
 import { formatTs } from "./format-ts";
-import { E2E_STALE_AFTER_MS, LIVENESS_STALE_AFTER_MS } from "./staleness";
+import {
+  E2E_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
+} from "./staleness";
 
 // A recent timestamp so green rows are not treated as stale by the
 // staleness downgrade in resolveCell (which compares against Date.now()).
@@ -140,6 +150,34 @@ describe("upsertByKey", () => {
     expect(after).not.toBe(before);
     expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
   });
+  it("applies a row whose signal goes from absent to present (SSE full-row delivery)", () => {
+    // The initial fetch projection drops `signal`, so initial rows arrive with
+    // `signal === undefined` and rely on SSE deltas to deliver the populated
+    // signal. A delta re-delivering the same key/state/observed_at/transitioned_at
+    // but now CARRYING a signal must NOT be treated as a no-op — otherwise the
+    // signal-less row survives and the "SSE delivers full rows" contract that
+    // cell-pieces.tsx / cell-drilldown.tsx rely on is broken.
+    const prev = row("k:sig", "smoke", "red", { signal: undefined });
+    const next = row("k:sig", "smoke", "red", {
+      signal: { error: "boom" },
+    });
+    const before = [prev];
+    const after = upsertByKey(before, next);
+    expect(after).not.toBe(before);
+    expect(after[0]!.signal).toEqual({ error: "boom" });
+  });
+  it("no-ops when signal presence is unchanged (optimization preserved)", () => {
+    // A genuinely-identical delta — same key/state/observed_at/transitioned_at
+    // AND same signal presence — must still short-circuit to the same array
+    // reference so memoised consumers don't needlessly re-render.
+    const a = row("k:samesig", "smoke", "red", { signal: { error: "x" } });
+    const aPrime = row("k:samesig", "smoke", "red", {
+      signal: { error: "y" },
+    });
+    const before = [a];
+    const after = upsertByKey(before, aPrime);
+    expect(after).toBe(before);
+  });
 });
 
 describe("mergeRowsToMap", () => {
@@ -177,6 +215,48 @@ describe("mergeRowsToMap", () => {
     expect(map.get("dup:k")?.state).toBe("red");
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/disjoint-key invariant violated/);
+  });
+});
+
+describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix A2)", () => {
+  // The dashboard State union is green|red|degraded, but the harness CAN persist
+  // a row with state:"error" (the no-data representation; see
+  // result-aggregator.ts). STATE_RANK/WORST_STATE_RANK are Record<State,number>,
+  // so STATE_RANK["error"] is undefined and the fold comparison `undefined > n`
+  // is false — an "error" row is SILENTLY DROPPED instead of surfacing. The fold
+  // must treat an unknown/out-of-vocabulary state as the WORST (most severe) so
+  // such a row surfaces rather than vanishing.
+  const OUT_OF_VOCAB = "error" as unknown as StatusRow["state"];
+
+  it("does NOT silently drop a lone d6 row carrying an out-of-vocabulary state", () => {
+    // `agentic-chat` maps to a single d6 key, so the fold sees exactly one row.
+    const live = mapOf([row("d6:agno/agentic-chat", "d6", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    // Pre-fix: the "error" row is dropped, resolveD6Row returns null → d6.row is
+    // null. Post-fix: the row surfaces as the worst-state winner.
+    expect(c.d6.row).not.toBeNull();
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("surfaces an out-of-vocabulary d6 row as WORST over a present green sibling", () => {
+    // `beautiful-chat` maps to multiple d6 keys; an out-of-vocab row must win the
+    // fold over a present green sibling (treated as most severe, not skipped).
+    const live = mapOf([
+      row("d6:agno/beautiful-chat-toggle-theme", "d6", "green"),
+      row("d6:agno/beautiful-chat-pie-chart", "d6", OUT_OF_VOCAB),
+      row("d6:agno/beautiful-chat-bar-chart", "d6", "green"),
+      row("d6:agno/beautiful-chat-search-flights", "d6", "green"),
+      row("d6:agno/beautiful-chat-schedule-meeting", "d6", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("does NOT silently drop a lone d5 row carrying an out-of-vocabulary state", () => {
+    const live = mapOf([row("d5:agno/agentic-chat", "d5", OUT_OF_VOCAB)]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d5.row).not.toBeNull();
+    expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
   });
 });
 
@@ -834,5 +914,265 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
   it("connection=error + null row: plain offline tooltip", () => {
     const c = resolveCell(mapOf([]), "a", "b", { connection: "error" });
     expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Starter row-group (spec §d / §a)                                    */
+/* ------------------------------------------------------------------ */
+
+const NOW = Date.now();
+
+describe("STARTER_COLUMNS (§a 12-mapped / 7-not-supported split)", () => {
+  it("contains exactly the 12 mapped columns", () => {
+    // 12 mapped + 7 not-supported = 19 columns. Guards the dashboard's copy
+    // of the harness STARTER_TO_COLUMN value set against silent rot.
+    expect(STARTER_COLUMNS.size).toBe(12);
+  });
+
+  it("includes the 5 drift columns and 7 direct columns", () => {
+    for (const col of [
+      "google-adk",
+      "langgraph-typescript",
+      "strands",
+      "ms-agent-dotnet",
+      "ms-agent-python",
+      "crewai-crews",
+      "langgraph-fastapi",
+      "langgraph-python",
+      "agno",
+      "llamaindex",
+      "mastra",
+      "pydantic-ai",
+    ]) {
+      expect(starterIsSupported(col)).toBe(true);
+    }
+  });
+
+  it("treats the 7 unmapped columns as not supported", () => {
+    for (const col of [
+      "ag2",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+      "langroid",
+      "spring-ai",
+      "built-in-agent",
+      "ms-agent-harness-dotnet",
+    ]) {
+      expect(starterIsSupported(col)).toBe(false);
+    }
+  });
+});
+
+describe("resolveStarterRow", () => {
+  it("looks up the flat starter:<col>/<level> key", () => {
+    const r = row("starter:agno/health", "starter", "green");
+    const live = mapOf([r]);
+    expect(resolveStarterRow(live, "agno", "health")).toBe(r);
+  });
+
+  it("returns null for a column/level with no row (not-yet-run)", () => {
+    expect(resolveStarterRow(mapOf([]), "agno", "chat")).toBeNull();
+  });
+
+  it("does not cross-contaminate levels", () => {
+    const live = mapOf([row("starter:agno/agent", "starter", "red")]);
+    expect(resolveStarterRow(live, "agno", "agent")?.state).toBe("red");
+    expect(resolveStarterRow(live, "agno", "health")).toBeNull();
+  });
+});
+
+describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
+  it("✓ healthy: green row → green ✓", () => {
+    const b = buildStarterBadge(
+      "health",
+      true,
+      row("starter:agno/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("red ✗ smoke-failed: red row → red ✗", () => {
+    const b = buildStarterBadge(
+      "chat",
+      true,
+      row("starter:agno/chat", "starter", "red"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("~ stale: green row older than STARTER_STALE_AFTER_MS downgrades to amber ~", () => {
+    const stale = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS - 1).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, stale, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    // The downgraded effective row's state agrees with the tone.
+    expect(b.row?.state).toBe("degraded");
+  });
+
+  it("~ stale boundary: green row EXACTLY at the window is NOT stale (strict >)", () => {
+    const atBoundary = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - STARTER_STALE_AFTER_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, atBoundary, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  // Hourly-cadence derivation (starter_smoke.yml `schedule: "40 * * * *"`,
+  // 1h probe period; STARTER_STALE_AFTER_MS = 2.5h). These pin the window to
+  // the hourly basis: a single missed tick (last row ~2h old) MUST stay green;
+  // two consecutive misses (last row ~3h old) MUST flip amber.
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+
+  it("window is strictly > 2 hourly probe periods and < 3 (derived 2.5h)", () => {
+    expect(STARTER_STALE_AFTER_MS).toBeGreaterThan(2 * ONE_HOUR_MS);
+    expect(STARTER_STALE_AFTER_MS).toBeLessThan(3 * ONE_HOUR_MS);
+  });
+
+  it("single missed hourly tick (~2h old) stays green", () => {
+    const oneMiss = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 2 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, oneMiss, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("two consecutive missed hourly ticks (~3h old) flip amber ~", () => {
+    const twoMisses = row("starter:agno/agent", "starter", "green", {
+      observed_at: new Date(NOW - 3 * ONE_HOUR_MS).toISOString(),
+    });
+    const b = buildStarterBadge("agent", true, twoMisses, NOW, "live");
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+    expect(b.row?.state).toBe("degraded");
+  });
+
+  it("gray ?: supported column, no row yet → gray ? (not-yet-run)", () => {
+    const b = buildStarterBadge("interaction", true, null, NOW, "live");
+    expect(b.tone).toBe("gray");
+    expect(b.label).toBe("?");
+  });
+
+  it("not-supported 🚫: unmapped column → 🚫 unsupported chip, mapping-derived (not data-derived)", () => {
+    // Keyed off isSupported=false, NOT off a missing row. An integration with
+    // NO starter is architecturally unsupported in the starter row, so it
+    // renders the SAME 🚫 "Not supported by this framework" treatment the
+    // depth-chip/unified-cell already use — NOT a grey/no-data `?`, and NOT a
+    // red smoke-failed `✗` (which would mis-communicate "we tried and failed").
+    const b = buildStarterBadge("health", false, null, NOW, "live");
+    expect(b.label).toBe("🚫");
+    expect(b.tooltip).toBe("Not supported by this framework");
+    // It must be visually distinct from a data-bearing red FAIL: never red.
+    expect(b.tone).not.toBe("red");
+    expect(b.row).toBeNull();
+  });
+
+  it("not-supported 🚫 is independent of any row data (mapping wins)", () => {
+    // Even if a stray row existed, an unmapped column must still render the
+    // not-supported 🚫 state — the caller passes row=null for unmapped columns,
+    // but assert buildStarterBadge ignores row entirely when !isSupported.
+    const b = buildStarterBadge(
+      "health",
+      false,
+      row("starter:ag2/health", "starter", "green"),
+      NOW,
+      "live",
+    );
+    expect(b.label).toBe("🚫");
+    expect(b.tone).not.toBe("red");
+  });
+
+  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as 🚫)", () => {
+    // Guard the inverse: only ABSENT starters become 🚫. A starter that exists
+    // and FAILED must keep surfacing its real red ✗ — never reframed as
+    // "unsupported".
+    const b = buildStarterBadge(
+      "chat",
+      true,
+      row("starter:agno/chat", "starter", "red"),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+    expect(b.label).not.toBe("🚫");
+  });
+
+  it("tooltip carries the per-level descriptor for data-bearing states", () => {
+    const expected: Record<StarterLevel, string> = {
+      health: "health endpoint responded",
+      agent: "agent endpoint reachable (non-404)",
+      chat: "chat round-trip via aimock returned a response",
+      interaction: "UI interactions work, no console errors",
+    };
+    for (const level of STARTER_LEVELS) {
+      const b = buildStarterBadge(
+        level,
+        true,
+        row(`starter:agno/${level}`, "starter", "green"),
+        NOW,
+        "live",
+      );
+      expect(b.tooltip).toContain(expected[level]);
+    }
+  });
+});
+
+describe("starter rows are informational — excluded from resolveCell rollup", () => {
+  it("a red starter row does NOT make the feature-cell rollup red", () => {
+    // resolveCell only reads health + e2e (+ informational badges). A starter
+    // row sharing the slug must never leak into the rollup.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("e2e:agno/agentic-chat", "e2e", "green"),
+      // A red starter row for the same integration:
+      row("starter:agno/health", "starter", "red"),
+      row("starter:agno/chat", "starter", "red"),
+    ]);
+    const cell = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    // Rollup stays green (or whatever health+e2e dictate) — NOT red.
+    expect(cell.rollup).not.toBe("red");
+    // And the CellState shape exposes no starter contributor.
+    expect(Object.keys(cell)).not.toContain("starter");
+  });
+});
+
+describe("STATUS_LIST_FIELDS (initial-fetch projection allow-list)", () => {
+  // Exhaustive `keyof StatusRow` map. The compiler requires EVERY StatusRow
+  // field to appear as a key here (Record<keyof StatusRow, true>), so adding a
+  // field to StatusRow forces a conscious update of this map — and therefore a
+  // conscious decision about whether the new field belongs in the lightweight
+  // initial projection. The runtime test below derives the expected set from
+  // this map (all keys minus `signal`) and asserts STATUS_LIST_FIELDS matches.
+  const STATUS_ROW_KEYS: Record<keyof StatusRow, true> = {
+    id: true,
+    key: true,
+    dimension: true,
+    state: true,
+    signal: true,
+    observed_at: true,
+    transitioned_at: true,
+    fail_count: true,
+    first_failure_at: true,
+  };
+
+  it("equals every StatusRow field except `signal`", () => {
+    const expected = new Set(
+      Object.keys(STATUS_ROW_KEYS).filter((k) => k !== "signal"),
+    );
+    const actual = new Set(STATUS_LIST_FIELDS.split(","));
+    expect(actual).toEqual(expected);
+    // `signal` is the heavy field deliberately dropped from the initial fetch.
+    expect(actual.has("signal")).toBe(false);
   });
 });

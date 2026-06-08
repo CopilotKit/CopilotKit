@@ -1,6 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Banking app uses a class-based dark mode (`.dark` / `.light` on <html>). In
+   Tailwind v4 the default dark variant is `prefers-color-scheme`; the
+   `@custom-variant` directive below re-enables the class-based behavior so
+   utilities like `dark:bg-neutral-800` continue to work. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Map the legacy shadcn-style CSS variables into Tailwind's v4 `@theme` so
+   any `bg-background` / `text-foreground` / `rounded-lg|md|sm` utilities
+   resolve the same way they did under the v3 JS config. */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
 
 body {
   font-family: Arial, Helvetica, sans-serif;

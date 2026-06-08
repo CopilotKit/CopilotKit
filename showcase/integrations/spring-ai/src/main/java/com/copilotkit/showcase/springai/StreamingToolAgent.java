@@ -13,7 +13,6 @@ import com.agui.core.message.ToolMessage;
 import com.agui.core.state.State;
 import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -80,7 +79,7 @@ import static com.agui.server.EventFactory.toolCallStartEvent;
  * the tool call request) and the {@code .call()} path produces the complete
  * response including tool execution.
  */
-public class StreamingToolAgent extends LocalAgent {
+public class StreamingToolAgent extends PropagatingLocalAgent {
 
     private static final Logger log = LoggerFactory.getLogger(StreamingToolAgent.class);
 
@@ -105,6 +104,16 @@ public class StreamingToolAgent extends LocalAgent {
         String threadId = input.threadId();
         String runId = input.runId();
 
+        // RUN_STARTED must precede every terminal RUN_ERROR — AG-UI clients
+        // drop a RUN_ERROR that arrives without a started run, hanging the
+        // UI. Emit it BEFORE reading the user message so the no-user-message
+        // / null-content error paths still terminate a started run.
+        this.emitEvent(runStartedEvent(threadId, runId), subscriber);
+
+        // Null-guard the message + content: getLatestUserMessage only throws
+        // AGUIException when NO user message exists; a present-but-empty or
+        // null-content message returns normally and would NPE downstream.
+        // Treat empty content as a handled error.
         String userContent;
         try {
             var userMessage = this.getLatestUserMessage(messages);
@@ -114,10 +123,21 @@ public class StreamingToolAgent extends LocalAgent {
             this.emitEvent(runErrorEvent(String.format(
                     "agent run failed: %s (see server logs)",
                     e.getClass().getSimpleName())), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
+            return;
+        }
+        if (!StringUtils.hasText(userContent)) {
+            log.warn("Latest user message has null/blank content");
+            this.emitEvent(runErrorEvent(
+                    "agent run failed: user message was empty"), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
             return;
         }
 
-        this.emitEvent(runStartedEvent(threadId, runId), subscriber);
         this.emitEvent(textMessageStartEvent(messageId, "assistant"), subscriber);
 
         var assistantMessage = new AssistantMessage();
@@ -191,9 +211,17 @@ public class StreamingToolAgent extends LocalAgent {
             }
         } catch (Exception e) {
             log.error("Agent run failed", e);
+            // textMessageStart was already emitted — close the message before
+            // RUN_ERROR so subscribers tear down cleanly, then finalize so the
+            // SSE stream completes (no double textMessageEnd: this path returns
+            // before the happy-path textMessageEnd below).
+            this.emitEvent(textMessageEndEvent(messageId), subscriber);
             this.emitEvent(runErrorEvent(String.format(
                     "agent run failed: %s (see server logs)",
                     e.getClass().getSimpleName())), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
             return;
         }
 

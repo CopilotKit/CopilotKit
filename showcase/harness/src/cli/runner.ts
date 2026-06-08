@@ -28,7 +28,7 @@ import {
   buildFullInputs,
 } from "./targets.js";
 
-import { up, down, rebuild, isRunning } from "./lifecycle.js";
+import { up, down, rebuild, isRunning, healthCheck } from "./lifecycle.js";
 
 import {
   printResult,
@@ -40,11 +40,14 @@ import type { TerminalResult, PbWriteConfig } from "./results.js";
 
 import { livenessDriver } from "../probes/drivers/liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
-import { createE2eDeepDriver } from "../probes/drivers/d5-single-pill.js";
-import type { E2eDeepBrowser } from "../probes/drivers/d5-single-pill.js";
-import { createE2eFullDriver } from "../probes/drivers/d6-all-pills.js";
+import {
+  createE2eFullDriver,
+  openGuardedContext,
+} from "../probes/drivers/d6-all-pills.js";
 import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
 import type { StatusWriter } from "../writers/status-writer.js";
+import { runViaControlPlane } from "./control-plane-run.js";
+import type { ControlPlaneLevel } from "./control-plane-run.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +67,14 @@ export interface RunOptions {
   rebuild?: boolean;
   /** Enable verbose logging output. */
   verbose?: boolean;
+  /**
+   * Legacy/debug escape hatch: run d5/d6 via the in-process `runLevel()`
+   * driver instead of the fleet control-plane. Default (false) drives d5/d6
+   * through the producer → queue → worker → aggregator wiring so the dev tool
+   * exercises the IDENTICAL path staging runs. Has no effect on smoke/d4
+   * (those have no fleet path and always run in-process).
+   */
+  direct?: boolean;
 }
 
 export interface RunResult {
@@ -177,16 +188,23 @@ export async function run(
   };
   process.on("SIGINT", onSigint);
 
-  // -- 4. Start missing services (with optional rebuild) --------------------
+  // -- 4. Rebuild targeted services if requested ----------------------------
+  // --rebuild must force a rebuild + recreate of EVERY targeted service,
+  // including ones that are already running — otherwise a stale container
+  // is silently reused (the 36h-stale-image false-positive). rebuild()
+  // builds the fresh image and force-recreates the container, and includes
+  // the infra profile so `aimock` (and friends) resolve.
+  if (options.rebuild && slugs.length > 0) {
+    console.log(`\n  \x1b[36mRebuilding services:\x1b[0m ${slugs.join(", ")}`);
+    logger.info("cli.runner.rebuilding", { slugs });
+    await rebuild(slugs);
+  }
+
+  // -- 5. Start missing services -------------------------------------------
   if (autoStarted.length > 0) {
     console.log(
       `\n  \x1b[36mStarting services:\x1b[0m ${autoStarted.join(", ")}`,
     );
-
-    if (options.rebuild) {
-      logger.info("cli.runner.rebuilding", { slugs: autoStarted });
-      await rebuild(autoStarted);
-    }
 
     await up(autoStarted);
 
@@ -194,7 +212,28 @@ export async function run(
     console.log("  \x1b[32mAll services healthy\x1b[0m\n");
   }
 
-  // -- 5. Build ProbeContext ------------------------------------------------
+  // -- 6. Health-check rebuilt-but-already-running services -----------------
+  // up() above only health-checks services it started. A service that was
+  // already running and got force-recreated by rebuild() is healthy-pending
+  // — verify it before probing so a broken rebuild fails loud here rather
+  // than mid-probe.
+  if (options.rebuild) {
+    const recreatedRunning = slugs.filter((s) => !autoStarted.includes(s));
+    if (recreatedRunning.length > 0) {
+      const results = await healthCheck(recreatedRunning);
+      const unhealthy = [...results.entries()]
+        .filter(([, ok]) => !ok)
+        .map(([name]) => name);
+      if (unhealthy.length > 0) {
+        throw new Error(
+          `Health check failed after rebuild for: ${unhealthy.join(", ")}. Check logs with: showcase logs <slug>`,
+        );
+      }
+      console.log("  \x1b[32mRebuilt services healthy\x1b[0m\n");
+    }
+  }
+
+  // -- 7. Build ProbeContext ------------------------------------------------
   const pbConfig = options.live ? resolvePbConfig(config) : null;
   const pbWriter = pbConfig ? createPbWriter(pbConfig, logger) : null;
 
@@ -212,84 +251,17 @@ export async function run(
     ...(pbWriter !== null && { writer: pbWriter }),
   };
 
-  // -- 6. Create headed-mode deep driver if needed --------------------------
-  // The D5 driver launches Playwright internally. For --headed mode, we
+  // -- 8. Create headed-mode driver if needed -------------------------------
+  // The D6 driver launches Playwright internally. For --headed mode, we
   // create a custom driver instance with a launcher that passes
   // headless: false. The e2e-chat-tools driver also launches Playwright
-  // but doesn't expose a headed toggle — we pass HEADED=1 via env.
+  // but doesn't expose a headed toggle — we pass HEADED=1 via env. D5 now
+  // runs this SAME D6 driver ("D5 take-one"), differentiated only by its
+  // inputs (`representativeOnly` + `rowPrefix: "d5"`), so one driver instance
+  // serves both the d5 and d6 levels.
   if (options.headed) {
     ctx.env = { ...ctx.env, HEADED: "1", PLAYWRIGHT_HEADLESS: "0" };
   }
-
-  const deepDriver = options.headed
-    ? createE2eDeepDriver({
-        launcher: async (): Promise<E2eDeepBrowser> => {
-          const mod =
-            (await import("playwright")) as typeof import("playwright");
-          const browser = await mod.chromium.launch({
-            headless: false,
-            args: ["--no-sandbox", "--disable-dev-shm-usage"],
-          });
-          return {
-            async newContext(contextOpts?: {
-              extraHTTPHeaders?: Record<string, string>;
-            }) {
-              const bCtx = await browser.newContext({
-                extraHTTPHeaders: {
-                  "X-AIMock-Strict": "true",
-                  ...contextOpts?.extraHTTPHeaders,
-                },
-              });
-              return {
-                async newPage() {
-                  const page = await bCtx.newPage();
-                  const consoleLogs: string[] = [];
-                  const requestFailures: string[] = [];
-                  page.on(
-                    "console",
-                    (msg: { type(): string; text(): string }) => {
-                      const t = msg.type();
-                      if (t === "error" || t === "warning") {
-                        consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
-                      }
-                    },
-                  );
-                  page.on(
-                    "requestfailed",
-                    (request: {
-                      method(): string;
-                      url(): string;
-                      failure(): { errorText: string } | null;
-                    }) => {
-                      requestFailures.push(
-                        `${request.method()} ${request.url().slice(0, 200)} => ${
-                          request.failure()?.errorText || "unknown"
-                        }`,
-                      );
-                    },
-                  );
-                  return Object.assign(page, {
-                    getDiagnostics: () => ({
-                      consoleLogs: consoleLogs.slice(-20),
-                      requestFailures: requestFailures.slice(-10),
-                    }),
-                    isClosed: () => page.isClosed(),
-                    locator: (s: string) => page.locator(s),
-                    route: (
-                      u: string | RegExp,
-                      handler: Parameters<typeof page.route>[1],
-                    ) => page.route(u, handler),
-                    unroute: (u: string | RegExp) => page.unroute(u),
-                  }) as unknown as import("../probes/drivers/d5-single-pill.js").E2eDeepPage;
-                },
-                close: () => bCtx.close(),
-              };
-            },
-            close: () => browser.close(),
-          };
-        },
-      })
-    : createE2eDeepDriver();
 
   const fullDriver = options.headed
     ? createE2eFullDriver({
@@ -304,7 +276,13 @@ export async function run(
             async newContext(contextOpts?: {
               extraHTTPHeaders?: Record<string, string>;
             }) {
-              const bCtx = await browser.newContext({
+              // GUARD: same shared-browser disconnect guard as defaultLauncher
+              // — refuse to open on a dead browser and convert a mid-open
+              // disconnect into a clean BrowserDisconnectedError rather than
+              // leaking Playwright's raw "has been closed" string.
+              const bCtx = await openGuardedContext<
+                Awaited<ReturnType<typeof browser.newContext>>
+              >(browser, {
                 extraHTTPHeaders: {
                   "X-AIMock-Strict": "true",
                   ...contextOpts?.extraHTTPHeaders,
@@ -361,7 +339,7 @@ export async function run(
       })
     : createE2eFullDriver();
 
-  // -- 7. Run probes --------------------------------------------------------
+  // -- 9. Run probes --------------------------------------------------------
   const repeatCount = Math.max(1, options.repeat ?? 1);
 
   try {
@@ -383,12 +361,30 @@ export async function run(
         for (const depth of levelList) {
           if (abortController.signal.aborted) break;
 
+          // d5/d6 default to the fleet CONTROL-PLANE path (producer → queue →
+          // worker → aggregator), making this dev tool faithful to staging by
+          // construction. `--direct` forces the legacy in-process runLevel()
+          // driver. smoke/d4 have no fleet path and always run in-process.
+          if ((depth === "d5" || depth === "d6") && !options.direct) {
+            const iterResults = await runViaControlPlane(
+              [testTarget],
+              {
+                level: depth as ControlPlaneLevel,
+                verbose: options.verbose,
+              },
+              config,
+              logger,
+            );
+            for (const r of iterResults) printResult(r);
+            allResults.push(...iterResults);
+            continue;
+          }
+
           const iterResults = await runLevel(
             depth,
             testTarget,
             ctx,
             config,
-            deepDriver,
             fullDriver,
             pbWriter,
             logger,
@@ -401,7 +397,7 @@ export async function run(
   } finally {
     process.removeListener("SIGINT", onSigint);
 
-    // -- 8. Stop auto-started services if not --keep -------------------------
+    // -- 10. Stop auto-started services if not --keep ------------------------
     if (!options.keep && autoStarted.length > 0) {
       console.log(
         `\n  \x1b[2mStopping auto-started services: ${autoStarted.join(", ")}\x1b[0m`,
@@ -416,7 +412,7 @@ export async function run(
     }
   }
 
-  // -- 9. Print summary -----------------------------------------------------
+  // -- 11. Print summary ----------------------------------------------------
   printSummary(allResults);
 
   const passed = allResults.filter((r) => r.state === "green").length;
@@ -471,7 +467,6 @@ async function runLevel(
   testTarget: TestTarget,
   ctx: ProbeContext,
   config: LocalConfig,
-  deepDriver: ProbeDriver<unknown, unknown>,
   fullDriver: ProbeDriver<unknown, unknown>,
   pbWriter: StatusWriter | null,
   logger: Logger,
@@ -531,19 +526,26 @@ async function runLevel(
     }
 
     case "d5": {
+      // D5 = "D6 take-one": run the SAME D6 driver, scoped by the inputs
+      // (`representativeOnly` + `rowPrefix: "d5"`) that buildDeepInputs stamps.
       const inputs = buildDeepInputs(testTarget, config);
       for (const input of inputs) {
         if (ctx.abortSignal?.aborted) break;
         const startedAt = Date.now();
         try {
-          const result = await deepDriver.run(ctx, input);
+          const result = await fullDriver.run(ctx, input);
           const terminal = probeResultToTerminal(result, startedAt);
           printResult(terminal);
           results.push(terminal);
           await bestEffortPbWrite(result, pbWriter, logger);
         } catch (err) {
+          // Use the SAME primary key the D5 success path writes (`input.key`,
+          // i.e. `d5-single-pill-e2e:<slug>` from buildDeepInputs) so the
+          // thrown-error row is consistent with the success row. The driver's
+          // side-emitted `d5:<slug>/<ft>` rows are what render the dashboard
+          // cells, so the error-path primary key only needs to match success.
           const terminal = errorToTerminal(
-            `d5-single-pill-e2e:${slug}`,
+            input.key,
             err,
             Date.now() - startedAt,
           );

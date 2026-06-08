@@ -37,6 +37,7 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -105,7 +106,7 @@ export interface CopilotKitProviderProps {
   publicLicenseKey?: string;
   /**
    * Signed license token for offline verification of premium features.
-   * Obtain from https://cloud.copilotkit.ai.
+   * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
@@ -196,6 +197,12 @@ export interface CopilotKitProviderProps {
      * schema if configured. Set to false to disable.
      */
     includeSchema?: boolean;
+    /**
+     * Options for the A2UI error-recovery status UI (OSS-162): how long before
+     * the transient "Retrying…" hint appears, after how many attempts, and how
+     * much retry/debug detail to surface. When omitted, sane defaults apply.
+     */
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -347,11 +354,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     if (runtimeA2UIEnabled) {
+      // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
+      // building skeleton → retrying → hard-failure → painted surface, all on one
+      // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
+      // debug exposure); the server can override debugExposure via the middleware.
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
           catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
+          recovery: a2ui?.recovery,
         }),
       );
     }

@@ -55,25 +55,10 @@ export function FrameworkTabs({
       .join(" ");
 
   return (
-    <div
-      style={{
-        margin: "1rem 0 1.25rem 0",
-        borderRadius: "0.5rem",
-        border: "1px solid var(--border)",
-        overflow: "hidden",
-        background: "var(--bg-surface)",
-      }}
-    >
+    <div className="shell-docs-radius-surface my-4 mb-5 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
       <div
         role="tablist"
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--bg-elevated)",
-          padding: "0.375rem 0.5rem 0 0.5rem",
-          gap: "0.25rem",
-          flexWrap: "wrap",
-        }}
+        className="flex flex-wrap gap-1 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-2 pt-1.5"
       >
         {frameworks.map((fw) => {
           const isActive = fw === active;
@@ -83,19 +68,12 @@ export function FrameworkTabs({
               role="tab"
               aria-selected={isActive}
               onClick={() => setActive(fw)}
-              style={{
-                padding: "0.5rem 0.875rem",
-                fontSize: "0.8125rem",
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? "var(--text)" : "var(--text-muted)",
-                background: isActive ? "var(--bg-surface)" : "transparent",
-                borderRadius: "0.375rem 0.375rem 0 0",
-                border: "none",
-                borderBottom: isActive
-                  ? "2px solid var(--accent)"
-                  : "2px solid transparent",
-                cursor: "pointer",
-              }}
+              className={[
+                "cursor-pointer border-0 border-b-2 px-3.5 py-2 text-[0.8125rem] [border-radius:var(--shell-docs-radius-control)_var(--shell-docs-radius-control)_0_0]",
+                isActive
+                  ? "border-[var(--accent)] bg-[var(--bg-surface)] font-semibold text-[var(--text)]"
+                  : "border-transparent bg-transparent font-medium text-[var(--text-muted)] hover:bg-[var(--accent-dim)] hover:text-[var(--accent)]",
+              ].join(" ")}
             >
               {displayLabel(fw)}
             </button>

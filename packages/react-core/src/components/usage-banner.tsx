@@ -235,7 +235,7 @@ export const getErrorActions = (error: CopilotKitError) => {
           label: "Upgrade",
           onClick: () =>
             window.open(
-              "https://cloud.copilotkit.ai",
+              "https://dashboard.operations.copilotkit.ai",
               "_blank",
               "noopener,noreferrer",
             ),

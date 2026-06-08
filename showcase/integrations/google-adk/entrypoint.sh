@@ -13,7 +13,7 @@ trap cleanup EXIT
 export PYTHONUNBUFFERED=1
 
 # Disable Google ADK's progressive SSE streaming feature. With it enabled,
-# Gemini 2.5-flash occasionally returns a stream whose final event is flagged
+# Gemini 3.1 Flash-Lite occasionally returns a stream whose final event is flagged
 # `partial`, which the ADK flow aborts with a "The last event is partial"
 # warning — the backend then emits no TOOL_CALL_* or TEXT_MESSAGE_* events,
 # so the tool-rendering UI is stranded and L4 smoke tests intermittently fail.

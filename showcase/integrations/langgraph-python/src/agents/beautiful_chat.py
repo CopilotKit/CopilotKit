@@ -13,10 +13,9 @@ shared `a2ui_schemas/` directory (which is owned by a2ui_fixed.py).
 from __future__ import annotations
 
 import csv
-import json
 import uuid
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from copilotkit import (
     CopilotKitMiddleware,
@@ -28,12 +27,8 @@ from langchain.agents import AgentState as BaseAgentState
 from langchain.agents import create_agent
 from langchain.messages import ToolMessage
 from langchain.tools import ToolRuntime, tool
-from langchain_core.messages import SystemMessage
-from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 from langgraph.types import Command
-
-from src.agents._a2ui_utils import has_root_component, sanitize_a2ui_components
 
 
 # ─── Shared state schema ────────────────────────────────────────────
@@ -206,127 +201,13 @@ def search_flights(flights: list[Flight]) -> str:
 
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
-
-# Internal tool bound only to the secondary LLM inside `generate_a2ui` for
-# structured-output. Intentionally NOT named `render_a2ui` because the A2UI
-# middleware default-intercepts any tool call by that name from the run's
-# event stream and synthesises ACTIVITY_SNAPSHOT events from the LLM's RAW
-# streaming args (catalogId + components, before our Python code can validate
-# or normalise). That bypass is what surfaced the "Catalog not found:
-# declarative-gen-ui-catalog" hallucination on beautiful-chat and the
-# "Cannot create component root without a type" loop on declarative-gen-ui.
-# Renaming sidesteps the middleware's intercept list (`a2uiToolNames`).
-@lc_tool
-def _design_a2ui_surface(
-    surfaceId: str,
-    catalogId: str,
-    components: list[dict],
-    data: dict | None = None,
-) -> str:
-    """Design a dynamic A2UI v0.9 surface.
-
-    Args:
-        surfaceId: Unique surface identifier.
-        catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").
-        components: A2UI v0.9 component array (flat format). The root
-            component must have id "root".
-        data: Optional initial data model for the surface (e.g. form values,
-            list items for data-bound components).
-    """
-    return "designed"
-
-
-_GENERATE_A2UI_PROMPT_HEADER = f"""\
-You are designing a dynamic A2UI v0.9 surface. Call the `_design_a2ui_surface`
-tool with a flat component array.
-
-Hard requirements (failing any of these breaks the renderer — be strict):
-- `catalogId` MUST be exactly: "{CUSTOM_CATALOG_ID}"
-- `surfaceId` is a short kebab-case identifier (e.g. "sales-dashboard").
-- `components` is a FLAT array. Every entry MUST include both an `id` (unique
-  string) AND a `component` (string — the catalog component name). The root
-  entry MUST have `id: "root"` AND a valid `component` field — never emit
-  a root entry without a component type.
-- Container components (Row, Column, DashboardCard, Card) reference children
-  by id via their `children` (array of strings) or `child` (single string)
-  prop. Do NOT inline children objects. Define each child as its own entry in
-  the flat array and reference its id.
-- Use only catalog component names listed in the schema below.
-"""
-
-
-@tool()
-def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
-    """Generate dynamic A2UI components based on the conversation.
-
-    A secondary LLM designs the UI schema and data. The result is
-    returned as an a2ui_operations container for the middleware to detect.
-    """
-    messages = runtime.state["messages"][:-1]
-
-    # Pull catalog descriptor + component schemas the runtime injects from the
-    # frontend's registered catalog. We prepend an explicit instruction header
-    # because `injectA2UITool: false` can leave the context sparse, in which
-    # case the secondary LLM hallucinates catalog IDs and root components
-    # without a `component` field — both of which break the renderer.
-    context_entries = runtime.state.get("copilotkit", {}).get("context", [])
-    context_text = "\n\n".join(
-        entry.get("value", "")
-        for entry in context_entries
-        if isinstance(entry, dict) and entry.get("value")
-    )
-
-    prompt = f"{_GENERATE_A2UI_PROMPT_HEADER}\n\n{context_text}".strip()
-
-    # `streaming=True` so aimock's record/replay (which only intercepts
-    # SSE streams) sees this secondary LLM call. Without it the call
-    # bypasses fixture matching in replay mode, surfacing as
-    # "An internal error occurred" on the demo page. Mirrors a2ui_dynamic.py.
-    model = ChatOpenAI(model="gpt-5.4", streaming=True)
-    model_with_tool = model.bind_tools(
-        [_design_a2ui_surface],
-        tool_choice="_design_a2ui_surface",
-    )
-
-    response = model_with_tool.invoke(
-        [SystemMessage(content=prompt), *messages],
-    )
-
-    if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
-
-    tool_call = response.tool_calls[0]
-    args = tool_call["args"]
-
-    surface_id = args.get("surfaceId", "dynamic-surface")
-    # Force the canonical catalog ID — the secondary LLM has been observed
-    # hallucinating IDs from sibling demos when context is sparse.
-    catalog_id = CUSTOM_CATALOG_ID
-    components = sanitize_a2ui_components(args.get("components", []))
-    data = args.get("data", {})
-
-    if not has_root_component(components):
-        return json.dumps(
-            {"error": "LLM produced no valid root component for the A2UI surface."}
-        )
-
-    ops = [
-        a2ui.create_surface(surface_id, catalog_id=catalog_id),
-        a2ui.update_components(surface_id, components),
-    ]
-    if data:
-        ops.append(a2ui.update_data_model(surface_id, data))
-
-    return a2ui.render(operations=ops)
-
-
 # ─── Graph ──────────────────────────────────────────────────────────
 
 model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
 
 agent = create_agent(
     model=model,
-    tools=[query_data, *todo_tools, generate_a2ui, search_flights],
+    tools=[query_data, *todo_tools, search_flights],
     middleware=[
         CopilotKitMiddleware(),
         StateStreamingMiddleware(

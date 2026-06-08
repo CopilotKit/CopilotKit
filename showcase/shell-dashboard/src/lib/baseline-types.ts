@@ -141,12 +141,30 @@ export const STATUS_CONFIG: Record<
 /*  Validation                                                         */
 /* ------------------------------------------------------------------ */
 
+const TAG_SET: ReadonlySet<string> = new Set(TAGS);
+
 /**
  * Validates a BaselineCell's invariants:
  * - "possible" requires at least 1 tag
  * - "works", "impossible", and "unknown" require 0 tags
+ * - every tag must be a member of the {@link TAGS} set
+ * - the `all` meta-tag ("needs everything") is exclusive — it must not
+ *   coexist with any individual tag
  */
 export function validateCell(cell: BaselineCell): boolean {
+  // Tag-membership: reject any tag outside the known set. `BaselineCell.tags`
+  // is typed as `BaselineTag[]`, but data sourced at runtime (e.g. from
+  // PocketBase) is not compile-time checked, so enforce membership here.
+  if (!cell.tags.every((tag) => TAG_SET.has(tag))) {
+    return false;
+  }
+
+  // "all"-exclusivity: the `all` meta-tag means "needs everything" and must
+  // not be combined with individual tags.
+  if (cell.tags.includes("all") && cell.tags.length > 1) {
+    return false;
+  }
+
   if (cell.status === "possible") {
     return cell.tags.length >= 1;
   }
@@ -269,7 +287,14 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   { name: "Google ADK", slug: "google-adk" },
   { name: "MS Agent Framework (Python)", slug: "ms-agent-python" },
   { name: "MS Agent Framework (.NET)", slug: "ms-agent-dotnet" },
-  { name: "MS Agent Harness (.NET)", slug: "ms-agent-harness-dotnet" },
+  // ms-agent-harness-dotnet is intentionally NOT rendered. It is deployed but
+  // NOT probe-wired: it is excluded from EVERY harness probe (d5, d6, e2e-smoke,
+  // e2e-demos, smoke, aimock-wiring) because it has no aimock fixtures and shares
+  // the ms-agent-dotnet AsyncLocal bug. Rendering its column would produce cells
+  // with no fresh probe data → perpetual stale red in both the Baseline and
+  // Live-status dimensions. RENDERING must stay consistent with PROBING. Re-add
+  // this entry (and the sort-order.ts slot) only once it is fully probe-wired:
+  // deploy + aimock fixtures + inclusion in the probe configs + the AsyncLocal fix.
   { name: "Strands", slug: "strands" },
   { name: "Mastra", slug: "mastra" },
   { name: "CrewAI", slug: "crewai-crews" },

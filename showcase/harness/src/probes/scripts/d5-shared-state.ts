@@ -239,7 +239,7 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max)}…`;
 }
 
-// Side-effect registration. The dynamic loader in `e2e-deep.ts` imports
+// Side-effect registration. The dynamic loader in `d6-all-pills.ts` imports
 // this file at boot; importing it triggers this call which writes the
 // script under both feature types in `D5_REGISTRY`.
 registerD5Script({
