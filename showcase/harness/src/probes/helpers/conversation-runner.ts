@@ -161,6 +161,37 @@ const SELECTOR_PROBE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 100;
 
 /**
+ * Bounded cold-start retry budget. A showcase can paint a TRANSIENT error
+ * banner on the FIRST turn while its agent backend / runtime is still warming
+ * up; that banner then clears on its own a beat later. PR #5142's fast-fail
+ * (`AssistantErroredError`) correctly bails on a SUSTAINED banner, but on
+ * turn 1 a single bounded retry — reload the page, re-send the same message —
+ * recovers the would-be flap WITHOUT masking a real failure: a banner that
+ * SURVIVES the reload+re-send fast-fails again on the 2nd attempt and is
+ * re-thrown.
+ *
+ * Strictly bounded so #5142 stays intact: the retry fires AT MOST ONCE
+ * (`coldStartRetries` counter), ONLY on turn 1 (the cold-start window — reload
+ * is safe there because no conversation state exists yet), and ONLY for an
+ * `AssistantErroredError` (NOT a settle `timeout`, which is a different
+ * failure mode). A sustained real banner still fast-fails on the 2nd attempt.
+ */
+const COLD_START_RETRY_MAX = 1;
+
+/**
+ * Floor for the cold-start retry's settle budget (#71/FF20). The retry shares
+ * the turn's single deadline so a retried turn cannot run ~2× the budget, but
+ * if the first attempt consumed nearly all of it the remaining window can drop
+ * below the fast-fail debounce (2 consecutive polls). A zero-or-near-zero retry
+ * window would convert a SUSTAINED real banner — which #5142 requires to
+ * fast-fail again on the 2nd attempt — into a generic settle timeout, silently
+ * weakening that guarantee. Flooring the retry window at a few poll intervals
+ * keeps wall-clock close to 1× (never the old ~2×) while preserving the
+ * fast-fail debounce so a real banner still re-throws `AssistantErroredError`.
+ */
+const COLD_START_RETRY_MIN_SETTLE_MS = 3 * POLL_INTERVAL_MS;
+
+/**
  * Minimal Page surface the runner depends on. Real `playwright.Page`
  * satisfies this structurally; tests inject scripted fakes. We
  * intentionally do NOT import `playwright`'s Page type — pulling DOM
@@ -199,6 +230,16 @@ export interface Page {
    * implementation.
    */
   inputValue?(selector: string): Promise<string>;
+  /**
+   * Reload the page. Used ONLY by the bounded turn-1 cold-start retry: a
+   * showcase that paints a transient error banner while its backend is
+   * still warming up can be recovered by reloading and re-sending the
+   * first message (safe on turn 1 — there is no conversation state to
+   * lose). Optional — when absent, the cold-start retry re-sends without a
+   * reload. The real Playwright Page provides it natively; test fakes
+   * supply a scripted implementation.
+   */
+  reload?(): Promise<unknown>;
 }
 
 export interface ConversationTurn {
@@ -390,6 +431,17 @@ export async function runConversation(
     const turnNum = idx + 1;
     const turnTimeoutMs = turn.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS;
     const startedAt = Date.now();
+    // A SINGLE deadline shared across the first settle wait AND the cold-start
+    // retry's settle wait (#71/FF20). Without this the retry would get a fresh
+    // full `turnTimeoutMs`, letting a cold-start turn run ~2× its budget. The
+    // first wait uses the full `turnTimeoutMs`; the retry wait uses only the
+    // time remaining against this deadline.
+    const turnDeadline = startedAt + turnTimeoutMs;
+    // Bounded once-per-turn cold-start retry counter. Only ever consulted on
+    // turn 1 (the cold-start window); declaring it per-iteration scopes it to
+    // the turn it protects. The fast-fail retry fires while this is below
+    // `COLD_START_RETRY_MAX` (1), so at most one reload+re-send per turn.
+    let coldStartRetries = 0;
 
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
@@ -441,18 +493,29 @@ export async function runConversation(
         }
       }
 
-      if (turn.skipSend) {
-        console.debug(
-          `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
-        );
-      } else if (turn.skipFill) {
-        console.debug(
-          `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
-        );
-        await waitForContentAndSend(page, chatInputSelector, turnTimeoutMs);
-      } else {
-        await fillAndVerifySend(page, chatInputSelector, turn.input);
-      }
+      // Send (or, for skipSend/skipFill turns, confirm) the user message.
+      // Extracted into a closure so the bounded turn-1 cold-start retry can
+      // re-send the same message after a `page.reload()` without duplicating
+      // the skipSend/skipFill/normal branch logic. `chatInputSelector` is
+      // non-null here (resolved above or it returned), so the cast-free
+      // local capture is safe.
+      const selector = chatInputSelector;
+      const sendTurnMessage = async (): Promise<void> => {
+        if (turn.skipSend) {
+          console.debug(
+            `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
+          );
+        } else if (turn.skipFill) {
+          console.debug(
+            `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
+          );
+          await waitForContentAndSend(page, selector, turnTimeoutMs);
+        } else {
+          await fillAndVerifySend(page, selector, turn.input);
+        }
+      };
+
+      await sendTurnMessage();
 
       console.debug(
         `[conversation-runner] turn ${turnNum}/${total} — waiting for assistant settle`,
@@ -467,12 +530,89 @@ export async function runConversation(
       // Wait for the assistant-message count to grow past the baseline
       // and then stay stable for `settleMs`. If the deadline passes
       // before we see growth, fail the turn with a timeout error.
-      const newCount = await waitForAssistantSettled({
-        page,
-        baselineCount,
-        settleMs,
-        timeoutMs: turnTimeoutMs,
-      });
+      //
+      // Bounded turn-1 cold-start retry: if the FIRST turn fast-fails with an
+      // `AssistantErroredError` (a banner appeared with no response produced —
+      // see #5142), the showcase backend may simply have been cold. Retry
+      // ONCE: reload the page (safe on turn 1 — no conversation state to lose)
+      // and re-send the same message, then re-enter the settle wait. A banner
+      // that SURVIVES the retry re-throws (a real failure). Strictly bounded —
+      // only turn 1, only once (`coldStartRetries` < `COLD_START_RETRY_MAX`),
+      // only a PLAIN-FILL turn (the retry must re-issue the submission; a
+      // skipSend/skipFill turn's submission came from `preFill` and a reload
+      // would wipe it, so those fast-fail without retry), and only
+      // `AssistantErroredError` (NOT a settle timeout). This does NOT widen the
+      // catch to generic timeouts and does NOT defeat #5142: a sustained real
+      // banner still fast-fails on the 2nd attempt.
+      let newCount: number;
+      try {
+        newCount = await waitForAssistantSettled({
+          page,
+          baselineCount,
+          settleMs,
+          timeoutMs: turnTimeoutMs,
+        });
+      } catch (settleErr) {
+        // The cold-start retry can ONLY meaningfully recover a turn it can
+        // RE-ISSUE: a plain-fill turn (reload the page + re-fill the textarea +
+        // re-send). skipSend/skipFill submissions are issued by `turn.preFill`
+        // (skipSend → preFill auto-sent via the agent surface; skipFill →
+        // preFill populated the textarea), which a reload would wipe — so for
+        // those turns there is nothing to re-issue and the retry could only
+        // false-settle against the first attempt's stale DOM, run on an
+        // unbounded budget, or no-op. Gate the retry to plain-fill turns; for
+        // skipSend/skipFill turns let the original `AssistantErroredError`
+        // propagate (PR #5142 fast-fail — the pre-retry behavior for those
+        // turns, not a regression).
+        const isPlainFillTurn = !turn.skipSend && !turn.skipFill;
+        const isColdStartWindow =
+          turnNum === 1 &&
+          coldStartRetries < COLD_START_RETRY_MAX &&
+          isPlainFillTurn;
+        if (settleErr instanceof AssistantErroredError && isColdStartWindow) {
+          coldStartRetries++;
+          console.warn(
+            `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
+            { error: errorMessage(settleErr) },
+          );
+          // Reload to clear the transient cold-start banner. Safe on turn 1 —
+          // no conversation state exists yet — and the plain-fill re-send below
+          // re-issues the message the reload cleared. Optional on the structural
+          // Page surface — skip cleanly if a caller's page can't reload.
+          if (page.reload) {
+            await page.reload();
+            // Re-resolve the chat input after reload — the DOM was torn down, so
+            // the previously-cached selector may no longer be attached.
+            chatInputSelector = await resolveChatInputSelector(
+              page,
+              opts.chatInputSelector,
+            );
+            // Re-read the baseline so growth is measured against the post-reload
+            // message count, then re-send the same message.
+            baselineCount = await readMessageCount(page);
+          }
+          await fillAndVerifySend(page, chatInputSelector, turn.input);
+          // Re-enter the settle wait, sharing the turn deadline (#71/FF20) so
+          // the retry only ever consumes the time remaining in the turn budget
+          // rather than a fresh full `turnTimeoutMs`. A banner that survives
+          // this attempt throws again (AssistantErroredError) and the outer
+          // catch records the turn failure — #5142 stays intact.
+          newCount = await waitForAssistantSettled({
+            page,
+            baselineCount,
+            settleMs,
+            timeoutMs: Math.max(
+              COLD_START_RETRY_MIN_SETTLE_MS,
+              turnDeadline - Date.now(),
+            ),
+          });
+        } else {
+          // Not the cold-start case (later turn, already retried, a
+          // skipSend/skipFill turn, or a settle timeout) — propagate to the
+          // per-turn catch unchanged.
+          throw settleErr;
+        }
+      }
 
       console.debug(
         `[conversation-runner] turn ${turnNum}/${total} — assistant settled`,
