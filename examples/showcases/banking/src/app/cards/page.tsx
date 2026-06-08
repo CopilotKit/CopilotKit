@@ -13,6 +13,7 @@ import { CreditCard, DollarSign } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { TransactionsList } from "@/components/transactions-list";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 
 export default function HomePage() {
   const { cards, policies, transactions } = useCreditCards();
@@ -62,7 +63,9 @@ export default function HomePage() {
                 <DollarSign className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${balance}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(balance)}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -73,7 +76,9 @@ export default function HomePage() {
                 <CreditCard className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${limit.total}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(limit.total)}
+                </div>
                 <Progress value={limit.usagePercentage} className="mt-2" />
                 <p className="text-xs text-neutral-500 mt-2 dark:text-neutral-400">
                   {limit.usagePercentage.toFixed(2)}% used

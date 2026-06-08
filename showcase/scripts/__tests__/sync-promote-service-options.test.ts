@@ -10,8 +10,41 @@ import { SERVICES } from "../railway-envs";
 // import). If this import wrote the workflow, the suite would have side
 // effects on the real file — see the dedicated guard test below.
 import { computeOptionTokens, SENTINEL } from "../sync-promote-service-options";
+import type { ServiceEntry } from "../railway-envs";
 
 const SCRIPT = resolve(__dirname, "..", "sync-promote-service-options.ts");
+
+/**
+ * Build a synthetic env-map `ServiceEntry` for computeOptionTokens tests.
+ * Only the fields the generator reads matter (`environments.prod.probe` +
+ * `dispatchName`); the rest are filler to satisfy the type. `slug` seeds the
+ * placeholder IDs/domains so each synthetic entry is internally distinct.
+ */
+function mkEntry(
+  slug: string,
+  opts: { dispatchName?: string; prodProbe?: boolean } = {},
+): ServiceEntry & { dispatchName?: string } {
+  const { dispatchName, prodProbe = true } = opts;
+  return {
+    serviceId: `s-${slug}`,
+    ciBuilt: true,
+    gateValidated: true,
+    probeDriver: "harness",
+    ...(dispatchName !== undefined ? { dispatchName } : {}),
+    environments: {
+      prod: {
+        instanceId: `p-${slug}`,
+        domain: `${slug}.prod`,
+        probe: prodProbe,
+      },
+      staging: {
+        instanceId: `st-${slug}`,
+        domain: `${slug}.staging`,
+        probe: true,
+      },
+    },
+  };
+}
 
 // The exact diagnostic fragments the generator emits for each marker-error
 // case. Tests assert against these specific strings (not a generic /marker/i)
@@ -64,39 +97,15 @@ function fixture(generatedBody: string): string {
 // proving the sort is by rendered token.
 const SYNTHETIC: typeof SERVICES = {
   // SSOT key "zeta" but renders as "alpha" via dispatchName → must sort FIRST.
-  zeta: {
-    serviceId: "s-zeta",
-    prodInstanceId: "p-zeta",
-    stagingInstanceId: "st-zeta",
-    ciBuilt: true,
-    gateValidated: true,
-    dispatchName: "alpha",
-    domains: { staging: "zeta.staging", prod: "zeta.prod" },
-    probe: { staging: true, prod: true, driver: "harness" },
-  },
+  zeta: mkEntry("zeta", { dispatchName: "alpha" }),
   // SSOT key "beta", no dispatchName → token falls back to the bare key
   // "beta", which sorts AFTER the rendered token "alpha" (from key "zeta").
-  beta: {
-    serviceId: "s-beta",
-    prodInstanceId: "p-beta",
-    stagingInstanceId: "st-beta",
-    ciBuilt: true,
-    gateValidated: true,
-    // no dispatchName → token falls back to the SSOT key "beta".
-    domains: { staging: "beta.staging", prod: "beta.prod" },
-    probe: { staging: true, prod: true, driver: "harness" },
-  },
+  beta: mkEntry("beta"),
   // prod:false → MUST be excluded from the dropdown entirely.
-  excluded: {
-    serviceId: "s-excl",
-    prodInstanceId: "p-excl",
-    stagingInstanceId: "st-excl",
-    ciBuilt: true,
-    gateValidated: true,
+  excluded: mkEntry("excl", {
     dispatchName: "aaa-would-sort-first",
-    domains: { staging: "excl.staging", prod: "excl.prod" },
-    probe: { staging: true, prod: false, driver: "harness" },
-  },
+    prodProbe: false,
+  }),
 };
 
 describe("computeOptionTokens (unit)", () => {
@@ -127,16 +136,8 @@ describe("computeOptionTokens (unit)", () => {
     // a colon + space) would, if interpolated raw, emit a malformed workflow
     // the pre-commit hook silently `git add`s. The generator must fail loud.
     const badMap: typeof SERVICES = {
-      gamma: {
-        serviceId: "s-gamma",
-        prodInstanceId: "p-gamma",
-        stagingInstanceId: "st-gamma",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "bad: token", // colon + space → NOT YAML-safe
-        domains: { staging: "g.staging", prod: "g.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      // colon + space → NOT YAML-safe
+      gamma: mkEntry("gamma", { dispatchName: "bad: token" }),
     };
     expect(() => computeOptionTokens(badMap)).toThrow(/not YAML-safe/);
     // The diagnostic names the offending token and its SSOT key.
@@ -154,27 +155,10 @@ describe("computeOptionTokens (unit)", () => {
     // catches it because token "dup" matches BOTH services (key "dup" by
     // name, key "dup-a" by dispatchName) → resolves to 2, not 1.
     const dupMap: typeof SERVICES = {
-      "dup-a": {
-        serviceId: "s-dupa",
-        prodInstanceId: "p-dupa",
-        stagingInstanceId: "st-dupa",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "dup",
-        domains: { staging: "dupa.staging", prod: "dupa.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      dup: {
-        serviceId: "s-dup",
-        prodInstanceId: "p-dup",
-        stagingInstanceId: "st-dup",
-        ciBuilt: true,
-        gateValidated: true,
-        // no dispatchName → renders as the bare key "dup", colliding with
-        // the dispatchName above.
-        domains: { staging: "dup.staging", prod: "dup.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      "dup-a": mkEntry("dupa", { dispatchName: "dup" }),
+      // no dispatchName → renders as the bare key "dup", colliding with the
+      // dispatchName above.
+      dup: mkEntry("dup"),
     };
     expect(() => computeOptionTokens(dupMap)).toThrow(/resolves to 2 services/);
     expect(() => computeOptionTokens(dupMap)).toThrow(/"dup"/);
@@ -192,26 +176,9 @@ describe("computeOptionTokens (unit)", () => {
     // un-promotable. The generator must fail loud, naming the ambiguous
     // token and both colliding service keys.
     const crossMap: typeof SERVICES = {
-      "svc-a": {
-        serviceId: "s-a",
-        prodInstanceId: "p-a",
-        stagingInstanceId: "st-a",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "foo", // renders token "foo"
-        domains: { staging: "a.staging", prod: "a.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      foo: {
-        serviceId: "s-foo",
-        prodInstanceId: "p-foo",
-        stagingInstanceId: "st-foo",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "bar", // renders token "bar" (DISTINCT from "foo")
-        domains: { staging: "foo.staging", prod: "foo.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      "svc-a": mkEntry("a", { dispatchName: "foo" }), // renders token "foo"
+      // renders token "bar" (DISTINCT from "foo")
+      foo: mkEntry("foo", { dispatchName: "bar" }),
     };
     // Token "foo" resolves to 2 services (svc-a by dispatchName, foo by name).
     expect(() => computeOptionTokens(crossMap)).toThrow(
@@ -237,27 +204,11 @@ describe("computeOptionTokens (unit)", () => {
     // services (X by dispatchName, Y by name) and THROW (false positive). With
     // the probe.prod restriction it resolves to exactly 1 (X) and must pass.
     const prodFilteredMap: typeof SERVICES = {
-      "svc-x": {
-        serviceId: "s-x",
-        prodInstanceId: "p-x",
-        stagingInstanceId: "st-x",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "shared", // renders + emits token "shared"
-        domains: { staging: "x.staging", prod: "x.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      shared: {
-        serviceId: "s-shared",
-        prodInstanceId: "p-shared",
-        stagingInstanceId: "st-shared",
-        ciBuilt: true,
-        gateValidated: true,
-        // name "shared" collides with X's emitted token, but probe.prod:false
-        // means the resolve step (and now the guard) filters it out.
-        domains: { staging: "shared.staging", prod: "shared.prod" },
-        probe: { staging: true, prod: false, driver: "harness" },
-      },
+      // renders + emits token "shared"
+      "svc-x": mkEntry("x", { dispatchName: "shared" }),
+      // name "shared" collides with X's emitted token, but probe.prod:false
+      // means the resolve step (and now the guard) filters it out.
+      shared: mkEntry("shared", { prodProbe: false }),
     };
     // The guard must NOT throw: X resolves uniquely once Y is excluded.
     expect(() => computeOptionTokens(prodFilteredMap)).not.toThrow();
@@ -273,16 +224,8 @@ describe("computeOptionTokens (unit)", () => {
     // option and masquerade as the reserved value the resolve step
     // special-cases. The generator must fail loud, naming the offender.
     const reservedCollisionMap: typeof SERVICES = {
-      delta: {
-        serviceId: "s-delta",
-        prodInstanceId: "p-delta",
-        stagingInstanceId: "st-delta",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "all", // collides with the reserved "all" literal
-        domains: { staging: "d.staging", prod: "d.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      // collides with the reserved "all" literal
+      delta: mkEntry("delta", { dispatchName: "all" }),
     };
     expect(() => computeOptionTokens(reservedCollisionMap)).toThrow(
       /reserved literal/,
@@ -333,7 +276,9 @@ describe("sync-promote-service-options", () => {
     expect(input.options[1]).toBe("all");
     expect(input.default).toBe("__select_a_service__");
     expect(input.options).toContain("ag2");
-    expect(input.options).toContain("pocketbase"); // no dispatchName → name fallback
+    // pocketbase now defines dispatchName "showcase-pocketbase", so the
+    // rendered token is the dispatchName, not the bare SSOT key.
+    expect(input.options).toContain("showcase-pocketbase");
     expect(input.options).not.toContain("bogus-stale-entry");
     // dispatchName tokens, not SSOT keys, for services that define one.
     expect(input.options).not.toContain("showcase-ag2");
@@ -588,7 +533,10 @@ describe("sync-promote-service-options", () => {
       // an ambiguous match here either.
       const matches = Object.entries(SERVICES).filter(
         ([name, entry]) =>
-          entry.probe.prod === true &&
+          // Mirror the generator's isProdPromotable: declares a prod env
+          // whose probe is enabled (probe defaults to true when omitted).
+          entry.environments.prod !== undefined &&
+          (entry.environments.prod.probe ?? true) === true &&
           (name === token || entry.dispatchName === token),
       );
       // Exactly ONE service resolves from each generated token — no ambiguity,

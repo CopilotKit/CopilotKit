@@ -11,6 +11,10 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createByocJsonRenderAgent } from "@/lib/factory/byoc-json-render-factory";
+// Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
+// into ALS for the factory's `forwardingFetch` to re-attach on outbound
+// LLM calls. See @/lib/header-forwarding for the full rationale.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
   agents: { default: createByocJsonRenderAgent() },
@@ -32,6 +36,9 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
-export const GET = (req: Request) => handler(req);
-export const POST = (req: Request) => withProbeCompat(req);
-export const OPTIONS = (req: Request) => handler(req);
+export const GET = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));
+export const POST = (req: Request) =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+export const OPTIONS = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));

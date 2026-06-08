@@ -179,7 +179,7 @@
       "id": "declarative-gen-ui",
       "name": "Declarative UI: Dynamic A2UI",
       "category": "declarative-generative-ui",
-      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
       "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },

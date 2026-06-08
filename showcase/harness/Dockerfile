@@ -151,27 +151,44 @@ EXPOSE 8080
 # serve" to its supervisor.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:8080/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))" || exit 1
-# FIX #3 — raise the container PID/thread (nproc) soft ulimit before exec'ing
-# the orchestrator. THE OUTAGE: the harness runs a long-lived chromium pool —
-# at MAX_CONTEXTS=40 the legitimate workload spawns ~3.6GB / several hundred
-# OS threads (each headless chromium ~50+ PIDs, plus per-context renderer
-# threads). When kernel thread/PID demand approached the container's nproc
-# ceiling, `chromium.launch()` (and mid-life context opens) tripped
-# `pthread_create: Resource temporarily unavailable (errno 11)`, the browser
-# set drained, and the pool wedged. MAX_CONTEXTS stays 40 — verified safe on
-# the 24GB box at ~3.6GB RSS; the constraint was THREADS, not memory — so the
-# durable fix is to give the legitimate 40-context workload ample thread
-# headroom instead of running near the default ~1024 soft ceiling.
+# FIX #3 — raise the process nproc SOFT rlimit before exec'ing the orchestrator.
+# THE OUTAGE (PROVEN root cause): the harness runs a long-lived chromium pool;
+# under a d6 launch storm the cgroup PID/thread ceiling is exhausted —
+# `chromium.launch()` throws `pthread_create: Resource temporarily unavailable
+# (errno 11)` → "Target page, context or browser has been closed" → permanent
+# crash-loop, with `pids.current` pegged at the cgroup `pids.max` ceiling.
 #
-# We raise the SOFT nproc limit to the HARD limit ("ulimit -u $(ulimit -Hu)")
-# so the process gets the full headroom the kernel/cgroup already permits
-# without hard-coding a value the container may not be allowed to exceed. On
-# Railway the service additionally sets a generous pids cgroup limit (target:
-# 16384 — ~40x the steady-state thread count, leaving headroom for launch
-# bursts + recovery relaunches); the in-image `ulimit -u` ensures the soft
-# limit is lifted to that hard ceiling regardless of the inherited default.
+# CRUCIAL CORRECTION — this `ulimit -u` does NOT and CANNOT fix that ceiling:
+#   * `ulimit -u` only lifts THIS PROCESS's RLIMIT_NPROC (the per-process soft
+#     rlimit). It is unrelated to — and cannot raise — the cgroup `pids.max`,
+#     which is the actual control that wedges the pool.
+#   * The cgroup `pids.max` is set by the CONTAINER RUNTIME (e.g. Railway via
+#     `--pids-limit`), NOT from inside the image. On staging it is
+#     platform-fixed at `pids.max=1000` and is NOT raisable from this Dockerfile.
+#     (The earlier "16384 pids cgroup" claim was ASPIRATIONAL and never applied.)
+#   * cgroup counts THREADS, not just processes — and each chromium renderer
+#     carries ~15 threads, so PID/thread demand is the binding constraint.
+#
+# Because the ceiling is platform-fixed and demand-side, the REAL mitigation
+# lives in the application, not here:
+#   1. reduce thread demand — BROWSER_POOL_MAX_CONTEXTS default lowered 40 → 24
+#      (fewer concurrent contexts → fewer renderer threads → peak `pids.current`
+#      stays well under 1000), and
+#   2. resource-gauge early-warning logging (`pids.current`/`pids.max` + thread
+#      count on every launch / self-heal failure / probe tick) plus the
+#      circuit-breaker give-up + `pool-unrecoverable` alarm as the agnostic
+#      backstop that signals "redeploy required" when the ceiling does not relax.
+#
+# We KEEP the `ulimit -u $(ulimit -Hu)` line — it is HARMLESS (it lifts the soft
+# rlimit to the inherited hard rlimit) and removes the per-process rlimit as a
+# confound — but it must NOT be mistaken for a fix to the cgroup ceiling.
 # `exec` replaces the shell so node remains PID 1 (correct signal handling /
 # Railway shutdown). The fallback `|| true` keeps boot resilient if the runtime
-# forbids raising the soft limit (it is then governed solely by the cgroup
-# pids limit, which is still the dominant control).
-CMD ["/bin/sh", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]
+# forbids raising the soft limit.
+#
+# MUST run under bash, NOT the default `/bin/sh`. On this image (node:22-
+# bookworm-slim) `/bin/sh` is dash, whose builtin `ulimit` does NOT support the
+# `-u` (max-user-processes / nproc) flag — it errors `ulimit: Illegal option -u`,
+# which the `2>/dev/null || true` then SILENTLY swallows. bash IS present
+# (/usr/bin/bash) and its `ulimit -u` works.
+CMD ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]

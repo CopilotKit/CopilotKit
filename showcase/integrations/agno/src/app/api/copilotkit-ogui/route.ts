@@ -44,7 +44,7 @@ export const POST = async (req: NextRequest) => {
       // the provider. The single `openGenerativeUI` flag below turns on
       // Open Generative UI for the listed agent(s).
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
         openGenerativeUI: {
           agents: ["open-gen-ui", "open-gen-ui-advanced"],

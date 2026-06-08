@@ -67,6 +67,11 @@ function HealthLegend() {
         Conversation (CV): multi-turn scripted dialogue with tool calls and
         content assertions
       </LegendItem>
+      <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">D6</span>
+        Parity (PR): full all-pills run verified against the reference
+        integration
+      </LegendItem>
       {/* Regression indicator */}
       <LegendItem>
         <span className="text-[var(--danger)] font-medium">▼</span>
@@ -84,6 +89,12 @@ function HealthLegend() {
         <span className="text-[var(--amber)]">D5</span>/
         <span className="text-[var(--danger)]">D5</span>
         conversation check (green pass / amber stale / red fail)
+      </LegendItem>
+      <LegendItem>
+        <span className="text-[var(--ok)]">D6</span>/
+        <span className="text-[var(--amber)]">D6</span>/
+        <span className="text-[var(--danger)]">D6</span>
+        parity check (green pass / amber stale / red fail)
       </LegendItem>
       {/* Status symbols */}
       <LegendItem>

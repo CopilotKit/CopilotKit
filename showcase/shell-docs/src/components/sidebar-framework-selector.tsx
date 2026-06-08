@@ -46,10 +46,10 @@ export function SidebarFrameworkSelector() {
   }));
 
   return (
-    // Sticky so the selector stays visible as the user scrolls long
-    // sidebars. The wrapper bg keeps nav text from showing through the
-    // sticky header while the sidebar remains visually unframed.
-    <div className="sticky top-0 z-10 bg-[var(--bg-surface)] backdrop-blur-lg">
+    // The sidebar column itself is already fixed within the docs layout, so
+    // this selector can stay in normal flow. Keeping it non-sticky avoids a
+    // raised layer overlapping the first selected sidebar item at scroll-top.
+    <div>
       <FrameworkSelector
         options={options}
         categoryOrder={categoryOrder}

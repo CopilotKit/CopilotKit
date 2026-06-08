@@ -278,7 +278,7 @@ export const docsComponents = {
       );
       if (process.env.NODE_ENV !== "production") {
         return (
-          <div className="my-6 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          <div className="shell-docs-radius-surface my-6 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
             [mdx-registry] No deployed integrations support feature &quot;
             {feature}&quot;.
           </div>
@@ -296,7 +296,7 @@ export const docsComponents = {
             <Link
               key={i.slug}
               href={`/integrations/${i.slug}?demo=${feature}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+              className="shell-docs-radius-control inline-flex items-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               {i.name}
             </Link>
@@ -417,7 +417,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "1rem",
       }}
@@ -454,7 +454,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
       }}
     >
@@ -469,7 +469,11 @@ export const docsComponents = {
     // immediately overrode it to `undefined`, silently dropping it.
     <video
       {...props}
-      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        width: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   img: (props: Record<string, unknown>) => (
@@ -477,7 +481,11 @@ export const docsComponents = {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     <img
       {...props}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
@@ -490,7 +498,7 @@ export const docsComponents = {
     if (process.env.NODE_ENV !== "production") {
       warnSilentNull("Snippet", "runtime override required (base stub)");
       return (
-        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
           [Snippet] runtime override required
           {children ? <div className="mt-1">{children}</div> : null}
         </div>
@@ -534,7 +542,7 @@ export const docsComponents = {
       src={src}
       alt={alt || ""}
       style={{
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         maxWidth: "100%",
         marginBottom: "1rem",
         cursor: "zoom-in",
@@ -619,7 +627,7 @@ export const docsComponents = {
             width: "100%",
             height: "100%",
             border: "none",
-            borderRadius: "0.5rem",
+            borderRadius: "var(--shell-docs-radius-surface)",
           }}
           sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           loading="lazy"
@@ -661,7 +669,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "0.75rem",
       }}
@@ -708,7 +716,7 @@ export const docsComponents = {
       return <div>{children}</div>;
     }
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -775,7 +783,7 @@ export const docsComponents = {
     ];
 
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -867,17 +875,23 @@ export const docsComponents = {
       style={{
         padding: "1rem",
         background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         marginBottom: "1rem",
       }}
     >
-      <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+      <a
+        href="https://dashboard.operations.copilotkit.ai"
+        style={{ color: "var(--accent)" }}
+      >
         Sign up for CopilotKit Cloud →
       </a>
     </div>
   ),
   LinkToCopilotCloud: () => (
-    <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+    <a
+      href="https://dashboard.operations.copilotkit.ai"
+      style={{ color: "var(--accent)" }}
+    >
       CopilotKit Cloud
     </a>
   ),
@@ -943,7 +957,11 @@ export const docsComponents = {
       width={width}
       height={height}
       className={className}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
@@ -980,7 +998,7 @@ export const docsComponents = {
         aria-label={ariaLabel}
         style={{
           padding: "0.5rem 1rem",
-          borderRadius: "0.375rem",
+          borderRadius: "var(--shell-docs-radius-control)",
           border: "1px solid var(--border)",
           background: "var(--bg-surface)",
           cursor: "pointer",

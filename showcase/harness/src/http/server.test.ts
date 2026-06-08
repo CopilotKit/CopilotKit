@@ -191,6 +191,105 @@ describe("http/server", () => {
     expect(body.loop).toBe("stopped");
   });
 
+  it("GET /health (control-plane role) returns 200 with rules=0 when pb/loop/scheduler ok", async () => {
+    // The control-plane is a scheduler/queue/aggregator — it legitimately
+    // owns NO probe rules, only the single fleet-job-producer scheduler
+    // entry. The default `rules > 0` gate is wrong for that role; with
+    // role:"control-plane" the endpoint reports healthy on its real
+    // liveness signals (pb ok, scheduler started + alive, schedulerJobs>0)
+    // WITHOUT requiring rules.
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      role: "control-plane",
+      ruleCount: () => 0,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerIsStopped: () => false,
+      schedulerJobCount: () => 1,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      status: string;
+      rules: number;
+      loop: string;
+      schedulerJobs: number;
+    };
+    expect(body.status).toBe("ok");
+    expect(body.rules).toBe(0);
+    expect(body.loop).toBe("ok");
+    expect(body.schedulerJobs).toBe(1);
+  });
+
+  it("GET /health (control-plane role) still returns 503 when pb is down", async () => {
+    const app = buildServer({
+      pb: fakePb(false),
+      logger,
+      role: "control-plane",
+      ruleCount: () => 0,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerJobCount: () => 1,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { status: string; pb: string };
+    expect(body.status).toBe("degraded");
+    expect(body.pb).toBe("down");
+  });
+
+  it("GET /health (control-plane role) still returns 503 when scheduler has no jobs", async () => {
+    // Even role-aware, the control-plane MUST surface a dead scheduler: if
+    // the fleet-job-producer entry is missing (schedulerJobs==0) nothing
+    // ticks, so /health must report degraded regardless of the rules gate.
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      role: "control-plane",
+      ruleCount: () => 0,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerJobCount: () => 0,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { status: string; loop: string };
+    expect(body.status).toBe("degraded");
+    expect(body.loop).toBe("no-jobs");
+  });
+
+  it("GET /health (control-plane role) still returns 503 when loop not alive", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      role: "control-plane",
+      ruleCount: () => 0,
+      loopAlive: () => false,
+      schedulerStarted: () => true,
+      schedulerJobCount: () => 1,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { status: string };
+    expect(body.status).toBe("degraded");
+  });
+
+  it("GET /health (worker/default role) still requires rules>0 (regression guard)", async () => {
+    // The role-aware change must NOT loosen the worker/legacy path: with no
+    // role (or a non-control-plane role) the rules>0 gate stays in force.
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 0,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerJobCount: () => 1,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+  });
+
   it("GET /metrics exposes Prometheus-format counters when metrics is provided", async () => {
     const metrics = createMetricsRegistry();
     metrics.inc("probe_runs", { dimension: "smoke" });

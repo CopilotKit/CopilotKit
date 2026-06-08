@@ -29,6 +29,7 @@ permissions:
 
 jobs:
   format:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -109,33 +110,28 @@ jobs:
           echo "PR-changed format candidates: $count"
           cat .pr-format-files.existing.txt
 
-      - name: Run formatter (check on push, fix on PR)
+      - name: Run formatter (fix on PR)
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
-              echo "No formattable files changed in this PR — skipping."
-              exit 0
-            fi
-            # oxfmt: auto-fix JS/TS/JSON/MD/CSS/YAML/HTML/Vue
-            if ! xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --write; then
-              echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
-            fi
-            # ruff: auto-fix Python
-            py_files=$(grep -E '\.py$' .pr-format-files.existing.txt || true)
-            if [ -n "$py_files" ]; then
-              echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
-            fi
-            if [ -n "$(git diff --name-only)" ]; then
-              echo "format_fixed=true" >> $GITHUB_ENV
-            fi
-            # Check mode: verify everything is formatted
-            xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --check
-            if [ -n "$py_files" ]; then
-              echo "$py_files" | xargs ruff format --check
-            fi
-          else
-            oxfmt --check .
-            ruff format --check .
+          if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
+            echo "No formattable files changed in this PR — skipping."
+            exit 0
+          fi
+          # oxfmt: auto-fix JS/TS/JSON/MD/CSS/YAML/HTML/Vue
+          if ! xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --write; then
+            echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+          fi
+          # ruff: auto-fix Python
+          py_files=$(grep -E '\.py$' .pr-format-files.existing.txt || true)
+          if [ -n "$py_files" ]; then
+            echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
+          fi
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "format_fixed=true" >> "$GITHUB_ENV"
+          fi
+          # Check mode: verify everything is formatted
+          xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --check
+          if [ -n "$py_files" ]; then
+            echo "$py_files" | xargs ruff format --check
           fi
 
       - name: Configure git for push
@@ -229,10 +225,12 @@ jobs:
 
       - name: Configure Nx Cloud environment
         run: |
-          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages" >> $GITHUB_ENV
-          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
-          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
-          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+          {
+            echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages"
+            echo "NX_CLOUD_NO_TIMEOUTS=true"
+            echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false"
+            echo "NX_NO_CLOUD=true"
+          } >> "$GITHUB_ENV"
 
       - name: Run publint and attw
         run: pnpm run check:packages

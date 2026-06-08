@@ -10,14 +10,14 @@
 #   - Runs L3 against /demos/agentic-chat (asserts: any non-empty response).
 #   - For services whose registry `demos` array includes `tool-rendering`,
 #     runs L4 against /demos/tool-rendering (asserts: response contains
-#     weather vocabulary from the reference list in e2e-smoke.ts).
+#     weather vocabulary from the reference list in d4-chat-roundtrip.ts).
 #   - Returns an aggregate `e2e-smoke:<slug>` ProbeResult and side-emits
 #     `chat:<slug>` + (when applicable) `tools:<slug>` via ctx.writer.
 #
-# Schedule: every 30 minutes. Compared to the 15-minute `smoke`
-# cadence this is deliberately slower — each L3+L4 tick pulls a real
-# chromium page, so 30m keeps memory footprint and bandwidth in check
-# while still catching regressions within a deploy window.
+# Schedule: every 15 minutes (`*/15`, matching the `smoke` cadence).
+# Each L3+L4 tick pulls a real chromium page, but the `max_concurrency`
+# cap below keeps memory footprint and bandwidth in check while still
+# catching regressions within a deploy window.
 #
 # timeout_ms (180s = 3 minutes) bounds the WHOLE driver invocation. The
 # driver subdivides internally: 60s page-timeout per level, 2 levels =
@@ -54,7 +54,11 @@ discovery:
       - showcase-shell-docs
       - showcase-shell-dojo
       # Harness service for .NET integration testing — not a demo service,
-      # deployed: false in manifest, no aimock wiring yet.
+      # deployed: true in manifest, but NOT probe-wired yet: no aimock fixtures
+      # and it shares the ms-agent-dotnet AsyncLocal bug. Excluded from every
+      # probe AND not rendered on the dashboard (see baseline-types.ts) so an
+      # unprobed service never shows stale red. Remove this exclusion only once
+      # it is fully probe-wired (aimock fixtures + the AsyncLocal fix).
       - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2

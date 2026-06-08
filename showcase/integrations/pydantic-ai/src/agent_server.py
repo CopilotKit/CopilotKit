@@ -37,10 +37,19 @@ from dotenv import load_dotenv
 # client at agent-module import time.
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
     install_global_httpx_hook,
 )
 
 install_global_httpx_hook()
+# PydanticAI dispatches SYNC tools (e.g. the declarative gen-ui
+# `generate_a2ui` tool, which makes a secondary OpenAI call) onto the
+# default ThreadPoolExecutor via loop.run_in_executor(...), which does NOT
+# propagate ContextVars to the worker thread. Without this, the
+# forwarded-header ContextVar set on the inbound request task is empty by
+# the time the secondary call's outbound httpx hook fires, and aimock
+# can't match the right fixture for the request.
+install_executor_contextvar_propagation()
 
 from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent

@@ -21,6 +21,9 @@ var app = builder.Build();
 app.UseMiddleware<AimockHeaderMiddleware>();
 
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+// CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
+// to emit the outbound-LLM header-forwarding breadcrumb.
+CvDiag.Logger = loggerFactory.CreateLogger("CvDiag");
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var openAiClient = CreateOpenAiClient(builder.Configuration, loggerFactory.CreateLogger("Program"));
 

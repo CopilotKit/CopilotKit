@@ -5,7 +5,14 @@ import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
 import { LinkIcon } from "lucide-react";
+import remarkGfm from "remark-gfm";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import { PropertyReference } from "@/components/property-reference";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   Callout,
   Cards,
@@ -74,6 +81,10 @@ export async function generateMetadata({
 // next-mdx-remote components map
 const mdxComponents = {
   PropertyReference,
+  // Render fenced code blocks through the same Shiki + Fumadocs CodeBlock
+  // chrome the main docs use (syntax highlighting + copy button), paired with
+  // the rehypeCode plugin wired into the MDXRemote options below.
+  pre: MdxCodeBlock,
   Callout,
   Cards,
   Card,
@@ -82,7 +93,7 @@ const mdxComponents = {
   OpsPlatformCTA,
   LinkIcon,
   Frame: ({ children }: { children: React.ReactNode }) => (
-    <div className="my-6 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+    <div className="shell-docs-radius-surface my-6 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)]">
       {children}
     </div>
   ),
@@ -177,7 +188,27 @@ export default async function ReferenceSlugPage({
           </div>
 
           <DocsBody className="reference-content prose-sm">
-            <MDXRemote source={cleanedContent} components={mdxComponents} />
+            <MDXRemote
+              source={cleanedContent}
+              components={mdxComponents}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
+                },
+              }}
+            />
           </DocsBody>
         </div>
       </DocsPage>

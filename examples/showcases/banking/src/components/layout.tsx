@@ -17,10 +17,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Member, MemberRole } from "@/app/api/v1/data";
+import type { Member } from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname } from "next/navigation";
 
 interface LayoutProps {
@@ -97,10 +98,9 @@ function UserNavigation({
 export function LayoutComponent({ children }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const pathname = usePathname();
-  console.log("pathname", pathname.split("/")[1]);
-  useCopilotReadable({
+  useAgentContext({
     description: "The current page where the user is",
-    value: pathname.split("/")[1] == "" ? "cards" : pathname.split("/")[1],
+    value: pathname.split("/")[1] === "" ? "cards" : pathname.split("/")[1],
   });
 
   return (

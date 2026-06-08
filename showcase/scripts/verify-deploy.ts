@@ -22,7 +22,7 @@
 
 import { runDriver } from "./verify-deploy.drivers";
 import type { ProbeRunner } from "./verify-deploy.drivers";
-import { SERVICES, domainFor, resolveEnv } from "./railway-envs";
+import { SERVICES, domainFor, probeEnabled, resolveEnv } from "./railway-envs";
 import type { EnvName, ProbeDriver } from "./railway-envs";
 
 export interface ParsedArgs {
@@ -207,8 +207,12 @@ export interface ProbeTarget {
 export interface ResolveOpts {
   env: EnvName;
   services?: string[];
-  /** Test seam: shallow-merge a partial entry over the SSOT before resolve. */
-  overrides?: Record<string, { domains?: { staging: string; prod: string } }>;
+  /**
+   * Test seam: shallow-merge a partial entry over the SSOT before resolve.
+   * `domains` is keyed by env name (matches the open `EnvName`); callers
+   * supply at least the env under test.
+   */
+  overrides?: Record<string, { domains?: Record<EnvName, string> }>;
 }
 
 export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
@@ -226,7 +230,7 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
           `unknown service "${name}" (not in SSOT). Run \`bin/showcase services\` to list known names.`,
         );
       }
-      if (!entry.probe[opts.env]) {
+      if (!probeEnabled(name, opts.env)) {
         throw new Error(
           `service "${name}" is not probe-eligible for env "${opts.env}" (probe.${opts.env}=false in SSOT)`,
         );
@@ -235,7 +239,7 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
   }
   for (const [name, entry] of Object.entries(SERVICES)) {
     if (filter && !filter.has(name)) continue;
-    if (!entry.probe[opts.env]) continue;
+    if (!probeEnabled(name, opts.env)) continue;
     const overrideDomains = opts.overrides?.[name]?.domains;
     const rawHost = overrideDomains
       ? overrideDomains[opts.env]
@@ -255,7 +259,7 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
     // bypasses `domainFor` entirely; `asHost` is the sole gate that
     // catches those for both paths.
     const host = asHost(rawHost);
-    targets.push({ name, host, driver: entry.probe.driver });
+    targets.push({ name, host, driver: entry.probeDriver });
   }
   return targets.sort((a, b) => a.name.localeCompare(b.name));
 }

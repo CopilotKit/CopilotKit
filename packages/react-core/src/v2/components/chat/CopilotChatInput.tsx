@@ -456,7 +456,15 @@ export function CopilotChatInput({
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (isProcessing) {
+      // When the composer holds sendable text, Enter ALWAYS sends — even
+      // while a run is in flight. A non-empty composer is unambiguous intent
+      // to send a new message, not to stop the agent. This is what unblocks
+      // consecutive interrupt pills: after picking turn-1's slot the resume
+      // run is still streaming (`isProcessing` true) when the user types and
+      // Enters turn-2's prompt; routing that Enter to `onStop` aborted the
+      // run and the next interrupt never surfaced. Stop stays reachable via
+      // Enter only when the composer is empty (the genuine stop affordance).
+      if (isProcessing && !canSend) {
         onStop?.();
       } else {
         send();
@@ -510,6 +518,10 @@ export function CopilotChatInput({
   const canStop = !!onStop;
 
   const handleSendButtonClick = () => {
+    // The send/stop button is an explicit control: when a run is in flight it
+    // renders as a Stop (Square) button, so a click maps to stop regardless of
+    // composer contents. The Enter key behaves differently (see handleKeyDown):
+    // a non-empty composer + Enter sends a new message rather than stopping.
     if (isProcessing) {
       onStop?.();
       return;

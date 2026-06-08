@@ -36,9 +36,9 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Model used for the secondary A2UI planner call. Overridable via A2UI_MODEL
-# env var. gemini-2.5-flash is cheap, fast, and supports forced tool-calling
+# env var. gemini-3.1-flash-lite is fast and supports forced tool-calling
 # via ToolConfig.function_calling_config.mode="ANY".
-_DEFAULT_A2UI_MODEL = "gemini-2.5-flash"
+_DEFAULT_A2UI_MODEL = "gemini-3.1-flash-lite"
 
 
 def _a2ui_model() -> str:

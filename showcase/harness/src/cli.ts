@@ -76,6 +76,10 @@ program
   .option("--keep", "don't stop auto-started packages after test")
   .option("--live", "write results to PocketBase for dashboard")
   .option("--rebuild", "force Docker rebuild before running")
+  .option(
+    "--direct",
+    "legacy/debug: run d5/d6 via the in-process driver instead of the fleet control-plane",
+  )
   .action(
     async (
       target: string,
@@ -91,6 +95,7 @@ program
         keep?: boolean;
         live?: boolean;
         rebuild?: boolean;
+        direct?: boolean;
       },
     ) => {
       const config = loadConfig();

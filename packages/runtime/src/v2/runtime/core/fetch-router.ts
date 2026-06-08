@@ -199,5 +199,10 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
+  // /annotate (1 segment) — annotate a thread event
+  if (len >= 1 && segments[len - 1] === "annotate") {
+    return { method: "annotate" };
+  }
+
   return null;
 }

@@ -2,6 +2,8 @@ package com.copilotkit.showcase.springai;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -18,6 +20,8 @@ import java.util.Map;
 @Component
 public class AimockHeaderInterceptor implements HandlerInterceptor {
 
+    private static final Logger log = LoggerFactory.getLogger(AimockHeaderInterceptor.class);
+
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
@@ -33,6 +37,10 @@ public class AimockHeaderInterceptor implements HandlerInterceptor {
             }
         }
         AimockHeaderContext.set(headers);  // Always set, even when empty — clears stale state
+        // CVDIAG inbound breadcrumb: the x-* headers (incl. x-diag-run-id /
+        // x-diag-hops / x-aimock-context) have now been captured into the
+        // InheritableThreadLocal on this Tomcat request thread.
+        CvDiag.logInbound(log, "backend-spring-ai", AimockHeaderContext.get());
         return true;
     }
 

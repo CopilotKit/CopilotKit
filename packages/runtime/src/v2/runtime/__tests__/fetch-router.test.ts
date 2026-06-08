@@ -55,6 +55,11 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "threads/list" });
     });
 
+    it("matches POST /annotate", () => {
+      const result = matchRoute("/api/copilotkit/annotate", basePath);
+      expect(result).toEqual({ method: "annotate" });
+    });
+
     it("matches POST /threads/subscribe", () => {
       const result = matchRoute("/api/copilotkit/threads/subscribe", basePath);
       expect(result).toEqual({ method: "threads/subscribe" });
@@ -229,6 +234,11 @@ describe("fetch-router", () => {
     it("matches /threads suffix", () => {
       const result = matchRoute("/anything/threads");
       expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches /annotate suffix", () => {
+      const result = matchRoute("/anything/annotate");
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches /threads/subscribe suffix", () => {

@@ -20,11 +20,26 @@ the installed package at the module level) so the propagation logic
 is identical to the full middleware. No App-Context injection, no
 tool-merging, no state-to-prompt surfacing, no Bedrock message
 fix-up.
+
+CVDIAG instrumentation (diagnostic only — DOES NOT change WHERE
+headers come from): after the existing
+``_extract_forwarded_headers_from_config()`` populates copilotkit's
+forwarded-headers ContextVar, we read it back via
+``get_forwarded_headers()`` and emit a structured ``CVDIAG`` log line
+at the configurable-read boundary recording whether
+``x-aimock-context`` actually arrived on the LangGraph configurable
+channel (``header_present=false`` is the alarm we are hunting). We
+also append this layer's hop tag to ``x-diag-hops`` on the SAME
+ContextVar the httpx hook already forwards from — so the breadcrumb
+and correlation headers (``x-diag-run-id``, ``x-diag-hops``) ride
+along on the outbound LLM call exactly the way ``x-aimock-context``
+does, without introducing any new forwarding source.
 """
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+import logging
+from typing import Any, Awaitable, Callable, Dict
 
 from langchain.agents.middleware import (
     AgentMiddleware,
@@ -36,11 +51,108 @@ from langchain.agents.middleware import (
 # Reuse the installed copilotkit's existing header-forwarding helpers so
 # the behaviour stays bit-identical to the full CopilotKitMiddleware's
 # header-propagation step.  These are module-level functions in
-# copilotkit 0.1.93's copilotkit_lg_middleware module.
+# copilotkit 0.1.94's copilotkit_lg_middleware module.
 from copilotkit.copilotkit_lg_middleware import (
     _extract_forwarded_headers_from_config,
     _ensure_httpx_hook,
 )
+
+# CVDIAG-only: read/append the forwarded-header ContextVar copilotkit
+# already populates. set_forwarded_headers is used SOLELY to append the
+# diagnostic hop breadcrumb onto the SAME channel x-aimock-context rides;
+# it does not introduce a new forwarding source.
+from copilotkit.header_propagation import (
+    get_forwarded_headers,
+    set_forwarded_headers,
+)
+
+logger = logging.getLogger(__name__)
+
+_CVDIAG_COMPONENT = "backend-langgraph-fastapi"
+_CVDIAG_HOP_TAG = "backend-langgraph-fastapi"
+
+
+def _cvdiag(
+    boundary: str,
+    headers: Dict[str, str],
+    status: str,
+    *,
+    hop: Any = "-",
+    error: str = "",
+) -> None:
+    """Emit a single CVDIAG log line in the shared cross-language convention.
+
+    Never logs full header values — only a 12-char prefix of
+    ``x-aimock-context``.
+    """
+    slug = headers.get("x-aimock-context")
+    header_present = isinstance(slug, str) and len(slug) > 0
+    run_id = headers.get("x-diag-run-id", "none")
+    test_id = headers.get("x-test-id", "none")
+    prefix = slug[:12] if header_present else ""
+    logger.info(
+        "CVDIAG component=%s boundary=%s run_id=%s slug=%s "
+        "header_present=%s header_value_prefix=%s hop=%s status=%s "
+        "test_id=%s error=%s",
+        _CVDIAG_COMPONENT,
+        boundary,
+        run_id,
+        slug if header_present else "MISSING",
+        str(header_present).lower(),
+        prefix,
+        hop,
+        status,
+        test_id,
+        error,
+    )
+
+
+def _instrument_and_breadcrumb() -> None:
+    """Read the configurable-read result, log it, and append the diag hop.
+
+    Called immediately AFTER
+    ``_extract_forwarded_headers_from_config()`` has populated the
+    ContextVar. Reads the headers back, emits the configurable-read
+    CVDIAG line (wrapping the previously-silent "no x-aimock-context in
+    configurable" case as an alarm), then — only when x-aimock-context
+    is present — appends this layer's hop tag to ``x-diag-hops`` on the
+    SAME ContextVar so the breadcrumb rides the existing forwarding path.
+    """
+    headers = dict(get_forwarded_headers())
+    has_context = (
+        isinstance(headers.get("x-aimock-context"), str)
+        and len(headers.get("x-aimock-context", "")) > 0
+    )
+
+    if has_context:
+        _cvdiag("configurable-read", headers, "ok")
+    else:
+        # The alarm we are hunting: the configurable channel reached this
+        # middleware without x-aimock-context. Surface it instead of the
+        # previous silent no-op.
+        _cvdiag(
+            "configurable-read",
+            headers,
+            "miss" if headers else "error",
+            error="x-aimock-context-absent-in-configurable"
+            if headers
+            else "no-forwarded-headers-in-configurable",
+        )
+        # Nothing to breadcrumb onto — do not invent a forwarding source.
+        return
+
+    # Append this layer's hop tag to x-diag-hops on the SAME ContextVar the
+    # httpx hook forwards from. This rides the existing path; no new source.
+    existing_hops = headers.get("x-diag-hops", "")
+    headers["x-diag-hops"] = (
+        f"{existing_hops},{_CVDIAG_HOP_TAG}"
+        if isinstance(existing_hops, str) and existing_hops
+        else _CVDIAG_HOP_TAG
+    )
+    set_forwarded_headers(headers)
+
+    hop = len([h for h in headers["x-diag-hops"].split(",") if h])
+    _cvdiag("outbound-llm", headers, "ok", hop=hop)
 
 
 class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
@@ -59,6 +171,10 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
 
     No App-Context injection, no tool-merging, no state-surfacing,
     no Bedrock message fix-up — strictly header propagation.
+
+    CVDIAG: ``_instrument_and_breadcrumb()`` is inserted between the
+    two steps purely to OBSERVE the configurable-read boundary and tag
+    the existing breadcrumb. It does not change where headers come from.
     """
 
     @property
@@ -71,6 +187,7 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
+        _instrument_and_breadcrumb()
         _ensure_httpx_hook(request.model)
         return handler(request)
 
@@ -80,5 +197,6 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
+        _instrument_and_breadcrumb()
         _ensure_httpx_hook(request.model)
         return await handler(request)

@@ -1,4 +1,7 @@
 import type { Browser, BrowserContext } from "playwright";
+import { sampleResourceGauges, readCgroupPids } from "./resource-gauges.js";
+import type { ResourceGauges } from "./resource-gauges.js";
+import { formatCvdiag } from "./cv-diag.js";
 
 /**
  * Default delay the launch-serialization gate waits AFTER each chromium
@@ -63,6 +66,71 @@ const MAX_TRANSIENT_SERVE_RETRIES = 1;
  * waiters) or the pool shuts down.
  */
 const DEFAULT_SELF_HEAL_INTERVAL_MS = 2_000;
+
+/**
+ * Self-heal CIRCUIT-BREAKER policy. The OUTAGE this guards (verified from live
+ * staging logs — the RECURRING BrowserPool collapse #5185/#5221/#5225 each
+ * chipped at but never killed): after the long-lived harness container runs
+ * ~hours under sustained d6 cron load, chromium enters a LAUNCH crash-loop —
+ * every `chromium.launch()` throws `browserType.launch: Target page, context or
+ * browser has been closed`. The set empties, `startSelfHeal()` kicks in, and its
+ * loop just RELAUNCHES into the SAME wedged state over and over
+ * (`self-heal-launch-failed` repeating, 28× in ~19s observed) — backing off
+ * `selfHealIntervalMs` between identical attempts but NEVER doing anything
+ * different to escape (the wedge is the cgroup PID/thread ceiling — a
+ * platform-fixed, demand-side ceiling that an immediate relaunch only re-pins).
+ * `acquire()` therefore has no contexts forever → blocks to timeout fleet-wide.
+ * Only a container RESTART cleared it — reactive, not durable.
+ *
+ * The breaker makes the self-heal loop ESCAPE: after
+ * `selfHealHardRecoveryThreshold` CONSECUTIVE self-heal launch failures, instead
+ * of looping another identical relaunch the pool performs a HARD recovery — a
+ * PACED cold relaunch that backs the loop off to give the thread-exhausted
+ * kernel time to relax before the next cold launch (NO `/tmp` purge — the wedge
+ * is the cgroup pids ceiling, mitigated demand-side, not a stale-profile-dir
+ * problem). Any successful launch resets the
+ * consecutive counter. If `selfHealMaxHardRecoveries` consecutive HARD
+ * recoveries ALSO fail to revive a single browser, the pool surfaces a LOUD
+ * `browser-pool.pool-unrecoverable` alarm (via `onUnrecoverable`) and stops the
+ * heal loop rather than silently spinning forever — the operator signal that a
+ * redeploy is genuinely required.
+ *
+ * Tunable on staging via env (BROWSER_POOL_SELF_HEAL_* ) without a code change.
+ */
+const DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD = 4;
+const DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES = 3;
+
+/**
+ * Default heartbeat interval (ms) for the periodic baseline gauge snapshot. A
+ * ~45s cadence gives a baseline PID/thread trend BETWEEN lifecycle events — so
+ * a slow creep toward the cgroup `pids.max` ceiling (the proven wedge) is
+ * visible in the durable history even when no transition fired in the window.
+ * Cheap enough at this cadence (a handful of /proc reads + two short `df`
+ * execs); the hot acquire/release path uses only a cheap subset, never a full
+ * sample. Tunable on staging via BROWSER_POOL_HEARTBEAT_MS; 0 disables it.
+ */
+const DEFAULT_HEARTBEAT_MS = 45_000;
+
+/**
+ * Resolve a STRICTLY-POSITIVE numeric tunable with explicit-arg > env > default
+ * precedence, then CLAMP the result to `>= 1`. Used for the circuit-breaker
+ * thresholds (`selfHealHardRecoveryThreshold` / `selfHealMaxHardRecoveries`)
+ * whose guards are `> 0`: a `0` (from either source, or a config typo) would
+ * silently DISABLE both the hard-recovery escape AND the give-up alarm, sending
+ * the loop right back to the infinite-silent-spin this breaker exists to kill.
+ * Unlike `resolveNonNegative` (where an explicit `0` legitimately disables
+ * retries/backoff), a `0` here is a footgun, so it is clamped up to the minimum
+ * safe value of 1 rather than honored. Mirrors `resolveNonNegative`'s
+ * precedence; differs only in the floor.
+ */
+function resolvePositive(
+  explicit: number | undefined,
+  envRaw: string | undefined,
+  fallback: number,
+): number {
+  const resolved = resolveNonNegative(explicit, envRaw, fallback);
+  return resolved < 1 ? 1 : resolved;
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -129,6 +197,30 @@ export interface BrowserPoolStats {
 }
 
 /**
+ * The fleet WORKER's live "can I take more work?" signal, returned by
+ * `budget()`. A worker only claims a new pull-queue job when it has free
+ * context budget (`available > 0`) AND headroom under its cgroup pids ceiling
+ * — this is what keeps each worker safely below the platform-fixed
+ * `pids.max=1000` thread/PID ceiling (the PROVEN wedge). Deliberately CHEAP:
+ * in-memory context counts plus the same cheap cgroup-PID-only read the hot
+ * acquire/release path uses — no /proc walk, no `df` (consistent with the
+ * #5234 hot-path subset). `pidsCurrent`/`pidsMax` degrade to -1 when the
+ * cgroup controller is unreadable (e.g. off-Linux).
+ */
+export interface BrowserPoolBudget {
+  /** Live contexts currently checked out across the pool. */
+  inUse: number;
+  /** Remaining context capacity: `max - inUse` (never negative). */
+  available: number;
+  /** Global context cap (`maxContexts`). */
+  max: number;
+  /** cgroup `pids.current` (current PID/thread count), or -1 if unreadable. */
+  pidsCurrent: number;
+  /** cgroup `pids.max` ceiling, or -1 if unbounded/unreadable. */
+  pidsMax: number;
+}
+
+/**
  * Minimal logger surface the pool uses for lifecycle events. Matches the
  * harness-wide `Logger` interface but only the `info` method is required;
  * `warn`/`error` are OPTIONAL so existing callers (tests, legacy boot paths)
@@ -150,6 +242,14 @@ interface PoolLogger {
  * spawning a real chromium process.
  */
 export type LaunchBrowser = () => Promise<Browser>;
+
+/**
+ * Reads the cgroup PID controller counters (`pids.current` / `pids.max`).
+ * Matches `readCgroupPids` from `resource-gauges.ts`; injectable so the fleet
+ * worker's budget gate can be tested without a live cgroup filesystem. `max`
+ * is -1 when the controller is absent or unbounded (cgroup's `max` sentinel).
+ */
+export type CgroupPidsReader = () => { current: number; max: number };
 
 /**
  * One long-lived browser PROCESS in the fixed set. Contexts are pooled over
@@ -203,9 +303,15 @@ export interface BrowserPoolOptions {
   /** Number of long-lived browser processes in the fixed set. Default 3
    *  (env BROWSER_POOL_BROWSERS, legacy fallback BROWSER_POOL_SIZE). */
   browsers?: number;
-  /** Global cap on concurrently-live contexts across all browsers. Default
-   *  40 (env BROWSER_POOL_MAX_CONTEXTS) — covers D6 peak 32 + D5 peak 8.
-   *  acquire() past this pends a waiter. */
+  /** Global cap on concurrently-live contexts across all browsers. Default 24
+   *  (env BROWSER_POOL_MAX_CONTEXTS). LOWERED from 40 to reduce THREAD demand
+   *  against the platform-fixed cgroup `pids.max=1000` ceiling — the PROVEN
+   *  wedge: each context backs a chromium renderer (~15 threads), so a d6 burst
+   *  at 40 contexts (~32 concurrent) drove `pids.current` to ~850-900 and a
+   *  concurrent recovery-relaunch pushed it over 1000 → pthread EAGAIN →
+   *  crash-loop. 24 keeps peak demand well under the ceiling while still
+   *  covering the d6 peak. Env-overridable. acquire() past this pends a
+   *  waiter. */
   maxContexts?: number;
   /** Per-browser served-context hygiene threshold: once a browser has served
    *  >= recycleAfter contexts AND has no live contexts, it is recycled (its
@@ -215,6 +321,9 @@ export interface BrowserPoolOptions {
   logger?: PoolLogger;
   /** Injected launcher (tests). Defaults to the real chromium launcher. */
   launchBrowser?: LaunchBrowser;
+  /** Injected cgroup PID-counter reader (tests). Powers the hot-path gauge AND
+   *  the worker `budget()` gate. Defaults to the real `readCgroupPids`. */
+  cgroupPidsReader?: CgroupPidsReader;
   /** Stagger between serialized launches (ms). Tests pass 0. */
   launchStaggerMs?: number;
   /** Max crash-recovery relaunch retries before an entry is evicted. Default 5
@@ -230,6 +339,16 @@ export interface BrowserPoolOptions {
    *  emptied. Default 2000 (env BROWSER_POOL_SELF_HEAL_INTERVAL_MS). Tests pass
    *  a small value. */
   selfHealIntervalMs?: number;
+  /** Number of CONSECUTIVE self-heal launch failures after which the loop stops
+   *  retrying the identical relaunch and performs a HARD recovery (a paced cold
+   *  relaunch). Default 4 (env BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD).
+   *  Tests pass a small value to trip the breaker deterministically. */
+  selfHealHardRecoveryThreshold?: number;
+  /** Number of CONSECUTIVE HARD recoveries that may fail to revive any browser
+   *  before the pool gives up and fires the `pool-unrecoverable` alarm (instead
+   *  of spinning forever). Default 3 (env
+   *  BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES). */
+  selfHealMaxHardRecoveries?: number;
   /**
    * Mid-life capacity-loss alarm hook. Invoked when the browser set EMPTIES
    * (every entry evicted) — the silent-outage gap the original code had, where
@@ -245,6 +364,84 @@ export interface BrowserPoolOptions {
    * clear the degraded signal back to green.
    */
   onRecovered?: () => void;
+  /**
+   * Unrecoverable-alarm hook. Invoked when the self-heal circuit-breaker has
+   * exhausted `selfHealMaxHardRecoveries` consecutive HARD recoveries (paced
+   * cold relaunches) WITHOUT reviving a single browser — i.e. the wedge survived
+   * every paced relaunch, so a redeploy is genuinely required. The
+   * orchestrator wires this to a LOUD operator alert (the signal the old
+   * silent-spin path never sent). The breaker counters are passed so the alarm
+   * can report how hard the pool tried before giving up. Best-effort: a throwing
+   * hook is caught + logged, never crashes the pool.
+   */
+  onUnrecoverable?: (info: BrowserPoolUnrecoverableInfo) => void;
+  /**
+   * DURABLE forensic snapshot hook. Invoked with a FULL gauge sample + pool
+   * stats + per-browser breakdown on every MEANINGFUL pool condition
+   * (heartbeat + degraded/unrecoverable/launch-fail/crash transitions). The
+   * orchestrator wires this to the `resource_snapshots` PB writer so the gauge
+   * history survives the container RESTART that ends a wedge (Railway stdout
+   * rolls off; in-memory is cleared on restart — durable PB is the only
+   * post-wedge-retrievable trail). Best-effort: a throwing hook is caught +
+   * logged, never crashes the pool, and the snapshot writer itself swallows PB
+   * errors. Synchronous from the pool's perspective — the writer does its own
+   * fire-and-forget async persistence.
+   */
+  onSnapshot?: (snapshot: BrowserPoolSnapshot) => void;
+  /**
+   * Heartbeat interval (ms) for the periodic baseline gauge sample/snapshot.
+   * Default 45000 (env BROWSER_POOL_HEARTBEAT_MS). A heartbeat gives a baseline
+   * trend BETWEEN transition events so a slow PID-ceiling creep is visible even
+   * when no lifecycle event fires. 0 disables the heartbeat (tests). Driven by
+   * a self-rescheduling loop gated on the shutdown signal — NOT a raw
+   * setInterval (which would leak a timer past shutdown).
+   */
+  heartbeatMs?: number;
+}
+
+/**
+ * Full forensic snapshot handed to `onSnapshot`. Bundles the OS gauges, the
+ * pool's capacity stats, the per-browser breakdown, and the naming `event` so
+ * the durable writer can persist one row without re-sampling.
+ */
+export interface BrowserPoolSnapshot {
+  /** Pool condition that triggered the snapshot (`heartbeat`, `degraded`,
+   *  `unrecoverable`, `launch-fail`, `crash`, ...). */
+  event: string;
+  gauges: ResourceGauges;
+  stats: BrowserPoolStats;
+  perBrowser: BrowserPoolPerBrowserSnapshot[];
+}
+
+/** Per-browser breakdown entry in a {@link BrowserPoolSnapshot}. Pure counters
+ *  — no secrets — safe for the public-read PB collection. */
+export interface BrowserPoolPerBrowserSnapshot {
+  index: number;
+  liveContexts: number;
+  servedContexts: number;
+  recycling: boolean;
+}
+
+/**
+ * Breaker counters handed to the `onUnrecoverable` hook so the operator alarm
+ * can describe how hard the pool tried before giving up.
+ */
+export interface BrowserPoolUnrecoverableInfo {
+  /** Target browser-process count the pool could not revive a single one of. */
+  browserCount: number;
+  /** Acquire waiters still blocked at the moment of give-up. */
+  waiters: number;
+  /** Consecutive failed HARD recoveries that tripped the give-up. */
+  maxHardRecoveries: number;
+  /** cgroup `pids.current` at give-up — the PROVEN wedge signal. Naming the
+   *  measured PID count (vs the `pids.max` ceiling) in the alarm payload tells
+   *  the operator the wedge was PID/thread-ceiling exhaustion, not a guess. -1
+   *  off-Linux / when the cgroup PID controller is unreadable. */
+  cgroupPidsCurrent: number;
+  /** cgroup `pids.max` ceiling at give-up (-1 = unbounded / unavailable). */
+  cgroupPidsMax: number;
+  /** Process-tree thread count at give-up (the demand against `pids.max`). */
+  treeThreadCount: number;
 }
 
 /**
@@ -278,13 +475,36 @@ export class BrowserPool {
   });
   private readonly logger?: PoolLogger;
   private readonly injectedLaunchBrowser?: LaunchBrowser;
+  // cgroup PID-counter reader for the hot-path gauge AND the worker budget()
+  // gate. Injectable so the budget signal is testable without a live cgroup
+  // filesystem; defaults to the real readCgroupPids.
+  private readonly cgroupPidsReader: CgroupPidsReader;
 
   // Crash-recovery relaunch backpressure (fix #1) + self-heal (fix #2) policy.
   private readonly relaunchMaxRetries: number;
   private readonly relaunchBackoffMs: number;
   private readonly selfHealIntervalMs: number;
+  // Self-heal circuit-breaker (the root-cause-agnostic backstop for the
+  // RECURRING wedge): trip a HARD recovery (a paced cold relaunch) after this
+  // many consecutive self-heal launch failures, and give up (loud
+  // `onUnrecoverable` alarm) after this many consecutive failed HARD recoveries.
+  // This stops the infinite silent spin and signals "redeploy required" on ANY
+  // wedge — including the PROVEN cgroup PID/thread-ceiling exhaustion.
+  private readonly selfHealHardRecoveryThreshold: number;
+  private readonly selfHealMaxHardRecoveries: number;
   private readonly onDegraded?: () => void;
   private readonly onRecovered?: () => void;
+  private readonly onUnrecoverable?: (
+    info: BrowserPoolUnrecoverableInfo,
+  ) => void;
+  // DURABLE forensic snapshot hook + heartbeat. The hook persists a full gauge
+  // sample to PocketBase (survives the wedge→restart); the heartbeat gives a
+  // baseline trend between transition events. The heartbeat is a
+  // self-rescheduling loop gated on `shutdownSignal` (NOT a raw setInterval) so
+  // it never leaks a timer past shutdown.
+  private readonly onSnapshot?: (snapshot: BrowserPoolSnapshot) => void;
+  private readonly heartbeatMs: number;
+  private heartbeatRunning = false;
   // True once the set has emptied and onDegraded fired; cleared when self-heal
   // succeeds. Guards against firing the degraded alarm / spawning a second
   // self-heal loop repeatedly.
@@ -299,9 +519,26 @@ export class BrowserPool {
   private readonly launchStaggerMs: number;
   private launchChain: Promise<unknown> = Promise.resolve();
 
+  // In-flight launches. Every `launchBrowser()` registers its launch promise
+  // here BEFORE awaiting `rawLaunchBrowser()` and removes it on settle. This is
+  // the atomicity fix for the close-during-launch teardown race: a browser that
+  // is mid-`launch()` is NOT yet in `this.browsers` and has NO disconnect
+  // handler, so it is invisible to every teardown path (shutdown's close pass,
+  // recycle, the disconnect handler). Under the self-heal/relaunch storm a
+  // teardown therefore raced an in-flight launch — closing the browser
+  // underneath it (`browserType.launch: Target page ... has been closed`,
+  // SIGTRAP) or leaking it entirely. shutdown() now DRAINS this set (so it waits
+  // for every in-flight launch to settle before its close pass), and
+  // `launchBrowser` re-checks `isShutdown` the instant a launch settles: if a
+  // shutdown intervened it closes the freshly-launched browser cleanly THEN,
+  // exactly once, instead of leaving it for a teardown that already ran.
+  private pendingLaunches = new Set<Promise<unknown>>();
+
   constructor(options: BrowserPoolOptions = {}) {
     this.logger = options.logger;
     this.injectedLaunchBrowser = options.launchBrowser;
+    this.cgroupPidsReader =
+      options.cgroupPidsReader ?? (() => readCgroupPids());
 
     const envBrowsers = process.env.BROWSER_POOL_BROWSERS
       ? parseInt(process.env.BROWSER_POOL_BROWSERS, 10)
@@ -319,11 +556,14 @@ export class BrowserPool {
     const envMax = process.env.BROWSER_POOL_MAX_CONTEXTS
       ? parseInt(process.env.BROWSER_POOL_MAX_CONTEXTS, 10)
       : undefined;
+    // Default 24 (lowered from 40) to cap THREAD demand under the platform-fixed
+    // cgroup pids.max=1000 ceiling — the proven wedge. Env-overridable via
+    // BROWSER_POOL_MAX_CONTEXTS.
     this.maxContexts =
       options.maxContexts ??
       (envMax !== undefined && !Number.isNaN(envMax) && envMax > 0
         ? envMax
-        : 40);
+        : 24);
 
     const envRecycle = process.env.BROWSER_POOL_RECYCLE_AFTER
       ? parseInt(process.env.BROWSER_POOL_RECYCLE_AFTER, 10)
@@ -375,8 +615,214 @@ export class BrowserPool {
       process.env.BROWSER_POOL_SELF_HEAL_INTERVAL_MS,
       DEFAULT_SELF_HEAL_INTERVAL_MS,
     );
+    // Breaker thresholds are CLAMPED to >= 1 (not merely non-negative): a `0`
+    // would disable the `> 0` guards on the hard-recovery escape AND the give-up
+    // alarm, reverting to the infinite-silent-spin this breaker fixes. A config
+    // typo (or an explicit 0) can't silently disable the safety net.
+    this.selfHealHardRecoveryThreshold = resolvePositive(
+      options.selfHealHardRecoveryThreshold,
+      process.env.BROWSER_POOL_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
+      DEFAULT_SELF_HEAL_HARD_RECOVERY_THRESHOLD,
+    );
+    this.selfHealMaxHardRecoveries = resolvePositive(
+      options.selfHealMaxHardRecoveries,
+      process.env.BROWSER_POOL_SELF_HEAL_MAX_HARD_RECOVERIES,
+      DEFAULT_SELF_HEAL_MAX_HARD_RECOVERIES,
+    );
     this.onDegraded = options.onDegraded;
     this.onRecovered = options.onRecovered;
+    this.onUnrecoverable = options.onUnrecoverable;
+    this.onSnapshot = options.onSnapshot;
+    this.heartbeatMs = resolveNonNegative(
+      options.heartbeatMs,
+      process.env.BROWSER_POOL_HEARTBEAT_MS,
+      DEFAULT_HEARTBEAT_MS,
+    );
+  }
+
+  /**
+   * EARLY-WARNING INSTRUMENTATION: sample + log the OS resource gauges so a
+   * burst approaching the cgroup `pids.max` ceiling (the PROVEN wedge cause) is
+   * observable, and an EAGAIN at `launchBrowser()` correlates to a measured
+   * `pids.current` near `pids.max`. Logged at `info` with the headline
+   * `pids.current`/`pids.max`/thread fields plus the refuted-candidate
+   * differential (FD/RSS/shm/tmp). Best-effort: a sampling failure is swallowed
+   * (degrades to -1 fields off-Linux), never on the critical path. `label`
+   * names the call site (`launch`, `self-heal-launch-failed`, probe ticks).
+   */
+  private logGauges(label: string): void {
+    try {
+      const g = sampleResourceGauges();
+      this.logger?.info("browser-pool.resource-gauges", {
+        label,
+        ...g,
+      });
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.resource-gauges-failed", {
+        label,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Build the per-browser breakdown for a forensic snapshot. Pure counters
+   * (index / live-context count / served count / recycling flag) — no secrets —
+   * safe for the public-read `resource_snapshots` PB collection.
+   */
+  private perBrowserSnapshot(): BrowserPoolPerBrowserSnapshot[] {
+    return this.browsers.map((entry, index) => ({
+      index,
+      liveContexts: entry.liveContexts.size,
+      servedContexts: entry.servedContexts,
+      recycling: entry.recycling,
+    }));
+  }
+
+  /**
+   * FULL forensic snapshot of a MEANINGFUL pool condition: sample the OS gauges
+   * ONCE, log them with the event label, and fire the durable `onSnapshot` hook
+   * (which persists to PocketBase so the trail survives the wedge→restart). Use
+   * this on the meaningful transitions (degraded/unrecoverable/launch-fail/
+   * crash/recycle/heartbeat/init/shutdown), NOT on the hot acquire/release path
+   * — a full sample is a handful of /proc reads + two `df` execs, too costly per
+   * acquire. The hot path uses `readHotGauges` (a cheap cgroup-PID-only subset
+   * folded into the existing acquire/release log line).
+   *
+   * Best-effort throughout: a gauge-sampling failure logs at warn and skips the
+   * snapshot; a throwing `onSnapshot` hook is caught + logged. Neither ever
+   * propagates into the pool's lifecycle paths.
+   */
+  private snapshot(event: string): void {
+    let gauges: ResourceGauges;
+    try {
+      gauges = sampleResourceGauges();
+    } catch (err) {
+      this.logger?.warn?.("browser-pool.resource-gauges-failed", {
+        label: event,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // CVDIAG: gauge sampling failed → the snapshot is SKIPPED. Surface the
+      // miss on stdout so a post-wedge lookback can tell "no snapshot row for
+      // this transition" apart from "snapshot fired but PB write dropped".
+      console.log(
+        formatCvdiag({
+          component: `browser-pool:snapshot:${event}`,
+          boundary: "als-snapshot",
+          status: "error",
+          error: `gauge-sample-failed: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
+      return;
+    }
+    this.logger?.info("browser-pool.resource-gauges", {
+      label: event,
+      ...gauges,
+    });
+    // CVDIAG: a snapshot was actually SAMPLED for this pool condition. Emitted
+    // whether or not an `onSnapshot` sink is wired (the durable PB write is the
+    // orchestrator's hook below) so the live fleet logs confirm snapshots fire.
+    console.log(
+      formatCvdiag({
+        component: `browser-pool:snapshot:${event}`,
+        boundary: "als-snapshot",
+        status: "ok",
+        error: this.onSnapshot ? "sink=wired" : "sink=none",
+      }),
+    );
+    if (!this.onSnapshot) return;
+    try {
+      this.onSnapshot({
+        event,
+        gauges,
+        stats: this.stats(),
+        perBrowser: this.perBrowserSnapshot(),
+      });
+    } catch (err) {
+      this.logger?.error?.("browser-pool.hook-failed", {
+        hook: "onSnapshot",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // CVDIAG: the durable snapshot sink threw — the gauges were sampled but
+      // will NOT be persisted, so flag the durability gap on stdout.
+      console.log(
+        formatCvdiag({
+          component: `browser-pool:snapshot:${event}`,
+          boundary: "als-snapshot",
+          status: "error",
+          error: `onSnapshot-hook-failed: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      );
+    }
+  }
+
+  /**
+   * CHEAP gauge read for the HOT acquire/release path. Reads ONLY the cgroup PID
+   * counters (two small file reads — `pids.current`/`pids.max`). Deliberately
+   * does NOT walk /proc or exec `df` (the costly part of a full sample) so
+   * sampling on every acquire/release stays negligible. The two counters are
+   * folded into the existing `browser-pool.acquire`/`browser-pool.release` log
+   * line (one line, not a duplicate second log) so the headline wedge signal
+   * (`pids.current` vs `pids.max`) is visible at acquire/release resolution
+   * without the full-sample cost; this does NOT fire the durable snapshot hook
+   * (the heartbeat + transitions own durable persistence). Best-effort: a read
+   * failure degrades to -1 and is swallowed.
+   */
+  private readHotGauges(): { pidsCurrent: number; pidsMax: number } {
+    try {
+      const pids = this.cgroupPidsReader();
+      return { pidsCurrent: pids.current, pidsMax: pids.max };
+    } catch {
+      return { pidsCurrent: -1, pidsMax: -1 };
+    }
+  }
+
+  /**
+   * The fleet WORKER's live capacity signal for the pull-queue claim gate. A
+   * worker consults this before claiming a new job and only takes more work
+   * when it has free context budget (`available > 0`) AND headroom under its
+   * cgroup pids ceiling — this is what keeps each worker safely below the
+   * platform-fixed `pids.max=1000` thread/PID ceiling (the PROVEN wedge).
+   *
+   * CHEAP by design — in-memory context counts plus the same cheap
+   * cgroup-PID-only read the hot acquire/release path uses (no /proc walk, no
+   * `df`; consistent with the #5234 hot-path subset). Safe to call on every
+   * claim attempt. `available` is clamped at 0 (a transient overshoot never
+   * surfaces as a negative budget); `pidsCurrent`/`pidsMax` degrade to -1 when
+   * the cgroup controller is unreadable.
+   */
+  budget(): BrowserPoolBudget {
+    const { pidsCurrent, pidsMax } = this.readHotGauges();
+    return {
+      inUse: this.liveContextCount,
+      available: Math.max(0, this.maxContexts - this.liveContextCount),
+      max: this.maxContexts,
+      pidsCurrent,
+      pidsMax,
+    };
+  }
+
+  /**
+   * Periodic baseline heartbeat: a self-rescheduling loop that fires a FULL
+   * forensic snapshot every `heartbeatMs`. Gated on `shutdownSignal` (the same
+   * proven mechanism the self-heal loop uses) so it aborts PROMPTLY on shutdown
+   * and never leaks a timer — a raw `setInterval` would keep firing after
+   * shutdown and pin a handle. Idempotent via `heartbeatRunning`. The heartbeat
+   * is what makes a slow PID-ceiling creep visible in the durable history even
+   * when no lifecycle event fires in the window.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatMs <= 0) return;
+    if (this.heartbeatRunning) return;
+    this.heartbeatRunning = true;
+    void (async () => {
+      while (!this.isShutdown) {
+        await this.delayOrShutdown(this.heartbeatMs);
+        if (this.isShutdown) break;
+        this.snapshot("heartbeat");
+      }
+      this.heartbeatRunning = false;
+    })();
   }
 
   async init(): Promise<void> {
@@ -407,6 +853,10 @@ export class BrowserPool {
         this.browsers.push(entry);
         this.attachDisconnectHandler(entry, browser);
       }
+      // Baseline forensic snapshot the instant the fixed set is warm, then kick
+      // the periodic heartbeat so the durable history has a trend from boot.
+      this.snapshot("init");
+      this.startHeartbeat();
     } catch (err) {
       // A mid-fill launch failure (the PID-ceiling pthread_create EAGAIN /
       // "Zygote could not fork" this gate exists to survive) must not leak the
@@ -446,15 +896,62 @@ export class BrowserPool {
    * receives the rejection via the returned `result`. The stagger applies
    * whether the launch resolved or threw — a failed launch is just as
    * PID-costly to retry.
+   *
+   * ATOMIC vs TEARDOWN: the launch promise is registered in `pendingLaunches`
+   * BEFORE it is awaited and removed when it settles, so `shutdown()` can DRAIN
+   * every in-flight launch before its close pass — a launch can no longer escape
+   * teardown accounting (the close-during-launch race). And the instant a launch
+   * settles, if a `shutdown()` raced in while it was in flight, this seam closes
+   * the freshly-launched browser cleanly THEN (exactly once) and re-throws a
+   * shutdown sentinel: the caller's launch then "fails" into its normal
+   * error/abort path rather than registering (and leaking) a browser into a pool
+   * that is going away. Callers must NOT separately close a browser this seam
+   * returned on the shutdown path — the throw means there is no browser to close.
    */
   private launchBrowser = (): Promise<Browser> => {
+    // EARLY WARNING: log the OS resource gauges on EVERY launch (init fill,
+    // crash recovery, hygiene recycle, self-heal). A launch is the moment PID
+    // demand spikes toward the cgroup `pids.max` ceiling — the proven wedge —
+    // so sampling here makes a burst approaching the ceiling observable and lets
+    // a `pthread_create` EAGAIN be correlated to a measured `pids.current`.
+    this.logGauges("launch");
     const gate = this.launchChain;
-    const result = gate.then(() => this.rawLaunchBrowser());
-    this.launchChain = result
+    const raw = gate.then(() => this.rawLaunchBrowser());
+    // Gate the NEXT launch off the RAW result (pre-shutdown-handling) so the
+    // stagger/queue semantics are unchanged by the teardown guard below.
+    this.launchChain = raw
       .catch(() => undefined)
       .then(() =>
         this.launchStaggerMs > 0 ? delay(this.launchStaggerMs) : undefined,
       );
+
+    const result = raw.then((browser) => {
+      // The launch settled. If a shutdown raced in while it was in flight, this
+      // freshly-launched browser would otherwise be invisible to the close pass
+      // that already ran (it was never in `this.browsers`). Close it cleanly here
+      // — exactly once — and surface a shutdown sentinel so the caller does not
+      // register it into a pool that is tearing down.
+      if (this.isShutdown) {
+        // The launching browser is by definition not yet registered in
+        // `this.browsers`, so there is no meaningful index — log it as -1.
+        return this.closeBrowser(browser, -1).then((): Browser => {
+          throw new Error("BrowserPool shut down during launch");
+        });
+      }
+      return browser;
+    });
+
+    // Track the in-flight launch so shutdown() drains it before closing. Use a
+    // catch-swallowed handle so a rejected launch (failure OR the shutdown
+    // sentinel above) still settles the drain without surfacing an unhandled
+    // rejection on the tracking copy; the caller still receives the real
+    // rejection via `result`.
+    const tracked = result.catch(() => undefined);
+    this.pendingLaunches.add(tracked);
+    void tracked.finally(() => {
+      this.pendingLaunches.delete(tracked);
+    });
+
     return result;
   };
 
@@ -670,16 +1167,23 @@ export class BrowserPool {
       throw err;
     }
 
-    // BELT-AND-SUSPENDERS for the recycle-vs-open race: the entry may have been
-    // recycled (crash recovery or a hygiene recycle that fired before this
-    // counter was consulted) WHILE the newContext() above was in flight. If so
-    // the freshly-opened context is an orphan on a torn-down browser — closing
-    // or otherwise counting it would corrupt the cap and could hand a dead
-    // context to a holder. Detect that state, close the orphan, roll back the
-    // reservation + the in-flight marker (generation-guarded so a teardown that
-    // already rolled it back is not double-counted), and surface as a failure so
-    // the caller's retry/enqueue path handles it.
+    // BELT-AND-SUSPENDERS for the recycle-vs-open AND shutdown-vs-open races: the
+    // entry may have been recycled (crash recovery or a hygiene recycle that
+    // fired before this counter was consulted) OR the pool may have SHUT DOWN
+    // WHILE the newContext() above was in flight. If so the freshly-opened
+    // context is an orphan on a torn-down browser / a torn-down pool — closing or
+    // otherwise counting it would corrupt the cap, could hand a dead context to a
+    // holder, OR (the shutdown case) land in contextToBrowser/liveContexts AFTER
+    // shutdown()'s close-pass already ran, leaking a context that is never closed.
+    //
+    // The `isShutdown` term is the SHUTDOWN-LEAK fix: a serveNextWaiter()/acquire
+    // open that reserved before shutdown can settle AFTER shutdown's close-pass.
+    // shutdown() drains inFlightRecycles + pendingLaunches, but this open is
+    // fire-and-forget and tracked by NEITHER set, so the drain does not await it.
+    // Treating shutdown like a recycle here — close the just-opened orphan, roll
+    // back the reservation, and throw — keeps the post-shutdown pool clean.
     if (
+      this.isShutdown ||
       entry.generation !== genBefore ||
       entry.recycling ||
       entry.browser !== browserBefore ||
@@ -743,12 +1247,27 @@ export class BrowserPool {
 
     try {
       const context = await this.openContextOn(entry, options);
+      // HOT-PATH gauge: cheap cgroup-PID-only sample (no /proc walk, no df)
+      // folded INTO this acquire line so the headline wedge signal is visible at
+      // acquire resolution without the full-sample cost and without a duplicate
+      // log. Durable persistence is owned by the heartbeat + transitions.
       this.logger?.info("browser-pool.acquire", {
         available: this.maxContexts - this.liveContextCount,
         inUse: this.liveContextCount,
+        ...this.readHotGauges(),
       });
       return context;
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool shut down WHILE this open was in flight —
+      // openContextOn's orphan guard closed the orphan, rolled the reservation
+      // back, and threw. Do NOT enter the transient-retry / recycle / enqueue
+      // path: shutdown() already cleared `this.waiters`, so enqueueWaiter would
+      // strand this acquire on a queue nothing drains (it would only settle on
+      // its own timeout). Reject promptly instead, mirroring the at-entry
+      // `isShutdown` guard. (openContextOn already rolled the reservation back.)
+      if (this.isShutdown) {
+        throw new Error("BrowserPool is shut down", { cause: err });
+      }
       // FIX #7 — a `newContext()` throw does NOT prove the browser died. The
       // unfixed code unconditionally recycled `entry`, so a TRANSIENT
       // newContext error on a still-`isConnected()` shared browser tore down a
@@ -773,6 +1292,18 @@ export class BrowserPool {
         try {
           return await this.openContextOn(entry, options);
         } catch (transientRetryErr) {
+          // SHUTDOWN STRADDLE (retry leg): a DISTINCT, genuinely-reachable straddle
+          // window from the outer catch's guard — the outer guard already observed
+          // isShutdown===false, then we re-reserved and re-opened, and the pool can
+          // shut down WHILE THIS retry's open is in flight (its orphan guard then
+          // closed+rolled-back+threw, landing here). Reject promptly, mirroring the
+          // outer guard, rather than enqueueing onto a queue shutdown already
+          // cleared (which would strand this acquire until its timeout).
+          if (this.isShutdown) {
+            throw new Error("BrowserPool is shut down", {
+              cause: transientRetryErr,
+            });
+          }
           this.logger?.warn?.("browser-pool.acquire-transient-retry-failed", {
             browserIndex: this.browsers.indexOf(entry),
             connected: entry.browser.isConnected(),
@@ -847,6 +1378,17 @@ export class BrowserPool {
         // shift()ed this waiter and is mid-`await openContextOn` observes the
         // dead state and closes/rolls back the context instead of orphaning it.
         waiter.settled = true;
+        // CVDIAG: an acquire blocked the full timeout without a context — the
+        // load-bearing wedge symptom (no free contexts / empty browser set).
+        // Surface it so the post-wedge lookback sees the starvation breadcrumb.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:acquire-timeout",
+            boundary: "als-snapshot",
+            status: "error",
+            error: `timeoutMs=${timeoutMs} waiters=${this.waiters.length} browsers=${this.browsers.length} degraded=${this.degraded}`,
+          }),
+        );
         reject(new Error("BrowserPool acquire timeout"));
       }, timeoutMs);
       const origResolve = waiter.resolve;
@@ -892,6 +1434,15 @@ export class BrowserPool {
 
   private async serveNextWaiter(): Promise<void> {
     if (this.waiters.length === 0) return;
+    // SHUTDOWN GUARD: bail BEFORE shifting/reserving/opening once the pool is
+    // shutting down. shutdown() flips `isShutdown` and rejects every queued
+    // waiter synchronously; a serveNextWaiter scheduled just before that (or
+    // re-entering from a release/recycle handoff) must NOT shift a waiter and
+    // start an `openContextOn` whose context would settle AFTER shutdown's
+    // close-pass and leak into contextToBrowser/liveContexts. (The orphan guard
+    // in openContextOn is the belt; this is the suspenders — never start the open
+    // in the first place.)
+    if (this.isShutdown) return;
     const entry = this.pickLeastLoaded();
     if (!entry) return; // No live browser — waiter served by a later relaunch.
 
@@ -918,6 +1469,22 @@ export class BrowserPool {
     try {
       context = await this.openContextOn(entry, waiter.options);
     } catch (err) {
+      // SHUTDOWN STRADDLE: the pool may have shut down WHILE this open was in
+      // flight — openContextOn's orphan guard then closed the orphan, rolled the
+      // reservation back, and threw. This waiter was `shift()`ed off `this.waiters`
+      // (line above) BEFORE shutdown could run; shutdown()'s reject-loop iterates
+      // ONLY what is still on `this.waiters`, so it never saw — and never rejected
+      // — this shifted waiter. Re-queueing it would strand it on a list nothing
+      // drains (shutdown's reject loop already ran) → a never-settling acquire.
+      // THIS branch is therefore the SOLE settler of a shifted-then-straddled
+      // waiter: REJECT it here, mirroring shutdown's waiter-rejection, and do NOT
+      // touch the browser (everything is being torn down).
+      if (this.isShutdown) {
+        if (!waiter.settled) {
+          waiter.reject(new Error("BrowserPool is shut down"));
+        }
+        return;
+      }
       // FIX #7 (propagated to serveNextWaiter) — a `newContext()` throw does NOT
       // prove the browser died. The unfixed code unconditionally recycled
       // `entry`, so a TRANSIENT newContext error on a still-`isConnected()`
@@ -1032,9 +1599,13 @@ export class BrowserPool {
     entry.liveContexts.delete(context);
     this.releaseReservation();
 
+    // HOT-PATH gauge: cheap cgroup-PID-only subset (see acquire) folded INTO
+    // this release line — cheap enough to read on every release, one log line.
+    // Full samples are reserved for transitions + heartbeat.
     this.logger?.info("browser-pool.release", {
       available: this.maxContexts - this.liveContextCount,
       inUse: this.liveContextCount,
+      ...this.readHotGauges(),
     });
 
     // Hygiene-recycle intent, LATCHED synchronously: the instant this browser
@@ -1116,6 +1687,11 @@ export class BrowserPool {
   }
 
   async shutdown(): Promise<void> {
+    // FULL durable snapshot before teardown — captures the final resource state
+    // while the browser set is still populated (the per-browser breakdown is
+    // meaningful only pre-teardown). Sampled BEFORE flipping isShutdown so the
+    // snapshot's `onSnapshot` write is not racing the post-shutdown drain.
+    this.snapshot("shutdown");
     this.isShutdown = true;
     // Wake any racing self-heal / backoff delay so it aborts promptly instead of
     // stalling shutdown for up to selfHealIntervalMs / relaunchBackoffMs.
@@ -1123,21 +1699,31 @@ export class BrowserPool {
 
     // Reject any queued waiters.
     for (const waiter of this.waiters) {
-      waiter.reject(new Error("BrowserPool is shutting down"));
+      waiter.reject(new Error("BrowserPool is shut down"));
     }
     this.waiters = [];
 
-    // Drain in-flight recycles + self-heal loops in a LOOP, re-snapshotting each
-    // pass. A ONE-TIME snapshot is racy: a self-heal iteration (or an
-    // in-flight-recovery relaunch) can register a NEW promise in
+    // Drain in-flight recycles + self-heal loops AND in-flight launches in a
+    // LOOP, re-snapshotting each pass. A ONE-TIME snapshot is racy: a self-heal
+    // iteration (or an in-flight-recovery relaunch) can register a NEW promise in
     // `inFlightRecycles` AFTER the snapshot — and that late iteration may launch
     // a fresh chromium AFTER shutdown returned, leaking the process. Loop until
-    // the set is genuinely empty (each settled loop/recycle has dropped its
-    // handle), so we await every late-registered iteration too. The loops all
+    // BOTH sets are genuinely empty (each settled loop/recycle/launch has dropped
+    // its handle), so we await every late-registered iteration too.
+    //
+    // `pendingLaunches` is the close-during-launch fix: an init/recycle/self-heal
+    // launch that is mid-`launch()` is NOT yet in `this.browsers`, so the close
+    // pass below cannot see it. Draining it here makes shutdown WAIT for every
+    // in-flight launch to settle; the launch seam itself (`launchBrowser`) then
+    // observes `isShutdown` on settle and closes the freshly-launched browser
+    // cleanly — so it is neither closed mid-launch nor leaked. The loops all
     // check `isShutdown` and the delays abort via the shutdown signal, so this
     // converges promptly.
-    while (this.inFlightRecycles.size > 0) {
-      await Promise.allSettled(Array.from(this.inFlightRecycles));
+    while (this.inFlightRecycles.size > 0 || this.pendingLaunches.size > 0) {
+      await Promise.allSettled([
+        ...Array.from(this.inFlightRecycles),
+        ...Array.from(this.pendingLaunches),
+      ]);
     }
 
     // Close every live context, then every browser. Route through the close
@@ -1197,6 +1783,10 @@ export class BrowserPool {
       this.logger?.info("browser-pool.disconnected", {
         browserIndex: this.browsers.indexOf(entry),
       });
+      // A browser crashed/disconnected mid-life — capture a FULL durable
+      // snapshot so the resource state at the crash (esp. pids.current vs
+      // pids.max) is reconstructable post-restart.
+      this.snapshot("crash");
       this.recycleBrowser(entry);
     });
   }
@@ -1240,10 +1830,14 @@ export class BrowserPool {
     const browserIdx = this.browsers.indexOf(entry);
     this.logger?.info("browser-pool.recycle", {
       browserIndex: browserIdx,
+      reason,
       servedContexts: entry.servedContexts,
       recycleAfter: this.recycleAfter,
       totalRecycles: this.totalRecycles,
     });
+    // FULL durable snapshot at recycle start (crash OR hygiene): a recycle
+    // relaunches a chromium process — the PID-demand moment the wedge exploits.
+    this.snapshot(`recycle-${reason}`);
 
     // Drop the abandoned live contexts from the global lookup + count so a
     // later release() of a stale reference is a no-op and the cap accounting
@@ -1346,6 +1940,20 @@ export class BrowserPool {
           browserIndex: this.browsers.indexOf(entry),
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: relaunch retries exhausted → the entry is evicted (capacity
+        // loss). Breadcrumb for the crash/recycle lookback.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:launch-fail",
+            boundary: "als-snapshot",
+            status: "error",
+            error: `relaunch-exhausted: ${err instanceof Error ? err.message : String(err)}`,
+          }),
+        );
+        // FULL durable snapshot: the relaunch retries are exhausted — a
+        // launch-fail transition. Capture the resource state so a `pthread_create`
+        // EAGAIN at the PID ceiling is correlatable post-restart.
+        this.snapshot("launch-fail");
         const idx = this.browsers.indexOf(entry);
         if (idx !== -1) this.browsers.splice(idx, 1);
         // FIX #2 — self-heal + alarm on empty browser set. The unfixed code
@@ -1371,6 +1979,16 @@ export class BrowserPool {
           browserIndex: this.browsers.indexOf(entry),
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: a hygiene/crash recycle promise rejected unexpectedly —
+        // surface the swallowed error so it is greppable, not silent.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:recycle-failed",
+            boundary: "als-snapshot",
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       })
       .finally(() => {
         // Do NOT reset `entry.recycling` here. Each path already leaves it
@@ -1452,6 +2070,22 @@ export class BrowserPool {
         waiters: this.waiters.length,
         browserCount: this.browserCount,
       });
+      // CVDIAG: mid-life capacity loss — the browser set emptied. Durable
+      // breadcrumb for the post-wedge lookback; the snapshot() call below
+      // additionally persists the gauges via the orchestrator's onSnapshot hook.
+      console.log(
+        formatCvdiag({
+          component: "browser-pool:degraded",
+          boundary: "als-snapshot",
+          status: "error",
+          error: `set-empty waiters=${this.waiters.length} browserCount=${this.browserCount}`,
+        }),
+      );
+      // FULL durable snapshot at the degraded transition — the headline
+      // forensic moment. This MUST land in PB: the wedge ends in a restart that
+      // clears in-memory state, so the degraded-instant gauges are otherwise
+      // unretrievable.
+      this.snapshot("degraded");
       this.safeHook(this.onDegraded, "onDegraded");
     }
     this.startSelfHeal();
@@ -1467,11 +2101,30 @@ export class BrowserPool {
    * `selfHealIntervalMs` and retries, until success or shutdown. On recovery it
    * clears `degraded` and fires `onRecovered`. Guarded by `selfHealing` so only
    * one loop runs at a time.
+   *
+   * CIRCUIT-BREAKER (the durable fix for the RECURRING wedge): the unfixed loop
+   * just RELAUNCHED into the same wedged state forever — when chromium is in a
+   * launch-crash-loop (`browserType.launch: ...has been closed`) every relaunch
+   * throws identically and the loop never escapes (the wedge is the cgroup
+   * PID/thread ceiling, which an immediate relaunch only re-pins). Now, after
+   * `selfHealHardRecoveryThreshold` CONSECUTIVE launch failures, the loop stops
+   * looping identical relaunches and performs a HARD recovery — a PACED cold
+   * relaunch (NO `/tmp` purge — see hardRecover) — then cold-launches fresh into
+   * a kernel given time to relax. A single successful launch
+   * resets the failure counter. If `selfHealMaxHardRecoveries` consecutive HARD
+   * recoveries ALSO revive nothing, it fires the LOUD `pool-unrecoverable` alarm
+   * and stops (a redeploy is genuinely required) rather than spinning silently.
    */
   private startSelfHeal(): void {
     if (this.selfHealing) return;
     this.selfHealing = true;
     const loop = (async () => {
+      // Circuit-breaker counters, carried ACROSS iterations: consecutive launch
+      // failures (reset by ANY successful launch) trip the hard recovery;
+      // consecutive failed hard recoveries (reset by any successful launch) trip
+      // the unrecoverable alarm.
+      let consecutiveFailures = 0;
+      let consecutiveHardRecoveries = 0;
       // Keep iterating until the set is restored to FULL strength
       // (`browserCount`), not merely non-empty. The unfixed loop broke + fired
       // onRecovered the instant ONE browser revived, even though the pool target
@@ -1484,6 +2137,29 @@ export class BrowserPool {
         const shortfall = this.browserCount - this.browsers.length;
         for (let i = 0; i < shortfall; i++) {
           if (this.isShutdown) break;
+          // BREAKER: before attempting another identical relaunch, check whether
+          // we have already failed `selfHealHardRecoveryThreshold` times in a
+          // row. If so, escape the relaunch-into-the-same-wedge loop and HARD
+          // recover (paced cold relaunch — give the kernel time to relax; NO
+          // /tmp purge) so the NEXT launch is cold.
+          if (
+            this.selfHealHardRecoveryThreshold > 0 &&
+            consecutiveFailures >= this.selfHealHardRecoveryThreshold
+          ) {
+            consecutiveFailures = 0;
+            consecutiveHardRecoveries++;
+            await this.hardRecover(consecutiveHardRecoveries);
+            if (this.isShutdown) break;
+            // Even the paced cold relaunch could not break the wedge after K
+            // tries — give up LOUDLY rather than spinning forever.
+            if (
+              this.selfHealMaxHardRecoveries > 0 &&
+              consecutiveHardRecoveries >= this.selfHealMaxHardRecoveries
+            ) {
+              this.fireUnrecoverable();
+              return;
+            }
+          }
           try {
             const fresh = await this.launchBrowser();
             if (this.isShutdown) {
@@ -1502,6 +2178,10 @@ export class BrowserPool {
             this.browsers.push(revived);
             this.attachDisconnectHandler(revived, fresh);
             launchedAny = true;
+            // A launch succeeded — the wedge (if any) is broken. Reset BOTH
+            // breaker counters so a future re-empty starts the breaker fresh.
+            consecutiveFailures = 0;
+            consecutiveHardRecoveries = 0;
             // Drain queued waiters onto the revived browser as capacity returns.
             while (
               this.waiters.length > 0 &&
@@ -1513,10 +2193,20 @@ export class BrowserPool {
               if (this.waiters.length >= before) break;
             }
           } catch (err) {
+            consecutiveFailures++;
             this.logger?.warn?.("browser-pool.self-heal-launch-failed", {
               attemptIndex: i,
+              consecutiveFailures,
+              hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
               error: err instanceof Error ? err.message : String(err),
             });
+            // EARLY WARNING: a self-heal launch just failed — capture a FULL
+            // DURABLE snapshot so a `pthread_create` EAGAIN at this point
+            // correlates to a measured `pids.current` near `pids.max` (the
+            // proven wedge) AND survives the wedge→restart in PB. This is the
+            // repeating signal (28× in ~19s observed) that is most often lost to
+            // the Railway stdout window — durable persistence is the point.
+            this.snapshot("self-heal-launch-failed");
           }
         }
         if (this.browsers.length >= this.browserCount) {
@@ -1547,6 +2237,20 @@ export class BrowserPool {
           browserCount: this.browserCount,
           waiters: this.waiters.length,
         });
+        // CVDIAG: self-heal brought the set back to full strength — bookends
+        // the degraded breadcrumb so the recovery window is reconstructable.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:recovered",
+            boundary: "als-snapshot",
+            status: "ok",
+            error: `browsers=${this.browsers.length} waiters=${this.waiters.length}`,
+          }),
+        );
+        // FULL durable snapshot at the recovered transition — bookends the
+        // degraded snapshot so the resource delta across the recovery window is
+        // reconstructable.
+        this.snapshot("recovered");
         this.safeHook(this.onRecovered, "onRecovered");
       }
       this.selfHealing = false;
@@ -1559,6 +2263,16 @@ export class BrowserPool {
         this.logger?.error?.("browser-pool.self-heal-failed", {
           error: err instanceof Error ? err.message : String(err),
         });
+        // CVDIAG: the self-heal loop itself threw — the pool may be left
+        // degraded with no active heal path. Surface the swallowed error.
+        console.log(
+          formatCvdiag({
+            component: "browser-pool:self-heal-failed",
+            boundary: "als-snapshot",
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
       })
       .finally(() => {
         this.selfHealing = false;
@@ -1567,9 +2281,109 @@ export class BrowserPool {
   }
 
   /**
+   * CIRCUIT-BREAKER hard-recovery step. Invoked by the self-heal loop after
+   * `selfHealHardRecoveryThreshold` consecutive launch failures — the signal
+   * that the loop is stuck relaunching into a wedged chromium. The PROVEN wedge
+   * is cgroup PID/thread-ceiling exhaustion, which a `/tmp` purge does NOT fix
+   * (that ceiling is platform-fixed and demand-side), so the hard recovery is
+   * simply a PACED cold relaunch: it backs the loop off (`delayOrShutdown`) to
+   * give the thread-exhausted kernel time to relax before the next cold launch,
+   * rather than hammering it. Stays promptly cancellable on shutdown.
+   */
+  private async hardRecover(attempt: number): Promise<void> {
+    if (this.isShutdown) return;
+    this.logger?.error?.("browser-pool.self-heal-hard-recovery", {
+      attempt,
+      maxHardRecoveries: this.selfHealMaxHardRecoveries,
+      hardRecoveryThreshold: this.selfHealHardRecoveryThreshold,
+    });
+    // Pace the cold-launch retry into the (hopefully now-unwedged) kernel.
+    if (!this.isShutdown && this.selfHealIntervalMs > 0) {
+      await this.delayOrShutdown(this.selfHealIntervalMs);
+    }
+  }
+
+  /**
+   * CIRCUIT-BREAKER give-up step. Invoked when `selfHealMaxHardRecoveries`
+   * consecutive HARD recoveries (paced cold relaunches) have ALL failed to
+   * revive a single browser — the wedge survived every relaunch, so a redeploy
+   * is genuinely required (the PROVEN cgroup PID/thread ceiling is not
+   * relaxing). Emits the LOUD `pool-unrecoverable` alarm (the operator signal
+   * the old silent-spin path never sent), carrying the measured cgroup
+   * `pids.current`/`pids.max` + thread count so the alert NAMES the real signal,
+   * and lets the heal loop exit instead of spinning forever.
+   *
+   * ONCE-PER-EPISODE is guaranteed STRUCTURALLY, not by an instance latch: each
+   * distinct degraded episode spawns its OWN self-heal loop (`startSelfHeal` is
+   * gated only by `selfHealing`, which the prior loop clears on exit), the
+   * loop-local `consecutiveHardRecoveries` counter resets per spawn, and the
+   * loop `return`s the instant this fires — so it cannot double-fire within one
+   * loop, and a later set re-empty re-spawns a loop that can fire its OWN alarm.
+   * A prior buggy instance latch (`this.unrecoverable`, cleared ONLY on a
+   * successful launch) silenced every SUBSEQUENT episode of a permanently-wedged
+   * container that re-emptied after the first give-up — the exact silent-spin
+   * this breaker exists to kill. The latch was removed so each episode alarms.
+   */
+  private fireUnrecoverable(): void {
+    // Sample the OS gauges at the moment of give-up so the alarm NAMES the
+    // proven wedge signal (cgroup pids.current near pids.max + thread demand)
+    // rather than reporting only the abstract breaker counters. Best-effort: a
+    // sampling failure degrades the gauge fields to -1, never blocks the alarm.
+    let cgroupPidsCurrent = -1;
+    let cgroupPidsMax = -1;
+    let treeThreadCount = -1;
+    try {
+      const g = sampleResourceGauges();
+      cgroupPidsCurrent = g.cgroupPidsCurrent;
+      cgroupPidsMax = g.cgroupPidsMax;
+      treeThreadCount = g.treeThreadCount;
+    } catch {
+      // gauge sampling is best-effort; leave the -1 defaults.
+    }
+    const info: BrowserPoolUnrecoverableInfo = {
+      browserCount: this.browserCount,
+      waiters: this.waiters.length,
+      maxHardRecoveries: this.selfHealMaxHardRecoveries,
+      cgroupPidsCurrent,
+      cgroupPidsMax,
+      treeThreadCount,
+    };
+    this.logger?.error?.("browser-pool.pool-unrecoverable", { ...info });
+    // CVDIAG: terminal give-up — the circuit breaker exhausted every hard
+    // recovery and a redeploy is required. The single most important pool
+    // breadcrumb; names the proven cgroup-PID wedge signal in `error`.
+    console.log(
+      formatCvdiag({
+        component: "browser-pool:unrecoverable",
+        boundary: "als-snapshot",
+        status: "error",
+        error: `give-up pids=${cgroupPidsCurrent}/${cgroupPidsMax} threads=${treeThreadCount} waiters=${this.waiters.length}`,
+      }),
+    );
+    // FULL durable snapshot at the TERMINAL give-up — the single most important
+    // forensic row. The pool is dead and a redeploy is required; this MUST be in
+    // PB because the redeploy clears everything in-memory and the stdout window
+    // will have long rolled off by the time an operator looks.
+    this.snapshot("unrecoverable");
+    // Best-effort hook (mirrors safeHook) — passes the breaker counters so the
+    // operator alarm can describe how hard the pool tried before giving up.
+    if (this.onUnrecoverable) {
+      try {
+        this.onUnrecoverable(info);
+      } catch (err) {
+        this.logger?.error?.("browser-pool.hook-failed", {
+          hook: "onUnrecoverable",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
+  /**
    * Invoke a best-effort lifecycle hook (`onDegraded` / `onRecovered`) without
    * letting a throwing hook crash the pool. A hook failure is logged, not
-   * propagated.
+   * propagated. (`onUnrecoverable` is invoked inline in `fireUnrecoverable`
+   * because it takes a counters argument.)
    */
   private safeHook(hook: (() => void) | undefined, name: string): void {
     if (!hook) return;

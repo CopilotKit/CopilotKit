@@ -7,12 +7,14 @@
  * StateGraph with chat + tool_node, CopilotKit state annotation) so it fits the
  * kitchen-sink layout already established in graph.ts.
  *
- * Tools:
+ * Local tools:
  *   - query_data           — natural-language query over beautiful-chat-data/db.csv
  *   - manage_todos         — create/update todo list with auto-assigned ids
  *   - get_todos            — read current todos from agent state
  *   - search_flights       — fixed-schema A2UI flight search (2 flights)
- *   - generate_a2ui        — dynamic A2UI surface via secondary LLM
+ *
+ * Dynamic A2UI (`generate_a2ui`) is injected by the runtime
+ * (a2ui.injectA2UITool: true) rather than declared here — see the tools block.
  *
  * Data files: ./beautiful-chat-data/db.csv + schemas/flight_schema.json
  */
@@ -38,7 +40,6 @@ import {
   START,
   StateGraph,
 } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
 import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
@@ -238,66 +239,15 @@ const searchFlights = tool(
   },
 );
 
-const generateA2ui = tool(
-  async (_args, _config) => {
-    // Secondary LLM designs a dynamic A2UI surface. Context is not threaded
-    // through ToolNode by default, so we run a simple one-shot call that
-    // mirrors the python agent's contract without direct state access.
-    const secondaryModel = makeChatOpenAI(_config, {
-      temperature: 0,
-      model: "gpt-4.1",
-    });
-    const renderTool = tool(async () => "rendered", {
-      name: "render_a2ui",
-      description: "Render a dynamic A2UI v0.9 surface.",
-      schema: z.object({
-        surfaceId: z.string(),
-        catalogId: z.string(),
-        components: z.array(z.record(z.unknown())),
-        data: z.record(z.unknown()).optional(),
-      }),
-    });
-
-    const modelWithTool = secondaryModel.bindTools!([renderTool], {
-      tool_choice: { type: "function", function: { name: "render_a2ui" } },
-    });
-
-    const response = (await modelWithTool.invoke([
-      new SystemMessage({
-        content:
-          "Design a concise A2UI dashboard. Call render_a2ui with a surfaceId, catalogId 'copilotkit://app-dashboard-catalog', a components array (root id 'root'), and any initial data.",
-      }),
-    ])) as AIMessage;
-
-    if (!response.tool_calls?.length) {
-      return JSON.stringify({ error: "LLM did not call render_a2ui" });
-    }
-    const args = response.tool_calls[0].args as Record<string, unknown>;
-    const surfaceId = (args.surfaceId as string) ?? "dynamic-surface";
-    const catalogId = (args.catalogId as string) ?? CATALOG_ID;
-    const components = (args.components as unknown[]) ?? [];
-    const data = (args.data as Record<string, unknown>) ?? {};
-    const ops: unknown[] = [
-      { version: "v0.9", createSurface: { surfaceId, catalogId } },
-      { version: "v0.9", updateComponents: { surfaceId, components } },
-    ];
-    if (Object.keys(data).length > 0) {
-      ops.push({
-        version: "v0.9",
-        updateDataModel: { surfaceId, path: "/", value: data },
-      });
-    }
-    return JSON.stringify({ a2ui_operations: ops });
-  },
-  {
-    name: "generate_a2ui",
-    description:
-      "Generate dynamic A2UI components based on the conversation. Use for dashboards and rich UIs.",
-    schema: z.object({}),
-  },
-);
-
-const tools = [queryData, manageTodos, getTodos, searchFlights, generateA2ui];
+// Dynamic A2UI (`generate_a2ui`) is NOT a local tool here — it is injected by
+// the CopilotRuntime (`a2ui: { injectA2UITool: true }` on this demo's route).
+// The injected tool arrives via `state.copilotkit.actions`, gets bound in
+// chatNode through `convertActionsToDynamicStructuredTools`, and is executed by
+// the runtime (shouldContinue routes injected-action calls to `__end__`). This
+// mirrors langgraph-python's beautiful_chat, where create_agent +
+// CopilotKitMiddleware auto-inject the same tool. The fixed-schema
+// `search_flights` tool below stays agent-owned and is unaffected by injection.
+const tools = [queryData, manageTodos, getTodos, searchFlights];
 
 // ---------------------------------------------------------------------------
 // 4. Chat node

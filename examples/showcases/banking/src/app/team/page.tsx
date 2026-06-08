@@ -11,15 +11,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuthContext } from "@/components/auth-context";
-import { ExpenseRole, MemberRole } from "@/app/api/v1/data";
+import type { ExpenseRole } from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { useEffect, useReducer, useState } from "react";
 import { TeamPageOperations } from "@/components/copilot-context";
 import { useSearchParams } from "next/navigation";
-import { useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
+import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import type { DialogState } from "@/components/add-or-edit-member-dialog";
 import {
   AddOrEditMemberDialog,
   defaultDialogState,
-  DialogState,
 } from "@/components/add-or-edit-member-dialog";
 import { RemoveMemberConfirmationDialog } from "@/components/remove-member-dialog";
 
@@ -64,6 +66,14 @@ function ApprovalButtons({
   );
 }
 
+const dialogStateReducer = (
+  state: DialogState,
+  payload: Partial<DialogState>,
+): DialogState => ({
+  ...state,
+  ...payload,
+});
+
 export default function Team() {
   const { currentUser } = useAuthContext();
   const {
@@ -76,9 +86,9 @@ export default function Team() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") as TeamPageOperations | null;
 
-  useCopilotReadable({
+  useAgentContext({
     description: "The available users of the system.",
-    value: team,
+    value: JSON.stringify(team),
   });
 
   useHumanInTheLoop({
@@ -86,15 +96,13 @@ export default function Team() {
     name: "removeMember",
     description:
       "Remove a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description:
+    parameters: z.object({
+      id: z
+        .string()
+        .describe(
           "The ID of the member to remove (provided by copilot, ask questions to figure out the member)",
-        required: true,
-      },
-    ],
+        ),
+    }),
     render: ({ args, respond, status }) => {
       const { id } = args;
       if (status === "inProgress") return <div>Loading...</div>;
@@ -132,20 +140,10 @@ export default function Team() {
     name: "changeMemberRole",
     description:
       "Change the role of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description: "The ID of the member to change the role of",
-        required: true,
-      },
-      {
-        name: "role",
-        type: "string",
-        description: "The new role of the member",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      id: z.string().describe("The ID of the member to change the role of"),
+      role: z.string().describe("The new role of the member"),
+    }),
     render: ({ args, respond, status }) => {
       const { id, role } = args;
       if (status === "inProgress") return <div>Loading...</div>;
@@ -187,20 +185,10 @@ export default function Team() {
     name: "changeMemberTeam",
     description:
       "Change the team of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description: "The ID of the member to change the team of",
-        required: true,
-      },
-      {
-        name: "team",
-        type: "string",
-        description: "The new team of the member",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      id: z.string().describe("The ID of the member to change the team of"),
+      team: z.string().describe("The new team of the member"),
+    }),
     render: ({ args, respond, status }) => {
       const { id, team: newTeam } = args;
       if (status === "inProgress") return <div>Loading...</div>;
@@ -237,13 +225,8 @@ export default function Team() {
     },
   });
 
-  const [dialogState, dispatchDialogState] = useReducer<
-    React.Reducer<DialogState, Partial<DialogState>>
-  >(
-    (state: DialogState, payload: Partial<DialogState>) => ({
-      ...state,
-      ...payload,
-    }),
+  const [dialogState, dispatchDialogState] = useReducer(
+    dialogStateReducer,
     defaultDialogState,
   );
 

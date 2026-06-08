@@ -319,9 +319,9 @@ function OverviewContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left mb-10">
         <Link
           href="/ag-ui/concepts/architecture"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Concepts
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -330,9 +330,9 @@ function OverviewContent() {
         </Link>
         <Link
           href="/ag-ui/quickstart/introduction"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Quick Start
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -341,9 +341,9 @@ function OverviewContent() {
         </Link>
         <Link
           href="/ag-ui/sdk/js/core/overview"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             JavaScript SDK
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -352,9 +352,9 @@ function OverviewContent() {
         </Link>
         <Link
           href="/ag-ui/sdk/python/core/overview"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Python SDK
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -363,9 +363,9 @@ function OverviewContent() {
         </Link>
         <Link
           href="/ag-ui/tutorials/cursor"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Tutorials
           </h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -376,9 +376,9 @@ function OverviewContent() {
           href="https://github.com/ag-ui-protocol/ag-ui"
           target="_blank"
           rel="noopener noreferrer"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--violet)] transition-all"
+          className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--violet)] mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             GitHub
           </h3>
           <p className="text-xs text-[var(--text-muted)]">

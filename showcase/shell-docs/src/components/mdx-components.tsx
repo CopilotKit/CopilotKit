@@ -1,5 +1,8 @@
-import React from "react";
-import Link from "next/link";
+import type React from "react";
+import {
+  Card as FumadocsCard,
+  Cards as FumadocsCards,
+} from "fumadocs-ui/components/card";
 
 // Re-export fumadocs's default `<Callout>` so historical imports from
 // `@/components/mdx-components` keep working. Fumadocs supports the
@@ -9,37 +12,28 @@ import Link from "next/link";
 export { Callout } from "fumadocs-ui/components/callout";
 
 export function Cards({
-  children,
-  className: _className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+  className,
+  ...props
+}: React.ComponentProps<typeof FumadocsCards>) {
   // `not-prose` opts the wrapped Cards out of the .reference-content
   // prose-link styling (which forces underline + accent color on every
   // <a>). The Card's own className already controls link appearance.
   return (
-    <div className="not-prose grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
-      {children}
-    </div>
+    <FumadocsCards
+      {...props}
+      className={["not-prose my-6 grid-cols-1 gap-4 sm:grid-cols-2", className]
+        .filter(Boolean)
+        .join(" ")}
+    />
   );
 }
 
 export function Card({
-  title,
-  description,
   href,
-  icon,
   className,
-  children,
-}: {
-  title: string;
-  description?: string;
-  href?: string;
-  icon?: React.ReactNode;
-  className?: string;
-  children?: React.ReactNode;
-}) {
+  style,
+  ...props
+}: React.ComponentProps<typeof FumadocsCard>) {
   // Match the docs-landing pointer-card style:
   // - bordered surface, accent border on hover, subtle shadow on hover
   // - title flips to accent color on hover via `group-hover` so the link
@@ -49,65 +43,26 @@ export function Card({
   //   color: var(--accent)` on every <a>; that rule wins over the
   //   Tailwind `no-underline` class on specificity. `not-prose`
   //   triggers the global escape-hatch rule that drops both.
+  const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
   const mergedClassName = [
-    "block group rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4",
+    "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
     href
-      ? "not-prose no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-      : "transition-colors",
+      ? "not-prose hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+      : null,
     className,
   ]
     .filter(Boolean)
     .join(" ");
-
-  const content = (
-    <>
-      {icon && (
-        <div className="mb-2 text-[var(--text-muted)]" aria-hidden>
-          {icon}
-        </div>
-      )}
-      <div
-        className={`font-semibold text-[var(--text)] text-sm${
-          href ? " group-hover:text-[var(--accent)]" : ""
-        }`}
-      >
-        {title}
-      </div>
-      {description && (
-        <div className="text-xs text-[var(--text-muted)] mt-1">
-          {description}
-        </div>
-      )}
-      {children && (
-        <div className="text-xs text-[var(--text-secondary)] mt-2">
-          {children}
-        </div>
-      )}
-    </>
+  return (
+    <FumadocsCard
+      {...props}
+      href={resolvedHref}
+      className={mergedClassName}
+      style={
+        href ? { textDecoration: "none", color: "inherit", ...style } : style
+      }
+    />
   );
-
-  if (href) {
-    // Rewrite /reference/v2/... paths to /reference/...
-    const resolvedHref = href.replace(/^\/reference\/v2\//, "/reference/");
-    // Inline `textDecoration: none` is the load-bearing override here.
-    // The escape-hatch CSS rule `.reference-content .not-prose a {
-    // text-decoration: none }` only fires when `not-prose` sits on a
-    // *parent* of the <a> (descendant selector). Standalone Cards
-    // outside of a <Cards> wrapper have nothing above them to carry
-    // that class, so the prose-default underline still leaks through.
-    // The inline style wins on specificity in every shape.
-    return (
-      <Link
-        href={resolvedHref}
-        className={mergedClassName}
-        style={{ textDecoration: "none", color: "inherit" }}
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  return <div className={mergedClassName}>{content}</div>;
 }
 
 export function Accordions({ children }: { children: React.ReactNode }) {
@@ -122,8 +77,8 @@ export function Accordion({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--text)] select-none hover:bg-[var(--bg-elevated)] transition-colors">
+    <details className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)]">
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elevated)]">
         {title}
       </summary>
       <div className="px-4 pb-4 text-sm text-[var(--text-secondary)]">

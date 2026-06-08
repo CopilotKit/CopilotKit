@@ -3,6 +3,11 @@
 import { z } from "zod";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
 // Each role becomes its own nested chat() with a dedicated system prompt.
 // They don't share memory or tools with the supervisor — the supervisor
@@ -56,7 +61,7 @@ export function buildSubagentTools(parentAbortController: AbortController) {
       }),
     }).server(async ({ task }) => {
       const text = await chat({
-        adapter: openaiText("gpt-4o"),
+        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
         messages: [{ role: "user", content: task }],
         systemPrompts: [role.systemPrompt],
         abortController: parentAbortController,
