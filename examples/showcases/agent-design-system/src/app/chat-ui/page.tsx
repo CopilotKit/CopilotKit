@@ -15,11 +15,13 @@ import {
   Wind,
 } from "lucide-react";
 import { z } from "zod";
-import type { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import type {
+  CopilotChatAssistantMessageProps,
+  CopilotChatUserMessage,
+} from "@copilotkit/react-core/v2";
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
-  type CopilotChatAssistantMessageProps,
   useAgent,
   useComponent,
   useCopilotKit,
