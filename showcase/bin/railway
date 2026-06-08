@@ -1136,13 +1136,16 @@ module Railway
                         digest resolved from staging's :latest tag. Only valid with a
                         positional SERVICE; errors otherwise.
 
-                      MOVES: image digests (resolved to @sha256: at promote time);
-                             autoUpdate=disabled flag.
-                      VERIFY-REFUSE: service-set parity, critical env-key parity,
-                             startCommand parity, PB superuser auth,
-                             PB collection parity, cross-env URL leak scan.
-                      WARN: missing/extra custom domains, sealed-var heuristics.
-                      IGNORE: env-scoped URLs, volumes.
+                      MOVES: pins prod image to the staging digest (resolved to
+                             @sha256: at promote time) and redeploys.
+                      VERIFY-REFUSE: P1 staging digest exists in GHCR, P2 latest
+                             staging deployment succeeded (+ in-flight race),
+                             P3 staging live-green probe, P6 startCommand/
+                             healthcheckPath/image-shape parity, service-set
+                             parity, critical env-key parity.
+                      WARN: P6 region/replicas/restartPolicy/env-key-set
+                             divergence, missing expected prod custom domains.
+                      IGNORE: env var VALUES, env-scoped URLs, volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
