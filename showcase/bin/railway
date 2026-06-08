@@ -1313,7 +1313,7 @@ module Railway
             # produce the same verdict regardless of whether this run is
             # full-fleet or restricted to a single service. See `run` for
             # the fleet_* rationale.
-            findings.concat(check_service_set_parity(fleet_staging, fleet_prod))
+            findings.concat(check_service_set_parity(fleet_staging, fleet_prod, target: options[:service]))
             findings.concat(check_critical_env_key_parity(target_staging, target_prod))
             findings.concat(check_expected_prod_domains(fleet_prod))
 
@@ -1629,11 +1629,18 @@ module Railway
             :other
         end
 
-        def check_service_set_parity(staging, prod)
+        def check_service_set_parity(staging, prod, target: nil)
             findings = []
             s_names = (staging["services"] || []).map { |s| s["name"] }.sort
             p_names = (prod["services"] || []).map { |s| s["name"] }.sort
-            findings << "REFUSE: services in staging not in prod: #{(s_names - p_names).join(', ')}" unless (s_names - p_names).empty?
+            staging_only = s_names - p_names
+            # For a single-service promote, the only "staging not in prod" name
+            # that must REFUSE is the TARGET itself (the silent-rc=0 footgun:
+            # narrowed prod would skip the absent target with no mutation).
+            # Unrelated staging-only services (harness-workers, starter-* demos)
+            # are legitimately staging-only and are not this promote's concern.
+            staging_only = staging_only & [target] if target
+            findings << "REFUSE: services in staging not in prod: #{staging_only.join(', ')}" unless staging_only.empty?
             findings << "REFUSE: services in prod not in staging: #{(p_names - s_names).join(', ')}" unless (p_names - s_names).empty?
             findings
         end
