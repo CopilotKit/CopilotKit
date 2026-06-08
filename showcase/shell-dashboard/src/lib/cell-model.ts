@@ -97,10 +97,18 @@ export interface CellModel {
    */
   commError?: PoolCommError;
   /**
-   * The dashboard's presentation state: `"unreachable"` when a `commError` is
-   * present, otherwise the cell's underlying probe colour (mapped from
-   * `chipColor`). Lets the renderer branch on ONE value instead of re-deriving
-   * the comm-error precedence. A presentation field only — never persisted.
+   * The dashboard's presentation state. Lets the renderer branch on ONE value
+   * instead of re-deriving the comm-error precedence. A presentation field
+   * only — never persisted. The derivation produces THREE outcomes:
+   *   - `"unreachable"` — a `commError` of a directly-observed crash kind
+   *     (`worker-crashed-mid-job`, `worker-unreachable`, …) is present: paint
+   *     the red comm-error overlay.
+   *   - `"pending"` — a NON-RED `worker-reclaimed-pending` commError is present:
+   *     a lease lapsed and the job was re-queued (routine teardown, not a known
+   *     crash), so render the neutral gray "pending" surface.
+   *   - the cell's underlying probe colour (mapped from `chipColor`) — no
+   *     commError, OR a `worker-reclaimed-pending` commError that must NOT mask
+   *     a red/regressed probe result (the genuine failure passes through).
    */
   surfaceState: FleetSurfaceState;
 }
@@ -454,14 +462,20 @@ function chipColorToSurface(color: ChipColor): FleetSurfaceState {
  * `PoolCommError` into the row signal under `FLEET_COMM_ERROR_SIGNAL_KEY` (see
  * `commErrorFromStatusSignal`).
  *
- * RECENCY, not key order, decides the winner. Multiple rows can each carry a
- * comm error simultaneously (e.g. a STALE per-cell comm error left over from an
- * earlier attempt, plus a NEWER worker-death error that landed solely on the
- * aggregate row). A fixed key-order scan would let the stale per-cell error mask
- * the newer aggregate one, painting the wrong cause. So we decode EVERY
- * candidate row and return the one with the most recent `observedAt`, falling
- * back to scan order only as a stable tie-break when timestamps are equal/absent.
- * Returns `undefined` when no candidate row carries a comm error (pool reachable).
+ * KIND SEVERITY — not key order, and NOT recency — decides the winner; recency
+ * is only a within-tier tie-break (flap-band #70/FF5). Multiple rows can each
+ * carry a comm error simultaneously (e.g. a STALE per-cell comm error left over
+ * from an earlier attempt, plus an error that landed solely on the aggregate
+ * row). A directly-observed crash kind (`worker-crashed-mid-job`,
+ * `worker-unreachable`, every non-reclaim kind) is a HARD failure the
+ * worker/control-plane saw first-hand and OUT-RANKS the sweep-inferred
+ * `worker-reclaimed-pending` (a lease lapsed / job re-queued — which cannot tell
+ * a real crash from a routine teardown). A NEWER reclaim must therefore NOT mask
+ * an OLDER real crash. So we decode EVERY candidate row and return the
+ * highest-SEVERITY comm error, using the most recent `observedAt` only to break
+ * ties WITHIN a severity tier and falling back to scan order when timestamps are
+ * equal/absent (stable tie-break). Returns `undefined` when no candidate row
+ * carries a comm error (pool reachable).
  *
  * STALENESS WINDOW: a comm error is only surfaced while it is RECENT. The
  * control-plane mirrors a `PoolCommError` onto the `d6:<slug>` aggregate row but
@@ -512,11 +526,19 @@ function decodeCellCommError(
   candidateKeys.push(keyFor("tools", slug));
   candidateKeys.push(keyFor("health", slug));
 
-  // Decode every candidate and keep the MOST RECENT comm error. A later
-  // candidate only wins if its `observedAt` is strictly newer, so for equal
-  // (or unparseable) timestamps the first-in-scan-order error is retained —
-  // a stable tie-break preserving the prior authority ordering.
+  // Decode every candidate and keep the WORST comm error, ranking by KIND
+  // SEVERITY first and using recency only as a same-severity tie-break. A
+  // directly-observed crash (`worker-crashed-mid-job`, `worker-unreachable`,
+  // every non-reclaim kind) is a HARD failure the worker/control-plane saw
+  // first-hand; `worker-reclaimed-pending` is only the sweep boundary's
+  // inference (a lease lapsed, job re-queued) and cannot tell a real crash from
+  // a routine teardown. So a NEWER reclaim must NOT out-rank an OLDER real
+  // crash — severity is the primary winner key, recency only the tie-break
+  // WITHIN a tier. Within the same tier a later candidate wins only when its
+  // `observedAt` is strictly newer, so for equal/absent timestamps the
+  // first-in-scan-order error is retained (stable tie-break).
   let winner: PoolCommError | undefined;
+  let winnerSeverity = Number.NEGATIVE_INFINITY;
   let winnerTs = Number.NEGATIVE_INFINITY;
   for (const key of candidateKeys) {
     const row = live.get(key);
@@ -524,23 +546,28 @@ function decodeCellCommError(
     const commError = commErrorFromStatusSignal(row.signal);
     if (!commError) continue;
     // `observedAt` is an ISO string; `Date.parse` yields NaN for a malformed
-    // value. Treat NaN as the oldest possible time so a well-timestamped error
-    // always outranks an untimestamped one, and so the first untimestamped
-    // error still wins over later untimestamped ones (stable scan-order).
+    // value.
     const parsed = Date.parse(commError.observedAt);
     // STALENESS GATE: a comm error older than the staleness window is treated
     // as recovered and skipped — nothing clears the mirrored blob on recovery,
     // so without this the cell would render "unreachable" forever. Mirrors the
-    // resolveDx stale-green downgrade and `isStale`'s fail-safe: a malformed /
-    // unparseable `observedAt` (NaN) is NOT treated as stale, so such an error
-    // is still surfaced rather than silently dropped.
-    if (!Number.isNaN(parsed) && now - parsed > E2E_STALE_AFTER_MS) {
+    // resolveDx stale-green downgrade. An UNPARSEABLE `observedAt` (NaN) is
+    // treated as stale too: it can never be cleared on recovery (its age is
+    // undefined), so surfacing it would strand a permanent phantom overlay.
+    if (Number.isNaN(parsed) || now - parsed > E2E_STALE_AFTER_MS) {
       continue;
     }
-    const ts = Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
-    if (winner === undefined || ts > winnerTs) {
+    // Severity tier: directly-observed crash kinds (everything except the
+    // sweep-inferred reclaim) outrank `worker-reclaimed-pending`.
+    const severity = commError.kind === "worker-reclaimed-pending" ? 0 : 1;
+    if (
+      winner === undefined ||
+      severity > winnerSeverity ||
+      (severity === winnerSeverity && parsed > winnerTs)
+    ) {
       winner = commError;
-      winnerTs = ts;
+      winnerSeverity = severity;
+      winnerTs = parsed;
     }
   }
   return winner;
@@ -746,14 +773,34 @@ export function buildCellModel(
     nextRung.exists &&
     nextRung.status !== null;
 
-  // ── Pool comm-error overlay (REQ-B) ───────────────────────────────
+  // ── Pool comm-error overlay (REQ-B + flap-band #70) ───────────────
   // Decode "couldn't reach the pool" off the rows this cell reads. When
   // present it does NOT overwrite chipColor — the cell keeps showing its
-  // last-known probe result; surfaceState flips to "unreachable" so the
-  // renderer paints the distinct comm-error treatment on top.
+  // last-known probe result; surfaceState flips to an overlay so the renderer
+  // paints the distinct comm-error treatment on top.
+  //
+  // The overlay surface depends on the comm-error KIND:
+  //   - `worker-reclaimed-pending`: a lease lapsed and the sweeper re-queued the
+  //     job (back in flight). The sweep boundary cannot tell a real crash from an
+  //     expected platform teardown, so this is NEUTRAL — render "pending" (gray),
+  //     never red. This is the flap-band #70 fix: a routine Railway teardown no
+  //     longer flaps the whole service red.
+  //   - every other kind (worker-crashed-mid-job, worker-unreachable, …): a
+  //     KNOWN comm failure the worker/control-plane observed directly — render
+  //     the red "unreachable" overlay as before.
   const commError = decodeCellCommError(live, slug, featureId, now);
   const surfaceState: FleetSurfaceState = commError
-    ? "unreachable"
+    ? commError.kind === "worker-reclaimed-pending"
+      ? // A reclaimed-pending overlay is NEUTRAL (gray "pending") ONLY when the
+        // cell's real probe result isn't itself red/regressed. A present red
+        // (or a regression below the ceiling) is a GENUINE failure that the
+        // neutral pending overlay must NOT mask — otherwise DepthChip's
+        // "pending" early-return would hide a real red. The red probe result
+        // wins; routine teardown (non-red) still shows gray.
+        chipColor === "red" || isRegression
+        ? chipColorToSurface(chipColor)
+        : "pending"
+      : "unreachable"
     : chipColorToSurface(chipColor);
 
   return {

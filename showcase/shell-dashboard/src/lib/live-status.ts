@@ -59,6 +59,15 @@ export const POOL_COMM_ERROR_KINDS = [
   "worker-crashed-mid-job",
   /** A report arrived but failed schema/shape validation (protocol mismatch). */
   "worker-protocol-violation",
+  /**
+   * A lease lapsed and the control-plane sweeper RE-QUEUED the job to pending.
+   * The sweep boundary cannot tell a real crash from an expected platform
+   * teardown, but either way the job is back in flight — so the dashboard
+   * renders this as a NEUTRAL "re-queued / pending" surface (gray), NOT the red
+   * "unreachable" overlay. Mirror of the harness `worker-reclaimed-pending`
+   * kind; the cross-package drift test pins the two lists equal.
+   */
+  "worker-reclaimed-pending",
 ] as const;
 
 /** A single pool communication-failure kind. */
@@ -110,7 +119,13 @@ export type FleetSurfaceState =
   | "amber"
   | "red"
   | "gray"
-  | "unreachable";
+  | "unreachable"
+  // A `worker-reclaimed-pending` comm error: the job's lease lapsed and the
+  // control-plane re-queued it (back in flight). A NEUTRAL surface — the
+  // renderer paints it gray, distinct from both the red `"unreachable"` crash
+  // overlay and the cell's last-known probe colour — so a routine teardown
+  // never flaps the service red.
+  | "pending";
 
 /**
  * Extract a `PoolCommError` from a status-row signal blob, or `undefined` when
