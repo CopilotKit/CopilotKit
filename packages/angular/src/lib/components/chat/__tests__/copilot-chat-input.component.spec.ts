@@ -34,15 +34,17 @@ describe("CopilotChatInput", () => {
     chatState = TestBed.inject(ChatState) as ChatStateStub;
     component = runInInjectionContext(injector, () => new CopilotChatInput());
 
-    component.textAreaRef = {
+    const textAreaMock = {
       setValue: vi.fn(),
       focus: vi.fn(),
-    } as any;
-    component.audioRecorderRef = {
+    };
+    const audioRecorderMock = {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),
       getState: () => "idle",
-    } as any;
+    };
+    (component as any).textAreaRef = () => textAreaMock;
+    (component as any).audioRecorderRef = () => audioRecorderMock;
   });
 
   it("switches between input and transcribe modes", () => {
@@ -73,7 +75,7 @@ describe("CopilotChatInput", () => {
     expect(submitSpy).toHaveBeenCalledWith("Do it");
     expect(chatState.submitInput).toHaveBeenCalledWith("Do it");
     expect(chatState.changeInput).toHaveBeenLastCalledWith("");
-    expect(component.textAreaRef?.setValue).toHaveBeenCalledWith("");
+    expect(component.textAreaRef()?.setValue).toHaveBeenCalledWith("");
   });
 
   it("disables send while attachments are uploading", () => {
@@ -85,7 +87,7 @@ describe("CopilotChatInput", () => {
     component.send();
 
     expect(chatState.submitInput).not.toHaveBeenCalled();
-    expect(component.textAreaRef?.setValue).not.toHaveBeenCalled();
+    expect(component.textAreaRef()?.setValue).not.toHaveBeenCalled();
   });
 
   it("only opens the file picker when attachments are enabled", () => {

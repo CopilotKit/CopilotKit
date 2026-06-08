@@ -1,3 +1,10 @@
+import {
+  DestroyRef,
+  ElementRef,
+  afterRenderEffect,
+  inject,
+  type Signal,
+} from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   Catalog,
@@ -64,6 +71,41 @@ export function syncA2UISurface(
   element.catalog = config?.a2ui?.catalog;
   element.theme = config?.a2ui?.theme;
   element.loadingComponent = config?.a2ui?.loadingComponent;
+}
+
+/**
+ * Wires a reactive A2UI surface element to its operations source.
+ *
+ * Defines the web components once, then keeps the surface in sync after every
+ * render whenever the `operations` or `surfaceRef` signals change. Must be
+ * called from an injection context (e.g. a component constructor).
+ */
+export function connectA2UISurface(options: {
+  surfaceRef: Signal<ElementRef<A2UISurfaceElement> | undefined>;
+  operations: () => A2UIOperation[];
+  config?: A2UIConfigLike | null;
+}): void {
+  const { surfaceRef, operations, config } = options;
+  let destroyed = false;
+  inject(DestroyRef).onDestroy(() => {
+    destroyed = true;
+  });
+
+  const sync = (element = surfaceRef()?.nativeElement): void => {
+    if (destroyed) return;
+    syncA2UISurface(element, operations(), config);
+  };
+
+  void defineA2UIWebComponentsOnce().then(() => sync());
+
+  afterRenderEffect({
+    write: () => {
+      operations();
+      const surface = surfaceRef();
+      if (!surface) return;
+      sync(surface.nativeElement);
+    },
+  });
 }
 
 export function logA2UIRenderError(event: Event): void {

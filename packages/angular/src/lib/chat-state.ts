@@ -17,10 +17,12 @@ export abstract class ChatState {
   readonly dragOver = signal(false);
   readonly suggestions = signal<Suggestion[]>([]);
   readonly suggestionsLoading = signal(false);
+  readonly isTranscribing = signal(false);
 
   abstract submitInput(value: string): void;
   abstract changeInput(value: string): void;
   selectSuggestion(_suggestion: Suggestion, _index: number): void {}
+  finishTranscription(_audioBlob: Blob): void | Promise<void> {}
 
   addFile(): void {}
   removeAttachment(_id: string): void {}

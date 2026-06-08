@@ -255,6 +255,38 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     expect(mockRun).toHaveBeenCalledWith("document.body.dataset.step = 'two'");
   });
 
+  it("measures the final sandbox height once, even after later content updates", async () => {
+    const measureCallCount = () =>
+      mockRun.mock.calls.filter(
+        ([code]) => typeof code === "string" && code.includes("__ck_resize"),
+      ).length;
+
+    setContent(fixture, {
+      html: ["<body><p>Chart</p></body>"],
+      htmlComplete: true,
+      generating: true,
+    });
+    await flushSandboxImport(fixture);
+    expect(measureCallCount()).toBe(0);
+
+    setContent(fixture, {
+      html: ["<body><p>Chart</p></body>"],
+      htmlComplete: true,
+      generating: false,
+    });
+    await flushSandboxImport(fixture);
+    expect(measureCallCount()).toBe(1);
+
+    setContent(fixture, {
+      html: ["<body><p>Chart</p></body>"],
+      htmlComplete: true,
+      generating: false,
+      initialHeight: 321,
+    });
+    await flushSandboxImport(fixture);
+    expect(measureCallCount()).toBe(1);
+  });
+
   it("tears down a completed sandbox immediately when a fresh generation starts", async () => {
     setContent(fixture, {
       css: ".dashboard { color: blue; }",

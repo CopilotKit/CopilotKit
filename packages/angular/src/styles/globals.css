@@ -176,6 +176,20 @@
   }
 }
 
+@layer components {
+  .copilot-a2ui-surface-renderer-layout {
+    @apply cpk:block cpk:min-w-0 cpk:max-w-full;
+  }
+
+  .copilot-a2ui-surface-scroll {
+    @apply cpk:w-full cpk:max-w-full cpk:min-w-0 cpk:overflow-x-auto cpk:overflow-y-visible cpk:pt-1 cpk:pb-2;
+  }
+
+  .copilot-a2ui-surface-scroll-surface {
+    @apply cpk:block cpk:min-w-full;
+  }
+}
+
 [data-copilotkit] .prose {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
