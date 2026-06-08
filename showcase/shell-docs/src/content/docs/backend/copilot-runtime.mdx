@@ -75,7 +75,9 @@ When you register multiple agents, the `"default"` agent is what powers the chat
 
 ## Display names
 
-By default, each key under `agents:` doubles as the human-facing display name returned by the runtime's `/info` endpoint. Decouple the two — for example, a stable routing key like `"customer-support-v1"` paired with a friendlier display name like `"Customer Support Specialist"` — by declaring a public `name` field on your agent subclass:
+By default, each key under `agents:` doubles as the human-facing display name returned by the runtime's `/info` endpoint. Decouple the two — for example, a stable routing key like `"customer-support-v1"` paired with a friendlier display name like `"Customer Support Specialist"` — by declaring a public `name` field on your agent subclass.
+
+The same pattern works for `BuiltInAgent`, `HttpAgent`, `LangGraphAgent`, `LlamaIndexAgent`, `AgnoAgent`, or any other `AbstractAgent` subclass:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
