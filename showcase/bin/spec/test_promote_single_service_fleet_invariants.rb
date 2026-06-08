@@ -1,30 +1,44 @@
 # frozen_string_literal: true
 
-# bin/railway promote — fleet-scoped invariants must evaluate against the
-# FULL un-narrowed snapshots, not the single-service narrowed view.
+# bin/railway promote — fleet-scoped invariants must read the FULL
+# un-narrowed snapshots, while set-parity is target-scoped for a
+# single-service promote.
 #
-# Background: the per-service `promote <svc>` feature narrows BOTH
-# @staging_snapshot and @prod_snapshot to one service before preflight. Two
-# fleet-scoped checks were incorrectly co-narrowed:
+# Background: the per-service `promote <svc>` feature narrows the
+# target_*/per-service views to one service for the P1..P3/P6 and
+# critical-env-key checks, but the FLEET-SHAPE checks
+# (check_expected_prod_domains, check_service_set_parity) read the FULL
+# un-narrowed fleet_* snapshots — they describe the env, not the promote
+# target. (#5322 removed the earlier co-narrowing of these checks; do NOT
+# reintroduce snapshot narrowing for fleet-scoped checks.)
+#
+# Mechanism under test:
 #
 #   (1) check_expected_prod_domains compares the FLEET-WIDE public-host set
 #       (EXPECTED_DOMAINS[PRODUCTION_ENV_ID]) against the union of
-#       custom_domains across `prod["services"]`. Narrowed prod has ~1
-#       service → ~4 fleet hosts look "missing" → spurious WARN. The real
-#       workflow (.github/workflows/showcase_promote.yml) does NOT pass
-#       --confirm-divergence, so promote refuses on its first iteration and
-#       `set -e` aborts the loop. Healthy fleet, no real divergence,
-#       blocked.
+#       custom_domains across the FULL prod snapshot. The fixture's full
+#       prod fleet carries all 5 public hosts; a narrowed single-service
+#       view of the target owns 0 of them, so reading the narrowed view
+#       would make all 5 look "missing" → spurious WARN → and because the
+#       real workflow (.github/workflows/showcase_promote.yml) does NOT
+#       pass --confirm-divergence, promote would refuse. Reading the FULL
+#       fleet avoids that.
 #
-#   (2) check_service_set_parity diffs staging vs prod service names. After
-#       narrowing both to the same single name, the diff is always empty —
-#       the invariant is dead. Worse: if the target is in staging but
-#       ABSENT from prod, execute_promotion's `next unless find_service`
-#       silently skips and returns rc=0. Operator sees "success" while
-#       prod was untouched.
+#   (2) check_service_set_parity reads the FULL un-narrowed fleet_staging /
+#       fleet_prod snapshots and applies `& [target]` scoping to BOTH the
+#       staging-only and prod-only arms when a single service is targeted.
+#       So a single-service promote REFUSEs only on parity violations
+#       involving the TARGET itself, and tolerates unrelated single-env
+#       services (staging-only harness-workers / starter-* demos, or a
+#       deprecated prod-only service). Full-fleet promotes (target nil)
+#       keep both arms at full fleet strictness.
 #
-# These tests pin the fix contract: fleet-scoped checks read the FULL
-# snapshots; per-service mutation reads the narrowed snapshots.
+# Red-green coverage for THIS PR is provided by the two tolerance tests:
+#   - test_single_service_promote_tolerates_unrelated_staging_only_services
+#   - test_single_service_promote_tolerates_unrelated_prod_only_service
+# The test_healthy_* and test_target_absent_* tests are #5322 regression
+# guards (they pin that fleet-scoped checks read the FULL snapshots and
+# that an absent target still fails loud), not red-green for this change.
 
 require_relative "spec_helper"
 require "stringio"
@@ -96,17 +110,6 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         def parse_image_ref(ref); Railway::GHCR.allocate.parse_image_ref(ref); end
     end
 
-    # Public hosts as published by EXPECTED_DOMAINS for the production env.
-    # These are the SSOT-derived fleet-wide hosts; pulled here verbatim so
-    # the fixture's full prod snapshot legitimately satisfies the check.
-    FLEET_PUBLIC_PROD_HOSTS = [
-        "dashboard.showcase.copilotkit.ai",
-        "docs.copilotkit.ai",
-        "dojo.showcase.copilotkit.ai",
-        "hooks.showcase.copilotkit.ai",
-        "showcase.copilotkit.ai",
-    ].freeze
-
     def make_staging_service(name)
         {
             "name" => name, "service_id" => "svc-#{name}",
@@ -140,10 +143,17 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # (pre-narrow) staging snapshot, exactly where the fleet-scoped
     # set-parity check reads. They are legitimately staging-only and a
     # single-service promote must tolerate them.
-    def install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "aimock", staging_only_extras: [])
+    #
+    # `prod_only_extras:` is the mirror: it injects services into the FULL
+    # prod snapshot that have NO staging counterpart — modeling a
+    # deprecated/prod-only service. They land in the full (pre-narrow) prod
+    # snapshot where the prod-only arm of set-parity reads. They are
+    # legitimately prod-only and a single-service promote must tolerate them.
+    def install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "aimock",
+                              staging_only_extras: [], prod_only_extras: [])
         # Five "domain-bearing" services so the prod fleet legitimately
-        # carries all FLEET_PUBLIC_PROD_HOSTS, even when promote is
-        # narrowed to a service that doesn't itself own any public host.
+        # carries all 5 public prod hosts, even when promote is narrowed to
+        # a service that doesn't itself own any public host.
         domain_services_prod = [
             make_prod_service("dashboard", custom_domains: ["dashboard.showcase.copilotkit.ai"]),
             make_prod_service("docs",      custom_domains: ["docs.copilotkit.ai"]),
@@ -160,9 +170,15 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
 
         # Staging mirrors prod's service NAMES (set parity) — every prod
         # service has a corresponding staging entry. (For BUG #2, target is
-        # in staging but absent from prod by design.)
+        # in staging but absent from prod by design.) `prod_only_extras` are
+        # deliberately NOT mirrored into staging, so they land in the full
+        # prod snapshot with no staging counterpart.
         staging_names = (domain_services_prod.map { |s| s["name"] } + [target] + staging_only_extras).uniq
         staging_services = staging_names.map { |n| make_staging_service(n) }
+
+        # Inject prod-only extras into the FULL prod snapshot AFTER deriving
+        # staging_names, so they have no staging counterpart.
+        prod_only_extras.each { |n| domain_services_prod << make_prod_service(n) }
 
         cmd.instance_variable_set(:@staging_snapshot, { "services" => staging_services })
         cmd.instance_variable_set(:@prod_snapshot,    { "services" => domain_services_prod })
@@ -203,11 +219,12 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         Railway::PromoteCommand.const_set(:RETRY_DELAY_SEC, original)
     end
 
-    # ── BUG #1: healthy fleet, single-service promote, NO --confirm-divergence.
-    # Today (red): narrowed prod has 1 service whose custom_domains do not
-    # include the 5 fleet public hosts → WARN → run_with_preflight_only
-    # refuses (rc=1) because options[:confirm_divergence] is false.
-    # After fix (green): rc=0, target pinned, siblings untouched.
+    # ── #5322 regression guard: healthy fleet, single-service promote, NO
+    # --confirm-divergence must succeed. check_expected_prod_domains reads the
+    # FULL prod snapshot (all 5 public hosts present), so no phantom domain
+    # WARN is synthesized and the promote proceeds: rc=0, target pinned,
+    # siblings untouched. (This pins that fleet-scoped checks read the full
+    # snapshot; it is a guard, not red-green for the current parity change.)
     def test_healthy_fleet_single_service_promote_without_confirm_divergence_succeeds
         gql  = FakeGQLBenign.new
         ghcr = FakeGHCR.new(resolve_map: {
@@ -244,20 +261,15 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
             "dashboard must not be pinned when only aimock was promoted"
     end
 
-    # ── BUG #2: target exists in staging but is ABSENT from prod.
-    # Today (red): both snapshots get narrowed; service_set_parity (narrowed)
-    # diffs [target] vs [] but the test fixture wouldn't have a prod entry
-    # at all after narrowing... wait — narrowing prod yields an EMPTY
-    # services list (no match). check_service_set_parity then diffs
-    # ["aimock"] vs [] → finds REFUSE "services in staging not in prod".
-    # BUT: the per-service feature's narrowing also narrows staging to
-    # [target], so the diff against an empty prod *should* surface the
-    # REFUSE. Verify the failure mode is the silent-skip path:
-    # execute_promotion's `next unless find_service` for absent prod.
-    #
-    # Either way, the contract is: if the targeted service is in staging
-    # but ABSENT from prod, promote must FAIL LOUD (nonzero rc + clear
-    # message), never silently rc=0 with no pin mutations.
+    # ── #5322 regression guard: target in staging but ABSENT from prod must
+    # FAIL LOUD. check_service_set_parity reads the FULL un-narrowed
+    # fleet_staging / fleet_prod and applies `& [target]` scoping: the target
+    # is in the staging-only set, so the staging-not-in-prod REFUSE survives
+    # scoping and surfaces (never a silent rc=0 with no pin). To prove the
+    # check truly reads the FULL fleet AND applies target-scoping (not merely
+    # a trivially-narrowed pair), the fixture also carries an UNRELATED
+    # staging-only sibling: it must be IGNORED while the target REFUSE fires —
+    # the REFUSE names ONLY the target.
     def test_target_absent_from_prod_fails_loud
         gql  = FakeGQLBenign.new
         ghcr = FakeGHCR.new(resolve_map: {
@@ -265,10 +277,14 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         })
         cmd = build_cmd(["aimock"])
         # prod_includes_target=false → "aimock" exists in staging but NOT
-        # in the full prod snapshot. The fleet otherwise mirrors itself
-        # (no spurious set-parity issues), so the REFUSE we observe is
-        # specifically the staging-only-target case.
-        install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: false, target: "aimock")
+        # in the full prod snapshot. An unrelated staging-only sibling
+        # ("harness-workers") is injected too: the full fleet thus has TWO
+        # staging-only names, but target-scoping must REFUSE on ONLY the
+        # target. This distinguishes the fix from the buggy full-vs-narrowed
+        # behavior — a check that ignored target-scoping would also name the
+        # sibling.
+        install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: false, target: "aimock",
+                              staging_only_extras: %w[harness-workers])
 
         rc = nil
         out, _ = with_fast_sleeper { capture_io { rc = cmd.run } }
@@ -279,9 +295,16 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
             "Got rc=#{rc.inspect}; out=\n#{out}"
 
         # The error message must be informative — surface the parity
-        # violation rather than a generic / opaque failure.
-        assert_match(/REFUSE: services in staging not in prod/, out,
-            "must surface a clear REFUSE explaining target is missing from prod")
+        # violation rather than a generic / opaque failure. AND it must name
+        # ONLY the target: target-scoping means the unrelated staging-only
+        # sibling is excluded from the REFUSE even though it is in the FULL
+        # fleet's staging-only set. (A check that read the full fleet without
+        # target-scoping would also list "harness-workers" here.)
+        assert_match(/REFUSE: services in staging not in prod: aimock\b/, out,
+            "must surface a clear REFUSE naming the target missing from prod")
+        refute_match(/harness-workers/, out,
+            "target-scoping must exclude unrelated staging-only siblings from " \
+            "the REFUSE — only the target should be named")
 
         assert_empty gql.pinned_services,
             "no pin mutations may be issued when target is absent from prod"
@@ -293,11 +316,12 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # starter-* demos (not in SSOT). For a single-service promote of a
     # healthy target (present in both staging and prod) these are irrelevant.
     #
-    # Today (red): check_service_set_parity diffs the FULL staging fleet vs
+    # Red-green for the STAGING-only arm of the target-scoping fix (#5324):
+    # before scoping, check_service_set_parity diffs the FULL staging fleet vs
     # the FULL prod fleet and REFUSEs because the extras are "in staging not
-    # in prod" — blocking an otherwise-clean single-service promote.
-    # After fix (green): the staging-only REFUSE is target-scoped, so the
-    # unrelated extras are ignored; rc=0, target pinned, no REFUSE.
+    # in prod" — blocking an otherwise-clean single-service promote. After
+    # the fix, the staging-only REFUSE is target-scoped, so the unrelated
+    # extras are ignored; rc=0, target pinned, no REFUSE.
     def test_single_service_promote_tolerates_unrelated_staging_only_services
         gql  = FakeGQLBenign.new
         ghcr = FakeGHCR.new(resolve_map: {
@@ -321,6 +345,51 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
 
         refute_match(/REFUSE: services in staging not in prod/, out,
             "staging-only services unrelated to the promote target must not " \
+            "trigger the set-parity REFUSE on a single-service promote")
+
+        pinned = gql.pinned_services
+        assert_equal 1, pinned.size,
+            "exactly one service should be promoted (target only); got #{pinned.inspect}"
+        sid, image = pinned.first
+        assert_equal "prod-docs", sid
+        assert_equal "ghcr.io/copilotkit/docs@sha256:NEW_DOCS", image
+    end
+
+    # ── Single-service promote must TOLERATE unrelated prod-only services.
+    # This is the MIRROR of the staging-only tolerance test and the red-green
+    # for the PROD-only arm of the target-scoping fix (#5324). A prod-only
+    # service (e.g. a deprecated "harness-legacy" still present in prod but
+    # removed from staging) has no bearing on a single-service promote of an
+    # unrelated healthy target.
+    #
+    # Red (before this PR's source change): the prod-only arm of
+    # check_service_set_parity was computed over the FULL fleet
+    # (`(p_names - s_names)`) with NO target scoping, so ANY prod-only service
+    # REFUSEs EVERY single-service promote — "services in prod not in staging"
+    # fires and rc=1. Green (after): the prod-only arm is target-scoped too,
+    # so the unrelated prod-only service is ignored; rc=0, target pinned, no
+    # "in prod not in staging" REFUSE.
+    def test_single_service_promote_tolerates_unrelated_prod_only_service
+        gql  = FakeGQLBenign.new
+        ghcr = FakeGHCR.new(resolve_map: {
+            "ghcr.io/copilotkit/docs:latest" => "sha256:NEW_DOCS",
+        })
+        cmd = build_cmd(["docs"])
+        # Target "docs" is present in BOTH staging and prod. Inject an
+        # unrelated prod-only sibling (no staging counterpart).
+        install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "docs",
+                              prod_only_extras: %w[harness-legacy])
+
+        rc = nil
+        out, _ = with_fast_sleeper { capture_io { rc = cmd.run } }
+
+        assert_equal 0, rc,
+            "a single-service promote of a healthy target must NOT be refused " \
+            "because an UNRELATED prod-only service (harness-legacy) exists in " \
+            "prod but not staging. Got rc=#{rc.inspect}; out=\n#{out}"
+
+        refute_match(/REFUSE: services in prod not in staging/, out,
+            "prod-only services unrelated to the promote target must not " \
             "trigger the set-parity REFUSE on a single-service promote")
 
         pinned = gql.pinned_services
