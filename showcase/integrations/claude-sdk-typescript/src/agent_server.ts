@@ -564,7 +564,7 @@ function makeAgentHandler(config: DemoConfig = {}) {
                 emit({
                   type: EventType.REASONING_MESSAGE_START,
                   messageId: reasoningMsgId,
-                  role: "assistant",
+                  role: "reasoning",
                 });
                 reasoningStarted = true;
               }

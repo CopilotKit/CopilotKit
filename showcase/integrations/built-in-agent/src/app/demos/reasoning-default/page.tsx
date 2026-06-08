@@ -4,7 +4,7 @@
 //
 // Same backend (`/api/copilotkit-reasoning`, agent
 // `reasoning-default-render`, gpt-5.2 with reasoning_effort=low) as the
-// agentic-chat-reasoning demo, but this page passes NO custom
+// reasoning-custom demo, but this page passes NO custom
 // `reasoningMessage` slot. CopilotKit's built-in
 // `CopilotChatReasoningMessage` renders the chain as a collapsible card
 // with a "Thinking…" / "Thought for X" header — the zero-config path.
