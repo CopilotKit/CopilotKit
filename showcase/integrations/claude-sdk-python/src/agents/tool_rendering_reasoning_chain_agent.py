@@ -310,9 +310,7 @@ async def run_tool_rendering_reasoning_chain_agent(
                             # front. The completed block is appended to
                             # `thinking_blocks` on its content_block_stop.
                             thinking_text_acc = ""
-                            thinking_signature = (
-                                getattr(block, "signature", "") or ""
-                            )
+                            thinking_signature = getattr(block, "signature", "") or ""
                             continue
                         if block.type == "redacted_thinking":
                             # Redacted thinking has no deltas — its opaque
@@ -396,9 +394,7 @@ async def run_tool_rendering_reasoning_chain_agent(
                             # replayed assistant turn carries the original
                             # signature (required for tool-loop continuation
                             # with extended thinking). Not surfaced to the UI.
-                            thinking_signature += (
-                                getattr(delta, "signature", "") or ""
-                            )
+                            thinking_signature += getattr(delta, "signature", "") or ""
                         elif delta.type == "text_delta":
                             buffer += delta.text
                             # Drain

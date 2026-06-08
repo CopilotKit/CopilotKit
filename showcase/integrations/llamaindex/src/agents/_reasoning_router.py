@@ -318,9 +318,7 @@ class ReasoningAGUIChatWorkflow(AGUIChatWorkflow):
 
         return await self._finalize_chat(ctx, resp, chat_history)
 
-    async def _prepare_input(
-        self, ctx: Context, ev: InputEvent
-    ) -> List[ChatMessage]:
+    async def _prepare_input(self, ctx: Context, ev: InputEvent) -> List[ChatMessage]:
         """Build chat history + emit the initial state snapshot.
 
         Lifted verbatim from ``AGUIChatWorkflow.chat`` (the ``InputEvent``
@@ -335,9 +333,7 @@ class ReasoningAGUIChatWorkflow(AGUIChatWorkflow):
         )
 
         ag_ui_messages = ev.input_data.messages
-        chat_history = [
-            ag_ui_message_to_llama_index_message(m) for m in ag_ui_messages
-        ]
+        chat_history = [ag_ui_message_to_llama_index_message(m) for m in ag_ui_messages]
 
         state = ev.input_data.state
         if isinstance(state, dict):

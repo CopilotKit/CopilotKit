@@ -200,7 +200,7 @@ data never survives into any layer the bridge can see:
    captures `StreamEvent.content.content` (visible text). The final
    reply comes from `a_generate_oai_reply`, which returns a plain OAI
    message (content + tool_calls).
-3. Upstream of *that*, autogen's OpenAI chat-completions client
+3. Upstream of _that_, autogen's OpenAI chat-completions client
    (`autogen/oai/client.py`) reads only `choice.delta.content` and
    `choice.delta.tool_calls` from each streaming chunk.
    `choice.delta.reasoning_content` is **never read** in the

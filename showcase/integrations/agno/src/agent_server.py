@@ -670,9 +670,7 @@ async def _run_reasoning_agent(
                 # Fallback: check for "Reasoning:" prefix pattern (aimock
                 # fixtures)
                 lower = full_text.lower()
-                if lower.startswith("reasoning:") or lower.startswith(
-                    "reasoning step"
-                ):
+                if lower.startswith("reasoning:") or lower.startswith("reasoning step"):
                     # Treat the whole text as containing reasoning — emit as
                     # reasoning message so the ReasoningBlock renders, then
                     # re-emit as a text message so CopilotKit's conversation

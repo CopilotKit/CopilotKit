@@ -83,7 +83,7 @@ below are the ones where those primitives are genuinely unavailable.
   (role `"reasoning"`). The canonical `langgraph-python` agent produces
   these by routing the OpenAI model's reasoning summary through the
   **OpenAI Responses API** (`reasoning={"effort": "medium", "summary":
-  "detailed"}`). The aimock fixtures for these spring-ai cells
+"detailed"}`). The aimock fixtures for these spring-ai cells
   (`d6/spring-ai/reasoning.json`,
   `d6/spring-ai/tool-rendering-reasoning-chain.json`, copied from
   langgraph-python) carry the reasoning text in a dedicated
@@ -97,7 +97,7 @@ below are the ones where those primitives are genuinely unavailable.
   `/v1/chat/completions`). In `spring-ai-openai:1.0.1` the streaming
   delta is bound to the record `OpenAiApi.ChatCompletionMessage`, whose
   components are exactly `rawContent, role, name, toolCallId, toolCalls,
-  refusal, audioOutput, annotations` — there is **no `reasoning_content`
+refusal, audioOutput, annotations` — there is **no `reasoning_content`
   / `reasoning` field**, no metadata map, and no `@JsonAnySetter`
   catch-all. The record is annotated `@JsonIgnoreProperties`, so the
   inbound `reasoning_content` JSON property is **silently discarded at
