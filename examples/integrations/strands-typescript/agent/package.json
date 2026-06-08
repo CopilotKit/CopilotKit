@@ -1,0 +1,31 @@
+{
+  "name": "aws-strands-typescript-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Strands AG-UI TypeScript integration agent",
+  "scripts": {
+    "dev": "tsx main.ts",
+    "start": "tsx main.ts"
+  },
+  "dependencies": {
+    "@ag-ui/aws-strands": "^0.1.0",
+    "@ag-ui/core": "^0.0.52",
+    "@ag-ui/encoder": "^0.0.52",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@strands-agents/sdk": "^1.1.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^5.0.0",
+    "openai": "^6.0.0",
+    "tsx": "^4.20.6",
+    "uuid": "^11.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.11.19",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.3.3"
+  }
+}
