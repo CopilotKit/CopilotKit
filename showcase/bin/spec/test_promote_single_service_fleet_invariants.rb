@@ -151,21 +151,39 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # legitimately prod-only and a single-service promote must tolerate them.
     def install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "aimock",
                               staging_only_extras: [], prod_only_extras: [])
-        # Five "domain-bearing" services so the prod fleet legitimately
-        # carries all 5 public prod hosts, even when promote is narrowed to
-        # a service that doesn't itself own any public host.
-        domain_services_prod = [
-            make_prod_service("dashboard", custom_domains: ["dashboard.showcase.copilotkit.ai"]),
-            make_prod_service("docs",      custom_domains: ["docs.copilotkit.ai"]),
-            make_prod_service("dojo",      custom_domains: ["dojo.showcase.copilotkit.ai"]),
-            make_prod_service("webhooks",  custom_domains: ["hooks.showcase.copilotkit.ai"]),
-            make_prod_service("shell",     custom_domains: ["showcase.copilotkit.ai"]),
-        ]
-        # Plus the targeted service (no public domain of its own — it's an
+        # DERIVE-FROM-SSOT INVARIANT: the "domain-bearing" prod services and
+        # their public hosts are derived from the SAME constant the prod code
+        # reads — Railway::EXPECTED_DOMAINS[PRODUCTION_ENV_ID] — rather than
+        # re-hardcoding host literals here. This keeps the fixture coupled to
+        # the SSOT (showcase/scripts/railway-envs.generated.json): when the
+        # SSOT public-host set changes, this fixture moves with it instead of
+        # synthesizing phantom-domain WARNs or breaking the parity die!.
+        #
+        # Each public host is mapped back to its owning SSOT service name so
+        # the fixture's prod fleet legitimately carries all public prod hosts,
+        # even when promote is narrowed to a service that owns no public host.
+        public_hosts = Railway::EXPECTED_DOMAINS[Railway::PRODUCTION_ENV_ID]
+        ssot_services = Railway::SSOT_DATA.fetch("services")
+        domain_services_prod = public_hosts.map do |host|
+            owner = ssot_services.find { |s| s.dig("domains", "prod") == host }
+            make_prod_service(owner.fetch("name"), custom_domains: [host])
+        end
+        # The promote target must be a real SSOT staging service (this is what
+        # the prod code validates against), so assert it rather than trusting a
+        # bare literal that could silently drift from the SSOT.
+        assert_includes Railway::STAGING_SERVICES, target,
+            "fixture target #{target.inspect} must be a real SSOT staging service"
+        # Plus the targeted service (no public domain of its own — e.g. an
         # internal aimock). Optionally OMIT it from prod to exercise BUG #2.
         domain_services_prod << make_prod_service(target) if prod_includes_target
-        # And a non-targeted sibling that exists in both staging and prod.
-        sibling = "harness"
+        # And a non-targeted sibling that exists in both staging and prod —
+        # picked from STAGING_SERVICES as a real service that owns no public
+        # prod host, so it stays distinct from the domain-bearing set above.
+        domain_owner_names = domain_services_prod.map { |s| s["name"] }
+        sibling = Railway::STAGING_SERVICES.find do |n|
+            !domain_owner_names.include?(n) && n != target &&
+                ssot_services.find { |s| s["name"] == n }&.dig("domains", "prod")&.end_with?(".up.railway.app")
+        end
         domain_services_prod << make_prod_service(sibling)
 
         # Staging mirrors prod's service NAMES (set parity) — every prod
