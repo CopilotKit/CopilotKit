@@ -1,6 +1,7 @@
 package com.copilotkit.showcase.springai;
 
 import com.agui.core.agent.AgentSubscriber;
+import com.agui.core.agent.AgentSubscriberParams;
 import com.agui.core.agent.RunAgentInput;
 import com.agui.core.agent.RunAgentParameters;
 import com.agui.core.message.BaseMessage;
@@ -12,6 +13,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import static com.agui.server.EventFactory.runErrorEvent;
 
 /**
  * A {@link LocalAgent} that propagates the inbound {@code x-aimock-*} /
@@ -61,6 +64,26 @@ public abstract class PropagatingLocalAgent extends LocalAgent {
      * snapshot and re-establish it on the {@code runAsync} worker thread that
      * executes {@link #run}, so outbound LLM headers survive the SDK's
      * pooled-thread hop. Mirrors {@link LocalAgent#runAgent} otherwise.
+     *
+     * <p><b>Future + worker-exception contract.</b> The SSE bridge
+     * ({@code AgentStreamer.streamEvents}) drives the UI purely off the
+     * {@link AgentSubscriber} callbacks ({@code onEvent} forwards each event,
+     * {@code onRunFinalized}/{@code onRunFailed} close the stream) and
+     * <em>discards</em> the {@link CompletableFuture} this method returns. The
+     * stock {@link LocalAgent#runAgent} (and the previous version of this
+     * override) returned a fresh future that was never completed and fired the
+     * work via a discarded {@code runAsync}, so a worker-thread exception
+     * thrown out of {@link #run} was swallowed silently — the SSE stream was
+     * never finalized and the connection leaked until its {@code Long.MAX_VALUE}
+     * timeout.
+     *
+     * <p>This override instead returns the {@code runAsync} future directly
+     * (so any caller that <em>does</em> observe it sees real completion /
+     * failure), and on a worker-thread exception emits a terminal
+     * {@code RUN_ERROR} event and finalizes the run via
+     * {@code onRunFailed} so the SSE stream closes deterministically. Normal
+     * runs finalize through the subscriber callbacks the agent body already
+     * emits, exactly as before.
      */
     @Override
     public CompletableFuture<Void> runAgent(RunAgentParameters parameters, AgentSubscriber subscriber) {
@@ -69,8 +92,6 @@ public abstract class PropagatingLocalAgent extends LocalAgent {
         // happen before the runAsync hop — afterCompletion() will clear the
         // request thread's binding once the controller returns the SseEmitter.
         final Map<String, String> capturedHeaders = AimockHeaderContext.capture();
-
-        CompletableFuture<Void> future = new CompletableFuture<>();
 
         var input = new RunAgentInput(
                 parameters.getThreadId(),
@@ -86,9 +107,35 @@ public abstract class PropagatingLocalAgent extends LocalAgent {
                 parameters.getForwardedProps()
         );
 
-        CompletableFuture.runAsync(() ->
-                AimockHeaderContext.runWith(capturedHeaders, () -> this.run(input, subscriber)));
-
-        return future;
+        // Return the runAsync future directly so its completion / exceptional
+        // completion is observable. handle() bridges a swallowed worker-thread
+        // exception into a terminal RUN_ERROR + run-failed finalization so the
+        // SSE stream is always closed, then re-propagates it to the returned
+        // future for any caller that observes it.
+        return CompletableFuture
+                .runAsync(() ->
+                        AimockHeaderContext.runWith(capturedHeaders, () -> this.run(input, subscriber)))
+                .handle((unused, throwable) -> {
+                    if (throwable != null) {
+                        Throwable cause = throwable instanceof java.util.concurrent.CompletionException
+                                && throwable.getCause() != null
+                                ? throwable.getCause()
+                                : throwable;
+                        // The agent body failed before (or without) emitting its
+                        // own terminal events. Emit RUN_ERROR so any connected
+                        // client tears down the run, then finalize via
+                        // onRunFailed so the EventStream closes the SseEmitter.
+                        this.emitEvent(runErrorEvent(String.format(
+                                "agent run failed: %s (see server logs)",
+                                cause.getClass().getSimpleName())), subscriber);
+                        subscriber.onRunFailed(
+                                new AgentSubscriberParams(this.messages, this.state, this, input),
+                                cause);
+                        throw cause instanceof RuntimeException re
+                                ? re
+                                : new java.util.concurrent.CompletionException(cause);
+                    }
+                    return null;
+                });
     }
 }
