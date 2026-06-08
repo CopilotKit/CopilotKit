@@ -28,13 +28,29 @@ function buildSandboxHTML(extraCspDomains?: string[]): string {
 if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
 const inner=document.createElement("iframe");
 inner.style="width:100%;height:100%;border:none;";
-inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
+// Default sandbox intentionally omits allow-same-origin: combining it with
+// allow-scripts neuters the sandbox per HTML spec. The MCP-app HTML loaded
+// into srcdoc below is server-supplied (third-party MCP), so it must run in
+// an opaque-origin context to prevent access to the host page's cookies,
+// localStorage, DOM, and authenticated fetches.
+inner.setAttribute("sandbox","allow-scripts allow-forms");
 document.body.appendChild(inner);
+// Sandbox tokens an MCP server may request via ui/notifications/sandbox-resource-ready.
+// allow-same-origin is forbidden because together with allow-scripts it
+// removes sandboxing entirely.
+const ALLOWED_SANDBOX_TOKENS=["allow-scripts","allow-forms","allow-popups","allow-modals","allow-downloads","allow-pointer-lock","allow-popups-to-escape-sandbox","allow-presentation"];
+function sanitizeSandbox(s){
+if(typeof s!=="string")return null;
+const tokens=s.split(/\\s+/).filter(Boolean);
+const safe=tokens.filter(t=>ALLOWED_SANDBOX_TOKENS.indexOf(t)!==-1);
+return safe.length?safe.join(" "):null;
+}
 window.addEventListener("message",async(event)=>{
 if(event.source===window.parent){
 if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
 const{html,sandbox}=event.data.params;
-if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
+const safeSandbox=sanitizeSandbox(sandbox);
+if(safeSandbox)inner.setAttribute("sandbox",safeSandbox);
 if(typeof html==="string")inner.srcdoc=html;
 }else if(inner&&inner.contentWindow){
 inner.contentWindow.postMessage(event.data,"*");
@@ -423,10 +439,12 @@ export const MCPAppsActivityRenderer = defineComponent({
             iframe.style.border = "none";
             iframe.style.backgroundColor = "transparent";
             iframe.style.display = "block";
-            iframe.setAttribute(
-              "sandbox",
-              "allow-scripts allow-same-origin allow-forms",
-            );
+            // Sandbox the proxy iframe with allow-scripts only. The proxy
+            // only runs the inline relay script from buildSandboxHTML — it
+            // does not need same-origin access, form submission, or any other
+            // capability. Keeping it minimal limits blast radius if a future
+            // change introduces an XSS in the proxy HTML itself.
+            iframe.setAttribute("sandbox", "allow-scripts");
 
             const sandboxReady = new Promise<void>((resolve) => {
               initialListener = (event: MessageEvent) => {
