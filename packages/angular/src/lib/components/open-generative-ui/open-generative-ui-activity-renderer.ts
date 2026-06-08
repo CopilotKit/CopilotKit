@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -186,6 +187,7 @@ export class CopilotOpenGenerativeUIRenderer {
   private executedExpressionIndex = 0;
   private pendingQueue: string[] = [];
   private jsFunctionsInjected = false;
+  private heightMeasured = false;
   private autoHeight = signal<number | undefined>(undefined);
   private hasReceivedContent = false;
 
@@ -282,14 +284,19 @@ export class CopilotOpenGenerativeUIRenderer {
       }
     });
 
-    effect((onCleanup) => {
-      const state = this.renderState();
-      this.containerRef();
-      this.reconcileSandboxState(state);
+    afterRenderEffect({
+      write: () => {
+        const state = this.renderState();
+        this.containerRef();
+        this.reconcileSandboxState(state);
 
-      if (!state.generatingDone) return;
-      const cleanup = this.measureFinalHeight();
-      if (cleanup) onCleanup(cleanup);
+        if (!state.generatingDone || this.heightMeasured || !this.sandbox) {
+          return;
+        }
+        this.heightMeasured = true;
+        const cleanup = this.measureFinalHeight();
+        if (cleanup) this.destroyRef.onDestroy(cleanup);
+      },
     });
   }
 
@@ -474,6 +481,7 @@ export class CopilotOpenGenerativeUIRenderer {
   private resetFinalRuntimeState(): void {
     this.executedExpressionIndex = 0;
     this.jsFunctionsInjected = false;
+    this.heightMeasured = false;
     this.pendingQueue = [];
     this.sandboxReady = false;
   }
@@ -569,6 +577,7 @@ export class CopilotOpenGenerativeUIRenderer {
       this.sandbox = undefined;
     }
     this.sandboxReady = false;
+    this.heightMeasured = false;
     this.finalSandboxKey = undefined;
   }
 }

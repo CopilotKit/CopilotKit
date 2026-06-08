@@ -1,12 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   computed,
-  effect,
-  inject,
   input,
+  linkedSignal,
   signal,
+  untracked,
 } from "@angular/core";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { cn } from "../../utils";
@@ -89,12 +88,7 @@ export class CopilotChatReasoningMessage {
   readonly isRunning = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
 
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly elapsed = signal(0);
   private readonly userToggled = signal(false);
-  protected readonly open = signal(false);
-  private startTime: number | undefined;
-  private timer: ReturnType<typeof setInterval> | undefined;
 
   protected readonly isLatest = computed(() => {
     const messages = this.messages();
@@ -105,6 +99,28 @@ export class CopilotChatReasoningMessage {
     () => this.isRunning() && this.isLatest(),
   );
 
+  // Captures the wall-clock start the moment streaming begins and holds it
+  // afterwards. `label` reads this in both branches, keeping the linkedSignal
+  // warm so it recomputes across the streaming transition (no effect needed).
+  private readonly startTime = linkedSignal<boolean, number | undefined>({
+    source: this.isStreaming,
+    computation: (streaming, prev) =>
+      streaming ? (prev?.value ?? Date.now()) : prev?.value,
+  });
+
+  // Opens automatically while streaming. Once the user toggles, their choice is
+  // respected; otherwise the panel auto-collapses when streaming ends. Reads
+  // userToggled untracked so a mid-stream toggle doesn't re-force it open.
+  protected readonly open = linkedSignal<boolean, boolean>({
+    source: this.isStreaming,
+    computation: (streaming, prev) =>
+      streaming
+        ? true
+        : untracked(() => this.userToggled())
+          ? (prev?.value ?? false)
+          : false,
+  });
+
   protected readonly hasContent = computed(
     () => (this.message().content?.length ?? 0) > 0,
   );
@@ -113,11 +129,12 @@ export class CopilotChatReasoningMessage {
     () => this.message().content ?? "",
   );
 
-  protected readonly label = computed(() =>
-    this.isStreaming()
-      ? "Thinking…"
-      : `Thought for ${formatReasoningDuration(this.elapsed())}`,
-  );
+  protected readonly label = computed(() => {
+    const start = this.startTime();
+    if (this.isStreaming()) return "Thinking…";
+    const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
+    return `Thought for ${formatReasoningDuration(seconds)}`;
+  });
 
   protected readonly computedClass = computed(() =>
     cn("cpk:my-1", this.inputClass()),
@@ -139,54 +156,9 @@ export class CopilotChatReasoningMessage {
     ),
   );
 
-  constructor() {
-    this.destroyRef.onDestroy(() => this.clearTimer());
-
-    effect((onCleanup) => {
-      const streaming = this.isStreaming();
-      this.clearTimer();
-
-      if (streaming && this.startTime === undefined) {
-        this.startTime = Date.now();
-      }
-
-      if (!streaming && this.startTime !== undefined) {
-        this.elapsed.set((Date.now() - this.startTime) / 1000);
-        return;
-      }
-
-      if (!streaming) return;
-
-      this.timer = setInterval(() => {
-        if (this.startTime === undefined) return;
-        this.elapsed.set((Date.now() - this.startTime) / 1000);
-      }, 1000);
-
-      onCleanup(() => this.clearTimer());
-    });
-
-    effect(() => {
-      if (this.isStreaming()) {
-        this.userToggled.set(false);
-        this.open.set(true);
-        return;
-      }
-
-      if (!this.userToggled()) {
-        this.open.set(false);
-      }
-    });
-  }
-
   protected toggle(): void {
     if (!this.hasContent()) return;
     this.userToggled.set(true);
     this.open.update((value) => !value);
-  }
-
-  private clearTimer(): void {
-    if (this.timer === undefined) return;
-    clearInterval(this.timer);
-    this.timer = undefined;
   }
 }
