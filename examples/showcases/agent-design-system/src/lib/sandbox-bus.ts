@@ -6,7 +6,11 @@
  */
 type SandboxEvent = {
   type: "pin_card";
-  payload: { title: string; body?: string; tone?: "info" | "positive" | "warning" };
+  payload: {
+    title: string;
+    body?: string;
+    tone?: "info" | "positive" | "warning";
+  };
 };
 
 type Listener = (event: SandboxEvent) => void;

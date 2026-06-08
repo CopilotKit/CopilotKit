@@ -7,7 +7,8 @@ import {
   useA2UIActions,
 } from "@copilotkit/a2ui-renderer";
 import { catalog } from "./catalog";
-import { surfaceBus, type A2UIOp } from "./surface-bus";
+import { surfaceBus } from "./surface-bus";
+import type { A2UIOp } from "./surface-bus";
 
 const DEBUG = false;
 
@@ -104,8 +105,7 @@ function CanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions, channel]);
 
-  if (DEBUG)
-    console.log("[SurfaceCanvas] render — surfaceId=", surfaceId);
+  if (DEBUG) console.log("[SurfaceCanvas] render — surfaceId=", surfaceId);
 
   if (!surfaceId) {
     return (

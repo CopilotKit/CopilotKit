@@ -13,7 +13,8 @@ import { z } from "zod";
 import { SiteNav } from "@/components/SiteNav";
 import { Split } from "@/components/Split";
 import { StockCard } from "@/components/StockCard";
-import { STOCKS, getStock, type Stock } from "@/lib/stocks";
+import { STOCKS, getStock } from "@/lib/stocks";
+import type { Stock } from "@/lib/stocks";
 
 type Mode = "in-chat" | "split";
 
@@ -30,7 +31,9 @@ export default function ControlledPage() {
     })),
   });
 
-  /* In-chat: useComponent renders the card inside the conversation. */
+  /* showStock renders a card inline in the conversation, so it works
+     in both modes — it stays page-level. The workspace (pin) tools are
+     mode-specific and live in SplitView. */
   useComponent({
     name: "showStock",
     description:
@@ -56,11 +59,76 @@ export default function ControlledPage() {
     followUp: false,
   });
 
-  /* In-app: useFrontendTool handler mutates page state. The card
-     renders in the workspace panel, not in the chat. We also pass a
-     small `render` so the chat shows a one-line confirmation log when
-     the agent calls the tool — so the reader can see "this is a tool
-     call" the same way A2UI surfaces show a tool log. */
+  return (
+    <div className="h-screen flex flex-col bg-[var(--bg)]">
+      <SiteNav />
+
+      <PageHeader
+        title="Your component, the agent fills the props"
+        subtitle="Pre-build the component. The agent decides when to render it and what props to pass."
+        mode={mode}
+        onMode={setMode}
+      />
+
+      <main className="flex-1 flex flex-col max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
+        {mode === "in-chat" ? (
+          <SingleChat />
+        ) : (
+          <SplitView pinned={pinned} setPinned={setPinned} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function SingleChat() {
+  /* In-chat mode has no workspace panel, so pinning has nowhere to
+     land — only the inline-card flow makes sense here. Suggestions
+     stay show-oriented; pin lives in the split view. */
+  useConfigureSuggestions({
+    available: "before-first-message",
+    suggestions: [
+      { title: "Show me NVDA", message: "Show me NVDA", isLoading: false },
+      { title: "Show me AAPL", message: "Show me AAPL", isLoading: false },
+      { title: "Show me TSLA", message: "Show me TSLA", isLoading: false },
+    ],
+  });
+
+  return (
+    <div className="flex-1 min-h-0 w-full max-w-[860px] mx-auto">
+      <ChromePanel
+        caption="Chat"
+        hint={
+          <>
+            Try <Try>show me NVDA</Try>
+          </>
+        }
+      >
+        <div className="h-full flex flex-col copilot-chat-wrapper">
+          <CopilotChat
+            agentId="controlled"
+            labels={{
+              chatInputPlaceholder: "Try: show me NVDA",
+              welcomeMessageText: "How can I help?",
+            }}
+          />
+        </div>
+      </ChromePanel>
+    </div>
+  );
+}
+
+function SplitView({
+  pinned,
+  setPinned,
+}: {
+  pinned: Stock[];
+  setPinned: React.Dispatch<React.SetStateAction<Stock[]>>;
+}) {
+  /* The workspace tools only exist in this mode — the card lands in
+     the side panel, so they need a panel to land in. Registering them
+     here (not at the page level) keeps them out of the in-chat flow,
+     where pinning would be a no-op. */
   useFrontendTool({
     name: "pinStock",
     description:
@@ -105,7 +173,6 @@ export default function ControlledPage() {
   useConfigureSuggestions({
     available: "before-first-message",
     suggestions: [
-      { title: "Show me NVDA", message: "Show me NVDA", isLoading: false },
       {
         title: "Pin TSLA to my workspace",
         message: "Pin TSLA to my workspace",
@@ -116,68 +183,17 @@ export default function ControlledPage() {
         message: "Remove TSLA from my workspace",
         isLoading: false,
       },
+      {
+        title: "Clear the workspace",
+        message: "Clear the workspace",
+        isLoading: false,
+      },
     ],
   });
 
-  return (
-    <div className="h-screen flex flex-col bg-[var(--bg)]">
-      <SiteNav />
+  const onRemove = (ticker: string) =>
+    setPinned((cur) => cur.filter((s) => s.ticker !== ticker));
 
-      <PageHeader
-        title="Your component, the agent fills the props"
-        subtitle="Pre-build the component. The agent decides when to render it and what props to pass."
-        mode={mode}
-        onMode={setMode}
-      />
-
-      <main className="flex-1 flex flex-col max-w-[1480px] mx-auto px-5 py-5 w-full min-h-0">
-        {mode === "in-chat" ? (
-          <SingleChat />
-        ) : (
-          <SplitView
-            pinned={pinned}
-            onRemove={(t) =>
-              setPinned((cur) => cur.filter((s) => s.ticker !== t))
-            }
-          />
-        )}
-      </main>
-    </div>
-  );
-}
-
-function SingleChat() {
-  return (
-    <div className="flex-1 min-h-0 w-full max-w-[860px] mx-auto">
-      <ChromePanel
-        caption="Chat"
-        hint={
-          <>
-            Try <Try>show me NVDA</Try>
-          </>
-        }
-      >
-        <div className="h-full flex flex-col copilot-chat-wrapper">
-          <CopilotChat
-            agentId="controlled"
-            labels={{
-              chatInputPlaceholder: "Try: show me NVDA",
-              welcomeMessageText: "How can I help?",
-            }}
-          />
-        </div>
-      </ChromePanel>
-    </div>
-  );
-}
-
-function SplitView({
-  pinned,
-  onRemove,
-}: {
-  pinned: Stock[];
-  onRemove: (ticker: string) => void;
-}) {
   return (
     <Split
       persistKey="ads-controlled-split"
@@ -366,13 +382,7 @@ export function Try({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EmptyState({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
+export function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="h-full flex items-center justify-center text-center px-6">
       <div className="max-w-[320px] flex flex-col items-center gap-2">

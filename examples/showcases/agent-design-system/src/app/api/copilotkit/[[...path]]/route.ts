@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const MODEL = "openai/gpt-5";
 

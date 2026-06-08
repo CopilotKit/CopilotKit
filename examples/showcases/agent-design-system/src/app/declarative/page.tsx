@@ -37,7 +37,9 @@ function MessagesDebug() {
           "type=",
           (m as { activityType?: string }).activityType,
           "content keys=",
-          Object.keys((m as { content?: Record<string, unknown> }).content ?? {}),
+          Object.keys(
+            (m as { content?: Record<string, unknown> }).content ?? {},
+          ),
           "raw=",
           m,
         );

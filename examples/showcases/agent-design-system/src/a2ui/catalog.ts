@@ -17,5 +17,4 @@ export const catalog = createCatalog(
   { catalogId: CATALOG_ID, includeBasicCatalog: false },
 );
 
-
 export { CATALOG_ID, definitions };

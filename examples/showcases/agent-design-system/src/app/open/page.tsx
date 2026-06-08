@@ -74,7 +74,11 @@ function OpenGenUiChat() {
   useConfigureSuggestions({
     available: "before-first-message",
     suggestions: [
-      { title: "Build a calculator", message: "Build a calculator", isLoading: false },
+      {
+        title: "Build a calculator",
+        message: "Build a calculator",
+        isLoading: false,
+      },
       {
         title: "Sketch a pricing table",
         message: "Sketch a pricing table",

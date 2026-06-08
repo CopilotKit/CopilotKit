@@ -15,11 +15,11 @@ import {
   Wind,
 } from "lucide-react";
 import { z } from "zod";
+import type { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
   type CopilotChatAssistantMessageProps,
-  CopilotChatUserMessage,
   useAgent,
   useComponent,
   useCopilotKit,
@@ -57,9 +57,7 @@ const SUGGESTIONS = [
 const weatherSchema = z.object({
   city: z.string().describe("City name"),
   temperatureF: z.number().describe("Temperature in Fahrenheit"),
-  condition: z
-    .enum(["sunny", "cloudy", "rainy"])
-    .describe("Weather condition"),
+  condition: z.enum(["sunny", "cloudy", "rainy"]).describe("Weather condition"),
   humidity: z.number().describe("Humidity percent, 0-100"),
   windMph: z.number().describe("Wind speed in miles per hour"),
 });
@@ -74,7 +72,11 @@ function WeatherCard({
   const Icon =
     condition === "sunny" ? Sun : condition === "rainy" ? CloudRain : Cloud;
   const conditionLabel =
-    condition === "sunny" ? "Sunny" : condition === "rainy" ? "Rainy" : "Cloudy";
+    condition === "sunny"
+      ? "Sunny"
+      : condition === "rainy"
+        ? "Rainy"
+        : "Cloudy";
 
   return (
     <div className="my-3 max-w-[360px] surface p-4 flex flex-col gap-3">
@@ -212,8 +214,7 @@ function CssVariant() {
                   "!bg-transparent !border-0 !border-l-[3px] !border-l-[var(--warm-accent)] !rounded-none !pl-6 !pr-2 !my-5",
                 toolbarVisible: false,
               },
-              userMessage:
-                WarmUser as unknown as typeof CopilotChatUserMessage,
+              userMessage: WarmUser as unknown as typeof CopilotChatUserMessage,
             }}
             input={{
               // The border/sharp-corners belong on the pill itself
@@ -358,7 +359,15 @@ function ThemedAssistant(props: CopilotChatAssistantMessageProps) {
           border: "1px solid var(--line)",
         }}
       >
-        <CopilotChatAssistantMessage {...props} toolbarVisible={false} />
+        {/* The default message root carries `data-copilotkit`, which
+            paints `background-color: var(--background)` (white) — that
+            would sit on top of our --surface-soft bubble. Make it
+            transparent so the bubble color shows through. */}
+        <CopilotChatAssistantMessage
+          {...props}
+          toolbarVisible={false}
+          className="!bg-transparent"
+        />
       </div>
     </div>
   );
@@ -588,8 +597,8 @@ function WelcomeState({ onSuggest }: { onSuggest: (text: string) => void }) {
           Built from scratch
         </h3>
         <p className="text-[13px] text-[var(--ink-2)] mt-2 leading-relaxed">
-          Messages, the composer, attachments, generative UI cards — all
-          your own components on top of two CopilotKit hooks.
+          Messages, the composer, attachments, generative UI cards — all your
+          own components on top of two CopilotKit hooks.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 mt-1 max-w-md">
@@ -700,7 +709,9 @@ function ChromePanel({
       >
         <span
           className="w-1.5 h-1.5 rounded-full"
-          style={{ background: surface === "warm" ? "#c89b4a" : "var(--accent)" }}
+          style={{
+            background: surface === "warm" ? "#c89b4a" : "var(--accent)",
+          }}
           aria-hidden
         />
         <span
