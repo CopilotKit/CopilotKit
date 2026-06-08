@@ -244,6 +244,21 @@ export const POOL_COMM_ERROR_KINDS = [
   "worker-crashed-mid-job",
   /** A report arrived but failed schema/shape validation (protocol mismatch). */
   "worker-protocol-violation",
+  /**
+   * A lease lapsed on a claimed/running row and the sweeper RE-QUEUED the job
+   * (flipped it back to `pending`). The sweep boundary CANNOT tell a real
+   * worker crash apart from an expected platform teardown (Railway scale-down /
+   * redeploy SIGKILL with no graceful drain) — both leave an identical expired
+   * lease. But either way the job is now BACK IN FLIGHT (re-queued to pending),
+   * so this is NOT a terminal failure: the dashboard renders it as a neutral
+   * "re-queued / pending" surface (gray), never the red "crashed/unreachable"
+   * overlay. A genuine pool outage where no worker can pick the job up keeps
+   * re-surfacing this kind and the cell stays gray (no green) — the honest
+   * signal — instead of flapping red. The worker's OWN self-monitor still emits
+   * `worker-crashed-mid-job` for an in-driver pool-infra crash it observed
+   * directly (that one IS a known crash and stays red).
+   */
+  "worker-reclaimed-pending",
 ] as const;
 
 /** A single pool communication-failure kind. */

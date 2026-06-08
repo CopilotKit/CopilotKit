@@ -2,9 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createJobProducer,
   DEFAULT_SWEEP_INTERVAL_MS,
-  type JobProducer,
-  type ServiceJobSpec,
 } from "./job-producer.js";
+import type { JobProducer, ServiceJobSpec } from "./job-producer.js";
 import type {
   EnqueueJobInput,
   FleetQueueClient,
@@ -468,6 +467,122 @@ describe("job-producer — sweep cadence", () => {
     t = DEFAULT_SWEEP_INTERVAL_MS; // window reached
     await producer.tick(); // sweep
     expect(queue.sweepCalls).toEqual([0, DEFAULT_SWEEP_INTERVAL_MS]);
+  });
+});
+
+describe("job-producer — #72 pre-dispatch health warm-up", () => {
+  /** A fetch spy that records each warm URL and resolves a 200. */
+  function makeFetchSpy(): {
+    fetchImpl: typeof fetch;
+    calls: { url: string; method: string | undefined }[];
+  } {
+    const calls: { url: string; method: string | undefined }[] = [];
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      calls.push({ url: String(input), method: init?.method });
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+    return { fetchImpl, calls };
+  }
+
+  it("fires a health GET for every enumerated spec BEFORE dispatch", async () => {
+    const { fetchImpl, calls } = makeFetchSpy();
+    // Track enqueue ordering: the warm must fire before any enqueue. We assert
+    // this by capturing the warm-call count observed at first enqueue time.
+    let warmCountAtFirstEnqueue = -1;
+    const queue = makeFakeQueue({
+      enqueueImpl: async (input) => {
+        if (warmCountAtFirstEnqueue === -1) {
+          warmCountAtFirstEnqueue = calls.length;
+        }
+        return {
+          id: `job-${input.payload.serviceSlug}`,
+          probe_key: input.payload.probeKey,
+          status: "pending",
+          claimed_by: "",
+          lease_expires_at: null,
+          version: 1,
+        };
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha", "beta"]),
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+
+    // One warm GET per enumerated spec.
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call.method).toBe("GET");
+    }
+    // deriveHealthUrl appends /health to the spec's backendUrl base.
+    const urls = calls.map((c) => c.url).sort();
+    expect(urls).toEqual([
+      "https://alpha.example.com/health",
+      "https://beta.example.com/health",
+    ]);
+    // Both warm GETs fired BEFORE the first job was enqueued.
+    expect(warmCountAtFirstEnqueue).toBe(2);
+  });
+
+  it("does NOT warm when no warmHealth config is supplied (legacy behavior)", async () => {
+    const { fetchImpl, calls } = makeFetchSpy();
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: SILENT_LOGGER,
+      // no warmHealth
+    });
+    producer.start();
+    await producer.tick();
+    // fetchImpl was never wired, so nothing was warmed.
+    expect(calls).toHaveLength(0);
+    void fetchImpl;
+  });
+
+  it("a rejecting warm fetch never aborts job production (best-effort)", async () => {
+    const failingFetch = (async (): Promise<Response> => {
+      throw new Error("ECONNREFUSED (cold container still booting)");
+    }) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha", "beta"]),
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl: failingFetch },
+    });
+    producer.start();
+    const result = await producer.tick();
+    // Production proceeded despite every warm GET rejecting.
+    expect(result.enqueued).toBe(2);
+  });
+
+  it("skips specs with no backendUrl (no bogus warm GET)", async () => {
+    const { fetchImpl, calls } = makeFetchSpy();
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => [
+        {
+          probeKey: "d6:nourl",
+          serviceSlug: "nourl",
+          driverKind: "e2e_d6",
+          // no driverInputs.backendUrl
+        },
+      ],
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    expect(calls).toHaveLength(0);
   });
 });
 

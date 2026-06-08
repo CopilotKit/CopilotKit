@@ -2466,7 +2466,10 @@ export async function runControlPlane(
     logger,
   });
   // REQ-B producer-sweep leg: the producer's lease-driven `sweepExpired`
-  // synthesizes a `worker-crashed-mid-job` comm error per reclaimed job, but a
+  // synthesizes a `worker-reclaimed-pending` comm error per reclaimed job (the
+  // sweep boundary cannot tell a real crash from a routine platform teardown,
+  // so it emits the neutral re-queued kind rather than `worker-crashed-mid-job`
+  // — see queue-client.ts sweepExpired), but a
   // bare swept error carries only the `jobId`, not the `d6:<slug>` dashboard
   // key. This resolver maps each error to its aggregate key via the SAME
   // `probe_jobs` row lookup `surfaceReclaimedCommErrors` used (the job row's
@@ -2522,6 +2525,13 @@ export async function runControlPlane(
     onSweepCommErrors: async (commErrors) => {
       await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
     },
+    // #72 PRE-DISPATCH WARM-UP: fire a fire-and-forget GET <backendUrl>/health
+    // at every enumerated d6 backend before its pills run, so a cold
+    // (scaled-to-zero) container starts waking ahead of the probe — removing
+    // most `current=0` zero-output cold-start timeouts. Best-effort, short
+    // timeout, no LLM cost. Only the d6 producer warms (it drives the heaviest
+    // per-pill runs); the lighter smoke/demos/deep families do not.
+    warmHealth: { fetchImpl: globalThis.fetch },
   });
   // The three non-d6 browser families each get their own producer over their
   // family enumerator. They intentionally do NOT wire `onSweepCommErrors`: the
@@ -3474,10 +3484,73 @@ export async function bootFleet(
 ): Promise<Awaited<ReturnType<typeof boot>>> {
   const config = resolveFleetRoleConfig();
   switch (config.role) {
-    case "control-plane":
-      return runControlPlane(config, opts);
-    case "worker":
-      return runWorker(config, opts);
+    case "control-plane": {
+      const controlPlane = await runControlPlane(config, opts);
+      // GRACEFUL-TEARDOWN MARKER (flap-band #70/#71-FF3): Railway sends SIGTERM
+      // (with a grace window) on redeploy / scale-down. The worker arm below
+      // already drains on signal (#70); the control-plane — which owns the
+      // producers, the result consumer, and the fleet-health timers — had NO
+      // handler, so a redeploy killed it mid-cycle: interval timers stranded,
+      // the HTTP server left open, and an in-flight aggregation abandoned.
+      // Mirror the worker arm: drain via the handle's stop() (which clears the
+      // controlPlane + scheduler intervals and closes the server) before
+      // exiting, guarded against a double-drain.
+      let cpDraining = false;
+      const drainControlPlaneAndExit = (signal: NodeJS.Signals): void => {
+        if (cpDraining) return;
+        cpDraining = true;
+        logger.info("showcase-harness.fleet.control-plane.signal-drain", {
+          signal,
+        });
+        controlPlane
+          .stop()
+          .catch((err) =>
+            logErrorWithStack(
+              logger,
+              "showcase-harness.fleet.control-plane.signal-drain-failed",
+              err,
+            ),
+          )
+          .finally(() => process.exit(0));
+      };
+      process.once("SIGTERM", () => drainControlPlaneAndExit("SIGTERM"));
+      process.once("SIGINT", () => drainControlPlaneAndExit("SIGINT"));
+      return controlPlane;
+    }
+    case "worker": {
+      const worker = await runWorker(config, opts);
+      // GRACEFUL-TEARDOWN MARKER (flap-band #70): Railway sends SIGTERM (with a
+      // grace window) on scale-down / redeploy. WITHOUT this handler the worker
+      // process dies mid-job, leaving its claimed/running row to lapse so the
+      // control-plane sweeper reclaims it as a comm error — a FALSE flap on
+      // every routine teardown. Draining here makes the in-flight job report a
+      // TERMINAL result BEFORE the lease can expire, so the sweep never sees the
+      // row at all and no false overlay is synthesized. This is THE distinction
+      // the sweep boundary cannot make on its own (an expired lease looks the
+      // same for a crash and a SIGKILL teardown) — we create the marker by
+      // converting the common SIGTERM teardown into a clean drain. A hard
+      // SIGKILL (no grace) still strands the row, but the sweep now treats that
+      // as the neutral `worker-reclaimed-pending` (re-queued), not a red crash.
+      let draining = false;
+      const drainAndExit = (signal: NodeJS.Signals): void => {
+        if (draining) return;
+        draining = true;
+        logger.info("showcase-harness.fleet.worker.signal-drain", { signal });
+        worker
+          .stop()
+          .catch((err) =>
+            logErrorWithStack(
+              logger,
+              "showcase-harness.fleet.worker.signal-drain-failed",
+              err,
+            ),
+          )
+          .finally(() => process.exit(0));
+      };
+      process.once("SIGTERM", () => drainAndExit("SIGTERM"));
+      process.once("SIGINT", () => drainAndExit("SIGINT"));
+      return worker;
+    }
     default: {
       // Exhaustiveness guard: a new HarnessRole added without a dispatch arm
       // is a compile error here, not a silent fall-through.

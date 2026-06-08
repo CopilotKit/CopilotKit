@@ -212,6 +212,13 @@ export function buildJobProducer(deps: {
    * Omit to keep the legacy log-only behaviour.
    */
   onSweepCommErrors?: SweepCommErrorSink;
+  /**
+   * Pre-dispatch health warm-up (flap-band #72). When supplied, each tick fires
+   * a fire-and-forget `GET <backendUrl>/health` per enumerated spec before
+   * enqueueing, waking cold containers ahead of the pills that probe them. Omit
+   * to keep the legacy no-warm behaviour.
+   */
+  warmHealth?: Parameters<typeof createJobProducer>[0]["warmHealth"];
 }): JobProducer {
   return createJobProducer({
     queue: deps.queue,
@@ -220,6 +227,7 @@ export function buildJobProducer(deps: {
     ...(deps.onSweepCommErrors
       ? { onSweepCommErrors: deps.onSweepCommErrors }
       : {}),
+    ...(deps.warmHealth ? { warmHealth: deps.warmHealth } : {}),
   });
 }
 

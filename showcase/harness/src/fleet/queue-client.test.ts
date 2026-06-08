@@ -827,7 +827,7 @@ describe("FleetQueueClient.report", () => {
 });
 
 describe("FleetQueueClient.sweepExpired", () => {
-  it("reclaims expired leases and emits worker-crashed-mid-job comm errors", async () => {
+  it("reclaims expired leases and emits worker-reclaimed-pending comm errors (flap-band #70)", async () => {
     const now = Date.parse("2026-06-04T00:05:00.000Z");
     // One running row with an EXPIRED lease (crashed worker), one with a live
     // lease that must NOT be swept.
@@ -871,7 +871,12 @@ describe("FleetQueueClient.sweepExpired", () => {
 
     expect(sweep.reclaimed).toBe(1);
     expect(sweep.commErrors).toHaveLength(1);
-    expect(sweep.commErrors[0].kind).toBe("worker-crashed-mid-job");
+    // flap-band #70: the sweep boundary cannot tell a real crash from an
+    // expected platform teardown (both leave an identical expired lease), and
+    // the job is RE-QUEUED to pending (back in flight), so the sweep emits the
+    // NEUTRAL `worker-reclaimed-pending` kind — NOT `worker-crashed-mid-job`,
+    // which would flap the service red on every routine teardown.
+    expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
     expect(sweep.commErrors[0].jobId).toBe("j1");
     expect(sweep.commErrors[0].workerId).toBe("worker-dead");
     expect(releaseJob).toHaveBeenCalledWith("j1", "worker-dead", "pending");
