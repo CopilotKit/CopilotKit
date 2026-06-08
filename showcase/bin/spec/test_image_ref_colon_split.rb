@@ -54,15 +54,7 @@ class ImageRefColonSplitTest < Minitest::Test
     # port colon, producing the corrupt pin "localhost@sha256:...". RED before
     # the fix, GREEN after.
     def test_pin_preserves_port_base_when_rewriting_to_digest
-        cmd = Railway::PinCommand.new(
-            ["--env", "production", "--service", "shell",
-             "--image", PORT_REF, "--non-interactive", "--yes", "--dry-run"],
-        )
-        cmd.instance_variable_set(:@ghcr, Object.new.tap do |o|
-            def o.resolve_digest(_ref); "sha256:deadbeef"; end
-        end)
-
-        out, _ = capture_io { cmd.run }
+        out = run_pin_dry_run(PORT_REF)
         assert_match(/#{Regexp.escape("#{PORT_REF_BASE}@sha256:deadbeef")}/, out,
             "pin must preserve the full registry:port/org/img base when " \
             "rewriting a tag ref to a digest; got:\n#{out}")
@@ -72,16 +64,36 @@ class ImageRefColonSplitTest < Minitest::Test
 
     # Canonical (no-port) refs must keep working identically through the fix.
     def test_pin_preserves_canonical_base_when_rewriting_to_digest
+        out = run_pin_dry_run(CANONICAL_REF)
+        assert_match(/#{Regexp.escape("#{CANONICAL_BASE}@sha256:deadbeef")}/, out,
+            "canonical ref base must be unchanged by the fix; got:\n#{out}")
+    end
+
+    private
+
+    # Drive PinCommand#run through its tag→digest rewrite under --dry-run while
+    # keeping the test HERMETIC. PinCommand#run resolves the service id via a
+    # fresh `RollbackCommand.new([]).resolve_service_id(...)` BEFORE the dry-run
+    # early-return, which would otherwise issue a real GraphQL call (and `die!`
+    # → exit on a tokenless CI runner, aborting the whole suite). Stub GHCR
+    # digest resolution on the command instance, and stub service-id resolution
+    # at the class level so no network is touched.
+    def run_pin_dry_run(image_ref)
         cmd = Railway::PinCommand.new(
             ["--env", "production", "--service", "shell",
-             "--image", CANONICAL_REF, "--non-interactive", "--yes", "--dry-run"],
+             "--image", image_ref, "--non-interactive", "--yes", "--dry-run"],
         )
         cmd.instance_variable_set(:@ghcr, Object.new.tap do |o|
             def o.resolve_digest(_ref); "sha256:deadbeef"; end
         end)
 
-        out, _ = capture_io { cmd.run }
-        assert_match(/#{Regexp.escape("#{CANONICAL_BASE}@sha256:deadbeef")}/, out,
-            "canonical ref base must be unchanged by the fix; got:\n#{out}")
+        original = Railway::RollbackCommand.instance_method(:resolve_service_id)
+        Railway::RollbackCommand.define_method(:resolve_service_id) { |_env_id, _name| "svc-stub" }
+        begin
+            out, = capture_io { cmd.run }
+            out
+        ensure
+            Railway::RollbackCommand.define_method(:resolve_service_id, original)
+        end
     end
 end
