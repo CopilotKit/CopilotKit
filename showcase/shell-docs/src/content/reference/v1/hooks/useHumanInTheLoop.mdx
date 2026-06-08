@@ -11,7 +11,7 @@ description: "The useHumanInTheLoop hook enables human approval and interaction 
 tool, it stops and waits for the user to respond through your custom UI before continuing. This is
 essential for sensitive operations, confirmations, or collecting information that only the user can provide.
 
-Unlike `useFrontendTool`, there's no handler function—instead, your render function receives a `respond`
+Unlike `useFrontendTool`, there's no handler function. Instead, your render function receives a `respond`
 callback that sends the user's input back to the AI. The AI execution remains paused until `respond` is called,
 making this a true blocking interaction.
 
@@ -233,5 +233,5 @@ A React component that renders the interactive UI for human input. The component
 </PropertyReference>
 
 <PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Currently non-functional in this v1 hook — the value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the tool from being registered or called.
+Currently non-functional in this v1 hook. The value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the tool from being registered or called.
 </PropertyReference>

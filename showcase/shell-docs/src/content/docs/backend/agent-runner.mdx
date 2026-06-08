@@ -1,15 +1,14 @@
 ---
-title: "AgentRunner & persistence"
+title: "AgentRunner and persistence"
 icon: "lucide/Database"
-description: "The AgentRunner abstraction that backs the runtime — InMemoryAgentRunner, IntelligenceAgentRunner, and TelemetryAgentRunner — and how to plug in your own persistence backend."
+description: "Control how the runtime starts, reconnects to, and stops agent runs with AgentRunner."
 ---
 
-Every CopilotKit runtime delegates the actual *execution and persistence* of an
-agent run to an **`AgentRunner`**. It's the piece that turns a `POST /agent/:id/run`
-into a live stream of AG-UI events, remembers a thread so a later
-`POST /agent/:id/connect` can re-attach to it, and stops a run on demand. Picking
-(or subclassing) the right runner is how you control where conversation history
-lives.
+Every CopilotKit runtime delegates agent execution and persistence to an
+`AgentRunner`. The runner turns `POST /agent/:id/run` into a live stream of
+AG-UI events, remembers a thread so `POST /agent/:id/connect` can attach to it,
+and stops a run on demand. Pick or subclass a runner when you need to control
+where conversation state lives.
 
 ## The abstraction
 
@@ -40,15 +39,15 @@ headers and a `joinCode`). The runner owns whatever storage backs those threads.
 
 | Runner | Import | Use it for |
 |---|---|---|
-| `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default. Stores thread runs in process memory. Great for local dev, single-instance deployments, and as a base class to extend. |
-| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Intelligence Platform — durable threads, cross-instance persistence, and the threads/history features. Used automatically on an Intelligence runtime. |
-| `TelemetryAgentRunner` | `@copilotkit/runtime` | A decorator that wraps another runner to emit telemetry around `run`/`connect`/`stop`. Composed in automatically; you typically don't construct it directly. |
+| `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default v2 runner. Stores thread runs in process memory. Use it for local development, single-instance deployments, or as a base class to extend. |
+| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Intelligence Platform with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
+| `TelemetryAgentRunner` | `@copilotkit/runtime` | Legacy wrapper behavior. The root runtime composes telemetry around a runner when telemetry is enabled; `@copilotkit/runtime/v2` does not. |
 
 If you don't pass a `runner`, the runtime uses `InMemoryAgentRunner`. Because it
 holds threads in process memory, history is lost on restart and is **not shared
-across instances** — so for a horizontally-scaled or restart-resilient deployment
-you either move to the Intelligence Platform's `IntelligenceAgentRunner` or supply
-your own runner backed by your datastore.
+across instances**. For a horizontally scaled or restart-resilient deployment,
+move to the Intelligence Platform's `IntelligenceAgentRunner` or supply your own
+runner backed by your datastore.
 
 ## Choosing a runner
 
@@ -90,22 +89,22 @@ export class MyRunner extends InMemoryAgentRunner {
 }
 ```
 
-For a complete, production-shaped example — including how to handle a `connect()`
-that arrives **before** any `run()` for a thread, and how to synthesise missing
-tool-call results from a replayed history — see the
-[AWS AgentCore integration](/deploy/agentcore), which extends `InMemoryAgentRunner`
-into an `AgentCoreRunner`.
+For a complete production example, see the
+[AWS AgentCore integration](/deploy/agentcore). It extends
+`InMemoryAgentRunner` into an `AgentCoreRunner`, handles a `connect()` that
+arrives **before** any `run()` for a thread, and synthesizes missing tool-call
+results from a replayed history.
 
 <Callout type="warn">
-If `connect()` can be called for a thread your runner has never seen (a freshly
-minted thread id on first page load), handle that case explicitly — otherwise the
-`POST /agent/:id/connect` route can surface a 404 or an error before the user
-sends a message. See the [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#the-connect-route-returns-a-404-on-a-fresh-thread).
+If `connect()` can be called for a thread your runner has never seen, such as a
+new thread id on first page load, handle that case explicitly. Otherwise the
+`POST /agent/:id/connect` route can return a 404 or an error before the user
+sends a message. See the [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
 </Callout>
 
 ## Related
 
-- [Runtime HTTP endpoints](/backend/runtime-endpoints) — the routes each runner method backs.
-- [Copilot Runtime](/backend/copilot-runtime) — configuring the runtime and `runner`.
-- [AWS AgentCore](/deploy/agentcore) — a real custom-runner subclass for an external memory layer.
-- [Self-Hosting Intelligence](/premium/self-hosting) — the durable, multi-instance `IntelligenceAgentRunner` backend.
+- [Runtime HTTP endpoints](/backend/runtime-endpoints): the routes each runner method backs.
+- [Copilot Runtime](/backend/copilot-runtime): configuring the runtime and `runner`.
+- [AWS AgentCore](/deploy/agentcore): a custom runner subclass for an external memory layer.
+- [Self-Hosting Intelligence](/premium/self-hosting): the durable, multi-instance `IntelligenceAgentRunner` backend.

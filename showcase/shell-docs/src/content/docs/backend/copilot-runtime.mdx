@@ -59,15 +59,15 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
   | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint` (Fetch / Next.js App Router, Bun, Deno, Cloudflare Workers) | `createCopilotRuntimeHandler` |
   | `copilotRuntimeNodeExpressEndpoint` (Express) | `createCopilotExpressHandler` (from `@copilotkit/runtime/v2/express`) |
 
-  Both styles work in v1.50. For new projects we recommend the v2 handlers — see [Deploy to any runtime](/runtime-server-adapter).
+  Both styles work in v1.50. For new projects, use the v2 handlers. See [Deploy to any runtime](/runtime-server-adapter).
 </Callout>
 
 ## Agents
 
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
 
-- **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](/quickstart).
-- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
+- **Simple mode:** pass a model string and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
+- **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
 ## The default agent
 
@@ -102,7 +102,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 ### Premium features
 
-[Observability](/premium/observability), the [inspector](/inspector), and other premium capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging out of the box.
+[Observability](/premium/observability), the [inspector](/inspector), and other premium capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging without extra setup.
 
 ## Built-in middleware
 
@@ -125,7 +125,7 @@ To scope it to specific agents only, pass an `agents` list:
 a2ui: { agents: ["my-agent"] }
 ```
 
-On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
+On the frontend, the A2UI renderer activates automatically. No extra configuration is needed. To override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -173,14 +173,14 @@ const myAgent = new HttpAgent({
 Direct agent connections are intended for development and prototyping. They are **not recommended for production** and are not officially supported by CopilotKit.
 </Callout>
 
-If you genuinely intend to manage the agent connection yourself in production (and
-have secured it), use the supported [`selfManagedAgents`](/backend/self-managed-agents)
+If you intend to manage the agent connection yourself in production and have
+secured it, use the supported [`selfManagedAgents`](/backend/self-managed-agents)
 prop instead of `agents__unsafe_dev_only`.
 
 Key trade-offs:
 
-1. **Authentication is your responsibility** — the runtime's safe defaults do not apply.
-2. **Many ecosystem features won't work** — runtime-backed middleware, observability, and other capabilities depend on the server-side path.
+1. **Authentication is your responsibility.** The runtime's safe defaults do not apply.
+2. **Many ecosystem features won't work.** Runtime-backed middleware, observability, and other capabilities depend on the server-side path.
 
 ### Comparison
 

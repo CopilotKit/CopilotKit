@@ -297,7 +297,7 @@ is a situation where a user and an agent are working together to solve a problem
                     "- Maintain a list of searches: each item has { query, done }.\\n"
                     "- When adding a new search, call `update_searches` with the FULL list, including the new item with done=true.\\n"
                     "- All searches in the list should have done=true unless explicitly in progress.\\n"
-                    "- Never send partial updates—always include the full list on each call.\\n"
+                    "- Never send partial updates. Always include the full list on each call.\\n"
                 ),
                 client=chat_client,
                 tools=[update_searches],

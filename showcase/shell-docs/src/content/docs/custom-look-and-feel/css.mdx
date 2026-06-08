@@ -28,7 +28,7 @@ The demo keeps all of its styling in a sibling `theme.css` file and applies it
 only to the wrapper div holding `<CopilotChat>`. Importing the stylesheet from
 the page module is enough; Next.js bundles it with the route:
 
-<Snippet region="theme-css-import" title="frontend/src/app/page.tsx — import the theme" />
+<Snippet region="theme-css-import" title="frontend/src/app/page.tsx: import the theme" />
 
 Scoping every selector under a wrapper class keeps the overrides from leaking
 into the rest of the app.
@@ -39,7 +39,7 @@ The easiest way to change the colors used in the Copilot UI components is to
 override CopilotKit CSS variables. The demo sets them on the scope wrapper so
 they cascade into every nested chat component:
 
-<Snippet region="design-tokens" title="frontend/src/app/theme.css — design-token overrides" />
+<Snippet region="design-tokens" title="frontend/src/app/theme.css: design-token overrides" />
 
 Once you've found the right variable, you can also apply the overrides inline
 via the `CopilotKitCSSProperties` helper:
@@ -62,10 +62,10 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 
 | CSS Variable | Description |
 |-------------|-------------|
-| `--copilot-kit-primary-color` | Main brand/action color — used for buttons, interactive elements |
-| `--copilot-kit-contrast-color` | Color that contrasts with primary — used for text on primary elements |
+| `--copilot-kit-primary-color` | Main brand/action color for buttons and interactive elements |
+| `--copilot-kit-contrast-color` | Color that contrasts with primary, used for text on primary elements |
 | `--copilot-kit-background-color` | Main page/container background color |
-| `--copilot-kit-secondary-color` | Secondary background — used for cards, panels, elevated surfaces |
+| `--copilot-kit-secondary-color` | Secondary background for cards, panels, and elevated surfaces |
 | `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
 | `--copilot-kit-separator-color` | Border color for dividers and containers |
 | `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
@@ -75,7 +75,7 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
   The `--copilot-kit-*` variables above style the **v1** component CSS
   (`@copilotkit/react-ui`). The newer **v2** components
   (`@copilotkit/react-core/v2`) are Tailwind + shadcn-based and use a
-  separate set of design tokens — see [v2 design
+  separate set of design tokens. See [v2 design
   tokens](#v2-design-tokens-shadcn) below.
 </Callout>
 
@@ -86,7 +86,7 @@ on the standard shadcn/ui token set. Instead of the `--copilot-kit-*`
 variables, they read [oklch](https://oklch.com) color tokens that are scoped to
 the `[data-copilotkit]` root and wired into Tailwind utilities through an
 `@theme inline` block. This means you can re-skin the entire v2 UI by
-overriding a handful of CSS custom properties — every component picks the
+overriding a handful of CSS custom properties. Every component picks the
 change up automatically.
 
 Override them on the `[data-copilotkit]` element (or any ancestor) the same way
@@ -133,7 +133,7 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
 
 <Callout type="info" title="oklch values">
   v2 tokens use the `oklch()` color space, which keeps perceived lightness
-  consistent across hues. You can still pass `hsl()`, `rgb()`, or hex — any
+  consistent across hues. You can still pass `hsl()`, `rgb()`, or hex; any
   valid CSS color works.
 </Callout>
 
@@ -162,7 +162,7 @@ that file:
 
 <Snippet
   region="user-message"
-  title="frontend/src/app/theme.css — user message bubbles"
+  title="frontend/src/app/theme.css: user message bubbles"
 />
 
 ### Reference

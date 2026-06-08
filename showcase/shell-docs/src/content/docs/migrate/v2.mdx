@@ -16,11 +16,11 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 | `@copilotkit/react-ui` | `@copilotkit/react-core/v2` |
 | `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
 
-**What's NOT changing:**
-- Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
-- Your `CopilotRuntime` configuration — stays the same
-- Agent definitions and backend setup — stays the same
-- The `<CopilotKit>` provider name — keep using it, but import it from `@copilotkit/react-core/v2`
+**What's not changing:**
+- Backend packages (`@copilotkit/runtime`, etc.) do not need changes.
+- Your `CopilotRuntime` configuration stays the same.
+- Agent definitions and backend setup stay the same.
+- Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
 
 ## Migration Steps
 
@@ -42,7 +42,7 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
 ```
 
-#### Hook mapping (v1 → v2)
+#### Hook mapping from v1 to v2
 
 Use this table to find the v2 replacement for each v1 hook:
 
@@ -66,7 +66,7 @@ v1 component-override props.
 
 </Step>
 <Step>
-### Replace `@copilotkit/react-ui` imports
+### Replace React UI imports
 
 UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
 
@@ -100,7 +100,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 </Step>
 <Step>
-### Upgrade `@ag-ui/client` (if using directly)
+### Upgrade AG-UI client if using it directly
 
 If you import from `@ag-ui/client` directly, upgrade to the latest version:
 

@@ -21,7 +21,9 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
 
 ## When should I use this?
 
-Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways — the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
+Use shared state when you want the agent and the user to collaborate through the
+same application state. The agent's outputs are reflected in the UI, and user
+updates in the UI are reflected in the agent's execution.
 
 <OpsPlatformCTA
   variant="inline"
@@ -35,13 +37,13 @@ Use shared state when you want to facilitate collaboration between your agent an
 <FrameworkSetup concept="shared-state-setup" />
 
 Subscribe a component to the agent's state with `useAgent`. Any time the agent
-mutates its state — for example via a tool call — the hook fires and your UI
+mutates its state, for example via a tool call, the hook fires and your UI
 re-renders with the new values.
 
-<Snippet region="use-agent-read" cell="shared-state-read-write" title="frontend/src/app/page.tsx — useAgent subscription" />
+<Snippet region="use-agent-read" cell="shared-state-read-write" title="frontend/src/app/page.tsx: useAgent subscription" />
 
 The returned `agent.state` is just a plain object. Read it like any other
-piece of React state and render the parts you care about — agent-written
+piece of React state and render the parts you care about: agent-written
 notes, structured outputs, progress indicators, anything the agent has put
 there.
 
@@ -49,9 +51,9 @@ there.
 
 The same `agent` object exposes a `setState` setter. Calling it from a UI
 event handler pushes the new value into shared state, and the agent reads it
-back on its next turn — so the UI's writes visibly steer the model.
+back on its next turn. The UI's writes visibly steer the model.
 
-<Snippet region="use-agent-write" cell="shared-state-read-write" title="frontend/src/app/page.tsx — agent.setState" />
+<Snippet region="use-agent-write" cell="shared-state-read-write" title="frontend/src/app/page.tsx: agent.setState" />
 
 This is what makes the channel two-way: the UI doesn't just observe the
 agent, it can hand the agent fresh inputs (preferences, selections, partial
@@ -63,10 +65,10 @@ Because `agent.state` is plain React data, the UI layer is whatever you'd
 normally build. The demo on this page wires the agent's outputs into a
 small card component and feeds user edits back through `setState`.
 
-<Snippet region="notes-card-render" cell="shared-state-read-write" title="frontend/src/app/page.tsx — NotesCard" />
+<Snippet region="notes-card-render" cell="shared-state-read-write" title="frontend/src/app/page.tsx: NotesCard" />
 
 Nothing about this is chat-specific: `useAgent` works in any component under
-`<CopilotKit>`, so you can render `agent.state` in your main view or canvas —
+`<CopilotKit>`, so you can render `agent.state` in your main view or canvas,
 not just inside the chat panel. See
 **[Render agent state in your app](/shared-state/rendering-in-app)** for the
 full main-view pattern.
@@ -78,7 +80,7 @@ long-running tool call appears as one big burst at the end. State streaming
 forwards a specific tool argument straight into a state key *as it's being
 generated*, so the UI can watch the answer assemble token-by-token.
 
-<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend — streaming state update" />
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
 
 See **[State streaming](/shared-state/streaming)** for the full walkthrough,
 including the corresponding `useAgent` subscription on the frontend.
@@ -86,9 +88,9 @@ including the corresponding `useAgent` subscription on the frontend.
 ## Read-only context
 
 When the value is **UI-owned** and the agent should read it but never write
-it back — current user, selected record, scroll position — reach for
+it back, such as current user, selected record, or scroll position, reach for
 `useAgentContext` instead of full shared state. It publishes values as a
-one-way UI → agent channel that auto-unregisters on unmount.
+one-way UI-to-agent channel that auto-unregisters on unmount.
 
 See **[Agent read-only context](/shared-state/agent-readonly)** for the
 full pattern.

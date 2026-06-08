@@ -1,12 +1,11 @@
 ---
-title: "Open/close & feedback"
+title: "Open, close, and feedback"
 icon: "lucide/SlidersHorizontal"
-description: "Programmatically open and close the chat modal with useCopilotChatConfiguration, and capture thumbs-up/down message feedback on the prebuilt chat."
+description: "Open and close the prebuilt chat from your UI, and capture assistant message feedback."
 ---
 
-Two small but frequently-asked controls on the prebuilt chat: opening and closing
-the chat from your own UI, and capturing thumbs-up / thumbs-down feedback on
-assistant messages.
+Two common controls for the prebuilt chat are opening it from your own UI and
+capturing thumbs-up / thumbs-down feedback on assistant messages.
 
 ## Programmatically open or close the chat
 
@@ -45,7 +44,7 @@ To toggle, read `config.isModalOpen` and flip it:
 modal state. The prebuilt `<CopilotPopup>` and `<CopilotSidebar>` create it
 automatically. If you compose chat yourself, wrap the relevant subtree in
 `<CopilotChatConfigurationProvider isModalDefaultOpen={false}>` so the modal state
-exists — see the
+exists. See the
 [`useCopilotChatConfiguration` reference](/reference/hooks/useCopilotChatConfiguration#modal-state-management).
 </Callout>
 
@@ -60,7 +59,8 @@ accept a `defaultOpen` prop:
 
 The assistant-message toolbar can show thumbs-up and thumbs-down buttons. In v2
 you opt in by passing `onThumbsUp` / `onThumbsDown` to the **assistant message
-slot** — the buttons only render when a handler is provided:
+slot**. The buttons only render when a handler is provided:
+slot**. The buttons only render when a handler is provided:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -96,7 +96,7 @@ exposes the same `onThumbsUp` / `onThumbsDown` props directly.
 
 ## Related
 
-- [CopilotPopup](/prebuilt-components/popup) and [CopilotSidebar](/prebuilt-components/sidebar) — the prebuilt surfaces that own modal state.
-- [`useCopilotChatConfiguration` reference](/reference/hooks/useCopilotChatConfiguration) — full context shape, modal state, and labels.
-- [Slots](/custom-look-and-feel/slots) — the `messageView` / `assistantMessage` slot system used above.
-- [Programmatic Control](/programmatic-control) — driving agent runs from code (a different kind of "control" — no chat UI).
+- [CopilotPopup](/prebuilt-components/popup) and [CopilotSidebar](/prebuilt-components/sidebar): the prebuilt surfaces that own modal state.
+- [`useCopilotChatConfiguration` reference](/reference/hooks/useCopilotChatConfiguration): full context shape, modal state, and labels.
+- [Slots](/custom-look-and-feel/slots): the `messageView` / `assistantMessage` slot system used above.
+- [Programmatic Control](/programmatic-control): driving agent runs from code without a chat UI.

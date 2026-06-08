@@ -1,7 +1,7 @@
 ---
 title: Prebuilt Components
 icon: "lucide/MessageSquare"
-description: Drop-in chat components with a full customization ladder — from pure CSS to fully headless.
+description: Drop-in chat components with a full customization ladder, from pure CSS to fully headless.
 hideTOC: true
 snippet_cell: agentic-chat
 ---
@@ -17,7 +17,12 @@ snippet_cell: agentic-chat
 
 ## Pre-built components for agentic chat
 
-CopilotKit ships three prebuilt chat surfaces that connect directly to your agent: [**CopilotChat**](/prebuilt-components/chat), [**CopilotSidebar**](/prebuilt-components/sidebar), and [**CopilotPopup**](/prebuilt-components/popup). Each is a wrapper around the same primitives with a different layout; pick the one that fits your app and you're done. They all handle streaming, generative UI, and deep customization out of the box.
+CopilotKit ships three prebuilt chat surfaces that connect directly to your
+agent: [**CopilotChat**](/prebuilt-components/chat),
+[**CopilotSidebar**](/prebuilt-components/sidebar), and
+[**CopilotPopup**](/prebuilt-components/popup). Each is a wrapper around the
+same primitives with a different layout. Pick the one that fits your app; they
+all handle streaming, generative UI, and deep customization.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
@@ -81,7 +86,7 @@ Wrap your app in `<CopilotKit>` and drop `<CopilotChat>` where the
 chat should live. The provider wires the runtime, the session, and
 the agent registry. Everything else is optional configuration:
 
-<Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx: provider + chat" />
 
 ## Starter suggestions
 
@@ -89,17 +94,17 @@ the agent registry. Everything else is optional configuration:
 prompts the moment a user arrives. The example below uses a single
 "Write a sonnet" suggestion:
 
-<Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — suggestions" />
+<Snippet region="configure-suggestions" title="frontend/src/app/page.tsx: suggestions" />
 
 ## Pick a surface
 
 Each surface is a drop-in component with the same underlying primitives, differing only in layout.
 
-- [`<CopilotChat>`](/prebuilt-components/chat) — inline chat pane you can place anywhere and size to fit.
-- [`<CopilotSidebar>`](/prebuilt-components/sidebar) — collapsible sidebar docked to the edge of your app.
-- [`<CopilotPopup>`](/prebuilt-components/popup) — floating bubble that overlays your page content.
+- [`<CopilotChat>`](/prebuilt-components/chat): inline chat pane you can place anywhere and size to fit.
+- [`<CopilotSidebar>`](/prebuilt-components/sidebar): collapsible sidebar docked to the edge of your app.
+- [`<CopilotPopup>`](/prebuilt-components/popup): floating bubble that overlays your page content.
 
 Need to open/close the chat from your own button, or capture thumbs-up/down
-feedback? See [Open/close & feedback](/prebuilt-components/chat-controls).
+feedback? See [Open, close, and feedback](/prebuilt-components/chat-controls).
 
 <IntegrationGrid path="prebuilt-components" />
