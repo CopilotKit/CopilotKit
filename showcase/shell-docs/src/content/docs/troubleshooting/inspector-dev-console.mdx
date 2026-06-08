@@ -1,55 +1,55 @@
 ---
-title: "enableInspector vs showDevConsole"
+title: "Inspector and dev console"
 icon: "lucide/PanelTop"
-description: "Which prop controls the inspector and the error console — enableInspector (v1, replaces the deprecated showDevConsole) versus showDevConsole in v2 — and how to migrate."
+description: "Choose the right inspector and dev console prop for v1 and v2."
 ---
 
 There are two related `<CopilotKit>` props that control on-screen debugging UI, and
 which one you want depends on whether you're on **v1** or **v2**. They are easy to
 confuse because the names overlap.
 
-## In v1: `enableInspector` (use this), `showDevConsole` (deprecated)
+## v1 inspector behavior
 
 On the v1 `<CopilotKit>` provider:
 
-- **`enableInspector?: boolean`** — controls the CopilotKit Inspector (inspect
+- **`enableInspector?: boolean`** controls the CopilotKit Inspector (inspect
   AG-UI events, agent messages, agent state, and context). **Defaults to a
   localhost-gated mode**: when you don't pass the prop, the inspector shows on
   `localhost` / `127.0.0.1` / `0.0.0.0` and stays hidden in production. This is
-  close to the v2 `showDevConsole="auto"` mode, but **not identical** — v2
+  close to the v2 `showDevConsole="auto"` mode, but not identical. v2
   `"auto"` matches only `localhost` / `127.0.0.1` and does **not** treat
   `0.0.0.0` as local. Pass `enableInspector={true}`
   to always show it (including in production) or `enableInspector={false}` to
   always hide it.
-- **`showDevConsole?: boolean`** — **deprecated.** It only ever controlled the
+- **`showDevConsole?: boolean`** is deprecated. It only ever controlled the
   error toasts/banners, *not* the inspector button. Defaults to `false` for
   production safety.
 
 ```tsx
-// v1 — control the inspector with enableInspector
+// v1: control the inspector with enableInspector
 <CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false}>
   {children}
 </CopilotKit>
 ```
 
 If you're on v1 and still passing `showDevConsole` expecting it to surface the
-inspector, switch to `enableInspector` — `showDevConsole` won't show the inspector
+inspector, switch to `enableInspector`. `showDevConsole` won't show the inspector
 button.
 
-## In v2: `showDevConsole` (with an `"auto"` mode)
+## v2 dev console behavior
 
 The v2 provider `<CopilotKitProvider>` (from `@copilotkit/react-core/v2`)
 consolidates this into a single prop. There is **no `enableInspector` prop in
-v2** — use `showDevConsole`:
+v2**. Use `showDevConsole`:
 
-- **`showDevConsole?: boolean | "auto"`** — controls whether the inspector renders.
-  - `true` — always show.
-  - `false` (default) — never show.
-  - `"auto"` — show only on `localhost` / `127.0.0.1`, so it appears in local dev
+- **`showDevConsole?: boolean | "auto"`** controls whether the inspector renders.
+  - `true`: always show.
+  - `false` (default): never show.
+  - `"auto"`: show only on `localhost` / `127.0.0.1`, so it appears in local dev
     and stays hidden in production automatically.
 
 ```tsx
-// v2 — "auto" shows the inspector on localhost only
+// v2: "auto" shows the inspector on localhost only
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
 <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
@@ -72,13 +72,13 @@ developing locally and nothing leaks into production builds.
 | `showDevConsole={true}` (deprecated) | `showDevConsole={true}` |
 
 <Callout type="warn">
-Don't ship `showDevConsole={true}` to production — it exposes internal error and
+Don't ship `showDevConsole={true}` to production. It exposes internal error and
 event details to end users. Prefer `"auto"` (v2) so it's automatically off in
 production.
 </Callout>
 
 ## Related
 
-- [Inspector](/inspector) — what the inspector shows and how to use it.
-- [Error Debugging](/troubleshooting/error-debugging) — the error console and the programmatic `onError` callback.
-- [Migrate to v2](/migrate/v2) — the full v1 → v2 migration guide.
+- [Inspector](/inspector): what the inspector shows and how to use it.
+- [Error Debugging](/troubleshooting/error-debugging): the error console and the programmatic `onError` callback.
+- [Migrate to v2](/migrate/v2): the full v1 to v2 migration guide.

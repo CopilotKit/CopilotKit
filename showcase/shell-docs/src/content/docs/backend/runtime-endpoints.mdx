@@ -1,16 +1,16 @@
 ---
 title: "Runtime HTTP endpoints"
 icon: "lucide/Network"
-description: "The HTTP routes the CopilotKit runtime exposes — GET /info, the per-agent run/connect/stop routes, and /transcribe — for self-hosting, proxying, and debugging."
+description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
 ---
 
 When you mount the CopilotKit runtime with `createCopilotExpressHandler`,
 `createCopilotHonoHandler`, `copilotRuntimeNextJSAppRouterEndpoint`, or any of the
 other framework adapters, it serves a small set of HTTP routes under the
-`basePath` you choose (for example `/api/copilotkit`). Most of the time you never
-touch these directly — the frontend proxy (`ProxiedCopilotRuntimeAgent`) calls
-them for you. But when you self-host behind a reverse proxy, lock down auth, or
-debug a connection failure with `curl`, you need to know exactly what the runtime
+`basePath` you choose, such as `/api/copilotkit`. Most applications never call
+these routes directly. The frontend proxy (`ProxiedCopilotRuntimeAgent`) calls
+them for you. When you self-host behind a reverse proxy, lock down auth, or debug
+a connection failure with `curl`, use this page to confirm what the runtime
 exposes.
 
 ## Multi-route mode (default)
@@ -20,20 +20,20 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 
 | Method & path | Purpose |
 |---|---|
-| `GET /api/copilotkit/info` | Runtime info — the list of registered agents and their metadata. The frontend calls this on startup to discover which agents exist. |
+| `GET /api/copilotkit/info` | Runtime info. The frontend calls this on startup to discover registered agents and their metadata. |
 | `POST /api/copilotkit/agent/:agentId/run` | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. |
-| `POST /api/copilotkit/agent/:agentId/connect` | Connect (re-attach) to an agent's thread — used to resume streaming after a reconnect or page refresh. Also an SSE stream. |
+| `POST /api/copilotkit/agent/:agentId/connect` | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream. |
 | `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread. |
 | `POST /api/copilotkit/transcribe` | Transcribe audio (used by the voice / transcription input). |
 
 `:agentId` is the key under which you registered the agent in
-`new CopilotRuntime({ agents: { … } })` — for example `default`,
+`new CopilotRuntime({ agents: { ... } })`, for example `default` or
 `research-agent`. `:threadId` is the thread the run belongs to.
 
 <Callout type="info">
 The `GET /info` route is the same endpoint the frontend uses for agent
 discovery. If it isn't reachable from the runtime, the frontend reports a
-`runtime_info_fetch_failed` error — see [Error Debugging](/troubleshooting/error-debugging).
+`runtime_info_fetch_failed` error. See [Error Debugging](/troubleshooting/error-debugging).
 </Callout>
 
 ### Probing the runtime with curl
@@ -52,8 +52,8 @@ host/port.
 
 ## Single-route mode
 
-If you'd rather expose a **single** `POST` endpoint — for example to simplify a
-reverse-proxy rule or an API gateway — pass `mode: "single-route"`. In that mode
+If you prefer to expose a single `POST` endpoint, for example to simplify a
+reverse-proxy rule or an API gateway, pass `mode: "single-route"`. In that mode
 the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 `{ method, params, body }` and dispatches internally to the same handlers:
 
@@ -97,7 +97,7 @@ runtime uses `mode: "single-route"`.
 The Express and Hono adapters apply permissive CORS by default
 (`origin: "*"`, all standard methods, all headers) so local development works out
 of the box. Pass `cors: false` to disable the built-in middleware and handle CORS
-yourself, or pass a configuration object to scope it down for production:
+yourself, or pass a configuration object to scope it for production:
 
 ```ts
 createCopilotExpressHandler({
@@ -110,8 +110,8 @@ createCopilotExpressHandler({
 ## Authenticating requests
 
 Because these routes run on your server, they're the right place to enforce
-auth. The adapters accept lifecycle `hooks` — an `onRequest` hook runs before
-every request and can reject it by throwing a `Response`:
+auth. The adapters accept lifecycle `hooks`. An `onRequest` hook runs before
+every request and can reject the request by throwing a `Response`:
 
 ```ts
 createCopilotExpressHandler({
@@ -129,10 +129,10 @@ createCopilotExpressHandler({
 
 See [Auth](/auth) for the full authentication guide.
 
-## Common failure: `/connect` 404 on a fresh thread
+## Connect route 404 on a fresh thread
 
 A frequent self-hosting symptom is a `404` from the
-`POST /agent/:agentId/connect` route right after the page loads — before the user
+`POST /agent/:agentId/connect` route right after the page loads, before the user
 has sent a single message. This usually means one of two things:
 
 1. **The `agentId` in the URL isn't registered.** The runtime returns
@@ -142,11 +142,11 @@ has sent a single message. This usually means one of two things:
 2. **`connect()` is called before any `run()` for an auto-minted thread.** Some
    persistence backends only know about a thread once a run has produced events.
    See the [AgentRunner](/backend/agent-runner) guide and the
-   [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#the-connect-route-returns-a-404-on-a-fresh-thread).
+   [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
 
 ## Related
 
-- [Copilot Runtime](/backend/copilot-runtime) — setting up the runtime and adapters.
-- [AgentRunner](/backend/agent-runner) — the persistence abstraction behind `run`/`connect`/`stop`.
-- [Connect AG-UI agents](/backend/ag-ui) — how the frontend proxy maps onto these routes.
-- [Error Debugging](/troubleshooting/error-debugging) — the `onError` codes that map to these routes.
+- [Copilot Runtime](/backend/copilot-runtime): setting up the runtime and adapters.
+- [AgentRunner](/backend/agent-runner): the persistence abstraction behind `run`/`connect`/`stop`.
+- [Connect AG-UI agents](/backend/ag-ui): how the frontend proxy maps onto these routes.
+- [Error Debugging](/troubleshooting/error-debugging): the `onError` codes that map to these routes.

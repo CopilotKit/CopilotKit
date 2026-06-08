@@ -480,7 +480,7 @@ function CustomReasoningMessage({
   return (
     <details open={isStreaming} className="my-2 rounded border p-3">
       <summary className="cursor-pointer font-medium text-sm">
-        {isStreaming ? "🧠 Thinking…" : "💡 View reasoning"}
+        {isStreaming ? "Thinking..." : "View reasoning"}
       </summary>
       <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
         {message.content}
@@ -500,7 +500,7 @@ function CustomReasoningMessage({
 
 **Key concepts**
 
-- `message` — The reasoning message object. `message.content` holds the thinking text.
-- `messages` — All messages in the conversation, used to determine if this is the latest message.
-- `isRunning` — Whether the agent is currently running.
-- **Slot props** — Instead of replacing the whole component, you can override just the `header`, `contentView`, or `toggle` sub-components. See the [full guide](/custom-look-and-feel/reasoning-messages).
+- `message`: The reasoning message object. `message.content` holds the thinking text.
+- `messages`: All messages in the conversation, used to determine if this is the latest message.
+- `isRunning`: Whether the agent is currently running.
+- **Slot props:** Instead of replacing the whole component, you can override just the `header`, `contentView`, or `toggle` sub-components. See the [full guide](/custom-look-and-feel/reasoning-messages).

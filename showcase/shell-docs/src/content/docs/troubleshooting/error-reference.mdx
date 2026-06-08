@@ -1,28 +1,33 @@
 ---
 title: "Error message reference"
 icon: "lucide/CircleAlert"
-description: "Paste the exact error string CopilotKit threw — Missing required prop, CopilotKitAgentDiscoveryError, Agent not found — and find its cause and fix."
+description: "Find the cause and fix for common CopilotKit console, network, and error UI messages."
 ---
 
-This page lists the **literal error strings** CopilotKit surfaces in your console,
-network responses, and error UI, each with what causes it and how to fix it. If you
-hit an error, search this page (Cmd/Ctrl-F) for a distinctive phrase from the
-message.
+This page lists the error strings CopilotKit surfaces in your console, network
+responses, and error UI. If you hit an error, search this page with Cmd/Ctrl-F
+for a distinctive phrase from the message.
 
 For the programmatic `onError` **codes** (`runtime_info_fetch_failed`,
-`tool_handler_failed`, …) rather than these human-readable strings, see
+`tool_handler_failed`, ...) rather than these human-readable strings, see
 [Error Debugging](/troubleshooting/error-debugging).
 
-## `Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'`
+## Missing runtime configuration
 
-**Where:** the **v2** provider — `<CopilotKitProvider>`, imported from
+Error string:
+
+```txt
+Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
+```
+
+**Where:** the **v2** provider, `<CopilotKitProvider>`, imported from
 `@copilotkit/react-core/v2`. In production
 (`NODE_ENV === "production"`) it's a thrown `Error`; in development it's a
 `console.warn` so local-agent and test setups still run.
 
 <Callout type="info" title="v1 behaves differently">
   The **v1** `<CopilotKit>` provider throws this error **unconditionally** (in
-  both development and production — there is no dev-only `console.warn` branch),
+  both development and production; there is no dev-only `console.warn` branch),
   and it does **not** accept `selfManagedAgents`. On v1, satisfy the provider with
   a `runtimeUrl` or a Copilot Cloud key, or pass agents directly via
   `agents__unsafe_dev_only` for local development.
@@ -32,31 +37,38 @@ For the programmatic `onError` **codes** (`runtime_info_fetch_failed`,
 `runtimeUrl`, a Copilot Cloud key (`publicApiKey` / `publicLicenseKey`), **and** you
 didn't register any local agents.
 
-**Fix (v2):** provide one of (the v2 provider `CopilotKitProvider` is imported from `@copilotkit/react-core/v2`):
+**Fix (v2):** provide one of these values to `CopilotKitProvider`, imported from
+`@copilotkit/react-core/v2`:
 
 ```tsx
 // Runtime-backed (recommended)
-<CopilotKitProvider runtimeUrl="/api/copilotkit">…</CopilotKitProvider>
+<CopilotKitProvider runtimeUrl="/api/copilotkit">{children}</CopilotKitProvider>
 
 // Copilot Cloud
-<CopilotKitProvider publicApiKey="ck_pub_…">…</CopilotKitProvider>
+<CopilotKitProvider publicApiKey="ck_pub_...">{children}</CopilotKitProvider>
 
 // Agents you manage yourself (v2 only)
-<CopilotKitProvider selfManagedAgents={{ "my-agent": myAgent }}>…</CopilotKitProvider>
+<CopilotKitProvider selfManagedAgents={{ "my-agent": myAgent }}>{children}</CopilotKitProvider>
 ```
 
 See [Self-managed agents](/backend/self-managed-agents) for the local-agent path.
 
-## `CopilotKitAgentDiscoveryError`
+## Agent discovery failed
+
+Error name:
+
+```txt
+CopilotKitAgentDiscoveryError
+```
 
 This is the error **name** (`error.name`). The accompanying message is one of:
 
 - `Agent '<name>' was not found. Available agents are: <list>. Please verify the agent name in your configuration and ensure it matches one of the available agents.`
-- `The requested agent was not found. Available agents are: <list>. …`
+- `The requested agent was not found. Available agents are: <list>. ...`
 - `Agent '<name>' was not found. Please set up at least one agent before proceeding.` (when **no** agents are registered)
 
 **Cause:** the frontend asked for an `agentId` that the runtime didn't return from
-its `/info` discovery — a typo, a missing registration, or a runtime that has no
+its `/info` discovery. This is usually a typo, a missing registration, or a runtime that has no
 agents at all. The prebuilt components default to the agent named `"default"`.
 
 **Fix:**
@@ -67,14 +79,21 @@ agents at all. The prebuilt components default to the agent named `"default"`.
   new CopilotRuntime({ agents: { default: myAgent } });
   ```
 - Confirm the id matches the "Available agents" list in the message.
-- Verify the runtime is reachable — hit `GET {runtimeUrl}/info` directly (see
+- Verify the runtime is reachable by hitting `GET {runtimeUrl}/info` directly (see
   [Runtime HTTP endpoints](/backend/runtime-endpoints)). A discovery failure here
   cascades into this error.
 
-`CopilotKitAgentDiscoveryError` is a **banner** error — it renders as a fixed
+`CopilotKitAgentDiscoveryError` is a **banner** error. It renders as a fixed
 banner in the dev console rather than a dismissible toast.
 
-## `Agent not found` / `Agent '<id>' does not exist`
+## Agent route returned 404
+
+Error strings:
+
+```txt
+Agent not found
+Agent '<id>' does not exist
+```
 
 **Where:** an HTTP `404` JSON body from the runtime's agent routes:
 
@@ -86,23 +105,35 @@ banner in the dev console rather than a dismissible toast.
 named an `agentId` that isn't registered on the runtime. This is the server-side
 counterpart to the client-side `CopilotKitAgentDiscoveryError`.
 
-**Fix:** register the agent under that key in `new CopilotRuntime({ agents: {…} })`.
+**Fix:** register the agent under that key in `new CopilotRuntime({ agents: { ... } })`.
 If you see this on the `/connect` route **before sending any message**, also read
-[the `/connect` 404 entry](/troubleshooting/common-issues#the-connect-route-returns-a-404-on-a-fresh-thread).
+[the `/connect` 404 entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
 
-## `Failed to run agent`
+## Agent run failed
+
+Error string:
+
+```txt
+Failed to run agent
+```
 
 **Where:** a `500` JSON body from the runtime's run/connect routes, with a
 `message` field carrying the underlying error.
 
-**Cause:** the agent threw while executing — a bad model string, a missing API key
+**Cause:** the agent threw while executing. Common causes include a bad model string, a missing API key
 on the server, a provider error, or an exception inside the agent itself.
 
 **Fix:** read the `message` field and check your server logs (the runtime logs the
 error name, message, and stack). Common culprits: an unset `OPENAI_API_KEY` (or
 equivalent) on the server, or a model string the provider doesn't recognize.
 
-## `Failed to fetch capabilities for agent "<name>"`
+## Capability discovery failed
+
+Error string:
+
+```txt
+Failed to fetch capabilities for agent "<name>"
+```
 
 **Where:** logged on the client when capability discovery for an agent fails.
 
@@ -111,10 +142,10 @@ endpoint errored.
 
 **Fix:** confirm `runtimeUrl` is correct and the runtime is up; verify
 `GET {runtimeUrl}/info` returns the agent. See
-[Common Issues → Network errors](/troubleshooting/common-issues#network-errors--api-not-found).
+[Common Issues: Network errors](/troubleshooting/common-issues#network-errors--api-not-found).
 
 ## Related
 
-- [Error Debugging](/troubleshooting/error-debugging) — the `onError` callback and its programmatic error **codes**.
-- [Common Issues](/troubleshooting/common-issues) — network, endpoint, and tunnel problems.
-- [Runtime HTTP endpoints](/backend/runtime-endpoints) — probing `/info` and the agent routes with `curl`.
+- [Error Debugging](/troubleshooting/error-debugging): the `onError` callback and its programmatic error **codes**.
+- [Common Issues](/troubleshooting/common-issues): network, endpoint, and tunnel problems.
+- [Runtime HTTP endpoints](/backend/runtime-endpoints): probing `/info` and the agent routes with `curl`.

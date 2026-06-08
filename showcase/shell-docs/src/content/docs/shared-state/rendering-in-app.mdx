@@ -1,21 +1,20 @@
 ---
 title: "Render agent state in your app"
 icon: "lucide/LayoutDashboard"
-description: "Read agent.state with useAgent and render it in your main view or canvas — outside the chat sidebar — so the agent drives your real UI."
+description: "Read agent.state with useAgent and render it in your main view or canvas."
 ---
 
 [Shared state](/shared-state) is most powerful when the agent's state shows up in
-your **actual application UI** — a dashboard, a document canvas, a map, a table —
-not just inside the chat panel. Because `agent.state` is plain React data, you can
-subscribe to it from any component anywhere in your tree and render it however you
-like.
+your application UI, such as a dashboard, document canvas, map, or table. Because
+`agent.state` is plain React data, you can subscribe to it from any component in
+your tree and render it however you like.
 
 ## The pattern
 
-`useAgent` works in any component under `<CopilotKit>` — it doesn't have to be
+`useAgent` works in any component under `<CopilotKit>`. It doesn't have to be
 near the chat. Call it in your main-view component, read `agent.state`, and render:
 
-```tsx title="components/Canvas.tsx — agent state in the main view"
+```tsx title="components/Canvas.tsx"
 import { useAgent } from "@copilotkit/react-core/v2";
 
 type CanvasState = {
@@ -24,7 +23,7 @@ type CanvasState = {
 };
 
 export function Canvas() {
-  // No agentId → the "default" agent. Pass { agentId } to target another.
+  // No agentId means the "default" agent. Pass { agentId } to target another.
   const { agent } = useAgent();
   const state = (agent.state ?? {}) as Partial<CanvasState>;
 
@@ -43,8 +42,8 @@ export function Canvas() {
 }
 ```
 
-Every time the agent mutates its state — a tool call, a node transition, a
-[streamed update](/shared-state/streaming) — `useAgent` re-renders this component
+Every time the agent mutates its state, whether from a tool call, node
+transition, or [streamed update](/shared-state/streaming), `useAgent` re-renders this component
 with the new values. The chat can be in a sidebar, a popup, or absent entirely;
 your canvas updates the same way.
 
@@ -54,7 +53,7 @@ The agent lives on the `<CopilotKit>` provider, so the chat surface and your
 main-view components are just two consumers of the same agent. A typical layout
 renders the canvas as the primary content and the chat as a docked sidebar:
 
-```tsx title="app/page.tsx — canvas as the primary surface, chat alongside"
+```tsx title="app/page.tsx"
 import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { Canvas } from "../components/Canvas";
 
@@ -62,7 +61,7 @@ export default function Page() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
       <div className="app-shell">
-        {/* Your real UI — driven by agent.state */}
+        {/* Your app UI, driven by agent.state */}
         <Canvas />
         {/* Chat is just another consumer of the same agent */}
         <CopilotSidebar />
@@ -75,7 +74,8 @@ export default function Page() {
 <Callout type="info">
 `<Canvas>` and `<CopilotSidebar>` both call `useAgent()` for the same `agentId`,
 so they share one agent instance and one state object. There's nothing chat-specific
-about reading `agent.state` — the sidebar is not special.
+about reading `agent.state`. The sidebar is not special.
+about reading `agent.state`. The sidebar is not special.
 </Callout>
 
 ## Writing back from the main view
@@ -95,7 +95,7 @@ function toggleItem(id: string) {
 }
 ```
 
-This is the same two-way channel described in [Shared State](/shared-state) — the
+This is the same two-way channel described in [Shared State](/shared-state). The
 only difference here is that the reads and writes happen in your application's main
 surface rather than in the chat.
 
@@ -105,12 +105,12 @@ surface rather than in the chat.
   you have more than one. The default is the agent named `"default"`.
 - **Throttle high-frequency updates** with `useAgent({ throttleMs })` if a
   streaming run re-renders a heavy canvas too often.
-- **Treat `agent.state` as possibly partial** while a run is in progress — guard
+- **Treat `agent.state` as possibly partial** while a run is in progress. Guard
   with defaults (as above) so half-streamed state doesn't crash your render.
 
 ## Related
 
-- [Shared State](/shared-state) — the full read/write model and the underlying `useAgent` subscription.
-- [State streaming](/shared-state/streaming) — stream a tool argument into a state key so the canvas fills in token-by-token.
-- [Agent read-only context](/shared-state/agent-readonly) — push UI values *to* the agent without letting it write back.
-- [`useAgent` reference](/reference/v2/hooks/useAgent) — full hook signature and options.
+- [Shared State](/shared-state): the full read/write model and the underlying `useAgent` subscription.
+- [State streaming](/shared-state/streaming): stream a tool argument into a state key so the canvas fills in token-by-token.
+- [Agent read-only context](/shared-state/agent-readonly): push UI values *to* the agent without letting it write back.
+- [`useAgent` reference](/reference/v2/hooks/useAgent): full hook signature and options.
