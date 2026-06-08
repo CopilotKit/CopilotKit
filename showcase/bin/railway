@@ -1201,9 +1201,10 @@ module Railway
             #   (1) check_expected_prod_domains diffs the fleet-wide
             #       EXPECTED_DOMAINS against the union of custom_domains
             #       in `prod["services"]`. Narrowed prod carries at most
-            #       one service's domains → the other ~4 fleet hosts look
-            #       "missing" → spurious WARN → run_with_preflight_only
-            #       refuses (workflow doesn't pass --confirm-divergence).
+            #       one service's domains → the remaining fleet hosts (the
+            #       other 4 of the 5 public prod hosts) look "missing" →
+            #       spurious WARN → run_with_preflight_only refuses
+            #       (workflow doesn't pass --confirm-divergence).
             #   (2) check_service_set_parity is a fleet-shape invariant
             #       (no env has services the other lacks); evaluating it
             #       on the narrowed pair makes it tautological when both
@@ -1634,14 +1635,24 @@ module Railway
             s_names = (staging["services"] || []).map { |s| s["name"] }.sort
             p_names = (prod["services"] || []).map { |s| s["name"] }.sort
             staging_only = s_names - p_names
-            # For a single-service promote, the only "staging not in prod" name
-            # that must REFUSE is the TARGET itself (the silent-rc=0 footgun:
-            # narrowed prod would skip the absent target with no mutation).
-            # Unrelated staging-only services (harness-workers, starter-* demos)
-            # are legitimately staging-only and are not this promote's concern.
-            staging_only = staging_only & [target] if target
+            prod_only    = p_names - s_names
+            # For a single-service promote, the ONLY parity violation that must
+            # REFUSE is one involving the TARGET itself — in BOTH directions:
+            #   - target in staging but not prod (the silent-rc=0 footgun:
+            #     narrowed prod would skip the absent target with no mutation);
+            #   - target in prod but not staging (the mirror case).
+            # Unrelated services that exist in only one env (harness-workers,
+            # starter-* demos staging-only; a deprecated prod-only service) are
+            # legitimately single-env and are not this promote's concern, so we
+            # scope BOTH arms to the target. Full-fleet promotes (target nil)
+            # retain full-strictness parity on both arms — there, any env-shape
+            # asymmetry across the whole fleet is a genuine REFUSE.
+            if target
+                staging_only = staging_only & [target]
+                prod_only    = prod_only & [target]
+            end
             findings << "REFUSE: services in staging not in prod: #{staging_only.join(', ')}" unless staging_only.empty?
-            findings << "REFUSE: services in prod not in staging: #{(p_names - s_names).join(', ')}" unless (p_names - s_names).empty?
+            findings << "REFUSE: services in prod not in staging: #{prod_only.join(', ')}" unless prod_only.empty?
             findings
         end
 
