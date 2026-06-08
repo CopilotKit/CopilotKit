@@ -175,7 +175,18 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
             "fixture target #{target.inspect} must be a real SSOT staging service"
         # Plus the targeted service (no public domain of its own — e.g. an
         # internal aimock). Optionally OMIT it from prod to exercise BUG #2.
-        domain_services_prod << make_prod_service(target) if prod_includes_target
+        #
+        # GUARD: if `target` already owns a public prod host it is ALREADY in
+        # `domain_services_prod` above. Appending make_prod_service(target)
+        # again would produce a malformed fleet with the SAME prod service
+        # (service_id "prod-#{target}") listed twice — once domain-bearing,
+        # once with custom_domains:[] — contradicting this helper's own
+        # "no public domain of its own" contract. So only append the bare
+        # target when it is NOT already a derived domain owner.
+        derived_owner_names = domain_services_prod.map { |s| s["name"] }
+        if prod_includes_target && !derived_owner_names.include?(target)
+            domain_services_prod << make_prod_service(target)
+        end
         # And a non-targeted sibling that exists in both staging and prod —
         # picked from STAGING_SERVICES as a real service that owns no public
         # prod host, so it stays distinct from the domain-bearing set above.
@@ -416,5 +427,43 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         sid, image = pinned.first
         assert_equal "prod-docs", sid
         assert_equal "ghcr.io/copilotkit/docs@sha256:NEW_DOCS", image
+    end
+
+    # ── Fixture well-formedness: the derived prod snapshot must NEVER list the
+    # same prod service twice. When the promote target already owns a public
+    # prod host (e.g. "docs" owns docs.copilotkit.ai), the SSOT-derivation
+    # already includes it among the domain-bearing services; the helper must
+    # not ALSO append a bare make_prod_service(target), which would yield two
+    # services with the same name + service_id ("prod-docs") — one
+    # domain-bearing, one with custom_domains:[] — a malformed fleet shape that
+    # contradicts the helper's "no public domain of its own" contract and is
+    # only masked downstream by find_service first-match + .uniq. We assert the
+    # invariant directly against the snapshot the fixture installs.
+    def test_install_fleet_fixture_produces_no_duplicate_prod_services
+        gql  = FakeGQLBenign.new
+        ghcr = FakeGHCR.new
+        cmd  = build_cmd(["docs"])
+        # "docs" owns a public prod host, so it is the case that previously
+        # produced a duplicate prod-docs entry.
+        install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "docs")
+
+        prod = cmd.instance_variable_get(:@prod_snapshot)
+        names = (prod["services"] || []).map { |s| s["name"] }
+        dups  = names.tally.select { |_, count| count > 1 }.keys
+        assert_empty dups,
+            "derived prod snapshot must not list any service name twice; " \
+            "duplicates=#{dups.inspect} in #{names.inspect}"
+
+        ids = (prod["services"] || []).map { |s| s["service_id"] }
+        id_dups = ids.tally.select { |_, count| count > 1 }.keys
+        assert_empty id_dups,
+            "derived prod snapshot must not list any service_id twice; " \
+            "duplicate ids=#{id_dups.inspect} in #{ids.inspect}"
+
+        # The target must still be present in prod exactly once (a healthy
+        # single-service promote target), so the tolerance tests above keep
+        # genuinely exercising a present-in-both target.
+        assert_equal 1, names.count("docs"),
+            "the promote target must appear in the prod fleet exactly once"
     end
 end
