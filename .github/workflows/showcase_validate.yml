@@ -550,9 +550,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bats
 
-      - name: Shellcheck promote-fleet.sh
+      - name: Shellcheck promote workflow scripts
         # shellcheck is preinstalled on ubuntu-latest.
-        run: shellcheck showcase/scripts/promote-fleet.sh
+        run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh
 
       - name: Run bats suite
         run: bats showcase/scripts/__tests__/
