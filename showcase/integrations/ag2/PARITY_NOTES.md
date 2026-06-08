@@ -16,7 +16,7 @@ all pointing to the same HTTP backend.
 - `chat-customization-css` — scoped CSS theming of built-in classes
 - `headless-simple` — bespoke chat built on `useAgent` / `useComponent`
 - `readonly-state-agent-context` — `useAgentContext` read-only context
-- `reasoning-default-render` — built-in `CopilotChatReasoningMessage` (no custom slot)
+- `reasoning-default` — built-in `CopilotChatReasoningMessage` (no custom slot)
 - `tool-rendering-default-catchall` — `useDefaultRenderTool()` (built-in card)
 - `tool-rendering-custom-catchall` — single branded wildcard renderer
 - `frontend-tools` — `useFrontendTool` with sync handler (change_background)
@@ -69,16 +69,14 @@ the runtime middleware config doesn't leak into other cells.
   `openGenerativeUI: { agents: [...] }` so the runtime middleware
   converts streamed `generateSandboxedUi` tool calls into
   `open-generative-ui` activity events.
-- `agentic-chat-reasoning`, `tool-rendering-reasoning-chain` — Frontend
+- `reasoning-custom`, `tool-rendering-reasoning-chain` — Frontend
   ports of the LangGraph reasoning cells. The custom `reasoningMessage`
-  slot is wired exactly as in the canonical reference. Backend caveat:
-  AG2's `ConversableAgent` does not natively emit AG-UI
-  `REASONING_MESSAGE_*` events the way LangGraph's `deepagents` does,
-  so the reasoning slot may render empty on every turn until a future
-  AG2 release adds reasoning emission. The tool chain
+  slot is wired exactly as in the canonical reference. The tool chain
   (`tool-rendering-reasoning-chain` backend at
   `src/agents/tool_rendering_reasoning_chain.py`, mounted at
   `/tool-rendering-reasoning-chain/`) still exercises end-to-end.
+  **Reasoning channel does NOT light up — confirmed framework-bridge
+  limitation, not a fixture bug.** See the dedicated section below.
 
 ### Batch 2 — Dedicated AG2 sub-apps
 
@@ -152,3 +150,99 @@ strictly "missing primitive" skips:
 - `interrupt-headless` — same underlying primitive as `gen-ui-interrupt`.
   Marked `not_supported_features`; stub page points at `hitl-in-app` /
   `frontend-tools-async`.
+
+## Reasoning channel — framework-bridge limitation (verified)
+
+Applies to `reasoning-custom`, `tool-rendering-reasoning-chain`,
+and `reasoning-default`. The custom/built-in `reasoningMessage`
+slot is wired correctly, but the AG-UI reasoning channel never lights up
+because **AG2's `AGUIStream` bridge cannot emit `REASONING_MESSAGE_*`
+events** — it has no reasoning data to emit. This is the same class of
+gap as pydantic-ai, not a fixture or wiring bug. Do NOT attempt to fix
+it by hacking the aimock fixtures.
+
+Verified against `ag2==0.13.3` / `autogen 0.13.3` (the version pinned by
+`requirements.txt`, `ag2[openai,ag-ui]>=0.9.0`).
+
+### What AGUIStream actually emits
+
+`autogen.ag_ui.adapter` (the `AGUIStream` / `run_stream` implementation)
+imports and emits only this fixed set of AG-UI event types:
+
+- `RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`
+- `STATE_SNAPSHOT`
+- `TEXT_MESSAGE_START` / `_CONTENT` / `_END` / `_CHUNK`
+- `TOOL_CALL_START` / `_ARGS` / `_CHUNK` / `_END` / `_RESULT`
+
+There is **no** `REASONING_MESSAGE_*` import and **no** `THINKING_*`
+import anywhere in the adapter. So the question "does it emit
+`REASONING_MESSAGE_*`, `THINKING_*`, or nothing?" resolves to **nothing**
+— the reasoning channel is entirely absent from the bridge. (Note: even
+if it emitted `THINKING_*`, that would be a dead end — `@ag-ui/client`
+0.0.52 drops `THINKING_*`; only `REASONING_MESSAGE_*` with
+`role:"reasoning"` reaches the UI.)
+
+### Why a custom-synth interceptor is NOT feasible
+
+The agno / claude-sdk-python pattern (synthesize `REASONING_MESSAGE_*`
+from the model's native reasoning channel — agno reads
+`RunContentEvent.reasoning_content`; claude-sdk-python reads Anthropic's
+Messages-API `thinking_delta`, never chat-completions
+`delta.reasoning_content`) cannot be applied here, because the reasoning
+data never survives into any layer the bridge can see:
+
+1. `AGUIStream` exposes an `event_interceptors` hook, but interceptors
+   receive `ServiceResponse` objects (`autogen.agentchat.remote.protocol`).
+   `ServiceResponse` has exactly four fields — `message`, `context`,
+   `input_required`, `streaming_text` — and **no reasoning field**.
+2. Upstream of that, `AgentService` (`agent_service.py`) builds its
+   streaming text from an `AsyncIOQueueStream` whose `send()` only
+   captures `StreamEvent.content.content` (visible text). The final
+   reply comes from `a_generate_oai_reply`, which returns a plain OAI
+   message (content + tool_calls).
+3. Upstream of *that*, autogen's OpenAI chat-completions client
+   (`autogen/oai/client.py`) reads only `choice.delta.content` and
+   `choice.delta.tool_calls` from each streaming chunk.
+   `choice.delta.reasoning_content` is **never read** in the
+   chat-completions path — it is silently dropped at ingestion. (Only the
+   separate `responses_v2` / Responses-API client surfaces reasoning via
+   `response.reasoning`, and that path does not flow through `AGUIStream`
+   either.)
+
+Empirical confirmation: an OpenAI-compatible endpoint that streams
+`delta.reasoning_content` (exactly the channel aimock's `reasoning`
+fixture field drives) + `delta.content`, driven through a real
+`ConversableAgent` + `AGUIStream`, produces:
+
+```
+RUN_STARTED: 1
+TEXT_MESSAGE_START: 1
+TEXT_MESSAGE_CONTENT: 3
+TEXT_MESSAGE_END: 1
+RUN_FINISHED: 1
+REASONING_MESSAGE_START: 0   ← reasoning channel never fires
+```
+
+and the assembled reply is just the visible string — the
+`reasoning_content` is gone. There is therefore no reasoning data for a
+custom interceptor to synthesize from; manufacturing reasoning text would
+be a demo fabrication, which we explicitly do not do.
+
+### What a real fix requires (upstream, in AG2)
+
+A genuine fix must add reasoning support inside autogen itself, end to
+end:
+
+1. `autogen/oai/client.py` streaming consumer must read
+   `choice.delta.reasoning_content` and accumulate it alongside content.
+2. A reasoning carrier must be threaded through `StreamEvent` →
+   `AsyncIOQueueStream` → `AgentService`, and `ServiceResponse` must gain
+   a reasoning field (or a dedicated streaming reasoning chunk type).
+3. `autogen/ag_ui/adapter.py::run_stream` must import and emit
+   `REASONING_MESSAGE_START` / `_CONTENT` / `_END` (role `"reasoning"`)
+   when reasoning deltas arrive — analogous to its existing
+   `TEXT_MESSAGE_*` handling.
+
+Until AG2 ships that, the showcase reasoning slot for AG2 demos will
+render empty/skeletal. The cells remain valuable for exercising the slot
+plumbing and (for `tool-rendering-reasoning-chain`) the multi-tool chain.
