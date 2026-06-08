@@ -515,12 +515,28 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> is used by orphaned `deploy-agentcore`
-  // pages (langgraph/* + aws-strands) as a placeholder for content
-  // that was never authored. Without a registered shim, MDX rendering
-  // throws and ships a 500 in the public sitemap.
-  Content: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  // <Content framework="..." /> on the `deploy-agentcore` pages
+  // (langgraph/* + aws-strands) renders the shared AgentCore deploy
+  // partial at src/content/snippets/integrations/agentcore/index.mdx.
+  // Unlike the generic `stubWithPartial` stubs, this one threads the
+  // page's `framework` into the partial's MDX scope so the embedded
+  // `<AgentCoreCommandTabs framework={framework} />` collapses to the
+  // single relevant framework (Strands-only / LangGraph-only) instead
+  // of showing both. `stubWithPartial` can't do this — it discards
+  // props by design — so Content is a dedicated loader call. `scope`
+  // keys surface as bare identifiers in the partial (NOT `props.*`);
+  // see PartialLoader.
+  Content: ({ framework }: { framework?: string }) => (
+    <PartialLoader
+      relativePath="integrations/agentcore/index.mdx"
+      scope={{ framework }}
+      components={
+        docsComponents as unknown as Record<
+          string,
+          React.ComponentType<Record<string, unknown>>
+        >
+      }
+    />
   ),
   IframeSwitcher: RealIframeSwitcher,
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
