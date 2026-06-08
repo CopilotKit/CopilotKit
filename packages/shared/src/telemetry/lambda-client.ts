@@ -150,4 +150,11 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
   }
 }
 
-export default { send };
+/**
+ * The telemetry lambda client. Exposed as the module default and
+ * re-bound to a named `lambdaClient` in `./index.ts` (see the note there
+ * on why it is re-bound locally rather than re-exported directly).
+ */
+const lambdaClient = { send };
+
+export default lambdaClient;

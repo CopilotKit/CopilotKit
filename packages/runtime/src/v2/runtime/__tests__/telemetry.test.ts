@@ -310,4 +310,24 @@ describe("TelemetryClient", () => {
 
     expect(lambdaSpy).toHaveBeenCalledTimes(2);
   });
+
+  it("never rejects when the telemetry sink throws", async () => {
+    // Telemetry must never break the application. Callers fire capture()
+    // without awaiting/catching (e.g. the intelligence run handler), so a
+    // rejection here becomes an unhandled rejection that crashes the run.
+    lambdaSpy.mockRejectedValue(new Error("sink unavailable"));
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 1,
+    });
+
+    await expect(
+      client.capture("oss.runtime.instance_created", {
+        actionsAmount: 0,
+        endpointTypes: [],
+        endpointsAmount: 0,
+        "cloud.api_key_provided": false,
+      }),
+    ).resolves.toBeUndefined();
+  });
 });

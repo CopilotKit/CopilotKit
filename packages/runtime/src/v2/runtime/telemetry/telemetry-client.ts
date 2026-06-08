@@ -57,18 +57,25 @@ export class TelemetryClient {
     event: K,
     properties: AnalyticsEvents[K],
   ) {
-    if (this.telemetryDisabled) return;
-    // Anonymous callers are gated by sampleRate; identified callers
-    // (telemetry_id present) bypass the gate and always send.
-    if (!this.telemetryId && !this.shouldSendEvent()) return;
+    // Telemetry must never break the application. Callers fire capture()
+    // without awaiting/catching it, so any throw here surfaces as an
+    // unhandled rejection that crashes the process. Swallow everything.
+    try {
+      if (this.telemetryDisabled) return;
+      // Anonymous callers are gated by sampleRate; identified callers
+      // (telemetry_id present) bypass the gate and always send.
+      if (!this.telemetryId && !this.shouldSendEvent()) return;
 
-    await lambdaClient.send({
-      event,
-      properties: properties as Record<string, unknown>,
-      packageName: packageJson.name,
-      packageVersion: packageJson.version,
-      licenseToken: this.licenseToken ?? undefined,
-    });
+      await lambdaClient.send({
+        event,
+        properties: properties as Record<string, unknown>,
+        packageName: packageJson.name,
+        packageVersion: packageJson.version,
+        licenseToken: this.licenseToken ?? undefined,
+      });
+    } catch {
+      // Silent failure — telemetry must not break the application.
+    }
   }
 
   private setSampleRate(sampleRate: number | undefined) {
