@@ -10,7 +10,7 @@ middleware that extracts inbound ``x-*`` headers at request scope.
 
 It is intentionally duplicated into every Python showcase integration
 that does NOT already depend on the ``copilotkit`` SDK so each backend
-has a single ~120-line file it can import without adding a heavy
+has a single self-contained file it can import without adding a heavy
 ``copilotkit`` (langchain-pulling) dependency.
 
 What this module does
@@ -33,9 +33,11 @@ Scope and limits
 ----------------
 * Only ``x-*`` prefixed headers are forwarded. ``authorization``,
   ``content-type``, and any other non-``x-*`` headers are dropped.
-* Nothing is collected, persisted, logged, or sent anywhere — the module
-  only attaches headers to an HTTP request that the caller was already
-  going to make. No telemetry, no out-of-band channel.
+* Nothing is collected, persisted, or sent anywhere — the module only
+  attaches headers to an HTTP request that the caller was already going
+  to make. No telemetry, no out-of-band channel. (Diagnostic CVDIAG
+  breadcrumbs ARE logged via the stdlib ``logging`` module: header
+  PRESENCE plus a short value prefix only — never full header values.)
 """
 
 from __future__ import annotations
@@ -174,21 +176,63 @@ def _find_event_hooks_target(client: Any) -> Optional[Any]:
 
 
 def _is_async_httpx_target(target: Any) -> bool:
-    """Best-effort detection: is this an httpx async client?"""
+    """Best-effort detection: is this an httpx async client?
+
+    Detection is HIGH-CONFIDENCE when ``isinstance`` against the real
+    ``httpx.AsyncClient`` / ``httpx.Client`` succeeds. The MRO name-only
+    fallback (matching a class literally named ``AsyncClient``) is
+    LOW-CONFIDENCE: a wrapped/duck-typed client whose class happens to be
+    named ``AsyncClient`` (or that is async but is NOT so named) can be
+    misclassified, which would install a sync hook on an async client (an
+    un-awaited coroutine → silent header drop) or vice versa. Each path
+    emits a CVDIAG breadcrumb tagged with the chosen confidence so a
+    misdetection is greppable in the logs. The return values themselves are
+    unchanged — only the diagnostics are new.
+    """
     try:
         import httpx
 
         if isinstance(target, httpx.AsyncClient):
+            _cvdiag(
+                "async-detect",
+                {},
+                status="ok",
+                error="path=isinstance-async confidence=high",
+            )
             return True
         if isinstance(target, httpx.Client):
+            _cvdiag(
+                "async-detect",
+                {},
+                status="ok",
+                error="path=isinstance-sync confidence=high",
+            )
             return False
     except ImportError:  # pragma: no cover
         pass
 
     # Fall back to exact class-name match for wrapped/duck-typed clients.
+    # LOW-CONFIDENCE: this can misdetect async-vs-sync for oddly-named
+    # wrappers; the breadcrumb records the fallback so a wrong hook kind is
+    # traceable to this path.
     for cls in type(target).__mro__:
         if cls.__name__ == "AsyncClient":
+            _cvdiag(
+                "async-detect",
+                {},
+                status="ok",
+                error=(
+                    "path=mro-name-match confidence=low "
+                    f"target_type={type(target).__name__}"
+                ),
+            )
             return True
+    _cvdiag(
+        "async-detect",
+        {},
+        status="ok",
+        error=(f"path=default-sync confidence=low target_type={type(target).__name__}"),
+    )
     return False
 
 
@@ -243,11 +287,16 @@ def install_httpx_hook(client: Any) -> None:
     target = _find_event_hooks_target(client)
 
     if target is None:
-        warnings.warn(
+        msg = (
             f"install_httpx_hook: client of type {type(client).__name__} has no "
-            "recognized event_hooks attribute; x-* headers will not be forwarded",
-            stacklevel=2,
+            "recognized event_hooks attribute; x-* headers will NOT be forwarded "
+            "for this client"
         )
+        warnings.warn(msg, stacklevel=2)
+        # warnings.warn is invisible in most prod runtimes (filtered/once);
+        # ALSO log at WARNING so a non-forwarding client surfaces.
+        logger.warning("CVDIAG boundary=hook-install status=error error=%s", msg)
+        _cvdiag("hook-install", {}, status="error", error="no-event-hooks-target")
         return
 
     request_hooks = target.event_hooks.get("request", [])
@@ -320,24 +369,34 @@ def install_global_httpx_hook() -> None:
         try:
             install_httpx_hook(self)
         except Exception as exc:  # pragma: no cover - never break client construction
-            _cvdiag(
-                "hook-install",
-                {},
-                status="error",
-                error=f"{type(exc).__name__}: {exc}"[:80],
+            # A failed hook install means x-aimock-context silently never
+            # forwards (the whole point of this shim). Keep swallowing the
+            # exception so client construction never breaks, but FAIL LOUD:
+            # log at ERROR with the FULL detail (not 80-char-truncated) so a
+            # broken install is visible, not buried at INFO.
+            detail = f"sync-init {type(exc).__name__}: {exc}"
+            logger.error(
+                "CVDIAG boundary=hook-install status=error error=%s",
+                detail,
+                exc_info=True,
             )
+            _cvdiag("hook-install", {}, status="error", error=detail)
 
     def _patched_async_init(self, *args, **kwargs):
         _orig_async_init(self, *args, **kwargs)
         try:
             install_httpx_hook(self)
         except Exception as exc:  # pragma: no cover
-            _cvdiag(
-                "hook-install",
-                {},
-                status="error",
-                error=f"{type(exc).__name__}: {exc}"[:80],
+            # See _patched_sync_init: swallow to protect construction, but
+            # FAIL LOUD at ERROR with full detail so a broken install (which
+            # silently drops x-aimock-context forwarding) is visible.
+            detail = f"async-init {type(exc).__name__}: {exc}"
+            logger.error(
+                "CVDIAG boundary=hook-install status=error error=%s",
+                detail,
+                exc_info=True,
             )
+            _cvdiag("hook-install", {}, status="error", error=detail)
 
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init

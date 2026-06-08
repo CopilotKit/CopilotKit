@@ -70,6 +70,39 @@ describe("validateCell", () => {
   it("impossible + empty tags = valid", () => {
     expect(validateCell(cell("impossible"))).toBe(true);
   });
+
+  // Tag-membership: a tag outside the TAGS set is invalid even when the
+  // count rule is satisfied. The `as BaselineTag` cast simulates malformed
+  // data arriving from PocketBase, which is not compile-time checked.
+  it("possible + unknown tag = invalid", () => {
+    expect(validateCell(cell("possible", ["bogus" as BaselineTag]))).toBe(
+      false,
+    );
+  });
+
+  it("possible + mix of valid and unknown tag = invalid", () => {
+    expect(validateCell(cell("possible", ["cpk", "nope" as BaselineTag]))).toBe(
+      false,
+    );
+  });
+
+  // "all"-exclusivity: the `all` meta-tag means "needs everything" and must
+  // not coexist with individual tags.
+  it("possible + all alone = valid", () => {
+    expect(validateCell(cell("possible", ["all"]))).toBe(true);
+  });
+
+  it("possible + all combined with an individual tag = invalid", () => {
+    expect(validateCell(cell("possible", ["all", "cpk"]))).toBe(false);
+  });
+
+  it("possible + individual tag before all = invalid", () => {
+    expect(validateCell(cell("possible", ["docs", "all"]))).toBe(false);
+  });
+
+  it("possible + multiple individual tags = valid", () => {
+    expect(validateCell(cell("possible", ["cpk", "docs"]))).toBe(true);
+  });
 });
 
 /* ------------------------------------------------------------------ */

@@ -10,7 +10,7 @@ middleware that extracts inbound ``x-*`` headers at request scope.
 
 It is intentionally duplicated into every Python showcase integration
 that does NOT already depend on the ``copilotkit`` SDK so each backend
-has a single ~120-line file it can import without adding a heavy
+has a single self-contained file it can import without adding a heavy
 ``copilotkit`` (langchain-pulling) dependency.
 
 What this module does
@@ -33,9 +33,11 @@ Scope and limits
 ----------------
 * Only ``x-*`` prefixed headers are forwarded. ``authorization``,
   ``content-type``, and any other non-``x-*`` headers are dropped.
-* Nothing is collected, persisted, logged, or sent anywhere — the module
-  only attaches headers to an HTTP request that the caller was already
-  going to make. No telemetry, no out-of-band channel.
+* Nothing is collected, persisted, or sent anywhere — the module only
+  attaches headers to an HTTP request that the caller was already going
+  to make. No telemetry, no out-of-band channel. (Diagnostic CVDIAG
+  breadcrumbs ARE logged via the stdlib ``logging`` module: header
+  PRESENCE plus a short value prefix only — never full header values.)
 """
 
 from __future__ import annotations

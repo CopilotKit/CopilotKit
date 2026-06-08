@@ -133,6 +133,16 @@ public class SharedStateReadWriteController {
             State runState = input.state() != null ? input.state() : new State();
             this.state = runState;
 
+            // RUN_STARTED must precede every terminal RUN_ERROR — AG-UI clients
+            // drop a RUN_ERROR that arrives without a started run, hanging the
+            // UI. Emit it BEFORE reading the user message so the no-user-message
+            // / null-content error paths still terminate a started run.
+            this.emitEvent(runStartedEvent(threadId, runId), subscriber);
+
+            // Null-guard the message + content: getLatestUserMessage only throws
+            // AGUIException when NO user message exists; a present-but-empty or
+            // null-content message returns normally and would NPE downstream.
+            // Treat empty content as a handled error.
             String userContent;
             try {
                 userContent = this.getLatestUserMessage(messages).getContent();
@@ -141,10 +151,20 @@ public class SharedStateReadWriteController {
                 this.emitEvent(runErrorEvent(String.format(
                         "agent run failed: %s (see server logs)",
                         e.getClass().getSimpleName())), subscriber);
+                this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+                subscriber.onRunFinalized(
+                        new AgentSubscriberParams(input.messages(), runState, this, input));
                 return;
             }
-
-            this.emitEvent(runStartedEvent(threadId, runId), subscriber);
+            if (!StringUtils.hasText(userContent)) {
+                log.warn("Latest user message has null/blank content");
+                this.emitEvent(runErrorEvent(
+                        "agent run failed: user message was empty"), subscriber);
+                this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+                subscriber.onRunFinalized(
+                        new AgentSubscriberParams(input.messages(), runState, this, input));
+                return;
+            }
 
             // System prompt: base + injected preferences read from state.
             String systemPrompt = buildSystemPrompt(runState);
@@ -228,9 +248,17 @@ public class SharedStateReadWriteController {
                 }
             } catch (Exception e) {
                 log.error("ChatClient call failed", e);
+                // textMessageStart was already emitted — close the message
+                // before RUN_ERROR so subscribers tear down cleanly, then
+                // finalize so the SSE stream completes (no double textMessageEnd:
+                // this path returns before the happy-path textMessageEnd below).
+                this.emitEvent(textMessageEndEvent(messageId), subscriber);
                 this.emitEvent(runErrorEvent(String.format(
                         "agent run failed: %s (see server logs)",
                         e.getClass().getSimpleName())), subscriber);
+                this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+                subscriber.onRunFinalized(
+                        new AgentSubscriberParams(input.messages(), runState, this, input));
                 return;
             }
 

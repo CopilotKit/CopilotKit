@@ -39,7 +39,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
       }),
     });

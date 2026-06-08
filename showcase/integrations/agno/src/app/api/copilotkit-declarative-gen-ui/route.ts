@@ -24,7 +24,7 @@ const declarativeGenUiAgent = new HttpAgent({
 });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
     // The backend agent owns `generate_a2ui` explicitly (see
