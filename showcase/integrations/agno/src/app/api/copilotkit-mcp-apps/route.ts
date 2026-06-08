@@ -37,10 +37,10 @@ const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/agui` });
 // the associated UI resource and emits an `activity` event that the
 // built-in `MCPAppsActivityRenderer` renders inline in the chat.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
-  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
-  // plain Records. Fixed in source, pending release.
   agents: {
+    // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+    // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+    // plain Records. Fixed in source, pending release.
     "mcp-apps": mcpAppsAgent,
   },
   mcpApps: {

@@ -34,7 +34,7 @@ const agents: Record<string, AbstractAgent> = {
 };
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts
   agents,
   openGenerativeUI: true,
   a2ui: {

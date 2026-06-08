@@ -26,9 +26,10 @@ const agentConfigAgent = new HttpAgent({
 });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
   agents: {
+    // @ts-expect-error -- see main route.ts
     "agent-config-demo": agentConfigAgent,
+    // @ts-expect-error -- see main route.ts
     default: agentConfigAgent,
   },
 });
