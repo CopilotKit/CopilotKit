@@ -17,9 +17,11 @@
 #   (1) check_expected_prod_domains compares the FLEET-WIDE public-host set
 #       (EXPECTED_DOMAINS[PRODUCTION_ENV_ID]) against the union of
 #       custom_domains across the FULL prod snapshot. The fixture's full
-#       prod fleet carries all 5 public hosts; a narrowed single-service
-#       view of the target owns 0 of them, so reading the narrowed view
-#       would make all 5 look "missing" → spurious WARN → and because the
+#       prod fleet carries the full public-host set (every host in
+#       EXPECTED_DOMAINS[PRODUCTION_ENV_ID], currently 5); a narrowed
+#       single-service view of the target owns 0 of them, so reading the
+#       narrowed view would make the entire set look "missing" → spurious
+#       WARN → and because the
 #       real workflow (.github/workflows/showcase_promote.yml) does NOT
 #       pass --confirm-divergence, promote would refuse. Reading the FULL
 #       fleet avoids that.
@@ -238,19 +240,47 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         Railway::PromoteCommand.new(argv + ["--non-interactive", "--yes"])
     end
 
+    # Zero the promote retry back-off for the duration of the block so the 3x
+    # eventual-consistency retry loop in pin_and_verify doesn't add real wall
+    # time. RETRY_DELAY_SEC is a process-global constant, so this is a global
+    # mutation; the clean seam would be pin_and_verify(sleeper:), but the
+    # cmd.run → pin loop constructs that call internally with no injection
+    # point we can reach without changing bin/railway production logic. So we
+    # keep the swap but make it BULLETPROOF against run-order state leakage:
+    #
+    #   - capture `original` BEFORE any mutation;
+    #   - track whether the swap actually happened (`swapped`) so a failure
+    #     between capture and set never leaves the const removed/zeroed;
+    #   - restore in `ensure` (runs even if the block raises);
+    #   - swap via const_set with warnings silenced (no remove_const churn /
+    #     "already initialized constant" warning), and restore the EXACT prior
+    #     value so no perturbed state can leak into a later test in the
+    #     randomized run order.
     def with_fast_sleeper
         original = Railway::PromoteCommand.const_get(:RETRY_DELAY_SEC)
-        Railway::PromoteCommand.send(:remove_const, :RETRY_DELAY_SEC)
-        Railway::PromoteCommand.const_set(:RETRY_DELAY_SEC, 0)
+        swapped  = false
+        silence_const_redefinition { Railway::PromoteCommand.const_set(:RETRY_DELAY_SEC, 0) }
+        swapped = true
         yield
     ensure
-        Railway::PromoteCommand.send(:remove_const, :RETRY_DELAY_SEC)
-        Railway::PromoteCommand.const_set(:RETRY_DELAY_SEC, original)
+        silence_const_redefinition { Railway::PromoteCommand.const_set(:RETRY_DELAY_SEC, original) } if swapped
+    end
+
+    # const_set over an existing constant emits a Ruby "already initialized
+    # constant" warning; suppress it locally so the suite output stays clean
+    # without touching the process-global $VERBOSE beyond this block.
+    def silence_const_redefinition
+        prev = $VERBOSE
+        $VERBOSE = nil
+        yield
+    ensure
+        $VERBOSE = prev
     end
 
     # ── #5322 regression guard: healthy fleet, single-service promote, NO
     # --confirm-divergence must succeed. check_expected_prod_domains reads the
-    # FULL prod snapshot (all 5 public hosts present), so no phantom domain
+    # FULL prod snapshot (the full EXPECTED_DOMAINS[PRODUCTION_ENV_ID]
+    # public-host set present), so no phantom domain
     # WARN is synthesized and the promote proceeds: rc=0, target pinned,
     # siblings untouched. (This pins that fleet-scoped checks read the full
     # snapshot; it is a guard, not red-green for the current parity change.)
