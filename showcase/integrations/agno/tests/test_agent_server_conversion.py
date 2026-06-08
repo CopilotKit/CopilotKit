@@ -26,7 +26,13 @@ from ag_ui.core import (
     TextMessageContentEvent,
     ToolCallResultEvent,
 )
-from ag_ui.core.types import AssistantMessage, FunctionCall, ToolCall, ToolMessage, UserMessage
+from ag_ui.core.types import (
+    AssistantMessage,
+    FunctionCall,
+    ToolCall,
+    ToolMessage,
+    UserMessage,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -217,7 +223,9 @@ async def test_reasoning_agent_propagates_run_error(monkeypatch):
     ]
     error_events = [e for e in events if e.type == EventType.RUN_ERROR]
     finished = [e for e in events if e.type == EventType.RUN_FINISHED]
-    assert error_events, f"RUN_ERROR must be surfaced, got types {[e.type for e in events]}"
+    assert error_events, (
+        f"RUN_ERROR must be surfaced, got types {[e.type for e in events]}"
+    )
     assert error_events[0].message == "boom"
     assert not finished, "must not report RUN_FINISHED after an inner RUN_ERROR"
 
@@ -326,9 +334,7 @@ async def test_reasoning_route_handler_emits_reasoning_message(monkeypatch):
         agent_server, "async_stream_agno_response_as_agui_events", _fake_stream
     )
 
-    route = next(
-        r for r in app.routes if getattr(r, "path", None) == "/reasoning/agui"
-    )
+    route = next(r for r in app.routes if getattr(r, "path", None) == "/reasoning/agui")
 
     from ag_ui.core import RunAgentInput
 

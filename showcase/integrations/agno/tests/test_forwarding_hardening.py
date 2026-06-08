@@ -47,9 +47,7 @@ def test_global_hook_install_failure_logged_at_error_not_info(caplog, monkeypatc
         client.close()
 
     # The failure surfaces at ERROR (fail-loud), carrying full detail.
-    error_records = [
-        r for r in caplog.records if r.levelno >= logging.WARNING
-    ]
+    error_records = [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert error_records, (
         "expected a WARNING/ERROR log for the failed hook install; got none. "
         f"all levels seen: {[r.levelname for r in caplog.records]}"
@@ -64,9 +62,7 @@ def test_global_hook_install_failure_logged_at_error_not_info(caplog, monkeypatc
     # failure ALSO surfaces at >= WARNING. (The loud record carrying the
     # detail is asserted above.) Guard against regressing to INFO-only.
     loud_with_detail = [
-        r
-        for r in error_records
-        if "simulated hook install failure" in r.getMessage()
+        r for r in error_records if "simulated hook install failure" in r.getMessage()
     ]
     assert loud_with_detail, (
         "hook-install failure detail appeared only below WARNING — that is "

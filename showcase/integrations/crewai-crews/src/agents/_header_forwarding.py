@@ -231,10 +231,7 @@ def _is_async_httpx_target(target: Any) -> bool:
         "async-detect",
         {},
         status="ok",
-        error=(
-            "path=default-sync confidence=low "
-            f"target_type={type(target).__name__}"
-        ),
+        error=(f"path=default-sync confidence=low target_type={type(target).__name__}"),
     )
     return False
 

@@ -81,9 +81,9 @@ describe("validateCell", () => {
   });
 
   it("possible + mix of valid and unknown tag = invalid", () => {
-    expect(
-      validateCell(cell("possible", ["cpk", "nope" as BaselineTag])),
-    ).toBe(false);
+    expect(validateCell(cell("possible", ["cpk", "nope" as BaselineTag]))).toBe(
+      false,
+    );
   });
 
   // "all"-exclusivity: the `all` meta-tag means "needs everything" and must
