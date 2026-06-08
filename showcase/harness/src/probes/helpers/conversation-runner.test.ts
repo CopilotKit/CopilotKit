@@ -63,6 +63,14 @@ interface PageScript {
   // banner whose TEXT changes across polls (a re-armed new/changed error)
   // — not just its visibility.
   errorBannerValues?: Array<boolean | { visible: boolean; text?: string }>;
+  // When true, the fake exposes a `page.reload()` that RE-SEEDS the
+  // assistant-message and error-banner queues from their original scripted
+  // values — modelling a real Playwright reload tearing down and re-painting
+  // the DOM. Used by turn-1 fast-fail tests to verify a SUSTAINED real banner
+  // still fast-fails on the bounded cold-start retry's 2nd attempt (the banner
+  // re-paints fresh after the reload, so the 2nd settle re-snapshots a clean
+  // baseline and fast-fails again — #5142 stays intact across the retry).
+  reloadReplaysQueues?: boolean;
 }
 
 /**
@@ -192,6 +200,22 @@ function makePage(script: PageScript = {}): Page {
             if (inputQueue.length === 0) return "";
             if (inputQueue.length === 1) return inputQueue[0]!;
             return inputQueue.shift()!;
+          },
+        }
+      : {}),
+    // reload is only provided when the script opts in. It re-seeds the
+    // assistant-message and error-banner queues from their original scripted
+    // values so the post-reload settle replays the same scripted sequence —
+    // modelling a real DOM teardown + re-paint. Auto-user-message growth is
+    // reset too so the re-send's fillAndVerifySend sees a fresh user bubble.
+    ...(script.reloadReplaysQueues
+      ? {
+          async reload(): Promise<void> {
+            queue.length = 0;
+            queue.push(...(script.evaluateValues ?? []));
+            errorBannerQueue.length = 0;
+            errorBannerQueue.push(...(script.errorBannerValues ?? []));
+            autoUserCalls = 0;
           },
         }
       : {}),
@@ -376,6 +400,11 @@ describe("runConversation", () => {
       // (last value `true` repeats forever) → 2+ consecutive
       // differs-from-baseline polls → fast-fail under the unified debounce.
       errorBannerValues: [false, false, true],
+      // This is turn 1, so the bounded cold-start retry fires once on the
+      // fast-fail. The banner SURVIVES the reload (re-seeded queues re-paint
+      // the same fresh banner) → the 2nd attempt fast-fails again and the
+      // distinguished AssistantErroredError is re-thrown. #5142 stays intact.
+      reloadReplaysQueues: true,
       recorded,
     });
 
@@ -411,8 +440,11 @@ describe("runConversation", () => {
     expect(expected).toBeInstanceOf(AssistantErroredError);
     expect(expected).toBeInstanceOf(Error);
     expect(result.error).toBe(expected.message);
-    // The whole point: bail well before the 5000ms responseTimeout.
-    expect(elapsed).toBeLessThan(2000);
+    // The whole point: bail well before the 5000ms responseTimeout. The
+    // bounded turn-1 cold-start retry adds a SECOND fast-fail cycle, so the
+    // bound is 3000ms (two fast-fail cycles) — still far under the 5000ms
+    // settle timeout, proving we never burned the full wall-clock.
+    expect(elapsed).toBeLessThan(3000);
     // Failed turn's duration is not recorded.
     expect(result.turn_durations_ms).toHaveLength(0);
     // Real multi-poll settle loop; explicit timeout for CI headroom.
@@ -472,6 +504,11 @@ describe("runConversation", () => {
         { visible: true, text: "Old error" },
         { visible: true, text: "New error" },
       ],
+      // Turn 1 → the bounded cold-start retry fires on the fast-fail. The
+      // re-seeded queues replay the same baseline-stale-then-changed sequence,
+      // so the 2nd attempt re-arms and fast-fails on "New error" again. #5142
+      // (and the baseline-text re-arm fix) stay intact across the retry.
+      reloadReplaysQueues: true,
       recorded,
     });
 
@@ -492,8 +529,10 @@ describe("runConversation", () => {
     expect(result.error).toContain("copilot-error-banner visible");
     expect(result.error).toContain("New error");
     expect(result.error!.toLowerCase()).not.toContain("timeout");
-    // Bailed well before the 5000ms responseTimeout — the whole point.
-    expect(elapsed).toBeLessThan(2000);
+    // Bailed well before the 5000ms responseTimeout — the whole point. The
+    // bounded cold-start retry adds a 2nd fast-fail cycle, so the bound is
+    // 3000ms (two cycles), still far under the 5000ms settle timeout.
+    expect(elapsed).toBeLessThan(3000);
     expect(result.turn_durations_ms).toHaveLength(0);
     // Real multi-poll settle loop; explicit timeout for CI headroom.
   }, 20_000);
@@ -573,6 +612,9 @@ describe("runConversation", () => {
         { visible: true, text: "New" },
         { visible: true, text: "New" },
       ],
+      // Turn 1 → the bounded cold-start retry fires; re-seeded queues replay
+      // the same stable-new-error sequence so the 2nd attempt fast-fails again.
+      reloadReplaysQueues: true,
       recorded,
     });
 
@@ -591,9 +633,9 @@ describe("runConversation", () => {
     expect(result.error).toContain("copilot-error-banner visible");
     expect(result.error).toContain("New");
     expect(result.error!.toLowerCase()).not.toContain("timeout");
-    // Debounce adds ~1 poll of latency at most — still far under the 5000ms
-    // responseTimeout.
-    expect(elapsed).toBeLessThan(2000);
+    // Debounce adds ~1 poll of latency; the bounded cold-start retry adds a
+    // 2nd fast-fail cycle — still far under the 5000ms responseTimeout.
+    expect(elapsed).toBeLessThan(3000);
     expect(result.turn_durations_ms).toHaveLength(0);
     // Real multi-poll settle loop; explicit timeout for CI headroom.
   }, 20_000);
@@ -754,6 +796,285 @@ describe("runConversation", () => {
     // Real multi-poll settle loop; explicit timeout for CI headroom.
   }, 20_000);
 
+  it("cold-start retry: a turn-1 banner that clears after page.reload() RECOVERS (turn succeeds)", async () => {
+    // Flap-band fix #71. A showcase cold-start can paint a transient error
+    // banner on the FIRST turn (the agent backend / runtime is still warming
+    // up) that clears on its own a beat later. PR #5142's fast-fail correctly
+    // bails on a sustained banner, but on turn 1 a single bounded retry —
+    // reload the page, re-send the same message — recovers the would-be flap
+    // without masking a real failure. This test models attempt 1 fast-failing
+    // on a fresh sustained banner, then `page.reload()` flips the page into a
+    // clean state where the assistant responds and the turn SETTLES.
+    let reloaded = false;
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    let userCalls = 0;
+    let bannerReadsBeforeReload = 0;
+    let assistantCallsAfterReload = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill(_selector, value) {
+        recorded.fills.push(value);
+      },
+      async press(_selector, key) {
+        recorded.presses.push(key);
+      },
+      async reload() {
+        reloaded = true;
+        // Reset send-verification baseline so the re-send's fillAndVerifySend
+        // observes fresh user-message growth.
+        userCalls = 0;
+      },
+      async evaluate<R>(fn: () => R): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          // After reload: banner gone → attempt 2 settles cleanly.
+          if (reloaded) return { visible: false } as never;
+          // Before reload: NOT visible on the baseline snapshot (first read),
+          // then a FRESH banner appears and STAYS (differs-from-baseline on 2+
+          // consecutive polls) → AssistantErroredError fast-fail on attempt 1.
+          bannerReadsBeforeReload++;
+          if (bannerReadsBeforeReload <= 1) return { visible: false } as never;
+          return {
+            visible: true,
+            text: "cold start: backend warming up",
+          } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          // Monotonic growth so fillAndVerifySend sees the user bubble.
+          return userCalls++ as never;
+        }
+        // Assistant-message count. Before reload: pinned at baseline 0 (no
+        // response) so attempt 1 cannot settle and the fresh banner fast-fails.
+        // After reload: grows to 1 and freezes → settles.
+        if (!reloaded) return 0 as never;
+        assistantCallsAfterReload++;
+        return (assistantCallsAfterReload > 1 ? 1 : 0) as never;
+      },
+    };
+
+    const result = await runConversation(
+      page,
+      [{ input: "hello cold start", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+
+    // The retry recovered the flap: the turn SUCCEEDED.
+    expect(reloaded).toBe(true);
+    expect(result.turns_completed).toBe(1);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Message was re-sent after the reload (filled twice: original + retry).
+    expect(recorded.fills).toEqual(["hello cold start", "hello cold start"]);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("cold-start retry does NOT mask a real failure: a banner that SURVIVES the reload still fast-fails", async () => {
+    // The bound that keeps #5142 intact: the cold-start retry fires AT MOST
+    // ONCE, only on turn 1, only for an AssistantErroredError. If the error
+    // banner is a REAL sustained failure that survives the page.reload() and
+    // re-send, the second waitForAssistantSettled fast-fails again and the
+    // runner re-throws — the turn fails with the distinguished
+    // AssistantErroredError, NOT a generic timeout, and NOT a false success.
+    let reloadCount = 0;
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    let userCalls = 0;
+    // Per-attempt banner-read counter, reset on each reload. Each
+    // waitForAssistantSettled invocation snapshots the banner ONCE at its
+    // baseline (first read) — that must be NOT visible so the subsequent
+    // sustained banner reads as a differs-from-baseline NEW error and
+    // fast-fails. A genuine failure does this on BOTH attempts.
+    let bannerReadsThisAttempt = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill(_selector, value) {
+        recorded.fills.push(value);
+      },
+      async press(_selector, key) {
+        recorded.presses.push(key);
+      },
+      async reload() {
+        reloadCount++;
+        userCalls = 0;
+        bannerReadsThisAttempt = 0;
+      },
+      async evaluate<R>(fn: () => R): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          // NOT visible on each attempt's baseline snapshot (first read),
+          // then a SUSTAINED banner that the reload does NOT clear — a REAL
+          // failure. Differs-from-baseline across 2+ consecutive polls →
+          // fast-fails on BOTH attempts.
+          bannerReadsThisAttempt++;
+          if (bannerReadsThisAttempt <= 1) return { visible: false } as never;
+          return { visible: true, text: "real backend failure" } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          return userCalls++ as never;
+        }
+        // Assistant never produces a response on either attempt.
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "still broken", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    // The retry happened AT MOST ONCE (bounded) — and did not mask the error.
+    expect(reloadCount).toBe(1);
+    expect(result.turns_completed).toBe(0);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBe(1);
+    // Distinguished AssistantErroredError survives the retry — NOT a timeout,
+    // NOT a false success.
+    expect(result.error).toBe(
+      new AssistantErroredError("real backend failure").message,
+    );
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Re-sent exactly once (original + one retry), proving the retry is bounded.
+    expect(recorded.fills).toEqual(["still broken", "still broken"]);
+    // Bailed via fast-fail on BOTH attempts; well under the 5000ms timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("cold-start retry: a skipSend turn-1 banner FAST-FAILS without retry (the retry only fires for plain-fill turns)", async () => {
+    // Flap-band #71. The cold-start retry can ONLY recover a turn it can
+    // RE-ISSUE: a plain-fill turn (reload + re-fill + re-send). A `skipSend`
+    // turn's submission is issued entirely by `preFill` (e.g. a
+    // sample-attachment button auto-sends via the agent surface — the textarea
+    // is never touched), which a reload would wipe and the skipSend path never
+    // re-issues. Skipping the reload (the earlier fix) left a no-op retry that
+    // re-submitted nothing, could not recover, and risked false-settling
+    // against attempt 1's stale DOM. So the retry is GATED to plain-fill turns:
+    // a skipSend cold-start banner now fast-fails with `AssistantErroredError`
+    // (no retry, no reload, no false-settle) — PR #5142's fast-fail, the
+    // pre-retry behavior for skipSend, NOT a regression.
+    let reloaded = false;
+    let preFillCalls = 0;
+    let bannerReads = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async reload() {
+        // Must NEVER be reached for a skipSend turn — the retry is gated off.
+        reloaded = true;
+      },
+      async evaluate<R>(fn: () => R): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          bannerReads++;
+          // NOT visible on the baseline snapshot, then a fresh banner appears
+          // and STAYS across ≥2 consecutive polls → AssistantErroredError
+          // fast-fail. No retry follows for a skipSend turn.
+          if (bannerReads <= 1) return { visible: false } as never;
+          return {
+            visible: true,
+            text: "cold start: backend warming up",
+          } as never;
+        }
+        // Assistant never produces a response — the only exit is the fast-fail.
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "skip-send sample",
+          skipSend: true,
+          responseTimeoutMs: 5000,
+          preFill: async () => {
+            preFillCalls++;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    // No retry: the page was never reloaded and the turn failed via fast-fail.
+    expect(reloaded).toBe(false);
+    expect(preFillCalls).toBe(1);
+    expect(result.turns_completed).toBe(0);
+    expect(result.failure_turn).toBe(1);
+    // The distinguished banner fast-fail error propagated (NOT a settle
+    // timeout, NOT a false-settle).
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error).toContain("cold start: backend warming up");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // A SINGLE fast-fail cycle (no second attempt) — well under the timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+  }, 20_000);
+
+  it("cold-start retry shares a single turn deadline — a retried turn does NOT run ~2× the budget (FF20)", async () => {
+    // Flap-band #71/FF20. The first settle wait and the retry settle wait must
+    // share ONE turn deadline. Without it the retry gets a fresh full
+    // `turnTimeoutMs`, so a turn that fast-fails then settle-times-out on retry
+    // burns ~2× the budget. Here the banner fast-fails attempt 1, the reload
+    // succeeds, then the assistant NEVER responds so the retry settle-times-out.
+    // With the shared deadline the total stays close to ONE turnTimeoutMs.
+    const TURN_TIMEOUT = 1000;
+    let reloaded = false;
+    let bannerReads = 0;
+    let userCalls = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async reload() {
+        reloaded = true;
+        bannerReads = 0;
+        userCalls = 0;
+      },
+      async evaluate<R>(fn: () => R): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          bannerReads++;
+          // Fresh sustained banner on attempt 1 → fast-fail. After the reload
+          // the banner is gone (so the retry does NOT fast-fail; it instead
+          // burns the remaining budget waiting for a response that never comes).
+          if (reloaded) return { visible: false } as never;
+          if (bannerReads <= 1) return { visible: false } as never;
+          return { visible: true, text: "cold start" } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          return userCalls++ as never;
+        }
+        // Assistant never responds → the retry settle-times-out.
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "deadline test", responseTimeoutMs: TURN_TIMEOUT }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(reloaded).toBe(true);
+    // Turn failed (assistant never settled), but the KEY assertion: the retry
+    // shared the turn deadline, so total elapsed is ~1× the budget, not ~2×.
+    expect(result.failure_turn).toBe(1);
+    // Shared deadline: total ≈ 1× budget + the small retry floor + send-verify
+    // overhead, comfortably under the OLD ~2× (two fresh full budgets would be
+    // ≥ 2000ms here).
+    expect(elapsed).toBeLessThan(TURN_TIMEOUT * 1.8);
+  }, 20_000);
+
   it("empty turns array: returns zeroes immediately", async () => {
     const page = makePage();
     const result = await runConversation(page, []);
@@ -793,6 +1114,11 @@ describe("runConversation", () => {
         { visible: true, text: baselineText },
         { visible: true, text: newErrorText },
       ],
+      // Turn 1 → the bounded cold-start retry fires; re-seeded queues replay
+      // the same prefix-collision sequence so the 2nd attempt re-arms on the
+      // full-text comparison and fast-fails again. The truncation-false-negative
+      // fix stays intact across the retry.
+      reloadReplaysQueues: true,
       recorded,
     });
 
@@ -815,8 +1141,10 @@ describe("runConversation", () => {
     // shared prefix; the distinguishing suffix may be elided. What matters is
     // that we fast-failed at all (timeout would mean the bug reproduced).
     expect(result.error).toContain(prefix300.slice(0, 50));
-    // Bailed well before the 5000ms responseTimeout — the whole point.
-    expect(elapsed).toBeLessThan(2000);
+    // Bailed well before the 5000ms responseTimeout — the whole point. The
+    // bounded cold-start retry adds a 2nd fast-fail cycle, so the bound is
+    // 3000ms (two cycles), still far under the 5000ms settle timeout.
+    expect(elapsed).toBeLessThan(3000);
     expect(result.turn_durations_ms).toHaveLength(0);
     // Real multi-poll settle loop; explicit timeout for CI headroom.
   }, 20_000);

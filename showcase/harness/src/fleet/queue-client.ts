@@ -45,17 +45,17 @@
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
 import type { JobClaimClient, JobView } from "./job-claim.js";
-import {
-  terminalJobStatus,
-  type ClaimedJob,
-  type EnqueueJobInput,
-  type FleetQueueClient,
-  type JobLease,
-  type PoolCommError,
-  type ReportJobInput,
-  type ServiceJobMeta,
-  type ServiceJobPayload,
-  type SweepResult,
+import { terminalJobStatus } from "./contracts.js";
+import type {
+  ClaimedJob,
+  EnqueueJobInput,
+  FleetQueueClient,
+  JobLease,
+  PoolCommError,
+  ReportJobInput,
+  ServiceJobMeta,
+  ServiceJobPayload,
+  SweepResult,
 } from "./contracts.js";
 
 /**
@@ -510,9 +510,22 @@ export function createFleetQueueClient(
           continue;
         }
         reclaimed += 1;
+        // The sweep boundary CANNOT distinguish a real worker crash from an
+        // expected platform teardown (Railway scale-down / redeploy SIGKILL with
+        // no graceful drain) — both leave an identical expired lease on a
+        // claimed/running row. So we do NOT synthesize `worker-crashed-mid-job`
+        // here (that would flap the whole service red on every routine
+        // teardown). The job has been RE-QUEUED to pending by the releaseJob
+        // above, so it is back in flight; emit the neutral
+        // `worker-reclaimed-pending` kind, which the dashboard renders as a gray
+        // "re-queued" surface, NOT a red unreachable overlay. A genuine pool
+        // outage keeps re-surfacing this and the cell stays gray (no green) — the
+        // honest signal. (A graceful worker shutdown drains the in-flight job to
+        // a terminal report BEFORE the lease expires, so the sweep never sees it
+        // at all — see the SIGTERM drain handler in orchestrator.bootFleet.)
         commErrors.push({
-          kind: "worker-crashed-mid-job",
-          message: `lease for job ${row.id} expired (worker ${row.claimed_by || "unknown"} crashed mid-job); re-queued`,
+          kind: "worker-reclaimed-pending",
+          message: `lease for job ${row.id} expired (worker ${row.claimed_by || "unknown"} reclaimed); re-queued to pending`,
           workerId: row.claimed_by || undefined,
           jobId: row.id,
           observedAt,

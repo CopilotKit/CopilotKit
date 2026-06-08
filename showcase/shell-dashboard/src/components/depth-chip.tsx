@@ -42,7 +42,16 @@ export interface DepthChipProps {
    * comm-error overlay; the descriptive tooltip is supplied via `commTooltip`.
    */
   unreachable?: boolean;
-  /** Tooltip text for the unreachable treatment (names the comm-error kind). */
+  /**
+   * Pool RECLAIM-PENDING state (flap-band #70). When set, the job's lease
+   * lapsed and the control-plane RE-QUEUED it (back in flight). The sweep
+   * boundary cannot tell a real crash from an expected platform teardown, so
+   * this is NEUTRAL — a gray "⟳ pending" treatment, distinct from both the red
+   * `unreachable` overlay and a real probe colour, so a routine teardown never
+   * reads as a failure. `unreachable` takes precedence when both are set.
+   */
+  pending?: boolean;
+  /** Tooltip text for the unreachable / pending treatment (names the kind). */
   commTooltip?: string;
 }
 
@@ -103,6 +112,7 @@ export function DepthChip({
   maxDepth,
   chipColor,
   unreachable,
+  pending,
   commTooltip,
 }: DepthChipProps) {
   // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
@@ -119,6 +129,25 @@ export function DepthChip({
         title={commTooltip ?? "pool unreachable — comm error"}
       >
         ⚡
+      </span>
+    );
+  }
+
+  // Reclaim-pending overlay (flap-band #70): the job's lease lapsed and was
+  // re-queued (back in flight). NEUTRAL — a gray fill + ⟳ glyph, distinct from
+  // the red `unreachable` overlay above, so an expected platform teardown never
+  // flaps the service red. Resolved before unshipped/unsupported so it always
+  // shows, but AFTER `unreachable` (a known crash outranks an ambiguous reclaim).
+  if (pending) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="pending"
+        data-surface-state="pending"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-[var(--text-muted)]/40 bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
+        title={commTooltip ?? "re-queued — pending re-run"}
+      >
+        ⟳
       </span>
     );
   }

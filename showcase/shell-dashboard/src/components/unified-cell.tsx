@@ -110,7 +110,15 @@ function TestBadge({
  */
 export function commErrorTooltip(err: PoolCommError): string {
   const worker = err.workerId ? ` — worker ${err.workerId}` : "";
-  return `pool unreachable: ${err.kind}${worker} — ${err.message}`;
+  // A re-queued (reclaimed-pending) job is NOT an outage — the lease lapsed and
+  // the control-plane re-queued it (back in flight), which the sweep boundary
+  // cannot tell apart from an expected platform teardown. Phrase it neutrally
+  // (flap-band #70) so the tooltip doesn't read as "unreachable".
+  const lead =
+    err.kind === "worker-reclaimed-pending"
+      ? "re-queued (pending)"
+      : "pool unreachable";
+  return `${lead}: ${err.kind}${worker} — ${err.message}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +198,7 @@ function DepthLayer({ ctx, model }: { ctx: CellContext; model: CellModel }) {
           depth={model.achievedDepth}
           status="wired"
           unreachable={model.surfaceState === "unreachable"}
+          pending={model.surfaceState === "pending"}
           commTooltip={
             model.commError ? commErrorTooltip(model.commError) : undefined
           }

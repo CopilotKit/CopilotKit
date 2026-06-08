@@ -47,6 +47,7 @@ import type {
   ServiceJobMeta,
   ServiceJobPayload,
 } from "../contracts.js";
+import { deriveHealthUrl } from "../../probes/liveness.js";
 
 /**
  * Sink the producer hands its lease-sweep comm errors to (REQ-B). `sweepExpired`
@@ -63,6 +64,33 @@ import type {
 export type SweepCommErrorSink = (
   commErrors: PoolCommError[],
 ) => void | Promise<void>;
+
+/**
+ * Pre-dispatch HEALTH WARM-UP config (flap-band #72). Before a run's jobs are
+ * enqueued, the producer fires a fire-and-forget `GET <backendUrl>/health`
+ * against every enumerated backend so a cold (scaled-to-zero) container starts
+ * waking BEFORE a pill actually probes it — removing most `current=0`
+ * zero-output timeouts where the first pill paid the cold-start latency.
+ *
+ * This is NOT an LLM call and NOT an agent turn — it is a cheap unauthenticated
+ * liveness GET with a short timeout, fully best-effort: a warm failure (cold
+ * container still booting, network blip) is logged at debug and never blocks or
+ * fails job production. Injected so the producer stays dependency-free and the
+ * warm loop is unit-testable with a fake `fetch`.
+ */
+export interface WarmHealthConfig {
+  /**
+   * The `fetch` impl used for the warm GETs. Injected (production wires
+   * `globalThis.fetch`); tests pass a spy. When omitted, warm-up is disabled.
+   */
+  fetchImpl: typeof fetch;
+  /**
+   * Per-request timeout in ms for each warm GET. The warm must never hang the
+   * tick, so each GET is aborted after this window. Default
+   * `DEFAULT_WARM_TIMEOUT_MS`.
+   */
+  timeoutMs?: number;
+}
 
 /**
  * The per-service unit the enumerator yields for a run. This is the
@@ -171,6 +199,31 @@ export interface JobProducerOptions {
    * abort job production.
    */
   onSweepCommErrors?: SweepCommErrorSink;
+  /**
+   * Pre-dispatch health warm-up (flap-band #72). When supplied, each tick fires
+   * a fire-and-forget `GET <backendUrl>/health` per enumerated spec right after
+   * enumeration and BEFORE enqueueing, so cold containers start waking before
+   * pills probe them. When omitted, no warm-up runs (the legacy behavior).
+   */
+  warmHealth?: WarmHealthConfig;
+}
+
+/** Default per-request timeout for a #72 health warm-up GET. */
+export const DEFAULT_WARM_TIMEOUT_MS = 3_000;
+
+/**
+ * Read a spec's backend base URL from its serialized `driverInputs.backendUrl`
+ * (the catalog enumerator sets this to the service's reachable base). Returns
+ * undefined when absent / not a string so the warm loop skips that spec rather
+ * than firing at a bogus URL.
+ */
+function backendUrlFromSpec(spec: ServiceJobSpec): string | undefined {
+  const inputs = spec.driverInputs;
+  if (inputs === undefined || inputs === null || typeof inputs !== "object") {
+    return undefined;
+  }
+  const url = (inputs as Record<string, unknown>).backendUrl;
+  return typeof url === "string" && url.length > 0 ? url : undefined;
 }
 
 /**
@@ -202,6 +255,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   const sweepIntervalMs = opts.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS;
   const runIdFactory = opts.runIdFactory ?? defaultRunIdFactory();
   const onSweepCommErrors = opts.onSweepCommErrors;
+  const warmHealth = opts.warmHealth;
 
   let running = false;
   let stopped = false;
@@ -284,6 +338,58 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     }
   }
 
+  /**
+   * Fire-and-forget pre-dispatch health warm-up (flap-band #72). For each
+   * enumerated spec with a backend URL, fire a `GET <backendUrl>/health` so a
+   * cold container starts waking before its pill probes it. Best-effort: every
+   * GET has a short abort timeout and its rejection is swallowed (logged at
+   * debug) — a warm failure must NEVER block or fail job production. Returns the
+   * count of warm GETs fired (for the tick log / tests). The GETs are NOT
+   * awaited to completion (we await the dispatch, not the responses) so a slow
+   * cold container never delays enqueueing the run.
+   */
+  function warmEnumeratedBackends(specs: ServiceJobSpec[]): number {
+    if (!warmHealth) return 0;
+    const { fetchImpl } = warmHealth;
+    const timeoutMs = warmHealth.timeoutMs ?? DEFAULT_WARM_TIMEOUT_MS;
+    let fired = 0;
+    for (const spec of specs) {
+      const backendUrl = backendUrlFromSpec(spec);
+      if (backendUrl === undefined) continue;
+      const healthUrl = deriveHealthUrl(backendUrl);
+      if (healthUrl === "") continue;
+      fired += 1;
+      // Fire-and-forget: an AbortController bounds each GET so a hung cold
+      // container can't leak a pending request across ticks. The whole chain is
+      // swallowed — warm-up is a latency optimization, never a correctness gate.
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), timeoutMs);
+      void fetchImpl(healthUrl, { method: "GET", signal: ac.signal })
+        .then(
+          () => {
+            logger.debug("fleet.producer.warm-ok", {
+              serviceSlug: spec.serviceSlug,
+              healthUrl,
+            });
+          },
+          (err: unknown) => {
+            // A cold container still booting / a network blip is EXPECTED here —
+            // the warm is precisely for the not-yet-ready case. Debug-level only.
+            logger.debug("fleet.producer.warm-failed", {
+              serviceSlug: spec.serviceSlug,
+              healthUrl,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          },
+        )
+        .finally(() => clearTimeout(timer));
+    }
+    if (fired > 0) {
+      logger.info("fleet.producer.warmed", { warmed: fired });
+    }
+    return fired;
+  }
+
   return {
     start() {
       if (stopped) {
@@ -359,6 +465,13 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         triggered,
         services: specs.length,
       });
+
+      // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
+      // enumerated backend BEFORE enqueueing, so cold containers start waking
+      // ahead of the pills that probe them. Best-effort and non-blocking — the
+      // GETs are dispatched (not awaited), so a slow cold container never delays
+      // the run's enqueue.
+      warmEnumeratedBackends(specs);
 
       let enqueued = 0;
       let enqueueFailures = 0;

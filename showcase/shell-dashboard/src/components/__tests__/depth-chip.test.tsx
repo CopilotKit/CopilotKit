@@ -249,6 +249,53 @@ describe("DepthChip", () => {
     expect(chip.getAttribute("data-status")).not.toBe("unreachable");
     expect(chip.className).toContain("emerald");
   });
+
+  // ── flap-band #70: pending (reclaimed) treatment ────────────────────
+
+  it("renders a NEUTRAL pending treatment when pending=true (not red, not the indigo unreachable overlay)", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={5}
+        status="wired"
+        chipColor="green"
+        pending
+        commTooltip="re-queued (pending): worker-reclaimed-pending — worker w-9"
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).toBe("pending");
+    expect(chip.getAttribute("data-surface-state")).toBe("pending");
+    expect(chip.getAttribute("title")).toContain("worker-reclaimed-pending");
+    // NEUTRAL — never the red danger class, never the indigo "unreachable"
+    // overlay. A routine teardown must not read as a failure.
+    expect(chip.className).not.toContain("danger");
+    expect(chip.className).not.toContain("indigo");
+    expect(chip.className).not.toContain("emerald");
+  });
+
+  it("unreachable takes precedence over pending (a known crash outranks an ambiguous reclaim)", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={3}
+        status="wired"
+        chipColor="green"
+        unreachable
+        pending
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).toBe("unreachable");
+    expect(chip.className).toContain("indigo");
+  });
+
+  it("renders normally (no pending) when pending=false", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={5} status="wired" chipColor="green" pending={false} />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).not.toBe("pending");
+    expect(chip.className).toContain("emerald");
+  });
 });
 
 describe("depthColorClass (direct)", () => {

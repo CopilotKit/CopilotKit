@@ -15,10 +15,12 @@ import {
   terminalJobStatus,
   FLEET_COMM_ERROR_SIGNAL_KEY,
   WORKERS_COLLECTION,
-  type PoolCommError,
-  type ServiceJobResult,
-  type WorkerCapacity,
-  type FleetStatusRow,
+} from "./contracts.js";
+import type {
+  PoolCommError,
+  ServiceJobResult,
+  WorkerCapacity,
+  FleetStatusRow,
 } from "./contracts.js";
 
 /**
@@ -64,13 +66,14 @@ const SAMPLE_COMM_ERROR: PoolCommError = {
 };
 
 describe("PoolCommError taxonomy (REQ-B)", () => {
-  it("enumerates the five comm-error kinds", () => {
+  it("enumerates the six comm-error kinds", () => {
     expect(POOL_COMM_ERROR_KINDS).toEqual([
       "worker-unreachable",
       "claim-comm-failure",
       "worker-protocol-timeout",
       "worker-crashed-mid-job",
       "worker-protocol-violation",
+      "worker-reclaimed-pending",
     ]);
   });
 

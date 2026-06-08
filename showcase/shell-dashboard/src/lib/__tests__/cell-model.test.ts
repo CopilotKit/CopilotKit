@@ -1613,6 +1613,64 @@ describe("buildCellModel", () => {
       expect(unsupported.commError).toBeUndefined();
     });
 
+    // ── flap-band #70: worker-reclaimed-pending → NEUTRAL "pending" surface ──
+    // A lease lapsed and the sweeper re-queued the job (back in flight). The
+    // sweep boundary cannot tell a real crash from an expected platform
+    // teardown, so this kind renders a NEUTRAL "pending" surface (gray) — NOT
+    // the red "unreachable" overlay — so a routine teardown never flaps red.
+    describe("worker-reclaimed-pending → pending surface (flap-band #70)", () => {
+      const reclaimSignal = {
+        __fleetCommError: {
+          kind: "worker-reclaimed-pending",
+          message: "lease for job j-7 expired; re-queued to pending",
+          workerId: "fleet-worker-9",
+          observedAt: FRESH_OBSERVED_AT,
+        },
+      };
+
+      it("a reclaimed-pending comm error surfaces as 'pending', NOT 'unreachable' and NOT red", () => {
+        const live = mapOf([
+          row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+          row(keyFor("chat", "agno"), "chat", "green"),
+          row(keyFor("tools", "agno"), "tools", "green"),
+          row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+          row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+            signal: reclaimSignal,
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        // The neutral surface — the key flap-band #70 assertion.
+        expect(model.surfaceState).toBe("pending");
+        expect(model.surfaceState).not.toBe("unreachable");
+        expect(model.surfaceState).not.toBe("red");
+        // The comm error is still decoded (for the tooltip), it just maps to a
+        // different, neutral surface.
+        expect(model.commError?.kind).toBe("worker-reclaimed-pending");
+        expect(model.commError?.workerId).toBe("fleet-worker-9");
+        // The last-known probe colour stays visible underneath the overlay.
+        expect(model.chipColor).toBe("green");
+      });
+
+      it("a crash (worker-crashed-mid-job) still surfaces red 'unreachable' — only reclaim is neutralized", () => {
+        const live = mapOf([
+          row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
+            signal: {
+              __fleetCommError: {
+                kind: "worker-crashed-mid-job",
+                message: "worker crashed running job j-7",
+                observedAt: FRESH_OBSERVED_AT,
+              },
+            },
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        // A KNOWN crash the worker observed directly stays the loud red overlay.
+        expect(model.surfaceState).toBe("unreachable");
+        expect(model.surfaceState).not.toBe("pending");
+        expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+      });
+    });
+
     it("the MOST RECENT comm error wins — a newer aggregate (worker-death) beats a stale per-cell one", () => {
       // A STALE per-cell comm error (older `observedAt`) lingers on the per-cell
       // d6 row, scanned BEFORE the aggregate. A NEWER worker-death comm error
