@@ -14,7 +14,6 @@
   "types": "dist/types/copilotkitnext-angular.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/copilotkitnext-angular.d.ts",
       "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
     },
     "./styles.css": "./dist/styles.css"
