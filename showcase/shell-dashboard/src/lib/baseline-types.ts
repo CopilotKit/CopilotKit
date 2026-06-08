@@ -141,12 +141,30 @@ export const STATUS_CONFIG: Record<
 /*  Validation                                                         */
 /* ------------------------------------------------------------------ */
 
+const TAG_SET: ReadonlySet<string> = new Set(TAGS);
+
 /**
  * Validates a BaselineCell's invariants:
  * - "possible" requires at least 1 tag
  * - "works", "impossible", and "unknown" require 0 tags
+ * - every tag must be a member of the {@link TAGS} set
+ * - the `all` meta-tag ("needs everything") is exclusive — it must not
+ *   coexist with any individual tag
  */
 export function validateCell(cell: BaselineCell): boolean {
+  // Tag-membership: reject any tag outside the known set. `BaselineCell.tags`
+  // is typed as `BaselineTag[]`, but data sourced at runtime (e.g. from
+  // PocketBase) is not compile-time checked, so enforce membership here.
+  if (!cell.tags.every((tag) => TAG_SET.has(tag))) {
+    return false;
+  }
+
+  // "all"-exclusivity: the `all` meta-tag means "needs everything" and must
+  // not be combined with individual tags.
+  if (cell.tags.includes("all") && cell.tags.length > 1) {
+    return false;
+  }
+
   if (cell.status === "possible") {
     return cell.tags.length >= 1;
   }

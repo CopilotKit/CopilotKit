@@ -173,11 +173,19 @@ export const generateA2uiTool = createTool({
       contextEntries,
     });
 
+    // Normalize each incoming message role to the `user`/`assistant` pair
+    // `generateText` accepts here. An unsound `as "user" | "assistant"` cast
+    // would let a `system`/`tool` role slip through mis-typed (the `??` only
+    // guards null/undefined), so map explicitly: anything that is not
+    // `assistant` collapses to `user`.
+    const toRole = (role: unknown): "user" | "assistant" =>
+      role === "assistant" ? "assistant" : "user";
+
     const result = await generateText({
       model: openai("gpt-4.1"),
       system: prep.systemPrompt,
       messages: prep.messages.map((m) => ({
-        role: (m.role as "user" | "assistant") ?? "user",
+        role: toRole(m.role),
         content: (m.content as string) ?? "",
       })),
       tools: {
@@ -204,7 +212,14 @@ export const generateA2uiTool = createTool({
 
     const toolCall = result.toolCalls?.[0];
     if (!toolCall) {
-      return JSON.stringify({ error: "LLM did not call render_a2ui" });
+      // The forced `render_a2ui` tool was not called, so there are no
+      // operations to forward. Returning a `{ error }` JSON string would look
+      // like a successful tool result to the frontend/runtime, which cannot
+      // then distinguish it from a real A2UI payload. Throw instead so the
+      // Mastra runtime surfaces this as a genuine tool error.
+      const message = "generate-a2ui: LLM did not call render_a2ui";
+      console.error(message, { finishReason: result.finishReason });
+      throw new Error(message);
     }
 
     // AI SDK v5 renamed the typed tool-call arguments from `.args` to

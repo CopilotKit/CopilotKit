@@ -52,11 +52,12 @@
 # downstream features.
 #
 # Sized for the worst-case integration. langgraph-python now declares
-# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY(2)
-# = 14 per worker × ~15s realistic per-feature wall-clock = ~210s, which
-# blows the prior 3-min cap before any slack. 10 min gives ~5x headroom
-# at current feature count; lighter integrations (5–10 features) still
-# finish in <60s and exit early without sitting on the cap.
+# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY_D6(4)
+# = 7 per worker × ~15s realistic per-feature wall-clock = ~105s, which
+# blows the prior 3-min cap once goto/cold-start overhead is layered on.
+# 10 min gives generous headroom at current feature count; lighter
+# integrations (5–10 features) still finish in <60s and exit early without
+# sitting on the cap.
 #
 # Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY_D6` (in
 # d6-all-pills.ts) cuts wall-clock proportionally but doubles concurrent
@@ -64,14 +65,14 @@
 #
 # ── max_concurrency: 4 ──────────────────────────────────────────────────
 #
-# 4 services (max_concurrency) × FEATURE_CONCURRENCY(2) features per
-# service = up to 8 concurrent chromium contexts. Those contexts are drawn
+# 4 services (max_concurrency) × FEATURE_CONCURRENCY_D6(4) features per
+# service = up to 16 concurrent chromium contexts. Those contexts are drawn
 # from the 3 shared chromium processes (BROWSER_POOL_BROWSERS=3) under the
 # global BROWSER_POOL_MAX_CONTEXTS=24 cap (D6 peak now 5×4=20 + this D5 peak
-# 8 = 28 > 24, so a d6+d5 OVERLAP serializes against the global cap — that
+# 16 = 36 > 24, so a d6+d5 OVERLAP serializes against the global cap — that
 # back-pressure is intended: it is the demand-side lever that keeps the
 # simultaneous-renderer count off the cgroup pids.max=1000 ceiling).
-# Each context resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production
+# Each context resident-set is ~300MB; 16 parallel ≈ 4.8GB peak. Production
 # memory headroom on the orchestrator's Railway footprint has been measured
 # and can sustain this — the binding constraint is the PID ceiling of 1000,
 # not memory, so contexts (not processes) are the scaling knob. Higher
