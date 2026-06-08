@@ -66,7 +66,8 @@ Up and running in under five minutes. All you need is an LLM key (OpenAI, Anthro
 ```bash
 npx copilotkit@latest create
 ```
----
+
+## Bring your app to life!
 
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
