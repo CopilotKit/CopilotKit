@@ -2,9 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   input,
-  signal,
+  linkedSignal,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import {
@@ -23,16 +22,6 @@ type ToolEntry = {
   key: string;
   value: string;
 };
-
-function formatValue(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.length} items]`;
-  if (typeof value === "object" && value !== null) {
-    return `{${Object.keys(value).length} keys}`;
-  }
-  if (typeof value === "string") return `"${value}"`;
-  if (value === undefined) return "undefined";
-  return String(value);
-}
 
 @Component({
   selector: "wildcard-tool-render",
@@ -244,19 +233,18 @@ export class WildcardToolRenderComponent implements ToolRenderer<WildcardToolArg
   protected readonly ChevronDownIcon = ChevronDown;
   protected readonly WrenchIcon = Wrench;
 
-  private readonly userToggled = signal(false);
-  protected readonly open = signal(false);
-
   protected readonly isRunning = computed(
     () => this.toolCall().status !== "complete",
   );
+
+  protected readonly open = linkedSignal(() => this.isRunning());
 
   protected readonly toolName = computed(() => this.toolCall().name ?? "tool");
 
   protected readonly entries = computed<ToolEntry[]>(() =>
     Object.entries(this.toolCall().args ?? {}).map(([key, value]) => ({
       key,
-      value: formatValue(value),
+      value: this.formatValue(value),
     })),
   );
 
@@ -264,7 +252,7 @@ export class WildcardToolRenderComponent implements ToolRenderer<WildcardToolArg
     const toolCall = this.toolCall();
     if (toolCall.status !== "complete") return undefined;
     if (!toolCall.result) return undefined;
-    return formatValue(toolCall.result);
+    return this.formatValue(toolCall.result);
   });
 
   protected readonly hasDetails = computed(
@@ -275,23 +263,18 @@ export class WildcardToolRenderComponent implements ToolRenderer<WildcardToolArg
     this.isRunning() ? "Running" : "Complete",
   );
 
-  constructor() {
-    effect(() => {
-      if (this.isRunning()) {
-        this.userToggled.set(false);
-        this.open.set(true);
-        return;
-      }
-
-      if (!this.userToggled()) {
-        this.open.set(false);
-      }
-    });
+  private formatValue(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.length} items]`;
+    if (typeof value === "object" && value !== null) {
+      return `{${Object.keys(value).length} keys}`;
+    }
+    if (typeof value === "string") return `"${value}"`;
+    if (value === undefined) return "undefined";
+    return String(value);
   }
 
   protected toggle(): void {
     if (!this.hasDetails()) return;
-    this.userToggled.set(true);
     this.open.update((value) => !value);
   }
 }
