@@ -56,6 +56,12 @@ pre-commit:
       # oxfmt exits 2 with "Expected at least one target file" and blocks
       # the commit.
       exclude:
+        # Root README is hand-tuned marketing prose with emoji-aligned tables
+        # that oxfmt re-pads (it miscounts emoji display width) and emphasis
+        # markers it rewrites. main already fails oxfmt here, so any edit to
+        # one section would drag whole-file reformatting into the diff. Keep
+        # the root README out of the formatter so README edits stay surgical.
+        - "README.md"
         - "docs/**"
         - "showcase/aimock/shared/**"
         - "showcase/aimock/d4/**"
