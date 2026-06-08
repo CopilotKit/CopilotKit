@@ -63,16 +63,8 @@ We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protoc
 
 Up and running in under five minutes. All you need is an LLM key (OpenAI, Anthropic, Gemini, etc.).
 
-### New projects:
-
 ```bash
 npx copilotkit@latest create
-```
-
-### Existing projects:
-
-```bash
-npx copilotkit@latest init
 ```
 
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
