@@ -4,7 +4,7 @@ description: "The Copilot Runtime is the backend that connects your frontend to 
 icon: "lucide/Server"
 ---
 
-The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](./quickstart) and is the recommended way to use CopilotKit.
+The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
 
 ## Setting up the runtime
 
@@ -47,13 +47,26 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 </CopilotKit>
 ```
 
-For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](./quickstart).
+For Express, NestJS, or plain Node.js HTTP variants, see the [quickstart](/quickstart).
+For the exact HTTP routes the runtime exposes (and how to probe them with `curl`),
+see [Runtime HTTP endpoints](/backend/runtime-endpoints).
+
+<Callout type="info" title="Legacy vs. v2 runtime endpoints">
+  The `copilotRuntimeNextJSAppRouterEndpoint` / `copilotRuntimeNodeHttpEndpoint` / `copilotRuntimeNodeExpressEndpoint` / `copilotRuntimeNestEndpoint` helpers above are the **legacy** (v1) endpoint factories, imported from `@copilotkit/runtime`. The v2 runtime exposes a smaller, framework-agnostic API under `@copilotkit/runtime/v2`:
+
+  | Legacy (`@copilotkit/runtime`) | v2 (`@copilotkit/runtime/v2`) |
+  | --- | --- |
+  | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint` (Fetch / Next.js App Router, Bun, Deno, Cloudflare Workers) | `createCopilotRuntimeHandler` |
+  | `copilotRuntimeNodeExpressEndpoint` (Express) | `createCopilotExpressHandler` (from `@copilotkit/runtime/v2/express`) |
+
+  Both styles work in v1.50. For new projects we recommend the v2 handlers — see [Deploy to any runtime](/runtime-server-adapter).
+</Callout>
 
 ## Agents
 
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
 
-- **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](./quickstart).
+- **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
 ## The default agent
@@ -66,7 +79,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 const runtime = new CopilotRuntime({
   agents: {
     // This agent is used automatically by CopilotPopup, CopilotSidebar, etc.
-    default: new BuiltInAgent({ model: "openai:gpt-5.4-mini" }),
+    default: new BuiltInAgent({ model: "openai:gpt-4.1" }),
   },
 });
 ```
@@ -81,7 +94,7 @@ The runtime runs on your server, which means agent communication stays server-si
 
 ### AG-UI middleware
 
-The [AG-UI protocol](./ag-ui) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
+The [AG-UI protocol](/backend/ag-ui) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
 
 ### Agent routing
 
@@ -89,7 +102,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 ### Premium features
 
-[Observability](./premium/observability), the [inspector](./inspector), and other premium capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging out of the box.
+[Observability](/premium/observability), the [inspector](/inspector), and other premium capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging out of the box.
 
 ## Built-in middleware
 
@@ -131,7 +144,7 @@ const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   mcpApps: {
     servers: [
-      { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },
+      { type: "http", url: "http://localhost:3108/mcp" },
     ],
   },
 });
@@ -141,7 +154,7 @@ Each server entry optionally accepts an `agentId` field to scope that server to 
 
 ## Connecting to an AG-UI agent directly
 
-CopilotKit is built on the [AG-UI protocol](./ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
+CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
@@ -159,6 +172,10 @@ const myAgent = new HttpAgent({
 <Callout type="warn">
 Direct agent connections are intended for development and prototyping. They are **not recommended for production** and are not officially supported by CopilotKit.
 </Callout>
+
+If you genuinely intend to manage the agent connection yourself in production (and
+have secured it), use the supported [`selfManagedAgents`](/backend/self-managed-agents)
+prop instead of `agents__unsafe_dev_only`.
 
 Key trade-offs:
 

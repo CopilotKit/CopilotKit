@@ -168,6 +168,11 @@ interface AgentFactoryContext {
 
 CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
 
+The `runner: new InMemoryAgentRunner()` in the examples above is the persistence
+backend that stores threads in process memory. To understand the runner
+abstraction and how to swap in durable persistence, see
+[AgentRunner & persistence](/backend/agent-runner).
+
 The factory can be async — return a `Promise` if you need to do setup before streaming:
 
 ```typescript

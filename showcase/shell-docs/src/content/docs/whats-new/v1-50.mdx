@@ -48,7 +48,7 @@ You can opt into any of the new developer interfaces or keep using the old ones.
 - New v2 APIs are exposed under a subpath:
 
   ```tsx
-
+  import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
   ```
 
 ---
@@ -127,8 +127,8 @@ v1.50 delivers support for threaded conversations, with built in thread storage 
         ```
 
     - **For production**
-        - **Coming soon! -** Use **Copilot Cloud** (managed) or **Copilot Enterprise** (self hosted) to persist threads to your own databases, get automatic stream reconnection, in-built product analytics.
-            - **👉 Join the [Enterprise Early Access](https://go.copilotkit.ai/enterprise-threads-waitlist) waitlist!**
+        - Use the **Enterprise Intelligence Platform** — managed via **Copilot Cloud** or self-hosted via **Copilot Enterprise** — to persist threads, get automatic stream reconnection, and in-built product analytics. See the [Threads guide](/threads) to get started on the free Developer tier.
+            - **👉 Join the [Enterprise Early Access](https://go.copilotkit.ai/enterprise-threads-waitlist) form.**
 
 #### Thread connection
 
@@ -180,17 +180,16 @@ Earlier versions of CopilotKit required GraphQL installation. That is completely
 
 Our direct to LLM integration now supports more models and implements shared state.
 
-#### BasicAgent - Now with broader model support
+#### BuiltInAgent - Now with broader model support
 
 ```tsx
-
 const runtime = new CopilotRuntime({
   agents: {
-    myBasicAgent: new BasicAgent({
-		  model: "openai/gpt-5.4", // much broader model support
-		  prompt: "You are a helpful AI assistant.",
-		  temperature: 0.7,
-		});
+    myAgent: new BuiltInAgent({
+      model: "openai/gpt-4o-mini", // much broader model support
+      prompt: "You are a helpful AI assistant.",
+      temperature: 0.7,
+    }),
   },
 });
 ```
@@ -198,7 +197,7 @@ const runtime = new CopilotRuntime({
 #### Shared state support
 
 ```tsx
-const { agent } = useAgent({ agentId: "myBasicAgent" });
+const { agent } = useAgent({ agentId: "myAgent" });
 const { state, setState } = agent;
 ```
 
