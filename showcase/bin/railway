@@ -1629,7 +1629,7 @@ module Railway
         def image_shape(ref)
             return :missing if ref.nil? || ref.empty?
             return :digest  if ref.include?("@sha256:")
-            return :tag     if ref.include?(":") && ref.split(":", 2).last !~ /\A\s*\z/
+            return :tag     if ref.include?(":") && ref.rsplit_colon.last.to_s !~ /\A\s*\z/
             :other
         end
 
@@ -1772,7 +1772,7 @@ module Railway
             unless image.include?("@sha256:")
                 digest = ghcr.resolve_digest(image)
                 Railway.die!("Could not resolve digest for #{image}.") unless digest
-                base = image.split(":", 2).first
+                base = image.rsplit_colon.first
                 image = "#{base}@#{digest}"
             end
 
