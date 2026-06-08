@@ -674,11 +674,29 @@ module Railway
             end
 
             # 3. For each service, fetch its serviceInstance for this env.
-            #    Some services may not exist in this env (returns nil); skip them.
+            #    Some services may not exist in this env. Railway signals that
+            #    two different ways for the SAME underlying condition:
+            #      (a) the field resolves to null (`serviceInstance` => nil), or
+            #      (b) the query THROWS `GraphQL: ServiceInstance not found`
+            #          (a half-deleted service that still appears in the project
+            #          service list but has no instance in this env).
+            #    Both mean "this service has no instance here" — skip it and keep
+            #    going. We deliberately scope the rescue to ONLY that message so
+            #    every other GraphQL failure (auth, rate-limit, schema drift,
+            #    transient 5xx surfaced as a GraphQL error) still propagates
+            #    fail-loud. Otherwise a single odd service aborts the whole
+            #    snapshot — and with it the whole promote — before any preflight
+            #    runs (see run 27144525566).
             services = []
             service_nodes.each do |node|
-                instance_data = gql.query(SERVICE_INSTANCE_QUERY,
-                    serviceId: node["id"], envId: env_id)
+                begin
+                    instance_data = gql.query(SERVICE_INSTANCE_QUERY,
+                        serviceId: node["id"], envId: env_id)
+                rescue GraphQL::Error => e
+                    raise unless e.message.include?("ServiceInstance not found")
+                    warn "skipping service #{node['name'].inspect} (#{node['id']}): no serviceInstance in this env (#{e.message})"
+                    next
+                end
                 inst = instance_data["serviceInstance"]
                 next if inst.nil?
 

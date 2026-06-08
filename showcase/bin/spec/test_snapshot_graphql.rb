@@ -245,4 +245,65 @@ class SnapshotGraphqlTest < Minitest::Test
             Railway::RollbackCommand::ROLLBACK_MUTATION,
             "deploymentRollback returns Boolean; no selection set allowed.")
     end
+
+    def test_build_snapshot_skips_service_whose_instance_throws_not_found_instead_of_aborting
+        # Regression: run 27144525566. A single odd/half-deleted service in the
+        # project list threw `GraphQL: ServiceInstance not found` from the
+        # per-service serviceInstance query. The only guard was `next if
+        # inst.nil?` — it handled a NULL result but not a THROWN error, so the
+        # error bubbled to Railway.run's top-level `rescue GraphQL::Error` and
+        # aborted the ENTIRE promote (opaque exit 2) before any preflight ran.
+        #
+        # build_snapshot must tolerate a thrown per-service `ServiceInstance not
+        # found` the same way it tolerates nil: skip that one service and keep
+        # going, so the healthy services still produce a usable snapshot.
+        fake = FakeGQL.new(
+            "ProjectServices" => services_list_response,
+            "EnvVariables"    => env_vars_response_with_per_service_keys,
+            "ServiceInstance" => lambda do |vars|
+                if vars[:serviceId] == "svc-aimock"
+                    # Half-deleted / instance-less service: Railway throws this
+                    # exact GraphQL error rather than returning null.
+                    raise Railway::GraphQL::Error, "GraphQL: ServiceInstance not found"
+                else
+                    service_instance_response(
+                        image: "ghcr.io/copilotkit/showcase-shell@sha256:beef1234",
+                        domains: [],
+                    )
+                end
+            end,
+        )
+
+        cmd = Railway::SnapshotCommand.new(["--env", "production", "--dry-run"])
+        cmd.instance_variable_set(:@gql, fake)
+
+        snap = cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
+
+        # The thrown service is skipped; the healthy one survives.
+        names = snap["services"].map { |s| s["name"] }
+        assert_equal ["shell"], names, "the instance-less service must be skipped, not abort the snapshot"
+        shell = snap["services"].find { |s| s["name"] == "shell" }
+        assert_equal "ghcr.io/copilotkit/showcase-shell@sha256:beef1234", shell["image"]
+    end
+
+    def test_build_snapshot_does_not_swallow_unrelated_graphql_errors
+        # The per-service tolerance MUST be narrow: only a `ServiceInstance not
+        # found` error for an individual service is skippable. Any OTHER GraphQL
+        # failure (auth, rate-limit, schema drift, transient 5xx surfaced as a
+        # GraphQL error) must still propagate fail-loud — never silently hidden.
+        fake = FakeGQL.new(
+            "ProjectServices" => services_list_response,
+            "EnvVariables"    => env_vars_response_with_per_service_keys,
+            "ServiceInstance" => lambda do |_vars|
+                raise Railway::GraphQL::Error, "GraphQL: Not Authorized"
+            end,
+        )
+
+        cmd = Railway::SnapshotCommand.new(["--env", "production", "--dry-run"])
+        cmd.instance_variable_set(:@gql, fake)
+
+        assert_raises(Railway::GraphQL::Error) do
+            cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
+        end
+    end
 end
