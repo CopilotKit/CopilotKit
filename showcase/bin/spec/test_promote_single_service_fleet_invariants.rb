@@ -133,7 +133,14 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # EXPECTED_DOMAINS[PRODUCTION_ENV_ID] set, so a healthy fleet must NOT
     # produce a domain WARN. Two of those services ("aimock", "harness")
     # also exist in staging — promote will target one of them.
-    def install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "aimock")
+    #
+    # `staging_only_extras:` injects services into the STAGING fleet that
+    # have NO prod counterpart — modeling the live staging-only services
+    # (harness-workers + the 12 starter-* demos). They land in the full
+    # (pre-narrow) staging snapshot, exactly where the fleet-scoped
+    # set-parity check reads. They are legitimately staging-only and a
+    # single-service promote must tolerate them.
+    def install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "aimock", staging_only_extras: [])
         # Five "domain-bearing" services so the prod fleet legitimately
         # carries all FLEET_PUBLIC_PROD_HOSTS, even when promote is
         # narrowed to a service that doesn't itself own any public host.
@@ -154,7 +161,8 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         # Staging mirrors prod's service NAMES (set parity) — every prod
         # service has a corresponding staging entry. (For BUG #2, target is
         # in staging but absent from prod by design.)
-        staging_services = (domain_services_prod.map { |s| s["name"] } + [target]).uniq.map { |n| make_staging_service(n) }
+        staging_names = (domain_services_prod.map { |s| s["name"] } + [target] + staging_only_extras).uniq
+        staging_services = staging_names.map { |n| make_staging_service(n) }
 
         cmd.instance_variable_set(:@staging_snapshot, { "services" => staging_services })
         cmd.instance_variable_set(:@prod_snapshot,    { "services" => domain_services_prod })
@@ -277,5 +285,49 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
 
         assert_empty gql.pinned_services,
             "no pin mutations may be issued when target is absent from prod"
+    end
+
+    # ── Single-service promote must TOLERATE unrelated staging-only services.
+    # The live staging fleet legitimately carries services with no prod
+    # counterpart — harness-workers (SSOT-modeled staging-only) and the 12
+    # starter-* demos (not in SSOT). For a single-service promote of a
+    # healthy target (present in both staging and prod) these are irrelevant.
+    #
+    # Today (red): check_service_set_parity diffs the FULL staging fleet vs
+    # the FULL prod fleet and REFUSEs because the extras are "in staging not
+    # in prod" — blocking an otherwise-clean single-service promote.
+    # After fix (green): the staging-only REFUSE is target-scoped, so the
+    # unrelated extras are ignored; rc=0, target pinned, no REFUSE.
+    def test_single_service_promote_tolerates_unrelated_staging_only_services
+        gql  = FakeGQLBenign.new
+        ghcr = FakeGHCR.new(resolve_map: {
+            "ghcr.io/copilotkit/docs:latest" => "sha256:NEW_DOCS",
+        })
+        cmd = build_cmd(["docs"])
+        # Target "docs" is present in BOTH staging and prod (the domain-
+        # bearing prod fixture already includes a "docs" service, mirrored
+        # into staging). Inject unrelated staging-only siblings.
+        install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "docs",
+                              staging_only_extras: %w[harness-workers starter-adk starter-langgraph-python])
+
+        rc = nil
+        out, _ = with_fast_sleeper { capture_io { rc = cmd.run } }
+
+        assert_equal 0, rc,
+            "a single-service promote of a healthy target must NOT be refused " \
+            "because UNRELATED staging-only services (harness-workers, " \
+            "starter-* demos) exist in staging but not prod. " \
+            "Got rc=#{rc.inspect}; out=\n#{out}"
+
+        refute_match(/REFUSE: services in staging not in prod/, out,
+            "staging-only services unrelated to the promote target must not " \
+            "trigger the set-parity REFUSE on a single-service promote")
+
+        pinned = gql.pinned_services
+        assert_equal 1, pinned.size,
+            "exactly one service should be promoted (target only); got #{pinned.inspect}"
+        sid, image = pinned.first
+        assert_equal "prod-docs", sid
+        assert_equal "ghcr.io/copilotkit/docs@sha256:NEW_DOCS", image
     end
 end
