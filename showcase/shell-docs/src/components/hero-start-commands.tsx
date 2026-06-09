@@ -22,6 +22,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
 import { ArrowRight, Check, Copy, FolderPlus, Sparkles, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -66,11 +67,13 @@ function buildCommands(createFramework?: string): StartCommand[] {
 }
 
 function CommandCard({
+  id,
   label,
   description,
   command,
   icon: Icon,
 }: StartCommand) {
+  const posthog = usePostHog();
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
   const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -91,13 +94,32 @@ function CommandCard({
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
     }
+    // Distinguishes WHICH hero card was copied (create vs onboard) — the
+    // global <CopyTracker> patch on navigator.clipboard.writeText already
+    // emits the generic `cli_command_copied` volume event for this same copy,
+    // so this intentionally uses a different event name to avoid
+    // double-counting that funnel. `command` is page content (bounded
+    // cardinality: bare + one variant per CLI framework), not user input.
+    const trackHeroCopy = (clipboardBlocked: boolean) => {
+      try {
+        posthog?.capture("hero_command_copied", {
+          command_id: id,
+          command,
+          clipboard_blocked: clipboardBlocked,
+        });
+      } catch {
+        // Never let analytics break the copy interaction.
+      }
+    };
     try {
       await navigator.clipboard.writeText(command);
       setCopyState("copied");
+      trackHeroCopy(false);
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 1500);
     } catch (err) {
       console.warn("[hero-start-commands] clipboard write failed", err);
       setCopyState("error");
+      trackHeroCopy(true);
       resetTimerRef.current = setTimeout(() => setCopyState("idle"), 2500);
     }
   };
