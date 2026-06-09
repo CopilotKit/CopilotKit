@@ -90,7 +90,7 @@
       }
     },
     "overrides": {
-      "@ag-ui/mcp-middleware>@ag-ui/client": "0.0.53",
+      "@ag-ui/mcp-middleware>@ag-ui/client": "0.0.56",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
       "@types/react-dom": "^19.0.2",
