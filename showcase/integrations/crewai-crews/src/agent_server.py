@@ -66,6 +66,7 @@ from agents.interrupt_crew import InterruptScheduling
 from agents.gen_ui_agent import gen_ui_agent_flow
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
+from agents.reasoning_agent import reasoning_app
 
 try:
     from agents.tool_rendering import tool_rendering_flow
@@ -440,6 +441,13 @@ if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
 
 add_crewai_crew_fastapi_endpoint(app, InterruptScheduling(), "/interrupt-adapted")
+
+# Reasoning-aware route. CrewAI's stock ChatWithCrewFlow emits no
+# REASONING_MESSAGE_* events (and the litellm adapter drops the model's
+# reasoning_content channel), so the reasoning-custom / reasoning-default
+# cells use this custom sub-app instead. Mounted BEFORE the shared "/"
+# catch-all so its route is not shadowed. Mirrors ag2's /reasoning mount.
+app.mount("/reasoning", reasoning_app)
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 

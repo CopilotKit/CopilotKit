@@ -45,9 +45,6 @@ const agentNames = [
   "frontend-tools-async",
   "readonly-state-agent-context",
   "agent-config",
-  // Reasoning variants
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   // Tool rendering variants
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
@@ -60,9 +57,29 @@ const agentNames = [
   "open-gen-ui-advanced",
 ];
 
+// Reasoning agent names — backed by the reasoning-enabled custom sub-app at
+// /reasoning. It emits AG-UI REASONING_MESSAGE_* events that the frontend
+// renders via the `reasoningMessage` slot (built-in card for
+// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
+// The shared LatestAiDevelopment crew on "/" cannot host these demos because
+// its litellm adapter drops the model's reasoning_content channel and emits
+// no REASONING_MESSAGE_* events. The demo pages use the ids
+// `reasoning-default` / `reasoning-custom`; both share the one reasoning
+// backend. `agentic-chat-reasoning` and `reasoning-default-render` are legacy
+// aliases kept for any cell that still references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
+  "agentic-chat-reasoning",
+];
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 // Interrupt-adapted demos route to the dedicated scheduling crew backend.
 // Both gen-ui-interrupt and interrupt-headless share the same crew; only the
