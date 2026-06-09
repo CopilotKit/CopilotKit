@@ -9,7 +9,7 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to the reasoning-default-render demo page
+- [ ] Navigate to the reasoning-default demo page (/demos/reasoning-default)
 - [ ] Verify the chat interface loads with placeholder "Type a message"
 - [ ] Send a basic question such as "Explain briefly: why does ice float?"
 - [ ] Verify the agent responds with a text answer

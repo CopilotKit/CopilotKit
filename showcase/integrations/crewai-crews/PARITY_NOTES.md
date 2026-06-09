@@ -41,8 +41,8 @@ Ported demos therefore fall into three categories:
 | chat-customization-css          | Chrome            | CSS custom-properties theming                          |
 | headless-simple                 | Chrome / Headless | `useAgent` + `useComponent`                            |
 | headless-complete               | Chrome / Headless | Full headless implementation                           |
-| agentic-chat-reasoning          | Reasoning         | Uses the shared crew; reasoning tokens if model emits  |
-| reasoning-default-render        | Reasoning         | Default CopilotChatReasoningMessage                    |
+| reasoning-custom                | Reasoning         | Uses the shared crew; reasoning tokens if model emits  |
+| reasoning-default               | Reasoning         | Default CopilotChatReasoningMessage                    |
 | tool-rendering-default-catchall | Rendering         | Out-of-the-box default renderer                        |
 | tool-rendering-custom-catchall  | Rendering         | Custom wildcard renderer                               |
 | tool-rendering-reasoning-chain  | Rendering         | Sequential tool calls + reasoning                      |
@@ -203,3 +203,110 @@ Already covered implicitly by the root manifest.
 
 Only the three architectural-skips remain out of the LangGraph-Python
 demo set.
+
+## Reasoning demos — framework-bridge limitation (no `REASONING_MESSAGE_*`)
+
+### Affected cells
+
+- `reasoning-custom`
+- `reasoning-default`
+- `tool-rendering-reasoning-chain`
+
+All three are registered in `src/app/api/copilotkit/route.ts` as agent
+names that resolve to the **shared `LatestAiDevelopment` crew** via
+`HttpAgent` pointed at `/` (the FastAPI `add_crewai_crew_fastapi_endpoint`
+mount). There is no dedicated reasoning agent module — these cells reuse
+the shared crew, exactly like the other frontend-first ports.
+
+The Wave-1 table above lists these as ported with the caveat "reasoning
+tokens if model emits." That caveat is structurally incorrect: the
+CrewAI AG-UI bridge **cannot emit reasoning to AG-UI at all**, regardless
+of model. This section documents why and what a real fix requires.
+
+### What backs the reasoning cells
+
+The frontend is correct and matches the LangGraph-Python gold standard:
+`tool-rendering-reasoning-chain/page.tsx` (and the `reasoning-*` pages)
+wire a `reasoningMessage` slot that renders the custom `ReasoningBlock`.
+That slot only paints when the agent streams AG-UI `REASONING_MESSAGE_*`
+events with `role: "reasoning"`. The demo is built right — the events
+never arrive.
+
+### Why the bridge can't emit `REASONING_MESSAGE_*` (or anything reasoning)
+
+The request flows entirely through `ag-ui-crewai` (pinned
+`>=0.2.0,<0.3.0`; verified against the installed `0.2.0`):
+
+1. `ag_ui_crewai.crews.ChatWithCrewFlow.chat()` runs the chat LLM via
+   `litellm.acompletion(model=self.crew.chat_llm, ..., stream=True)`.
+   The shared crew's `chat_llm` is **`gpt-4o`** (`src/agents/crew.py`),
+   a non-reasoning chat-completions model that emits no
+   `reasoning_content` in the first place.
+2. The stream is consumed by `ag_ui_crewai.sdk.copilotkit_stream` →
+   `_copilotkit_stream_custom_stream_wrapper`. That loop reads **only**
+   `chunk.choices[0].delta.content` (→ `TEXT_MESSAGE_CHUNK`) and
+   `chunk.choices[0].delta.tool_calls` (→ `TOOL_CALL_CHUNK`). It never
+   inspects `delta.reasoning_content`.
+3. The bridge's entire event vocabulary (`ag_ui_crewai/events.py`) is
+   four bridged types — `TextMessageChunkEvent`, `ToolCallChunkEvent`,
+   `CustomEvent`, `StateSnapshotEvent`. The FastAPI endpoint
+   (`ag_ui_crewai/endpoint.py`) registers AG-UI forwarding listeners for
+   exactly those four. **There is no reasoning event in the bridge** —
+   not `REASONING_MESSAGE_*` (the channel `@ag-ui/client` renders), and
+   not `THINKING_*` (which `@ag-ui/client` drops anyway). Nothing
+   reasoning-shaped is produced or forwarded.
+
+So even pointing the crew at a reasoning-capable model would not light
+up the slot: the bridge discards `reasoning_content` before it can
+become an AG-UI event.
+
+### Why the agno / claude-sdk-python custom-synth pattern does NOT port here
+
+Other non-Responses-API integrations (`agno/src/agent_server.py`,
+`claude-sdk-python/src/agents/reasoning_agent.py`) DO emit
+`REASONING_MESSAGE_*`. Their PRIMARY path reads the model's native
+reasoning channel — agno reads `RunContentEvent.reasoning_content`;
+claude-sdk-python reads Anthropic's Messages-API `thinking_delta` — and
+re-emits it as reasoning-role events. Only as a FALLBACK (when no native
+reasoning channel is present) do they buffer the assistant text, parse a
+`<reasoning>…</reasoning>` span, and re-emit that. Both paths work there
+because **those integrations own their entire agent-server endpoint** —
+they hand-write the async generator that yields the AG-UI event stream,
+so they control native-channel forwarding, buffering, and emission.
+
+crewai-crews owns no such loop. The whole request lifecycle —
+the litellm stream, the chunk→event translation, the crewai event bus,
+the SSE encoder, kickoff/teardown — lives inside
+`add_crewai_crew_fastapi_endpoint`. The showcase's only sanctioned
+extension points are preseeding the system prompt
+(`_chat_flow_helpers.preseed_system_prompt`) and monkey-patching
+`ChatWithCrewFlow.__init__` (`install_custom_system_message`). Neither
+touches the streaming path. Synthesizing reasoning would require forking
+or monkey-patching `copilotkit_stream` itself — the chunk-by-chunk heart
+of the bridge that never buffers a full assistant message — which is a
+framework fork, brittle across `ag-ui-crewai` releases, and exactly the
+kind of demo-hack this repo prohibits. There is no clean, supported
+synth seam for crewai-crews.
+
+### What a real fix requires (upstream `ag-ui-crewai`)
+
+A first-class fix belongs in the bridge, not the showcase:
+
+1. Add a `BridgedReasoningMessageChunkEvent` (mapping to AG-UI
+   `REASONING_MESSAGE_*`, `role: "reasoning"`) to
+   `ag_ui_crewai/events.py`, and register a forwarding listener in
+   `endpoint.py`.
+2. In `copilotkit_stream._copilotkit_stream_custom_stream_wrapper`, read
+   `chunk.choices[0].delta.reasoning_content` (the litellm
+   chat-completions reasoning field) and emit the new reasoning chunk
+   event, mirroring the existing `content` / `tool_calls` handling.
+3. Point the reasoning cells' crew at a reasoning-capable chat-completions
+   model whose litellm adapter populates `reasoning_content` (e.g. a
+   DeepSeek-R1-class or o-series-via-litellm model), or wire a dedicated
+   reasoning crew on its own mount the way Wave 3 added dedicated crews.
+
+Until `ag-ui-crewai` surfaces reasoning, the three reasoning cells render
+the assistant answer and any tool cards correctly, but the
+`reasoningMessage` slot stays empty — the chain-of-thought channel is a
+bridge-level dead end on CrewAI today. The cells are intentionally left
+in place (frontend is parity-correct) rather than weakened or removed.

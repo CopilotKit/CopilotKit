@@ -23,40 +23,28 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  * rendered by the {@link IntelligenceIndicator} brain and the default
  * value for the `intelligenceIndicator` slot.
  *
- * Single-element three-stage design:
- *  1. **In-progress.** Glassmorphism pill chrome around a 270° arc icon
- *     and the label. The arc has a single continuous visible stroke
- *     (one `stroke-dasharray` dash + one gap, summing to the path
- *     length) and the whole SVG rotates — so the viewer sees one
- *     C-shaped arc spinning around the visual center.
- *  2. **Icon morph (~250 ms).** On status flip the single icon path
- *     interpolates from the arc to a checkmark via CSS `d:` while the
- *     dashed stroke transitions to solid (filling in the gap that was
- *     the spinner's open portion). The SVG rotation animation is
- *     removed; the snap back to identity is masked by the simultaneous
- *     shape change. Chrome and text stay at full opacity throughout.
- *  3. **Settle (~400 ms, starts at +250 ms).** Chrome (background,
- *     border, shadow, backdrop-blur) fades to zero opacity. The label
- *     and icon stroke color transitions from saturated purple to a
- *     true-neutral gray at 0.8 alpha — no hue cast, reads as "settled
- *     history metadata." The label simultaneously skews to ~10° (a
- *     transform-based italic feel that interpolates smoothly with the
- *     color, rather than the discrete `font-style: italic` snap that
- *     would cause a layout pop). The label text stays put — only its
- *     color and slant change — so there is no "bump" where the brand
- *     text disappears and reappears.
+ * Layout: a glassmorphism pill (the `__chrome` layer) wrapping an icon
+ * and a label. The icon is two overlaid SVG paths — a spinner arc and a
+ * checkmark — whose geometry lives in each path's `d` ATTRIBUTE so it
+ * renders in every browser (the CSS `d:` property is Chrome-only).
  *
- * Hard sequence: stage 3 has a 250 ms transition-delay so it waits
- * for stage 2 to finish. Total settle time ~650 ms in production.
+ * Two states, driven by the `data-status` attribute (see globals.css
+ * for the exact timing):
+ *  1. **In-progress.** The arc spins (CSS rotation) inside the pill and
+ *     the checkmark is hidden. Label + icon are a saturated purple.
+ *  2. **Finished.** The arc fades out mid-spin while the checkmark draws
+ *     itself in upright (animated `stroke-dashoffset`); the pill chrome
+ *     fades away; and the label + icon settle from purple to a neutral
+ *     gray, with the label slanting slightly (a `transform: skewX`
+ *     faux-italic, so it interpolates with the color instead of snapping
+ *     and never reflows). The result reads as quiet "history metadata"
+ *     rather than an active spinner. The label text itself never changes
+ *     — the static check plus the color/slant shift carry the "done"
+ *     meaning, so no wording change is needed.
  *
- * Both shapes are 3-segment cubic Bézier paths with matched command
- * structure (one `M` plus three `C`s), which is what makes the d
- * morph interpolate as a continuous shape change rather than snapping.
- *
- * The label is identical in both states (default "CopilotKit
- * Intelligence"). The static check icon carries the "done" semantic;
- * the color + slant transition does the "settle" work without needing
- * any wording change.
+ * All motion is gated behind `prefers-reduced-motion` (globals.css):
+ * when reduced motion is requested the arc does not spin and the two
+ * states swap instantly, without transitions.
  *
  * Customize via the `intelligenceIndicator` slot on `CopilotChat`:
  * a className string restyles the wrapper, a props object tweaks
@@ -95,14 +83,25 @@ export function IntelligenceIndicatorView({
           height="14"
           aria-hidden="true"
         >
-          {/* Single path element whose `d` attribute morphs from the
-              arc to the checkmark via CSS `d:` interpolation. Both
-              shapes are 3-segment cubic Béziers; the arc is a 270°
-              quarter-by-quarter approximation of a circle, the
-              checkmark is a 2-stroke polyline split into 3 cubics
-              with collinear controls (so the segments render as
-              straight lines). */}
-          <path className="cpk-intelligence-indicator__icon-path" />
+          {/* Two overlaid paths whose geometry lives in the `d`
+              ATTRIBUTE (works in every browser — the CSS `d:` property
+              is Blink-only, so a stylesheet-driven `d` renders nothing
+              in Safari/Firefox). Both paths set `pathLength={1}` so the
+              stylesheet can express dashes as plain fractions of the
+              shape. The arc is a full circle shown as a partial ring by
+              its dash pattern; it spins while in-progress (CSS) and on
+              the status flip fades out mid-spin while the checkmark
+              draws itself in (see globals.css). */}
+          <path
+            className="cpk-intelligence-indicator__icon-arc"
+            pathLength={1}
+            d="M 12 3 C 17 3 21 7 21 12 C 21 17 17 21 12 21 C 7 21 3 17 3 12 C 3 7 7 3 12 3"
+          />
+          <path
+            className="cpk-intelligence-indicator__icon-check"
+            pathLength={1}
+            d="M 5 12.5 L 9 16.5 L 19 6.5"
+          />
         </svg>
         <span className="cpk-intelligence-indicator__label">{label}</span>
       </span>

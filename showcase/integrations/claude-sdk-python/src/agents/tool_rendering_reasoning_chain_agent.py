@@ -15,7 +15,7 @@ import random
 import traceback
 from collections.abc import AsyncIterator
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal, TypedDict, Union, cast
 
 import anthropic
 from ag_ui.core import (
@@ -35,6 +35,23 @@ from ag_ui.core import (
     ToolCallStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+
+
+# Typed shapes for the assistant-history thinking blocks replayed to Anthropic
+# on tool-loop continuation. Type-only — does NOT change how blocks are built.
+class ThinkingBlock(TypedDict):
+    type: Literal["thinking"]
+    thinking: str
+    signature: str
+
+
+class RedactedThinkingBlock(TypedDict):
+    type: Literal["redacted_thinking"]
+    data: str
+
+
+ThinkingContentBlock = Union[ThinkingBlock, RedactedThinkingBlock]
+
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -85,6 +102,39 @@ SYSTEM_PROMPT = dedent("""
     step, plain text only). Then call 2+ tools in succession when
     relevant. After the last tool, write a brief final summary.
 """).strip()
+
+
+# Extended-thinking budget for the native reasoning channel. Anthropic
+# requires max_tokens > budget_tokens when thinking is enabled.
+_THINKING_BUDGET_TOKENS = 2048
+
+
+def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the Anthropic `messages.stream` kwargs with extended thinking
+    enabled so Claude streams native `thinking`/`thinking_delta` blocks.
+
+    Mirrors claude-sdk-typescript's /reasoning handler: a thinking-capable
+    model plus `thinking={"type": "enabled", ...}`. The model is overridable
+    via ANTHROPIC_REASONING_MODEL (falling back to ANTHROPIC_MODEL) so a
+    deployment can pin a different extended-thinking model. Under aimock
+    replay the thinking channel is produced from the fixture's `reasoning`
+    field regardless of the model name.
+    """
+    model = os.getenv(
+        "ANTHROPIC_REASONING_MODEL",
+        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+    )
+    return {
+        "model": model,
+        "max_tokens": _THINKING_BUDGET_TOKENS + 2048,
+        "system": SYSTEM_PROMPT,
+        "messages": messages,
+        "tools": TOOLS,
+        "thinking": {
+            "type": "enabled",
+            "budget_tokens": _THINKING_BUDGET_TOKENS,
+        },
+    }
 
 
 def _execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
@@ -188,7 +238,28 @@ async def run_tool_rendering_reasoning_chain_agent(
         response_text = ""
         tool_calls: list[dict[str, Any]] = []
 
-        async def flush_reasoning(chunk: str):
+        # Native extended-thinking streaming state. Hoisted to the iteration
+        # scope (not the `async with` body) so the `except`/post-stream cleanup
+        # can close an open native thinking block on the error path. Also
+        # accumulates the thinking text + signature so the assistant turn can
+        # be replayed to Anthropic with its original thinking block(s) first
+        # (required when continuing a tool-use conversation with extended
+        # thinking enabled).
+        native_reasoning_id: str | None = None
+        native_reasoning_started = False
+        # Per-block accumulators for the thinking block currently streaming.
+        thinking_text_acc = ""
+        thinking_signature = ""
+        # ALL thinking blocks of this assistant turn, in stream order. Anthropic
+        # requires that when continuing a tool loop with extended thinking, the
+        # assistant turn is replayed with EVERY original thinking block (each
+        # with its signature) — not just the last one — as the leading content
+        # blocks. `redacted_thinking` blocks are captured here too (as
+        # `{"type": "redacted_thinking", "data": ...}`) since they must also be
+        # preserved verbatim or Anthropic 400s on continuation.
+        thinking_blocks: list[ThinkingContentBlock] = []
+
+        async def flush_reasoning(chunk: str) -> AsyncIterator[str]:
             nonlocal reasoning_started
             if not chunk:
                 return
@@ -211,20 +282,52 @@ async def run_tool_rendering_reasoning_chain_agent(
 
         try:
             async with client.messages.stream(
-                model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
-                max_tokens=2048,
-                system=SYSTEM_PROMPT,
-                messages=messages,
-                tools=TOOLS,
+                **_build_stream_kwargs(messages),
             ) as stream:
                 current_tool_id: str | None = None
                 current_tool_name: str | None = None
                 current_tool_args = ""
+                # Native extended-thinking streaming. When the model (or
+                # aimock replay) emits Anthropic `thinking`/`thinking_delta`
+                # blocks, forward them as REASONING_MESSAGE_* — independent of
+                # the inline `<reasoning>`-tag text path below, which stays as
+                # the no-thinking fallback. Mirrors claude-sdk-typescript's
+                # /reasoning handler. (State declared at iteration scope above
+                # so error-path cleanup can close an open block.)
 
                 async for event in stream:
                     etype = type(event).__name__
                     if etype == "RawContentBlockStartEvent":
                         block = event.content_block  # type: ignore[attr-defined]
+                        if block.type == "thinking":
+                            native_reasoning_id = (
+                                f"think-{run_id}-{iteration}-{id(block)}"
+                            )
+                            native_reasoning_started = False
+                            # Reset per-block accumulators for the new thinking
+                            # block. Seed the signature from the block's initial
+                            # `signature` field if Anthropic provides one up
+                            # front. The completed block is appended to
+                            # `thinking_blocks` on its content_block_stop.
+                            thinking_text_acc = ""
+                            thinking_signature = getattr(block, "signature", "") or ""
+                            continue
+                        if block.type == "redacted_thinking":
+                            # Redacted thinking has no deltas — its opaque
+                            # `data` blob arrives on the block start. Capture it
+                            # immediately so the assistant turn can be replayed
+                            # with the redacted block preserved verbatim (else
+                            # Anthropic 400s on tool-loop continuation). Not
+                            # surfaced to the UI.
+                            redacted_data = getattr(block, "data", "") or ""
+                            if redacted_data:
+                                thinking_blocks.append(
+                                    {
+                                        "type": "redacted_thinking",
+                                        "data": redacted_data,
+                                    }
+                                )
+                            continue
                         if block.type == "tool_use":
                             # Flush any pending text/reasoning buffer first.
                             if buffer:
@@ -263,7 +366,36 @@ async def run_tool_rendering_reasoning_chain_agent(
                             )
                     elif etype == "RawContentBlockDeltaEvent":
                         delta = event.delta  # type: ignore[attr-defined]
-                        if delta.type == "text_delta":
+                        if delta.type == "thinking_delta" and native_reasoning_id:
+                            thinking_text = getattr(delta, "thinking", "") or ""
+                            if thinking_text:
+                                # Accumulate for history reconstruction.
+                                thinking_text_acc += thinking_text
+                                if not native_reasoning_started:
+                                    native_reasoning_started = True
+                                    yield encoder.encode(
+                                        ReasoningMessageStartEvent(
+                                            type=EventType.REASONING_MESSAGE_START,
+                                            message_id=native_reasoning_id,
+                                            role="reasoning",
+                                        )
+                                    )
+                                yield encoder.encode(
+                                    ReasoningMessageContentEvent(
+                                        type=EventType.REASONING_MESSAGE_CONTENT,
+                                        message_id=native_reasoning_id,
+                                        delta=thinking_text,
+                                    )
+                                )
+                        elif delta.type == "signature_delta" and native_reasoning_id:
+                            # Anthropic streams the thinking block's
+                            # cryptographic signature as a `signature_delta` on
+                            # the thinking content block. Accumulate it so the
+                            # replayed assistant turn carries the original
+                            # signature (required for tool-loop continuation
+                            # with extended thinking). Not surfaced to the UI.
+                            thinking_signature += getattr(delta, "signature", "") or ""
+                        elif delta.type == "text_delta":
                             buffer += delta.text
                             # Drain
                             while True:
@@ -356,7 +488,31 @@ async def run_tool_rendering_reasoning_chain_agent(
                         "RawContentBlockStopEvent",
                         "ParsedContentBlockStopEvent",
                     ):
-                        if current_tool_id and current_tool_name:
+                        if native_reasoning_id is not None:
+                            if native_reasoning_started:
+                                yield encoder.encode(
+                                    ReasoningMessageEndEvent(
+                                        type=EventType.REASONING_MESSAGE_END,
+                                        message_id=native_reasoning_id,
+                                    )
+                                )
+                            # Finalize THIS thinking block into the per-turn
+                            # list (in stream order) so the assistant turn is
+                            # replayed with every thinking block, each carrying
+                            # its own signature — not just the last one.
+                            if thinking_text_acc:
+                                thinking_blocks.append(
+                                    {
+                                        "type": "thinking",
+                                        "thinking": thinking_text_acc,
+                                        "signature": thinking_signature,
+                                    }
+                                )
+                            thinking_text_acc = ""
+                            thinking_signature = ""
+                            native_reasoning_id = None
+                            native_reasoning_started = False
+                        elif current_tool_id and current_tool_name:
                             yield encoder.encode(
                                 ToolCallEndEvent(
                                     type=EventType.TOOL_CALL_END,
@@ -382,6 +538,20 @@ async def run_tool_rendering_reasoning_chain_agent(
                             current_tool_name = None
                             current_tool_args = ""
         except Exception:
+            # Lifecycle guarantee on the error path: if the stream raised while
+            # a native thinking block was still open, close it before emitting
+            # the error text bubble so the UI doesn't render a perpetual
+            # in-flight thinking bubble. (The post-stream cleanup below closes
+            # the `<reasoning>`-tag id; this closes the native one.)
+            if native_reasoning_id is not None and native_reasoning_started:
+                yield encoder.encode(
+                    ReasoningMessageEndEvent(
+                        type=EventType.REASONING_MESSAGE_END,
+                        message_id=native_reasoning_id,
+                    )
+                )
+                native_reasoning_id = None
+                native_reasoning_started = False
             err_text = f"Agent error: {traceback.format_exc()}"
             if not text_started:
                 text_started = True
@@ -399,6 +569,20 @@ async def run_tool_rendering_reasoning_chain_agent(
                     delta=err_text,
                 )
             )
+
+        # Lifecycle guarantee on the normal path: if a native thinking block
+        # streamed content but its content_block_stop never arrived (e.g. the
+        # stream ended early without raising), still close the reasoning
+        # message so the UI doesn't render an in-flight thinking bubble.
+        if native_reasoning_id is not None and native_reasoning_started:
+            yield encoder.encode(
+                ReasoningMessageEndEvent(
+                    type=EventType.REASONING_MESSAGE_END,
+                    message_id=native_reasoning_id,
+                )
+            )
+            native_reasoning_id = None
+            native_reasoning_started = False
 
         # Flush remaining buffer.
         if buffer:
@@ -454,7 +638,25 @@ async def run_tool_rendering_reasoning_chain_agent(
             break
 
         # Append assistant + tool_use blocks to history.
+        #
+        # Anthropic requires that when continuing a tool-use conversation with
+        # extended thinking enabled, the assistant turn that produced the
+        # tool_use is re-sent with ALL of its ORIGINAL thinking blocks — each
+        # including its `signature` — as the LEADING content blocks, in their
+        # original stream order. Without them, iteration 2+ of the tool loop
+        # fails with a 400 ("expected `thinking` ... as the first block /
+        # signature required"). A turn may contain MORE THAN ONE thinking block
+        # (and/or `redacted_thinking` blocks), so we replay the full
+        # `thinking_blocks` list rather than only the last one. Each thinking
+        # block's signature is accumulated from its `signature_delta` events
+        # during streaming; redacted blocks carry their opaque `data`. (Under
+        # aimock replay a signature is an empty string, preserved verbatim.)
         assistant_content: list[dict[str, Any]] = []
+        # Type-only widening: TypedDict is invariant, so extending the
+        # `dict[str, Any]` list with `list[ThinkingContentBlock]` needs an
+        # explicit widen. No runtime/behavior change — the dicts are appended
+        # verbatim in stream order, exactly as before.
+        assistant_content.extend(cast("list[dict[str, Any]]", thinking_blocks))
         if response_text:
             assistant_content.append({"type": "text", "text": response_text})
         for tc in tool_calls:

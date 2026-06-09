@@ -43,7 +43,7 @@ describe("FrameworkOverview", () => {
     );
 
     expect(markup).toContain(
-      "flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
+      "shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
     );
   });
 
