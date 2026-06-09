@@ -4,7 +4,7 @@ description: >
   Use when adding CopilotKit to an existing project or bootstrapping a new CopilotKit
   project from scratch. Covers framework detection, package installation, runtime wiring,
   provider setup, and first working chat integration.
-version: 1.1.1
+version: 1.1.2
 ---
 
 # CopilotKit Setup
@@ -77,8 +77,8 @@ The runtime is the server-side component that manages agent execution. See `refe
 
 There are two endpoint styles:
 
-1. **Multi-route (Hono)** -- uses `createCopilotEndpoint`. Requires a catch-all route (`[[...slug]]` in Next.js). Each operation (run, connect, stop, info, transcribe, threads) gets its own HTTP path.
-2. **Single-route (Hono or Express)** -- uses `createCopilotEndpointSingleRoute` or `createCopilotEndpointSingleRouteExpress`. All operations go through a single POST endpoint with method multiplexing.
+1. **Multi-route (Hono)** -- uses `createCopilotHonoHandler`. Requires a catch-all route (`[[...slug]]` in Next.js). Each operation (run, connect, stop, info, transcribe, threads) gets its own HTTP path.
+2. **Single-route (Hono or Express)** -- uses `createCopilotHonoHandler({ ..., mode: "single-route" })` or `createCopilotExpressHandler({ ..., mode: "single-route" })`. All operations go through a single POST endpoint with method multiplexing.
 
 #### Next.js App Router (recommended: multi-route with Hono)
 
@@ -87,7 +87,7 @@ Create `src/app/api/copilotkit/[[...slug]]/route.ts`:
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -105,7 +105,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -121,7 +121,7 @@ Create `src/app/api/copilotkit/route.ts`:
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpointSingleRoute,
+  createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -139,9 +139,10 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpointSingleRoute({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const POST = handle(app);
@@ -156,7 +157,7 @@ Create `src/index.ts`:
 ```typescript
 import express from "express";
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/v2/express";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
@@ -172,9 +173,10 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({
+  createCopilotExpressHandler({
     runtime,
     basePath: "/",
+    mode: "single-route",
   }),
 );
 
@@ -186,14 +188,14 @@ app.listen(port, () => {
 });
 ```
 
-For multi-route Express, use `createCopilotEndpointExpress` instead (imported from `@copilotkit/runtime/v2/express`).
+For multi-route Express, omit the `mode` option (multi-route is the default) -- `createCopilotExpressHandler` is the same factory for both styles (imported from `@copilotkit/runtime/v2/express`).
 
 #### Standalone Hono Server (non-Vercel)
 
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
 import { serve } from "@hono/node-server";
@@ -204,7 +206,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -261,21 +263,21 @@ When the runtime runs on a separate server (e.g., Express on port 4000):
 </CopilotKitProvider>
 ```
 
-Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotEndpointSingleRoute` or `createCopilotEndpointSingleRouteExpress`).
+Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`).
 
 #### CopilotKitProvider key props
 
-| Prop                | Type                      | Description                                                           |
-| ------------------- | ------------------------- | --------------------------------------------------------------------- |
-| `runtimeUrl`        | `string`                  | URL of the CopilotKit runtime endpoint                                |
-| `useSingleEndpoint` | `boolean`                 | Set to `true` when using single-route endpoints                       |
-| `headers`           | `Record<string, string>`  | Custom headers sent with every request                                |
-| `credentials`       | `RequestCredentials`      | Fetch credentials mode (e.g., `"include"` for cookies)                |
-| `publicApiKey`      | `string`                  | Copilot Cloud public API key (if using hosted runtime)                |
-| `showDevConsole`    | `boolean \| "auto"`       | Show the dev inspector (`"auto"` = development only)                  |
-| `renderToolCalls`   | `ReactToolCallRenderer[]` | Custom renderers for tool call UI                                     |
-| `frontendTools`     | `ReactFrontendTool[]`     | Frontend-defined tools (declarative alternative to `useFrontendTool`) |
-| `onError`           | `(event) => void`         | Global error handler                                                  |
+| Prop                | Type                                                       | Description                                                                                                          |
+| ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `runtimeUrl`        | `string`                                                   | URL of the CopilotKit runtime endpoint                                                                               |
+| `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
+| `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
+| `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
+| `publicApiKey`      | `string`                                                   | Copilot Cloud public API key (if using hosted runtime)                                                               |
+| `showDevConsole`    | `boolean \| "auto"`                                        | Show the dev inspector (`"auto"` = development only)                                                                 |
+| `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
+| `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
+| `onError`           | `(event) => void`                                          | Global error handler                                                                                                 |
 
 ### Step 4: Add a chat UI component
 
@@ -342,7 +344,7 @@ CopilotKit uses telemetry to understand adoption, improve the product, and provi
    ```tsx
    <CopilotKitProvider
      runtimeUrl="/api/copilotkit"
-     licenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+     publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
    >
    ```
    The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
@@ -378,12 +380,12 @@ Keep these in mind as you wire up a real deployment:
 
 ### Endpoint factory functions
 
-| Function                                  | Import                           | Protocol               | Framework                           |
-| ----------------------------------------- | -------------------------------- | ---------------------- | ----------------------------------- |
-| `createCopilotEndpoint`                   | `@copilotkit/runtime/v2`         | Multi-route (Hono)     | Next.js App Router, Hono standalone |
-| `createCopilotEndpointSingleRoute`        | `@copilotkit/runtime/v2`         | Single-route (Hono)    | Next.js App Router                  |
-| `createCopilotEndpointExpress`            | `@copilotkit/runtime/v2/express` | Multi-route (Express)  | Express standalone                  |
-| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/v2/express` | Single-route (Express) | Express standalone                  |
+| Function                      | Import                           | Framework                           | Mode                                                |
+| ----------------------------- | -------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| `createCopilotHonoHandler`    | `@copilotkit/runtime/v2`         | Next.js App Router, Hono standalone | `"multi-route"` (default) or `mode: "single-route"` |
+| `createCopilotExpressHandler` | `@copilotkit/runtime/v2/express` | Express standalone                  | `"multi-route"` (default) or `mode: "single-route"` |
+
+> The `createCopilotEndpoint`, `createCopilotEndpointSingleRoute`, `createCopilotEndpointExpress`, and `createCopilotEndpointSingleRouteExpress` names are deprecated aliases of the two factories above. Prefer the handler factories with the `mode` option.
 
 ### Runtime classes
 
