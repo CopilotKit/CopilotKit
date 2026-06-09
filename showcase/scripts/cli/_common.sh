@@ -344,6 +344,23 @@ with open('$tmp_compose', 'w') as f:
 
 restore_isolation() {
   if $ISOLATE_ACTIVE; then
+    # --keep: leave the stack standing. Do NOT compose-down, do NOT remove the
+    # run dir, do NOT release the slot — the live containers keep the slot from
+    # being reaped (Change 2). Print a survival notice with everything needed to
+    # reach and later tear down the stack by hand.
+    if [ "${keep:-false}" = true ]; then
+      local aimock_host_port=$(( 4010 + ISOLATE_PORT_OFFSET ))
+      local dashboard_host_port=$(( 3200 + ISOLATE_PORT_OFFSET ))
+      local pocketbase_host_port=$(( 8090 + ISOLATE_PORT_OFFSET ))
+      info "Kept isolated group standing: project=$ISOLATE_NAME slot=$ISOLATE_SLOT"
+      info "  aimock:     http://localhost:${aimock_host_port}"
+      info "  dashboard:  http://localhost:${dashboard_host_port}"
+      info "  pocketbase: http://localhost:${pocketbase_host_port}"
+      info "  tear down:  docker compose -p $ISOLATE_NAME down --remove-orphans && rm -rf $ISOLATE_TMPDIR $ISOLATE_SLOT_DIR/$ISOLATE_SLOT"
+      ISOLATE_ACTIVE=false
+      return 0
+    fi
+
     info "Tearing down isolated group: $ISOLATE_NAME (slot $ISOLATE_SLOT)"
     $COMPOSE_CMD down --remove-orphans 2>/dev/null || true
     # Just remove the temp dir — originals were never touched

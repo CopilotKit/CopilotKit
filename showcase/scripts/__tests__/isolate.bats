@@ -159,3 +159,49 @@ load_common() {
   [[ "$output" == "myproj" ]] || fail "wrong project recorded: $output"
   [ -f "$slotdir/pid" ] || fail "pid file no longer written"
 }
+
+# ── Change 3: restore_isolation honors --keep ────────────────────────────────
+
+@test "restore_isolation with keep set preserves slot + run dir and prints survival notice" {
+  load_common
+  apply_isolation keepme
+  local slotdir="$ISOLATE_SLOT_DIR/$ISOLATE_SLOT"
+  local rundir="$ISOLATE_TMPDIR"
+  [ -d "$slotdir" ] || fail "precondition: slot dir missing after apply"
+  [ -d "$rundir" ]  || fail "precondition: run dir missing after apply"
+
+  keep=true
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed under keep: $output"
+
+  # Nothing torn down: slot + run dir survive, slot NOT released.
+  [ -d "$slotdir" ] || fail "kept slot dir was removed"
+  [ -d "$rundir" ]  || fail "kept run dir was removed"
+
+  # Survival notice content: project name, the 3 +offset host ports, teardown cmd.
+  # slot 0 default name -> offset 200: aimock 4210, dashboard 3400, pocketbase 8290.
+  [[ "$output" == *"keepme"* ]] || fail "notice missing project name: $output"
+  [[ "$output" == *"4210"* ]] || fail "notice missing aimock host port: $output"
+  [[ "$output" == *"3400"* ]] || fail "notice missing dashboard host port: $output"
+  [[ "$output" == *"8290"* ]] || fail "notice missing pocketbase host port: $output"
+  [[ "$output" == *"docker compose -p keepme down"* ]] \
+    || fail "notice missing literal teardown command: $output"
+}
+
+@test "restore_isolation without keep removes run dir and releases slot" {
+  load_common
+  apply_isolation dropme
+  local slotdir="$ISOLATE_SLOT_DIR/$ISOLATE_SLOT"
+  local rundir="$ISOLATE_TMPDIR"
+  [ -d "$slotdir" ] || fail "precondition: slot dir missing after apply"
+  [ -d "$rundir" ]  || fail "precondition: run dir missing after apply"
+
+  keep=false
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed: $output"
+
+  # NB `run` executes in a subshell, so the parent's ISOLATE_* are unchanged; we
+  # assert on the filesystem effects, which DO persist across the subshell.
+  [ ! -d "$rundir" ] || fail "run dir not removed on teardown: $rundir"
+  [ ! -d "$slotdir" ] || fail "slot not released on teardown: $slotdir"
+}

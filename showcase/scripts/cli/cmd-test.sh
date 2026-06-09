@@ -43,6 +43,7 @@ cmd_test() {
   local cycle=""
   local isolate_name=""
   local use_isolate=false
+  local keep=false
   local harness_args=()
 
   # Parse arguments — pass most through to the harness CLI
@@ -54,7 +55,7 @@ cmd_test() {
       --smoke)   harness_args+=(--smoke);   shift ;;
       --verbose) harness_args+=(--verbose); shift ;;
       --headed)  harness_args+=(--headed);  shift ;;
-      --keep)    harness_args+=(--keep);    shift ;;
+      --keep)    keep=true; harness_args+=(--keep); shift ;;
       --live)    harness_args+=(--live);    shift ;;
       --rebuild) harness_args+=(--rebuild); shift ;;
       --direct)  harness_args+=(--direct);  shift ;;
@@ -109,10 +110,14 @@ cmd_test() {
 
   # Apply isolation if requested (must happen before any compose commands).
   # Register the trap BEFORE apply_isolation so cleanup runs even if the
-  # function itself crashes partway through.
+  # function itself crashes partway through. restore_isolation reads the local
+  # `keep` (visible because the EXIT trap fires in this same shell): under --keep
+  # it leaves the stack standing and prints a survival notice instead of tearing
+  # down, so the slot's live containers keep it from being reaped.
   if $use_isolate; then
     trap restore_isolation EXIT
     apply_isolation "${isolate_name:-}"
+    $keep && info "--keep set: isolated stack will be left standing after the run (teardown command printed at exit)"
   fi
 
   # Build the filter description for the info line
