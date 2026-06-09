@@ -116,7 +116,12 @@ ISOLATE_SLOT=""
 ISOLATE_ACTIVE=false
 ISOLATE_TMPDIR=""
 
-ISOLATE_SLOT_DIR="/tmp/showcase-isolate-slots"
+# Runtime state (slot registry + per-run scratch dirs) lives under
+# XDG_STATE_HOME, NOT /tmp — /tmp gets wiped on reboot and is world-writable,
+# which made stale-slot reaping racy and lost --keep'd run dirs across reboots.
+_showcase_state_base() { printf '%s/copilotkit/showcase' "${XDG_STATE_HOME:-$HOME/.local/state}"; }
+
+ISOLATE_SLOT_DIR="$(_showcase_state_base)/slots"
 ISOLATE_STALE_THRESHOLD=7200  # 2 hours in seconds
 
 # Claim an isolation slot using atomic mkdir. Slots start at 0 and increment.
@@ -166,7 +171,7 @@ _claim_isolate_slot() {
     fi
     n=$((n + 1))
     if [ "$n" -gt 45 ]; then
-      die "No isolation slots available (0-45 exhausted). Check /tmp/showcase-isolate-slots/"
+      die "No isolation slots available (0-45 exhausted). Check $ISOLATE_SLOT_DIR/"
     fi
   done
 }
@@ -217,8 +222,10 @@ apply_isolation() {
   ISOLATE_NAME="$name"
   export COMPOSE_PROJECT_NAME="$name"
 
-  # Create temp directory for overlay copies (originals stay untouched)
-  ISOLATE_TMPDIR="${TMPDIR:-/tmp}/showcase-isolate-$$"
+  # Create per-run scratch dir for overlay copies (originals stay untouched).
+  # Keyed by the finalized project name (not the PID) so a --keep'd run is
+  # locatable for manual teardown, and lives under XDG state, not /tmp.
+  ISOLATE_TMPDIR="$(_showcase_state_base)/runs/$name"
   mkdir -p "$ISOLATE_TMPDIR"
 
   # Generate offset ports file in the temp dir
