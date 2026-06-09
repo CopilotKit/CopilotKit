@@ -320,14 +320,22 @@ export default function ThreadsDrawer({
   const rebrandTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
+    // Capture the (stable-identity) timeout maps. Each ref holds a single Map
+    // for the component's lifetime — only ever mutated via set/delete, never
+    // reassigned — so reading `.current` here is equivalent to reading it in
+    // the cleanup, and the cleanup still clears whatever timers are live at
+    // unmount. Capturing also satisfies react-hooks/exhaustive-deps.
+    const entryTimeouts = entryTimeoutsRef.current;
+    const titleTimeouts = titleTimeoutsRef.current;
+    const rebrandTimeouts = rebrandTimeoutsRef.current;
     return () => {
-      for (const timeoutId of entryTimeoutsRef.current.values()) {
+      for (const timeoutId of entryTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
-      for (const timeoutId of titleTimeoutsRef.current.values()) {
+      for (const timeoutId of titleTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
-      for (const timeoutId of rebrandTimeoutsRef.current.values()) {
+      for (const timeoutId of rebrandTimeouts.values()) {
         window.clearTimeout(timeoutId);
       }
     };

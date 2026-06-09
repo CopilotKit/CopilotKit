@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import OpenAI from "openai";
+import { OpenAI } from "openai";
 import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
 import { TranscriptionService } from "@copilotkit/runtime/v2";
 

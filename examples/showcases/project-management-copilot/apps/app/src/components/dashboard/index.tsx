@@ -72,7 +72,7 @@ export function Dashboard() {
   const issues = (agent.state?.issues as Issue[] | undefined) ?? SEED_ISSUES;
   const dashboard =
     (agent.state?.dashboard as DashboardState | undefined) ?? {};
-  const filter = dashboard.filter ?? {};
+  const filter = useMemo(() => dashboard.filter ?? {}, [dashboard.filter]);
 
   const filtered = useMemo(() => applyFilter(issues, filter), [issues, filter]);
 
