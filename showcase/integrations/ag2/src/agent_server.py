@@ -56,6 +56,7 @@ from agents.shared_state_read_write import (
 )
 from agents.subagents import subagents_app
 from agents.interrupt_agent import interrupt_app
+from agents.reasoning_agent import reasoning_app
 from agents.tool_rendering_reasoning_chain import (
     tool_rendering_reasoning_chain_app,
 )
@@ -116,6 +117,11 @@ app.mount(
     "/tool-rendering-reasoning-chain",
     tool_rendering_reasoning_chain_app,
 )
+# Reasoning-aware route. AG2's stock AGUIStream emits no REASONING_MESSAGE_*
+# events (and autogen drops the model's reasoning_content channel), so the
+# reasoning-custom / reasoning-default cells use this custom sub-app instead.
+# Mirrors agno's /reasoning/agui mount.
+app.mount("/reasoning", reasoning_app)
 app.mount("/agent-config", agent_config_app)
 app.mount("/multimodal", multimodal_app)
 app.mount("/byoc-hashbrown", byoc_hashbrown_app)
