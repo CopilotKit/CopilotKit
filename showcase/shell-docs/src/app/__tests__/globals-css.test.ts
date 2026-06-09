@@ -13,3 +13,14 @@ describe("globals.css mobile docs layout", () => {
     );
   });
 });
+
+describe("globals.css docs headings", () => {
+  it("keeps heading anchors in block-level heading rows", () => {
+    expect(globalsCss).toContain(
+      ".reference-content .docs-heading {\n  display: flex;",
+    );
+    expect(globalsCss).not.toContain(
+      ".reference-content .docs-heading {\n  display: inline-flex;",
+    );
+  });
+});
