@@ -56,7 +56,7 @@ function normalizeOperations(
   operations: unknown[],
   catalogId: string,
 ): A2uiMessage[] {
-  return operations.flatMap((operation) => {
+  return operations.flatMap((operation): A2uiMessage[] => {
     if (!isRecord(operation)) return [];
 
     const createSurface = getRecordProperty(operation, "createSurface");

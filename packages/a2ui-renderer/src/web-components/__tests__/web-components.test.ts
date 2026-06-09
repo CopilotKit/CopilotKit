@@ -8,9 +8,10 @@ import {
   extractA2UISchema,
   extractSchema,
 } from "../create-catalog";
+import type { A2UIComponentMap } from "../create-catalog";
 import { basicCatalog, fullCatalog } from "../catalog/basic";
 import { minimalCatalog } from "../catalog/minimal";
-import type { A2UISurfaceElement } from "../types";
+import type { A2UISurfaceElement, RendererProps } from "../types";
 
 const BASIC_CATALOG_ID =
   "https://a2ui.org/specification/v0_9/basic_catalog.json";
@@ -318,9 +319,9 @@ describe("A2UI Lit Web Components", () => {
     const components = {
       Badge: {
         props: z.object({ label: z.string() }),
-        render: ({ props }: { props: { label: string } }) => props.label,
+        render: ({ props }: RendererProps<{ label: string }>) => props.label,
       },
-    };
+    } satisfies A2UIComponentMap;
 
     expect(createA2UICatalog(components).id).toBe(
       createCatalog(
