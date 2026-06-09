@@ -33,6 +33,19 @@ import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
+ * Stable per-row React key. The AG-UI client sets `renderId` when a message's
+ * canonical `id` changes mid-stream (a transient streaming/run id replaced by a
+ * provider's final id); keying by `renderId ?? id` lets React reconcile the
+ * same row in place instead of remounting it — the remount being what caused
+ * the HITL chat flash. `renderId` is read defensively: it only exists on
+ * `@ag-ui/core` versions that ship the field, and absent it we fall back to
+ * `id` (the keying is then identical to the previous behavior).
+ */
+function getRowRenderKey(message: Message): string {
+  return (message as { renderId?: string }).renderId ?? message.id;
+}
+
+/**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
  * slot forms: a component type, a className string, or a partial-props object.
  */
@@ -557,11 +570,7 @@ export function CopilotChatMessageView({
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
     const stateSnapshot = getStateSnapshotForMessage(message.id);
-    // Key rows by the stable render identity (set by the AG-UI client when a
-    // message's canonical `id` changes mid-stream), falling back to `id`.
-    // Keeps React reconciling the same row instead of remounting it — which is
-    // what caused the HITL chat flash. `id` is still used everywhere else.
-    const rowKey = message.renderId ?? message.id;
+    const rowKey = getRowRenderKey(message);
 
     if (renderCustomMessage) {
       elements.push(
@@ -690,7 +699,7 @@ export function CopilotChatMessageView({
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
               <div
-                key={message.renderId ?? message.id}
+                key={getRowRenderKey(message)}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
