@@ -276,23 +276,75 @@ showcase diff-logs aimock --since last-test --grep "fixture"
 
 This filters out all log output from before your test started, showing only what happened during the test run itself.
 
-## Isolated Test Runs (`--isolate`)
+## Isolated Verification Runs (`--isolate`)
 
-The `--isolate` flag on `showcase test` lets you run tests without interfering with an already-running local stack (or other isolated runs). It works by creating temporary overlay files rather than mutating originals in place.
+`bin/showcase test <slug> --d6 --isolate <name>` is the canonical, default way
+to verify a slug's D6 state. It brings up a fully isolated stack — its own
+aimock, PocketBase, dashboard, integration, and harness control-plane +
+pool-worker — on offset ports in its own docker compose project, then runs the
+canonical `harness/src/probes/drivers/d6-all-pills.ts` driver: it enqueues
+per-pill jobs, the isolated worker claims them, and asserts per-pill. This is
+**identical to the non-isolate path** — same driver, same per-pill assertions —
+just namespaced so it never disturbs the shared long-lived `showcase-*` stack.
+
+```sh
+showcase test <slug> --d6 --isolate <name>
+```
+
+Verify with this flow rather than hand-driving the browser. The point of the
+isolated driver is the identical-tests invariant: the same assertions run the
+same way for every integration, so a result is comparable across integrations
+and to production. Manual clicking is non-reproducible and tests something
+subtly different each run.
 
 ### How it works
 
-1. **Temp overlay directory**: `apply_isolation` copies `docker-compose.local.yml` and `shared/local-ports.json` to `$TMPDIR/showcase-isolate-$$/`. The originals are never touched. Shell variables (`COMPOSE_FILE`, `COMPOSE_CMD`, `PORTS_FILE`) and the `LOCAL_PORTS_FILE` env var passed to the TS harness all point at the temp copies.
+1. **`<name>` and slot/offset**: `<name>` names the isolated compose project and
+   must match `[a-z0-9_-]+` (a docker compose project-name constraint; uppercase
+   is lowercased with a warning). Use a distinct name per run. The slot and port
+   offset are **auto-assigned** — each run atomically claims a slot via `mkdir
+/tmp/showcase-isolate-slots/N` and derives its offset as `(slot + 1) * 200`
+   (slot 0 → +200, slot 1 → +400, ...). Up to 46 concurrent runs are supported.
+   Do not assign slots manually.
 
-2. **Slot-based port allocation**: Concurrent `--isolate` runs acquire unique port ranges via atomic `mkdir /tmp/showcase-isolate-slots/N`. Slot 0 adds a +200 offset to all ports, slot 1 adds +400, slot 2 adds +600, etc. Up to 46 concurrent isolated runs are supported. Each slot directory contains a `pid` file for stale-slot detection.
+2. **Full isolated stack, shared stack untouched**: every service runs under the
+   `<name>` compose project on the offset ports, so containers, networks, and
+   volumes are fully namespaced. The default/long-lived `showcase-*` project is
+   left completely alone — an isolated run is safe to launch alongside it (or
+   alongside other isolated runs).
 
-3. **Project name scoping**: Each isolated run passes `--project-name <name>` to docker compose, so containers, networks, and volumes are fully namespaced. No collision with the base `showcase` project or other isolated runs.
+3. **PocketBase authenticates out of the box**: the host CLI's default
+   PocketBase superuser (`admin@example.com` / `showcase-local-dev`) matches the
+   `POCKETBASE_SUPERUSER_EMAIL` the compose stack seeds, so a fresh isolated PB
+   authenticates with no manual setup. A mismatch here is what previously 400'd
+   on pb-auth and left the d6 control-plane enqueuing zero jobs.
 
-4. **Cleanup**: `restore_isolation` removes the temp directory and releases the slot. It is registered via `trap EXIT` before any mutation occurs, so cleanup runs even on crashes or `Ctrl-C`.
+4. **Temp overlay + cleanup**: `apply_isolation` writes offset copies of
+   `docker-compose.local.yml` and `shared/local-ports.json` into
+   `$TMPDIR/showcase-isolate-$$/` (originals are never touched).
+   `restore_isolation`, registered via `trap EXIT` before any mutation, tears
+   the stack down and frees the slot on exit — even on crashes or `Ctrl-C`.
 
-### Parallel runs are safe
+### Interpreting results
 
-Multiple agents or terminal sessions can each run `showcase test <slug> --isolate` simultaneously. Each gets its own port range and project namespace. No coordination is needed beyond the atomic slot allocation.
+Per-pill FAILs reflect real demo/feature issues for that integration, not
+artifacts of isolation. Because the driver asserts per-pill identically across
+integrations, a FAIL is the same signal you'd get from the shared stack or
+production for that pill.
+
+### Cleanup
+
+The isolated stack tears down on exit and frees its slot automatically — the
+normal case needs no cleanup, and each fresh run gets a clean PocketBase volume
+(which is what keeps pb-auth deterministic). The `--keep` flag governs
+harness-started packages on the non-isolate path; it does not override the
+isolated teardown trap. To leave a stack up for inspection, start it explicitly
+with `bin/showcase up` under your own project name. Tear that down by project
+name when done:
+
+```sh
+docker compose --project-name <name> down --volumes
+```
 
 ### Troubleshooting
 
@@ -303,7 +355,7 @@ Multiple agents or terminal sessions can each run `showcase test <slug> --isolat
   rm -f showcase/docker-compose.local.yml.iso-bak showcase/shared/local-ports.json.iso-bak
   ```
 
-  The new isolate behavior auto-detects and cleans up these stale backups on startup, but a manual restore is the safest fix if things look wrong.
+  The current isolate behavior auto-detects and cleans up these stale backups on startup, but a manual restore is the safest fix if things look wrong.
 
 - **Temp files**: Overlay directories live at `$TMPDIR/showcase-isolate-*/`. They are cleaned up on normal exit; if a run was killed with `SIGKILL`, the directory may linger. Safe to remove manually.
 
