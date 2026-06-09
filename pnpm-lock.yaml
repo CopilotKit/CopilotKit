@@ -2032,8 +2032,8 @@ importers:
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2060,11 +2060,11 @@ importers:
   packages/angular:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/core':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -2193,8 +2193,8 @@ importers:
   packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2245,8 +2245,8 @@ importers:
   packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       openai:
         specifier: ^4.85.1
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -2273,11 +2273,11 @@ importers:
   packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/core':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
@@ -2439,8 +2439,8 @@ importers:
   packages/react-native:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -2689,22 +2689,22 @@ importers:
     dependencies:
       '@ag-ui/a2ui-middleware':
         specifier: 0.0.8
-        version: 0.0.8(@ag-ui/client@0.0.53)(rxjs@7.8.1)
+        version: 0.0.8(@ag-ui/client@0.0.56)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/core':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/encoder':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/langgraph':
         specifier: 0.0.41
-        version: 0.0.41(@ag-ui/client@0.0.53)(@ag-ui/core@0.0.53)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
+        version: 0.0.41(@ag-ui/client@0.0.56)(@ag-ui/core@0.0.56)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.3
-        version: 0.0.3(@ag-ui/client@0.0.53)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+        version: 0.0.3(@ag-ui/client@0.0.56)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@ag-ui/mcp-middleware':
         specifier: 0.0.1
         version: 0.0.1(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
@@ -3030,11 +3030,11 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/core':
         specifier: '>=0.0.48'
-        version: 0.0.53
+        version: 0.0.51
       '@copilotkit/license-verifier':
         specifier: ~0.4.2
         version: 0.4.2
@@ -3094,8 +3094,8 @@ importers:
   packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -3166,11 +3166,11 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@ag-ui/core':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -3290,8 +3290,8 @@ importers:
   packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.53
-        version: 0.0.53
+        specifier: 0.0.56
+        version: 0.0.56
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -24241,10 +24241,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.8(@ag-ui/client@0.0.53)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.8(@ag-ui/client@0.0.56)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.2
-      '@ag-ui/client': 0.0.53
+      '@ag-ui/client': 0.0.56
       clarinet: 0.12.6
       rxjs: 7.8.1
 
@@ -24387,11 +24387,11 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/langgraph@0.0.41(@ag-ui/client@0.0.53)(@ag-ui/core@0.0.53)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
+  '@ag-ui/langgraph@0.0.41(@ag-ui/client@0.0.56)(@ag-ui/core@0.0.56)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.3
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
+      '@ag-ui/client': 0.0.56
+      '@ag-ui/core': 0.0.56
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
       langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
@@ -24461,9 +24461,9 @@ snapshots:
       - supports-color
       - zod
 
-  '@ag-ui/mcp-apps-middleware@0.0.3(@ag-ui/client@0.0.53)(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
+  '@ag-ui/mcp-apps-middleware@0.0.3(@ag-ui/client@0.0.56)(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
     dependencies:
-      '@ag-ui/client': 0.0.53
+      '@ag-ui/client': 0.0.56
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -42404,7 +42404,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.15.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.15.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -48772,7 +48772,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.15.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.15.2):
     dependencies:
       axios: 1.15.2(debug@4.4.3)
 

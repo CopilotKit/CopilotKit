@@ -370,13 +370,16 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           agentId: routedId,
         },
       );
-      const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
+      const httpEvents = runHttpRequest(() =>
+        this.fetch(this.singleEndpointUrl!, requestInit),
+      );
       return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
-    const httpEvents = runHttpRequest(
-      `${this.runtimeUrl}/agent/${routedId}/connect`,
-      this.requestInit(input),
+    const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
+    const connectRequestInit = this.requestInit(input);
+    const httpEvents = runHttpRequest(() =>
+      this.fetch(connectUrl, connectRequestInit),
     );
     return withAbortErrorHandling(transformHttpEventStream(httpEvents));
   }
@@ -400,7 +403,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           agentId: this.routedAgentId(),
         },
       );
-      const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
+      const httpEvents = runHttpRequest(() =>
+        this.fetch(this.singleEndpointUrl!, requestInit),
+      );
       return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
