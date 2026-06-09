@@ -1,4 +1,4 @@
-# QA: Agentic Chat (Reasoning) — LlamaIndex
+# QA: Reasoning (Custom) — LlamaIndex
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to the agentic-chat-reasoning demo page
+- [ ] Navigate to the reasoning-custom demo page (/demos/reasoning-custom)
 - [ ] Verify the chat interface loads with placeholder "Type a message"
 - [ ] Send a basic question such as "Why is the sky blue?"
 - [ ] Verify the agent responds with a text answer

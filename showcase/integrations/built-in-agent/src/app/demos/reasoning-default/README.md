@@ -1,7 +1,7 @@
 # Reasoning Default Render (built-in-agent)
 
 Zero-config rendering of the agent's reasoning chain. Same backend as
-`agentic-chat-reasoning` (`/api/copilotkit-reasoning`, reasoning-capable
+`reasoning-custom` (`/api/copilotkit-reasoning`, reasoning-capable
 OpenAI model with `reasoning_effort: "low"`) — but the page passes no
 custom `reasoningMessage` slot, so CopilotKit's built-in
 `CopilotChatReasoningMessage` handles the render: a collapsible card with
