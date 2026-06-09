@@ -131,6 +131,13 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # ----- Frontend-only demos that share the simple chat agent -----
     # (manifest declares them as separate features; agent path is shared)
     "frontend_tools": AgentSpec(_simple_chat),
+    # Frontend tool round-trip with thread-id continuity (ENT-658). Page at
+    # /demos/threadid-frontend-tool-roundtrip binds agentId=
+    # "threadid-frontend-tool-roundtrip" explicitly; mirrors langgraph-python's
+    # `agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools")`
+    # by sharing the simple chat agent (no backend tools — the frontend
+    # registers testFrontendToolCalling via useFrontendTool).
+    "threadid-frontend-tool-roundtrip": AgentSpec(_simple_chat),
     "frontend-tools-async": AgentSpec(_simple_chat),
     "prebuilt-sidebar": AgentSpec(_simple_chat),
     "prebuilt-popup": AgentSpec(_simple_chat),

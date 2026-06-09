@@ -29,6 +29,7 @@ const agentNames = [
   "subagents",
   // frontend-only demos (share simple chat agent on the backend)
   "frontend_tools",
+  "threadid-frontend-tool-roundtrip",
   "frontend-tools-async",
   "prebuilt-sidebar",
   "prebuilt-popup",
