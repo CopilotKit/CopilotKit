@@ -174,7 +174,7 @@ body {
   --secondary: var(--surface-soft);
   --secondary-foreground: var(--ink);
   --muted: var(--surface-soft);
-  --muted-foreground: var(--muted);
+  --muted-foreground: var(--ink-2);
   --accent: var(--accent-soft);
   --accent-foreground: var(--ink);
   --border: var(--line);
@@ -219,6 +219,106 @@ body {
   --ring: var(--warm-accent);
   --radius: 0px;
   --cpk-default-font-family: var(--warm-serif);
+}
+
+/* --- .ads-warm last mile: the bespoke touches the token layer
+   can't reach. Target the shipped class names / test ids; the
+   !important beats the primitives' own Tailwind utilities. ---- */
+
+/* Welcome screen: mono eyebrow + italic serif headline + rule.
+   The shipped welcome renders labels.welcomeMessageText in an h1. */
+.ads-warm [data-testid="copilot-welcome-screen"] {
+  padding-top: 4rem;
+}
+.ads-warm [data-testid="copilot-welcome-screen"] h1 {
+  font-family: var(--warm-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--warm-ink);
+  text-align: center;
+}
+.ads-warm [data-testid="copilot-welcome-screen"] h1::before {
+  content: "CopilotKit";
+  display: block;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--warm-accent);
+  margin-bottom: 1rem;
+}
+.ads-warm [data-testid="copilot-welcome-screen"] h1::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: var(--warm-line);
+  margin: 1rem auto 0;
+}
+
+/* Assistant message: drop the card, keep a left rule. */
+.ads-warm .copilotKitAssistantMessage {
+  background: transparent !important;
+  border: 0 !important;
+  border-left: 3px solid var(--warm-accent) !important;
+  border-radius: 0 !important;
+  padding-left: 1.5rem !important;
+  padding-right: 0.5rem !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 1.25rem !important;
+}
+.ads-warm [data-testid="copilot-assistant-toolbar"] {
+  display: none !important;
+}
+
+/* User message: sharp white box with a terracotta left rule + arrow. */
+.ads-warm .copilotKitUserMessage [class*="bg-muted"] {
+  background: #ffffff !important;
+  color: var(--warm-ink) !important;
+  border-left: 4px solid var(--warm-accent) !important;
+  border-top: 1px solid var(--warm-line) !important;
+  border-right: 1px solid var(--warm-line) !important;
+  border-bottom: 1px solid var(--warm-line) !important;
+  border-radius: 0 !important;
+  padding: 0.625rem 1.25rem !important;
+}
+.ads-warm .copilotKitUserMessage [class*="bg-muted"]::before {
+  content: "→";
+  margin-right: 0.625rem;
+  color: var(--warm-accent);
+}
+
+/* Input pill: sharp corners + ember border (not the container, so the
+   disclaimer line below stays unboxed). */
+.ads-warm .copilotKitInput {
+  border-radius: 0 !important;
+  border: 1px solid var(--warm-accent) !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+.ads-warm [data-testid="copilot-chat-textarea"]::placeholder {
+  font-style: italic;
+}
+.ads-warm button[data-testid="copilot-add-menu-button"] {
+  background: #f5cdb5 !important;
+  color: var(--warm-accent) !important;
+  border-radius: 6px !important;
+}
+/* Keep the send button solid terracotta even when disabled. */
+.ads-warm button[data-testid="copilot-send-button"],
+.ads-warm button[data-testid="copilot-send-button"]:disabled {
+  background-color: var(--warm-accent) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  opacity: 1 !important;
+}
+.ads-warm button[data-testid="copilot-send-button"] svg {
+  color: #ffffff !important;
 }
 
 /* ============================================================

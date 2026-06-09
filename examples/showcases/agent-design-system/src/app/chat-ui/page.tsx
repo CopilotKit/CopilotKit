@@ -15,10 +15,7 @@ import {
   Wind,
 } from "lucide-react";
 import { z } from "zod";
-import type {
-  CopilotChatAssistantMessageProps,
-  CopilotChatUserMessage,
-} from "@copilotkit/react-core/v2";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
@@ -200,136 +197,22 @@ function CssVariant() {
         </div>
       </ChromePanel>
       <ChromePanel caption="Customized with CSS" surface="warm">
-        {/* The broad reskin is all CSS: `.ads-warm [data-copilotkit]`
-            remaps the v2 token layer (palette, radius, serif font) for
-            every chat primitive. On top of that, a few slot props add
-            the bespoke touches the token layer can't express — an
-            eyebrow welcome, a left-rule user bubble — and close the two
-            spots that hardcode bg-white / bg-black (input + buttons). */}
+        {/* Same <CopilotChat /> as the default — the entire reskin is
+            CSS scoped under `.ads-warm` in globals.css. The token block
+            (`.ads-warm [data-copilotkit]`) remaps palette, radius and
+            font; the last-mile rules target the shipped class names /
+            test ids for the bespoke touches (eyebrow welcome, left-rule
+            bubbles, ember input + buttons). No slots, no JSX overrides. */}
         <div className="ads-warm copilot-chat-inset h-full flex flex-col">
           <CopilotChat
             attachments={{ enabled: true }}
-            messageView={{
-              className: "!pt-6",
-              assistantMessage: {
-                className:
-                  "!bg-transparent !border-0 !border-l-[3px] !border-l-[var(--warm-accent)] !rounded-none !pl-6 !pr-2 !my-5",
-                toolbarVisible: false,
-              },
-              userMessage: WarmUser as unknown as typeof CopilotChatUserMessage,
-            }}
-            input={{
-              // The border/sharp-corners belong on the pill itself
-              // (`.copilotKitInput`), not the input container — the
-              // container also wraps the disclaimer, so bordering it
-              // boxes the "AI can make mistakes" line too. There's no
-              // slot for the pill, so target it with a child variant.
-              className:
-                "[&_.copilotKitInput]:!rounded-none [&_.copilotKitInput]:!border [&_.copilotKitInput]:!border-[var(--warm-accent)] [&_.copilotKitInput]:!bg-white [&_.copilotKitInput]:!shadow-none",
-              textArea: { className: "placeholder:!italic" },
-              addMenuButton: {
-                className:
-                  "!bg-[#f5cdb5] !text-[var(--warm-accent)] !rounded-[6px]",
-              },
-              // Force solid terracotta even when disabled (empty input):
-              // the variant's disabled state is a pale grey otherwise.
-              sendButton: {
-                className:
-                  "!rounded-[6px] !bg-[var(--warm-accent)] !text-white disabled:!bg-[var(--warm-accent)] disabled:!text-white disabled:!opacity-100 [&_svg]:!text-white",
-              },
-            }}
-            welcomeScreen={WarmWelcome}
             labels={{
               chatInputPlaceholder: "Type a message…",
+              welcomeMessageText: "How can I help you today?",
             }}
           />
         </div>
       </ChromePanel>
-    </div>
-  );
-}
-
-/* ---------- Warm-variant slots (eyebrow welcome + left-rule user) ---
-   These add bespoke structure the token layer can't express. Theming
-   (palette/serif) still comes from the .ads-warm tokens; these only
-   add the extra elements (eyebrow, arrow, sharp white box). */
-
-function extractText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return (content as unknown[])
-      .map((p) =>
-        typeof p === "object" && p !== null && "text" in p
-          ? String((p as { text: string }).text)
-          : "",
-      )
-      .join("");
-  }
-  return "";
-}
-
-function WarmWelcome({
-  input,
-}: {
-  input?: React.ReactNode;
-  suggestionView?: React.ReactNode;
-}) {
-  return (
-    <div className="h-full flex flex-col items-center justify-center px-6 gap-4">
-      <span
-        className="font-mono text-[12px] uppercase tracking-[0.18em] font-semibold"
-        style={{ color: "var(--warm-accent)" }}
-      >
-        CopilotKit
-      </span>
-      <h2
-        className="text-center"
-        style={{
-          fontFamily: "var(--warm-serif)",
-          fontStyle: "italic",
-          fontWeight: 500,
-          fontSize: "44px",
-          lineHeight: 1.1,
-          color: "#1f1a13",
-          letterSpacing: "-0.01em",
-        }}
-      >
-        How can I help you today?
-      </h2>
-      <div
-        className="h-px w-12"
-        style={{ background: "var(--warm-line)" }}
-        aria-hidden
-      />
-      <div className="w-full max-w-[680px] mt-4">{input}</div>
-    </div>
-  );
-}
-
-function WarmUser({
-  message,
-}: {
-  message: { id: string; role: string; content?: unknown };
-}) {
-  const text = extractText(message.content);
-  if (!text.trim()) return null;
-  return (
-    <div className="flex justify-end my-3 mx-1">
-      <div
-        className="inline-flex items-center gap-3 pl-5 pr-5 py-2.5 text-[14px]"
-        style={{
-          background: "#ffffff",
-          color: "#1f1a13",
-          borderLeft: "4px solid #c25c34",
-          borderTop: "1px solid var(--warm-line)",
-          borderRight: "1px solid var(--warm-line)",
-          borderBottom: "1px solid var(--warm-line)",
-          borderRadius: 0,
-        }}
-      >
-        <span style={{ color: "#c25c34" }}>→</span>
-        {text}
-      </div>
     </div>
   );
 }
