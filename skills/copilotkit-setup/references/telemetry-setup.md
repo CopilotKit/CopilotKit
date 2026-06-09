@@ -49,15 +49,15 @@ Then reference it in the provider:
 
 ```tsx
 // Next.js
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
-  licenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
 >
 
 // Vite
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
-  licenseKey={import.meta.env.VITE_COPILOTKIT_LICENSE_KEY}
+  publicLicenseKey={import.meta.env.VITE_COPILOTKIT_LICENSE_KEY}
 >
 ```
 
@@ -65,4 +65,4 @@ The `NEXT_PUBLIC_` or `VITE_` prefix is required because the license key is used
 
 ## Opting out
 
-To disconnect from CopilotCloud, simply remove the `licenseKey` prop from `CopilotKitProvider` (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.
+To disconnect from CopilotCloud, simply remove the `publicLicenseKey` prop from the `CopilotKit` provider (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.

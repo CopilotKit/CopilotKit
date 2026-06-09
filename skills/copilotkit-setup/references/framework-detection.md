@@ -48,7 +48,7 @@ Detect the project's framework before generating any setup code. The detection o
 
 - **Runtime location:** Separate backend server (Express or Hono standalone)
 - **Provider placement:** Uses Angular-specific components from `@copilotkit/angular` (separate package)
-- **Not React-based:** Does NOT use `CopilotKitProvider` or React hooks
+- **Not React-based:** Does NOT use the `CopilotKit` provider or React hooks
 - **Stylesheet import:** Via Angular styles configuration in `angular.json`
 - **Package:** `@copilotkit/angular` instead of `@copilotkit/react`
 

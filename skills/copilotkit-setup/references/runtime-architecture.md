@@ -241,8 +241,8 @@ createCopilotEndpoint({
 
 **Express endpoints:** CORS is handled internally via the `cors` middleware with permissive defaults. Customize by wrapping the router or adding your own CORS middleware upstream.
 
-**Frontend side:** Set `credentials: "include"` on `CopilotKitProvider` to send cookies:
+**Frontend side:** Set `credentials: "include"` on the `CopilotKit` provider to send cookies:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" credentials="include">
+<CopilotKit runtimeUrl="/api/copilotkit" credentials="include">
 ```
