@@ -65,6 +65,9 @@ features:
   - mcp-apps
   - gen-ui-interrupt
 not_supported_features:
+  # Strategy-B (frontend-tool Promise) can't drive the headless `on_interrupt`
+  # event that this demo needs, and aimock can't replay custom events — so it's
+  # marked unsupported until aimock gains customEvents support (follow-up).
   - interrupt-headless
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
