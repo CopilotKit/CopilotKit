@@ -47,6 +47,7 @@ const agentNames = [
   // hitl variants
   "hitl-in-chat",
   "hitl-in-app",
+  "human_in_the_loop",
   // multimodal & state-context
   "multimodal",
   "readonly-state-agent-context",
@@ -66,6 +67,11 @@ const agentNames = [
   "auth",
   // mcp apps (also wired via separate runtime route copilotkit-mcp-apps)
   "mcp-apps",
+  // Neutral default agent. The hitl demo's `useInterrupt` hook binds to
+  // the default agent (no agentId), so a `default` slot must exist or the
+  // page throws `useAgent: Agent 'default' not found`. Mirrors
+  // langgraph-python's `agents["default"]`.
+  "default",
 ];
 
 // Build agents per-request so we can inject inbound x-* headers (e.g.
