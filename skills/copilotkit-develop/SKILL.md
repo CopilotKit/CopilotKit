@@ -47,14 +47,16 @@ const app = createCopilotEndpoint({
 
 ### 2. Wrap Your App with the Provider (Client)
 
+Use the `CopilotKit` provider (from `@copilotkit/react-core/v2`). It is the compatibility bridge across v1 and v2 and a strict superset of the legacy `CopilotKitProvider` -- all `CopilotKitProvider` props work on it.
+
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <YourApp />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -164,16 +166,16 @@ useRenderTool(
 
 ## Quick Reference: Components
 
-| Component                   | Purpose                                                                    |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `CopilotKitProvider`        | Root provider -- configures runtime URL, headers, agents, error handler    |
-| `CopilotChat`               | Full chat interface connected to an agent (inline layout)                  |
-| `CopilotPopup`              | Chat in a floating popup with toggle button                                |
-| `CopilotSidebar`            | Chat in a collapsible sidebar with toggle button                           |
-| `CopilotChatView`           | Headless chat view with slots for message view, input, scroll, suggestions |
-| `CopilotChatInput`          | Chat input textarea with send/stop/transcribe controls                     |
-| `CopilotChatMessageView`    | Renders the message list                                                   |
-| `CopilotChatSuggestionView` | Renders suggestion pills                                                   |
+| Component                   | Purpose                                                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `CopilotKit`                | Root provider (from `@copilotkit/react-core/v2`) -- configures runtime URL, headers, agents, error handler |
+| `CopilotChat`               | Full chat interface connected to an agent (inline layout)                                                  |
+| `CopilotPopup`              | Chat in a floating popup with toggle button                                                                |
+| `CopilotSidebar`            | Chat in a collapsible sidebar with toggle button                                                           |
+| `CopilotChatView`           | Headless chat view with slots for message view, input, scroll, suggestions                                 |
+| `CopilotChatInput`          | Chat input textarea with send/stop/transcribe controls                                                     |
+| `CopilotChatMessageView`    | Renders the message list                                                                                   |
+| `CopilotChatSuggestionView` | Renders suggestion pills                                                                                   |
 
 ## Quick Reference: Runtime
 

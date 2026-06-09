@@ -42,14 +42,14 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) runs as a Hono HTTP server. It exp
 
    Expected response: JSON with `version`, `agents`, `mode` fields.
 
-2. **Check basePath alignment**: The `basePath` in `createCopilotEndpoint()` must match the `runtimeUrl` in `CopilotKitProvider`:
+2. **Check basePath alignment**: The `basePath` in `createCopilotEndpoint()` must match the `runtimeUrl` on the `CopilotKit` provider (from `@copilotkit/react-core/v2`):
 
    ```ts
    // Server
    createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
 
    // Client
-   <CopilotKitProvider runtimeUrl="/api/copilotkit">
+   <CopilotKit runtimeUrl="/api/copilotkit">
    ```
 
 3. **Check the Hono app mounting**: If using a framework adapter (Next.js, Express), ensure the Hono app is mounted at the right path. The framework's route path combined with `basePath` must form the full URL.
@@ -103,7 +103,7 @@ createCopilotEndpoint({
 On the client side, enable credentials:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="https://api.myapp.com/api/copilotkit"
   credentials="include"
 />
@@ -215,7 +215,7 @@ For Intelligence mode, the response also includes:
 ### Passing Headers from Client to Runtime
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   headers={{ Authorization: `Bearer ${token}` }}
 />

@@ -272,7 +272,7 @@ Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCop
 | `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
-| `publicLicenseKey`  | `string`                                                   | Copilot Cloud public license key (`publicApiKey` is a deprecated alias)                                              |
+| `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
 | `showDevConsole`    | `boolean \| "auto"`                                        | Show the dev inspector (`"auto"` = development only)                                                                 |
 | `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
 | `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
@@ -324,11 +324,11 @@ The `BuiltInAgent` automatically resolves API keys from these environment variab
 
 If you need to pass `apiKey` explicitly, always source it from the environment (`apiKey: process.env.OPENAI_API_KEY`) -- never inline a literal key.
 
-### Step 6: Connect to the cloud platform (telemetry)
+### Step 6: Connect to CopilotKit Intelligence (telemetry)
 
-CopilotKit uses telemetry to understand adoption, improve the product, and provide better support. Connecting to the CopilotKit cloud platform gives you access to analytics and optional premium features.
+CopilotKit uses telemetry to understand adoption, improve the product, and provide better support. Connecting to CopilotKit Intelligence gives you access to analytics and optional premium features.
 
-1. Ask the user if they'd like to connect to the CopilotKit cloud platform (default: yes).
+1. Ask the user if they'd like to connect to CopilotKit Intelligence (default: yes).
 2. If yes, run the CopilotKit CLI authentication flow (verify the exact command with `npx copilotkit --help` as it may vary by version):
    ```bash
    npx copilotkit auth

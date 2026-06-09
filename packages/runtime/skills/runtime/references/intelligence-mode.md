@@ -7,7 +7,7 @@ stabilizing and `organizationId` is reserved for future self-hosted deployments.
 need on-prem durable threads today, use SSE mode with a persistent runner
 (`SqliteAgentRunner` or a custom one) instead.
 
-Obtain `apiKey` and `organizationId` from the CopilotKit Cloud dashboard.
+Obtain `apiKey` and `organizationId` from the CopilotKit Intelligence dashboard.
 
 ### URL format
 
@@ -40,8 +40,8 @@ import {
 const intelligence = new CopilotKitIntelligence({
   apiUrl: "https://api.copilotkit.ai",
   wsUrl: "wss://api.copilotkit.ai",
-  apiKey: process.env.COPILOTKIT_CLOUD_API_KEY!,
-  organizationId: process.env.COPILOTKIT_CLOUD_ORG_ID!,
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORG_ID!,
 });
 
 const runtime = new CopilotRuntime({
@@ -134,14 +134,10 @@ and an `intelligence.wsUrl`, `CopilotKitCore` auto-switches from SSE to the webs
 transport. The React integration just points at the runtime URL:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export function App({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      {children}
-    </CopilotKitProvider>
-  );
+  return <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 }
 ```
 
@@ -197,8 +193,8 @@ Correct:
 new CopilotKitIntelligence({
   apiUrl: "https://api.copilotkit.ai",
   wsUrl: "wss://api.copilotkit.ai",
-  apiKey: process.env.COPILOTKIT_CLOUD_API_KEY!,
-  organizationId: process.env.COPILOTKIT_CLOUD_ORG_ID!,
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORG_ID!,
 });
 // For on-prem durability without Intelligence: SSE mode + SqliteAgentRunner.
 ```
@@ -242,7 +238,7 @@ new CopilotRuntime({
 ```
 
 `CopilotIntelligenceRuntimeOptions` excludes `runner` at the type level. Intelligence
-forces its own `IntelligenceAgentRunner` tied to the Cloud WebSocket; a user-supplied
+forces its own `IntelligenceAgentRunner` tied to the Intelligence service WebSocket; a user-supplied
 runner is rejected.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts:149-173,285-294`.
@@ -325,7 +321,7 @@ new CopilotRuntime({
 ```
 
 `generateThreadNames` defaults to `true`. Every newly created thread triggers an extra
-LLM call on the Cloud side to generate a short name, billed against your Cloud quota.
+LLM call on the Intelligence service side to generate a short name, billed against your Intelligence quota.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts` (generateThreadNames default).
 
