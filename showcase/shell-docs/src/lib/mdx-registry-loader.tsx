@@ -89,9 +89,16 @@ function readPartial(relativePath: string): string | null {
 export async function PartialLoader({
   relativePath,
   components,
+  scope,
 }: {
   relativePath: string;
   components: Record<string, React.ComponentType<Record<string, unknown>>>;
+  // Extra MDX scope variables made available to the partial as
+  // top-level identifiers (e.g. `{framework}`). next-mdx-remote passes
+  // these as function args of the compiled module, NOT as the rendered
+  // component's `props` — so the partial must reference them bare, not
+  // via `props.<name>`. Optional; existing callers pass nothing.
+  scope?: Record<string, unknown>;
 }): Promise<React.ReactElement | null> {
   const body = readPartial(relativePath);
   if (body === null) {
@@ -124,6 +131,7 @@ export async function PartialLoader({
         components as React.ComponentProps<typeof MDXRemote>["components"]
       }
       options={{
+        scope,
         mdxOptions: {
           remarkPlugins: [remarkGfm],
           rehypePlugins: [

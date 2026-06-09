@@ -272,6 +272,16 @@ jobs:
     environment: railway
     permissions:
       contents: read
+    outputs:
+      # Distinguishes a job that actually PROBED prod (`success`) from one that
+      # SKIPPED probing because nothing promoted (`skipped`). The GitHub job
+      # `result` is `success` in BOTH cases (the skip path exits 0), so the
+      # notify job must read THIS output — not `needs.verify-prod.result` — to
+      # avoid reporting a misleading `verify-prod=success` when prod was never
+      # touched. A real probe failure / contract violation exits non-zero, so
+      # the job `result` becomes `failure` and this output is never written
+      # (notify falls back to the job result for that case).
+      status: ${{ steps.verify.outputs.status }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -282,6 +292,7 @@ jobs:
       - working-directory: showcase/scripts
         run: npm ci
       - name: Run verify-deploy --env prod
+        id: verify
         working-directory: showcase/scripts
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -318,11 +329,20 @@ jobs:
               exit 1
             fi
             echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
+            # Record that prod was SKIPPED, not verified. The job still exits 0
+            # (its `result` is `success`), so the notify job reads this `status`
+            # output to render `verify-prod=skipped` instead of a misleading
+            # `verify-prod=success`.
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # Run from showcase/scripts (where `npm ci` installed tsx) so npx uses
-          # the local install instead of network-fetching it.
+          # the local install instead of network-fetching it. A non-zero exit
+          # here fails the step (job `result` = failure) and `status` is never
+          # written, so notify falls back to the job result.
           npx tsx verify-deploy.ts --env prod --services "$SERVICES_CSV"
+          # Prod was actually probed and passed.
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
   notify:
     # Slack #oss-alerts only. Never #engr (engr is sacred — release alerts only).
@@ -348,6 +368,9 @@ jobs:
       #                                  service failed).
       #   verify-prod                  = verifies the succeeded subset.
       #   run success                  = PROMOTE == success AND PROD == success.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
       - name: Compute state
         id: state
         env:
@@ -355,10 +378,22 @@ jobs:
           PRE: ${{ needs.verify-staging-precondition.result }}
           PROMOTE: ${{ needs.promote.result }}
           PROD: ${{ needs.verify-prod.result }}
+          # The verify-prod job's own status output: `success` (prod actually
+          # probed + passed) or `skipped` (nothing promoted, so prod was never
+          # touched). Empty when the job failed/cancelled or never wrote it.
+          PROD_STATUS: ${{ needs.verify-prod.outputs.status }}
           CSV: ${{ needs.resolve-targets.outputs.services_csv }}
           INPUT: ${{ inputs.service }}
         run: |
           set -euo pipefail
+          # Displayed verify-prod value for the Slack line. The job `result` is
+          # `success` for BOTH a real pass AND the empty-CSV skip (which exits
+          # 0), so a bare `result` would read `verify-prod=success` even when
+          # prod was never probed. The mapping (prefer the job's `status` output
+          # when it ran cleanly, else fall back to the raw result) lives in the
+          # bats-tested showcase/scripts/verify-prod-display.sh so it can't
+          # drift from its test (see __tests__/verify-prod-display.bats).
+          PROD_DISPLAY="$(PROD="$PROD" PROD_STATUS="$PROD_STATUS" showcase/scripts/verify-prod-display.sh)"
           if [ "$INPUT" = "__select_a_service__" ]; then
             # Deliberate no-op abort: a human clicked Run without picking a
             # service. resolve-targets exits 1 and the downstream jobs skip.
@@ -387,6 +422,7 @@ jobs:
             echo "state=$STATE"
             echo "icon=$ICON"
             echo "csv=$CSV"
+            echo "prod_display=$PROD_DISPLAY"
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK != ''
@@ -408,7 +444,7 @@ jobs:
                 needs.resolve-targets.result,
                 needs.verify-staging-precondition.result,
                 needs.promote.result,
-                needs.verify-prod.result,
+                steps.state.outputs.prod_display,
                 github.server_url,
                 github.repository,
                 github.run_id,

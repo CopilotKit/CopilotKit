@@ -8,7 +8,7 @@
 // rendered by the built-in `CopilotChatReasoningMessage` component
 // (Thinking… / Thought for X header with an expandable content region).
 //
-// Both demos share the same backend (`reasoning_agent` graph) and the
+// Both demos share the same backend (`reasoning_agent` router) and the
 // same runtime URL (/api/copilotkit). The only difference is whether the
 // `messageView.reasoningMessage` slot is overridden.
 
@@ -16,7 +16,11 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { useReasoningDefaultSuggestions } from "./suggestions";
 
 // @region[default-reasoning-zero-config]
-const AGENT_ID = "reasoning-default";
+// Functional agent-registration key (matches the /api/copilotkit route's
+// specializedAgents map and the backend /reasoning router). The manifest
+// demo id is `reasoning-default`; the agent key stays
+// `reasoning-default-render` to mirror built-in-agent / claude-sdk-python.
+const AGENT_ID = "reasoning-default-render";
 
 export default function ReasoningDefaultDemo() {
   return (
