@@ -34,13 +34,14 @@ into the rest of the app.
 
 ## CSS Variables (Easiest)
 
-The easiest way to change the colors used in the Copilot UI components is to
-override CopilotKit CSS variables. The demo sets them on the scope wrapper so
-they cascade into every nested chat component:
+The easiest way to recolor the chat is to override the v2 design tokens.
+Every CopilotKit v2 primitive renders inside a `[data-copilotkit]` element
+that reads its colors and radius from these tokens. Re-point them on your
+scope wrapper and the change cascades into every nested chat component:
 
-<Snippet region="css-variables" title="frontend/src/app/theme.css — variable overrides" />
+<Snippet region="v2-token-overrides" title="frontend/src/app/theme.css — token overrides" />
 
-Once you've found the right variable, you can also apply the overrides inline
+Once you've found the right token, you can also apply the overrides inline
 via the `CopilotKitCSSProperties` helper:
 
 ```tsx
@@ -49,25 +50,61 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
 <div
   style={
     {
-      "--copilot-kit-primary-color": "#222222",
+      "--primary": "#4f46e5",
     } as CopilotKitCSSProperties
   }
 >
-  <CopilotSidebar />
+  <CopilotChat />
 </div>
 ```
 
-### Reference
+### Theme tokens
 
-| CSS Variable | Description |
-|-------------|-------------|
-| `--copilot-kit-primary-color` | Main brand/action color — used for buttons, interactive elements |
-| `--copilot-kit-contrast-color` | Color that contrasts with primary — used for text on primary elements |
-| `--copilot-kit-background-color` | Main page/container background color |
-| `--copilot-kit-secondary-color` | Secondary background — used for cards, panels, elevated surfaces |
-| `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
-| `--copilot-kit-separator-color` | Border color for dividers and containers |
-| `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
+These set the overall palette and radius. They are shared with the rest of
+the component library, so they also flow into cards, menus, and message
+bubbles.
+
+| CSS Variable | Controls |
+|-------------|----------|
+| `--background` | Chat surface background |
+| `--foreground` | Default text color |
+| `--card` | Card and elevated surface background |
+| `--card-foreground` | Text on cards |
+| `--popover` | Dropdown and popover background |
+| `--popover-foreground` | Text inside popovers |
+| `--primary` | Primary accent for default buttons and links |
+| `--primary-foreground` | Text and icons on the primary accent |
+| `--muted` | User message bubble and muted surfaces |
+| `--muted-foreground` | Secondary and helper text |
+| `--accent` | Hover background for ghost buttons |
+| `--accent-foreground` | Text on accent backgrounds |
+| `--border` | Borders for dividers and inputs |
+| `--input` | Input border color |
+| `--ring` | Focus ring color |
+| `--radius` | Corner radius for buttons, cards, and menus |
+
+### Chat control variables
+
+A few controls have their own dedicated variables, so you can recolor them
+without touching the shared palette or resorting to `!important` overrides on
+class names. Each defaults to the chat's original color and flips
+automatically in dark mode.
+
+| CSS Variable | Controls |
+|-------------|----------|
+| `--cpk-input-background` | Input pill background |
+| `--cpk-send-button-background` | Send button background |
+| `--cpk-send-button-foreground` | Send button icon color |
+| `--cpk-send-button-disabled-background` | Send button background when disabled |
+| `--cpk-send-button-disabled-foreground` | Send button icon when disabled |
+| `--cpk-toolbar-button-foreground` | Input toolbar button color (add, mic) |
+| `--cpk-toolbar-button-hover-background` | Input toolbar button hover background |
+| `--cpk-toolbar-button-hover-foreground` | Input toolbar button hover color |
+| `--cpk-message-toolbar-button-foreground` | Assistant message action icons (copy, regenerate) |
+| `--cpk-message-toolbar-button-hover-background` | Assistant message action hover background |
+| `--cpk-menu-background` | Slash command menu background |
+| `--cpk-menu-border` | Slash command menu border |
+| `--cpk-menu-item-active-background` | Slash command active and hovered item background |
 
 ## Custom CSS
 
@@ -89,13 +126,12 @@ can target specific pieces of the UI from your own stylesheet:
 ```
 
 The demo's `theme.css` wraps every selector under `.chat-css-demo-scope` so
-the overrides don't leak out. Here's the user/assistant bubble block from
+the overrides don't leak out. Here's the user message bubble block from
 that file:
 
 <Snippet
-  file="src/app/demos/chat-customization-css/theme.css"
-  lines="30-57"
-  title="frontend/src/app/theme.css — user + assistant message bubbles"
+  region="user-message"
+  title="frontend/src/app/theme.css — user message bubble"
 />
 
 ### Reference
