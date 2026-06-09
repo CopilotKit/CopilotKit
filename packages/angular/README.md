@@ -6,12 +6,23 @@ Angular bindings for CopilotKit core and AG-UI agents. This package provides ser
 
 ```bash
 # npm
-npm install @copilotkit/{core,angular}
+npm install @copilotkitnext/angular
 ```
 
-- `@angular/core` and `@angular/common` (19+)
+Peer dependencies you provide in your app:
+
+- `@angular/core` and `@angular/common` (19, 20, or 21)
 - `@angular/cdk` (match your Angular major)
 - `rxjs`
+
+> **TypeScript note:** if your build reports `TS7016: Could not find a declaration file for module '@copilotkitnext/angular'`, add a `paths` entry pointing at the bundled types until the package's `exports` map ships a `types` condition:
+>
+> ```jsonc
+> // tsconfig.json → compilerOptions
+> "paths": {
+>   "@copilotkitnext/angular": ["./node_modules/@copilotkitnext/angular/dist/index.d.ts"]
+> }
+> ```
 
 ## Quick start
 
@@ -21,7 +32,7 @@ Configure runtime and tools in your app config:
 
 ```ts
 import { ApplicationConfig } from "@angular/core";
-import { provideCopilotKit } from "@copilotkit/angular";
+import { provideCopilotKit } from "@copilotkitnext/angular";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -40,7 +51,7 @@ export const appConfig: ApplicationConfig = {
 ```ts
 import { Component, inject, signal } from "@angular/core";
 import { Message } from "@ag-ui/client";
-import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
+import { CopilotKit, injectAgentStore } from "@copilotkitnext/angular";
 import { randomUUID } from "@copilotkit/shared";
 
 @Component({
@@ -178,7 +189,7 @@ Advanced factory for creating `AgentStore` signals. Most apps should use `inject
 Connect AG-UI context to the runtime (auto-cleanup when the effect is destroyed):
 
 ```ts
-import { connectAgentContext } from "@copilotkit/angular";
+import { connectAgentContext } from "@copilotkitnext/angular";
 
 connectAgentContext({
   description: "User preferences",
@@ -250,7 +261,7 @@ import {
   registerFrontendTool,
   registerRenderToolCall,
   registerHumanInTheLoop,
-} from "@copilotkit/angular";
+} from "@copilotkitnext/angular";
 import { z } from "zod";
 
 registerFrontendTool({
