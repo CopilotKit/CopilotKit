@@ -222,7 +222,9 @@ npm install hono @hono/node-server
 
 ### Step 3: Set up the frontend provider
 
-Wrap your application with `CopilotKitProvider` from `@copilotkit/react-core/v2`.
+Wrap your application with `CopilotKit` from `@copilotkit/react-core/v2`.
+
+> **Which provider component?** Always use `CopilotKit` imported from `@copilotkit/react-core/v2`. It is the compatibility bridge across v1 and v2 and a strict superset of the other provider APIs. Do **not** use `CopilotKit` from the package root (`@copilotkit/react-core`, legacy v1) or `CopilotKitProvider` from `/v2` (a subset of the functionality).
 
 **Important:** Import the stylesheet in your root layout:
 
@@ -237,15 +239,15 @@ In `src/app/page.tsx` (or a client component):
 ```tsx
 "use client";
 
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -255,17 +257,14 @@ export default function Home() {
 When the runtime runs on a separate server (e.g., Express on port 4000):
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="http://localhost:4000/api/copilotkit"
-  useSingleEndpoint
->
+<CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit" useSingleEndpoint>
   {children}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`).
 
-#### CopilotKitProvider key props
+#### CopilotKit key props
 
 | Prop                | Type                                                       | Description                                                                                                          |
 | ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -273,7 +272,7 @@ Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCop
 | `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
-| `publicApiKey`      | `string`                                                   | Copilot Cloud public API key (if using hosted runtime)                                                               |
+| `publicLicenseKey`  | `string`                                                   | Copilot Cloud public license key (`publicApiKey` is a deprecated alias)                                              |
 | `showDevConsole`    | `boolean \| "auto"`                                        | Show the dev inspector (`"auto"` = development only)                                                                 |
 | `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
 | `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
@@ -292,9 +291,9 @@ CopilotKit provides three pre-built chat layouts (all imported from `@copilotkit
 Example with sidebar:
 
 ```tsx
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto">
   <YourApp />
   <CopilotSidebar
     defaultOpen
@@ -304,7 +303,7 @@ import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
       chatInputPlaceholder: "Ask me anything...",
     }}
   />
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 
 ### Step 5: Set environment variables
@@ -336,13 +335,13 @@ CopilotKit uses telemetry to understand adoption, improve the product, and provi
    ```
 3. Guide the user through the browser-based authentication that opens.
 4. Once authentication completes, the CLI outputs a license key (a public, client-side project identifier -- not a secret).
-5. Store the license key in an environment variable and reference it from the `CopilotKitProvider` -- this keeps it out of source and easy to rotate per environment:
+5. Store the license key in an environment variable and reference it from the `CopilotKit` provider -- this keeps it out of source and easy to rotate per environment:
    ```
    # .env.local (Next.js)
    NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
    ```
    ```tsx
-   <CopilotKitProvider
+   <CopilotKit
      runtimeUrl="/api/copilotkit"
      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
    >
