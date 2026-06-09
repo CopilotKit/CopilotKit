@@ -63,8 +63,8 @@ features:
   - voice
   - agent-config
   - mcp-apps
-not_supported_features:
   - gen-ui-interrupt
+not_supported_features:
   - interrupt-headless
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
@@ -181,6 +181,18 @@ demos:
       - src/agents/hitl_in_app_agent.py
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-interrupt
+    name: "Human in the Loop: Interrupts"
+    description: "Interactive time-picker rendered inline in the chat. ADK has no LangGraph interrupt() primitive, so this uses the Strategy-B adaptation — the agent calls a frontend schedule_meeting tool (useHumanInTheLoop) whose Promise resolves only once the user picks a slot, giving the same inline-card UX as the LangGraph reference."
+    tags:
+      - interactivity
+    route: /demos/gen-ui-interrupt
+    animated_preview_url:
+    highlight:
+      - src/agents/interrupt_agent.py
+      - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering

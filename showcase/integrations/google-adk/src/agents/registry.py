@@ -51,6 +51,7 @@ from agents.hitl_in_chat_book_call_agent import hitl_in_chat_book_call_agent
 # book-call flow (`hitl_in_chat_book_call_agent`).
 from agents.hitl_in_chat_agent import hitl_in_chat_agent
 from agents.hitl_in_app_agent import hitl_in_app_agent
+from agents.interrupt_agent import interrupt_agent
 from agents.mcp_apps_agent import mcp_apps_agent
 from agents.multimodal_agent import multimodal_agent
 from agents.declarative_gen_ui_agent import declarative_gen_ui_agent
@@ -160,6 +161,12 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # generate_task_steps "task steps" flow rendered by useHumanInTheLoop
     # + useInterrupt on the frontend.
     "human_in_the_loop": AgentSpec(hitl_in_chat_agent),
+    # gen-ui-interrupt: Strategy-B scheduling flow. ADK has no LangGraph
+    # `interrupt()`; the page binds agentId="gen-ui-interrupt" and registers
+    # `schedule_meeting` via useHumanInTheLoop. The backend agent has no
+    # tools of its own — AGUIToolset() injects the frontend tool. Mirrors
+    # agno's interrupt_agent + langgraph-python's gen-ui-interrupt cell.
+    "gen-ui-interrupt": AgentSpec(interrupt_agent),
     # ----- MCP Apps -----
     "mcp-apps": AgentSpec(mcp_apps_agent),
     # ----- Multimodal & state-context -----

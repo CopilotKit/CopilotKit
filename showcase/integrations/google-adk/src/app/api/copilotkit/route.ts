@@ -49,6 +49,9 @@ const agentNames = [
   "hitl-in-chat",
   "hitl-in-app",
   "human_in_the_loop",
+  // gen-ui-interrupt: Strategy-B scheduling flow (schedule_meeting frontend
+  // tool via useHumanInTheLoop). Page binds agentId="gen-ui-interrupt".
+  "gen-ui-interrupt",
   // multimodal & state-context
   "multimodal",
   "readonly-state-agent-context",
