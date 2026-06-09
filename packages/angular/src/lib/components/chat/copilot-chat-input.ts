@@ -250,7 +250,7 @@ export interface ToolbarContext {
         display: block;
         width: 100%;
       }
-      .shadow-\\[0_4px_4px_0_\\#0000000a\\2c_0_0_1px_0_\\#0000009e\\] {
+      .shadow-\\[0_4px_4px_0_\\#0000000a\\,0_0_1px_0_\\#0000009e\\] {
         box-shadow:
           0 4px 4px 0 #0000000a,
           0 0 1px 0 #0000009e !important;

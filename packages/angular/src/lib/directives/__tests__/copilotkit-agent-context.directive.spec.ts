@@ -44,6 +44,7 @@ describe("CopilotKitAgentContext", () => {
     });
 
     fixture.componentInstance.description = "Updated";
+    fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
 
     expect(core.removeContext).toHaveBeenCalledWith("ctx-1");
