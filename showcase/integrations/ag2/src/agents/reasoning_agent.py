@@ -85,7 +85,17 @@ def _extract_user_input(messages: list) -> str:
         role = getattr(msg, "role", None)
         if role == "user":
             content = getattr(msg, "content", "") or ""
-            return content
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                # Multimodal content: join the text parts.
+                return "".join(
+                    part.get("text", "")
+                    if isinstance(part, dict)
+                    else getattr(part, "text", "")
+                    for part in content
+                )
+            return str(content)
     return ""
 
 
