@@ -50,11 +50,26 @@ const agentNames = [
   "auth",
   "open-gen-ui",
   "beautiful-chat",
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   "tool-rendering-reasoning-chain",
   "mcp-apps",
   "byoc-hashbrown",
+];
+
+// Reasoning agent names — backed by the dedicated Spring-AI reasoning
+// controller at /reasoning (ReasoningController). It emits AG-UI
+// REASONING_MESSAGE_* events (the Spring/Java reimplementation of ag2's
+// reasoning_agent.py) that the frontend renders via the `reasoningMessage`
+// slot: CopilotKit's built-in card for `reasoning-default`, the custom amber
+// ReasoningBlock for `reasoning-custom`. The demo pages use the ids
+// `reasoning-default` / `reasoning-custom`; both share the one reasoning
+// backend. `reasoning-default-render` and `agentic-chat-reasoning` are legacy
+// aliases kept for any cell that still references them. Mirrors ag2's
+// route.ts `reasoningAgentNames`.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
+  "agentic-chat-reasoning",
 ];
 
 // Agent names routed to the interrupt-adapted scheduling backend. Both
@@ -69,6 +84,9 @@ for (const name of agentNames) {
 }
 for (const name of interruptAgentNames) {
   agents[name] = createAgent("/interrupt-adapted");
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 // gen-ui-agent has a dedicated Java controller (GenUiAgentController @ /gen-ui-agent/run)
 // that drives the set_steps state-card chain; override the shared-root registration.
