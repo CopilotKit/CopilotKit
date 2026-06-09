@@ -1,0 +1,244 @@
+"""Langroid reasoning agent — emits AG-UI REASONING_MESSAGE_* events.
+
+Backs two showcase cells (both share this one backend):
+    - reasoning-custom   (custom amber ReasoningBlock slot)
+    - reasoning-default  (CopilotKit's built-in reasoning card)
+
+Mirrors `showcase/integrations/ag2/src/agents/reasoning_agent.py` plus its
+`/reasoning` server mount in `ag2/src/agent_server.py`, adapted to Langroid.
+
+Why a custom route instead of the stock unified adapter
+-------------------------------------------------------
+Langroid's stock showcase adapter (`agents/agui_adapter.py`) calls the OpenAI
+chat-completions API NON-streaming and reads only `message.content` /
+`message.tool_calls` from the response — it drops the `delta.reasoning_content`
+side-channel entirely (the channel aimock fixtures populate via their
+`reasoning` field, and that reasoning models emit in production). So the stock
+adapter can never light up CopilotKit's reasoning slot.
+
+This module mounts a small custom `/` handler (mirroring ag2's
+`_run_reasoning_agent`) that:
+  1. Calls the OpenAI-compatible chat-completions endpoint directly
+     (streaming) with the agent's system prompt — a single LLM call, so it
+     stays aimock-friendly (no multi-call CoT loop).
+  2. Reads BOTH `delta.reasoning_content` (native reasoning channel, what
+     aimock's `reasoning` field feeds) AND `delta.content` (the answer).
+  3. Falls back to parsing <reasoning>...</reasoning> tags out of the text
+     when no native reasoning channel is present (defensive parity with
+     ag2's fallback path).
+  4. Emits REASONING_MESSAGE_START/CONTENT/END for the reasoning portion,
+     then TEXT_MESSAGE_START/CONTENT/END for the answer.
+
+The emitted channel is REASONING_MESSAGE_* (role "reasoning") — NOT THINKING_*,
+which @ag-ui/client silently drops.
+
+The global httpx hook installed in agent_server.py forwards the inbound
+`x-aimock-context` header onto the outbound OpenAI call so aimock matches the
+langroid-scoped fixture.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import re
+import uuid
+from typing import AsyncIterator
+
+import openai
+from ag_ui.core import (
+    BaseEvent,
+    EventType,
+    ReasoningMessageContentEvent,
+    ReasoningMessageEndEvent,
+    ReasoningMessageStartEvent,
+    RunAgentInput,
+    RunErrorEvent,
+    RunFinishedEvent,
+    RunStartedEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+)
+from ag_ui.encoder import EventEncoder
+from fastapi import FastAPI
+from starlette.endpoints import HTTPEndpoint
+from starlette.requests import Request
+from starlette.responses import StreamingResponse
+
+SYSTEM_PROMPT = (
+    "You are a helpful assistant. For each user question, first think "
+    "step-by-step about the approach, then give a concise answer."
+)
+
+MODEL = "gpt-4o-mini"
+
+_REASONING_PATTERN = re.compile(
+    r"<reasoning>(.*?)</reasoning>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _extract_user_input(messages: list) -> str:
+    """Return the last user message's text content (stock AGUI behaviour)."""
+    for msg in reversed(messages or []):
+        role = getattr(msg, "role", None)
+        if role == "user":
+            content = getattr(msg, "content", "") or ""
+            return content
+    return ""
+
+
+async def _run_reasoning_agent(
+    run_input: RunAgentInput,
+) -> AsyncIterator[BaseEvent]:
+    """Stream one reasoning run, synthesizing REASONING_MESSAGE_* events.
+
+    Mirrors ag2's `_run_reasoning_agent`: buffer the full response, split
+    reasoning from answer, emit REASONING_MESSAGE_* then TEXT_MESSAGE_*.
+    """
+    run_id = run_input.run_id or str(uuid.uuid4())
+    thread_id = run_input.thread_id
+
+    try:
+        user_input = _extract_user_input(run_input.messages or [])
+
+        yield RunStartedEvent(
+            type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
+        )
+
+        # Single streaming chat-completions call. The global httpx hook
+        # (installed in agent_server.py) forwards x-aimock-context so aimock
+        # matches the langroid-scoped fixture. OPENAI_BASE_URL points the
+        # client at aimock in local/D6 runs and at the real API in production.
+        client = openai.AsyncOpenAI()
+        response_stream = await client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_input},
+            ],
+            stream=True,
+        )
+
+        # Accumulate both channels. The stock langroid adapter drops
+        # reasoning_content, so we read the chat-completions stream directly
+        # to capture it.
+        full_text = ""
+        native_reasoning = ""
+        async for chunk in response_stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta is None:
+                continue
+            # Native reasoning channel — aimock `reasoning` field / reasoning
+            # models surface this as delta.reasoning_content.
+            reasoning_piece = getattr(delta, "reasoning_content", None)
+            if reasoning_piece:
+                native_reasoning += reasoning_piece
+            if delta.content:
+                full_text += delta.content
+
+        native_reasoning = native_reasoning.strip()
+
+        if native_reasoning:
+            # Native channel present — gold-standard parity path. The answer is
+            # the streamed text minus any stray <reasoning> tags.
+            reasoning_text = native_reasoning
+            answer_text = _REASONING_PATTERN.sub("", full_text).strip()
+        else:
+            # Fallback: parse <reasoning>...</reasoning> tags from the text
+            # (non-reasoning models / no-native-reasoning fixtures).
+            match = _REASONING_PATTERN.search(full_text)
+            if match:
+                reasoning_text = match.group(1).strip()
+                answer_text = (
+                    full_text[: match.start()] + full_text[match.end() :]
+                ).strip()
+            else:
+                reasoning_text = ""
+                answer_text = full_text.strip()
+
+        # Emit reasoning message if we have reasoning content.
+        if reasoning_text:
+            reasoning_msg_id = str(uuid.uuid4())
+            yield ReasoningMessageStartEvent(
+                type=EventType.REASONING_MESSAGE_START,
+                message_id=reasoning_msg_id,
+                role="reasoning",
+            )
+            yield ReasoningMessageContentEvent(
+                type=EventType.REASONING_MESSAGE_CONTENT,
+                message_id=reasoning_msg_id,
+                delta=reasoning_text,
+            )
+            yield ReasoningMessageEndEvent(
+                type=EventType.REASONING_MESSAGE_END,
+                message_id=reasoning_msg_id,
+            )
+
+        # Always emit a text message so CopilotKit renders an assistant bubble.
+        if answer_text:
+            text_msg_id = str(uuid.uuid4())
+            yield TextMessageStartEvent(
+                type=EventType.TEXT_MESSAGE_START,
+                message_id=text_msg_id,
+                role="assistant",
+            )
+            yield TextMessageContentEvent(
+                type=EventType.TEXT_MESSAGE_CONTENT,
+                message_id=text_msg_id,
+                delta=answer_text,
+            )
+            yield TextMessageEndEvent(
+                type=EventType.TEXT_MESSAGE_END,
+                message_id=text_msg_id,
+            )
+
+        yield RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+
+    except asyncio.CancelledError:  # noqa: TRY302 — propagate cancellation
+        raise
+    except Exception as exc:  # noqa: BLE001
+        yield RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
+
+
+class ReasoningEndpoint(HTTPEndpoint):
+    """Starlette HTTPEndpoint that emits REASONING_MESSAGE_* + TEXT_MESSAGE_*.
+
+    Mounted at the sub-app root (``reasoning_app.mount("/", ...)``). The
+    agent_server mounts this sub-app at ``/reasoning``; the HttpAgent posts to
+    ``/reasoning/`` (route.ts ``createAgent("/reasoning/")``), so the outer
+    Mount strips ``/reasoning`` and the inner Mount at ``/`` resolves here.
+    """
+
+    async def post(self, request: Request) -> StreamingResponse:
+        encoder = EventEncoder()
+        run_input = RunAgentInput.model_validate_json(await request.body())
+
+        async def _gen() -> AsyncIterator[str]:
+            async for event in _run_reasoning_agent(run_input):
+                yield encoder.encode(event)
+
+        return StreamingResponse(
+            _gen(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+            },
+        )
+
+
+# FastAPI sub-app so agent_server.py can mount at /reasoning. Mounting the
+# HTTPEndpoint at "/" — the HttpAgent posts to ``/reasoning/`` so the outer
+# Mount strips ``/reasoning`` and this inner Mount at ``/`` resolves the
+# endpoint. NEVER use Route("", ...) — an empty-path Route crashes Starlette
+# at import time.
+reasoning_app = FastAPI(title="Langroid Reasoning Agent")
+reasoning_app.mount("/", ReasoningEndpoint)
