@@ -1,0 +1,12 @@
+{
+  "name": "@repo/agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
+    "postinstall": "uv sync"
+  },
+  "devDependencies": {
+    "@langchain/langgraph-cli": "^1.1.12"
+  }
+}
