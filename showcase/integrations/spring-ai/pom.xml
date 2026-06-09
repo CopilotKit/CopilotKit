@@ -18,6 +18,7 @@
 
     <properties>
         <java.version>17</java.version>
+        <tomcat.version>10.1.55</tomcat.version>
         <spring-ai.version>1.0.1</spring-ai.version>
         <ag-ui.version>0.0.1</ag-ui.version>
         <ag-ui.spring-ai.version>1.0.1</ag-ui.spring-ai.version>
