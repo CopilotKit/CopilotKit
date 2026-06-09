@@ -1,14 +1,19 @@
 "use client";
 
-// <HeroStartCommands> — the docs hero's primary call-to-action. Presents the
-// two recommended entry points as a side-by-side pair of cards so a visitor
-// self-selects by situation rather than reading prose:
+// <HeroStartActions> — the docs hero's primary call-to-action, shared verbatim
+// by the home hero and the framework landing heroes so both surfaces read
+// identically. Presents the two recommended entry points as a side-by-side
+// pair of cards so a visitor self-selects by situation rather than reading
+// prose, with the quickstart CTA in an action row beneath:
 //
 //   • "Start a new project"        → npx copilotkit@latest create
 //   • "Add to an existing project" → npx copilotkit@latest skills onboard
+//   • Quickstart                   → guided docs walkthrough
 //
 // Both cards are equal weight (neutral surface, accent only on the icon and on
-// hover) — no pre-selected default. Each command row is a single copy
+// hover) — no pre-selected default. Command text wraps rather than truncates,
+// so a long framework-pinned create command is always fully readable. Each
+// command row is a single copy
 // button (click anywhere on the row to copy) with an `aria-live` status sibling
 // so the copy result is announced to assistive tech. Clipboard failures (insecure
 // context, sandboxed iframe, permissions policy, in-app webview, older browsers)
@@ -17,15 +22,8 @@
 
 import React from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  Copy,
-  FolderPlus,
-  Sparkles,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Check, Copy, FolderPlus, Sparkles, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type CopyState = "idle" | "copied" | "error";
 
@@ -136,8 +134,7 @@ function CommandCard({
         type="button"
         onClick={onCopy}
         aria-label={copyAriaLabel}
-        title={command}
-        className={`shell-docs-radius-control group flex h-10 w-full cursor-pointer items-center gap-2 border bg-[var(--bg-elevated)] px-3 text-left font-mono text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        className={`shell-docs-radius-control group mt-auto flex min-h-10 w-full cursor-pointer items-start gap-2 border bg-[var(--bg-elevated)] px-3 py-2.5 text-left font-mono text-[12px] leading-[1.5] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
           errored
             ? "border-red-500 text-[var(--text-secondary)]"
             : "border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
@@ -149,7 +146,18 @@ function CommandCard({
         >
           $
         </span>
-        <span className="min-w-0 flex-1 truncate">{command}</span>
+        {/* Long commands wrap at spaces only — each token is non-breaking so
+            a flag like `--framework` can never split mid-token (a bare `-` at
+            a line edge reads as a dash). `text-wrap: balance` makes the
+            two-line case split evenly, typically right at the flag boundary. */}
+        <span className="min-w-0 flex-1 [text-wrap:balance]">
+          {command.split(" ").map((token, i) => (
+            <React.Fragment key={i}>
+              {i > 0 ? " " : null}
+              <span className="whitespace-nowrap">{token}</span>
+            </React.Fragment>
+          ))}
+        </span>
         <span
           aria-hidden="true"
           className={`shrink-0 transition-colors ${
@@ -179,22 +187,14 @@ function CommandCard({
 
 // The two-card grid on its own — shared by the home hero and the framework
 // landing heroes so the "new project / existing project" recommendation reads
-// identically everywhere. Callers own the surrounding layout (width cap,
-// adjacent CTAs, footer links). Pass `createFramework` (a CLI `--framework`
-// value) on framework pages to pre-select that framework in the create command.
-export function StartCommandCards({
-  createFramework,
-}: {
-  createFramework?: string;
-} = {}) {
-  // A framework-pinned `create` command (e.g. `--framework langgraph-js`) is
-  // long, so stack the cards in a single column to keep it fully readable. The
-  // short home commands sit side-by-side from `sm` up. Using a grid means the
-  // two columns are always constrained to the container — a long command can
-  // never push the second card off-screen (it truncates within its track).
-  const stacked = Boolean(createFramework);
+// identically everywhere. The grid is always two-up from `sm` so both surfaces
+// share one layout; long framework-pinned commands wrap (never truncate) and
+// `items-stretch` keeps the pair the same height. Pass `createFramework` (a
+// CLI `--framework` value) on framework pages to pre-select that framework in
+// the create command.
+function StartCommandCards({ createFramework }: { createFramework?: string }) {
   return (
-    <div className={`grid gap-3 ${stacked ? "" : "sm:grid-cols-2"}`}>
+    <div className="grid items-stretch gap-3 sm:grid-cols-2">
       {buildCommands(createFramework).map((command) => (
         <CommandCard key={command.id} {...command} />
       ))}
@@ -202,18 +202,61 @@ export function StartCommandCards({
   );
 }
 
-export function HeroStartCommands() {
+// "Start the quickstart" — the preserved accent CTA from the pre-cards hero,
+// pointed at a framework's quickstart guide. Rendered by the framework landing
+// heroes in the action row beneath the command cards; the home hero puts
+// <HeroQuickstartDropdown> (same visual treatment, framework picker) in the
+// identical slot.
+export function QuickstartLinkButton({ href }: { href: string }) {
   return (
-    <div className="flex max-w-[640px] flex-col gap-4">
-      <StartCommandCards />
-      <Link
-        href="/build-with-agents"
-        prefetch={false}
-        className="inline-flex items-center gap-1 self-start rounded text-[13px] font-medium text-[var(--accent)] no-underline transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:underline"
-      >
-        Learn more about building with agents
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-      </Link>
+    <Link
+      href={href}
+      className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent-light)] px-4 text-sm font-semibold text-[var(--accent)] no-underline shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-dim)] sm:w-fit"
+    >
+      Quickstart
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
+
+// The full unified hero action block — identical structure on the home hero
+// and every framework landing hero (per review: one layout everywhere):
+//
+//   row 1: the two recommended command cards (create / skills onboard)
+//   row 2: the quickstart CTA (dropdown on home, direct link on framework
+//          pages) + an optional trailing link
+export function HeroStartActions({
+  createFramework,
+  quickstart,
+  trailing,
+}: {
+  createFramework?: string;
+  quickstart: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    // 740px is the narrowest cap where both home commands fit a half-width
+    // card on a single line; framework-pinned create commands are longer and
+    // wrap to a balanced second line by design.
+    <div className="flex max-w-[740px] flex-col gap-4">
+      <StartCommandCards createFramework={createFramework} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        {quickstart}
+        {trailing}
+      </div>
     </div>
+  );
+}
+
+export function LearnMoreAgentsLink() {
+  return (
+    <Link
+      href="/build-with-agents"
+      prefetch={false}
+      className="inline-flex items-center gap-1 self-start rounded text-[13px] font-medium text-[var(--accent)] no-underline transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:underline sm:self-auto"
+    >
+      Learn more about building with agents
+      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+    </Link>
   );
 }

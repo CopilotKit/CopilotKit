@@ -9,7 +9,11 @@
 import React from "react";
 import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
-import { HeroStartCommands } from "@/components/hero-start-commands";
+import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import {
+  HeroStartActions,
+  LearnMoreAgentsLink,
+} from "@/components/hero-start-commands";
 import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -19,8 +23,14 @@ import {
   buildFrameworkOnlyNav,
   loadDoc,
 } from "@/lib/docs-render";
+import { compareByDisplayOrder } from "@/lib/framework-order";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
-import { getDocsFolder, getDocsMode, getIntegration } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegration,
+  getIntegrations,
+} from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 // Force dynamic rendering so unknown slugs reliably return HTTP 404
@@ -114,6 +124,23 @@ function DocsOverview() {
     ...pageTree,
     children: rewriteUrls(pageTree.children),
   };
+  // The home hero has no framework context, so its quickstart CTA is the
+  // framework picker dropdown (same accent treatment as the framework pages'
+  // direct quickstart link). The default framework sorts first.
+  const quickstartOptions = getIntegrations()
+    .filter((i) => getDocsMode(i.slug) !== "hidden")
+    .slice()
+    .sort((a, b) => {
+      if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
+      if (b.slug === HOME_DEFAULT_FRAMEWORK) return 1;
+      return compareByDisplayOrder(a.slug, b.slug);
+    })
+    .map((i) => ({
+      slug: i.slug,
+      name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
+      logo: i.logo ?? null,
+      href: `/${i.slug}/quickstart`,
+    }));
   return (
     <ShellDocsLayout tree={homePageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
@@ -132,7 +159,12 @@ function DocsOverview() {
               </p>
             </div>
             <div className="mt-7">
-              <HeroStartCommands />
+              <HeroStartActions
+                quickstart={
+                  <HeroQuickstartDropdown options={quickstartOptions} />
+                }
+                trailing={<LearnMoreAgentsLink />}
+              />
             </div>
           </div>
         </section>

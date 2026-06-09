@@ -8,7 +8,10 @@ import type { ReactNode } from "react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
-import { StartCommandCards } from "@/components/hero-start-commands";
+import {
+  HeroStartActions,
+  QuickstartLinkButton,
+} from "@/components/hero-start-commands";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import type {
   FrameworkOverviewData,
@@ -221,37 +224,45 @@ export function FrameworkOverview({
             {subheader}
           </p>
 
-          {/* Action cluster: the unified two-command cards for generic-init
-              frameworks, or a single copy-command chip for frameworks with
-              bespoke setup. The old "Start the quickstart" CTA and the Live
-              feature viewer link were dropped — the demo iframe below already
-              covers "see it running" intent. */}
-          <div className="mt-7 max-w-[640px]">
+          {/* Action cluster — the same <HeroStartActions> block as the home
+              hero (two command cards + quickstart CTA) so the landing layouts
+              are unified; the quickstart slot is a direct link here because a
+              framework is already selected. Frameworks with bespoke setup
+              (e.g. a2a's `git clone`, ms-agent-dotnet) keep the pre-cards
+              layout: quickstart button + their own copy-command chip — those
+              commands aren't interchangeable with the CLI. */}
+          <div className="mt-7">
             {isGenericInit ? (
-              <StartCommandCards createFramework={createFramework} />
+              <HeroStartActions
+                createFramework={createFramework}
+                quickstart={<QuickstartLinkButton href={link(rawGuideLink)} />}
+              />
             ) : (
-              <button
-                type="button"
-                onClick={handleCopyCommand}
-                className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
-                aria-label="Copy install command"
-              >
-                <span className="flex items-center gap-2 text-[13.5px]">
-                  <span className="text-[var(--accent)] opacity-70 font-mono">
-                    $
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <QuickstartLinkButton href={link(rawGuideLink)} />
+                <button
+                  type="button"
+                  onClick={handleCopyCommand}
+                  className="shell-docs-radius-control group inline-flex h-11 w-full cursor-pointer items-center justify-between gap-3 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--bg-elevated)] sm:w-auto sm:justify-start"
+                  aria-label="Copy install command"
+                >
+                  <span className="flex items-center gap-2 text-[13.5px]">
+                    <span className="text-[var(--accent)] opacity-70 font-mono">
+                      $
+                    </span>
+                    <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
+                      {initCommand}
+                    </span>
                   </span>
-                  <span className="font-mono text-[13px] text-[var(--text-secondary)] group-hover:text-[var(--text)]">
-                    {initCommand}
+                  <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
+                    {copied ? (
+                      <Check className="h-4 w-4 text-[var(--accent)]" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </span>
-                </span>
-                <span className="text-[var(--text-muted)] group-hover:text-[var(--text)]">
-                  {copied ? (
-                    <Check className="h-4 w-4 text-[var(--accent)]" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </span>
-              </button>
+                </button>
+              </div>
             )}
           </div>
         </header>
