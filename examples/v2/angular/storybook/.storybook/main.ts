@@ -1,15 +1,16 @@
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/angular";
 
 const config: StorybookConfig = {
   framework: {
-    name: "@storybook/angular",
+    name: getAbsolutePath("@storybook/angular"),
     options: {},
   },
   stories: ["../stories/**/*.stories.@(ts|tsx|mdx)"],
   addons: [
-    "@storybook/addon-essentials",
-    "@storybook/addon-interactions",
-    "@storybook/addon-themes",
+    getAbsolutePath("@storybook/addon-themes"),
+    getAbsolutePath("@storybook/addon-docs"),
   ],
   webpackFinal: async (cfg) => {
     // Suppress size warnings for development
@@ -24,3 +25,7 @@ const config: StorybookConfig = {
 };
 
 export default config;
+
+function getAbsolutePath(value: string): string {
+  return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)));
+}

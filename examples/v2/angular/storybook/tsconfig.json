@@ -14,12 +14,6 @@
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true,
     "useDefineForClassFields": false,
-    "paths": {
-      "@copilotkit/angular": ["../../../packages/angular/src/index.ts"],
-      "@copilotkit/angular/*": ["../../../packages/angular/src/*"],
-      "@copilotkit/core": ["../../../packages/core/src/index.ts"],
-      "@copilotkit/shared": ["../../../packages/shared/src/index.ts"]
-    },
     "types": ["node"]
   },
   "include": ["**/*.ts", "**/*.tsx", ".storybook/**/*"],

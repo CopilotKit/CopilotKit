@@ -8,8 +8,8 @@ import {
   CopilotChatInput,
   provideCopilotChatLabels,
   provideCopilotKit,
-} from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+} from "@copilotkitnext/angular";
+import type { Message } from "@ag-ui/client";
 
 const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Custom Actions",
@@ -53,7 +53,7 @@ import {
   CopilotChatInput,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 // Custom disclaimer component
