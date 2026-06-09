@@ -92,6 +92,7 @@ One agent backend. Every frontend.
 | 🅰️ Angular         | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
 | 💚 Vue             | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
 | 📱 React Native    | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native) |
+| 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta  | [Request early access](https://go.copilotkit.ai/beyond-the-web-form) |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 
