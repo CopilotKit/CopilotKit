@@ -87,6 +87,16 @@ export interface ServiceDriverContext {
   env: Readonly<Record<string, string | undefined>>;
   writer: { write(result: ProbeResult): Promise<unknown> };
   abortSignal?: AbortSignal;
+  /**
+   * Reads `"shutdown"` once the worker's drain signal has actually FIRED
+   * (graceful `stop()`), and `undefined` before that — exposed as a live
+   * getter, NOT stamped at ctx construction. This lets the driver distinguish
+   * a drain abort from its own timeout/error abort and SUPPRESS its red
+   * per-cell side-emits only on a true drain (a redeploy must not paint a
+   * mass-red block, but a genuine timeout must stay red). Stays structurally
+   * assignable to `ProbeContext.drainReason`.
+   */
+  drainReason?: "shutdown";
   featureTypes?: string[];
 }
 
@@ -191,9 +201,16 @@ export interface WorkerLoopDeps {
   onCurrentJobChange?: (currentJobId: string | null) => void;
 }
 
-/** Handle returned by `startWorkerLoop` — `stop()` drains and resolves. */
+/** Handle returned by `startWorkerLoop` — `stop()` requests a bounded drain. */
 export interface WorkerLoopHandle {
-  /** Resolves when the loop has stopped (after the in-flight job settles). */
+  /**
+   * Resolves when the loop has stopped OR the drain grace (`drainGraceMs`,
+   * see `DEFAULT_WORKER_DRAIN_GRACE_MS`) expires — whichever comes first. On
+   * expiry stop() DETACHES and resolves anyway, so a wedged driver that
+   * ignores its abort signal may still be running afterwards. Re-entry
+   * caveat: a second stop() call awaits `done` unbounded (no grace race) —
+   * known limitation, tracked in follow-ups.
+   */
   stop(): Promise<void>;
   /** The promise of the loop's run — resolves when the loop exits. */
   done: Promise<void>;
@@ -205,6 +222,21 @@ export const DEFAULT_LEASE_SECONDS = 300;
 export const DEFAULT_HEARTBEAT_MS = 60_000;
 /** Default idle poll interval when there's no work / no budget. */
 export const DEFAULT_POLL_INTERVAL_MS = 5_000;
+/**
+ * Upper bound on how long `stop()` waits for the in-flight run to drain before
+ * detaching and resolving anyway. Comfortably under Railway's SIGTERM grace
+ * window so even a wedged driver (one that ignores its abort signal) can't block
+ * process exit past grace and get SIGKILL'd mid-cleanup. Env-overridable via
+ * `WORKER_DRAIN_GRACE_MS`.
+ */
+export const DEFAULT_WORKER_DRAIN_GRACE_MS = 25_000;
+
+function resolveDrainGraceMs(): number {
+  const raw = process.env.WORKER_DRAIN_GRACE_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_WORKER_DRAIN_GRACE_MS;
+}
 
 function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -485,16 +517,6 @@ export function buildDriverErrorResult(args: {
 }
 
 /**
- * Run ONE claimed job to completion: install the cell-capturing writer, run the
- * driver with a lease-renewal heartbeat in flight, and return the computed
- * `ServiceJobResult`. On a driver crash/timeout, returns a comm-error terminal
- * result instead of throwing — the loop always has a result to report so a
- * crashed job never silently strands its lease until the sweeper reclaims it.
- *
- * Exported for direct unit testing of the claim→run→report round-trip without
- * driving the full poll loop.
- */
-/**
  * Resolve the `{ driver, payloadToInput }` entry that runs a claimed payload.
  * Dispatch is by `payload.driverKind` against the injected `drivers` registry;
  * when the registry is omitted the loop falls back to the legacy single
@@ -523,6 +545,16 @@ export function resolveDriverEntry(
   return undefined;
 }
 
+/**
+ * Run ONE claimed job to completion: install the cell-capturing writer, run the
+ * driver with a lease-renewal heartbeat in flight, and return the computed
+ * `ServiceJobResult`. On a driver crash/timeout, returns a comm-error terminal
+ * result instead of throwing — the loop always has a result to report so a
+ * crashed job never silently strands its lease until the sweeper reclaims it.
+ *
+ * Exported for direct unit testing of the claim→run→report round-trip without
+ * driving the full poll loop.
+ */
 export async function runClaimedJob(
   deps: Pick<
     WorkerLoopDeps,
@@ -536,6 +568,17 @@ export async function runClaimedJob(
   > & { now: () => Date; sleep: NonNullable<WorkerLoopDeps["sleep"]> },
   lease: JobLease,
   opts: { leaseSeconds: number; heartbeatMs: number },
+  /**
+   * The worker's drain signal (`startWorkerLoop`'s `stopAbort.signal`). Threaded
+   * into `ctx.abortSignal` so a graceful `stop()` cancels the in-flight driver
+   * run promptly (the d6 driver wires `ctx.abortSignal` into its own abort).
+   * Once the signal FIRES, `ctx.drainReason` reads `"shutdown"` (a live getter
+   * — undefined while the signal exists but has not fired) so the driver can
+   * distinguish a drain abort from a timeout/error abort and suppress its red
+   * per-cell side-emits only on a true drain. Optional so the `runClaimedJob`
+   * unit tests that call it directly keep compiling without a signal.
+   */
+  drainSignal?: AbortSignal,
 ): Promise<ServiceJobResult> {
   const { workerId, queue, logger, env, now } = deps;
   const { job, payload } = lease;
@@ -688,6 +731,21 @@ export async function runClaimedJob(
       logger,
       env,
       writer: capture.writer,
+      // Thread the worker's drain signal so a graceful `stop()` aborts the
+      // in-flight run promptly. `drainReason` rides alongside it so the driver
+      // suppresses its red per-cell side-emits on drain (a redeploy must not
+      // paint a mass-red block).
+      abortSignal: drainSignal,
+      // LIVE drain state: "shutdown" only once the drain signal has actually
+      // FIRED — not merely because one exists. Every fleet ctx carries the
+      // signal, so a statically-stamped "shutdown" would mislabel the driver's
+      // OWN wall-clock timeout abort as a graceful drain and suppress the red
+      // cells a genuine timeout must paint. A getter keeps the field a plain
+      // optional property structurally (assignable to ProbeContext.drainReason)
+      // while reading the signal's state at suppression-decision time.
+      get drainReason(): "shutdown" | undefined {
+        return drainSignal?.aborted ? "shutdown" : undefined;
+      },
       featureTypes:
         payload.cellIds && payload.cellIds.length > 0
           ? payload.cellIds
@@ -921,6 +979,8 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
 
       // 3. Run + report. `runClaimedJob` never throws — it returns a comm-error
       //    terminal result on crash/timeout so the loop always reports.
+      //    The drain signal (`stopAbort.signal`) is threaded into the driver ctx
+      //    so a graceful `stop()` cancels the in-flight run.
       const result = await runClaimedJob(
         {
           workerId,
@@ -935,7 +995,30 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         },
         lease,
         { leaseSeconds, heartbeatMs },
+        stopAbort.signal,
       );
+
+      // DRAIN ABANDON: the check is "stop() was requested" — NOT "the run was
+      // aborted". A result that completed green just before stop() fired is
+      // also abandoned, by design (accepted cost; it re-runs after the lease
+      // lapses). Do NOT report the result —
+      // a reported partial paints RED (terminalJobStatus maps any non-green
+      // aggregate to "failed", and there is no neutral aggregate state the
+      // result-consumer renders). Instead leave the row claimed/running so the
+      // lease lapses and the control-plane sweeper re-queues it neutral-gray
+      // (`worker-reclaimed-pending`). The accepted cost is an up-to-lease-window
+      // re-run delay; the win is ZERO red paint on a routine redeploy. The
+      // worker also deregisters its registry row (orchestrator runWorker stop
+      // path) so fleet-health doesn't reclaim the row red at its 180s stale
+      // window before the 300s lease expiry.
+      if (stopAbort.signal.aborted) {
+        logger.info("fleet.worker.drain-abandon", {
+          workerId,
+          jobId: lease.job.id,
+        });
+        notifyCurrentJob(null);
+        break;
+      }
 
       try {
         await queue.report({ jobId: lease.job.id, workerId, result });
@@ -976,6 +1059,8 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
     logger.info("fleet.worker.loop-stopped", { workerId });
   })();
 
+  const drainGraceMs = resolveDrainGraceMs();
+
   return {
     async stop(): Promise<void> {
       if (stopped) {
@@ -984,7 +1069,34 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
       }
       stopped = true;
       stopAbort.abort();
-      await done;
+      // Bound the drain: the in-flight `driver.run` observes `stopAbort.signal`
+      // (threaded into `ctx.abortSignal`) and returns promptly, so `done`
+      // normally resolves fast. But a wedged driver that ignores the abort must
+      // not block process exit past Railway's grace window → SIGKILL mid-cleanup.
+      // Race `done` against a grace timeout; if the race times out, log and
+      // DETACH (resolve anyway) so the process actually leaves before SIGKILL.
+      let graceTimer: ReturnType<typeof setTimeout> | undefined;
+      const graceExpired = new Promise<"timeout">((resolve) => {
+        graceTimer = setTimeout(() => resolve("timeout"), drainGraceMs);
+        if (
+          graceTimer &&
+          typeof (graceTimer as { unref?: () => void }).unref === "function"
+        ) {
+          (graceTimer as { unref: () => void }).unref();
+        }
+      });
+      const outcome = await Promise.race([
+        done.then(() => "done" as const),
+        graceExpired,
+      ]);
+      if (graceTimer !== undefined) clearTimeout(graceTimer);
+      if (outcome === "timeout") {
+        logger.warn("fleet.worker.drain-timeout", {
+          workerId,
+          drainGraceMs,
+        });
+        // Detach: do NOT await `done` further — let the process exit.
+      }
     },
     done,
   };
