@@ -582,16 +582,20 @@ describe("createPooledE2eSmokeLauncher context checkout + abort release", () => 
       pool as unknown as BrowserPool,
     );
     const browser = await launcher();
+    // Sample header reflects the real per-run X-Test-Id shape the driver now
+    // emits: `d4-<slug>-<runId>` (the per-run runId suffix is FIX 1). This is a
+    // value-agnostic passthrough test — the launcher forwards whatever headers
+    // it is handed — so the value here is illustrative, not asserted-by-shape.
     await browser.newContext({
       extraHTTPHeaders: {
         "X-AIMock-Context": "slug-d4",
-        "X-Test-Id": "d4-slug-d4",
+        "X-Test-Id": "d4-slug-d4-run1",
       },
     });
     expect(pool._acquireOptions[0]).toEqual({
       extraHTTPHeaders: {
         "X-AIMock-Context": "slug-d4",
-        "X-Test-Id": "d4-slug-d4",
+        "X-Test-Id": "d4-slug-d4-run1",
       },
     });
   });
