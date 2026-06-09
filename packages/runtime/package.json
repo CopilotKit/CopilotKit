@@ -81,7 +81,7 @@
     "@ag-ui/client": "0.0.56",
     "@ag-ui/core": "0.0.56",
     "@ag-ui/encoder": "0.0.53",
-    "@ag-ui/langgraph": "0.0.40",
+    "@ag-ui/langgraph": "0.0.41",
     "@ag-ui/mcp-apps-middleware": "0.0.3",
     "@ag-ui/mcp-middleware": "0.0.1",
     "@ai-sdk/anthropic": "^3.0.49",
