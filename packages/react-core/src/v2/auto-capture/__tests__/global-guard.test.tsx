@@ -24,22 +24,27 @@ vi.mock("../../hooks/use-record-user-action", () => ({
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
-const mockUseChatConfig = useCopilotChatConfiguration as ReturnType<typeof vi.fn>;
+const mockUseChatConfig = useCopilotChatConfiguration as ReturnType<
+  typeof vi.fn
+>;
 const mockUseRecordUserAction = useRecordUserAction as ReturnType<typeof vi.fn>;
 
 const RUNTIME_URL = `${window.location.origin}/api/copilotkit`;
 
-// A stable function we treat as the pristine `fetch` original for identity checks.
+// Stable functions we treat as the pristine originals for identity checks.
 const baseFetch = (async () =>
   new Response("{}")) as unknown as typeof globalThis.fetch;
+const baseSendBeacon = (() => true) as unknown as typeof navigator.sendBeacon;
 
 // A non-undefined `IntelligenceRuntimeInfo`-shaped value = "Intelligence configured".
 const CONFIGURED = { wsUrl: "ws://intel.test" };
 
 interface Originals {
   fetch: typeof globalThis.fetch;
+  xhr: typeof globalThis.XMLHttpRequest;
   xhrOpen: typeof XMLHttpRequest.prototype.open;
   xhrSend: typeof XMLHttpRequest.prototype.send;
+  sendBeacon: typeof navigator.sendBeacon;
 }
 let originals: Originals;
 
@@ -59,28 +64,45 @@ const mount = (config: AutoCaptureUserActionsConfig) =>
 
 const expectUntouched = (): void => {
   expect(globalThis.fetch).toBe(originals.fetch);
+  expect(globalThis.XMLHttpRequest).toBe(originals.xhr);
   expect(XMLHttpRequest.prototype.open).toBe(originals.xhrOpen);
   expect(XMLHttpRequest.prototype.send).toBe(originals.xhrSend);
+  expect(navigator.sendBeacon).toBe(originals.sendBeacon);
 };
 
 const expectPatched = (): void => {
   expect(globalThis.fetch).not.toBe(originals.fetch);
+  // The XHR constructor itself is never replaced — only its prototype methods.
+  expect(globalThis.XMLHttpRequest).toBe(originals.xhr);
   expect(XMLHttpRequest.prototype.open).not.toBe(originals.xhrOpen);
   expect(XMLHttpRequest.prototype.send).not.toBe(originals.xhrSend);
+  expect(navigator.sendBeacon).not.toBe(originals.sendBeacon);
 };
 
 beforeEach(() => {
   resetAutoCaptureGlobals();
   globalThis.fetch = baseFetch;
+  // jsdom doesn't ship `navigator.sendBeacon`; polyfill a stable one so the
+  // sendBeacon patch actually engages and its reference identity is asserted
+  // across the same matrix (not just fetch/XHR).
+  Object.defineProperty(navigator, "sendBeacon", {
+    value: baseSendBeacon,
+    configurable: true,
+    writable: true,
+  });
   originals = {
     fetch: globalThis.fetch,
+    xhr: globalThis.XMLHttpRequest,
     xhrOpen: XMLHttpRequest.prototype.open,
     xhrSend: XMLHttpRequest.prototype.send,
+    sendBeacon: navigator.sendBeacon,
   };
 });
 
 afterEach(() => {
   resetAutoCaptureGlobals();
+  // Remove the polyfill so it can't leak into other test files.
+  delete (navigator as { sendBeacon?: unknown }).sendBeacon;
   vi.clearAllMocks();
 });
 
@@ -114,6 +136,18 @@ describe("useAutoCaptureUserActions — global guard (RD-30)", () => {
     const { unmount } = mount({ enabled: true });
     expectPatched();
     unmount();
+    expectUntouched();
+  });
+
+  it("restores the originals when auto-learning is turned off while mounted", () => {
+    setContext(CONFIGURED);
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useAutoCaptureUserActions({ enabled }),
+      { initialProps: { enabled: true } },
+    );
+    expectPatched();
+    rerender({ enabled: false });
     expectUntouched();
   });
 });
