@@ -59,6 +59,16 @@ What started as a React library is now a **multi-platform agentic framework**: t
 
 We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
+## Quick Start
+
+Up and running in under five minutes. All you need is an LLM key (OpenAI, Anthropic, Gemini, etc.).
+
+```bash
+npx copilotkit@latest create
+```
+
+## Bring Your App to Life
+
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
 <div align="center"> Add AI to your app in 1 minute</div>
@@ -115,19 +125,6 @@ Available via CopilotKit Cloud or self-hosted.
 
 👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
 
-## Quick Start
-
-### New projects:
-
-```bash
-npx copilotkit@latest create -f <framework>
-```
-
-### Existing projects:
-
-```bash
-npx copilotkit@latest init
-```
 
 https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
 
