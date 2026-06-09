@@ -130,10 +130,24 @@ ISOLATE_STALE_THRESHOLD=7200  # 2 hours in seconds
 _claim_isolate_slot() {
   mkdir -p "$ISOLATE_SLOT_DIR"
 
-  # Clean up stale slots first (crashed runs older than 2 hours, or dead PIDs)
+  # Clean up stale slots first. Preferred signal: compose-project liveness — a
+  # slot whose recorded project has NO live containers is dead, regardless of
+  # PID/age (this correctly LEAVES a --keep'd stack's slot alone, since its
+  # containers are still up). PID/age heuristics remain as a fallback for slots
+  # predating the "project" file.
   local slot_entry
   for slot_entry in "$ISOLATE_SLOT_DIR"/[0-9]*; do
     [ -d "$slot_entry" ] || continue
+    local slot_proj
+    slot_proj="$(cat "$slot_entry/project" 2>/dev/null)"
+    if [ -n "$slot_proj" ]; then
+      if [ -z "$(docker ps -q --filter "label=com.docker.compose.project=$slot_proj" 2>/dev/null)" ]; then
+        info "Reclaiming stale slot $(basename "$slot_entry") (project $slot_proj has no live containers)"
+        rm -rf "$slot_entry"
+      fi
+      # Project recorded → liveness is authoritative; skip PID/age fallback.
+      continue
+    fi
     local slot_pid_file="$slot_entry/pid"
     if [ -f "$slot_pid_file" ]; then
       local slot_pid
@@ -221,6 +235,13 @@ apply_isolation() {
   fi
   ISOLATE_NAME="$name"
   export COMPOSE_PROJECT_NAME="$name"
+
+  # Record the compose project alongside the slot's pid file so the next claim's
+  # stale-sweep can reap this slot by container liveness (project file written
+  # here, AFTER the name is finalized; the slot was claimed PID-first above).
+  if [ -n "$ISOLATE_SLOT" ] && [ -d "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT" ]; then
+    echo "$name" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/project"
+  fi
 
   # Create per-run scratch dir for overlay copies (originals stay untouched).
   # Keyed by the finalized project name (not the PID) so a --keep'd run is

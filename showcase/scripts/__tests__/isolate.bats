@@ -117,3 +117,45 @@ load_common() {
     || fail "run dir still the old /tmp PID scratch dir: $ISOLATE_TMPDIR"
   [ -d "$ISOLATE_TMPDIR" ] || fail "run dir not created: $ISOLATE_TMPDIR"
 }
+
+# ── Change 2: stale-slot reaping by compose-project liveness ─────────────────
+
+@test "claim reaps a slot whose project has no live containers" {
+  load_common
+  # Pre-seed slot 0 for a project with NO live containers (DOCKER_PS_OUTPUT="").
+  mkdir -p "$XDG_STATE_HOME/copilotkit/showcase/slots/0"
+  echo "ghost-proj" > "$XDG_STATE_HOME/copilotkit/showcase/slots/0/project"
+
+  export DOCKER_PS_OUTPUT=""
+  _claim_isolate_slot
+  # The dead slot 0 is reaped and reclaimed by this run.
+  [ "$ISOLATE_SLOT" = "0" ] || fail "expected to reclaim reaped slot 0, got: $ISOLATE_SLOT"
+  # The new claim recorded ITS own project, not the ghost.
+  run cat "$XDG_STATE_HOME/copilotkit/showcase/slots/0/project"
+  [[ "$output" != "ghost-proj" ]] || fail "ghost project not overwritten on reclaim"
+}
+
+@test "claim does NOT reap a slot whose project has a live container" {
+  load_common
+  mkdir -p "$XDG_STATE_HOME/copilotkit/showcase/slots/0"
+  echo "live-proj" > "$XDG_STATE_HOME/copilotkit/showcase/slots/0/project"
+
+  # Make docker ps report a live container id -> slot 0 must be preserved.
+  export DOCKER_PS_OUTPUT="abc123def456"
+  _claim_isolate_slot
+  [ "$ISOLATE_SLOT" = "1" ] || fail "expected to skip live slot 0 and claim 1, got: $ISOLATE_SLOT"
+  # Slot 0 and its project file survive untouched.
+  [ -d "$XDG_STATE_HOME/copilotkit/showcase/slots/0" ] || fail "live slot 0 was wrongly reaped"
+  run cat "$XDG_STATE_HOME/copilotkit/showcase/slots/0/project"
+  [[ "$output" == "live-proj" ]] || fail "live slot 0 project mangled: $output"
+}
+
+@test "slot claim persists the project name alongside the pid file" {
+  load_common
+  apply_isolation myproj
+  local slotdir="$ISOLATE_SLOT_DIR/$ISOLATE_SLOT"
+  [ -f "$slotdir/project" ] || fail "no project file written for claimed slot"
+  run cat "$slotdir/project"
+  [[ "$output" == "myproj" ]] || fail "wrong project recorded: $output"
+  [ -f "$slotdir/pid" ] || fail "pid file no longer written"
+}
