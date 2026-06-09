@@ -43,7 +43,9 @@ beforeEach(() => {
   recorder = vi.fn(async () => ({ id: "1", duplicate: false }));
   mockUseRecordUserAction.mockReturnValue(recorder);
   mockUseCopilotKit.mockReturnValue({
-    copilotkit: { runtimeUrl: RUNTIME_URL, headers: {} },
+    // `intelligence` defined = Intelligence-backed runtime; required for
+    // auto-capture to patch the globals (RD-30 gate).
+    copilotkit: { runtimeUrl: RUNTIME_URL, headers: {}, intelligence: {} },
   });
   mockUseChatConfig.mockReturnValue({ threadId: "thread-1" });
 });

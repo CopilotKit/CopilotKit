@@ -69,6 +69,18 @@ export function useAutoCaptureUserActions(
 
   const enabled = config.enabled !== false;
 
+  // RD-30: the global `fetch` / `XMLHttpRequest` / `navigator.sendBeacon` are
+  // patched ONLY when auto-learning is explicitly enabled AND the runtime is
+  // Intelligence-backed (i.e. there is a `/user-actions` sink to record into).
+  // `copilotkit.intelligence` is populated from the runtime-info handshake;
+  // `undefined` means Intelligence is not configured. Both conditions are
+  // checked before the effect ever reads or reassigns a global, so the
+  // default-off and Intelligence-unconfigured paths leave the globals
+  // reference-identical to their originals. `useCopilotKit` re-renders this
+  // hook when the runtime connection syncs, so a late-arriving `intelligence`
+  // still installs the patch (via the effect dependency below).
+  const intelligenceConfigured = copilotkit.intelligence !== undefined;
+
   // Hold the latest inputs in a ref so the bridge dispatcher reads current
   // values without re-installing the patch on every render.
   const latest = useRef({ config, copilotkit, chatConfig, recordUserAction });
@@ -76,7 +88,10 @@ export function useAutoCaptureUserActions(
   const warnedRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
+    // Both conditions must hold before ANY global is read or reassigned.
+    if (!enabled || !intelligenceConfigured || typeof window === "undefined") {
+      return;
+    }
 
     const dispatch = (raw: RawExchange): void => {
       const current = latest.current;
@@ -109,5 +124,5 @@ export function useAutoCaptureUserActions(
       clearAutoCaptureDispatch(dispatch);
       uninstallAutoCapturePatches();
     };
-  }, [enabled]);
+  }, [enabled, intelligenceConfigured]);
 }
