@@ -164,7 +164,8 @@ const searchFlights = tool(
 // a2ui_dynamic). A secondary LLM designs the surface; the factory forces the
 // host catalog and emits the a2ui_operations envelope. Replaces the prior
 // hand-rolled generate_a2ui tool.
-const generateA2ui = getA2UITools(new ChatOpenAI({ model: "gpt-4.1" }), {
+const generateA2ui = getA2UITools({
+  model: new ChatOpenAI({ model: "gpt-4.1" }),
   defaultCatalogId: "copilotkit://app-dashboard-catalog",
 });
 
