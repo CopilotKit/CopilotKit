@@ -22,12 +22,20 @@ describe("runRedeploy", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
     summary = "";
+    // runRedeploy unconditionally honors $REDEPLOY_SUMMARY_JSON — if the
+    // test process inherits it (e.g. from a CI step), every runRedeploy
+    // call here would write a real file. Stub it out (undefined deletes
+    // the var) so tests never touch the filesystem.
+    vi.stubEnv("REDEPLOY_SUMMARY_JSON", undefined);
   });
 
   afterEach(() => {
     consoleErrSpy.mockRestore();
     consoleLogSpy.mockRestore();
     stdoutWriteSpy.mockRestore();
+    // vi.restoreAllMocks/mockRestore do NOT undo stubEnv — unstub
+    // explicitly or the stub leaks into other files under fork reuse.
+    vi.unstubAllEnvs();
   });
 
   const appendSummary = (s: string) => {

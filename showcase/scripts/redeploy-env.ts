@@ -7,19 +7,24 @@
  *   npx tsx showcase/scripts/redeploy-env.ts <env> [--services <csv>]
  *
  *   npx tsx showcase/scripts/redeploy-env.ts staging
- *     → redeploys all 25 CI_BUILT_SERVICES (default scope excludes
- *       pocketbase/webhooks; explicit --services can still target them)
+ *     → redeploys all CI_BUILT_SERVICES (every ciBuilt SSOT entry; the
+ *       default scope excludes webhooks and the non-CI-built
+ *       harness-workers/harness-legacy — though harness-workers joins via
+ *       imageOf expansion on staging; explicit --services can still
+ *       target any SSOT key)
  *
  *   npx tsx showcase/scripts/redeploy-env.ts staging --services mastra,ag2
  *     → redeploys only the listed services (CSV of SSOT keys OR
  *       showcase_build.yml dispatch_names; mixed is fine).
  *
  * Behavior:
- *   - Default target set: CI_BUILT_SERVICES (25 of 27 SSOT entries).
- *     pocketbase and webhooks are first-party but released by their own
- *     repos — they are excluded from the default scope. An explicit
- *     `--services pocketbase` (or webhooks) WILL still redeploy them;
- *     resolveTargetServices honors any SSOT key the caller asks for.
+ *   - Default target set: CI_BUILT_SERVICES (every ciBuilt SSOT entry,
+ *     pocketbase included). webhooks is first-party but released by its
+ *     own repo, and harness-workers/harness-legacy are not CI-built —
+ *     none of them are in the default scope. An explicit
+ *     `--services webhooks` (or harness-workers) WILL still redeploy
+ *     them; resolveTargetServices honors any SSOT key the caller asks
+ *     for.
  *   - When `--services` is provided, each entry is resolved via
  *     resolveTargetServices() against SSOT keys + dispatch_names.
  *   - In BOTH cases the resolved set is expanded with `imageOf` consumers
@@ -27,7 +32,8 @@
  *     (e.g. harness-workers running the shared showcase-harness image)
  *     redeploys whenever that image's builder is in scope. The expansion
  *     is env-aware — a consumer only joins envs it actually declares, so
- *     the staging-only worker never enters a prod redeploy.
+ *     the staging-only worker is never ADDED to a prod redeploy by
+ *     expansion (an explicit --services request is passed through as-is).
  *   - Per-service Railway failures (including the all-services-fail case)
  *     are logged to stderr and $GITHUB_STEP_SUMMARY but DO NOT fail the
  *     process for staging. Staging is not a release gate; the
@@ -167,7 +173,7 @@ export interface RunRedeploySummary {
  *
  * Ordering is intentionally split by branch:
  *   - When `input` is undefined, returns the default `CI_BUILT_SERVICES`
- *     set sorted alphabetically (never includes pocketbase/webhooks).
+ *     set sorted alphabetically (never includes webhooks).
  *   - When `input` is provided, returns the resolved SSOT keys in the
  *     caller's INSERTION order (deduped). `runRedeploy` then sorts before
  *     iterating, so the user-visible iteration order is alphabetical in

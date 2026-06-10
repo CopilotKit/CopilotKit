@@ -237,7 +237,7 @@ describe("railway-envs SSOT", () => {
     for (const match of yaml.matchAll(regex)) {
       dispatchNames.push(match[1]);
     }
-    // Sanity: we expect a populated list (25 CI-built services today).
+    // Sanity: we expect a populated list (one entry per CI-built service).
     expect(
       dispatchNames.length,
       "no dispatch_name entries found in showcase_build.yml — regex broken or file moved",
