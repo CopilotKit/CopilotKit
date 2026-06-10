@@ -608,6 +608,79 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(updateCalls[updateCalls.length - 1]![0]).toContain("World");
     }, 10000);
 
+    it("applies the latest streamed content when the preview sandbox becomes ready (no stale snapshot)", async () => {
+      // The preview sandbox is created asynchronously: Effect 0 starts the
+      // dynamic import() and the sandbox's ready promise resolves a tick later.
+      // If newer chunks stream in DURING that window, Effect 0b cannot apply them
+      // (it early-returns until previewReadyRef flips true), so the snapshot that
+      // Effect 0's resolve callback applies must be read live — otherwise the
+      // preview shows the creation-time frame until the next content change, and
+      // if the stream already ended there is no next change.
+      //
+      // RED pre-fix: Effect 0's promise.then closed over previewBody/previewStyles
+      // captured when the effect ran, so the FIRST applied frame was "OLD" only.
+      // GREEN post-fix: it reads the latest frame via a ref, so "NEW" is applied.
+      const { rerender } = render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>OLD</div>"],
+            htmlComplete: false,
+            cssComplete: true,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+
+      // Resolve the dynamic import() so Websandbox.create runs and the preview
+      // sandbox ref is populated — but DO NOT resolve the sandbox ready promise.
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // A newer chunk streams in before the sandbox is ready. Going 1->2 chunks
+      // (htmlComplete:false) is throttled by the outer wrapper, so wait out the
+      // 1s window to let the inner component re-render with the newer body.
+      // Effect 0 does not re-fire (the sandbox ref is set); Effect 0b fires but
+      // early-returns because previewReadyRef is still false.
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>OLD</div>", "<div>NEW</div>"],
+            htmlComplete: false,
+            cssComplete: true,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 1100));
+      });
+      await flushImport();
+
+      // Now the sandbox becomes ready. Its resolve callback applies the preview
+      // frame — which must be the latest one, not the creation-time snapshot.
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
+      // The body the sandbox first received must already include the newer chunk.
+      const firstBody = bodyCalls[0]![0] as string;
+      expect(firstBody).toContain("NEW");
+    }, 10000);
+
     it("destroys preview and creates final sandbox when htmlComplete arrives", async () => {
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer

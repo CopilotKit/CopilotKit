@@ -110,6 +110,29 @@ function shouldFlushImmediately(
 }
 
 /**
+ * Builds the preview iframe's `<head>` innerHTML. Shared by the sandbox-creation
+ * resolve (Effect 0) and the content-update effect (Effect 0b) so both assemble
+ * the cascade identically. The overflow guard must be part of the assigned head
+ * content (not a separate append) so it survives the `head.innerHTML` assignment.
+ * Order: overflow guard → kit → extracted preview styles → agent css (css last,
+ * matching the final document's cascade).
+ */
+function buildPreviewHeadHtml(
+  designSystemCss: string | false | undefined,
+  previewStyles: string,
+  css: string | undefined,
+): string {
+  const headParts: string[] = [
+    "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
+  ];
+  if (designSystemCss)
+    headParts.push(`<style data-ck-design-system>${designSystemCss}</style>`);
+  if (previewStyles) headParts.push(previewStyles);
+  if (css) headParts.push(`<style>${css}</style>`);
+  return headParts.join("");
+}
+
+/**
  * Outer wrapper — absorbs every parent re-render but only forwards
  * throttled content snapshots to the memoized inner component.
  */
@@ -214,6 +237,20 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const hasPreview = cssReady && !!previewBody?.trim();
     const hasVisibleSandbox = !!fullHtml || hasPreview;
 
+    // Latest preview payload, tracked synchronously during render. Effect 0's
+    // sandbox.promise.then resolves AFTER creation, by which point newer chunks
+    // may have streamed in (Effect 0b can't apply them while previewReadyRef is
+    // still false, so it early-returns). Reading from this ref in the resolve
+    // callback applies the CURRENT frame instead of the stale creation-time
+    // snapshot captured in the closure.
+    const latestPreviewRef = useRef<{ headHtml: string; body?: string }>({
+      headHtml: "",
+    });
+    latestPreviewRef.current = {
+      headHtml: buildPreviewHeadHtml(designSystemCss, previewStyles, css),
+      body: previewBody,
+    };
+
     const containerRef = useRef<HTMLDivElement>(null);
     const sandboxRef = useRef<{
       run: (code: string | Function) => Promise<unknown>;
@@ -268,27 +305,18 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             if (cancelled) return;
             previewReadyRef.current = true;
 
-            // Inject CSS from the dedicated parameter + any inline styles from HTML.
-            // The overflow guard must be part of the assigned head content (not a
-            // separate append) so it survives the head.innerHTML assignment.
-            // Order: overflow guard → kit → extracted preview styles → agent css
-            // (css last, matching the final document's cascade)
-            const headParts: string[] = [
-              "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
-            ];
-            if (designSystemCss)
-              headParts.push(
-                `<style data-ck-design-system>${designSystemCss}</style>`,
-              );
-            if (previewStyles) headParts.push(previewStyles);
-            if (css) headParts.push(`<style>${css}</style>`);
+            // Apply the LATEST preview frame, not the snapshot captured when this
+            // effect ran: chunks may have streamed in while the promise was
+            // pending, and Effect 0b early-returns until previewReadyRef flips
+            // true (just above), so it cannot have applied them yet. Reading the
+            // ref here closes that window — the next content change still flows
+            // through Effect 0b normally.
+            const { headHtml, body } = latestPreviewRef.current;
             sandbox.run(
-              `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+              `document.head.innerHTML = ${JSON.stringify(headHtml)}`,
             );
-            if (previewBody) {
-              sandbox.run(
-                `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
-              );
+            if (body) {
+              sandbox.run(`document.body.innerHTML = ${JSON.stringify(body)}`);
             }
           });
         })
@@ -307,21 +335,13 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0b — Preview content updates (body + styles)
     useEffect(() => {
       if (!previewSandboxRef.current || !previewReadyRef.current) return;
-      // The overflow guard must be part of the assigned head content (not a
-      // separate append) so it survives the head.innerHTML assignment.
-      // Order: overflow guard → kit → extracted preview styles → agent css
-      // (css last, matching the final document's cascade)
-      const headParts: string[] = [
-        "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
-      ];
-      if (designSystemCss)
-        headParts.push(
-          `<style data-ck-design-system>${designSystemCss}</style>`,
-        );
-      if (previewStyles) headParts.push(previewStyles);
-      if (css) headParts.push(`<style>${css}</style>`);
+      const headHtml = buildPreviewHeadHtml(
+        designSystemCss,
+        previewStyles,
+        css,
+      );
       previewSandboxRef.current.run(
-        `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+        `document.head.innerHTML = ${JSON.stringify(headHtml)}`,
       );
       if (!previewBody) return;
       previewSandboxRef.current.run(
