@@ -3717,10 +3717,11 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
               cron: string;
               handler: () => Promise<unknown>;
             }) => {
-              // The d6 producer (`fleet-job-producer`) is the ONLY one wired
-              // with the REQ-B `onSweepCommErrors` sweep leg, so capture ITS
-              // handler specifically — the other three browser-family producer
-              // schedules + the `probe:*` HTTP entries also register here.
+              // Capture the d6 producer's (`fleet-job-producer`) handler
+              // specifically — all four producers share the REQ-B
+              // `onSweepCommErrors` sink (the non-d6 leg is covered by the
+              // sink fan-out sibling below); the other three browser-family
+              // producer schedules + `probe:*` HTTP entries also register here.
               if (entry.id === FLEET_PRODUCER_SCHEDULE_ID) {
                 producerHandler = entry.handler;
               }
@@ -3754,6 +3755,223 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
       expect(overlay).toBeDefined();
       expect(overlay!.kind).toBe("worker-crashed-mid-job");
       expect(overlay!.jobId).toBe("job-swept-1");
+    } finally {
+      await handle.stop();
+    }
+  });
+});
+
+/**
+ * REQ-B sweep-sink fan-out: a sweep performed by a NON-d6 producer must ALSO
+ * forward its comm errors to the aggregator.
+ *
+ * All four family producers run the same GLOBAL `queue.sweepExpired` on their
+ * own crons, and the sweep's S0 CAS means whichever producer sweeps FIRST wins
+ * each expired job's reclaim — and with it the synthesized
+ * `worker-reclaimed-pending` comm error. The job-producer's `maybeSweep`
+ * forwards those errors only when its `onSweepCommErrors` sink is wired, so a
+ * producer built WITHOUT the sink silently DROPS them. With only d6 wired
+ * (hourly @ :40) and smoke/demos/deep sweeping far more often (every-15min,
+ * :10 hourly, and :05/:20/:35/:50), the reclaim overlay was dropped ~11 of 12
+ * sweeps.
+ *
+ * This drives the SMOKE producer's tick (scheduler entry
+ * `FLEET_PRODUCER_SMOKE_SCHEDULE_ID`) through `runControlPlane`'s real
+ * assembly and asserts the swept overlay lands on the job's `d6:<slug>` status
+ * row. RED against d6-only wiring (the smoke producer has no sink); GREEN once
+ * all four producers share the control-plane sink.
+ */
+describe("orchestrator runControlPlane REQ-B sweep wiring — non-d6 producer (sink fan-out)", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("surfaces a swept job's overlay when the SMOKE producer performs the sweep", async () => {
+    vi.resetModules();
+
+    // SELF-CONTAINED MOCK SET: `vi.doMock` factories registered by sibling
+    // tests persist for the rest of the file (resetModules clears the module
+    // CACHE, not the mock REGISTRY), so explicitly unmock every module this
+    // test touches before re-mocking — the test must pass in isolation AND in
+    // file order regardless of which siblings leaked factories.
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./fleet/queue-client.js");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./storage/s3-backup.js");
+    vi.doUnmock("./writers/status-writer.js");
+    vi.doUnmock("./probes/run-history.js");
+    vi.doUnmock("./scheduler/scheduler.js");
+    vi.doUnmock("./fleet/control-plane/result-consumer.js");
+    vi.doUnmock("./events/event-bus.js");
+    vi.doUnmock("./probes/loader/probe-loader.js");
+
+    // The smoke/demos/deep producers always use their REAL catalog enumerators
+    // (`opts.fleetEnumerate` is a d6-ONLY test seam), so inject an empty
+    // roster via the LOCAL_SERVICES_JSON local-injection seam — the smoke tick
+    // enumerates [] without Railway creds, and `maybeSweep` runs regardless of
+    // what enumeration yields.
+    vi.stubEnv("LOCAL_SERVICES_JSON", "[]");
+
+    // We need the REAL serve() so this role binds cleanly and the producer
+    // tick can run — pin it (the async-bind siblings leak a rejecting stub).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    const sweptCommError: PoolCommError = {
+      kind: "worker-crashed-mid-job",
+      message: "lease expired; worker presumed crashed",
+      workerId: "worker-dead",
+      jobId: "job-swept-smoke",
+      observedAt: "2026-06-10T00:00:00.000Z",
+    };
+
+    // Queue fake: sweepExpired yields the swept comm error exactly once — to
+    // WHICHEVER producer sweeps first; this test only drives the SMOKE
+    // producer's tick, so the smoke producer wins the sweep.
+    vi.doMock("./fleet/queue-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/queue-client.js")
+      >("./fleet/queue-client.js");
+      let swept = false;
+      return {
+        ...actual,
+        createFleetQueueClient: () => ({
+          enqueue: async () => ({}) as never,
+          claimNext: async () => ({ claimed: false }) as never,
+          renewLease: async () => null,
+          report: async () => undefined,
+          sweepExpired: async () => {
+            if (swept) return { reclaimed: 0, commErrors: [] };
+            swept = true;
+            return { reclaimed: 1, commErrors: [sweptCommError] };
+          },
+          countPendingForFamily: async () => 0,
+        }),
+      };
+    });
+
+    // pb fake: getOne(probe_jobs, "job-swept-smoke") resolves the swept job's
+    // probe_key (the resolveSweepAggregateKey lookup); getFirst(status, ...)
+    // is the "never observed" path. health() true so the role boots clean.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async (_collection: string, id: string) =>
+            id === "job-swept-smoke" ? { probe_key: "d6:swept-svc-smoke" } : null,
+          getFirst: async () => null,
+        }),
+      };
+    });
+
+    // Capture every status-writer write so we can assert the overlay landed on
+    // the d6:<slug> row.
+    const writes: ProbeResult<unknown>[] = [];
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: () => ({
+          write: async (r: ProbeResult<unknown>) => {
+            writes.push(r);
+            return undefined;
+          },
+        }),
+      };
+    });
+
+    // run-history writer is irrelevant to the sweep leg; stub it so the
+    // aggregator constructs without a real PB run-history collection.
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        createProbeRunWriter: () => ({
+          findByJobId: async () => null,
+          start: async () => ({}) as never,
+          finishTerminal: async () => undefined,
+        }),
+      };
+    });
+
+    // Capture the SMOKE producer's scheduler handler so we can drive ITS tick
+    // (which runs the sweep) deterministically without waiting on cron.
+    let smokeHandler: (() => Promise<unknown>) | undefined;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: {
+              id: string;
+              cron: string;
+              handler: () => Promise<unknown>;
+            }) => {
+              // Capture the NON-d6 smoke producer's handler specifically —
+              // the d6 `fleet-job-producer`, the other two browser-family
+              // schedules, and the `probe:*` HTTP entries also register here.
+              if (entry.id === FLEET_PRODUCER_SMOKE_SCHEDULE_ID) {
+                smokeHandler = entry.handler;
+              }
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      // Empty d6 enumerator → no d6 enqueue churn (the smoke enumerator is
+      // emptied via LOCAL_SERVICES_JSON above).
+      { port, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(smokeHandler).toBeDefined();
+      // Drive one SMOKE producer tick → maybeSweep → onSweepCommErrors →
+      // surfaceSweepCommErrors → resolveSweepAggregateKey → aggregateCommError.
+      await smokeHandler!();
+
+      const overlayWrite = writes.find((w) => w.key === "d6:swept-svc-smoke");
+      expect(overlayWrite).toBeDefined();
+      const signal = overlayWrite!.signal as Record<string, unknown>;
+      const overlay = signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
+        | PoolCommError
+        | undefined;
+      expect(overlay).toBeDefined();
+      expect(overlay!.kind).toBe("worker-crashed-mid-job");
+      expect(overlay!.jobId).toBe("job-swept-smoke");
     } finally {
       await handle.stop();
     }
