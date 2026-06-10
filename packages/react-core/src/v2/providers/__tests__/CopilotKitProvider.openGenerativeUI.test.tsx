@@ -96,6 +96,30 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       expect(importMap).toHaveProperty("foo", "https://x");
       expect(importMap).toHaveProperty("three");
     });
+
+    it("(e2) overriding the bare 'three' specifier re-pins the 'three/' subpath form to the SAME version", () => {
+      // Finding: the documented idiom `libraries: { three: <url> }` upgrades
+      // only the bare key under a flat spread, leaving `three/` on the stale
+      // default version — so a generated scene loads two copies of three.js.
+      // The resolved importmap must re-pin the subpath sibling to the override.
+      const { result } = renderHook(() => useOpenGenerativeUIOptions(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            openGenerativeUI={{
+              libraries: { three: "https://esm.sh/three@0.999.0" },
+            }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.importMap).not.toBe(false);
+      const importMap = result.current.importMap as Record<string, string>;
+      expect(importMap["three"]).toBe("https://esm.sh/three@0.999.0");
+      // RED pre-fix: this equals the default 0.180.0 URL (stale sibling).
+      expect(importMap["three/"]).toBe("https://esm.sh/three@0.999.0/");
+    });
   });
 
   describe("(f) legacy design-skill guard — agent context registration", () => {

@@ -53,7 +53,10 @@ import type { ReactCustomMessageRenderer } from "../types/react-custom-message-r
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { OPEN_GEN_UI_DESIGN_SYSTEM_CSS } from "../lib/designSystemCss";
-import { DEFAULT_OPEN_GEN_UI_LIBRARIES } from "../lib/assembleDocument";
+import {
+  DEFAULT_OPEN_GEN_UI_LIBRARIES,
+  mergeLibraries,
+} from "../lib/assembleDocument";
 import { OpenGenerativeUIOptionsProvider } from "./OpenGenerativeUIOptionsContext";
 import type { OpenGenerativeUIResolvedOptions } from "./OpenGenerativeUIOptionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
@@ -390,7 +393,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         ? false
         : (customKitCss ?? OPEN_GEN_UI_DESIGN_SYSTEM_CSS),
       importMap:
-        libs === false ? false : { ...DEFAULT_OPEN_GEN_UI_LIBRARIES, ...libs },
+        libs === false
+          ? false
+          : mergeLibraries(DEFAULT_OPEN_GEN_UI_LIBRARIES, libs ?? {}),
     }),
     // identity-stable: deps are value keys, not object identities. `libs` is
     // intentionally read from the latest closure (gated by `librariesKey`).

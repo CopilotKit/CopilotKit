@@ -139,7 +139,7 @@ Override or disable the importmap via the provider:
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   openGenerativeUI={{
-    libraries: { lodash: "https://esm.sh/lodash-es@4.17.21" }, // merged over the defaults
+    libraries: { lodash: "https://esm.sh/lodash-es@4.17.21" }, // merged over the defaults; overriding a bare specifier re-pins its "lib/" subpath form too
     // libraries: false  — disable the importmap entirely
   }}
 >

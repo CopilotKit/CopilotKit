@@ -3,6 +3,7 @@ import {
   assembleDocument,
   buildImportMapScript,
   DEFAULT_OPEN_GEN_UI_LIBRARIES,
+  mergeLibraries,
 } from "../assembleDocument";
 
 // Legacy reference implementations, copied verbatim from
@@ -328,5 +329,88 @@ describe("assembleDocument", () => {
         });
       }
     }
+  });
+});
+
+describe("mergeLibraries", () => {
+  // Stand-in defaults shaped like DEFAULT_OPEN_GEN_UI_LIBRARIES: every library
+  // is a PAIR (bare + trailing-slash subpath form) pinned to one version.
+  const DEFAULTS: Record<string, string> = {
+    three: "https://esm.sh/three@0.180.0",
+    "three/": "https://esm.sh/three@0.180.0/",
+    gsap: "https://esm.sh/gsap@3.13.0",
+    "gsap/": "https://esm.sh/gsap@3.13.0/",
+    d3: "https://esm.sh/d3@7.9.0",
+    "d3/": "https://esm.sh/d3@7.9.0/",
+    "chart.js": "https://esm.sh/chart.js@4.5.0",
+    "chart.js/": "https://esm.sh/chart.js@4.5.0/",
+  };
+
+  // (1) Overriding the bare specifier re-pins its trailing-slash sibling to the
+  // SAME version (bare URL + "/"), so a generated scene never loads two copies
+  // of the library. This is the core finding: a flat spread would leave
+  // `three/` on the stale 0.180.0 default.
+  it("re-pins the trailing-slash sibling when only the bare specifier is overridden", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0");
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/");
+    // Untouched libraries keep their default pins.
+    expect(out.gsap).toBe(DEFAULTS.gsap);
+    expect(out["gsap/"]).toBe(DEFAULTS["gsap/"]);
+  });
+
+  // (2) An explicit user `three/` override always wins — derivation must never
+  // clobber a subpath form the user set on purpose.
+  it("respects an explicit trailing-slash override (not clobbered by derivation)", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0",
+      "three/": "https://cdn.example.com/three-subpath/",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0");
+    expect(out["three/"]).toBe("https://cdn.example.com/three-subpath/");
+  });
+
+  // (3) A brand-new library with no default sibling gets NO invented `foo/`
+  // entry — we only re-pin subpath forms the defaults actually define.
+  it("does not invent a trailing-slash sibling for a new library without a default sibling", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      foo: "https://esm.sh/foo@1.0.0",
+    });
+    expect(out.foo).toBe("https://esm.sh/foo@1.0.0");
+    expect(out).not.toHaveProperty("foo/");
+  });
+
+  // (4) An override URL that already ends in `/` must not gain a second slash.
+  it("does not double the slash when the override URL already ends in one", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0/",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0/");
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/");
+  });
+
+  // (5) Untouched defaults (gsap / d3 / chart.js) are left exactly as-is when
+  // only one library is overridden.
+  it("leaves untouched defaults (gsap/d3/chart.js) intact", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0",
+    });
+    expect(out.gsap).toBe(DEFAULTS.gsap);
+    expect(out["gsap/"]).toBe(DEFAULTS["gsap/"]);
+    expect(out.d3).toBe(DEFAULTS.d3);
+    expect(out["d3/"]).toBe(DEFAULTS["d3/"]);
+    expect(out["chart.js"]).toBe(DEFAULTS["chart.js"]);
+    expect(out["chart.js/"]).toBe(DEFAULTS["chart.js/"]);
+  });
+
+  // Does not mutate its inputs (the defaults map is a shared module constant).
+  it("does not mutate its arguments", () => {
+    const defaults = { ...DEFAULTS };
+    const overrides = { three: "https://esm.sh/three@0.999.0" };
+    mergeLibraries(defaults, overrides);
+    expect(defaults).toEqual(DEFAULTS);
+    expect(overrides).toEqual({ three: "https://esm.sh/three@0.999.0" });
   });
 });

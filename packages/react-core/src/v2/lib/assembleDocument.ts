@@ -16,6 +16,55 @@ export const DEFAULT_OPEN_GEN_UI_LIBRARIES: Record<string, string> = {
 };
 
 /**
+ * Merges user-supplied importmap overrides over a set of defaults, keeping the
+ * bare specifier and its trailing-slash subpath sibling pinned to the SAME
+ * version.
+ *
+ * The defaults register every pre-wired library as a PAIR — a bare specifier
+ * (`three`) and a trailing-slash subpath form (`three/`) — both pinned to one
+ * version, because the tool guidance tells the model to use BOTH forms
+ * (`import * as THREE from "three"` AND `three/examples/jsm/…`). A naive flat
+ * spread (`{ ...defaults, ...overrides }`) re-pins only the bare key the user
+ * passed, leaving its `lib/` sibling on the stale default version — so a
+ * generated scene would load two different copies of the same library in one
+ * sandbox (instanceof failures, duplicate singletons).
+ *
+ * Semantics:
+ * - Start from `{ ...defaults, ...overrides }`.
+ * - For every override key `K` that does NOT end with `/`, where `defaults`
+ *   has a `K + "/"` sibling and `overrides` did NOT explicitly provide
+ *   `K + "/"`: set `K + "/"` to the override URL with a single trailing slash
+ *   appended (appended only if the URL does not already end with one).
+ * - Explicit user `K/` entries always win (never clobbered by derivation).
+ * - New libraries with no default sibling get no invented `K/` entry.
+ * - Override keys that themselves end in `/` are treated as plain entries.
+ *
+ * Pure function — no DOM, no React. Does not mutate its arguments.
+ */
+export function mergeLibraries(
+  defaults: Record<string, string>,
+  overrides: Record<string, string>,
+): Record<string, string> {
+  const merged: Record<string, string> = { ...defaults, ...overrides };
+
+  for (const key of Object.keys(overrides)) {
+    if (key.endsWith("/")) continue;
+    const slashKey = key + "/";
+    // Only re-pin a subpath sibling that the DEFAULTS define; never invent one
+    // for a brand-new library. An explicit override of `slashKey` always wins.
+    if (
+      Object.prototype.hasOwnProperty.call(defaults, slashKey) &&
+      !Object.prototype.hasOwnProperty.call(overrides, slashKey)
+    ) {
+      const url = overrides[key];
+      merged[slashKey] = url.endsWith("/") ? url : url + "/";
+    }
+  }
+
+  return merged;
+}
+
+/**
  * Options for `assembleDocument`.
  */
 export interface AssembleDocumentOptions {
