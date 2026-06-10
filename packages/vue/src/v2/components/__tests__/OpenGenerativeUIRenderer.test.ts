@@ -513,4 +513,113 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(options.frameContent).not.toBe("<head></head><body></body>");
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Preview cascade must match the FINAL document's cascade, region by region.
+  // The final document (ensureHead + injectCssIntoHtml) injects the agent css
+  // immediately before </head>, i.e. AFTER any existing head content. So the
+  // preview head must order extracted head styles BEFORE the agent css. A
+  // body-region style stays in the preview BODY, matching the final document
+  // where it sits in the body after the head css.
+  // -------------------------------------------------------------------------
+  describe("preview cascade parity", () => {
+    function lastHeadPayload(): string | undefined {
+      const headCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      return headCalls.length
+        ? (headCalls[headCalls.length - 1]![0] as string)
+        : undefined;
+    }
+    function lastBodyPayload(): string | undefined {
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      return bodyCalls.length
+        ? (bodyCalls[bodyCalls.length - 1]![0] as string)
+        : undefined;
+    }
+
+    // Case A — HEAD-region style: the preview head order (extracted head style
+    // < agent css) matches the final document, where injectCssIntoHtml puts the
+    // agent css after the existing head content (immediately before </head>).
+    //
+    // RED pre-fix: the renderer pushed the agent css BEFORE the extracted style,
+    // flipping the cascade relative to the final document. GREEN post-fix: the
+    // extracted style precedes the agent css.
+    it("orders preview head as head-region style -> agent css (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const inlineStyleContent = ".inline-block { color: seagreen; }";
+      // Inline style in the HEAD element (before <body>). The preview receives
+      // the streaming prefix (no closing tags); both must order the inline style
+      // before the agent css param.
+      const previewHtml = `<head><style>${inlineStyleContent}</style></head><body><div class="inline-block">Preview body</div>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      const inlineStyleIdx = headPayload!.indexOf(inlineStyleContent);
+      const agentCssIdx = headPayload!.indexOf(agentCss);
+      expect(inlineStyleIdx).toBeGreaterThan(-1);
+      expect(agentCssIdx).toBeGreaterThan(-1);
+      // Preview cascade: extracted head style first, agent css param LAST.
+      expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+    });
+
+    // Case B — BODY-region style: the style stays in the PREVIEW BODY (the body
+    // innerHTML run call contains it; the head payload does NOT), matching the
+    // final document where a body-region style also sits in the body after the
+    // head css.
+    //
+    // RED pre-fix: extractCompleteStyles hoisted EVERY style, so this body style
+    // was injected into the preview head and stripped from the preview body —
+    // the opposite of the final document. GREEN post-fix: it is left in the body.
+    it("keeps a body-region style in the preview body, not the head (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const bodyStyleContent = ".body-block { color: seagreen; }";
+      // The complete <style> sits INSIDE <body>, so it is body-region.
+      const previewHtml = `<body><div class="body-block">Preview body</div><style>${bodyStyleContent}</style>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      const bodyPayload = lastBodyPayload();
+      // Body-region style lives in the body payload, never hoisted to the head.
+      expect(bodyPayload).toBeDefined();
+      expect(bodyPayload!).toContain(bodyStyleContent);
+      if (headPayload) expect(headPayload).not.toContain(bodyStyleContent);
+      // The agent css is still applied to the head.
+      expect(headPayload).toBeDefined();
+      expect(headPayload!).toContain(agentCss);
+    });
+  });
 });

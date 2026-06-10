@@ -1,12 +1,5 @@
-import {
-  computed,
-  defineComponent,
-  h,
-  onBeforeUnmount,
-  ref,
-  watch,
-  type PropType,
-} from "vue";
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
+import type { PropType } from "vue";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import {
@@ -275,9 +268,16 @@ export const OpenGenerativeUIRenderer = defineComponent({
       [previewBody, previewStyles, css, previewReady],
       ([body, styles, cssText, ready]) => {
         if (!previewSandboxRef.value || !ready) return;
+        // Cascade parity: extracted head styles first, agent css LAST — mirroring
+        // the final document, where injectCssIntoHtml inserts the agent css
+        // immediately before </head> (after the existing head content). Ordering
+        // the agent css first would flip its cascade position at the preview→final
+        // swap, visibly restyling artifacts that collide with it at equal
+        // specificity. Vue has no kit/design-system injection, so the only two
+        // head payloads are: extracted styles → agent css.
         const headParts: string[] = [];
-        if (cssText) headParts.push(`<style>${cssText}</style>`);
         if (styles) headParts.push(styles);
+        if (cssText) headParts.push(`<style>${cssText}</style>`);
         if (headParts.length) {
           void previewSandboxRef.value.run(
             `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
