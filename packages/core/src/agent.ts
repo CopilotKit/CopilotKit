@@ -178,10 +178,38 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   override async detachActiveRun(): Promise<void> {
+    const withTimeout = <T>(
+      promise: Promise<T>,
+      ms: number,
+      label: string,
+    ): Promise<T | void> => {
+      let timer: ReturnType<typeof setTimeout>;
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(
+            `ProxiedCopilotRuntimeAgent: ${label} timed out after ${ms}ms — forcing detach`,
+          );
+          resolve();
+        }, ms);
+      });
+      return Promise.race([promise, timeout]).finally(() =>
+        clearTimeout(timer),
+      );
+    };
+
     if (this.delegate) {
-      await this.delegate.detachActiveRun();
+      await withTimeout(
+        this.delegate.detachActiveRun(),
+        5_000,
+        "delegate.detachActiveRun()",
+      );
     }
-    await super.detachActiveRun();
+    await withTimeout(
+      super.detachActiveRun(),
+      5_000,
+      "super.detachActiveRun()",
+    );
+    this.isRunning = false;
   }
 
   abortRun(): void {
