@@ -125,7 +125,9 @@ function synthesizeBody(body: unknown): {
   contentType?: string;
 } {
   if (Buffer.isBuffer(body) || body instanceof Uint8Array) {
-    return { body };
+    // Buffer/Uint8Array<ArrayBufferLike> are valid fetch bodies at runtime,
+    // but the DOM lib's BodyInit only admits ArrayBuffer-backed views.
+    return { body: body as BodyInit };
   }
   if (typeof body === "string") {
     return { body };
