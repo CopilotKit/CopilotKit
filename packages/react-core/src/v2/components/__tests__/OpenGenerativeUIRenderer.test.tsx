@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
 import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
+import { OpenGenerativeUIOptionsProvider } from "../../providers/OpenGenerativeUIOptionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
 // Mock @jetbrains/websandbox
@@ -663,6 +664,117 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(options.frameContent).toContain("Done");
       // Final sandbox uses localApi, not empty object
       expect(options.frameContent).not.toBe("<head></head><body></body>");
+    });
+  });
+
+  describe("design-system / importmap injection", () => {
+    // Test A — defaults (no provider override): design system kit and importmap
+    // are injected before the agent's body content in the final sandbox document.
+    it("injects importmap and design-system kit before agent content (defaults)", async () => {
+      const agentBody = "<body><p>Agent content</p></body>";
+      renderRenderer({
+        html: [`<head></head>${agentBody}`],
+        htmlComplete: true,
+      });
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [, options] = mockCreate.mock.calls[0];
+      const frameContent: string = options.frameContent;
+
+      // Both kit markers must be present
+      expect(frameContent).toContain("data-ck-design-system");
+      expect(frameContent).toContain('<script type="importmap">');
+
+      // Cascade order: importmap and kit must appear before the agent body content
+      const importmapIdx = frameContent.indexOf('<script type="importmap">');
+      const kitIdx = frameContent.indexOf("data-ck-design-system");
+      const bodyContentIdx = frameContent.indexOf("<p>Agent content</p>");
+
+      expect(importmapIdx).toBeGreaterThan(-1);
+      expect(kitIdx).toBeGreaterThan(-1);
+      expect(bodyContentIdx).toBeGreaterThan(-1);
+
+      expect(importmapIdx).toBeLessThan(bodyContentIdx);
+      expect(kitIdx).toBeLessThan(bodyContentIdx);
+    });
+
+    // Test B — disabled (legacy backward-compat): with designSystemCss: false and
+    // importMap: false the frameContent must be byte-identical to the input html.
+    it("passes frameContent through unchanged when kit and importmap are disabled", async () => {
+      const inputHtml =
+        "<head><title>Legacy</title></head><body><p>Legacy content</p></body>";
+
+      render(
+        <OpenGenerativeUIOptionsProvider
+          value={{ designSystemCss: false, importMap: false }}
+        >
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ html: [inputHtml], htmlComplete: true }}
+            message={{}}
+            agent={{}}
+          />
+        </OpenGenerativeUIOptionsProvider>,
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const [, options] = mockCreate.mock.calls[0];
+
+      // Backward-compat invariant: no kit, no importmap, no extra style injected
+      expect(options.frameContent).toBe(inputHtml);
+    });
+
+    // Test C — preview streaming path: the document.head.innerHTML run call must
+    // include data-ck-design-system BEFORE any agent css <style> content.
+    it("injects design-system kit before agent css in preview head update", async () => {
+      const agentCss = "body { color: hotpink; }";
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            html: ["<body><div>Preview body</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox is created
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Resolve the preview sandbox promise so the head/body run calls fire
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // Find the sandbox.run call that sets document.head.innerHTML
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+
+      const headPayload: string = headCalls[0][0] as string;
+
+      // Both the kit and the agent css must be present
+      expect(headPayload).toContain("data-ck-design-system");
+      expect(headPayload).toContain(agentCss);
+
+      // Cascade order: kit must appear before agent css
+      const kitIdx = headPayload.indexOf("data-ck-design-system");
+      const agentCssIdx = headPayload.indexOf(agentCss);
+      expect(kitIdx).toBeLessThan(agentCssIdx);
     });
   });
 });
