@@ -177,6 +177,42 @@ describe("assembleDocument", () => {
     expect(cssIdx).toBeGreaterThan(titleIdx);
   });
 
+  // Literal-`<head>` normalization: an attributed head-open token
+  // (`<head lang="en">`) is rewritten to the exact 6-char literal `<head>` that
+  // real @jetbrains/websandbox requires to mount (`includes('<head>')` gate +
+  // `replace('<head>', …)` bootstrap, websandbox.js:450/462). The `lang`
+  // attribute is intentionally dropped (head attributes have negligible runtime
+  // semantics and CANNOT be preserved). The full cascade still holds:
+  // importmap -> kit -> agent css, with css immediately before the close.
+  it("normalizes an attributed head-open token to the literal <head> and drops its attributes", () => {
+    const out = assembleDocument(
+      '<head lang="en"><title>t</title></head><body>x</body>',
+      {
+        css: ".a{color:red}",
+        designSystemCss: KIT,
+        importMap: { three: "https://esm.sh/three@0.180.0" },
+      },
+    );
+    // The literal token websandbox demands is present.
+    expect(out).toContain("<head>");
+    // The attributes were dropped: no attributed head-OPEN token survives.
+    // Scoped to this input (which contains no `<header>`), so the broad
+    // `/<head[^>]+>/` cannot false-positive on a `<header …>` element.
+    expect(out).not.toMatch(/<head[^>]+>/);
+    // The original attribute string is gone entirely.
+    expect(out).not.toContain('lang="en"');
+    // Cascade order: importmap -> kit -> agent css.
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const cssIdx = out.indexOf(".a{color:red}");
+    const closeIdx = out.indexOf("</head>");
+    expect(importmapIdx).toBeGreaterThan(-1);
+    expect(importmapIdx).toBeLessThan(kitIdx);
+    expect(kitIdx).toBeLessThan(cssIdx);
+    // …and the agent css lands before the head close tag.
+    expect(cssIdx).toBeLessThan(closeIdx);
+  });
+
   // Close-anchor finding: the agent-css close-tag search must target the SAME
   // head the prefix (importmap + kit) was anchored to. When a stray `</head>`
   // precedes the real `<head>`, the open-tag matcher correctly skips the stray
@@ -315,6 +351,14 @@ describe("assembleDocument", () => {
           // importmap precedes the kit.
           expect(importmapIdx).toBeGreaterThan(-1);
           expect(importmapIdx).toBeLessThan(kitIdx);
+          // The structural lever: real @jetbrains/websandbox refuses to mount
+          // any frameContent lacking the exact lowercase literal `<head>` —
+          // `!frameContent.includes('<head>')` throws and its bootstrap injects
+          // via `replace('<head>', …)` (websandbox.js:450/462). So EVERY
+          // non-legacy output must contain that literal token, including the
+          // uppercase/attributed inputs (`<HEAD >…`, `<head data-x="a>b">…`,
+          // `<head data-config=…>`) whose open tags are normalized to `<head>`.
+          expect(out).toContain("<head>");
           // Exactly one head-opening tag — non-legacy mode never duplicates the
           // head, even for the legacy-quirk inputs (stray close, unclosed head).
           expect(out.match(HEAD_OPEN) ?? []).toHaveLength(1);

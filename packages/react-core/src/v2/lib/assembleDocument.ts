@@ -125,6 +125,22 @@ export function ensureHead(html: string): string {
  * : html)` path for ALL inputs, by construction (the legacy composition is
  * reproduced verbatim, injecting CSS into the raw html *before* ensuring head).
  *
+ * Literal-`<head>` normalization (NON-LEGACY path only): `@jetbrains/websandbox`
+ * requires the exact 6-character lowercase token `<head>` in `frameContent` — it
+ * throws `'Websandbox: iFrame content must have "<head>" tag.'` when
+ * `!frameContent.includes('<head>')` (case-sensitive) and its bootstrap injects
+ * via an exact `replace('<head>', '<head>\n<script>…')`
+ * (see websandbox.js:450/462). An LLM-emitted document whose head-opening tag is
+ * attributed or uppercase (`<head lang="en">`, `<HEAD>`, `<head >`) would
+ * therefore fail to mount (stuck behind the loading spinner). So when the
+ * quote-aware head-open matcher lands on a token that is NOT exactly `<head>`,
+ * this path REPLACES that token with the literal `<head>` while splicing the
+ * prefix. Head attributes (`lang`, `profile`, …) have negligible runtime
+ * semantics and CANNOT be preserved: websandbox demands the exact `<head>`
+ * token, so the matched token's attributes are intentionally dropped. The legacy
+ * branch is byte-identity-locked and is NOT touched (this failure pre-existed
+ * there).
+ *
  * Pure string function — no DOM, no React.
  */
 export function assembleDocument(
@@ -191,11 +207,27 @@ export function assembleDocument(
   // the first quoted `>` (which would splice the prefix mid-attribute).
   const headOpenMatch = html.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
   if (headOpenMatch && headOpenMatch.index !== undefined) {
-    prefixInsertAt = headOpenMatch.index + headOpenMatch[0].length;
-    html = html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
-    // The inserted prefix shifts the insertion point past its own bytes so
-    // the css fallback lands after the prefix (kit), preserving the cascade.
-    prefixInsertAt += prefix.length;
+    const matchIdx = headOpenMatch.index;
+    const matchedToken = headOpenMatch[0];
+    // websandbox requires the exact 6-char literal `<head>` (see JSDoc above):
+    // it `.includes('<head>')`-gates mounting and `.replace('<head>', …)`s to
+    // inject its bootstrap. If the matched open token is anything else
+    // (`<head lang="en">`, `<HEAD>`, `<head >`), REPLACE it with the literal
+    // `<head>` while splicing the prefix — the token's attributes are dropped
+    // (they have negligible runtime semantics and cannot be preserved). When
+    // the token is already exactly `<head>`, `headOpen.length === 6 ===
+    // matchedToken.length`, so this reduces to a verbatim splice-after-token.
+    const headOpen = "<head>";
+    // Anchor all offsets to the POST-replacement string: the rewritten region
+    // is `headOpen + prefix + <original content after the matched token>`, so
+    // the insertion point sits just past the prefix (start of the original head
+    // content), preserving the cascade for the css fallback below.
+    prefixInsertAt = matchIdx + headOpen.length + prefix.length;
+    html =
+      html.slice(0, matchIdx) +
+      headOpen +
+      prefix +
+      html.slice(matchIdx + matchedToken.length);
   } else {
     // No real head-opening tag exists that we can anchor to (e.g. an
     // unterminated `<head \nclass=x` token that `ensureHead` saw via
