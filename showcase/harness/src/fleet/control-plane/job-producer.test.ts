@@ -320,6 +320,30 @@ describe("job-producer — per-family backlog dedupe", () => {
     expect(result.skippedForBacklog).toBe(0);
   });
 
+  it("runs the sweep BEFORE the backlog gate so a tick whose own sweep drains a family's stale backlog enqueues in the SAME tick", async () => {
+    // A family whose backlog consists ONLY of stale pending rows: the sweep's
+    // stale-pending drain expires all of them. If the gate runs before the
+    // sweep, the tick still counts the about-to-be-expired backlog and skips
+    // the family — production resumes a full cron period late even though
+    // this very tick cleared the blockage.
+    let pending = 3;
+    const queue = makeFakeQueue({
+      countPendingImpl: async () => pending,
+      sweepImpl: async () => {
+        pending = 0; // the stale-pending drain expired the whole backlog
+        return { reclaimed: 0, commErrors: [], expiredPending: 3 };
+      },
+    });
+    const { producer } = startedProducer({ specs: d6Specs(["a"]), queue });
+
+    const result = await producer.tick();
+
+    expect(result.sweptExpired).toBe(true);
+    expect(result.skippedForBacklog).toBe(0);
+    expect(result.enqueued).toBe(1);
+    expect(queue.enqueued).toHaveLength(1);
+  });
+
   it("fails OPEN when the backlog check itself fails (a count blip must not stop production)", async () => {
     const { producer, queue } = startedProducer({
       specs: d6Specs(["a"]),

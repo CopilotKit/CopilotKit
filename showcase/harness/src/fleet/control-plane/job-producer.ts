@@ -535,6 +535,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         services: specs.length,
       });
 
+      // SWEEP FIRST: the sweep's stale-pending drain can clear a family's
+      // entire backlog (a backlog of only-stale rows). Running it BEFORE the
+      // backlog gate means the very tick that drains a family also resumes
+      // its production — sweeping after the gate made production resume a
+      // full cron period late. Same cadence gate and fail-open semantics
+      // (maybeSweep swallows sweep failures); only the order changed.
+      const sweep = await maybeSweep(nowMs);
+
       // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
       // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
       // triggered ticks BYPASS the gate: an explicit trigger is a deliberate
@@ -576,8 +584,6 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           });
         }
       }
-
-      const sweep = await maybeSweep(nowMs);
 
       logger.info("fleet.producer.tick-complete", {
         runId,
