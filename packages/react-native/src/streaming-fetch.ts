@@ -309,11 +309,12 @@ export function installStreamingFetch(): void {
                 const text = await fullTextPromise;
                 try {
                   return JSON.parse(text);
-                } catch (e) {
+                } catch {
                   throw new TypeError(
                     `Failed to parse JSON from ${method} ${url} (status ${xhrStatus}): ${
                       text.length > 200 ? text.slice(0, 200) + "..." : text
                     }`,
+                    { cause: e },
                   );
                 }
               },
@@ -363,5 +364,5 @@ export function installStreamingFetch(): void {
 
   // Expose original fetch for opt-out (e.g., third-party libs that need native behavior)
   (streamingFetch as any).__originalFetch = originalFetch;
-  global.fetch = streamingFetch;
+  global.fetch = streamingFetch as typeof fetch;
 }
