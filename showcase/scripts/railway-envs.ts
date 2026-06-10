@@ -167,15 +167,17 @@ export interface ServiceEntry {
   probeDriver: ProbeDriver;
   /**
    * True iff this service is built and pushed by `showcase_build.yml`.
-   * pocketbase and webhooks are first-party GHCR images but are built
-   * by their own repos' release workflows — they MUST NOT be touched
-   * by the showcase build's staging redeploy step.
+   * webhooks is a first-party GHCR image but is built by its own repo's
+   * release workflow — it MUST NOT be touched by the showcase build's
+   * default staging redeploy scope. (pocketbase IS showcase-CI-built:
+   * its matrix slot is gated to `showcase/pocketbase/**` changes.)
    */
   ciBuilt: boolean;
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` — the historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` except the two `gateIgnore` entries (`harness-workers`,
+   * `harness-legacy`) — the historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
@@ -242,10 +244,12 @@ export interface ServiceEntry {
    *     (the legacy non-functional placeholder; never dereferenced because
    *     the service is staging-only with probe disabled).
    *   - a missing per-env `domain` → the value provided here (the legacy
-   *     borrowed control-plane host). The Ruby parity test rejects
-   *     `.up.railway.app` hosts and resolve-verify-matrix filters on
-   *     `probe.staging===true`, so neither consumer is affected by these
-   *     placeholder hosts — they exist only to preserve the JSON shape.
+   *     borrowed control-plane host). bin/railway's EXPECTED_DOMAINS
+   *     derivation FILTERS OUT `*.up.railway.app` hosts (only public
+   *     domains enter its domain checks), and resolve-verify-matrix
+   *     filters on `probe.staging===true`, so neither consumer ever
+   *     dereferences these placeholder hosts — they exist only to
+   *     preserve the JSON shape.
    *
    * Omit this field for any normal (dual-env, domain-bearing) service.
    */
@@ -939,7 +943,12 @@ export const SERVICES: Record<
     // GHCR repo name is `showcase-eval-webhook` (NOT `webhooks`), and
     // it is built by a separate release workflow — not showcase_build.yml.
     // The dispatch_name entry exists so humans can redeploy/verify
-    // webhooks from CI on demand; the build slot is no-op.
+    // webhooks from CI on demand; the build slot is no-op (skip_build).
+    // NOTE: that no-op slot still reports build status "success", so a
+    // manual `service=all` build dispatch puts webhooks in the matrix ∩
+    // success-set and MAY bounce webhooks staging (Railway re-pulls its
+    // out-of-band :latest). Only the push-driven DEFAULT scope (ciBuilt
+    // + paths-filter) is guaranteed to leave webhooks untouched.
     environments: {
       prod: {
         instanceId: "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
@@ -1050,13 +1059,15 @@ export function listServiceNames(): string[] {
 
 /**
  * The subset of SERVICES that `showcase_build.yml` actually builds and
- * pushes. Excludes `webhooks` (released by its own repo's workflow).
- * pocketbase IS CI-built (its matrix slot is gated to
- * `showcase/pocketbase/**` changes). Default target set for
- * `redeploy-env.ts <env>` when no explicit `--services` list is provided
- * — though the actual default redeploy scope is this set PLUS any
- * `imageOf` consumers that declare the target env (e.g. staging adds
- * harness-workers).
+ * pushes. Excludes `webhooks` (released by its own repo's workflow) AND
+ * the non-CI-built harness services: `harness-workers` (consumes the
+ * shared showcase-harness image via imageOf; no build slot of its own)
+ * and `harness-legacy` (runs a pinned out-of-band digest). pocketbase
+ * IS CI-built (its matrix slot is gated to `showcase/pocketbase/**`
+ * changes). Default target set for `redeploy-env.ts <env>` when no
+ * explicit `--services` list is provided — though the actual default
+ * redeploy scope is this set PLUS any `imageOf` consumers that declare
+ * the target env (e.g. staging adds harness-workers).
  */
 export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
   Object.entries(SERVICES)
