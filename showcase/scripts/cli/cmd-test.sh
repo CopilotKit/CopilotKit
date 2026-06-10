@@ -20,12 +20,14 @@ Options:
   --verbose        Verbose test output
   --headed         Run Playwright in headed (visible) mode
   --repeat <n>     Run N times
-  --keep           Don't stop auto-started packages after test
+  --keep           Don't stop auto-started packages after test; with --isolate,
+                   also leaves the isolated stack standing (teardown command
+                   printed at exit)
   --live           Write results to PocketBase for dashboard
   --rebuild        Force Docker rebuild before running
   --cycle          On failure, auto-dump aimock logs from the test window
   --isolate [name] Run in an isolated compose project with offset ports
-                   (default name: isolate-<PID>). Allows parallel test runs.
+                   (default name: showcase-iso<slot>). Allows parallel test runs.
 
 Examples:
   showcase test mastra --d6 --verbose         # D6 probes (full matrix) with verbose output
@@ -54,7 +56,7 @@ cmd_test() {
       --smoke)   harness_args+=(--smoke);   shift ;;
       --verbose) harness_args+=(--verbose); shift ;;
       --headed)  harness_args+=(--headed);  shift ;;
-      --keep)    harness_args+=(--keep);    shift ;;
+      --keep)    ISOLATE_KEEP=true; harness_args+=(--keep); shift ;;
       --live)    harness_args+=(--live);    shift ;;
       --rebuild) harness_args+=(--rebuild); shift ;;
       --direct)  harness_args+=(--direct);  shift ;;
@@ -109,10 +111,21 @@ cmd_test() {
 
   # Apply isolation if requested (must happen before any compose commands).
   # Register the trap BEFORE apply_isolation so cleanup runs even if the
-  # function itself crashes partway through.
+  # function itself crashes partway through. restore_isolation reads the
+  # ISOLATE_KEEP global (set above when --keep is parsed). It MUST be a global,
+  # not a local: on the normal path cmd_test returns and its locals unwind
+  # before the EXIT trap fires at top-level script exit, so a function-local
+  # flag would silently read as false there (a local is only visible to the
+  # trap when `die` exits from inside cmd_test itself). Under --keep,
+  # restore_isolation leaves the stack standing and prints a survival notice
+  # instead of tearing down, so the slot's live containers keep it from being
+  # reaped.
   if $use_isolate; then
     trap restore_isolation EXIT
     apply_isolation "${isolate_name:-}"
+    if $ISOLATE_KEEP; then
+      info "--keep set: isolated stack will be left standing after the run (teardown command printed at exit)"
+    fi
   fi
 
   # Build the filter description for the info line
