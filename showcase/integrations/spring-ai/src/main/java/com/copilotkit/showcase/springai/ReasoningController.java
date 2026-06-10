@@ -103,6 +103,9 @@ public class ReasoningController {
             "You are a helpful assistant. For each user question, first think "
             + "step-by-step about the approach, then give a concise answer.";
 
+    // Intentional divergence from the Python ports' `gpt-4o-mini`: model is not
+    // part of the aimock fixture match keys, and the spring-ai fixture was
+    // recorded with this model. Behavior parity is unaffected.
     private static final String MODEL = "gpt-4.1";
 
     // Mirrors AG2's _REASONING_PATTERN (DOTALL | IGNORECASE) — the defensive

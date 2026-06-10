@@ -1,10 +1,10 @@
-// Shared fallback time-slot generator for the interrupt demos
-// (`gen-ui-interrupt`, `interrupt-headless`). The interrupt backend
-// (`src/agents/interrupt_agent.py`) supplies its own candidate slots
-// inside the interrupt payload — these fallbacks only run if the
-// payload arrives without them. Generating relative to `Date.now()`
-// keeps the fallback from rotting, which previously had hardcoded
-// dates that decayed within a week of being authored.
+// Shared time-slot generator for the `gen-ui-interrupt` demo. The interrupt
+// backend (`src/agents/interrupt_agent.py`)
+// has no slot logic — the model just calls `schedule_meeting` and the page
+// renders this picker. So `generateFallbackSlots()` is the only slot source;
+// the page calls it unconditionally. Generating relative to `Date.now()`
+// keeps the slots from rotting, which previously had hardcoded dates that
+// decayed within a week of being authored.
 
 export interface TimeSlot {
   label: string;
@@ -27,7 +27,7 @@ function nextMonday(from: Date): Date {
   // `getDay()` is 0=Sun, 1=Mon, ..., 6=Sat. We want the next Monday
   // that's at LEAST 2 days away — otherwise "Monday" would collide
   // with "Tomorrow" on Sunday (offset would be 1) or with itself on
-  // Monday (offset would be 0). Mirrors interrupt_agent.py.
+  // Monday (offset would be 0).
   const day = from.getDay();
   let offset = (1 - day + 7) % 7;
   if (offset <= 1) offset += 7;

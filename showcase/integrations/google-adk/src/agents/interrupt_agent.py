@@ -12,8 +12,9 @@ the time-picker inline and resolves the call once the user picks a slot —
 equivalent to `interrupt()` in the LangGraph reference.
 
 `after_model_callback=stop_on_terminal_text` is the canonical ADK terminal
-guard (see shared_chat.py): without it Gemini 3.1 Flash-Lite re-issues the
-same tool call indefinitely after the frontend tool resolves.
+guard (see shared_chat.py): without it the configured Gemini model
+(from `get_model()`) re-issues the same tool call indefinitely after the
+frontend tool resolves.
 """
 
 from __future__ import annotations

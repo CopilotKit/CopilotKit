@@ -134,10 +134,13 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "frontend_tools": AgentSpec(_simple_chat),
     # Frontend tool round-trip with thread-id continuity (ENT-658). Page at
     # /demos/threadid-frontend-tool-roundtrip binds agentId=
-    # "threadid-frontend-tool-roundtrip" explicitly; mirrors langgraph-python's
+    # "threadid-frontend-tool-roundtrip" explicitly. Parity with
+    # langgraph-python's
     # `agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools")`
-    # by sharing the simple chat agent (no backend tools — the frontend
-    # registers testFrontendToolCalling via useFrontendTool).
+    # means reusing the same simple-chat agent instance as `frontend_tools`,
+    # not sharing a backend path — this ADK registry routes each name to its
+    # own backend path. No backend tools; the frontend registers
+    # testFrontendToolCalling via useFrontendTool.
     "threadid-frontend-tool-roundtrip": AgentSpec(_simple_chat),
     "frontend-tools-async": AgentSpec(_simple_chat),
     "prebuilt-sidebar": AgentSpec(_simple_chat),

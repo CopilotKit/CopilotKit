@@ -28,8 +28,9 @@ configure_aimock()
 # `_cached_flow` + `asyncio.Lock` inside `add_crewai_crew_fastapi_endpoint`.
 # Any LLM hiccup now surfaces as a 5xx on the first request instead of a
 # startup crash, which is the correct failure mode for a runtime outage and
-# is what the shim was reaching for. With the requirements.txt pin bumped to
-# `>=0.2.0,<0.3.0`, the shim is dead code and has been removed.
+# is what the shim was reaching for. With the ag-ui-crewai pin in
+# requirements.txt at the deferred-construction version, the shim is dead
+# code and has been removed.
 
 import asyncio
 import json

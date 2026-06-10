@@ -27,9 +27,13 @@ export interface TimePickerCardProps {
 
 /**
  * Renders an in-chat "Book a call" card with a small grid of time slots.
- * Used by `useInterrupt`: when the backend's `schedule_meeting` tool calls
- * `interrupt(...)`, this card appears as a chat message bubble. The user's
- * picked slot (or cancellation) is fed back to the agent via `resolve(...)`.
+ * Used by `useHumanInTheLoop` (Strategy B): the ADK backend exposes
+ * `schedule_meeting` as a frontend tool the model is instructed to call, and
+ * `gen-ui-interrupt/page.tsx` registers a matching `useHumanInTheLoop` that
+ * renders this card inline as a chat message bubble. The user's picked slot
+ * (or cancellation) is returned to the agent via `respond(...)`. (This
+ * backend has no LangGraph-style `interrupt()` primitive, so the LGP
+ * showcase's `useInterrupt` hook is dead here — see the page's comment.)
  */
 export function TimePickerCard({
   topic,

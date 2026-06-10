@@ -17,8 +17,8 @@ side-channel entirely (the channel aimock fixtures populate via their
 `reasoning` field, and that reasoning models emit in production). So the stock
 adapter can never light up CopilotKit's reasoning slot.
 
-This module mounts a small custom `/agui` handler (mirroring agno's
-`_run_reasoning_agent`) that:
+This module builds a small custom `/reasoning` sub-app (mounted by
+`agent_server.py`, mirroring agno's `_run_reasoning_agent`) that:
   1. Calls the OpenAI-compatible chat-completions endpoint directly
      (streaming) with the agent's system prompt plus the full prior
      conversation history (so follow-up questions keep their context, parity
