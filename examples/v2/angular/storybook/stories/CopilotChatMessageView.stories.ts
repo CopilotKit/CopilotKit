@@ -2,17 +2,19 @@ import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import { Component, Injectable, input, signal } from "@angular/core";
+import type {
+  Message,
+  RenderToolCallConfig,
+  ToolRenderer,
+  AngularToolCall,
+} from "@copilotkitnext/angular";
 import {
   CopilotChatMessageView,
   CopilotChatMessageViewCursor,
   CopilotKit,
   provideCopilotKit,
   provideCopilotChatLabels,
-  Message,
-  RenderToolCallConfig,
-  ToolRenderer,
-  AngularToolCall,
-} from "@copilotkit/angular";
+} from "@copilotkitnext/angular";
 import { ToolCallStatus } from "@copilotkit/core";
 import { z } from "zod"; // Schema validation
 
@@ -62,7 +64,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkit/angular';
+import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
 
 @Component({
   selector: 'app-chat',
@@ -216,7 +218,7 @@ export const ShowCursor: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkit/angular';
+import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
 
 @Component({
   selector: 'app-chat',
@@ -594,7 +596,7 @@ import {
   ToolCall, 
   ToolMessage,
   provideCopilotKit
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { ToolCallStatus } from '@copilotkit/core';
 import { z } from 'zod';
 

@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
-import { fn } from "@storybook/test";
+import { fn } from "storybook/test";
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
 import {
   CopilotChatAssistantMessage,
   provideCopilotChatLabels,
-} from "@copilotkit/angular";
-import { AssistantMessage } from "@ag-ui/client";
+} from "@copilotkitnext/angular";
+import type { AssistantMessage } from "@ag-ui/client";
 
 // Simple default message
 const simpleMessage: AssistantMessage = {
@@ -356,7 +356,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
+import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -413,7 +413,7 @@ export const TestAllMarkdownFeatures: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
+import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -502,7 +502,7 @@ export const WithToolbarButtons: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
+import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -595,7 +595,7 @@ export const WithAdditionalToolbarItems: Story = {
       source: {
         type: "code",
         code: `import { Component, ViewChild, TemplateRef } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
+import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
@@ -678,7 +678,7 @@ export const CodeBlocksWithLanguages: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatAssistantMessage } from '@copilotkit/angular';
+import { CopilotChatAssistantMessage } from '@copilotkitnext/angular';
 import { AssistantMessage } from '@ag-ui/client';
 
 @Component({
