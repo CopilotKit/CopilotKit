@@ -94,6 +94,10 @@ import {
   E2E_DEMOS_DRIVER_KIND,
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
+import {
+  DRAIN_DEREGISTER_TIMEOUT_MS,
+  safeLog,
+} from "./fleet/worker/worker-loop.js";
 import type { DriverRegistry } from "./fleet/worker/worker-loop.js";
 import { registerWorker } from "./fleet/worker/registration.js";
 import {
@@ -3185,6 +3189,175 @@ export async function verifyWorkerRegistered(deps: {
 }
 
 /**
+ * GRACEFUL-DRAIN STOP SEQUENCE for the fleet worker role — deregister FIRST,
+ * teardown best-effort AFTER (the platform-kill hardening).
+ *
+ * WHY THIS ORDER: live Railway redeploys showed the platform's stop grace
+ * (~10s after SIGTERM) is SHORTER than the drain grace the worker shipped
+ * with (WORKER_DRAIN_GRACE_MS — grace history: 25s at the 2026-06-10 live
+ * incident → an 8s interim → the composed 6s default, so the SERIAL
+ * deregister-cap + grace budget fits UNDER the platform window). The
+ * previous sequence
+ * (`await worker.stop()`
+ * → deregister) gated the <1s roster delete on slow browser-context teardown:
+ * workers stuck in teardown were HARD-KILLED before deregistering, stranding
+ * stale roster rows that fleet-health reclaimed red at its 180s stale mark —
+ * the exact deploy red-splash the drain was built to remove. Abandon +
+ * deregister take <1s; teardown is best-effort on a process that is dying
+ * anyway (a SIGKILL mid-teardown is harmless once the roster row is gone).
+ *
+ *   1. `worker.drain()` — SYNCHRONOUS: fires the loop's drain signal, aborting
+ *      the in-flight run and recording the abandon decision
+ *      (`fleet.worker.drain-requested` with the abandoned jobId). The loop's
+ *      report-skip keys on the SIGNAL — not on `stop()` completing — so a run
+ *      that has not begun reporting can never be reported, even if a wedged
+ *      teardown later "completes" the run; its lease lapses and the sweeper
+ *      re-queues it neutral-gray (unchanged abandon semantics). (A report the
+ *      loop already initiated before the signal is past the abandon point and
+ *      may land — it is not recorded as abandoned.)
+ *   2. `registration.stop()` — cancel the periodic heartbeat timer so no
+ *      further periodic upsert can follow the delete.
+ *   3. `await registration.deregister()` — latch the handle (every later
+ *      heartbeat, including the abandoned run's eventual fire-and-forget
+ *      job-settle beat, becomes a logged no-op) and DELETE the roster row as
+ *      the terminal link of the handle's write-serialization chain (any
+ *      already-enqueued upsert settles first). This await is the ONLY step
+ *      that must beat the platform kill — and it no longer gates on teardown.
+ *      It is BOUNDED at `DRAIN_DEREGISTER_TIMEOUT_MS`: the real
+ *      registration.ts `deregister()` NEVER REJECTS (failed deletes are
+ *      swallowed + warned there), but it can HANG on a wedged PocketBase —
+ *      and a hang must not consume the platform's ~10s kill window. On
+ *      timeout (or a rejecting deregister from a structural-contract caller)
+ *      the drain logs and proceeds to teardown; the row strands, degrading to
+ *      the documented crash-path reclaim.
+ *   4. `await worker.stop()` — BEST-EFFORT teardown, bounded by the loop's
+ *      drain grace (WORKER_DRAIN_GRACE_MS now bounds this phase only): waits
+ *      for the in-flight run/loop to wind down (a wedged driver detaches at
+ *      grace expiry), then the fleet wrapper closes its health server. A
+ *      rejecting stop() still surfaces to the caller — but only AFTER step 5.
+ *   5. `shutdownPool()` — still last, and ALWAYS runs even when stop()
+ *      rejects (a stop failure must never strand the pool's chromium
+ *      processes); the caller owns the pool. The stop error is captured and
+ *      re-thrown AFTER the shutdown, and a shutdown failure is logged rather
+ *      than thrown so it can never mask the stop error.
+ *
+ * Crash path (process died, no deregister) keeps today's red reclaim —
+ * deregistration remains the marker distinguishing a graceful drain from a
+ * crash. Exported because the ORDERING is the fix — orchestrator.test.ts pins
+ * it against the real fleet worker + registration handles.
+ */
+// DRAIN_DEREGISTER_TIMEOUT_MS lives in the LEAF module
+// (fleet/worker/worker-loop.ts, next to DEFAULT_WORKER_DRAIN_GRACE_MS and the
+// composed-budget doc) so worker-loop.test.ts can pin the composed drain
+// budget without importing this module's whole graph; re-exported here for
+// existing importers (orchestrator.test.ts pins the drain ordering with it).
+export { DRAIN_DEREGISTER_TIMEOUT_MS };
+
+export async function drainFleetWorker(args: {
+  worker: { drain(): void; stop(): Promise<void> };
+  registration: { stop(): void; deregister(): Promise<void> };
+  shutdownPool: () => Promise<void>;
+}): Promise<void> {
+  // EVERY log on this path is guarded: when a catch block here is logging,
+  // the failing component may BE the logger — an unguarded warn inside a
+  // pre-deregister catch would escape drainFleetWorker before the roster
+  // delete ever ran (the exact failure class requestDrain() already guards
+  // with its abort-before-log discipline), and one inside a post-deregister
+  // catch would strand the teardown phases behind it. Forensics are
+  // best-effort; the drain sequence is load-bearing. Delegates to the shared
+  // guarded-log helper (`safeLog`, fleet/worker/worker-loop.ts) — one
+  // implementation of the discipline, bound to this module's logger.
+  const safeWarn = (
+    msg: string,
+    meta: Record<string, unknown>,
+    level: "warn" | "error" = "warn",
+  ): void => safeLog(logger, level, msg, meta);
+  // Steps 1–2 are STRUCTURAL handles (the real ones never throw), but this is
+  // the SIGTERM critical path: a throwing caller-supplied handle upstream of
+  // the roster delete must NOT skip it — same log-and-proceed discipline as
+  // the deregister below.
+  try {
+    args.worker.drain();
+  } catch (err) {
+    safeWarn("fleet.worker.drain-failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+  try {
+    args.registration.stop();
+  } catch (err) {
+    safeWarn("fleet.worker.registration-stop-failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+  // BOUNDED deregister: a HUNG — not failing — PocketBase must not consume
+  // Railway's ~10s kill window (the teardown + pool shutdown behind this
+  // await would never run before the SIGKILL). registration.ts's
+  // `deregister()` contract is never-reject (failed deletes are swallowed +
+  // warned there), so the catch is for STRUCTURAL callers that supply their
+  // own `{ deregister(): Promise<void> }` handle; both degradations proceed
+  // to teardown — the roster row strands into the documented crash-path
+  // reclaim (fleet-health reclaims the stale row at its 180s mark).
+  let deregisterTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const outcome = await Promise.race([
+      args.registration.deregister().then(() => "deregistered" as const),
+      new Promise<"timeout">((resolve) => {
+        deregisterTimer = setTimeout(
+          () => resolve("timeout"),
+          DRAIN_DEREGISTER_TIMEOUT_MS,
+        );
+        if (
+          typeof (deregisterTimer as { unref?: () => void }).unref ===
+          "function"
+        ) {
+          (deregisterTimer as { unref: () => void }).unref();
+        }
+      }),
+    ]);
+    if (outcome === "timeout") {
+      safeWarn("fleet.worker.deregister-timeout", {
+        timeoutMs: DRAIN_DEREGISTER_TIMEOUT_MS,
+      });
+    }
+  } catch (err) {
+    safeWarn("fleet.worker.deregister-failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+  } finally {
+    if (deregisterTimer !== undefined) clearTimeout(deregisterTimer);
+  }
+  // stop() is BEST-EFFORT teardown — its rejection must not strand the pool's
+  // chromium processes (PID-ceiling compounding), so the pool shutdown ALWAYS
+  // runs. The stop error is CAPTURED rather than left to a bare
+  // `finally { await shutdownPool() }`: if the shutdown ALSO rejected, the
+  // finally's throw would MASK the stop error. The shutdown failure is logged
+  // best-effort; the stop error is the one re-surfaced to the caller (the
+  // signal handler logs it via signal-drain-failed) rather than being
+  // swallowed here.
+  let stopFailed = false;
+  let stopError: unknown;
+  try {
+    await args.worker.stop();
+  } catch (err) {
+    stopFailed = true;
+    stopError = err;
+  }
+  await args.shutdownPool().catch((err) => {
+    // Guarded at error level: a throwing logger inside this catch handler
+    // would reject the awaited chain and mask the captured stop error.
+    safeWarn(
+      "fleet.worker.pool-shutdown-failed-after-stop",
+      {
+        err: err instanceof Error ? err.message : String(err),
+      },
+      "error",
+    );
+  });
+  if (stopFailed) throw stopError;
+}
+
+/**
  * Worker role entrypoint: runs the BrowserPool and pulls per-service jobs from
  * the control-plane queue.
  *
@@ -3449,9 +3622,21 @@ export async function runWorker(
     });
   } catch (err) {
     // Never strand the registration heartbeat or the pool's chromium processes
-    // if the loop fails to start.
+    // if the loop fails to start. The shutdown is best-effort but LOGGED
+    // (consistent with the drain path's pool-shutdown logging) — an empty
+    // catch would hide WHY chromium processes were left stranded behind the
+    // boot failure. The original boot error still rethrows below.
     registration.stop();
-    await pool.shutdown().catch(() => {});
+    await pool.shutdown().catch((shutdownErr) => {
+      logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
+        workerId,
+        phase: "worker-boot-failed",
+        err:
+          shutdownErr instanceof Error
+            ? shutdownErr.message
+            : String(shutdownErr),
+      });
+    });
     throw err;
   }
 
@@ -3459,48 +3644,36 @@ export async function runWorker(
     port: worker.port,
     bus: worker.bus,
     async stop(): Promise<void> {
-      // GRACEFUL-DRAIN STOP ORDERING (FIX 3). The order matters because the
-      // final job-settle heartbeat is FIRE-AND-FORGET (`void
-      // registration.heartbeat(...)` above), so `await worker.stop()` resolving
-      // guarantees that heartbeat was CALLED, not that its PB upsert COMPLETED.
-      //   1. `worker.stop()` — drains/aborts the in-flight run (the loop threads
-      //      its drain signal into the driver ctx, the driver suppresses red
-      //      side-emits, and the loop SKIPS reporting the partial so the lease
-      //      lapses into the sweeper's neutral-gray re-queue). Its settle fires
-      //      the LAST possible (fire-and-forget) `onCurrentJobChange(null)`
-      //      heartbeat upsert.
-      //   2. `registration.stop()` — cancel the periodic heartbeat timer so no
-      //      further periodic upsert can follow the delete.
-      //   3. `registration.deregister()` — AWAIT the handle's tracked in-flight
-      //      write (so the still-in-flight job-settle upsert from step 1 lands
-      //      FIRST), THEN best-effort DELETE this worker's registry row. With no
-      //      row, fleet-health never reclaims a gracefully-drained worker red at
-      //      its 180s stale window; the abandoned job reaches the 300s lease
-      //      expiry where the sweeper re-queues it neutral-gray. The no-re-upsert
-      //      guarantee lives in the HANDLE (the awaited in-flight write), NOT in
-      //      this ordering — the reorder only narrows the race window. Crash path
-      //      (process died, no deregister) keeps today's red reclaim.
-      //   4. `pool.shutdown()` — unchanged (still last). We injected BOTH
-      //      budgetSource and driver, so fleet runWorker did NOT construct its
-      //      own pool — WE own it and shut it down here.
-      await worker.stop();
-      registration.stop();
-      await registration.deregister();
-      await pool.shutdown().catch((err) => {
-        logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
-          workerId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-        // CVDIAG: the worker's pool shutdown threw — chromium processes may be
-        // stranded. Surface the swallowed error with the worker_id.
-        console.log(
-          formatCvdiag({
-            component: "harness-orchestrator:worker-pool-shutdown-failed",
-            boundary: "als-snapshot",
-            status: "error",
-            error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+      // DEREGISTER-FIRST GRACEFUL DRAIN — see `drainFleetWorker` for the full
+      // ordering rationale (the platform kill grace is shorter than the drain
+      // grace, so the <1s abandon + roster delete must NOT gate on slow
+      // browser-context teardown). The no-re-upsert guarantee lives in the
+      // registration HANDLE (deregister latches synchronously, and the delete
+      // is the terminal link of its write-serialization chain), so the
+      // abandoned run's eventual fire-and-forget job-settle heartbeat —
+      // which now fires AFTER the delete — is latched into a logged no-op.
+      // We injected BOTH budgetSource and drivers, so fleet runWorker did NOT
+      // construct its own pool — WE own it and shut it down here (last).
+      await drainFleetWorker({
+        worker,
+        registration,
+        shutdownPool: () =>
+          pool.shutdown().catch((err) => {
+            logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            // CVDIAG: the worker's pool shutdown threw — chromium processes may
+            // be stranded. Surface the swallowed error with the worker_id.
+            console.log(
+              formatCvdiag({
+                component: "harness-orchestrator:worker-pool-shutdown-failed",
+                boundary: "als-snapshot",
+                status: "error",
+                error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+              }),
+            );
           }),
-        );
       });
     },
   };

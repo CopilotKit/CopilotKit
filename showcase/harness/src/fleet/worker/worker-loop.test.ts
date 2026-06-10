@@ -1,10 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   startWorkerLoop,
   runClaimedJob,
   computeRollup,
   buildServiceJobResult,
   buildCommErrorResult,
+  DEFAULT_WORKER_DRAIN_GRACE_MS,
+  // The deregister cap that precedes the drain grace in `drainFleetWorker`'s
+  // SERIAL budget — used by the composed-budget pin below.
+  DRAIN_DEREGISTER_TIMEOUT_MS,
 } from "./worker-loop.js";
 import type {
   ServiceJobDriver,
@@ -607,6 +611,163 @@ describe("runClaimedJob", () => {
     expect(queue.renewCalls).toBeGreaterThanOrEqual(1);
     expect(renewedDuringRun).toBeGreaterThanOrEqual(1);
   });
+
+  it("a rejecting injected sleep breaks the heartbeat but never rejects runClaimedJob (never-throws contract)", async () => {
+    // The heartbeat IIFE awaits `deps.sleep` — if that await sits OUTSIDE the
+    // heartbeat's try/catch, a rejecting sleep rejects the heartbeat promise,
+    // which escapes runClaimedJob's `await heartbeat` finally and rejects the
+    // LOOP's done-promise (silent worker death). A sleep rejection must break
+    // the heartbeat like a renew failure instead; the run's own result is
+    // still computed and returned.
+    const queue = makeQueue([]);
+    const driver = makeDriver({
+      slug: "langgraph-python",
+      cells: [{ featureId: "shared-state", state: "green" }],
+      aggregateState: "green",
+    });
+    const result = await runClaimedJob(
+      {
+        workerId: "worker-test",
+        queue,
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: async () => {
+          throw new Error("timer subsystem down");
+        },
+      },
+      makeLease(),
+      // A tiny heartbeatMs so the (rejecting) sleep is exercised immediately.
+      { leaseSeconds: 300, heartbeatMs: 1 },
+    );
+    expect(result.aggregateState).toBe("green");
+    expect(result.commError).toBeUndefined();
+  });
+
+  it("stops renewing the lease as soon as the drain signal fires (abandoned lease must lapse for the sweeper)", async () => {
+    // A2: once drain() fires the in-flight job is ABANDONED — the loop will
+    // never report it, and the whole abandon design relies on the lease
+    // LAPSING so the sweeper re-queues the job neutral-gray. A heartbeat that
+    // keeps renewing while a wedged run ignores its abort would keep the
+    // abandoned lease alive indefinitely. The heartbeat must observe the
+    // drain signal and stop renewing the moment it fires.
+    const queue = makeQueue([]);
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    let releaseFn!: () => void;
+    const released = new Promise<void>((res) => {
+      releaseFn = res;
+    });
+    // Wedged driver: IGNORES the abort signal, never settles until released.
+    const driver: ServiceJobDriver = {
+      async run(ctx): Promise<ProbeResult> {
+        markStarted();
+        await released;
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const drain = new AbortController();
+    const resultPromise = runClaimedJob(
+      {
+        workerId: "worker-test",
+        queue,
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+      },
+      makeLease(),
+      // Short heartbeat so renews fire on every macrotask tick.
+      { leaseSeconds: 300, heartbeatMs: 1 },
+      drain.signal,
+    );
+
+    await started;
+    // The heartbeat is live: at least one renew lands while the run is wedged.
+    await vi.waitFor(() => expect(queue.renewCalls).toBeGreaterThanOrEqual(1));
+
+    // DRAIN: fire the signal mid-run. Let any already-in-flight heartbeat
+    // iteration settle, then snapshot the renew count.
+    drain.abort();
+    await new Promise((r) => setTimeout(r, 0));
+    const renewsAtDrain = queue.renewCalls;
+
+    // Advance time (several macrotask ticks — each would have renewed before
+    // the fix): ZERO further renewLease calls may land after the drain.
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(queue.renewCalls).toBe(renewsAtDrain);
+
+    // Un-wedge the driver so the run settles and the job-runner returns.
+    releaseFn();
+    const result = await resultPromise;
+    expect(result.aggregateState).toBe("green");
+  });
+
+  it("entered with an ALREADY-aborted drain signal: never renews the lease and hands the run aborted drain semantics", async () => {
+    // The drain can fire between the loop winning a claim and runClaimedJob
+    // entry. `addEventListener("abort", ...)` on an ALREADY-aborted signal
+    // never fires, so the heartbeat must be aborted AT ENTRY: zero renewLease
+    // round-trips may land (the abandoned lease must lapse for the sweeper),
+    // and the driver sees `abortSignal.aborted` + drainReason "shutdown" (the
+    // loop's report-skip then drops whatever the run returns).
+    const queue = makeQueue([]);
+    const drain = new AbortController();
+    drain.abort();
+    let seen: { aborted: boolean; drainReason: string | undefined } | undefined;
+    const driver: ServiceJobDriver = {
+      async run(ctx): Promise<ProbeResult> {
+        seen = {
+          aborted: ctx.abortSignal?.aborted ?? false,
+          drainReason: ctx.drainReason,
+        };
+        // Spin several macrotasks: absent the at-entry heartbeat abort, the
+        // tiny heartbeatMs below would land renews during this window.
+        for (let i = 0; i < 5; i++) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const result = await runClaimedJob(
+      {
+        workerId: "worker-test",
+        queue,
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+      },
+      makeLease(),
+      { leaseSeconds: 300, heartbeatMs: 1 },
+      drain.signal,
+    );
+
+    expect(queue.renewCalls).toBe(0);
+    expect(seen).toEqual({ aborted: true, drainReason: "shutdown" });
+    // runClaimedJob still returns the settled result — the LOOP's
+    // signal-keyed report-skip is what abandons it, not the job runner.
+    expect(result.aggregateState).toBe("green");
+  });
 });
 
 // ── startWorkerLoop: full poll loop ────────────────────────────────────────
@@ -946,6 +1107,222 @@ describe("startWorkerLoop", () => {
     expect(reports[0]!.aggregateState).toBe("green");
   });
 
+  it("survives a rejecting idle-poll sleep: logs fleet.worker.sleep-failed and continues claiming (done does not reject)", async () => {
+    // The heartbeat's sleep already has rejecting-sleep hardening — the
+    // loop's OWN idle/poll points must too: a bare `await sleep(...)` there
+    // rejects the loop's done-promise (silent worker death). A sleep
+    // rejection is logged and treated as the interval having elapsed; the
+    // drain/stop signal still governs exit.
+    const queue = makeQueue([
+      // Nothing claimable first → forces an idle-poll sleep (the one that
+      // rejects), then a real claim proves the loop kept pulling.
+      { claimed: false },
+      { claimed: true, lease: makeLease() },
+    ]);
+    const warn = vi.fn();
+    const base = yieldingSleep();
+    let rejectedOnce = false;
+    const sleep = async (ms: number, signal?: AbortSignal): Promise<void> => {
+      if (!rejectedOnce) {
+        rejectedOnce = true;
+        throw new Error("timer subsystem down");
+      }
+      return base(ms, signal);
+    };
+    const driver = makeDriver({
+      slug: "langgraph-python",
+      cells: [{ featureId: "shared-state", state: "green" }],
+      aggregateState: "green",
+    });
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: { ...silentLogger, warn },
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep,
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    // The loop survived the rejecting sleep and claimed + reported the job.
+    await vi.waitFor(() => expect(queue.reports).toHaveLength(1));
+    expect(warn).toHaveBeenCalledWith(
+      "fleet.worker.sleep-failed",
+      expect.objectContaining({
+        workerId: "worker-test",
+        err: "timer subsystem down",
+      }),
+    );
+    await handle.stop();
+    await expect(handle.done).resolves.toBeUndefined();
+  });
+
+  it("PERSISTENT sleep rejections degrade to interval pacing, not a microtask busy loop (claims bounded by the poll interval)", async () => {
+    // Treating a rejected sleep as "interval elapsed" is right for a one-off —
+    // but a PERSISTENTLY rejecting injected/platform sleep would degrade the
+    // idle loop into a microtask-speed busy loop hammering pool.budget() /
+    // claimNext. After logging, the loop must fall back to a raw timer wait
+    // (which cannot reject), keeping claim attempts paced at ~1 per interval.
+    vi.useFakeTimers();
+    try {
+      let claims = 0;
+      let handle: WorkerLoopHandle | undefined;
+      const queueBase = makeQueue([]);
+      const queue: FleetQueueClient = {
+        ...queueBase,
+        async claimNext(): Promise<ClaimedJob> {
+          claims++;
+          // SPIN GUARD: the busy-loop regression never touches the timer
+          // queue, so the fake-timer advances below would starve forever —
+          // bound it by draining the loop at 50 claims so the regression
+          // FAILS on the pacing assertion instead of hanging the test.
+          if (claims >= 50) handle?.drain();
+          return { claimed: false };
+        },
+      };
+      const warn = vi.fn();
+      handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver: makeDriver({ slug: "x", cells: [], aggregateState: "green" }),
+        payloadToInput: passInput,
+        logger: { ...silentLogger, warn },
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: async () => {
+          throw new Error("timer subsystem down");
+        },
+        pollIntervalMs: 1_000,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+
+      // Boot microtasks: one claim attempt lands, then the loop parks in the
+      // raw fallback wait until the interval timer fires.
+      await vi.advanceTimersByTimeAsync(0);
+      const bootClaims = claims;
+      expect(bootClaims).toBeGreaterThanOrEqual(1);
+      expect(bootClaims).toBeLessThanOrEqual(2);
+
+      // 10 poll intervals → ~10 more claims, NOT hundreds (the busy-loop
+      // regression blows through the 50-claim spin guard immediately).
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(claims).toBeGreaterThanOrEqual(bootClaims + 9);
+      expect(claims).toBeLessThanOrEqual(bootClaims + 11);
+      expect(warn).toHaveBeenCalledWith(
+        "fleet.worker.sleep-failed",
+        expect.objectContaining({ err: "timer subsystem down" }),
+      );
+
+      // The raw fallback wait stays abort-responsive: drain exits the loop
+      // without waiting out the pending interval.
+      handle.drain();
+      await vi.advanceTimersByTimeAsync(0);
+      await handle.done;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the grace timer even when the loop's done-promise REJECTS (the rejection still propagates from stop())", async () => {
+    // stop()'s grace race awaits `done` — a crashed loop makes that a
+    // REJECTED promise, so the race throws. The `clearTimeout(graceTimer)`
+    // must sit in a finally: on the reject path a trailing clearTimeout is
+    // skipped and the grace timer leaks. The rejection itself still
+    // propagates to the caller (the fleet wrapper closes the health server /
+    // pool around it).
+    //
+    // CRASH VECTOR: with every IIFE log guarded (`safeLog`), a throwing
+    // logger no longer rejects done — the residual seam is a structurally
+    // POISON queue result whose `.claimed` getter throws outside the
+    // claimNext try/catch.
+    const queueBase = makeQueue([]);
+    const queue: FleetQueueClient = {
+      ...queueBase,
+      async claimNext(): Promise<ClaimedJob> {
+        return {
+          get claimed(): boolean {
+            throw new Error("poison claim");
+          },
+        } as ClaimedJob;
+      },
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver: makeDriver({ slug: "x", cells: [], aggregateState: "green" }),
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    // The first claim crashes the loop before any sleep is ever taken.
+    await expect(handle.done).rejects.toThrow("poison claim");
+
+    // Fake timers AFTER the loop has crashed: the only timer stop() can set
+    // is its own grace timer, so a zero pending-timer count proves it was
+    // cleared on the reject path (pre-fix: 1 leaked timer).
+    vi.useFakeTimers();
+    try {
+      await expect(handle.stop()).rejects.toThrow("poison claim");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a throwing logger on an IIFE log (fleet.worker.claimed) neither rejects done nor skips the report (guarded logs)", async () => {
+    // CLASS-LEVEL GUARD (`safeLog`): on this path the failing component IS
+    // the logger. Pre-guard, this exact vector crashed the loop — done
+    // rejected and the claimed job was never reported, a silent worker death
+    // caused by FORENSICS. The log lines are best-effort; the loop is
+    // load-bearing: the job must still run and report, and stop() must
+    // resolve cleanly (done never rejected).
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const logger: Logger = {
+      ...silentLogger,
+      info: (msg) => {
+        if (msg === "fleet.worker.claimed") {
+          throw new Error("logger exploded mid-claim");
+        }
+      },
+    };
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver: makeDriver({
+        slug: "langgraph-python",
+        cells: [{ featureId: "shared-state", state: "green" }],
+        aggregateState: "green",
+      }),
+      payloadToInput: passInput,
+      logger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    // The job still ran and was REPORTED despite the throwing claim log…
+    await vi.waitFor(() => expect(queue.reports).toHaveLength(1));
+    expect(queue.reports[0]!.aggregateState).toBe("green");
+    // …and done never rejected: stop() resolves cleanly.
+    await handle.stop();
+  });
+
   // ── Graceful drain (FIX 3): stop() aborts the in-flight driver run ─────────
 
   /**
@@ -961,12 +1338,15 @@ describe("startWorkerLoop", () => {
     driver: ServiceJobDriver;
     seenCtx: () => ServiceDriverContext | undefined;
     started: Promise<void>;
+    /** Every cell the driver actually WROTE through `ctx.writer.write`. */
+    written: ProbeResult[];
   } {
     let captured: ServiceDriverContext | undefined;
     let markStarted!: () => void;
     const started = new Promise<void>((res) => {
       markStarted = res;
     });
+    const written: ProbeResult[] = [];
     const driver: ServiceJobDriver = {
       async run(ctx, _input): Promise<ProbeResult> {
         captured = ctx;
@@ -984,12 +1364,14 @@ describe("startWorkerLoop", () => {
         const observedAt = ctx.now().toISOString();
         // Real-d6-like per-feature abort emit, suppressed on drain.
         if (ctx.drainReason !== "shutdown") {
-          await ctx.writer.write({
+          const redAbortCell: ProbeResult = {
             key: "d6:langgraph-python/shared-state",
             state: "red",
             signal: { featureType: "shared-state", errorClass: "abort" },
             observedAt,
-          });
+          };
+          written.push(redAbortCell);
+          await ctx.writer.write(redAbortCell);
         }
         return {
           key: "e2e_d6:langgraph-python",
@@ -999,7 +1381,7 @@ describe("startWorkerLoop", () => {
         };
       },
     };
-    return { driver, seenCtx: () => captured, started };
+    return { driver, seenCtx: () => captured, started, written };
   }
 
   it("stop() during an in-flight job aborts the driver (ctx.abortSignal defined+fired) and resolves bounded", async () => {
@@ -1048,7 +1430,7 @@ describe("startWorkerLoop", () => {
 
   it("drain does NOT emit red cells for not-yet-run pills (drainReason suppresses)", async () => {
     const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
-    const { driver, started } = makeBlockingDrainDriver();
+    const { driver, started, written } = makeBlockingDrainDriver();
     const handle = startWorkerLoop({
       workerId: "worker-test",
       queue,
@@ -1066,16 +1448,19 @@ describe("startWorkerLoop", () => {
 
     await started;
     await handle.stop();
-    // No red abort cell was reported (the worker also skips report on drain, so
-    // we assert via the queue: nothing reported, hence no red cell painted).
-    const reportedRedAbort = queue.reports.some((r) =>
-      (r.cells ?? []).some(
-        (c) =>
-          c.state === "red" &&
-          (c.signal as { errorClass?: string })?.errorClass === "abort",
-      ),
+    // The suppression's REAL surface is the WRITE side: on a drain the driver
+    // must never WRITE a red `errorClass: "abort"` cell at all. (Asserting on
+    // `queue.reports` alone is vacuous here — drain skips the report entirely,
+    // so reports stay empty whether or not the red cell was written.)
+    const writtenRedAbort = written.filter(
+      (c) =>
+        c.state === "red" &&
+        (c.signal as { errorClass?: string })?.errorClass === "abort",
     );
-    expect(reportedRedAbort).toBe(false);
+    expect(writtenRedAbort).toEqual([]);
+    // The report-skip leg stays pinned alongside (see the next test for the
+    // dedicated assertion): nothing was reported either.
+    expect(queue.reports).toEqual([]);
   });
 
   it("drain does NOT report the in-flight job (lets the lease expire → sweeper re-queues neutral-gray)", async () => {
@@ -1163,6 +1548,477 @@ describe("startWorkerLoop", () => {
     await handle.stop();
     // After stop(): the drain signal fired — the abort IS a graceful drain.
     expect(reasonAfterAbort).toBe("shutdown");
+  });
+});
+
+// ── drain(): deregister-FIRST drain request (platform-kill hardening) ───────
+//
+// Railway SIGKILLs ~10s after SIGTERM (live-verified) — a drain whose roster
+// deregister waits behind slow browser-context teardown gets HARD-KILLED
+// before the delete ever runs, stranding a stale roster row that fleet-health
+// reclaims red at its 180s stale mark. The handle therefore exposes a SYNCHRONOUS
+// `drain()` that fires the abort + records the abandon decision WITHOUT
+// awaiting the run, so the caller can deregister immediately and spend the
+// grace budget on best-effort teardown afterwards (`stop()`).
+describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
+  /**
+   * A driver fake whose run HANGS until `release()` is called and IGNORES the
+   * drain abort entirely — the stand-in for a wedged browser-context teardown
+   * that outlives the drain signal. Resolves GREEN on release so the
+   * never-report assertion covers the worst case (a run that "completes"
+   * successfully after the abandon decision).
+   */
+  function makeWedgedDriver(): {
+    driver: ServiceJobDriver;
+    seenCtx: () => ServiceDriverContext | undefined;
+    started: Promise<void>;
+    release: () => void;
+    runSettled: () => boolean;
+  } {
+    let captured: ServiceDriverContext | undefined;
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    let releaseFn!: () => void;
+    const released = new Promise<void>((res) => {
+      releaseFn = res;
+    });
+    let settled = false;
+    const driver: ServiceJobDriver = {
+      async run(ctx, _input): Promise<ProbeResult> {
+        captured = ctx;
+        markStarted();
+        // Deliberately IGNORE ctx.abortSignal — a wedged teardown.
+        await released;
+        settled = true;
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    return {
+      driver,
+      seenCtx: () => captured,
+      started,
+      release: () => releaseFn(),
+      runSettled: () => settled,
+    };
+  }
+
+  function startWedgedLoop(args: {
+    queue: RecordingQueue;
+    driver: ServiceJobDriver;
+    logger?: Logger;
+  }): WorkerLoopHandle {
+    return startWorkerLoop({
+      workerId: "worker-test",
+      queue: args.queue,
+      pool: budgetWith(5),
+      driver: args.driver,
+      payloadToInput: passInput,
+      logger: args.logger ?? silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+  }
+
+  it("drain() synchronously fires the in-flight run's abort signal WITHOUT awaiting teardown", async () => {
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, seenCtx, started, release } = makeWedgedDriver();
+    const handle = startWedgedLoop({ queue, driver });
+
+    await started;
+    expect(seenCtx()!.abortSignal!.aborted).toBe(false);
+
+    // SYNCHRONOUS: drain() returns void having already fired the signal — it
+    // must not await the (wedged) run.
+    handle.drain();
+    expect(seenCtx()!.abortSignal!.aborted).toBe(true);
+    expect(seenCtx()!.drainReason).toBe("shutdown");
+
+    // The loop has NOT exited (the run is wedged) — done is still pending, so
+    // a caller can deregister NOW instead of behind teardown. Observe BOTH
+    // arms: a rejected done would otherwise surface as an orphan unhandled
+    // rejection in the test output instead of failing the assertion below.
+    let doneSettled = false;
+    void handle.done.then(
+      () => {
+        doneSettled = true;
+      },
+      () => {
+        doneSettled = true;
+      },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(doneSettled).toBe(false);
+
+    release();
+    await handle.stop();
+  });
+
+  it("drain() records the abandon decision (in-flight jobId) BEFORE the run settles", async () => {
+    const info = vi.fn();
+    const logger: Logger = { ...silentLogger, info };
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, started, release, runSettled } = makeWedgedDriver();
+    const handle = startWedgedLoop({ queue, driver, logger });
+
+    await started;
+    handle.drain();
+    // The abandon decision is on the record while the run is STILL in flight —
+    // a caller's deregister therefore always follows a recorded decision.
+    expect(runSettled()).toBe(false);
+    expect(info).toHaveBeenCalledWith("fleet.worker.drain-requested", {
+      workerId: "worker-test",
+      abandoningJobId: "job-1",
+    });
+
+    release();
+    await handle.stop();
+  });
+
+  it("drain() fires the abort even when the drain-requested log THROWS (the throw never escapes)", async () => {
+    // drain() is the FIRST step of drainFleetWorker's SIGTERM critical path.
+    // The abort is the load-bearing half (report-skip, heartbeat stop, driver
+    // cancel key on the SIGNAL); the log line is forensics. A throwing logger
+    // must neither skip the abort nor propagate out of drain() — pre-fix the
+    // log preceded the abort unguarded, so a logger throw escaped
+    // drainFleetWorker BEFORE the roster delete ever ran.
+    const logger: Logger = {
+      ...silentLogger,
+      info: (msg) => {
+        if (msg === "fleet.worker.drain-requested") {
+          throw new Error("logger exploded on drain");
+        }
+      },
+    };
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, seenCtx, started, release } = makeWedgedDriver();
+    const handle = startWedgedLoop({ queue, driver, logger });
+
+    await started;
+    expect(seenCtx()!.abortSignal!.aborted).toBe(false);
+    expect(() => handle.drain()).not.toThrow();
+    expect(seenCtx()!.abortSignal!.aborted).toBe(true);
+
+    release();
+    await handle.stop();
+  });
+
+  it("an abandoned job is NEVER reported even when the wedged run later settles GREEN", async () => {
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const reportSpy = vi.spyOn(queue, "report");
+    const { driver, started, release } = makeWedgedDriver();
+    const handle = startWedgedLoop({ queue, driver });
+
+    await started;
+    handle.drain();
+    // Teardown later "completes" the run (green!) — the report-skip is keyed
+    // on the drain SIGNAL, not on stop() completion, so it is still abandoned.
+    release();
+    await handle.done;
+    expect(reportSpy).not.toHaveBeenCalled();
+  });
+
+  it("drain() is idempotent and stop() keeps its bounded/second-caller contract", async () => {
+    const info = vi.fn();
+    const logger: Logger = { ...silentLogger, info };
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, started, release } = makeWedgedDriver();
+    const handle = startWedgedLoop({ queue, driver, logger });
+
+    await started;
+    handle.drain();
+    handle.drain(); // second drain: no-op, no double log
+    expect(
+      info.mock.calls.filter((c) => c[0] === "fleet.worker.drain-requested"),
+    ).toHaveLength(1);
+
+    release();
+    // First stop() after drain(): still resolves bounded.
+    await expect(
+      Promise.race([
+        handle.stop(),
+        new Promise<never>((_res, rej) =>
+          setTimeout(
+            () => rej(new Error("stop() did not resolve bounded")),
+            1000,
+          ),
+        ),
+      ]),
+    ).resolves.toBeUndefined();
+    // Second stop(): awaits the (now settled) done — resolves immediately.
+    await handle.stop();
+  });
+
+  it("skips running a job whose claim resolves AFTER drain() fires (driver never invoked)", async () => {
+    // B3: the drain signal can fire while a `claimNext` round-trip is in
+    // flight. The won claim must NOT be run — running it would start a doomed
+    // driver run on a process that is exiting. Skip it entirely and leave the
+    // claim to lease expiry (the same abandon path as an in-flight drain).
+    let resolveClaim!: (c: ClaimedJob) => void;
+    const pendingClaim = new Promise<ClaimedJob>((res) => {
+      resolveClaim = res;
+    });
+    let claimCalls = 0;
+    const queueBase = makeQueue([]);
+    const queue: FleetQueueClient = {
+      ...queueBase,
+      async claimNext(): Promise<ClaimedJob> {
+        claimCalls++;
+        if (claimCalls === 1) return pendingClaim;
+        return { claimed: false };
+      },
+    };
+    const run = vi.fn(
+      async (
+        ctx: ServiceDriverContext,
+        _input: unknown,
+      ): Promise<ProbeResult> => ({
+        key: "e2e_d6:langgraph-python",
+        state: "green",
+        signal: { shape: "package", slug: "langgraph-python" },
+        observedAt: ctx.now().toISOString(),
+      }),
+    );
+    const info = vi.fn();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver: { run },
+      payloadToInput: passInput,
+      logger: { ...silentLogger, info },
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    // Wait until the loop is parked inside the pending claimNext…
+    await vi.waitFor(() => expect(claimCalls).toBe(1));
+    // …drain while the claim round-trip is in flight, THEN let the claim win.
+    handle.drain();
+    resolveClaim({ claimed: true, lease: makeLease() });
+    await handle.done;
+
+    expect(run).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith("fleet.worker.drain-claim-skipped", {
+      workerId: "worker-test",
+      jobId: "job-1",
+    });
+    await handle.stop();
+  });
+
+  it("a drain during an in-flight report logs abandoningJobId null (the run already began reporting)", async () => {
+    // B5: once the run has settled and the loop has INITIATED queue.report,
+    // the job is past the abandon point — a drain() racing the in-flight
+    // report must not record it as `abandoningJobId` (the report is landing;
+    // logging it as abandoned would be a forensic lie).
+    let releaseReport!: () => void;
+    const reportGate = new Promise<void>((res) => {
+      releaseReport = res;
+    });
+    let markReportStarted!: () => void;
+    const reportInFlight = new Promise<void>((res) => {
+      markReportStarted = res;
+    });
+    const queueBase = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const queue: RecordingQueue = {
+      ...queueBase,
+      reports: queueBase.reports,
+      async report({ result }): Promise<void> {
+        markReportStarted();
+        await reportGate;
+        queueBase.reports.push(result);
+      },
+    };
+    const driver = makeDriver({
+      slug: "langgraph-python",
+      cells: [{ featureId: "shared-state", state: "green" }],
+      aggregateState: "green",
+    });
+    const info = vi.fn();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: { ...silentLogger, info },
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    // Park the loop inside the in-flight report, then drain.
+    await reportInFlight;
+    handle.drain();
+    expect(info).toHaveBeenCalledWith("fleet.worker.drain-requested", {
+      workerId: "worker-test",
+      abandoningJobId: null,
+    });
+
+    releaseReport();
+    await handle.stop();
+    // The in-flight report still landed — it was never the abandoned one.
+    expect(queue.reports).toHaveLength(1);
+  });
+});
+
+// ── Drain grace resolution (WORKER_DRAIN_GRACE_MS) ─────────────────────────
+
+describe("drain grace (WORKER_DRAIN_GRACE_MS)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("defaults UNDER Railway's ~10s SIGTERM→SIGKILL window (6s) — COMPOSED with the deregister cap", () => {
+    // Railway hard-kills ~10s after SIGTERM (live-verified 2026-06-10), and
+    // the drain sequence spends its phases SERIALLY inside that window:
+    // DRAIN_DEREGISTER_TIMEOUT_MS (3s cap on a hung-PB roster delete) is
+    // consumed BEFORE this grace even starts. Pinning the bare constant under
+    // 10s is therefore not enough — the COMPOSED worst case (hung PB AND a
+    // wedged driver) must fit. Grace history: 25s at the 2026-06-10 live
+    // incident → an 8s interim (whose composed 3s + 8s still overshot the
+    // window) → the composed 6s default pinned here.
+    expect(DEFAULT_WORKER_DRAIN_GRACE_MS).toBe(6_000);
+    expect(
+      DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS,
+    ).toBeLessThan(10_000);
+  });
+
+  it("warns and falls back to the default when WORKER_DRAIN_GRACE_MS is not a positive integer", async () => {
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "soon");
+    const warn = vi.fn();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue: makeQueue([]),
+      pool: budgetWith(5),
+      driver: makeDriver({ slug: "x", cells: [], aggregateState: "green" }),
+      payloadToInput: passInput,
+      logger: { ...silentLogger, warn },
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    await handle.stop();
+    expect(warn).toHaveBeenCalledWith(
+      "fleet.worker.drain-grace-invalid",
+      expect.objectContaining({
+        raw: "soon",
+        fallbackMs: DEFAULT_WORKER_DRAIN_GRACE_MS,
+      }),
+    );
+  });
+
+  it("an invalid WORKER_DRAIN_GRACE_MS bounds stop() at the DEFAULT grace against a wedged driver (no NaN→0 instant detach, no hang)", async () => {
+    // The fallback's BEHAVIOR, not just its warn: with a garbage override and
+    // a wedged driver (ignores its abort, never settles), stop() must detach
+    // at DEFAULT_WORKER_DRAIN_GRACE_MS semantics — a NaN→0 grace would detach
+    // instantly (no drain at all) and a dropped timer would hang stop() past
+    // Railway's kill window. Fake timers pin both edges deterministically.
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "soon");
+    vi.useFakeTimers();
+    try {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      let release!: () => void;
+      const released = new Promise<void>((res) => {
+        release = res;
+      });
+      let markStarted!: () => void;
+      const started = new Promise<void>((res) => {
+        markStarted = res;
+      });
+      const driver: ServiceJobDriver = {
+        async run(ctx): Promise<ProbeResult> {
+          markStarted();
+          // Deliberately IGNORE ctx.abortSignal — a wedged teardown.
+          await released;
+          return {
+            key: "e2e_d6:langgraph-python",
+            state: "green",
+            signal: { shape: "package", slug: "langgraph-python" },
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+      await started;
+
+      let stopSettled = false;
+      const stopPromise = handle.stop().then(() => {
+        stopSettled = true;
+      });
+      // NOT instantaneous: one tick short of the default grace, the wedged
+      // drain is still being waited on (a NaN→0 grace would already have
+      // detached).
+      await vi.advanceTimersByTimeAsync(DEFAULT_WORKER_DRAIN_GRACE_MS - 1);
+      expect(stopSettled).toBe(false);
+      // …and NOT a hang: crossing the default grace detaches stop().
+      await vi.advanceTimersByTimeAsync(1);
+      await stopPromise;
+      expect(stopSettled).toBe(true);
+
+      // Cleanup: un-wedge the run so the loop exits via the abandon path.
+      release();
+      await handle.done;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does NOT warn for a valid positive-integer override", async () => {
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
+    const warn = vi.fn();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue: makeQueue([]),
+      pool: budgetWith(5),
+      driver: makeDriver({ slug: "x", cells: [], aggregateState: "green" }),
+      payloadToInput: passInput,
+      logger: { ...silentLogger, warn },
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    await handle.stop();
+    expect(warn).not.toHaveBeenCalledWith(
+      "fleet.worker.drain-grace-invalid",
+      expect.anything(),
+    );
   });
 });
 
@@ -1329,6 +2185,70 @@ describe("driver registry (driverKind → driver)", () => {
     expect(result.cells).toHaveLength(1);
     expect(result.cells[0]!.cellKey).toBe("custom:langgraph-python/feat-1");
     expect(result.commError).toBeUndefined();
+  });
+
+  it("classifies a THROWING custom aggregateSlugKey builder as worker-protocol-violation and the loop continues", async () => {
+    // B4: `buildAggregateSlugKey(payload.serviceSlug)` runs BEFORE the
+    // try/catch around the driver run — a throwing custom builder must not
+    // escape runClaimedJob (it would reject the loop's done-promise = silent
+    // worker death). It is a registry-entry misconfiguration the worker owns,
+    // classified like the other payload/protocol failures.
+    const drivers = new Map<DriverKind, DriverRegistryEntry>([
+      [
+        "e2e_d6",
+        {
+          driver: makeTaggingDriver("e2e_d6"),
+          payloadToInput: passInput,
+          aggregateSlugKey: () => {
+            throw new Error("bad aggregate key builder");
+          },
+        },
+      ],
+      ["e2e_smoke", entry("e2e_smoke")],
+    ]);
+    const queue = makeQueue([
+      {
+        claimed: true,
+        lease: makeLease({ payload: { driverKind: "e2e_d6" } }),
+      },
+      {
+        claimed: true,
+        lease: makeLease({
+          job: { id: "job-2" },
+          payload: { driverKind: "e2e_smoke" },
+        }),
+      },
+    ]);
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      drivers,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    let doneRejected = false;
+    handle.done.catch(() => {
+      doneRejected = true;
+    });
+
+    // BOTH jobs report: the poisoned one as a protocol violation, the next one
+    // normally — proof the loop survived the throwing builder.
+    await vi.waitFor(() => expect(queue.reports).toHaveLength(2));
+    await handle.stop();
+    expect(doneRejected).toBe(false);
+    expect(queue.reports[0]!.aggregateState).toBe("error");
+    expect(queue.reports[0]!.commError?.kind).toBe("worker-protocol-violation");
+    expect(queue.reports[0]!.commError?.message).toContain(
+      "bad aggregate key builder",
+    );
+    expect(queue.reports[1]!.aggregateState).toBe("green");
+    expect(queue.reports[1]!.commError).toBeUndefined();
   });
 
   it("honors driverInputs.rowPrefix=d5 over the entry's d6 aggregate filter (D5 take-one)", async () => {
