@@ -1266,5 +1266,89 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(finalBodyStyleIdx).toBeGreaterThan(-1);
       expect(finalCssIdx).toBeLessThan(finalBodyStyleIdx);
     });
+
+    // Case F — TOP-LEVEL pre-<body> style (no enclosing <head> element): it is
+    // NOT hoisted. assembleDocument leaves a top-level pre-<body> style in the
+    // body region (after the head css in document order), so the preview must
+    // keep it in the body and out of the head — exactly like a body-region
+    // style. This is the parity case for the shared masked-boundary rule: the
+    // hoist decision never depends on <body> detection, only on whether the
+    // style sits inside a complete <head> element (here it does not).
+    //
+    // RED pre-fix: extractCompleteStyles hoisted any style before <body>, so the
+    // top-level style was injected into the preview head and stripped from the
+    // body — the opposite of the final document. GREEN post-fix: left in body.
+    it("keeps a top-level pre-<body> style in the preview body, not the head (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const preBodyStyleContent = ".pre-body-block { color: seagreen; }";
+      // The complete <style> sits at the TOP LEVEL, before <body>, with no
+      // enclosing <head> element — so it is body-region per the final document.
+      const preBodyStyleTag = `<style>${preBodyStyleContent}</style>`;
+      const previewHtml = `${preBodyStyleTag}<body><div class="pre-body-block">Preview body</div>`;
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            html: [previewHtml],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox is created
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Resolve the preview sandbox promise so the head/body run calls fire
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // The body innerHTML run call must contain the top-level pre-<body> style.
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
+      const bodyPayload: string = bodyCalls[bodyCalls.length - 1][0] as string;
+      expect(bodyPayload).toContain(preBodyStyleContent);
+
+      // The head payload must NOT contain the pre-<body> style (not hoisted) —
+      // only the kit and the agent css param.
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+      const headPayload: string = headCalls[headCalls.length - 1][0] as string;
+      expect(headPayload).not.toContain(preBodyStyleContent);
+      expect(headPayload).toContain("data-ck-design-system");
+      expect(headPayload).toContain(agentCss);
+
+      // Final-document parity: the top-level pre-<body> style stays in the BODY,
+      // after the head css in document order (head css index precedes the style
+      // index), so the preview and final cascades agree.
+      const fullHtml = `${preBodyStyleTag}<body><div class="pre-body-block">Preview body</div></body>`;
+      const finalDoc = assembleDocument(fullHtml, {
+        css: agentCss,
+        designSystemCss: DEFAULT_OPEN_GEN_UI_OPTIONS.designSystemCss,
+        importMap: DEFAULT_OPEN_GEN_UI_OPTIONS.importMap,
+      });
+      const finalCssIdx = finalDoc.indexOf(agentCss);
+      const finalPreBodyStyleIdx = finalDoc.indexOf(preBodyStyleContent);
+      expect(finalCssIdx).toBeGreaterThan(-1);
+      expect(finalPreBodyStyleIdx).toBeGreaterThan(-1);
+      expect(finalCssIdx).toBeLessThan(finalPreBodyStyleIdx);
+    });
   });
 });
