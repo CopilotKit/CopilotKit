@@ -119,10 +119,13 @@ export function assembleDocument(
   // Match only a real head-opening tag: `<head>`, or `<head` followed by
   // whitespace + attributes. This deliberately excludes `<header …>`, which the
   // looser `/<head[^>]*>/i` would have captured (injecting into the body).
-  // `[^<>]*` (not `[^>]*`) bounds the attribute span so the tag can never
-  // greedily swallow a following `<tag>` — e.g. `<head\t<body>` no longer
-  // matches as one "opening tag" and splices the prefix into the body.
-  const headOpenMatch = html.match(/<head(\s[^<>]*)?>/i);
+  // The attribute span is quote-aware: unquoted runs forbid `<`/`>` (so the tag
+  // can never greedily swallow a following `<tag>` — e.g. `<head\t<body>` does
+  // not match as one opening tag and splice the prefix into the body), while
+  // quoted runs (`"…"` / `'…'`) may contain `<`/`>` so a realistic
+  // `<head data-config='{"a":">"}'>` is matched whole rather than truncated at
+  // the first quoted `>` (which would splice the prefix mid-attribute).
+  const headOpenMatch = html.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
   if (headOpenMatch && headOpenMatch.index !== undefined) {
     prefixInsertAt = headOpenMatch.index + headOpenMatch[0].length;
     html = html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
@@ -139,9 +142,15 @@ export function assembleDocument(
     return `<head>${prefix}${css ? `<style>${css}</style>` : ""}</head>` + html;
   }
 
-  // Inject agent CSS immediately before </head> (legacy algorithm).
+  // Inject agent CSS immediately before </head> (legacy algorithm), but match
+  // the close tag case-insensitively here so it pairs with the case-insensitive
+  // open-tag match above. A case-sensitive `indexOf("</head>")` would miss an
+  // uppercase `</HEAD>`, dropping the css after the kit (via the prefixInsertAt
+  // fallback) and inverting the cascade — the agent css must win over existing
+  // head content. (The LEGACY branch keeps the exact `indexOf` for byte
+  // identity; this case-insensitive lookup is non-legacy only.)
   if (css) {
-    const headCloseIdx = html.indexOf("</head>");
+    const headCloseIdx = html.search(/<\/head>/i);
     if (headCloseIdx !== -1) {
       return (
         html.slice(0, headCloseIdx) +

@@ -124,7 +124,8 @@ describe("assembleDocument", () => {
       importMap: { three: "https://esm.sh/three@0.180.0" },
     });
     // Exactly one <head opening tag — no duplicate head was prepended.
-    const headOpenings = out.match(/<head(\s[^<>]*)?>/gi) ?? [];
+    const headOpenings =
+      out.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
     expect(headOpenings).toHaveLength(1);
     // Cascade order: importmap, then kit, then agent css.
     const importmapIdx = out.indexOf('<script type="importmap">');
@@ -149,6 +150,30 @@ describe("assembleDocument", () => {
       importMap: false,
     });
     expect(next).toBe(legacy);
+  });
+
+  // Quote-aware head tokenization + case-insensitive close lookup: for an
+  // uppercase head with no lowercase `</head>`, the agent css must land
+  // immediately before the (uppercase) close tag — i.e. AFTER the head's
+  // existing content — not right after the kit. A case-sensitive
+  // `indexOf("</head>")` would miss `</HEAD>` and drop the css after the kit,
+  // inverting the css-wins-over-head-content cascade.
+  it("places agent css before the uppercase close tag (after head content)", () => {
+    const out = assembleDocument(
+      "<HEAD ><title>t</title></HEAD><body>u</body>",
+      {
+        css: ".a{color:red}",
+        designSystemCss: KIT,
+        importMap: { three: "https://esm.sh/three@0.180.0" },
+      },
+    );
+    const titleIdx = out.indexOf("<title>");
+    const cssIdx = out.indexOf(".a{color:red}");
+    expect(titleIdx).toBeGreaterThan(-1);
+    expect(cssIdx).toBeGreaterThan(-1);
+    // Agent css lands after the head's content (the <title>), i.e. immediately
+    // before the close tag — not right after the kit.
+    expect(cssIdx).toBeGreaterThan(titleIdx);
   });
 
   // Finding 3: an empty importMap object must not emit an inert importmap script.
@@ -187,13 +212,16 @@ describe("assembleDocument", () => {
       "<head \nclass=x", // unterminated head token (no `>`) — must not drop prefix
       "<head\tfoo", // unterminated head token, tab + bareword — must not drop prefix
       "a<head\t<body>z</body>", // head token whose attr span runs into <body> — prefix must stay out of the body
+      '<head data-x="a>b"><title>t</title></head><body>v</body>', // quoted `>` in attribute — must not splice mid-attribute
+      '<head data-config=\'{"a":">"}\'>x</head><body>y</body>', // quoted `>` in single-quoted attribute — must not splice mid-attribute
     ];
     const CSS = [undefined, ".x{}"];
     // A real head-opening tag: `<head>` or `<head ...attrs>`, excluding
-    // `<header ...>`. `[^<>]*` (matching the production insertion regex) bounds
-    // the attribute span so a tag can never swallow a following `<tag>`.
+    // `<header ...>`. The quote-aware attribute span (matching the production
+    // insertion regex) bounds the tag so it can never swallow a following
+    // `<tag>`, while still tolerating a quoted `>` inside an attribute value.
     // Non-legacy mode must never emit more than one.
-    const HEAD_OPEN = /<head(\s[^<>]*)?>/gi;
+    const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
 
     // (1) LEGACY MODE — byte-identical to the legacy reference for every input ×
     // css, under BOTH `importMap: false` and `importMap: {}` (an empty importmap
