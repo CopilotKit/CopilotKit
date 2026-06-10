@@ -176,6 +176,52 @@ describe("assembleDocument", () => {
     expect(cssIdx).toBeGreaterThan(titleIdx);
   });
 
+  // Close-anchor finding: the agent-css close-tag search must target the SAME
+  // head the prefix (importmap + kit) was anchored to. When a stray `</head>`
+  // precedes the real `<head>`, the open-tag matcher correctly skips the stray
+  // and lands on the real head — but a global `</head>` search would resolve to
+  // the earlier stray close, splicing the agent css BEFORE the prefix and
+  // OUTSIDE the real head. That inverts the documented cascade
+  // (importmap -> kit -> agent css). Scoping the close search to the region
+  // at/after the prefix insertion point pins the css inside the real head.
+  it("anchors agent css to the real head's close, not a stray earlier </head>", () => {
+    const html = "foo</head><head><title>t</title></head><body>x</body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const cssIdx = out.indexOf(".a{color:red}");
+    // The real `<head>` open tag (the stray leading token is `</head>`, which
+    // does not match the slash-free `<head>`). The prefix is spliced just after
+    // this open, so the real head's content (`<title>`) and its close tag both
+    // follow it.
+    const realHeadOpenIdx = out.indexOf("<head>");
+    const titleIdx = out.indexOf("<title>");
+    // The real head's close tag: the first `</head>` at/after the real open
+    // (skipping the stray `</head>` that precedes it).
+    const realHeadCloseIdx = out.indexOf("</head>", realHeadOpenIdx);
+
+    expect(importmapIdx).toBeGreaterThan(-1);
+    expect(realHeadOpenIdx).toBeGreaterThan(-1);
+    expect(titleIdx).toBeGreaterThan(-1);
+    expect(realHeadCloseIdx).toBeGreaterThan(-1);
+
+    // Cascade order: importmap, then kit, then agent css — all present and
+    // strictly ordered (the stray close must not pull css ahead of the prefix).
+    expect(importmapIdx).toBeLessThan(kitIdx);
+    expect(kitIdx).toBeLessThan(cssIdx);
+
+    // The agent css lands INSIDE the real head: after the real `<head>` open
+    // and the head's own content (`<title>`), and before that head's close tag
+    // — not at the stray `</head>` that precedes the real head.
+    expect(cssIdx).toBeGreaterThan(realHeadOpenIdx);
+    expect(cssIdx).toBeGreaterThan(titleIdx);
+    expect(cssIdx).toBeLessThan(realHeadCloseIdx);
+  });
+
   // Finding 3: an empty importMap object must not emit an inert importmap script.
   it("emits no importmap script when importMap is an empty object", () => {
     const out = assembleDocument("<head></head><body></body>", {
@@ -214,6 +260,8 @@ describe("assembleDocument", () => {
       "a<head\t<body>z</body>", // head token whose attr span runs into <body> — prefix must stay out of the body
       '<head data-x="a>b"><title>t</title></head><body>v</body>', // quoted `>` in attribute — must not splice mid-attribute
       '<head data-config=\'{"a":">"}\'>x</head><body>y</body>', // quoted `>` in single-quoted attribute — must not splice mid-attribute
+      "foo</head><head><title>t</title></head><body>x</body>", // stray close before the real head — agent css must anchor to the real head's close, not the earlier stray
+      "</head><head></head><body>z</body>", // leading stray close before the real head — same close-anchor hazard
     ];
     const CSS = [undefined, ".x{}"];
     // A real head-opening tag: `<head>` or `<head ...attrs>`, excluding

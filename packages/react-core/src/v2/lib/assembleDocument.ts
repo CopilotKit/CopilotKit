@@ -149,8 +149,20 @@ export function assembleDocument(
   // fallback) and inverting the cascade — the agent css must win over existing
   // head content. (The LEGACY branch keeps the exact `indexOf` for byte
   // identity; this case-insensitive lookup is non-legacy only.)
+  //
+  // Scope the close-tag search to the region AT/AFTER the prefix insertion
+  // point so it pairs with the SAME head the open-tag matcher anchored to. A
+  // global first-match search would resolve to a stray `</head>` that precedes
+  // the real `<head>` (e.g. `foo</head><head>…</head>` or `</head><head></head>`)
+  // — splicing the agent css before the importmap/kit and outside the real
+  // head, inverting the documented cascade. Searching the slice from
+  // `prefixInsertAt` (just past the injected prefix) and adding the offset back
+  // guarantees the css lands inside the anchored head; if no close exists
+  // at/after the anchor we fall through to the post-prefix fallback below
+  // (never to an earlier global match).
   if (css) {
-    const headCloseIdx = html.search(/<\/head>/i);
+    const closeRel = html.slice(prefixInsertAt).search(/<\/head>/i);
+    const headCloseIdx = closeRel !== -1 ? closeRel + prefixInsertAt : -1;
     if (headCloseIdx !== -1) {
       return (
         html.slice(0, headCloseIdx) +
