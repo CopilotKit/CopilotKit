@@ -460,9 +460,16 @@ function resolveD5Row(
     }
   }
   // A missing mapped sub-row makes the family unverified: collapse a
-  // present green/degraded fold to no-data (null). A present red still
-  // dominates (returns the red row).
-  if (anyMissing && worstState !== "red") {
+  // present green/degraded fold to no-data (null). A present red-or-worse
+  // still dominates (returns that row). RANK-based, not `!== "red"` literal
+  // equality: `worstState` is typed `State` but can hold an out-of-vocabulary
+  // runtime value (e.g. "error"), which the A2 rank machinery deliberately
+  // ranks ABOVE red — literal equality would silently swallow exactly the
+  // state the rank fold exists to surface.
+  if (
+    anyMissing &&
+    (worstState === null || worstStateRank(worstState) < WORST_STATE_RANK.red)
+  ) {
     return null;
   }
   return worst;
@@ -516,7 +523,13 @@ function resolveD6Row(
       worstState = eff;
     }
   }
-  if (anyMissing && worstState !== "red") {
+  // Rank-based anyMissing collapse — mirrors resolveD5Row: a present
+  // red-or-worse (including an out-of-vocab state ranked above red by the A2
+  // machinery) dominates no-data; only a green/degraded fold collapses.
+  if (
+    anyMissing &&
+    (worstState === null || worstStateRank(worstState) < WORST_STATE_RANK.red)
+  ) {
     return null;
   }
   return worst;

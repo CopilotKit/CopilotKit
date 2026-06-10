@@ -258,6 +258,33 @@ describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix
     expect(c.d5.row).not.toBeNull();
     expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
   });
+
+  it("d6: missing sub-row + out-of-vocab sub-row SURFACES, not collapses to no-data", () => {
+    // The anyMissing collapse must be RANK-based, not `worstState !== "red"`
+    // literal equality: an out-of-vocabulary "error" sub-row is ranked ABOVE
+    // red by the A2 machinery ("never silently swallowed"), so a family with
+    // a missing sibling must still surface it — collapsing to null would
+    // swallow exactly the state the rank fold exists to surface.
+    const live = mapOf([
+      row("d6:agno/beautiful-chat-pie-chart", "d6", OUT_OF_VOCAB),
+      row("d6:agno/beautiful-chat-toggle-theme", "d6", "green"),
+      // the other 3 beautiful-chat sub-rows are MISSING
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d6.row).not.toBeNull();
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("d5: missing sub-row + out-of-vocab sub-row SURFACES, not collapses to no-data", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-pie-chart", "d5", OUT_OF_VOCAB),
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      // the other 3 beautiful-chat sub-rows are MISSING
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.row).not.toBeNull();
+    expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
+  });
 });
 
 describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
