@@ -574,8 +574,13 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
   function makePagingPb(rows: CreatedJobRow[]): {
     pb: PbClient;
     store: CreatedJobRow[];
+    /** Failure injection: `delete` THROWS for any row id in this set (the
+     * stale sweep's claim→delete window losing its delete). Mutable so a test
+     * can heal the fault between sweeps and watch the retry succeed. */
+    deleteFailures: Set<string>;
   } {
     const store = [...rows];
+    const deleteFailures = new Set<string>();
     const unsupported = (name: string) => () => {
       throw new Error(`paging-pb: ${name} not implemented`);
     };
@@ -638,6 +643,9 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       update: unsupported("update") as PbClient["update"],
       upsertByField: unsupported("upsertByField") as PbClient["upsertByField"],
       async delete(_collection: string, id: string): Promise<void> {
+        if (deleteFailures.has(id)) {
+          throw new Error(`paging-pb: injected delete failure for ${id}`);
+        }
         const idx = store.findIndex((r) => r.id === id);
         if (idx === -1) throw new Error(`paging-pb: delete of missing ${id}`);
         store.splice(idx, 1);
@@ -652,7 +660,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       ) as PbClient["downloadBackup"],
       deleteBackup: unsupported("deleteBackup") as PbClient["deleteBackup"],
     };
-    return { pb, store };
+    return { pb, store, deleteFailures };
   }
 
   /** A store-mutating CAS fake: exactly-one-winner over the shared store. */
@@ -923,6 +931,71 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
 
       expect(sweep.expiredPending).toBe(0);
       expect(store.find((r) => r.id === "old")?.status).toBe("pending");
+    });
+
+    it("re-queues a sweeper-claimed row whose delete failed SILENTLY (no comm error) and retries the delete on a later sweep", async () => {
+      // When the stale sweep wins the claim but the DELETE fails, the row
+      // sits claimed under "stale-pending-sweeper" until its short lease
+      // expires. The next lease sweep must NOT treat that like a crashed
+      // worker's job: it is stale garbage mid-deletion, so it is re-queued
+      // SILENTLY (no `worker-reclaimed-pending` comm error attributed to a
+      // non-existent worker, no gray "back in flight" dashboard overlay) and
+      // a later stale sweep retries the delete — the self-healing contract.
+      const stale = pendingRow("old", "d6:a", T - 4 * HOUR);
+      const { pb, store, deleteFailures } = makePagingPb([stale]);
+      deleteFailures.add("old");
+      const base = makeStoreClaim(store);
+      // The lease-phase re-queue needs a REAL releaseJob (makeStoreClaim's
+      // default vi.fn refuses): authorize on claimed_by, flip back to pending.
+      const claim: JobClaimClient = {
+        ...base,
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const row = store.find((r) => r.id === jobId);
+          if (!row || row.claimed_by !== workerId) return { released: false };
+          row.status = status as JobStatus;
+          row.claimed_by = "";
+          row.lease_expires_at = null;
+          row.version += 1;
+          return { released: true, job: { ...row } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+      const debugSpy = vi.spyOn(logger, "debug");
+
+      // Sweep 1: stale phase claims the row, delete FAILS — not counted, not
+      // thrown; the row stays briefly claimed by the sweeper.
+      const first = await q.sweepExpired(T);
+      expect(first.expiredPending).toBe(0);
+      expect(first.commErrors).toHaveLength(0);
+      expect(store.find((r) => r.id === "old")?.claimed_by).toBe(
+        "stale-pending-sweeper",
+      );
+
+      // Sweep 2 (the sweeper's lease has expired — the fake CAS leaves
+      // lease_expires_at null): the lease phase re-queues the row SILENTLY.
+      const second = await q.sweepExpired(T);
+      expect(second.commErrors).toHaveLength(0);
+      expect(second.reclaimed).toBe(0);
+      expect(
+        debugSpy.mock.calls.some(
+          ([msg]) => msg === "queue-client.stale-sweeper-retry-requeue",
+        ),
+      ).toBe(true);
+      // Proof the re-queue happened: the SAME sweep's stale phase could only
+      // re-claim a PENDING row (the fake CAS refuses anything else); its
+      // delete failed again, so the row is back under the sweeper.
+      expect(store.find((r) => r.id === "old")?.claimed_by).toBe(
+        "stale-pending-sweeper",
+      );
+
+      // Sweep 3 (delete healed): silent re-queue, then the stale phase
+      // claims-and-deletes cleanly — still no comm error anywhere.
+      deleteFailures.delete("old");
+      const third = await q.sweepExpired(T);
+      expect(third.expiredPending).toBe(1);
+      expect(third.commErrors).toHaveLength(0);
+      expect(store.find((r) => r.id === "old")).toBeUndefined();
+      debugSpy.mockRestore();
     });
 
     it("conservatively skips a pending row whose created timestamp is unparseable (delete is destructive)", async () => {

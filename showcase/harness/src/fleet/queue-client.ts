@@ -124,7 +124,10 @@ const STALE_PENDING_SWEEPER_ID = "stale-pending-sweeper";
 
 /** Lease the sweeper takes on a stale row for the claim→delete window. If the
  * delete fails the lease simply expires and the NEXT lease sweep re-queues the
- * row to pending, where a later stale sweep retries it — self-healing. */
+ * row to pending SILENTLY (no comm error — the lease phase special-cases
+ * `claimed_by === STALE_PENDING_SWEEPER_ID`, since stale garbage mid-deletion
+ * is not a crashed worker's job), where a later stale sweep retries it —
+ * self-healing. */
 const STALE_PENDING_SWEEPER_LEASE_SECONDS = 60;
 
 /**
@@ -711,20 +714,36 @@ export function createFleetQueueClient(
       const observedAt = new Date(nowMs).toISOString();
       for (const row of page.items) {
         if (!leaseExpired(row.lease_expires_at, nowMs)) continue;
+        // Snapshot the holder BEFORE the release CAS: the release drops
+        // ownership, and the special-case + comm-error attribution below must
+        // reflect who HELD the expired lease, not the post-release row.
+        const holder = row.claimed_by;
         // Re-queue on behalf of the dead holder: the CAS authorizes on
         // `claimed_by` (still the dead worker), so this atomically flips the
         // row back to pending and drops ownership.
-        const released = await claim.releaseJob(
-          row.id,
-          row.claimed_by,
-          "pending",
-        );
+        const released = await claim.releaseJob(row.id, holder, "pending");
         if (!released.released) {
           // Another sweeper or a late worker report won the race — not an
           // error, just nothing for us to reclaim on this row.
           logger.debug("queue-client.sweep-skip", {
             jobId: row.id,
-            workerId: row.claimed_by,
+            workerId: holder,
+          });
+          continue;
+        }
+        // SPECIAL CASE: a row claimed by the STALE-PENDING SWEEPER is stale
+        // garbage mid-deletion (the stale sweep won the claim but its delete
+        // failed), NOT a crashed worker's job. The releaseJob above already
+        // re-queued it — which is exactly the self-healing retry contract (a
+        // later stale sweep re-claims and re-deletes it) — but it must be
+        // SILENT: synthesizing `worker-reclaimed-pending` here would paint a
+        // gray "re-queued / back in flight" dashboard overlay for a row that
+        // was never in flight, attributed to a non-existent worker. Not
+        // counted in `reclaimed` either (that count is paired 1:1 with the
+        // commErrors it documents).
+        if (holder === STALE_PENDING_SWEEPER_ID) {
+          logger.debug("queue-client.stale-sweeper-retry-requeue", {
+            jobId: row.id,
           });
           continue;
         }
@@ -745,14 +764,14 @@ export function createFleetQueueClient(
         // at all — see the SIGTERM drain handler in orchestrator.bootFleet.)
         commErrors.push({
           kind: "worker-reclaimed-pending",
-          message: `lease for job ${row.id} expired (worker ${row.claimed_by || "unknown"} reclaimed); re-queued to pending`,
-          workerId: row.claimed_by || undefined,
+          message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queued to pending`,
+          workerId: holder || undefined,
           jobId: row.id,
           observedAt,
         });
         logger.warn("queue-client.sweep-reclaimed", {
           jobId: row.id,
-          workerId: row.claimed_by,
+          workerId: holder,
         });
       }
 
