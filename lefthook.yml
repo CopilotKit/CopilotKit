@@ -89,7 +89,7 @@ pre-commit:
 
     check-plugin-skills:
       tags: plugin-skills
-      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**}"
+      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
       run: pnpm check:plugin-skills
       fail_text: |
         Plugin skill mirror is out of sync with the Intent source.
