@@ -11,9 +11,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.48",
-    "@ag-ui/core": "0.0.48",
-    "@ag-ui/encoder": "0.0.48",
+    "@ag-ui/client": "0.0.55",
+    "@ag-ui/core": "0.0.55",
+    "@ag-ui/encoder": "0.0.55",
     "@anthropic-ai/sdk": "^0.57.0",
     "@copilotkit/a2ui-renderer": "1.59.4",
     "@copilotkit/react-core": "1.59.4",

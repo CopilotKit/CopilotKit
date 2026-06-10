@@ -224,7 +224,15 @@ describe("fixture collision detection", () => {
     // integration's render-a2ui.json (the a2ui_fixed demo). 4 pills × 3
     // integrations = 12. Disambiguated at runtime by the probe's fixtureFile /
     // demo route, like the other cross-feature overlaps above.
-    const KNOWN_DUPLICATE_CEILING = 288;
+    //
+    // Bumped 288 → 290 (+2) when the hitl / gen-ui-interrupt / threadid demos
+    // were ported to google-adk (W3 parity). The new per-demo google-adk
+    // fixtures reuse google-adk's standard prebuilt-probe pills ("hi from the
+    // popup/sidebar test"), so they share match keys with the pre-existing
+    // prebuilt-popup.json / prebuilt-sidebar.json entries for that context.
+    // Disambiguated at runtime by the probe's fixtureFile / demo route, like
+    // the other cross-feature overlaps above.
+    const KNOWN_DUPLICATE_CEILING = 290;
 
     const collisions: string[] = [];
 
@@ -250,7 +258,7 @@ describe("fixture collision detection", () => {
     expect(
       collisions.length,
       `Exact duplicate count (${collisions.length}) exceeds ceiling (${KNOWN_DUPLICATE_CEILING}).\n` +
-        `New duplicates:\n${collisions.slice(KNOWN_DUPLICATE_CEILING).join("\n\n")}`,
+        `Entries beyond the ceiling (iteration order — NOT necessarily the newly introduced ones; diff against the baseline to find the real offenders):\n${collisions.slice(KNOWN_DUPLICATE_CEILING).join("\n\n")}`,
     ).toBeLessThanOrEqual(KNOWN_DUPLICATE_CEILING);
   });
 
@@ -262,18 +270,17 @@ describe("fixture collision detection", () => {
     // matching would cause A to shadow B (or vice versa depending on load
     // order), leading to non-deterministic behavior.
     //
-    // Known baseline: 151 pre-existing shadows across d4+d6 (tracked for
-    // cleanup). Bumped from 126 → 151 when D6 per-integration fixtures
-    // were added — the new feature-type fixtures (tool-rendering-*-catchall,
-    // agent-config, gen-ui-interrupt, interrupt-headless) create expected
-    // substring overlaps with pre-existing fixtures in the same context
-    // (e.g. "What's the current price of AAPL?" vs "AAPL" in
+    // Known baseline: 123 pre-existing shadows across d4+d6 (tracked for
+    // cleanup). The D6 per-integration feature-type fixtures
+    // (tool-rendering-*-catchall, agent-config, gen-ui-interrupt) create
+    // expected substring overlaps with pre-existing fixtures in the same
+    // context (e.g. "What's the current price of AAPL?" vs "AAPL" in
     // tool-rendering.json, or "tone:professional — ..." vs
     // "tone:professional" in chat-css.json). These are disambiguated at
     // runtime by other match fields (toolCallId, toolName, turnIndex).
     // This test fails if the count INCREASES, preventing new shadows
-    // from being introduced.
-    const KNOWN_SHADOW_CEILING = 151;
+    // from being introduced. Ratchet down as shadows are cleaned up.
+    const KNOWN_SHADOW_CEILING = 123;
 
     const shadows: string[] = [];
 
@@ -332,7 +339,7 @@ describe("fixture collision detection", () => {
     expect(
       shadows.length,
       `Substring shadow count (${shadows.length}) exceeds ceiling (${KNOWN_SHADOW_CEILING}).\n` +
-        `New shadows:\n${shadows.slice(KNOWN_SHADOW_CEILING).join("\n\n")}`,
+        `Entries beyond the ceiling (iteration order — NOT necessarily the newly introduced ones; diff against the baseline to find the real offenders):\n${shadows.slice(KNOWN_SHADOW_CEILING).join("\n\n")}`,
     ).toBeLessThanOrEqual(KNOWN_SHADOW_CEILING);
   });
 

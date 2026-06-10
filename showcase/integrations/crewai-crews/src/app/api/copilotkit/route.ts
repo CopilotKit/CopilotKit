@@ -20,7 +20,8 @@ function createAgent(path = "/") {
 // CrewAI hosts a single shared `LatestAiDevelopment` crew. We register
 // many agent names here so individual demo pages can scope their
 // per-cell frontend tool / component registrations independently; all
-// names resolve to the same HttpAgent bridge. See PARITY_NOTES.md.
+// names resolve to the same HttpAgent bridge. See
+// ../../../../PARITY_NOTES.md (integration root).
 const agentNames = [
   // Existing base demos
   "agentic_chat",
@@ -45,9 +46,6 @@ const agentNames = [
   "frontend-tools-async",
   "readonly-state-agent-context",
   "agent-config",
-  // Reasoning variants
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
   // Tool rendering variants
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
@@ -60,9 +58,29 @@ const agentNames = [
   "open-gen-ui-advanced",
 ];
 
+// Reasoning agent names — backed by the reasoning-enabled custom sub-app at
+// /reasoning. It emits AG-UI REASONING_MESSAGE_* events that the frontend
+// renders via the `reasoningMessage` slot (built-in card for
+// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
+// The shared LatestAiDevelopment crew on "/" cannot host these demos because
+// its litellm adapter drops the model's reasoning_content channel and emits
+// no REASONING_MESSAGE_* events. The demo pages use the ids
+// `reasoning-default` / `reasoning-custom`; both share the one reasoning
+// backend. `agentic-chat-reasoning` and `reasoning-default-render` are legacy
+// aliases kept for any cell that still references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
+  "agentic-chat-reasoning",
+];
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 // Interrupt-adapted demos route to the dedicated scheduling crew backend.
 // Both gen-ui-interrupt and interrupt-headless share the same crew; only the
@@ -101,11 +119,23 @@ export const POST = async (req: NextRequest) => {
     console.log(`[copilotkit/route] Response status: ${response.status}`);
     return response;
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error(`[copilotkit/route] ERROR: ${err.message}`);
-    console.error(`[copilotkit/route] Stack: ${err.stack}`);
+    // Log full details server-side (operators grep `errorId` to correlate),
+    // but never echo `err.message` / `err.stack` back to the HTTP client —
+    // that leaks internal paths, dependency versions, and stack traces.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = crypto.randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        scope: "copilotkit/route",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: err.message, stack: err.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
