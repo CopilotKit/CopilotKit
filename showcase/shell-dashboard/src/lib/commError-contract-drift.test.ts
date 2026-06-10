@@ -28,14 +28,21 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
   commErrorFromStatusSignal,
 } from "./live-status";
+import type { FleetSurfaceState } from "./live-status";
 
 const HARNESS_CONTRACTS_FILE = resolve(
   __dirname,
   "../../../harness/src/fleet/contracts.ts",
 );
 
+const DASHBOARD_CELL_MODEL_FILE = resolve(__dirname, "./cell-model.ts");
+
 function harnessSource(): string {
   return readFileSync(HARNESS_CONTRACTS_FILE, "utf8");
+}
+
+function dashboardCellModelSource(): string {
+  return readFileSync(DASHBOARD_CELL_MODEL_FILE, "utf8");
 }
 
 /**
@@ -84,6 +91,49 @@ function parseHarnessSignalKey(): string {
     );
   }
   return m[1];
+}
+
+/**
+ * Parse the string-literal members of the harness `FleetSurfaceState` union
+ * (the members BEYOND the base `ProbeState` colours). Throws if the union
+ * can't be located so a shape change is loud, not a silent pass.
+ */
+function parseHarnessSurfaceOverlayMembers(): string[] {
+  const src = harnessSource();
+  const m = src.match(/export type FleetSurfaceState\s*=\s*([^;]+);/);
+  if (!m || !m[1]) {
+    throw new Error(
+      "drift parser: could not locate the `FleetSurfaceState` union in " +
+        "harness contracts.ts — if the source shape changed, update this regex.",
+    );
+  }
+  const members = Array.from(
+    m[1].matchAll(/"([a-z-]+)"/g),
+    (mm) => mm[1] as string,
+  );
+  if (members.length === 0) {
+    throw new Error(
+      "drift parser: parsed zero literal members from the harness " +
+        "FleetSurfaceState union — regex likely drifted from the source shape.",
+    );
+  }
+  return members;
+}
+
+/**
+ * Parse the body of the harness `fleetSurfaceState` derivation function.
+ * Throws if the function can't be located so a rename is loud.
+ */
+function parseHarnessSurfaceDerivation(): string {
+  const src = harnessSource();
+  const m = src.match(/export function fleetSurfaceState\([\s\S]*?\n\}/);
+  if (!m) {
+    throw new Error(
+      "drift parser: could not locate `fleetSurfaceState` in harness " +
+        "contracts.ts — if the source shape changed, update this regex.",
+    );
+  }
+  return m[0];
 }
 
 describe("pool comm-error contract cross-package drift", () => {
@@ -145,5 +195,63 @@ describe("pool comm-error contract cross-package drift", () => {
       },
     };
     expect(commErrorFromStatusSignal(signal)).toBeUndefined();
+  });
+});
+
+describe("fleet surface-state contract cross-package drift", () => {
+  // The two `FleetSurfaceState` unions are expressed over DIFFERENT base
+  // colour vocabularies (the harness over `ProbeState`, the dashboard over
+  // `ChipColor` — see the live-status.ts union comment), so the pinned shared
+  // surface is the set of PRESENTATION OVERLAY members both sides must carry:
+  // the red "unreachable" crash overlay and the neutral gray "pending"
+  // re-queued surface. The `satisfies` clause makes this list a COMPILE-TIME
+  // pin of the dashboard union — dropping either member from the dashboard
+  // `FleetSurfaceState` reds the typecheck, not just this test.
+  const OVERLAY_MEMBERS = [
+    "unreachable",
+    "pending",
+  ] as const satisfies readonly FleetSurfaceState[];
+
+  it("harness FleetSurfaceState union carries exactly the overlay members the dashboard union does", () => {
+    // If the harness union gains/loses an overlay member the dashboard never
+    // renders (or vice versa), the two packages disagree about what a fleet
+    // surface can BE — the drift this file exists to catch.
+    expect(new Set(parseHarnessSurfaceOverlayMembers())).toEqual(
+      new Set<string>(OVERLAY_MEMBERS),
+    );
+  });
+
+  it("harness fleetSurfaceState derivation routes worker-reclaimed-pending → 'pending' with red passthrough", () => {
+    // Pins the harness DERIVATION shape: the sweep-inferred reclaim kind must
+    // route to the neutral "pending" surface (never the red "unreachable"
+    // overlay), and a red probe colour must pass through unmasked — the same
+    // three-outcome derivation cell-model.ts applies on the dashboard side.
+    const body = parseHarnessSurfaceDerivation();
+    expect(body).toContain('"worker-reclaimed-pending"');
+    expect(body).toContain('"pending"');
+    expect(body).toContain('"unreachable"');
+    expect(body).toContain('"red"');
+  });
+
+  it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with red passthrough", () => {
+    // Same pin on the dashboard side (behaviorally covered by the flap-band
+    // #70 tests in __tests__/cell-model.test.ts; this guards the SHAPE so a
+    // refactor that drops the reclaim branch reds the drift suite too).
+    // Match to the END OF THE STATEMENT (a `;` at end-of-line followed by a
+    // blank line) — a bare non-greedy `;` would stop at a semicolon inside the
+    // derivation's own comments.
+    const m = dashboardCellModelSource().match(
+      /const surfaceState: FleetSurfaceState =[\s\S]*?;\n\n/,
+    );
+    if (!m) {
+      throw new Error(
+        "drift parser: could not locate the `surfaceState` derivation in " +
+          "cell-model.ts — if the source shape changed, update this regex.",
+      );
+    }
+    const body = m[0];
+    expect(body).toContain('"worker-reclaimed-pending"');
+    expect(body).toContain('"pending"');
+    expect(body).toContain('"unreachable"');
   });
 });

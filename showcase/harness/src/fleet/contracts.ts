@@ -315,10 +315,19 @@ export interface PoolCommError {
  *     the pool" treatment.
  *
  * `FleetSurfaceState` is the UNION the DASHBOARD computes for rendering — it is
- * a presentation type, NOT a persisted column. The dashboard derives it:
- * `commError ? "unreachable" : state`.
+ * a presentation type, NOT a persisted column. The derivation (see
+ * `fleetSurfaceState`, mirrored by the dashboard's `cell-model.ts` surface
+ * derivation) produces THREE outcomes:
+ *   - `"unreachable"` — a directly-observed crash kind (worker-crashed-mid-job,
+ *     worker-unreachable, ...) overlays the row: the red comm-error treatment.
+ *   - `"pending"` — a `worker-reclaimed-pending` comm error on a NON-red row:
+ *     the lease lapsed and the sweeper re-queued the job (routine teardown,
+ *     not a known crash), so the surface is the NEUTRAL gray "re-queued /
+ *     pending" treatment (see POOL_COMM_ERROR_KINDS). A red row passes
+ *     through — the neutral overlay must never mask a genuine failure.
+ *   - otherwise the row's last-known probe colour (`state`).
  */
-export type FleetSurfaceState = ProbeState | "unreachable";
+export type FleetSurfaceState = ProbeState | "unreachable" | "pending";
 
 /** Signal-blob key under which a comm error is mirrored onto a status row. */
 export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
@@ -342,9 +351,23 @@ export interface FleetStatusRow {
   commError?: PoolCommError;
 }
 
-/** Compute the dashboard's surface state from a row's colour + comm error. */
+/**
+ * Compute the dashboard's surface state from a row's colour + comm error.
+ * Mirrors the dashboard's `cell-model.ts` derivation exactly: the
+ * sweep-inferred `worker-reclaimed-pending` kind renders the NEUTRAL
+ * `"pending"` surface (the job is re-queued / back in flight, not a known
+ * crash) UNLESS the row's own probe colour is red — a present red is a
+ * genuine failure the neutral overlay must NOT mask, so it passes through.
+ * Every other comm-error kind is a directly-observed pool failure and
+ * renders the red `"unreachable"` overlay; no comm error passes the row's
+ * last-known probe colour through unchanged.
+ */
 export function fleetSurfaceState(row: FleetStatusRow): FleetSurfaceState {
-  return row.commError ? "unreachable" : row.state;
+  if (!row.commError) return row.state;
+  if (row.commError.kind === "worker-reclaimed-pending") {
+    return row.state === "red" ? row.state : "pending";
+  }
+  return "unreachable";
 }
 
 /**

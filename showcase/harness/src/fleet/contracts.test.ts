@@ -21,6 +21,7 @@ import type {
   ServiceJobResult,
   WorkerCapacity,
   FleetStatusRow,
+  FleetSurfaceState,
 } from "./contracts.js";
 
 /**
@@ -138,14 +139,67 @@ describe("fleetSurfaceState", () => {
     observedAt: "2026-06-04T00:00:00.000Z",
   };
 
+  const RECLAIM_COMM_ERROR: PoolCommError = {
+    kind: "worker-reclaimed-pending",
+    message: "lease expired; job re-queued to pending",
+    jobId: "j1",
+    observedAt: "2026-06-04T00:00:00.000Z",
+  };
+
   it("returns the probe colour when there is no comm error", () => {
     expect(fleetSurfaceState(row)).toBe("green");
   });
 
-  it("returns 'unreachable' when a comm error overlays the row", () => {
+  it("returns 'unreachable' when a crash-kind comm error overlays the row", () => {
     expect(fleetSurfaceState({ ...row, commError: SAMPLE_COMM_ERROR })).toBe(
       "unreachable",
     );
+  });
+
+  it("routes every non-reclaim comm-error kind to 'unreachable'", () => {
+    for (const kind of POOL_COMM_ERROR_KINDS) {
+      if (kind === "worker-reclaimed-pending") continue;
+      expect(
+        fleetSurfaceState({
+          ...row,
+          commError: { ...SAMPLE_COMM_ERROR, kind },
+        }),
+      ).toBe("unreachable");
+    }
+  });
+
+  it("routes worker-reclaimed-pending on a non-red row to the NEUTRAL 'pending' surface", () => {
+    // The sweep boundary cannot tell a real crash from a routine platform
+    // teardown — either way the job is re-queued (back in flight), so the
+    // surface is the neutral gray "pending", NEVER the red "unreachable"
+    // overlay (see POOL_COMM_ERROR_KINDS; mirrors the dashboard derivation).
+    expect(fleetSurfaceState({ ...row, commError: RECLAIM_COMM_ERROR })).toBe(
+      "pending",
+    );
+    expect(
+      fleetSurfaceState({
+        ...row,
+        state: "degraded",
+        commError: RECLAIM_COMM_ERROR,
+      }),
+    ).toBe("pending");
+  });
+
+  it("worker-reclaimed-pending must NOT mask a red probe result (red passes through)", () => {
+    // Mirrors the dashboard's cell-model derivation: a present red is a
+    // GENUINE failure the neutral pending overlay must not hide.
+    expect(
+      fleetSurfaceState({
+        ...row,
+        state: "red",
+        commError: RECLAIM_COMM_ERROR,
+      }),
+    ).toBe("red");
+  });
+
+  it("type-level: the union carries the 'pending' member alongside 'unreachable'", () => {
+    expectTypeOf<"pending">().toMatchTypeOf<FleetSurfaceState>();
+    expectTypeOf<"unreachable">().toMatchTypeOf<FleetSurfaceState>();
   });
 });
 
