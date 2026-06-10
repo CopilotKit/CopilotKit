@@ -104,6 +104,7 @@ import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
 import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
+  DEFAULT_WORKER_GC_AFTER_MS,
 } from "./fleet/control-plane/fleet-health.js";
 import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
 import {
@@ -2420,6 +2421,7 @@ export async function runControlPlane(
     claim,
     logger,
     staleAfterMs: resolveWorkerStaleAfterMs(),
+    gcAfterMs: resolveWorkerGcAfterMs(),
     restartWorker: resolveWorkerRestartHook(logger),
   });
 
@@ -3027,6 +3029,22 @@ function resolveWorkerStaleAfterMs(): number {
 }
 
 /**
+ * Resolve the GC window (ms): how long since a worker's last heartbeat before
+ * fleet-health DELETES its roster row outright (a long-dead prior-generation row
+ * that never deregistered) instead of pointlessly reclaiming/restart-attempting
+ * it every cycle. Env-overridable via WORKER_GC_AFTER_MS; defaults to
+ * DEFAULT_WORKER_GC_AFTER_MS (24h). A non-positive / unparseable override falls
+ * back to the default rather than disabling GC. MUST stay >> the stale window so
+ * a recoverable worker is never GC'd.
+ */
+function resolveWorkerGcAfterMs(): number {
+  const raw = process.env.WORKER_GC_AFTER_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_WORKER_GC_AFTER_MS;
+}
+
+/**
  * Resolve the best-effort worker-restart hook fleet-health fires for a wedged
  * worker. In STAGING a wedged worker is recovered by a Railway
  * `serviceInstanceRedeploy`; the wiring is env-guarded so it only engages when
@@ -3441,11 +3459,33 @@ export async function runWorker(
     port: worker.port,
     bus: worker.bus,
     async stop(): Promise<void> {
-      registration.stop();
-      // We injected BOTH budgetSource and driver, so fleet runWorker did NOT
-      // construct its own pool — its stop() only drains the in-flight job and
-      // stops the loop. WE own the pool, so we shut it down ourselves below.
+      // GRACEFUL-DRAIN STOP ORDERING (FIX 3). The order matters because the
+      // final job-settle heartbeat is FIRE-AND-FORGET (`void
+      // registration.heartbeat(...)` above), so `await worker.stop()` resolving
+      // guarantees that heartbeat was CALLED, not that its PB upsert COMPLETED.
+      //   1. `worker.stop()` — drains/aborts the in-flight run (the loop threads
+      //      its drain signal into the driver ctx, the driver suppresses red
+      //      side-emits, and the loop SKIPS reporting the partial so the lease
+      //      lapses into the sweeper's neutral-gray re-queue). Its settle fires
+      //      the LAST possible (fire-and-forget) `onCurrentJobChange(null)`
+      //      heartbeat upsert.
+      //   2. `registration.stop()` — cancel the periodic heartbeat timer so no
+      //      further periodic upsert can follow the delete.
+      //   3. `registration.deregister()` — AWAIT the handle's tracked in-flight
+      //      write (so the still-in-flight job-settle upsert from step 1 lands
+      //      FIRST), THEN best-effort DELETE this worker's registry row. With no
+      //      row, fleet-health never reclaims a gracefully-drained worker red at
+      //      its 180s stale window; the abandoned job reaches the 300s lease
+      //      expiry where the sweeper re-queues it neutral-gray. The no-re-upsert
+      //      guarantee lives in the HANDLE (the awaited in-flight write), NOT in
+      //      this ordering — the reorder only narrows the race window. Crash path
+      //      (process died, no deregister) keeps today's red reclaim.
+      //   4. `pool.shutdown()` — unchanged (still last). We injected BOTH
+      //      budgetSource and driver, so fleet runWorker did NOT construct its
+      //      own pool — WE own it and shut it down here.
       await worker.stop();
+      registration.stop();
+      await registration.deregister();
       await pool.shutdown().catch((err) => {
         logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
           workerId,
@@ -3519,18 +3559,25 @@ export async function bootFleet(
     }
     case "worker": {
       const worker = await runWorker(config, opts);
-      // GRACEFUL-TEARDOWN MARKER (flap-band #70): Railway sends SIGTERM (with a
-      // grace window) on scale-down / redeploy. WITHOUT this handler the worker
-      // process dies mid-job, leaving its claimed/running row to lapse so the
-      // control-plane sweeper reclaims it as a comm error — a FALSE flap on
-      // every routine teardown. Draining here makes the in-flight job report a
-      // TERMINAL result BEFORE the lease can expire, so the sweep never sees the
-      // row at all and no false overlay is synthesized. This is THE distinction
-      // the sweep boundary cannot make on its own (an expired lease looks the
-      // same for a crash and a SIGKILL teardown) — we create the marker by
-      // converting the common SIGTERM teardown into a clean drain. A hard
-      // SIGKILL (no grace) still strands the row, but the sweep now treats that
-      // as the neutral `worker-reclaimed-pending` (re-queued), not a red crash.
+      // GRACEFUL-TEARDOWN MARKER (flap-band #70 / #71-FF3): Railway sends SIGTERM
+      // (with a grace window) on scale-down / redeploy. WITHOUT this handler the
+      // worker process dies mid-job, leaving its claimed/running row to lapse so
+      // the control-plane sweeper reclaims it as a comm error — a FALSE flap on
+      // every routine teardown. The drain (worker.stop() in runWorker's stop
+      // path) does NOT report a terminal result for the in-flight job: a reported
+      // partial would paint RED (terminalJobStatus maps any non-green aggregate
+      // to "failed", and the result-consumer has no neutral aggregate state). So
+      // the drain instead ABANDONS the partial — the driver suppresses its red
+      // per-cell side-emits (ctx.drainReason === "shutdown"), the loop skips
+      // queue.report, and the worker DEREGISTERS its registry row. With no row,
+      // fleet-health can't reclaim a gracefully-drained worker red at its 180s
+      // stale window; the abandoned job's claimed/running row lapses at the 300s
+      // lease expiry where the sweeper re-queues it as the neutral
+      // `worker-reclaimed-pending` (gray), accepting an up-to-lease-window re-run
+      // delay for ZERO red paint on a routine redeploy. Deregistration is THE
+      // distinction the sweep boundary cannot make on its own (an expired lease
+      // looks the same for a crash and a SIGTERM teardown): a CRASH leaves the
+      // row (→ today's red reclaim, unchanged), a graceful drain deletes it.
       let draining = false;
       const drainAndExit = (signal: NodeJS.Signals): void => {
         if (draining) return;

@@ -115,6 +115,7 @@ function emptyHealthResult(
     commErrors: [],
     reclaimedOverlays: [],
     restartsAttempted: 0,
+    gcDeleted: 0,
     ...over,
   };
 }

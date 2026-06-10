@@ -152,6 +152,18 @@ export interface ProbeContext {
    */
   abortSignal?: AbortSignal;
   /**
+   * Optional drain reason set by the invoker when `abortSignal` fires as part
+   * of a GRACEFUL worker shutdown (SIGTERM/redeploy), as opposed to a per-run
+   * timeout or an error abort. When `"shutdown"`, drivers SHOULD suppress the
+   * red per-cell side-emits they would otherwise write for not-yet-completed
+   * work — a graceful drain must not paint a mass-red block on the dashboard
+   * (the worker abandons the partial job so the lease lapses into the sweeper's
+   * neutral-gray re-queue instead). Drivers that don't understand this field
+   * ignore it — it's purely advisory. Kept optional so existing ProbeContext
+   * construction sites (tests, legacy drivers) continue to compile.
+   */
+  drainReason?: "shutdown";
+  /**
    * Optional feature-type filter threaded from the trigger layer. When
    * set, drivers that support per-feature-type filtering (e.g. e2e-deep)
    * SHOULD restrict their run to only the listed feature types. Drivers
