@@ -193,6 +193,19 @@ _reap_isolate_slot() {
     # anyway would orphan whatever runs dir the record actually points at.
     # A corrupted record is a bug or tampering — leave the evidence in place
     # for manual inspection rather than half-destroy it.
+    #
+    # Reserved name, same treatment: 'showcase' IS the default stack's compose
+    # project name and PASSES the charset check below, so a record reading
+    # 'showcase' (a corrupt record, or one written by an older CLI version
+    # before apply_isolation reserved the name) would aim the compose-down at
+    # the user's LIVE DEFAULT stack — and --volumes would destroy its
+    # PocketBase data. apply_isolation refuses the name at claim time, but the
+    # reaper must not trust records: warn and leave the whole slot intact for
+    # manual inspection (no compose-down, no state removal).
+    if [ "$slot_proj" = "showcase" ]; then
+      warn "Slot record at $slot_entry names the RESERVED project 'showcase' — that is the LIVE default stack's compose project, so reaping it would compose the default stack down (--volumes included: PocketBase data destroyed). Leaving the slot intact for manual inspection; its runs dir would be $(_showcase_state_base)/runs/$slot_proj"
+      return 0
+    fi
     if [[ "$slot_proj" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
       # Best-effort remnant cleanup BEFORE deleting any state: a stopped kept
       # stack (see the header) still has containers + named volumes; deleting
@@ -505,10 +518,15 @@ apply_isolation() {
 
   # Guard: clean up stale .iso-bak files from a prior botched run that
   # mutated originals in-place (the old approach). This makes migration safe.
+  # The mv's are race-guarded: two concurrent runs can both see the same stale
+  # backup, and the loser's mv (the FINAL command of its AND-list — final-
+  # command failures DO trip set -e) would otherwise die pre-claim with a raw
+  # error. The survivor's restore wins; the loser proceeds with the restored
+  # originals.
   if [ -f "${PORTS_FILE}.iso-bak" ] || [ -f "${COMPOSE_FILE}.iso-bak" ]; then
     warn "Stale .iso-bak files found from a prior crash — restoring originals"
-    [ -f "${PORTS_FILE}.iso-bak" ] && mv "${PORTS_FILE}.iso-bak" "$PORTS_FILE"
-    [ -f "${COMPOSE_FILE}.iso-bak" ] && mv "${COMPOSE_FILE}.iso-bak" "$COMPOSE_FILE"
+    [ -f "${PORTS_FILE}.iso-bak" ] && mv "${PORTS_FILE}.iso-bak" "$PORTS_FILE" 2>/dev/null || true
+    [ -f "${COMPOSE_FILE}.iso-bak" ] && mv "${COMPOSE_FILE}.iso-bak" "$COMPOSE_FILE" 2>/dev/null || true
   fi
 
   # Claim a slot for unique port offsets

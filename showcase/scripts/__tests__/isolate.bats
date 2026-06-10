@@ -456,6 +456,54 @@ load_common() {
   [[ "$output" == "../evil" ]] || fail "suspicious record mangled: $output"
 }
 
+@test "a slot whose project record reads the RESERVED 'showcase' is left intact — reap never composes the default stack down" {
+  # Reserved-name guard in the REAPER: 'showcase' IS the default stack's
+  # compose project name, and it PASSES the charset regex — so a slot record
+  # reading 'showcase' (a corrupt record, or one written by an older CLI
+  # version before apply_isolation reserved the name) used to make the reap
+  # run `compose -p showcase down --remove-orphans --volumes` against the
+  # user's LIVE DEFAULT stack, destroying the PocketBase named volume.
+  # apply_isolation reserves the name at claim time, but the reaper must not
+  # trust records: the reserved name gets the same treatment as the
+  # path-traversal guard — warn and leave the whole slot in place for manual
+  # inspection (no compose-down, no state removal).
+  load_common
+  local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
+  mkdir -p "$slots/0"
+  echo "showcase" > "$slots/0/project"   # passes [a-z0-9][a-z0-9_-]*
+
+  export DOCKER_PS_OUTPUT=""   # no live containers, no pid file → reap path
+  : > "$DOCKER_LOG"
+  docker version   # sentinel: prove stub+DOCKER_LOG wiring before the claim
+  run _claim_isolate_slot
+  [ "$status" -eq 0 ] || fail "_claim_isolate_slot failed: $output"
+
+  # A loud warning names the offending record and why it is dangerous.
+  # (Checked before any `run grep` clobbers $output.)
+  [[ "$output" == *"RESERVED"* ]] \
+    || fail "no reserved-name warning printed: $output"
+  [[ "$output" == *"$slots/0"* ]] \
+    || fail "warning does not name the slot record: $output"
+
+  # The reserved-name slot survives — with its record — for inspection, and
+  # the claim moves on to the next free slot (the subshell's mkdir persists
+  # on the filesystem even though `run` ran the claim in a subshell).
+  [ -d "$slots/0" ] || fail "reserved-name slot 0 was reaped (default stack endangered)"
+  run cat "$slots/0/project"
+  [ "$status" -eq 0 ] || fail "reserved-name slot 0 record removed"
+  [[ "$output" == "showcase" ]] || fail "reserved-name record mangled: $output"
+  [ -d "$slots/1" ] || fail "claim did not proceed past the preserved slot 0"
+
+  # NO compose-down of the 'showcase' project may have run — match BOTH
+  # compose project-flag spellings (the reaper uses -p; other paths use
+  # --project-name). The sentinel proves the stub→log pipeline is live, so
+  # this absence check cannot pass vacuously.
+  _assert_stub_sentinel_logged
+  run grep -E -- "(--project-name|-p) showcase down" "$DOCKER_LOG"
+  [ "$status" -ne 0 ] \
+    || fail "reap composed the RESERVED 'showcase' project down (live default stack): $output"
+}
+
 @test "a fresh pre-existing .sweep.lock skips the sweep; claiming still succeeds" {
   # TOCTOU sweep/claim race: two concurrent claimants could both observe slot 0
   # stale — A reaps + re-claims it, then B reaps A's FRESH claim and claims the
@@ -712,9 +760,12 @@ load_common() {
     || fail "notice missing literal teardown command: $output"
 
   # The keep path's central promise: it does NOT compose-down the kept stack.
+  # Match BOTH compose project-flag spellings — restore_isolation's own down
+  # uses --project-name, but the reaper (and any keep-branch regression)
+  # spells it -p, which a --project-name-only grep would let slip through.
   # (Last, because `run grep` clobbers the $output the notice checks read.)
   _assert_stub_sentinel_logged
-  run grep -E -- "--project-name keepme down" "$DOCKER_LOG"
+  run grep -E -- "(--project-name|-p) keepme down" "$DOCKER_LOG"
   [ "$status" -ne 0 ] || fail "keep path composed the kept stack down: $output"
 }
 
@@ -1249,10 +1300,13 @@ FIXTURE
     || fail "survival notice not printed at exit: $output"
 
   # The keep path's central promise, under the REAL trap wiring: the EXIT trap
-  # did NOT compose-down the kept stack. The log was truncated inside the
-  # fixture after apply_isolation's pre-down, and the sentinel proves the
-  # stub→log pipeline stayed live, so this absence check is not vacuous.
+  # did NOT compose-down the kept stack. Match BOTH compose project-flag
+  # spellings (--project-name and -p) — a keep-branch regression via the -p
+  # form would pass a --project-name-only grep undetected. The log was
+  # truncated inside the fixture after apply_isolation's pre-down, and the
+  # sentinel proves the stub→log pipeline stayed live, so this absence check
+  # is not vacuous.
   _assert_stub_sentinel_logged
-  run grep -E -- "--project-name trapkeep down" "$DOCKER_LOG"
+  run grep -E -- "(--project-name|-p) trapkeep down" "$DOCKER_LOG"
   [ "$status" -ne 0 ] || fail "EXIT trap composed the kept stack down: $output"
 }

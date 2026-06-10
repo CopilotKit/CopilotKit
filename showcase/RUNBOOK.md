@@ -163,9 +163,12 @@ bin/showcase test <slug> --d6 --isolate <name>
 
 ### How it works
 
-- **`<name>`**: names the isolated compose project. It must match `[a-z0-9_-]+`
-  (a docker compose project-name constraint; uppercase is lowercased with a
-  warning). Use a distinct name per run so concurrent runs never collide.
+- **`<name>`**: names the isolated compose project. It must start with a
+  lowercase letter or digit, followed by lowercase letters, digits, `-` or `_`
+  (`[a-z0-9][a-z0-9_-]*`, a docker compose project-name constraint); uppercase
+  is normalized to lowercase with a warning. The name `showcase` is reserved —
+  it is the default stack's own compose project name, so the CLI refuses it.
+  Use a distinct name per run so concurrent runs never collide.
 - **Auto-assigned slot and port offset**: each run atomically claims a slot
   (0–45) and derives its port offset as `(slot + 1) * 200` — slot 0 → +200,
   slot 1 → +400, and so on. **Do not assign slots or offsets manually**; the
@@ -213,16 +216,15 @@ stack's host ports (aimock, dashboard, PocketBase) and the manual teardown
 command:
 
 ```sh
-docker compose -p <name> down --remove-orphans && rm -rf <run-dir> <slot-dir>
+docker compose -p <name> down --remove-orphans --volumes && rm -rf <run-dir> <slot-dir>
 ```
 
-Note that `down --remove-orphans` removes containers and networks but NOT named
-volumes (e.g. `<name>_showcase-pb-data`). For a fully clean slate, tear down by
-project name with volumes (or `docker volume rm` the leftovers):
-
-```sh
-docker compose --project-name <name> down --volumes
-```
+The teardown includes `--volumes`: isolated stacks are ephemeral, so the
+project-scoped named volumes (e.g. `<name>_showcase-pb-data`) are removed along
+with the containers and networks — the same flags the automatic (non-`--keep`)
+teardown uses, so a kept stack leaves nothing behind once torn down. The
+`rm -rf` clears the per-run scratch dir and the slot reservation (the notice
+prints the real paths).
 
 If a run was killed with `SIGKILL` (so the trap never fired), the next isolate
 run auto-reaps the dead slot (a slot whose compose project has no live

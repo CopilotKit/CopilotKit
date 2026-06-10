@@ -300,8 +300,11 @@ subtly different each run.
 ### How it works
 
 1. **`<name>` and slot/offset**: `<name>` names the isolated compose project and
-   must match `[a-z0-9_-]+` (a docker compose project-name constraint; uppercase
-   is lowercased with a warning). Use a distinct name per run. The slot and port
+   must start with a lowercase letter or digit, then lowercase letters, digits,
+   `-` or `_` (`[a-z0-9][a-z0-9_-]*`, a docker compose project-name constraint;
+   uppercase is normalized to lowercase with a warning). The name `showcase` is
+   reserved — it is the default stack's own compose project name, so the CLI
+   refuses it. Use a distinct name per run. The slot and port
    offset are **auto-assigned** — each run atomically claims a slot via `mkdir`
    under `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots/N`
    and derives its offset as `(slot + 1) * 200`
@@ -352,14 +355,13 @@ scratch dir. Inspect a kept stack before stopping it; it does not survive a
 reboot. At exit a survival notice
 prints the stack's host ports (aimock, dashboard, PocketBase) plus the manual
 teardown command
-(`docker compose -p <name> down --remove-orphans && rm -rf <run-dir> <slot-dir>`).
-Note that `down --remove-orphans` does not remove named volumes (e.g.
-`<name>_showcase-pb-data`); for a fully clean slate, tear down by project name
-with volumes (or `docker volume rm` the leftovers):
-
-```sh
-docker compose --project-name <name> down --volumes
-```
+(`docker compose -p <name> down --remove-orphans --volumes && rm -rf <run-dir> <slot-dir>`).
+The teardown includes `--volumes`: isolated stacks are ephemeral, so the
+project-scoped named volumes (e.g. `<name>_showcase-pb-data`) are removed along
+with the containers and networks — the same flags the automatic (non-`--keep`)
+teardown uses, so a kept stack leaves nothing behind once torn down. The
+`rm -rf` clears the per-run scratch dir and the slot reservation (the notice
+prints the real paths).
 
 ### Troubleshooting
 
