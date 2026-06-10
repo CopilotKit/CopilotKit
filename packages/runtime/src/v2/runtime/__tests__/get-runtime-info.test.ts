@@ -332,4 +332,168 @@ describe("handleGetRuntimeInfo", () => {
       message: "Failed to get agents",
     });
   });
+
+  describe("agent display name (decoupled from registry key)", () => {
+    /**
+     * Covers the behavior added for issue #4775: an agent that exposes a
+     * public `name` field provides its own human-facing display name in
+     * the /info response, while the registry-key (used for routing) stays
+     * the dictionary key. Agents without a `name` keep today's behavior
+     * (display name = registry key) — backward compatible.
+     */
+    const mockRequest = new Request("https://example.com/info");
+
+    it("falls back to the registry key when the agent does not expose a name (regression guard)", async () => {
+      const mockAgent = {
+        description: "support agent",
+        constructor: { name: "SupportAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "support-v1": mockAgent as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["support-v1"].name).toBe("support-v1");
+    });
+
+    it("uses agent.name as the display name when the agent exposes one", async () => {
+      const mockAgent = {
+        name: "Customer Support Specialist",
+        description: "support agent",
+        constructor: { name: "SupportAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "support-v1": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["support-v1"].name).toBe(
+        "Customer Support Specialist",
+      );
+    });
+
+    it("trims surrounding whitespace from the agent-provided name", async () => {
+      const mockAgent = {
+        name: "  Friendly Name  ",
+        description: "agent",
+        constructor: { name: "TrimAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "trim-key": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["trim-key"].name).toBe("Friendly Name");
+    });
+
+    it("falls back to the registry key when agent.name is the empty string", async () => {
+      const mockAgent = {
+        name: "",
+        description: "agent",
+        constructor: { name: "EmptyNameAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "empty-key": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["empty-key"].name).toBe("empty-key");
+    });
+
+    it("falls back to the registry key when agent.name is whitespace-only", async () => {
+      const mockAgent = {
+        name: "   ",
+        description: "agent",
+        constructor: { name: "WhitespaceAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "ws-key": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["ws-key"].name).toBe("ws-key");
+    });
+
+    it("falls back to the registry key when agent.name is not a string", async () => {
+      const mockAgent = {
+        name: 42,
+        description: "agent",
+        constructor: { name: "NonStringNameAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "nonstring-key": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(data.agents["nonstring-key"].name).toBe("nonstring-key");
+    });
+
+    it("keeps the registry key unchanged in the response map (only display name varies)", async () => {
+      const mockAgent = {
+        name: "Customer Support Specialist",
+        description: "support agent",
+        constructor: { name: "SupportAgent" },
+      };
+      const runtime = new CopilotRuntime({
+        agents: {
+          "customer-support-v1": mockAgent as unknown as AbstractAgent,
+        },
+      });
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      // Registry key (the dictionary key, used for routing) stays the same
+      expect(Object.keys(data.agents)).toEqual(["customer-support-v1"]);
+      // Display name comes from agent.name
+      expect(data.agents["customer-support-v1"].name).toBe(
+        "Customer Support Specialist",
+      );
+    });
+  });
 });
