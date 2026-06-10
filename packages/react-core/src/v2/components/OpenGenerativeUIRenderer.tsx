@@ -488,28 +488,29 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       }
     }, [content.jsExpressions?.length]);
 
-    // Effect 4 — One-shot height measurement (fires once when generation completes)
+    // Effect 4 — Height measurement listener (attached once generation completes)
     const generationDone = content.generating === false;
     useEffect(() => {
       if (!generationDone) return;
 
-      let handled = false;
+      // The listener stays armed for the lifetime of this effect — it is NOT
+      // one-shot. Cleanup only runs when generationDone changes or the component
+      // unmounts; a post-completion rebuild (Effect 1) triggers neither, so the
+      // same listener must keep serving the rebuilt sandbox. It applies EVERY
+      // accepted __ck_resize rather than latching after the first.
       const onMessage = (e: MessageEvent) => {
-        if (handled) return;
-        // Read sandboxRef lazily — on the fast-completion path the sandbox may
-        // still be null when this listener is attached, so capturing it in the
-        // closure would drop the message. Resolving the iframe at message time
-        // also lets this listener serve a sandbox rebuilt by Effect 1 after
-        // completion: sandboxRef.current then points at the NEW iframe, and this
-        // listener survives the rebuild (its cleanup only runs on generationDone
-        // change/unmount, which a rebuild does not trigger).
+        // Read sandboxRef lazily so the comparison always targets the CURRENT
+        // sandbox: on the fast-completion path the sandbox may still be null when
+        // this listener is attached (capturing it in the closure would drop the
+        // message), and after a rebuild sandboxRef.current points at the NEW
+        // iframe. A stale iframe's message therefore fails this check and is
+        // ignored. The measurement script posts exactly once per execution, so
+        // each accepted message is one-per-build — applying every one cannot loop.
         if (
           e.source === sandboxRef.current?.iframe?.contentWindow &&
           e.data?.type === "__ck_resize"
         ) {
-          handled = true;
           setAutoHeight(e.data.height);
-          window.removeEventListener("message", onMessage);
         }
       };
       window.addEventListener("message", onMessage);
@@ -526,9 +527,11 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         pendingQueueRef.current.push(MEASURE_ONCE_SCRIPT);
       }
 
-      // NOTE: this effect handles only the FIRST measurement (keyed on
-      // generationDone). A rebuild after completion does not re-fire it, so
-      // Effect 1's re-queue block re-pushes MEASURE_ONCE_SCRIPT itself.
+      // This effect arms the listener and queues the FIRST measurement. A
+      // rebuild after completion does not re-fire this effect (it is keyed on
+      // generationDone), so Effect 1's re-queue block re-pushes
+      // MEASURE_ONCE_SCRIPT for the rebuilt sandbox — and because the listener
+      // above stays armed across the rebuild, that measurement is applied too.
       return () => {
         window.removeEventListener("message", onMessage);
       };

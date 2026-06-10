@@ -782,8 +782,12 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // destroys the measured sandbox and resets autoHeight. Effect 4 is keyed on
       // generationDone and will NOT re-fire, so without Effect 1's re-queue the
       // new sandbox is never measured: it stays clamped at initialHeight and
-      // taller content is clipped. Effect 1 must re-push the measurement.
+      // taller content is clipped. Effect 1 must re-push the measurement AND the
+      // armed __ck_resize listener must still apply the result to the height.
       const completedContent = {
+        // initialHeight 200 so a stuck height is unmistakably distinct from the
+        // measured 500/700 values below.
+        initialHeight: 200,
         html: ["<head></head><body><div>Tall content</div></body>"],
         htmlComplete: true,
         css: "body { color: blue; }",
@@ -801,7 +805,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         },
       ];
 
-      const { rerender } = render(
+      const { container, rerender } = render(
         <SandboxFunctionsContext.Provider value={fns1}>
           <OpenGenerativeUIActivityRenderer
             activityType="open-generative-ui"
@@ -827,9 +831,34 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       );
       expect(measureCallsFirst.length).toBeGreaterThanOrEqual(1);
 
+      const outer = container.firstElementChild as HTMLElement;
+      // Still at initialHeight until the iframe posts back its measurement.
+      expect(outer.style.height).toBe("200px");
+
+      // The mock creates a fresh, DETACHED iframe per sandbox; a detached
+      // iframe's contentWindow is null in jsdom, so stub it with a sentinel
+      // window object and use that same object as the MessageEvent source the
+      // armed listener compares against (sandboxRef.current.iframe.contentWindow).
+      const firstWindow = {} as Window;
+      Object.defineProperty(mockIframe, "contentWindow", {
+        configurable: true,
+        value: firstWindow,
+      });
+
+      // The first sandbox posts its measured height — the listener applies it.
+      await act(async () => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: { type: "__ck_resize", height: 500 },
+            source: firstWindow,
+          }),
+        );
+      });
+      expect(outer.style.height).toBe("500px");
+
       // Rebuild WITHOUT changing content — only the sandbox-functions context
       // value changes (localApi identity), which re-fires Effect 1 but not
-      // Effect 4. The new sandbox must still be measured.
+      // Effect 4. The new sandbox must still be measured and applied.
       mockRun.mockClear();
       resetMockPromise();
       const handler2 = vi.fn();
@@ -856,6 +885,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // Old sandbox destroyed, new one created
       expect(mockDestroy).toHaveBeenCalledTimes(1);
       expect(mockCreate).toHaveBeenCalledTimes(2);
+      // Effect 1's cleanup reset autoHeight, so the height snaps back to
+      // initialHeight until the rebuilt iframe posts its measurement.
+      expect(outer.style.height).toBe("200px");
 
       // New sandbox not ready yet — measurement still queued, nothing flushed
       const measureBeforeReady = mockRun.mock.calls.filter(
@@ -871,13 +903,34 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       });
       await flushImport();
 
-      // RED pre-fix (0 on the rebuilt sandbox), GREEN post-fix: the second
-      // sandbox re-ran the one-shot measurement.
+      // The second sandbox re-ran the one-shot measurement script.
       const measureCallsSecond = mockRun.mock.calls.filter(
         (c: unknown[]) =>
           typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
       );
       expect(measureCallsSecond.length).toBeGreaterThanOrEqual(1);
+
+      // Stub the SECOND (now current) iframe's contentWindow with a distinct
+      // sentinel — mockCreate reassigned the module-level mockIframe on rebuild.
+      const secondWindow = {} as Window;
+      Object.defineProperty(mockIframe, "contentWindow", {
+        configurable: true,
+        value: secondWindow,
+      });
+
+      // RED pre-fix: the listener was a one-shot that removed itself after the
+      // first (500px) measurement, so this second post is never received and the
+      // height stays stuck at 200px. GREEN post-fix: the still-armed listener
+      // applies the rebuilt sandbox's measurement.
+      await act(async () => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: { type: "__ck_resize", height: 700 },
+            source: secondWindow,
+          }),
+        );
+      });
+      expect(outer.style.height).toBe("700px");
     });
   });
 
