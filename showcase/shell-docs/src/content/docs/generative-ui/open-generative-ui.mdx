@@ -102,7 +102,7 @@ knows which bridges are available when generating HTML/JS.
 The agent generates the tool call's parameters in an order optimized for the
 user experience:
 
-1. **`placeholderMessages`** — shown immediately while generating
+1. **`initialHeight` + `placeholderMessages`** — sizing hint and status lines, shown immediately while generating
 2. **`css`** — all styles first; the preview starts once CSS is complete
 3. **`html`** — streams live into the preview as it's generated
 4. **`jsFunctions`** — reusable helpers injected before expressions
@@ -139,7 +139,10 @@ Override or disable the importmap via the provider:
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   openGenerativeUI={{
-    libraries: { lodash: "https://esm.sh/lodash-es@4.17.21" }, // merged over the defaults; overriding a bare specifier re-pins its "lib/" subpath form too
+    libraries: {
+      lodash: "https://esm.sh/lodash-es@4.17.21", // new entries merge over the defaults
+      three: "https://esm.sh/three@0.181.0", // overriding a pre-wired library re-pins its "three/" subpath form too
+    },
     // libraries: false  — disable the importmap entirely
   }}
 >
