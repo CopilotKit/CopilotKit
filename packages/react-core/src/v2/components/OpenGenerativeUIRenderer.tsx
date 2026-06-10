@@ -320,6 +320,22 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       sandboxReadyRef.current = false;
       pendingQueueRef.current = [];
 
+      // Re-queue current JS so a rebuilt sandbox is never left without its behavior
+      // (Effects 2/3 won't re-fire when the rebuild trigger isn't a JS change).
+      // Setting the guards here makes Effects 2/3 skip on first mount (they run
+      // after this effect in the same commit), avoiding double-execution.
+      // content.jsFunctions/jsExpressions are read as a rebuild-time snapshot and
+      // are intentionally not in the dep array; the memoized inner component
+      // re-renders on content change so this closure is always current.
+      if (content.jsFunctions) {
+        pendingQueueRef.current.push(content.jsFunctions);
+        jsFunctionsInjectedRef.current = true;
+      }
+      if (content.jsExpressions?.length) {
+        pendingQueueRef.current.push(...content.jsExpressions);
+        executedIndexRef.current = content.jsExpressions.length;
+      }
+
       // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
       const htmlContent = assembleDocument(fullHtml, {
         css,
@@ -388,8 +404,10 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         sandboxReadyRef.current = false;
         setAutoHeight(null);
       };
-      // designSystemCss and importMap are stable context values (set once at provider mount)
-    }, [fullHtml, css, localApi, designSystemCss, importMap]);
+      // designSystemCss and importMap are stable context values (set once at provider mount).
+      // content.jsFunctions/jsExpressions are read as a rebuild-time snapshot only (see re-queue
+      // block above); including them would re-run the whole sandbox lifecycle on every JS change.
+    }, [fullHtml, css, localApi, designSystemCss, importMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
     useEffect(() => {

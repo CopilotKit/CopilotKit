@@ -256,6 +256,87 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockRun).toHaveBeenCalledWith("foo()");
   });
 
+  it("re-queues JS into a rebuilt sandbox when html changes (not a JS change)", async () => {
+    const jsFunctions = "function foo(){}";
+    const { rerender } = render(
+      <OpenGenerativeUIActivityRenderer
+        activityType="open-generative-ui"
+        content={{
+          html: ["<head></head><body>v1</body>"],
+          htmlComplete: true,
+          jsFunctions,
+          jsExpressions: ["foo()"],
+        }}
+        message={{}}
+        agent={{}}
+      />,
+    );
+    await flushImport();
+
+    // First sandbox ready — flush its queued JS
+    await act(async () => {
+      mockPromiseResolve();
+      await mockPromise;
+    });
+    await flushImport();
+
+    // First sandbox ran jsFunctions + the expression exactly once each
+    const fnCallsFirst = mockRun.mock.calls.filter(
+      (c: unknown[]) => c[0] === jsFunctions,
+    ).length;
+    const exprCallsFirst = mockRun.mock.calls.filter(
+      (c: unknown[]) => c[0] === "foo()",
+    ).length;
+    expect(fnCallsFirst).toBe(1);
+    expect(exprCallsFirst).toBe(1);
+
+    // Rebuild trigger is the HTML, NOT a JS change: jsFunctions/jsExpressions are
+    // byte-identical so Effects 2/3 will not re-fire. The rebuilt sandbox must
+    // still receive the JS via Effect 1's re-queue.
+    mockRun.mockClear();
+    resetMockPromise();
+    rerender(
+      <OpenGenerativeUIActivityRenderer
+        activityType="open-generative-ui"
+        content={{
+          html: ["<head></head><body>v2</body>"],
+          htmlComplete: true,
+          jsFunctions,
+          jsExpressions: ["foo()"],
+        }}
+        message={{}}
+        agent={{}}
+      />,
+    );
+    await flushImport();
+
+    // Old sandbox destroyed, new one created
+    expect(mockDestroy).toHaveBeenCalledTimes(1);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+
+    // New sandbox not ready yet — nothing flushed
+    expect(mockRun).not.toHaveBeenCalledWith(jsFunctions);
+    expect(mockRun).not.toHaveBeenCalledWith("foo()");
+
+    // Resolve the second sandbox — the re-queued JS must replay
+    await act(async () => {
+      mockPromiseResolve();
+      await mockPromise;
+    });
+    await flushImport();
+
+    // The second sandbox received BOTH the jsFunctions string and the expression
+    // again (re-injected), each exactly once — no double-execution.
+    const fnCallsSecond = mockRun.mock.calls.filter(
+      (c: unknown[]) => c[0] === jsFunctions,
+    ).length;
+    const exprCallsSecond = mockRun.mock.calls.filter(
+      (c: unknown[]) => c[0] === "foo()",
+    ).length;
+    expect(fnCallsSecond).toBe(1);
+    expect(exprCallsSecond).toBe(1);
+  });
+
   it("recreates sandbox when html changes", async () => {
     const { rerender } = render(
       <OpenGenerativeUIActivityRenderer
