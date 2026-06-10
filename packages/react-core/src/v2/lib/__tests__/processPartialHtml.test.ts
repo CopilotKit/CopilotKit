@@ -13,10 +13,34 @@ describe("processPartialHtml", () => {
     expect(processPartialHtml('<div>Hello<span class="fo')).toBe("<div>Hello");
   });
 
-  it("strips complete <style> blocks", () => {
+  it("strips complete <style> blocks in the head region (before <body>)", () => {
+    // Head-region styles are hoisted into the preview <head> by
+    // extractCompleteStyles, so processPartialHtml strips them here to avoid
+    // duplicating them in the body.
+    const input =
+      "<style>.foo { color: red; }</style><body><div>Hello</div><p>World</p></body>";
+    expect(processPartialHtml(input)).toBe("<div>Hello</div><p>World</p>");
+  });
+
+  it("keeps a complete <style> block in the body region (cascade parity)", () => {
+    // A complete <style> INSIDE the body stays in place — browsers apply
+    // <style> anywhere and the final document (assembleDocument) likewise keeps
+    // body-region styles in the body (after the head css in document order), so
+    // the preview must not hoist it to the head.
+    const input =
+      "<body><div>Hello</div><style>.foo { color: red; }</style><p>World</p></body>";
+    expect(processPartialHtml(input)).toBe(
+      "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>",
+    );
+  });
+
+  it("keeps a complete <style> block when there is no <body> (whole string is body region)", () => {
+    // With no <body> tag the entire string is the body region, so a complete
+    // <style> is kept exactly where it appears (and extractCompleteStyles
+    // hoists nothing).
     const input =
       "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
-    expect(processPartialHtml(input)).toBe("<div>Hello</div><p>World</p>");
+    expect(processPartialHtml(input)).toBe(input);
   });
 
   it("strips complete <script> blocks", () => {
@@ -82,23 +106,24 @@ describe("extractCompleteStyles", () => {
     expect(extractCompleteStyles("")).toBe("");
   });
 
-  it("extracts a single complete style block", () => {
+  it("extracts a single complete head-region style block", () => {
     const input =
-      "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
+      "<style>.foo { color: red; }</style><body><p>World</p></body>";
     expect(extractCompleteStyles(input)).toBe(
       "<style>.foo { color: red; }</style>",
     );
   });
 
-  it("extracts multiple complete style blocks", () => {
-    const input = "<style>a{}</style><div>X</div><style>b{}</style>";
+  it("extracts multiple complete head-region style blocks", () => {
+    const input =
+      "<style>a{}</style><div>X</div><style>b{}</style><body></body>";
     expect(extractCompleteStyles(input)).toBe(
       "<style>a{}</style><style>b{}</style>",
     );
   });
 
-  it("ignores incomplete style blocks", () => {
-    const input = "<style>.complete{}</style><style>.incomplete {";
+  it("ignores incomplete style blocks in the head region", () => {
+    const input = "<style>.complete{}</style><style>.incomplete {<body></body>";
     expect(extractCompleteStyles(input)).toBe("<style>.complete{}</style>");
   });
 
@@ -108,5 +133,27 @@ describe("extractCompleteStyles", () => {
     expect(extractCompleteStyles(input)).toBe(
       "<style>body { margin: 0; }</style>",
     );
+  });
+
+  it("does NOT extract styles from the body region (left in place for cascade parity)", () => {
+    // A complete <style> inside the body must stay in the body — hoisting it
+    // would flip its cascade position at the preview→final swap.
+    const input =
+      "<body><div>Hi</div><style>.foo { color: red; }</style></body>";
+    expect(extractCompleteStyles(input)).toBe("");
+  });
+
+  it("extracts only head-region styles, leaving body-region styles behind", () => {
+    // Mixed document: the head style is hoisted, the body style is not.
+    const input =
+      "<head><style>.head { color: red; }</style></head><body><style>.body { color: blue; }</style></body>";
+    expect(extractCompleteStyles(input)).toBe(
+      "<style>.head { color: red; }</style>",
+    );
+  });
+
+  it("hoists nothing when there is no <body> tag (whole string is body region)", () => {
+    const input = "<style>.foo { color: red; }</style><div>Hi</div>";
+    expect(extractCompleteStyles(input)).toBe("");
   });
 });

@@ -5,7 +5,11 @@ import { z } from "zod";
 import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
 import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
-import { OpenGenerativeUIOptionsProvider } from "../../providers/OpenGenerativeUIOptionsContext";
+import {
+  OpenGenerativeUIOptionsProvider,
+  DEFAULT_OPEN_GEN_UI_OPTIONS,
+} from "../../providers/OpenGenerativeUIOptionsContext";
+import { assembleDocument } from "../../lib/assembleDocument";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
 // Mock @jetbrains/websandbox
@@ -1091,21 +1095,32 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(headPayload).toContain("data-ck-design-system");
     });
 
-    // Test E — preview cascade must match the final document's cascade. The
-    // assembled final document (assembleDocument) orders head styles as
-    // kit -> agent's inline <style> blocks (in place) -> agent css param LAST so
-    // the agent css wins equal-specificity ties. The streaming preview must use
-    // the SAME order in its document.head.innerHTML assignment, otherwise an
-    // artifact whose inline style and css param collide at equal specificity
-    // visibly restyles at the preview -> final swap.
+    // Test E — preview cascade must match the FINAL document's cascade
+    // (assembleDocument), region by region. Style extraction is region-aware:
     //
-    // RED pre-fix: the preview pushed the agent css param BEFORE the extracted
-    // inline preview styles, so index(css param) < index(inline style) — the
-    // OPPOSITE of the final document. GREEN post-fix:
-    // index(kit) < index(inline style) < index(css param).
-    it("orders preview head as kit -> inline styles -> agent css (matches final document cascade)", async () => {
+    //   * HEAD-region <style> (before the first <body>) is hoisted into the
+    //     preview <head>, exactly as the final document keeps it in the head.
+    //     Order there: kit -> agent's inline <style> -> agent css param LAST.
+    //   * BODY-region <style> (inside <body>) STAYS in the preview body, exactly
+    //     where the final document keeps it (after the head css in document
+    //     order). It is NOT hoisted.
+    //
+    // If a body-region style were hoisted (the old behavior) it would flip
+    // cascade position at the preview -> final swap, visibly restyling artifacts
+    // whose body <style> and the css param collide at equal specificity.
+
+    // Case A — HEAD-region style: the preview head order (kit < inline < css)
+    // matches assembleDocument's final head cascade for the same full html.
+    it("orders preview head as kit -> head-region inline style -> agent css (matches final document)", async () => {
       const agentCss = "main { color: rebeccapurple; }";
       const inlineStyleContent = ".inline-block { color: seagreen; }";
+      // Full html with the inline style in the HEAD (before <body>). The preview
+      // receives the streaming prefix (no closing tags); the final document
+      // receives the complete html. Both must order the inline style before the
+      // css param and after the kit.
+      const headStyle = `<head><style>${inlineStyleContent}</style></head>`;
+      const previewHtml = `${headStyle}<body><div class="inline-block">Preview body</div>`;
+      const fullHtml = `${headStyle}<body><div class="inline-block">Preview body</div></body>`;
 
       render(
         <OpenGenerativeUIActivityRenderer
@@ -1113,12 +1128,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           content={{
             css: agentCss,
             cssComplete: true,
-            // A COMPLETE inline <style> block plus body content. The streaming
-            // pipeline extracts the <style> into previewStyles and strips it from
-            // the previewBody.
-            html: [
-              `<style>${inlineStyleContent}</style><body><div class="inline-block">Preview body</div>`,
-            ],
+            html: [previewHtml],
             htmlComplete: false,
             generating: true,
           }}
@@ -1155,10 +1165,106 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(inlineStyleIdx).toBeGreaterThan(-1);
       expect(agentCssIdx).toBeGreaterThan(-1);
 
-      // Cascade order: kit first, then the agent's inline <style> block, then the
-      // agent css param LAST — identical to assembleDocument's final cascade.
+      // Preview cascade: kit first, then the agent's inline <style>, then the
+      // agent css param LAST.
       expect(kitIdx).toBeLessThan(inlineStyleIdx);
       expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+
+      // The FINAL document must use the SAME relative order for the same input
+      // and options — that is the parity this test asserts.
+      const finalDoc = assembleDocument(fullHtml, {
+        css: agentCss,
+        designSystemCss: DEFAULT_OPEN_GEN_UI_OPTIONS.designSystemCss,
+        importMap: DEFAULT_OPEN_GEN_UI_OPTIONS.importMap,
+      });
+      const finalKitIdx = finalDoc.indexOf("data-ck-design-system");
+      const finalInlineIdx = finalDoc.indexOf(inlineStyleContent);
+      const finalCssIdx = finalDoc.indexOf(agentCss);
+      expect(finalKitIdx).toBeGreaterThan(-1);
+      expect(finalInlineIdx).toBeGreaterThan(-1);
+      expect(finalCssIdx).toBeGreaterThan(-1);
+      expect(finalKitIdx).toBeLessThan(finalInlineIdx);
+      expect(finalInlineIdx).toBeLessThan(finalCssIdx);
+    });
+
+    // Case B — BODY-region style: the style stays in the PREVIEW BODY (the body
+    // innerHTML run call contains it; the head payload does NOT), matching the
+    // final document where a body-region style also sits in the body after the
+    // head css.
+    //
+    // RED pre-fix: extractCompleteStyles hoisted EVERY style, so this body style
+    // was injected into the preview head and stripped from the preview body —
+    // the opposite of the final document. GREEN post-fix: it is left in the body.
+    it("keeps a body-region style in the preview body, not the head (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const bodyStyleContent = ".body-block { color: seagreen; }";
+      // The complete <style> sits INSIDE <body>, so it is body-region.
+      const bodyStyleTag = `<style>${bodyStyleContent}</style>`;
+      const previewHtml = `<body><div class="body-block">Preview body</div>${bodyStyleTag}`;
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            html: [previewHtml],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox is created
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Resolve the preview sandbox promise so the head/body run calls fire
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // The body innerHTML run call must contain the body-region style block.
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
+      const bodyPayload: string = bodyCalls[bodyCalls.length - 1][0] as string;
+      expect(bodyPayload).toContain(bodyStyleContent);
+
+      // The head payload must NOT contain the body-region style (it was not
+      // hoisted) — only the kit and the agent css param.
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+      const headPayload: string = headCalls[headCalls.length - 1][0] as string;
+      expect(headPayload).not.toContain(bodyStyleContent);
+      expect(headPayload).toContain("data-ck-design-system");
+      expect(headPayload).toContain(agentCss);
+
+      // Final-document parity: a body-region style stays in the BODY, after the
+      // head css in document order (the head css index precedes the body style
+      // index), so the preview and final cascades agree.
+      const fullHtml = `<body><div class="body-block">Preview body</div>${bodyStyleTag}</body>`;
+      const finalDoc = assembleDocument(fullHtml, {
+        css: agentCss,
+        designSystemCss: DEFAULT_OPEN_GEN_UI_OPTIONS.designSystemCss,
+        importMap: DEFAULT_OPEN_GEN_UI_OPTIONS.importMap,
+      });
+      const finalCssIdx = finalDoc.indexOf(agentCss);
+      const finalBodyStyleIdx = finalDoc.indexOf(bodyStyleContent);
+      expect(finalCssIdx).toBeGreaterThan(-1);
+      expect(finalBodyStyleIdx).toBeGreaterThan(-1);
+      expect(finalCssIdx).toBeLessThan(finalBodyStyleIdx);
     });
   });
 });
