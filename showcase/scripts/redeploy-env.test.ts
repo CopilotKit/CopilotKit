@@ -293,7 +293,22 @@ describe("runRedeploy", () => {
   it("reports zero failures with empty failure list in summary", async () => {
     const redeploy = vi.fn(async () => ({ ok: true as const }));
     await runRedeploy({ env: "staging", redeploy, appendSummary });
-    expect(summary).toMatch(/0 failed/);
+    expect(summary).toMatch(/- failed: \*\*0\*\*/);
+  });
+
+  it("flattens CRLF newlines in failure errors to keep the markdown table on one row", async () => {
+    const redeploy = vi.fn(async () => ({
+      ok: false as const,
+      error: "line one\r\nline two",
+    }));
+    await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(summary).toMatch(/line one line two/);
+    expect(summary).not.toMatch(/\r/);
   });
 
   it("throws on a --services entry that doesn't resolve to a known SSOT key", async () => {
@@ -572,6 +587,29 @@ describe("parseArgs", () => {
   it("throws when --services= value empties after split/filter", () => {
     expect(() => parseArgs(["staging", "--services="])).toThrow(
       /--services requires a non-empty comma-separated value/,
+    );
+  });
+
+  it("throws on duplicate --services flags (either form, mixed too)", () => {
+    expect(() =>
+      parseArgs(["staging", "--services", "mastra", "--services", "ag2"]),
+    ).toThrow(/Duplicate --services/);
+    expect(() =>
+      parseArgs(["staging", "--services=mastra", "--services=ag2"]),
+    ).toThrow(/Duplicate --services/);
+    expect(() =>
+      parseArgs(["staging", "--services", "mastra", "--services=ag2"]),
+    ).toThrow(/Duplicate --services/);
+  });
+
+  it("throws when --services is followed by a flag-like token instead of a value", () => {
+    // Without this guard, `--services --bogus` would swallow `--bogus` as
+    // the CSV — a silent misparse instead of a loud operator error.
+    expect(() => parseArgs(["staging", "--services", "--bogus"])).toThrow(
+      /--services requires a value/,
+    );
+    expect(() => parseArgs(["staging", "--services", "-x"])).toThrow(
+      /--services requires a value/,
     );
   });
 

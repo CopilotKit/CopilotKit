@@ -438,6 +438,38 @@ describe("dispatchName uniqueness invariant", () => {
     };
     expect(() => assertDispatchNamesUnique(synthetic)).not.toThrow();
   });
+
+  it("throws when a dispatchName equals a DIFFERENT entry's SSOT key", () => {
+    // resolveTargetServices checks SSOT keys BEFORE dispatch_names, so a
+    // dispatchName shadowed by another entry's key would silently misroute
+    // CI redeploys to that other entry.
+    const synthetic: Record<string, { dispatchName?: string }> = {
+      dashboard: { dispatchName: "shell-dashboard" },
+      rogue: { dispatchName: "dashboard" },
+    };
+    expect(() => assertDispatchNamesUnique(synthetic)).toThrow(
+      /dispatchName "dashboard".*"rogue".*DIFFERENT entry's SSOT key/i,
+    );
+  });
+
+  it("allows a dispatchName equal to its OWN SSOT key (self-match)", () => {
+    // shell/webhooks-shaped entries: both lookup paths land on the same
+    // entry, so a self-match cannot misroute.
+    const synthetic: Record<string, { dispatchName?: string }> = {
+      shell: { dispatchName: "shell" },
+      webhooks: { dispatchName: "webhooks" },
+    };
+    expect(() => assertDispatchNamesUnique(synthetic)).not.toThrow();
+  });
+
+  it("does not treat an inherited Object.prototype key as a colliding SSOT key", () => {
+    // `Object.hasOwn` (not a bare truthiness lookup) must back the
+    // cross-key check, or dispatchName "toString" would false-positive.
+    const synthetic: Record<string, { dispatchName?: string }> = {
+      weird: { dispatchName: "toString" },
+    };
+    expect(() => assertDispatchNamesUnique(synthetic)).not.toThrow();
+  });
 });
 
 describe("imageOf consumer invariant", () => {
@@ -506,6 +538,26 @@ describe("imageOf consumer invariant", () => {
     };
     expect(() => assertImageConsumersValid(synthetic)).toThrow(
       /worker.*"prod".*producer/i,
+    );
+  });
+
+  it("throws when an imageOf consumer declares ZERO environments", () => {
+    // An empty (or absent) environments map passes the env-subset check
+    // vacuously, but expandImageConsumers filters on `environments[env]` —
+    // such a consumer would never be redeployed in ANY env. Must fail loud.
+    const emptyEnvs = {
+      producer: { ciBuilt: true, environments: { staging: {} } },
+      worker: { ciBuilt: false, imageOf: "producer", environments: {} },
+    };
+    expect(() => assertImageConsumersValid(emptyEnvs)).toThrow(
+      /worker.*ZERO environments/i,
+    );
+    const absentEnvs = {
+      producer: { ciBuilt: true, environments: { staging: {} } },
+      worker: { ciBuilt: false, imageOf: "producer" },
+    };
+    expect(() => assertImageConsumersValid(absentEnvs)).toThrow(
+      /worker.*ZERO environments/i,
     );
   });
 

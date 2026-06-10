@@ -1,8 +1,11 @@
 /**
  * railway-envs.ts — Single source of truth for Railway IDs used by all
- * TypeScript showcase tooling. Mirrors (but does not import) the IDs in
- * `showcase/bin/railway` (Ruby). When these drift, prefer this file as
- * the TS-side canonical source and reconcile bin/railway by hand.
+ * TypeScript showcase tooling. Only the PROJECT_ID and the two env IDs
+ * (PRODUCTION_ENV_ID / STAGING_ENV_ID) are also hardcoded in
+ * `showcase/bin/railway` (Ruby) — if those three drift, prefer this file
+ * and reconcile bin/railway by hand. Per-service data is NOT mirrored by
+ * hand: the Ruby side consumes it via `railway-envs.generated.json`
+ * (see ServiceEntry.legacyJsonCompat).
  *
  * - PROJECT_ID is the CopilotKit Showcase Railway project.
  * - ENV_IDS maps human env names (and common synonyms) to Railway env IDs.
@@ -46,8 +49,9 @@ export const ENV_IDS: Record<string, string> = {
 
 /**
  * Canonical env-name → Railway env-id registry. Keyed by the env names used
- * as `environments` keys (NOT the synonyms). Accessors that need the Railway
- * env-id for an arbitrary env name resolve it here. Extend this (and add the
+ * as `environments` keys (NOT the synonyms). This is the contract for
+ * turning an arbitrary registered env name into its Railway env id — the
+ * redeploy path resolves env ids through it. Extend this (and add the
  * env to a service's `environments`) to introduce a new env name.
  */
 export const ENV_ID_BY_NAME: Record<string, string> = {
@@ -407,7 +411,8 @@ export const SERVICES: Record<
     // the worker has no build slot of its own — but `imageOf: "harness"`
     // (below) puts it in the staging redeploy scope whenever the shared
     // showcase-harness image is rebuilt. If/when a prod worker is
-    // provisioned, add a `prod` env entry and flip gateIgnore off (the
+    // provisioned, add a `prod` env entry, flip gateIgnore off, and set
+    // gateValidated: true (the
     // imageOf expansion is env-aware and will start covering prod
     // automatically once the prod env entry exists).
     ciBuilt: false,
@@ -1015,7 +1020,7 @@ export function listServiceNames(): string[] {
  * `redeploy-env.ts <env>` when no explicit `--services` list is provided
  * — though the actual default redeploy scope is this set PLUS any
  * `imageOf` consumers that declare the target env (e.g. staging adds
- * harness-workers → 27 attempted).
+ * harness-workers).
  */
 export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
   Object.entries(SERVICES)
@@ -1150,10 +1155,16 @@ export function serviceForDispatchName(
 }
 
 /**
- * Throw on SSOT load if any two services share the same `dispatchName`.
+ * Throw on SSOT load if any two services share the same `dispatchName`,
+ * or if a service's `dispatchName` equals a DIFFERENT entry's SSOT key.
  * `serviceForDispatchName` iterates `Object.entries(SERVICES)` and returns
  * the first match — a silent collision would route redeploys to the wrong
- * service. We fail loud at module load instead.
+ * service. The cross-key case is the same trap from the other direction:
+ * resolveTargetServices checks SSOT keys BEFORE dispatch_names, so a
+ * dispatchName shadowed by another entry's key silently misroutes to that
+ * other entry. A dispatchName equal to its OWN key (e.g. shell, webhooks)
+ * is legal — both lookups land on the same entry. We fail loud at module
+ * load instead.
  *
  * Accepts an injected map for testing; defaults to the real SERVICES map.
  */
@@ -1161,30 +1172,31 @@ export function assertDispatchNamesUnique(
   services: Record<string, { dispatchName?: string }> = SERVICES,
 ): void {
   const seen = new Map<string, string>(); // dispatchName -> first ssotKey
-  const collisions: Array<{
-    dispatchName: string;
-    keys: [string, string];
-  }> = [];
+  const problems: string[] = [];
   for (const [key, entry] of Object.entries(services)) {
     const dn = entry.dispatchName;
     if (typeof dn !== "string" || dn.length === 0) continue;
     const prior = seen.get(dn);
     if (prior !== undefined) {
-      collisions.push({ dispatchName: dn, keys: [prior, key] });
+      problems.push(
+        `  - duplicate dispatchName "${dn}" on SSOT keys: ${prior}, ${key}`,
+      );
     } else {
       seen.set(dn, key);
     }
+    // Own-property lookup (same rationale as elsewhere in this file): an
+    // inherited Object.prototype key must not register as a collision.
+    if (dn !== key && Object.hasOwn(services, dn)) {
+      problems.push(
+        `  - dispatchName "${dn}" on SSOT key "${key}" equals a DIFFERENT entry's SSOT key — resolveTargetServices resolves SSOT keys first, so this dispatch_name would silently misroute to "${dn}"`,
+      );
+    }
   }
-  if (collisions.length > 0) {
-    const lines = collisions
-      .map(
-        (c) =>
-          `  - duplicate dispatchName "${c.dispatchName}" on SSOT keys: ${c.keys[0]}, ${c.keys[1]}`,
-      )
-      .join("\n");
+  if (problems.length > 0) {
     throw new Error(
-      `railway-envs SSOT invariant violated:\n${lines}\n` +
-        `Fix: each Railway service must have a unique dispatchName ` +
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: each Railway service must have a unique dispatchName that ` +
+        `does not collide with another entry's SSOT key ` +
         `(or no dispatchName at all for out-of-band services).`,
     );
   }
@@ -1236,12 +1248,24 @@ export function assertImageConsumersValid(
       );
       continue;
     }
+    // A consumer with ZERO declared environments passes the env-subset
+    // check below vacuously — but a consumer that exists in no env is a
+    // service the redeploy expansion can never reach (expandImageConsumers
+    // filters on `environments[env]`), i.e. a silently never-redeployed
+    // service. Reject it loudly.
+    const consumerEnvs = Object.keys(entry.environments ?? {});
+    if (consumerEnvs.length === 0) {
+      problems.push(
+        `  - "${key}" declares imageOf "${target}" but ZERO environments — the env-subset check passes vacuously and the consumer would never be redeployed in any env`,
+      );
+      continue;
+    }
     // Env overlap: every env the consumer declares must also be one the
     // producer builds for. A consumer-only env would run an image that no
     // CI build ever refreshes there — a silently never-updating service,
     // the exact stale-image failure this invariant exists to prevent.
     const producerEnvs = targetEntry.environments ?? {};
-    for (const env of Object.keys(entry.environments ?? {})) {
+    for (const env of consumerEnvs) {
       if (!Object.hasOwn(producerEnvs, env)) {
         problems.push(
           `  - "${key}" declares env "${env}" but its imageOf "${target}" has no "${env}" environment — "${key}" would run a never-rebuilt image there`,
@@ -1254,7 +1278,7 @@ export function assertImageConsumersValid(
       `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
         `Fix: imageOf must name an existing, ciBuilt SSOT key, may only ` +
         `appear on a non-ciBuilt consumer, and the consumer's declared ` +
-        `environments must be a subset of its producer's.`,
+        `environments must be a non-empty subset of its producer's.`,
     );
   }
 }

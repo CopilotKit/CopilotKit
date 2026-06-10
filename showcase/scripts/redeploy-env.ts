@@ -37,7 +37,8 @@
  *     expansion: a service the caller explicitly names in `--services`
  *     is attempted even in an env it does not declare.
  *   - Per-service Railway failures (including the all-services-fail case)
- *     are logged to stderr and $GITHUB_STEP_SUMMARY but DO NOT fail the
+ *     print FAIL lines to stdout and land in the markdown summary written
+ *     to $GITHUB_STEP_SUMMARY (mirrored to stderr) but DO NOT fail the
  *     process for staging. Staging is not a release gate; the
  *     verify-deploy workflow is what fails on bad images. For env=prod,
  *     per-service failures DO yield a non-zero exitCode (fail loud).
@@ -276,9 +277,10 @@ export function expandImageConsumers(names: string[], env: EnvName): string[] {
 
 /**
  * Pure argv parser. Accepts either `--services x,y,z` or `--services=x,y,z`.
- * Throws if `--services` is provided with a missing/empty value (silent
- * no-op in CI is worse than a loud failure). Throws on unknown args or
- * empty argv. Exported for direct unit testing.
+ * Throws if `--services` is provided with a missing/empty value or a
+ * flag-like value, or is passed more than once (silent no-op / silent
+ * last-one-wins in CI is worse than a loud failure). Throws on unknown
+ * args or empty argv. Exported for direct unit testing.
  */
 export function parseArgs(argv: string[]): {
   env: string;
@@ -306,11 +308,27 @@ export function parseArgs(argv: string[]): {
     return parts;
   };
 
+  const ensureNotDuplicate = (): void => {
+    if (services !== undefined) {
+      throw new Error(
+        "Duplicate --services flag — pass a single comma-separated list",
+      );
+    }
+  };
+
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--services") {
+      ensureNotDuplicate();
+      const next = argv[i + 1];
+      if (next !== undefined && next.startsWith("-")) {
+        // A flag-like next token means the value was forgotten; consuming
+        // it as the CSV would silently swallow the next flag.
+        throw new Error(`--services requires a value (got "${next}")`);
+      }
       services = ensureNonEmpty(argv[++i]);
     } else if (a.startsWith("--services=")) {
+      ensureNotDuplicate();
       services = ensureNonEmpty(a.slice("--services=".length));
     } else {
       throw new Error(`Unknown argument: ${a}`);
@@ -398,7 +416,7 @@ export async function runRedeploy(
 
   appendSummary(`- attempted: **${attempted}**`);
   appendSummary(`- succeeded: **${succeeded}**`);
-  appendSummary(`- ${failed} failed`);
+  appendSummary(`- failed: **${failed}**`);
   appendSummary("");
 
   if (failures.length > 0) {
@@ -407,7 +425,7 @@ export async function runRedeploy(
     appendSummary("| service | status | error |");
     appendSummary("| --- | --- | --- |");
     for (const f of failures) {
-      const safeErr = f.error.replace(/\|/g, "\\|").replace(/\n/g, " ");
+      const safeErr = f.error.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
       appendSummary(`| \`${f.service}\` | FAIL | ${safeErr} |`);
     }
     appendSummary("");
