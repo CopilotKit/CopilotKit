@@ -10,7 +10,9 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   assertDispatchNamesUnique,
+  assertEnvRegistryConsistent,
   assertImageConsumersValid,
+  assertServiceAndInstanceIdsUnique,
   domainFor,
   envsFor,
   instanceIdFor,
@@ -571,6 +573,136 @@ describe("imageOf consumer invariant", () => {
     };
     expect(() => assertImageConsumersValid(synthetic)).toThrow(
       /imageOf "toString".*worker.*not an SSOT key/i,
+    );
+  });
+});
+
+describe("accessor prototype-key hardening (uniform own-property semantics)", () => {
+  // The class-killer sweep: every exported accessor must use own-property
+  // semantics on BOTH axes (service name, env name). Inherited
+  // Object.prototype keys must produce the curated error (or the accessor's
+  // documented contract-return) — never a raw TypeError, never a silent
+  // undefined, never a spurious `true`.
+  const protoKeys = ["constructor", "toString", "hasOwnProperty"] as const;
+
+  it("throwing accessors throw the curated unknown-service error for prototype keys on the service axis", () => {
+    for (const key of protoKeys) {
+      expect(() => envsFor(key), `envsFor("${key}")`).toThrow(
+        /Unknown showcase service/,
+      );
+      expect(
+        () => instanceIdFor(key, "prod"),
+        `instanceIdFor("${key}")`,
+      ).toThrow(/Unknown showcase service/);
+      expect(() => domainFor(key, "prod"), `domainFor("${key}")`).toThrow(
+        /Unknown showcase service/,
+      );
+      expect(() => repoNameFor(key, "prod"), `repoNameFor("${key}")`).toThrow(
+        /Unknown showcase service/,
+      );
+    }
+  });
+
+  it("instanceIdFor/domainFor throw the curated no-such-environment error for prototype keys on the env axis", () => {
+    for (const key of protoKeys) {
+      expect(
+        () => instanceIdFor("docs", key),
+        `instanceIdFor("docs", "${key}")`,
+      ).toThrow(new RegExp(`has no "${key}" environment`));
+      expect(
+        () => domainFor("docs", key),
+        `domainFor("docs", "${key}")`,
+      ).toThrow(new RegExp(`has no "${key}" environment`));
+    }
+  });
+
+  it("repoNameFor rejects prototype keys on the env axis via the registry check", () => {
+    // repoNameFor additionally requires a normalized registered env key, so
+    // its curated error for a prototype env is the Unknown-env message.
+    for (const key of protoKeys) {
+      expect(
+        () => repoNameFor("docs", key),
+        `repoNameFor("docs", "${key}")`,
+      ).toThrow(/Unknown env/);
+    }
+  });
+
+  it("probeEnabled contract-returns false (never throws, never true) for prototype keys on either axis", () => {
+    for (const key of protoKeys) {
+      expect(probeEnabled(key, "prod"), `probeEnabled("${key}", "prod")`).toBe(
+        false,
+      );
+      expect(probeEnabled("docs", key), `probeEnabled("docs", "${key}")`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("probeEnabled contract-returns false for unknown service and undeclared env", () => {
+    expect(probeEnabled("nope", "prod")).toBe(false);
+    expect(probeEnabled("docs", "dev")).toBe(false);
+    expect(probeEnabled("harness-workers", "prod")).toBe(false);
+  });
+});
+
+describe("env-registry consistency invariant", () => {
+  it("the production SSOT passes assertEnvRegistryConsistent", () => {
+    expect(() => assertEnvRegistryConsistent()).not.toThrow();
+  });
+
+  it("throws when a service declares an env key missing from ENV_ID_BY_NAME", () => {
+    const services = { svc: { environments: { preview: {} } } };
+    expect(() =>
+      assertEnvRegistryConsistent(services, { prod: "id-1" }, { prod: "id-1" }),
+    ).toThrow(/svc.*"preview".*ENV_ID_BY_NAME/i);
+  });
+
+  it("throws when two ENV_ID_BY_NAME canonical names share an env-id", () => {
+    // resolveEnv picks the FIRST canonical name carrying an env-id — a
+    // duplicated id makes the second name silently unreachable.
+    const byName = { prod: "id-1", mirror: "id-1" };
+    const ids = { prod: "id-1", mirror: "id-1" };
+    expect(() => assertEnvRegistryConsistent({}, byName, ids)).toThrow(
+      /duplicate env-id "id-1".*prod.*mirror/i,
+    );
+  });
+
+  it("throws when a canonical env name has no ENV_IDS spelling", () => {
+    // A canonical name with no spelling can never be produced by
+    // resolveEnv — it is a registered env that no operator can name.
+    const byName = { prod: "id-1", ghost: "id-2" };
+    const ids = { prod: "id-1" };
+    expect(() => assertEnvRegistryConsistent({}, byName, ids)).toThrow(
+      /"ghost".*no ENV_IDS spelling/i,
+    );
+  });
+});
+
+describe("service/instance id uniqueness invariant", () => {
+  it("the production SSOT passes assertServiceAndInstanceIdsUnique", () => {
+    expect(() => assertServiceAndInstanceIdsUnique()).not.toThrow();
+  });
+
+  it("throws when two services share a serviceId", () => {
+    const services = {
+      a: { serviceId: "dup-1", environments: { prod: { instanceId: "i-1" } } },
+      b: { serviceId: "dup-1", environments: { prod: { instanceId: "i-2" } } },
+    };
+    expect(() => assertServiceAndInstanceIdsUnique(services)).toThrow(
+      /duplicate serviceId "dup-1".*a.*b/i,
+    );
+  });
+
+  it("throws when two env configs share an instanceId (globally, across services)", () => {
+    const services = {
+      a: { serviceId: "s-1", environments: { prod: { instanceId: "i-dup" } } },
+      b: {
+        serviceId: "s-2",
+        environments: { staging: { instanceId: "i-dup" } },
+      },
+    };
+    expect(() => assertServiceAndInstanceIdsUnique(services)).toThrow(
+      /duplicate instanceId "i-dup".*a\.prod.*b\.staging/i,
     );
   });
 });

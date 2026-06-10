@@ -6,7 +6,12 @@ import {
   runRedeploy,
   resolveTargetServices,
 } from "./redeploy-env";
-import { ENV_ID_BY_NAME, PRODUCTION_ENV_ID, SERVICES } from "./railway-envs";
+import {
+  ENV_IDS,
+  ENV_ID_BY_NAME,
+  PRODUCTION_ENV_ID,
+  SERVICES,
+} from "./railway-envs";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -279,6 +284,107 @@ describe("runRedeploy", () => {
     expect(result.exitCode).not.toBe(0);
   });
 
+  it("a registered NON-staging third env gets fail-loud semantics (exit 1 on per-service failure)", async () => {
+    // Exit-code policy is fail-loud by DEFAULT: staging is the single
+    // documented carve-out (non-fatal; verify-deploy is its gate). A future
+    // "preview" env must inherit prod-style fatal semantics without anyone
+    // remembering to extend an env allowlist.
+    ENV_ID_BY_NAME.preview = "preview-env-id-000";
+    try {
+      const redeploy = vi.fn(async () => ({
+        ok: false as const,
+        error: "boom",
+      }));
+      const result = await runRedeploy({
+        env: "preview",
+        redeploy,
+        appendSummary,
+        services: ["showcase-mastra"],
+      });
+      expect(result.failed).toBe(1);
+      expect(result.exitCode).toBe(1);
+      // The "non-fatal" summary note is staging-only — a fatal env must
+      // not claim its failures are non-fatal.
+      expect(summary).not.toMatch(/non-fatal/);
+    } finally {
+      delete ENV_ID_BY_NAME.preview;
+    }
+  });
+
+  it("staging keeps the non-fatal note in the failure summary (the documented carve-out)", async () => {
+    const redeploy = vi.fn(async () => ({
+      ok: false as const,
+      error: "boom",
+    }));
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(result.exitCode).toBe(0);
+    expect(summary).toMatch(/non-fatal/);
+  });
+
+  it("sanitizes per-service THROWN error messages through sanitizeErrorBody", async () => {
+    // The non-throw FAIL path gets pre-sanitized errors from
+    // makeLiveRedeploy, but a rejection thrown by the redeploy fn (e.g. an
+    // AbortSignal timeout wrapping a Cloudflare HTML page) bypassed that —
+    // the raw message landed in the records + markdown summary.
+    const redeploy = vi.fn(async () => {
+      throw new Error(`boom <script>\nline2 ${"x".repeat(300)}`);
+    });
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(result.failed).toBe(1);
+    expect(summary).not.toMatch(/<script>/);
+    expect(summary).toMatch(/boom scriptline2/);
+    // Capped at 200 chars with the sanitizer's ellipsis.
+    expect(summary).toMatch(/…/);
+  });
+
+  it("strips bare carriage returns (no \\n) from the summary table row", async () => {
+    const redeploy = vi.fn(async () => ({
+      ok: false as const,
+      error: "part1\rpart2",
+    }));
+    await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-mastra"],
+    });
+    expect(summary).toMatch(/part1 part2/);
+    expect(summary).not.toMatch(/\r/);
+  });
+
+  it("warns to stderr when REDEPLOY_SUMMARY_JSON is set but empty", async () => {
+    // An empty-string REDEPLOY_SUMMARY_JSON silently disabled the JSON
+    // summary (falsy check) — the CI consumer then saw "no artifact" with
+    // zero signal about why. Warn loudly; still skip the write.
+    vi.stubEnv("REDEPLOY_SUMMARY_JSON", "");
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    try {
+      const redeploy = vi.fn(async () => ({ ok: true as const }));
+      await runRedeploy({
+        env: "staging",
+        redeploy,
+        appendSummary,
+        services: ["showcase-mastra"],
+      });
+      const written = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+      expect(written).toMatch(/REDEPLOY_SUMMARY_JSON is set but empty/);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
   it("env=prod returns exitCode 0 when all services succeed", async () => {
     const redeploy = vi.fn(async () => ({ ok: true as const }));
     const result = await runRedeploy({
@@ -499,6 +605,50 @@ describe("makeLiveRedeploy", () => {
       expect(outcome.error).toBe(`boom scriptline2; ${"x".repeat(200)}…`);
     }
   });
+
+  it("returns a sanitized HTTP-status failure when the response is not ok", async () => {
+    // Non-2xx path: the body (often a multi-KB Cloudflare HTML page) must
+    // go through sanitizeErrorBody — no angle brackets, no newlines, capped.
+    stubFetch(async () => ({
+      ok: false,
+      status: 503,
+      text: async () =>
+        `<html>\nCloudflare error page</html>${"y".repeat(300)}`,
+    }));
+    const redeploy = makeLiveRedeploy("test-token");
+    const outcome = await redeploy("svc-id", "env-id");
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.error).toMatch(/^HTTP 503: /);
+      expect(outcome.error).not.toMatch(/[<>\n]/);
+      expect(outcome.error).toMatch(/…$/);
+    }
+  });
+
+  it("fails when serviceInstanceRedeploy returns a non-true value", async () => {
+    // A 200 response whose mutation result is false/undefined is NOT a
+    // success — Railway acknowledged the call but did not redeploy.
+    stubFetch(async () => ({
+      ok: true,
+      json: async () => ({ data: { serviceInstanceRedeploy: false } }),
+    }));
+    const redeploy = makeLiveRedeploy("test-token");
+    const outcome = await redeploy("svc-id", "env-id");
+    expect(outcome).toEqual({
+      ok: false,
+      error: "serviceInstanceRedeploy returned false",
+    });
+
+    stubFetch(async () => ({
+      ok: true,
+      json: async () => ({ data: {} }),
+    }));
+    const outcome2 = await makeLiveRedeploy("test-token")("svc-id", "env-id");
+    expect(outcome2).toEqual({
+      ok: false,
+      error: "serviceInstanceRedeploy returned undefined",
+    });
+  });
 });
 
 describe("expandImageConsumers", () => {
@@ -619,5 +769,41 @@ describe("parseArgs", () => {
 
   it("throws on empty argv", () => {
     expect(() => parseArgs([])).toThrow();
+  });
+
+  it("rejects flag-like entries inside the --services CSV (both forms)", () => {
+    // The space form already rejects a flag-like NEXT TOKEN; the = form and
+    // individual CSV parts had no such guard, so `--services=--bogus`
+    // silently became a service name destined for an Unknown-service throw
+    // far from the CLI boundary.
+    expect(() => parseArgs(["staging", "--services=--bogus"])).toThrow(
+      /flag-like/,
+    );
+    expect(() => parseArgs(["staging", "--services", "mastra,-x"])).toThrow(
+      /flag-like/,
+    );
+    expect(() => parseArgs(["staging", "--services=mastra,--force"])).toThrow(
+      /flag-like/,
+    );
+  });
+
+  it("rejects a flag-like first argument as a missing env argument", () => {
+    // `redeploy-env.ts --services mastra` forgot the env — the old parse
+    // consumed "--services" AS the env and failed later/elsewhere.
+    expect(() => parseArgs(["--services", "mastra"])).toThrow(
+      /missing env argument/i,
+    );
+    expect(() => parseArgs(["-h"])).toThrow(/missing env argument/i);
+  });
+
+  it("derives the usage env list from ENV_IDS (a registered spelling appears with no code change)", () => {
+    // Open-env contract at the CLI boundary: the usage string must list
+    // whatever ENV_IDS currently accepts, not a hardcoded triple.
+    ENV_IDS.preview = "preview-env-id-000";
+    try {
+      expect(() => parseArgs([])).toThrow(/preview/);
+    } finally {
+      delete ENV_IDS.preview;
+    }
   });
 });

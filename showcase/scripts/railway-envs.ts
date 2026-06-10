@@ -958,18 +958,70 @@ export const SERVICES: Record<
 };
 
 /**
+ * Own-property SERVICES lookup. Returns undefined for unknown service
+ * names, INCLUDING inherited Object.prototype keys ("constructor",
+ * "toString", "hasOwnProperty", …) which a bare `SERVICES[name]`
+ * truthiness check would resolve to truthy non-entries. Every exported
+ * accessor routes through this (or its throwing wrapper `getEntry`) so
+ * the own-property semantics cannot drift per function.
+ */
+function findEntry(
+  serviceName: string,
+): (ServiceEntry & { dispatchName?: string }) | undefined {
+  return Object.hasOwn(SERVICES, serviceName)
+    ? SERVICES[serviceName]
+    : undefined;
+}
+
+/** Own-property `entry.environments` lookup (same rationale as findEntry). */
+function findEnvCfg(
+  entry: ServiceEntry,
+  env: EnvName,
+): EnvironmentConfig | undefined {
+  return Object.hasOwn(entry.environments, env)
+    ? entry.environments[env]
+    : undefined;
+}
+
+/** findEntry, throwing the curated unknown-service error when absent. */
+function getEntry(
+  serviceName: string,
+): ServiceEntry & { dispatchName?: string } {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) {
+    throw new Error(
+      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
+    );
+  }
+  return entry;
+}
+
+/** findEnvCfg, throwing the curated no-such-environment error when absent. */
+function getEnvCfg(
+  serviceName: string,
+  entry: ServiceEntry,
+  env: EnvName,
+): EnvironmentConfig {
+  const envCfg = findEnvCfg(entry, env);
+  if (envCfg === undefined) {
+    throw new Error(
+      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
+        entry.environments,
+      )
+        .sort()
+        .join(", ")}).`,
+    );
+  }
+  return envCfg;
+}
+
+/**
  * The env names present in a service's `environments` map. Returns a sorted
  * copy so callers get deterministic order regardless of literal order.
  * Throws on unknown service (fail loud).
  */
 export function envsFor(serviceName: string): EnvName[] {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  return Object.keys(entry.environments).sort();
+  return Object.keys(getEntry(serviceName).environments).sort();
 }
 
 /**
@@ -989,23 +1041,7 @@ export function serviceEnvPairs(): Array<{ name: string; env: EnvName }> {
 }
 
 export function instanceIdFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  const envCfg = entry.environments[env];
-  if (!envCfg) {
-    throw new Error(
-      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
-        entry.environments,
-      )
-        .sort()
-        .join(", ")}).`,
-    );
-  }
-  return envCfg.instanceId;
+  return getEnvCfg(serviceName, getEntry(serviceName), env).instanceId;
 }
 
 export function listServiceNames(): string[] {
@@ -1047,34 +1083,17 @@ export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
  *     is showcase-harness, so echoing the service name would be wrong).
  */
 export function repoNameFor(serviceName: string, env: EnvName): string {
-  // Own-property lookups throughout: bare index checks would resolve
-  // inherited Object.prototype keys to truthy non-entries.
-  const entry = Object.hasOwn(SERVICES, serviceName)
-    ? SERVICES[serviceName]
-    : undefined;
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
+  const entry = getEntry(serviceName);
+  // Stricter than the other accessors (unchanged behavior): repoNameFor
+  // also rejects env names that are not registered SSOT env keys, so
+  // unnormalized synonyms ("production") fail loud before the per-service
+  // env lookup.
   if (!Object.hasOwn(ENV_ID_BY_NAME, env)) {
     throw new Error(
       `Unknown env "${String(env)}" — repoNameFor requires a normalized SSOT env key (one of: ${Object.keys(ENV_ID_BY_NAME).join(", ")}). Synonyms like "production" must be normalized via resolveEnv() first.`,
     );
   }
-  const envCfg = Object.hasOwn(entry.environments, env)
-    ? entry.environments[env]
-    : undefined;
-  if (!envCfg) {
-    throw new Error(
-      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
-        entry.environments,
-      )
-        .sort()
-        .join(", ")}).`,
-    );
-  }
-  return envCfg.repoName ?? serviceName;
+  return getEnvCfg(serviceName, entry, env).repoName ?? serviceName;
 }
 
 /**
@@ -1089,22 +1108,7 @@ export function repoNameFor(serviceName: string, env: EnvName): string {
  * and from the JSON artifact emitter that the Ruby side consumes.
  */
 export function domainFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  const envCfg = entry.environments[env];
-  if (!envCfg) {
-    throw new Error(
-      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
-        entry.environments,
-      )
-        .sort()
-        .join(", ")}).`,
-    );
-  }
+  const envCfg = getEnvCfg(serviceName, getEntry(serviceName), env);
   const host = envCfg.domain;
   if (!host || host.includes("://")) {
     // Defense-in-depth: SERVICES population is asserted by the
@@ -1126,13 +1130,16 @@ export function domainFor(serviceName: string, env: EnvName): string {
  * pair. False when the service has no such env, or the env config sets
  * `probe: false`. Defaults to `true` when the env exists and `probe` is
  * omitted (the historic default). Returns false (rather than throwing) on
- * unknown service so callers can treat "not probe-eligible" uniformly.
+ * unknown service AND on an undeclared env so callers can treat "not
+ * probe-eligible" uniformly — including for inherited Object.prototype
+ * keys on either axis (the own-property lookups below return undefined
+ * for those, never a truthy non-entry that would default to `true`).
  */
 export function probeEnabled(serviceName: string, env: EnvName): boolean {
-  const entry = SERVICES[serviceName];
-  if (!entry) return false;
-  const envCfg = entry.environments[env];
-  if (!envCfg) return false;
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return false;
+  const envCfg = findEnvCfg(entry, env);
+  if (envCfg === undefined) return false;
   return envCfg.probe ?? true;
 }
 
@@ -1283,8 +1290,128 @@ export function assertImageConsumersValid(
   }
 }
 
+/**
+ * Throw on SSOT load if the env registries and the per-service
+ * `environments` maps disagree (same style as `assertDispatchNamesUnique`):
+ *
+ *   (i)   every key of every `entry.environments` must be a canonical env
+ *         name registered in ENV_ID_BY_NAME — an unregistered key is an env
+ *         no accessor or redeploy path can ever resolve (a silently
+ *         unreachable env config);
+ *   (ii)  ENV_ID_BY_NAME env-ids must be unique — resolveEnv resolves the
+ *         FIRST canonical name carrying an env-id, so a duplicate silently
+ *         shadows the second name;
+ *   (iii) every ENV_ID_BY_NAME canonical name must have at least one
+ *         ENV_IDS spelling — a canonical name no spelling maps to can never
+ *         be produced by resolveEnv (a registered-but-unnameable env).
+ *
+ * Accepts injected maps for testing; defaults to the real registries.
+ */
+export function assertEnvRegistryConsistent(
+  services: Record<
+    string,
+    { environments?: Record<string, unknown> }
+  > = SERVICES,
+  envIdByName: Record<string, string> = ENV_ID_BY_NAME,
+  envIds: Record<string, string> = ENV_IDS,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    for (const env of Object.keys(entry.environments ?? {})) {
+      if (!Object.hasOwn(envIdByName, env)) {
+        problems.push(
+          `  - service "${key}" declares env "${env}", which is not a canonical env name in ENV_ID_BY_NAME — no accessor or redeploy path could ever resolve it`,
+        );
+      }
+    }
+  }
+  const byId = new Map<string, string>(); // env-id -> first canonical name
+  for (const [name, id] of Object.entries(envIdByName)) {
+    const prior = byId.get(id);
+    if (prior !== undefined) {
+      problems.push(
+        `  - duplicate env-id "${id}" in ENV_ID_BY_NAME (canonical names: ${prior}, ${name}) — resolveEnv resolves the FIRST name, silently shadowing the second`,
+      );
+    } else {
+      byId.set(id, name);
+    }
+  }
+  const spelledIds = new Set(Object.values(envIds));
+  for (const [name, id] of Object.entries(envIdByName)) {
+    if (!spelledIds.has(id)) {
+      problems.push(
+        `  - canonical env "${name}" (env-id "${id}") has no ENV_IDS spelling — resolveEnv can never produce it; register at least its own name in ENV_IDS`,
+      );
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: keep ENV_IDS (accepted spellings), ENV_ID_BY_NAME (canonical ` +
+        `names) and each service's environments keys mutually consistent.`,
+    );
+  }
+}
+
+/**
+ * Throw on SSOT load if any Railway ID is duplicated: a `serviceId` shared
+ * by two SSOT entries, or an env-scoped `instanceId` shared by any two env
+ * configs ANYWHERE in the map (instance IDs are globally unique on
+ * Railway). A duplicated ID means a redeploy/verify of one service would
+ * silently hit another — fail loud at module load instead (same style as
+ * `assertDispatchNamesUnique`).
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertServiceAndInstanceIdsUnique(
+  services: Record<
+    string,
+    {
+      serviceId: string;
+      environments?: Record<string, { instanceId?: string }>;
+    }
+  > = SERVICES,
+): void {
+  const problems: string[] = [];
+  const serviceIdOwners = new Map<string, string>(); // serviceId -> ssotKey
+  const instanceIdOwners = new Map<string, string>(); // instanceId -> "key.env"
+  for (const [key, entry] of Object.entries(services)) {
+    const priorService = serviceIdOwners.get(entry.serviceId);
+    if (priorService !== undefined) {
+      problems.push(
+        `  - duplicate serviceId "${entry.serviceId}" on SSOT keys: ${priorService}, ${key}`,
+      );
+    } else {
+      serviceIdOwners.set(entry.serviceId, key);
+    }
+    for (const [env, cfg] of Object.entries(entry.environments ?? {})) {
+      const instanceId = cfg?.instanceId;
+      if (instanceId === undefined) continue;
+      const where = `${key}.${env}`;
+      const prior = instanceIdOwners.get(instanceId);
+      if (prior !== undefined) {
+        problems.push(
+          `  - duplicate instanceId "${instanceId}" (env configs: ${prior}, ${where}) — a redeploy/verify of one would silently hit the other`,
+        );
+      } else {
+        instanceIdOwners.set(instanceId, where);
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: every Railway serviceId must appear on exactly one SSOT entry ` +
+        `and every env-scoped instanceId must be globally unique.`,
+    );
+  }
+}
+
 // Module-load assertions: fail any importer if the SSOT drifts into a
-// collision or a mis-wired image consumer. Tests that exercise the
-// invariants with synthetic input call the assert functions directly.
+// collision, a mis-wired image consumer, an inconsistent env registry, or
+// a duplicated Railway ID. Tests that exercise the invariants with
+// synthetic input call the assert functions directly.
 assertDispatchNamesUnique();
 assertImageConsumersValid();
+assertEnvRegistryConsistent();
+assertServiceAndInstanceIdsUnique();

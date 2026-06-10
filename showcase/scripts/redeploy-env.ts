@@ -38,22 +38,28 @@
  *     is attempted even in an env it does not declare.
  *   - Per-service Railway failures (including the all-services-fail case)
  *     print FAIL lines to stdout and land in the markdown summary written
- *     to $GITHUB_STEP_SUMMARY (mirrored to stderr) but DO NOT fail the
- *     process for staging. Staging is not a release gate; the
- *     verify-deploy workflow is what fails on bad images. For env=prod,
- *     per-service failures DO yield a non-zero exitCode (fail loud).
+ *     to $GITHUB_STEP_SUMMARY (mirrored to stderr). Exit-code policy is
+ *     FAIL-LOUD BY DEFAULT: any per-service failure yields a non-zero
+ *     exitCode for EVERY env except staging. Staging is the single
+ *     documented carve-out (failures stay non-fatal) because staging is
+ *     not a release gate — the verify-deploy workflow is what fails on
+ *     bad images. A future env (preview, canary, …) inherits the fatal
+ *     default; do NOT add it to a carve-out list unless it also gets its
+ *     own downstream gate.
  *   - Operator/config errors (bad env name, unknown service, missing or
  *     malformed token) ALWAYS fail loud with a non-zero exit.
  *
  * Auth: RAILWAY_TOKEN env var or ~/.railway/config.json.
  * Exit code: 0 on staging even when per-service redeploys fail; non-zero
- * for prod per-service failures and for any operator/config error.
+ * for per-service failures in any other env and for any operator/config
+ * error.
  */
 
 import fs from "fs";
 import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
+  ENV_IDS,
   ENV_ID_BY_NAME,
   SERVICES,
   resolveEnv,
@@ -276,11 +282,21 @@ export function expandImageConsumers(names: string[], env: EnvName): string[] {
 }
 
 /**
+ * The accepted env spellings for usage strings, derived from the ENV_IDS
+ * registry (open-env contract: a newly registered spelling shows up here
+ * with no code change — never hardcode the prod/production/staging triple).
+ */
+function usageEnvList(): string {
+  return Object.keys(ENV_IDS).join(" | ");
+}
+
+/**
  * Pure argv parser. Accepts either `--services x,y,z` or `--services=x,y,z`.
  * Throws if `--services` is provided with a missing/empty value or a
- * flag-like value, or is passed more than once (silent no-op / silent
- * last-one-wins in CI is worse than a loud failure). Throws on unknown
- * args or empty argv. Exported for direct unit testing.
+ * flag-like value (whole-token OR any flag-like CSV part), or is passed
+ * more than once (silent no-op / silent last-one-wins in CI is worse than
+ * a loud failure). Throws on unknown args, on a flag-like first argument
+ * (a forgotten env), or on empty argv. Exported for direct unit testing.
  */
 export function parseArgs(argv: string[]): {
   env: string;
@@ -288,10 +304,19 @@ export function parseArgs(argv: string[]): {
 } {
   if (argv.length === 0) {
     throw new Error(
-      "Usage: redeploy-env.ts <env> [--services <csv>] (env: prod | production | staging)",
+      `Usage: redeploy-env.ts <env> [--services <csv>] (env: ${usageEnvList()})`,
     );
   }
   const env = argv[0];
+  if (env.startsWith("-")) {
+    // A flag in the env position means the operator forgot the env
+    // argument entirely (`redeploy-env.ts --services mastra`) — consuming
+    // the flag AS an env would surface as a confusing Unknown-env error
+    // far from the actual mistake.
+    throw new Error(
+      `Missing env argument (got flag "${env}"). Usage: redeploy-env.ts <env> [--services <csv>] (env: ${usageEnvList()})`,
+    );
+  }
   let services: string[] | undefined;
 
   const ensureNonEmpty = (raw: string | undefined): string[] => {
@@ -304,6 +329,17 @@ export function parseArgs(argv: string[]): {
       .filter(Boolean);
     if (parts.length === 0) {
       throw new Error("--services requires a non-empty comma-separated value");
+    }
+    for (const part of parts) {
+      if (part.startsWith("-")) {
+        // Mirror of the space-form next-token guard below: a flag-like
+        // CSV part (`--services=--bogus`, `--services mastra,-x`) is a
+        // mis-typed invocation, not a service name — fail at the CLI
+        // boundary instead of as an Unknown-service error downstream.
+        throw new Error(
+          `--services entries must be service names, got flag-like "${part}"`,
+        );
+      }
     }
     return parts;
   };
@@ -404,7 +440,14 @@ export async function runRedeploy(
         process.stdout.write(`FAIL: ${outcome.error}\n`);
       }
     } catch (e: unknown) {
-      const error = e instanceof Error ? e.message : String(e);
+      // Sanitize like the non-throw FAIL path: makeLiveRedeploy pre-sanitizes
+      // the errors it RETURNS, but a rejection thrown by the redeploy fn
+      // (e.g. an AbortSignal timeout, or a fetch error wrapping a multi-KB
+      // Cloudflare HTML page) bypasses that — sanitize before recording so
+      // the records artifact and the markdown summary stay bounded/clean.
+      const error = sanitizeErrorBody(
+        e instanceof Error ? e.message : String(e),
+      );
       failures.push({ service: name, error });
       records.push({ service: name, status: "error", error });
       process.stdout.write(`FAIL (threw): ${error}\n`);
@@ -425,7 +468,9 @@ export async function runRedeploy(
     appendSummary("| service | status | error |");
     appendSummary("| --- | --- | --- |");
     for (const f of failures) {
-      const safeErr = f.error.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+      // Escape pipes and flatten ALL line-break chars — including a bare
+      // \r with no following \n — so the markdown table row stays intact.
+      const safeErr = f.error.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
       appendSummary(`| \`${f.service}\` | FAIL | ${safeErr} |`);
     }
     appendSummary("");
@@ -442,7 +487,16 @@ export async function runRedeploy(
   // here is warn-only — PR #5093's exit-code semantics MUST NOT regress
   // on a disk hiccup.
   const jsonPath = process.env.REDEPLOY_SUMMARY_JSON;
-  if (jsonPath) {
+  if (jsonPath === "") {
+    // Set-but-empty is almost certainly a workflow wiring bug (e.g. an
+    // unexpanded expression) — the falsy check below would silently skip
+    // the write and the CI consumer would see "no artifact" with zero
+    // signal about why. Warn loudly; still skip the write (there is no
+    // usable path to write to).
+    process.stderr.write(
+      "warning: REDEPLOY_SUMMARY_JSON is set but empty — skipping the JSON summary write\n",
+    );
+  } else if (jsonPath) {
     try {
       const tmp = `${jsonPath}.tmp`;
       fs.writeFileSync(tmp, JSON.stringify(records, null, 2) + "\n");
@@ -457,10 +511,13 @@ export async function runRedeploy(
     }
   }
 
-  // Staging: per-service failures are non-fatal (the verify-deploy
-  // workflow is the real release gate). Prod: per-service failures must
-  // surface as a non-zero exit so an operator notices.
-  const exitCode = env === "prod" && failed > 0 ? 1 : 0;
+  // Fail-loud DEFAULT: per-service failures yield a non-zero exit in
+  // every env. Staging is the single documented carve-out (non-fatal —
+  // the verify-deploy workflow is its real release gate). Inverted from
+  // the historic `env === "prod"` allowlist so a future env (preview,
+  // canary, …) inherits fatal semantics instead of silently swallowing
+  // failures the way only staging is meant to.
+  const exitCode = env !== "staging" && failed > 0 ? 1 : 0;
   return { exitCode, attempted, succeeded, failed };
 }
 
@@ -470,7 +527,7 @@ async function main(): Promise<void> {
     console.error(
       "Usage: npx tsx showcase/scripts/redeploy-env.ts <env> [--services <csv>]",
     );
-    console.error("  env: prod | production | staging");
+    console.error(`  env: ${usageEnvList()}`);
     console.error("  --services: optional CSV of SSOT keys or dispatch_names");
     process.exit(2);
   }
