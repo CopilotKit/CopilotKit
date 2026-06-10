@@ -48,9 +48,26 @@ export interface UseAgentProps {
    * if that is also unset, the effective value is `0` (no throttle).
    */
   throttleMs?: number;
+  /**
+   * Optional thread ID to associate with this agent instance.
+   * When provided, the agent's `threadId` is set (or updated) to this value
+   * after each render, routing all runs and message persistence to that thread.
+   *
+   * Useful in headless usage where no `CopilotChat` component is mounted to
+   * supply the thread ID automatically via `CopilotChatConfigurationProvider`.
+   *
+   * @example
+   * const { agent } = useAgent({ agentId: "my-agent", threadId: "session-xyz" });
+   */
+  threadId?: string;
 }
 
-export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
+export function useAgent({
+  agentId,
+  updates,
+  throttleMs,
+  threadId,
+}: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
@@ -222,6 +239,14 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
+
+  // Apply the caller-supplied threadId to the agent. This is the headless
+  // equivalent of the chat-config sync below: when no CopilotChatConfigurationProvider
+  // is in the tree, this is the only path for a threadId to reach the agent.
+  useEffect(() => {
+    if (!threadId) return;
+    agent.threadId = threadId;
+  }, [agent, threadId]);
 
   // Propagate the caller-supplied threadId from the chat configuration onto
   // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId

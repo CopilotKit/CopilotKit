@@ -1,8 +1,14 @@
-import React from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import React, { useState } from "react";
+import {
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+  render,
+} from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -14,6 +20,8 @@ import {
 import { useAgent } from "../use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
+import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
  * Mock agent that captures RunAgentInput to verify state is passed correctly
@@ -153,6 +161,77 @@ describe("useAgent e2e", () => {
         expect(
           screen.getByText("Hello! I received your message."),
         ).toBeDefined();
+      });
+    });
+  });
+
+  describe("threadId prop", () => {
+    it("sets agent.threadId from the prop on mount", async () => {
+      const agent = new MockStepwiseAgent();
+      let capturedAgent: typeof agent | undefined;
+
+      function ThreadIdTestComponent() {
+        const { agent: hookAgent } = useAgent({ threadId: "thread-abc" });
+        capturedAgent = hookAgent;
+        return <div data-testid="ready">ready</div>;
+      }
+
+      // Render without providing a config-level threadId to isolate the prop behavior
+      render(
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <CopilotChatConfigurationProvider agentId="default">
+            <ThreadIdTestComponent />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+      await screen.findByTestId("ready");
+      expect(capturedAgent?.threadId).toBe("thread-abc");
+    });
+
+    it("updates agent.threadId when the prop changes", async () => {
+      const agent = new MockStepwiseAgent();
+      let capturedAgent: typeof agent | undefined;
+
+      function ThreadIdTestComponent() {
+        const [threadId, setThreadId] = useState<string>("thread-initial");
+        const { agent: hookAgent } = useAgent({ threadId });
+        capturedAgent = hookAgent;
+
+        return (
+          <div>
+            <div data-testid="ready">ready</div>
+            <button
+              data-testid="update-thread"
+              onClick={() => setThreadId("thread-updated")}
+            >
+              Update Thread
+            </button>
+            <div data-testid="current-thread">{threadId}</div>
+          </div>
+        );
+      }
+
+      render(
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <CopilotChatConfigurationProvider agentId="default">
+            <ThreadIdTestComponent />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+      await screen.findByTestId("ready");
+
+      // Check initial threadId
+      expect(capturedAgent?.threadId).toBe("thread-initial");
+
+      // Click button to update threadId
+      const updateBtn = await screen.findByTestId("update-thread");
+      await act(async () => {
+        fireEvent.click(updateBtn);
+      });
+
+      // Wait for the threadId to update on the agent
+      await waitFor(() => {
+        expect(capturedAgent?.threadId).toBe("thread-updated");
       });
     });
   });
