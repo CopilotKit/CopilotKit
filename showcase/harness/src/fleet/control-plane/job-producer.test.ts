@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   createJobProducer,
   DEFAULT_SWEEP_INTERVAL_MS,
+  MAX_BUFFERED_SWEEP_COMM_ERRORS,
 } from "./job-producer.js";
 import type { JobProducer, ServiceJobSpec } from "./job-producer.js";
 import type {
@@ -612,6 +613,85 @@ describe("job-producer — sweep cadence", () => {
     const result = await producer.tick();
     expect(result.enqueued).toBe(2);
     expect(result.reclaimed).toBe(1);
+  });
+
+  it("[REQ-B] a failed sink delivery is BUFFERED and redelivered (prepended) on the next sweep's delivery", async () => {
+    // sweepExpired only synthesizes comm errors for rows reclaimed in THAT
+    // call — a transient sink failure must not permanently drop the reclaimed
+    // jobs' dashboard signal. Tick 1's sink throws; tick 2's sink call must
+    // deliver BOTH batches, tick 1's first.
+    const err = (jobId: string): PoolCommError => ({
+      kind: "worker-reclaimed-pending",
+      message: `lease for job ${jobId} expired; re-queued`,
+      jobId,
+      observedAt: "2026-06-04T00:00:09.000Z",
+    });
+    let sweepN = 0;
+    const queue = makeFakeQueue({
+      sweepImpl: async () => {
+        sweepN += 1;
+        return { reclaimed: 1, commErrors: [err(`j${sweepN}`)] };
+      },
+    });
+    const received: PoolCommError[][] = [];
+    let sinkCalls = 0;
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      sweepIntervalMs: 0, // sweep every tick
+      onSweepCommErrors: (errs) => {
+        sinkCalls += 1;
+        if (sinkCalls === 1) throw new Error("aggregator down");
+        received.push(errs);
+      },
+    });
+    producer.start();
+    await producer.tick(); // sink fails — j1 buffered
+    await producer.tick(); // sink succeeds — j1 prepended to j2
+    expect(received).toHaveLength(1);
+    expect(received[0]!.map((e) => e.jobId)).toEqual(["j1", "j2"]);
+  });
+
+  it("[REQ-B] caps the undelivered buffer at MAX_BUFFERED_SWEEP_COMM_ERRORS, dropping oldest", async () => {
+    const errs = (n: number, prefix: string): PoolCommError[] =>
+      Array.from({ length: n }, (_, i) => ({
+        kind: "worker-reclaimed-pending" as const,
+        message: "lease expired",
+        jobId: `${prefix}${i}`,
+        observedAt: "2026-06-04T00:00:09.000Z",
+      }));
+    let sweepN = 0;
+    const queue = makeFakeQueue({
+      sweepImpl: async () => {
+        sweepN += 1;
+        // Tick 1 reclaims more than the cap; tick 2 reclaims one more.
+        return sweepN === 1
+          ? { reclaimed: 600, commErrors: errs(600, "old") }
+          : { reclaimed: 1, commErrors: errs(1, "fresh") };
+      },
+    });
+    const received: PoolCommError[][] = [];
+    let sinkCalls = 0;
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      sweepIntervalMs: 0,
+      onSweepCommErrors: (batch) => {
+        sinkCalls += 1;
+        if (sinkCalls === 1) throw new Error("aggregator down");
+        received.push(batch);
+      },
+    });
+    producer.start();
+    await producer.tick(); // 600 buffered → trimmed to newest 500
+    await producer.tick(); // delivers 500 buffered + 1 fresh
+    expect(received).toHaveLength(1);
+    expect(received[0]).toHaveLength(MAX_BUFFERED_SWEEP_COMM_ERRORS + 1);
+    // Oldest 100 dropped: the buffer starts at old100, ends with the fresh one.
+    expect(received[0]![0]!.jobId).toBe("old100");
+    expect(received[0]![received[0]!.length - 1]!.jobId).toBe("fresh0");
   });
 
   it("defaults the sweep cadence to DEFAULT_SWEEP_INTERVAL_MS", async () => {

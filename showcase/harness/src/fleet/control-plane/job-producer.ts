@@ -60,8 +60,12 @@ import { deriveHealthUrl } from "../../probes/liveness.js";
  * FORWARDS the swept errors to this injected sink — the wiring slot
  * (control-plane) routes them to `ResultAggregator.aggregateCommError`. Called
  * best-effort: the producer awaits it but never lets a sink failure abort job
- * production (the next tick retries the sweep). Injected so the producer stays
- * dependency-free and unit-testable with a fake sink.
+ * production. A failed delivery does NOT lose the batch — `sweepExpired` only
+ * synthesizes comm errors for rows reclaimed in THAT call, so a later sweep
+ * cannot re-derive a missed batch; the producer instead BUFFERS undelivered
+ * errors (capped at `MAX_BUFFERED_SWEEP_COMM_ERRORS`, oldest dropped) and
+ * prepends them to the next sweep's sink delivery. Injected so the producer
+ * stays dependency-free and unit-testable with a fake sink.
  */
 export type SweepCommErrorSink = (
   commErrors: PoolCommError[],
@@ -263,6 +267,14 @@ export interface JobProducer {
 /** Default lease-sweep cadence: reclaim dead-worker leases every 30s. */
 export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
 
+/**
+ * Cap on the producer's buffer of UNDELIVERED sweep comm errors (REQ-B). A
+ * persistently-failing sink must not grow the buffer without bound, so past
+ * the cap the OLDEST entries are dropped (with a warn) — newer reclaims carry
+ * the fresher dashboard signal.
+ */
+export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
+
 export function createJobProducer(opts: JobProducerOptions): JobProducer {
   const { queue, enumerate, logger } = opts;
   const now = opts.now ?? (() => Date.now());
@@ -281,6 +293,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * orphaned leases from a prior crash reclaims them on its first cycle.
    */
   let lastSweepAt: number | null = null;
+  /**
+   * Sweep comm errors a previous sink delivery FAILED to hand off (REQ-B).
+   * `sweepExpired` only synthesizes comm errors for rows reclaimed in that
+   * call, so a dropped batch is gone for good — buffered batches are drained
+   * (prepended to the fresh batch) on the next sweep's sink delivery. Capped
+   * at `MAX_BUFFERED_SWEEP_COMM_ERRORS`, oldest dropped on overflow.
+   */
+  let undeliveredCommErrors: PoolCommError[] = [];
 
   /** Build a `ServiceJobPayload` from a spec + the run's shared meta. */
   function toEnqueueInput(
@@ -332,15 +352,33 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // the dashboard (the producer owns no status pipeline of its own). Previously
       // these were DROPPED after logging their count — the crash/lease-expiry
       // overlay never surfaced. Best-effort: a sink failure must not abort job
-      // production, so we log and swallow (the next sweep retries).
-      if (onSweepCommErrors && result.commErrors.length > 0) {
-        try {
-          await onSweepCommErrors(result.commErrors);
-        } catch (sinkErr) {
-          logger.error("fleet.producer.sweep-commerror-sink-failed", {
-            commErrors: result.commErrors.length,
-            err: sinkErr instanceof Error ? sinkErr.message : String(sinkErr),
-          });
+      // production. But `sweepExpired` only synthesizes comm errors for rows
+      // reclaimed in THIS call — a later sweep canNOT re-derive a missed batch —
+      // so a failed delivery is BUFFERED (not dropped) and the buffer is drained,
+      // prepended to the fresh batch, on the next sweep's delivery. The buffer is
+      // capped at MAX_BUFFERED_SWEEP_COMM_ERRORS (oldest dropped, warned).
+      if (onSweepCommErrors) {
+        const batch = [...undeliveredCommErrors, ...result.commErrors];
+        undeliveredCommErrors = [];
+        if (batch.length > 0) {
+          try {
+            await onSweepCommErrors(batch);
+          } catch (sinkErr) {
+            logger.error("fleet.producer.sweep-commerror-sink-failed", {
+              commErrors: batch.length,
+              err: sinkErr instanceof Error ? sinkErr.message : String(sinkErr),
+            });
+            undeliveredCommErrors = batch;
+            if (undeliveredCommErrors.length > MAX_BUFFERED_SWEEP_COMM_ERRORS) {
+              const dropped =
+                undeliveredCommErrors.length - MAX_BUFFERED_SWEEP_COMM_ERRORS;
+              undeliveredCommErrors = undeliveredCommErrors.slice(dropped);
+              logger.warn("fleet.producer.sweep-commerror-buffer-overflow", {
+                dropped,
+                buffered: MAX_BUFFERED_SWEEP_COMM_ERRORS,
+              });
+            }
+          }
         }
       }
       return { swept: true, sweepFailed: false, reclaimed: result.reclaimed };
