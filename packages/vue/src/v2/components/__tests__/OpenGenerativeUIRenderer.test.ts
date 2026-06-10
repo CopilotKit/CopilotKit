@@ -622,4 +622,112 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(headPayload!).toContain(agentCss);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // FINAL document head normalization for websandbox mounting.
+  //
+  // @jetbrains/websandbox@1.1.3 hard-requires the EXACT literal lowercase token
+  // `<head>` in frameContent: validateOptions throws when
+  // `!frameContent.includes('<head>')`, and it injects its bootstrap via
+  // `frameContent.replace('<head>', …)` (both case-sensitive on the 6-char
+  // token). An agent-emitted `<HEAD>` or `<head lang="en">` therefore both fails
+  // mounting (stuck spinner) and, even if it slipped past, never receives the
+  // bootstrap. The final-document helpers must normalize the head-open token to
+  // the literal `<head>` and inject the agent css INSIDE the existing head
+  // (after author content, before the close) so the documented cascade holds:
+  // author head styles first, agent css last — matching react-core.
+  // -------------------------------------------------------------------------
+  describe("final document head normalization (websandbox)", () => {
+    function finalFrameContent(): string {
+      const finalCall = mockCreate.mock.calls.find(
+        ([, options]) =>
+          typeof options.frameContent === "string" &&
+          options.frameContent !== "<head></head><body></body>",
+      );
+      return (finalCall?.[1].frameContent as string) ?? "";
+    }
+
+    // Case 1 — uppercase <HEAD>…</HEAD>, NO css. ensureHead matched the head
+    // case-insensitively and left the uppercase token verbatim, so frameContent
+    // had no literal `<head>` → websandbox.validateOptions throws → never mounts.
+    // GREEN post-fix: the open token is normalized to the literal `<head>`.
+    it("normalizes an uppercase head with no css so frameContent has the literal <head>", async () => {
+      renderRenderer({
+        html: ["<HEAD><title>t</title></HEAD><body>x</body>"],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The author's head content survives the normalization.
+      expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Case 2 — attributed <head lang="en">…</head> WITH css. injectCssIntoHtml
+    // found </head> and injected before it, but the only head-open token was the
+    // attributed `<head lang="en">` → no literal `<head>` → websandbox throws.
+    // GREEN post-fix: the literal `<head>` is present AND the agent css <style>
+    // sits INSIDE the real head — after the author's title, before the close.
+    it("normalizes an attributed head with css so the literal <head> is present and css lands inside the real head", async () => {
+      const agentCss = ".a{color:red}";
+      renderRenderer({
+        html: ['<head lang="en"><title>t</title></head><body>x</body>'],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The agent css must sit INSIDE the real head element.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const headCloseIdx = frameContent.toLowerCase().indexOf("</head>");
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(headCloseIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // css is between the head-open and head-close (inside the real head).
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeLessThan(headCloseIdx);
+      // Cascade: author head content (title) precedes the agent css.
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeLessThan(cssIdx);
+    });
+
+    // Case 3 (cascade) — uppercase head WITH css. injectCssIntoHtml's
+    // case-sensitive indexOf("</head>") missed the uppercase `</HEAD>`, so it
+    // PREPENDED a fresh `<head><style>…</style></head>` before the author's
+    // uppercase head — two head elements, agent css cascading BEFORE the author's
+    // head styles. GREEN post-fix: exactly one head element, author styles before
+    // agent css.
+    it("produces exactly one head element with author styles before agent css (uppercase head with css)", async () => {
+      const authorStyle = ".author{color:blue}";
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: [`<HEAD><style>${authorStyle}</style></HEAD><body>x</body>`],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // Exactly one head-open token (no duplicate head was prepended). Match is
+      // quote-aware, mirroring the renderer's normalization regex.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+      // Cascade: author head style precedes the agent css.
+      const authorIdx = frameContent.indexOf(authorStyle);
+      const agentIdx = frameContent.indexOf(agentCss);
+      expect(authorIdx).toBeGreaterThan(-1);
+      expect(agentIdx).toBeGreaterThan(-1);
+      expect(authorIdx).toBeLessThan(agentIdx);
+    });
+  });
 });

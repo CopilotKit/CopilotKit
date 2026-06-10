@@ -56,13 +56,56 @@ function shouldFlushImmediately(
   return false;
 }
 
+// Match only a real head-opening tag: `<head>`, or `<head` followed by
+// whitespace + attributes. This deliberately excludes `<header …>` (which a
+// looser `/<head[^>]*>/i` would capture). The attribute span is quote-aware:
+// unquoted runs forbid `<`/`>` (so the tag can never greedily swallow a
+// following `<tag>`), while quoted runs (`"…"` / `'…'`) may contain `<`/`>` so
+// a realistic `<head data-config='{"a":">"}'>` is matched whole. Mirrors
+// react-core's assembleDocument head-open matcher.
+const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
+
+/**
+ * Ensures the final frameContent contains the EXACT literal lowercase token
+ * `<head>`. @jetbrains/websandbox hard-requires it: validateOptions throws
+ * `'Websandbox: iFrame content must have "<head>" tag.'` when
+ * `!frameContent.includes('<head>')`, and it injects its bootstrap via
+ * `frameContent.replace('<head>', …)` — both case-sensitive on the 6-char
+ * token. An agent-emitted `<HEAD>` or `<head lang="en">` would otherwise fail
+ * mounting (stuck spinner) and never receive the bootstrap.
+ *
+ * If a real head-opening tag exists, its token is NORMALIZED to `<head>` (head
+ * attributes have negligible runtime semantics inside the sandbox iframe and
+ * cannot be preserved given websandbox's exact-token demand). If none exists,
+ * `<head></head>` is prepended. Mirrors react-core's normalization.
+ */
 function ensureHead(html: string): string {
-  if (/<head[\s>]/i.test(html)) return html;
+  const match = html.match(HEAD_OPEN);
+  if (match && match.index !== undefined) {
+    if (match[0] === "<head>") return html;
+    return (
+      html.slice(0, match.index) +
+      "<head>" +
+      html.slice(match.index + match[0].length)
+    );
+  }
   return `<head></head>${html}`;
 }
 
+/**
+ * Injects the agent css immediately before `</head>` — i.e. AFTER the author's
+ * existing head content — so the documented cascade holds (author head styles
+ * first, agent css last; matching react-core). The close lookup is
+ * case-insensitive so it pairs with `ensureHead`'s case-insensitive open match:
+ * a case-sensitive `indexOf("</head>")` would miss an uppercase `</HEAD>` and
+ * PREPEND a second `<head>`, producing two head elements and flipping the
+ * cascade so the agent css wins over the author's head styles.
+ *
+ * Always called after `ensureHead`, so a real `<head>` exists by construction;
+ * the no-close fallback synthesizes a websandbox-safe literal `<head>`.
+ */
 function injectCssIntoHtml(html: string, css: string): string {
-  const headCloseIdx = html.indexOf("</head>");
+  const headCloseIdx = html.search(/<\/head>/i);
   if (headCloseIdx !== -1) {
     return (
       html.slice(0, headCloseIdx) +
