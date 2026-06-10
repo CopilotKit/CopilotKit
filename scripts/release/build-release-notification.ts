@@ -42,7 +42,7 @@ import type {
   JobResult,
   BuildReleaseNotificationResult,
 } from "./lib/build-release-notification.js";
-import { getScopeConfig } from "./lib/config.js";
+import { getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 
 function env(name: string): string {
@@ -118,9 +118,11 @@ export function resolveModeSafe(raw: string): ReleaseMode {
  */
 export function resolvePackageCountSafe(scope: string): number {
   try {
-    // Only the two known scopes have a package list; anything else (e.g. a
-    // python-only run with an empty scope) has no npm packages to count.
-    if (scope === "monorepo" || scope === "angular") {
+    // Any scope defined in release.config.json has a package list; anything
+    // else (e.g. a python-only run with an empty scope) has no npm packages to
+    // count. Membership comes from the config itself so a newly added scope
+    // can never drift out of sync with this notifier.
+    if (scope in loadConfig().scopes) {
       return getScopeConfig(scope as ReleaseScope).packages.length;
     }
     return 0;
