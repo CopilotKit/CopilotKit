@@ -30,10 +30,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a public license key in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
+ * <CopilotKit>
  *   <CopilotChat
  *     observabilityHooks={{
  *       onMessageSent: (message) => {
@@ -75,9 +74,11 @@ import type { SystemMessageFunction } from "@copilotkit/react-core";
 import {
   useCopilotContext,
   useCopilotChatInternal,
-  type OnStopGeneration,
-  type OnReloadMessages,
-  type ChatSuggestions,
+} from "@copilotkit/react-core";
+import type {
+  OnStopGeneration,
+  OnReloadMessages,
+  ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
   CopilotKitError,
@@ -87,7 +88,7 @@ import {
   styledConsole,
   randomUUID,
 } from "@copilotkit/shared";
-import {
+import type {
   AssistantMessageProps,
   ChatError,
   ComponentsMap,
@@ -352,7 +353,6 @@ export interface CopilotChatProps {
 
   /**
    * Event hooks for CopilotKit chat events.
-   * These hooks only work when a public license key is provided.
    */
   observabilityHooks?: CopilotObservabilityHooks;
 

@@ -19,7 +19,6 @@ export type { AttachmentsConfig, Attachment, AttachmentModality };
 
 /**
  * Event hooks for CopilotKit chat events.
- * These hooks only work when a public license key is provided.
  */
 export interface CopilotObservabilityHooks {
   /**

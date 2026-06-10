@@ -218,11 +218,6 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   /**
    * Configuration for LLM request/response logging.
-   * Requires a public license key on the CopilotKit component:
-   *
-   * ```tsx
-   * <CopilotKit publicLicenseKey="ck_pub_..." />
-   * ```
    *
    * Example logging config:
    * ```ts
@@ -276,9 +271,6 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   /**
    * Optional error handler for comprehensive debugging and observability.
-   *
-   * **Requires a license key**: Error handling only works when requests include a valid public license key.
-   * This is a premium feature.
    *
    * @param errorEvent - Structured error event with rich debugging context
    *

@@ -53,7 +53,7 @@ export function logCopilotKitPlatformMessage() {
   console.log(
     `%cCopilotKit Warning%c
 
-useCopilotChatHeadless_c provides full compatibility with CopilotKit's newly released Headless UI feature set. To enable this premium feature, add your public license key — run \`npx copilotkit@latest license\`, or copy it from the dashboard:
+useCopilotChatHeadless_c provides full compatibility with CopilotKit's newly released Headless UI feature set. To enable this premium feature, add your public license key, available for free at:
 
 %chttps://dashboard.operations.copilotkit.ai%c
 
@@ -75,7 +75,7 @@ export function publicApiKeyRequired(feature: string) {
   console.log(
     `
 %cCopilotKit Warning%c \n
-In order to use ${feature}, you need to add your CopilotKit license key — run \`npx copilotkit@latest license\`, or copy it from https://dashboard.operations.copilotkit.ai.
+In order to use ${feature}, you need to add your CopilotKit license key, available for free at https://dashboard.operations.copilotkit.ai.
     `.trim(),
     ConsoleStyles.header,
     ConsoleStyles.body,

@@ -17,20 +17,10 @@ export interface CopilotKitProps extends Omit<
   CopilotKitProviderProps,
   "children"
 > {
-  /**
-   * Your CopilotKit public license key. Prefer `publicLicenseKey` in new code.
-   *
-   * Don't have one yet? Run `npx copilotkit@latest license`, or copy it from the
-   * dashboard at https://dashboard.operations.copilotkit.ai.
-   */
+  /** Your CopilotKit public license key. */
   publicApiKey?: string;
 
-  /**
-   * Your public license key for accessing premium CopilotKit features.
-   *
-   * Don't have one yet? Run `npx copilotkit@latest license`, or copy it from the
-   * dashboard at https://dashboard.operations.copilotkit.ai.
-   */
+  /** Your public license key for accessing premium CopilotKit features. */
   publicLicenseKey?: string;
 
   /**
@@ -164,15 +154,11 @@ export interface CopilotKitProps extends Omit<
   /**
    * Optional error handler for comprehensive debugging and observability.
    *
-   * **Requires a license key**: Error handling only works when a public license key is provided.
-   * This is a premium feature.
-   *
    * @param errorEvent - Structured error event with rich debugging context
    *
    * @example
    * ```typescript
    * <CopilotKit
-   *   publicLicenseKey="ck_pub_your_key"
    *   onError={(errorEvent) => {
    *     debugDashboard.capture(errorEvent);
    *   }}

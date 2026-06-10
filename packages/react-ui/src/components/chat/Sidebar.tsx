@@ -33,10 +33,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a public license key in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
+ * <CopilotKit>
  *   <CopilotSidebar
  *     observabilityHooks={{
  *       onChatExpanded: () => {

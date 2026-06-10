@@ -2,7 +2,7 @@
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a premium-only feature">
- * Get your public license key with `npx copilotkit@latest license` (or copy it from the [dashboard](https://dashboard.operations.copilotkit.ai)), or read more about <a href="/premium/overview">premium features</a>.
+ * Read more about <a href="/premium/overview">premium features</a>.
  *
  * Usage is generous and **free** to get started.
  * </Callout>
@@ -27,7 +27,7 @@
  *
  * export function App() {
  *   return (
- *     <CopilotKit publicLicenseKey="your-public-license-key">
+ *     <CopilotKit runtimeUrl="/api/copilotkit">
  *       <YourComponent />
  *     </CopilotKit>
  *   );
@@ -204,8 +204,6 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
 /**
  * Enterprise React hook that provides complete chat functionality for fully custom UI implementations.
  * Includes all advanced features like direct message access, suggestions array, interrupt handling, and MCP support.
- *
- * **Requires a public license key** - get one with `npx copilotkit@latest license` (or from https://dashboard.operations.copilotkit.ai/)
  *
  * @param options - Configuration options for the chat
  * @returns Complete chat interface with all enterprise features
