@@ -571,8 +571,6 @@ export function workerCapacityFromBudget(
 export interface EnqueueJobInput {
   /** The per-service payload to run. */
   payload: ServiceJobPayload;
-  /** Optional explicit lease seconds for the eventual claim; default per impl. */
-  leaseSeconds?: number;
 }
 
 /** A lease handle a worker holds while running a claimed job. */

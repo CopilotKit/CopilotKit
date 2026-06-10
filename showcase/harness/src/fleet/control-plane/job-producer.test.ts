@@ -179,7 +179,6 @@ describe("job-producer — per-service enqueue", () => {
           cellIds: ["shared-state"],
           driverInputs: { backendUrl: "https://lg.example.com" },
           priority: 5,
-          leaseSeconds: 600,
         },
       ],
     });
@@ -193,7 +192,6 @@ describe("job-producer — per-service enqueue", () => {
       backendUrl: "https://lg.example.com",
     });
     expect(input.payload.meta.priority).toBe(5);
-    expect(input.leaseSeconds).toBe(600);
   });
 
   it("stamps ServiceJobMeta.enqueuedAt from the injected clock", async () => {

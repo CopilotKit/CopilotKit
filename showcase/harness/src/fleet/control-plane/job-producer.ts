@@ -116,8 +116,6 @@ export interface ServiceJobSpec {
   driverInputs?: Record<string, unknown>;
   /** Optional per-job priority hint (higher pulls first). */
   priority?: number;
-  /** Optional explicit lease seconds for the eventual claim. */
-  leaseSeconds?: number;
 }
 
 /**
@@ -298,9 +296,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     if (spec.cellIds !== undefined) payload.cellIds = spec.cellIds;
     if (spec.driverInputs !== undefined)
       payload.driverInputs = spec.driverInputs;
-    const input: EnqueueJobInput = { payload };
-    if (spec.leaseSeconds !== undefined) input.leaseSeconds = spec.leaseSeconds;
-    return input;
+    return { payload };
   }
 
   /**
