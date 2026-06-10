@@ -1008,6 +1008,72 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       debugSpy.mockRestore();
     });
 
+    it("drains MULTIPLE pages of stale pending rows in ONE sweep (a backlog must not take hours to expire)", async () => {
+      // 120 stale rows span 3 candidate pages (perPage 50). A single-page
+      // sweep would expire only 50 — against the motivating 3,734-row staging
+      // backlog at ~10 sweeps/hour that is ~7.5h of drain. The sweep must
+      // loop pages (deletes shift pagination, so re-listing page 1 yields the
+      // next batch) until the backlog is gone or the per-sweep cap is hit.
+      const rows = Array.from({ length: 120 }, (_, i) =>
+        pendingRow(`stale-${i}`, "d6:a", T - 4 * HOUR - i * 1000),
+      );
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(120);
+      expect(store).toHaveLength(0);
+    });
+
+    it("caps a single sweep at 10 pages (500 rows) so one sweep cannot monopolize the producer tick", async () => {
+      const rows = Array.from({ length: 520 }, (_, i) =>
+        pendingRow(`stale-${i}`, "d6:a", T - 4 * HOUR - i * 1000),
+      );
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(500);
+      expect(store).toHaveLength(20);
+      // The overflow drains on the NEXT sweep — capped, not stranded.
+      const next = await q.sweepExpired(T);
+      expect(next.expiredPending).toBe(20);
+      expect(store).toHaveLength(0);
+    });
+
+    it("terminates a sweep pass that makes no progress (a page of non-expirable rows must not loop)", async () => {
+      // A full page of stale rows that all LOSE the CAS race (workers won
+      // them): re-listing pending would return rows the sweeper cannot act
+      // on... except a lost claim flips the row to "claimed" so it drops out
+      // of the pending filter. The truly re-listable no-progress case is
+      // unparseable `created` rows — pin that a page of them terminates.
+      const rows = Array.from({ length: 50 }, (_, i) => ({
+        ...pendingRow(`odd-${i}`, "d6:a", T),
+        created: "not-a-date",
+      }));
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(0);
+      expect(store).toHaveLength(50);
+    });
+
     it("conservatively skips a pending row whose created timestamp is unparseable (delete is destructive)", async () => {
       const garbage = {
         ...pendingRow("odd", "d6:a", T),

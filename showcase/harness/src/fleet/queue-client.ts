@@ -131,6 +131,18 @@ const STALE_PENDING_SWEEPER_ID = "stale-pending-sweeper";
 const STALE_PENDING_SWEEPER_LEASE_SECONDS = 60;
 
 /**
+ * Max candidate pages the stale-pending drain processes in ONE sweep. A
+ * single-page (50-row) sweep was far slower than the incident it exists for:
+ * against the motivating 3,734-row staging backlog at ~10 sweeps/hour that is
+ * ~7.5 HOURS of drain. 10 pages × CLAIM_CANDIDATE_PAGE (50) = up to 500
+ * expirable rows per sweep drains the same backlog in well under an hour,
+ * while still bounding a single sweep's PB load (≤10 list calls + ≤500
+ * CAS-claim+delete pairs) so one sweep cannot monopolize a producer tick.
+ * The overflow simply drains on the next sweep.
+ */
+const STALE_PENDING_MAX_PAGES_PER_SWEEP = 10;
+
+/**
  * STALE-PENDING EXPIRY policy (`sweepExpired`). A pending job that sits
  * unclaimed for `expiryPeriods` × its family's production period is expired
  * (claimed via the S0 CAS under `STALE_PENDING_SWEEPER_ID`, then deleted) so
@@ -808,78 +820,98 @@ export function createFleetQueueClient(
       // race-free) and then deleted. No comm error is synthesized: an
       // expired-pending job never ran, and its family's next batch is the
       // dashboard signal.
+      // The drain LOOPS pages (up to STALE_PENDING_MAX_PAGES_PER_SWEEP): a
+      // single 50-row page per sweep would take ~7.5h to drain the motivating
+      // 3,734-row backlog at ~10 sweeps/hour. Each pass re-lists PAGE 1 —
+      // deleting rows shifts pagination, so the next listing naturally yields
+      // the next-oldest batch. A pass that expires NOTHING terminates the
+      // loop: every remaining page-1 row was skipped (too young / unparseable
+      // / claim lost), and re-listing would return the same rows forever.
       let expiredPending = 0;
       if (staleExpiryPeriods > 0) {
-        const pendingPage = await pb.list<ProbeJobRecord>(
-          PROBE_JOBS_COLLECTION,
-          {
-            filter: 'status = "pending"',
-            sort: "created",
-            perPage: CLAIM_CANDIDATE_PAGE,
-            skipTotal: true,
-          },
-        );
-        for (const row of pendingPage.items) {
-          // ONE SWEEP OF GRACE (see function header): a row the lease phase
-          // re-queued moments ago in THIS call is "back in flight" — deleting
-          // it now would falsify the worker-reclaimed-pending comm error just
-          // emitted for it. Skip it; if truly stale it expires next sweep.
-          if (requeuedThisSweep.has(row.id)) {
-            logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
-            continue;
-          }
-          // Age off PB's system `created` (space-separated date form —
-          // normalize with the SAME anchored rewrite as leaseExpired). Unlike
-          // the lease path, an unparseable value is conservatively SKIPPED:
-          // delete is destructive, and "never wedge the queue" doesn't apply —
-          // a pending row is claimable regardless.
-          const createdMs = Date.parse(
-            String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+        for (let pass = 0; pass < STALE_PENDING_MAX_PAGES_PER_SWEEP; pass++) {
+          const pendingPage = await pb.list<ProbeJobRecord>(
+            PROBE_JOBS_COLLECTION,
+            {
+              filter: 'status = "pending"',
+              sort: "created",
+              perPage: CLAIM_CANDIDATE_PAGE,
+              skipTotal: true,
+            },
           );
-          if (Number.isNaN(createdMs)) {
-            logger.warn("queue-client.sweep-stale-unparseable-created", {
+          if (pendingPage.items.length === 0) break;
+          let passExpired = 0;
+          for (const row of pendingPage.items) {
+            // ONE SWEEP OF GRACE (see function header): a row the lease phase
+            // re-queued moments ago in THIS call is "back in flight" — deleting
+            // it now would falsify the worker-reclaimed-pending comm error just
+            // emitted for it. Skip it; if truly stale it expires next sweep.
+            // Applied on EVERY pass of the drain loop — pagination must never
+            // out-run the grace set.
+            if (requeuedThisSweep.has(row.id)) {
+              logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
+              continue;
+            }
+            // Age off PB's system `created` (space-separated date form —
+            // normalize with the SAME anchored rewrite as leaseExpired). Unlike
+            // the lease path, an unparseable value is conservatively SKIPPED:
+            // delete is destructive, and "never wedge the queue" doesn't apply —
+            // a pending row is claimable regardless.
+            const createdMs = Date.parse(
+              String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+            );
+            if (Number.isNaN(createdMs)) {
+              logger.warn("queue-client.sweep-stale-unparseable-created", {
+                jobId: row.id,
+                created: row.created ?? null,
+              });
+              continue;
+            }
+            const family = probeKeyFamily(row.probe_key);
+            const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
+            const ageMs = nowMs - createdMs;
+            if (ageMs <= maxAgeMs) continue;
+            const won = await claim.claimJob(
+              row.id,
+              STALE_PENDING_SWEEPER_ID,
+              STALE_PENDING_SWEEPER_LEASE_SECONDS,
+            );
+            if (!won.won) {
+              // A worker won the race — the job is in flight after all; not
+              // ours to expire. (The row left "pending", so it also drops out
+              // of the next pass's listing — no re-processing.)
+              logger.debug("queue-client.sweep-stale-claim-lost", {
+                jobId: row.id,
+              });
+              continue;
+            }
+            try {
+              await pb.delete(PROBE_JOBS_COLLECTION, row.id);
+            } catch (err) {
+              // The row stays claimed by the sweeper; its short lease expires
+              // and the NEXT lease sweep re-queues it to pending, where a later
+              // stale sweep retries — self-healing, so log and move on.
+              logger.error("queue-client.sweep-stale-delete-failed", {
+                jobId: row.id,
+                err: err instanceof Error ? err.message : String(err),
+              });
+              continue;
+            }
+            passExpired += 1;
+            logger.warn("queue-client.sweep-expired-pending", {
               jobId: row.id,
-              created: row.created ?? null,
+              probeKey: row.probe_key,
+              family,
+              ageMs,
+              maxAgeMs,
             });
-            continue;
           }
-          const family = probeKeyFamily(row.probe_key);
-          const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
-          const ageMs = nowMs - createdMs;
-          if (ageMs <= maxAgeMs) continue;
-          const won = await claim.claimJob(
-            row.id,
-            STALE_PENDING_SWEEPER_ID,
-            STALE_PENDING_SWEEPER_LEASE_SECONDS,
-          );
-          if (!won.won) {
-            // A worker won the race — the job is in flight after all; not ours
-            // to expire.
-            logger.debug("queue-client.sweep-stale-claim-lost", {
-              jobId: row.id,
-            });
-            continue;
-          }
-          try {
-            await pb.delete(PROBE_JOBS_COLLECTION, row.id);
-          } catch (err) {
-            // The row stays claimed by the sweeper; its short lease expires
-            // and the NEXT lease sweep re-queues it to pending, where a later
-            // stale sweep retries — self-healing, so log and move on.
-            logger.error("queue-client.sweep-stale-delete-failed", {
-              jobId: row.id,
-              err: err instanceof Error ? err.message : String(err),
-            });
-            continue;
-          }
-          expiredPending += 1;
-          logger.warn("queue-client.sweep-expired-pending", {
-            jobId: row.id,
-            probeKey: row.probe_key,
-            family,
-            ageMs,
-            maxAgeMs,
-          });
+          expiredPending += passExpired;
+          // No progress → every remaining pending row is non-expirable; a
+          // short page → we have already seen the queue's tail. Either way
+          // there is nothing more for THIS sweep to do.
+          if (passExpired === 0) break;
+          if (pendingPage.items.length < CLAIM_CANDIDATE_PAGE) break;
         }
       }
 
