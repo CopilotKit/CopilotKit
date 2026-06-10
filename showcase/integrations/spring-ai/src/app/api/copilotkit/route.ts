@@ -116,11 +116,23 @@ export const POST = async (req: NextRequest) => {
     console.log(`[copilotkit/route] Response status: ${response.status}`);
     return response;
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error(`[copilotkit/route] ERROR: ${err.message}`);
-    console.error(`[copilotkit/route] Stack: ${err.stack}`);
+    // Log full details server-side (operators grep `errorId` to correlate),
+    // but never echo `err.message` / `err.stack` back to the HTTP client —
+    // that leaks internal paths, dependency versions, and stack traces.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = crypto.randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        scope: "copilotkit/route",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: err.message, stack: err.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
