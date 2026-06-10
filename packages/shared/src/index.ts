@@ -37,9 +37,9 @@ import type {
   LicensePayload,
 } from "@copilotkit/license-verifier";
 
-// LicenseContextValue and LicenseMode were dropped from license-verifier's
-// public API in 0.3.0, so they are defined here. The context shape is owned
-// by this package anyway via createLicenseContextValue below.
+// LicenseContextValue was dropped from license-verifier's public API in
+// 0.3.0, so it is defined here. The context shape is owned by this package
+// anyway via createLicenseContextValue below.
 
 /**
  * License context value exposed to child components.
@@ -55,8 +55,6 @@ export interface LicenseContextValue {
   /** Get a numeric feature limit. Returns null if not applicable. */
   getLimit: (feature: string) => number | null;
 }
-
-export type LicenseMode = "online" | "offline";
 
 /**
  * Client-safe license context factory.
