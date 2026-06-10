@@ -186,6 +186,51 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
   });
 });
 
+describe("CopilotChatMessageView stable row keying across message id changes", () => {
+  /**
+   * Tree builder (not renderMessageView) so tests can `rerender` the same
+   * component instance — remount-vs-reconcile is only observable across a
+   * rerender of one root.
+   */
+  function messageViewTree(messages: Message[]) {
+    return (
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={THREAD_ID}
+        >
+          <CopilotChatMessageView messages={messages} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+  }
+
+  function rerenderWithIdSwap(before: Message[], after: Message[]) {
+    const view = render(messageViewTree(before));
+    const node = screen.getByTestId("copilot-assistant-message");
+    view.rerender(messageViewTree(after));
+    return { node, nodeAfter: screen.getByTestId("copilot-assistant-message") };
+  }
+
+  it("reconciles the row in place when the message id changes but the tool-call id is stable", () => {
+    const { node, nodeAfter } = rerenderWithIdSwap(
+      [assistantMsg("lc_run--1", "Working...", [toolCall("tc-1", "approve")])],
+      [assistantMsg("resp_1", "Done", [toolCall("tc-1", "approve")])],
+    );
+
+    expect(nodeAfter).toBe(node);
+  });
+
+  it("remounts the row on an id change when the message has no tool-call anchor", () => {
+    const { node, nodeAfter } = rerenderWithIdSwap(
+      [assistantMsg("lc_run--1", "Working...")],
+      [assistantMsg("resp_1", "Done")],
+    );
+
+    expect(nodeAfter).not.toBe(node);
+  });
+});
+
 describe("deduplicateMessages", () => {
   it("recovers non-empty content and keeps latest toolCalls when later duplicate clears content", () => {
     const messages: Message[] = [
