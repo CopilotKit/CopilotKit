@@ -71,6 +71,11 @@ export class SlackAdapter implements PlatformAdapter {
       signingSecret: opts.signingSecret,
       socketMode: opts.socketMode ?? true,
       logLevel: opts.logLevel ?? LogLevel.INFO,
+      // Without this, Bolt's constructor fires a background auth.test that
+      // can't be awaited or error-handled (and phones home from unit tests).
+      // start() owns initialization: app.init() below, then our own awaited
+      // auth.test — construction stays side-effect-free.
+      deferInitialization: true,
     });
     this.client = this.app.client;
     this.store = new SlackConversationStore({
@@ -82,6 +87,10 @@ export class SlackAdapter implements PlatformAdapter {
 
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
+
+    // Deferred from the constructor (see above); Bolt requires init() before
+    // app.start(), and doing it here surfaces auth/config errors to the caller.
+    await this.app.init();
 
     // Resolve our own bot user id before attaching the listener so the loop
     // guard (skip our own posts) is in place from the first event.

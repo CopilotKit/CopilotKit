@@ -401,6 +401,7 @@ describe("SlackAdapter action wiring", () => {
       action: vi.fn((_matcher: unknown, handler: typeof actionHandler) => {
         actionHandler = handler;
       }),
+      init: vi.fn(async () => {}),
       start: vi.fn(async () => {}),
     };
     (adapter as unknown as { app: unknown }).app = app;
