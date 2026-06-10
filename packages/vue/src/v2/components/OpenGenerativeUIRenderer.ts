@@ -119,7 +119,7 @@ function injectCssIntoHtml(html: string, css: string): string {
 type SandboxInstance = {
   iframe: HTMLIFrameElement;
   promise: Promise<unknown>;
-  run: (code: string | Function) => Promise<unknown>;
+  run: (code: string | ((...args: unknown[]) => unknown)) => Promise<unknown>;
   destroy: () => void;
 };
 
@@ -135,7 +135,9 @@ type WebsandboxModule = {
 };
 
 async function loadWebsandbox(): Promise<WebsandboxModule> {
-  const mod = (await import("@jetbrains/websandbox")) as any;
+  const mod = (await import("@jetbrains/websandbox")) as {
+    default?: { default?: unknown } & unknown;
+  };
   return (mod.default?.default ?? mod.default) as WebsandboxModule;
 }
 
