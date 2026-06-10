@@ -982,24 +982,31 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       );
 
       // Sweep 2 (the sweeper's lease has expired — the fake CAS leaves
-      // lease_expires_at null): the lease phase re-queues the row SILENTLY.
+      // lease_expires_at null): the lease phase re-queues the row SILENTLY,
+      // and the silent re-queue feeds the grace set — the SAME sweep's stale
+      // phase must NOT re-claim it (the retry contract is a LATER sweep), so
+      // the row ends this sweep PENDING and unclaimed.
       const second = await q.sweepExpired(T);
       expect(second.commErrors).toHaveLength(0);
       expect(second.reclaimed).toBe(0);
+      expect(second.expiredPending).toBe(0);
       expect(
         debugSpy.mock.calls.some(
           ([msg]) => msg === "queue-client.stale-sweeper-retry-requeue",
         ),
       ).toBe(true);
-      // Proof the re-queue happened: the SAME sweep's stale phase could only
-      // re-claim a PENDING row (the fake CAS refuses anything else); its
-      // delete failed again, so the row is back under the sweeper.
-      expect(store.find((r) => r.id === "old")?.claimed_by).toBe(
-        "stale-pending-sweeper",
-      );
+      // Proof the grace applied to the sweeper-retry row: the stale phase saw
+      // it pending and SKIPPED it instead of re-claiming it.
+      expect(
+        debugSpy.mock.calls.some(
+          ([msg]) => msg === "queue-client.sweep-stale-grace",
+        ),
+      ).toBe(true);
+      expect(store.find((r) => r.id === "old")?.status).toBe("pending");
+      expect(store.find((r) => r.id === "old")?.claimed_by).toBe("");
 
-      // Sweep 3 (delete healed): silent re-queue, then the stale phase
-      // claims-and-deletes cleanly — still no comm error anywhere.
+      // Sweep 3 (delete healed): the row is plain pending now, so the stale
+      // phase claims-and-deletes it cleanly — still no comm error anywhere.
       deleteFailures.delete("old");
       const third = await q.sweepExpired(T);
       expect(third.expiredPending).toBe(1);
@@ -1150,6 +1157,60 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // phase re-queued in THIS call, not a blanket stale-phase skip.
       expect(sweep.expiredPending).toBe(1);
       expect(store.find((r) => r.id === "untouched-old")).toBeUndefined();
+    });
+
+    it("applies the grace set on EVERY page of the multi-page stale drain (pagination must not out-run the grace)", async () => {
+      // COMPOSITION: the one-sweep grace × the multi-page drain. A re-queued
+      // row whose `created` sorts AFTER a full page of older stale rows only
+      // surfaces on the drain's SECOND pass — if the grace check were applied
+      // per-sweep-entry instead of per-row-per-pass, pass 2 would delete it
+      // and falsify the worker-reclaimed-pending comm error just emitted.
+      const longClaimed: CreatedJobRow = {
+        ...jobView({
+          id: "long-claimed",
+          probe_key: "d6:graced",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:graced" }),
+        // Stale (3.5h > 3 × 60min default) but YOUNGER than every backlog row
+        // below, so after the lease-phase re-queue it lands beyond page 1 of
+        // the created-ascending drain.
+        created: new Date(T - 3.5 * HOUR).toISOString(),
+      };
+      // 60 older stale rows: page 1 of the drain (50) is saturated by them,
+      // pushing the graced row onto pass 2.
+      const backlog = Array.from({ length: 60 }, (_, i) =>
+        pendingRow(`stale-${i}`, "d6:a", T - 4 * HOUR - i * 1000),
+      );
+      const { pb, store } = makePagingPb([longClaimed, ...backlog]);
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          r.status = status;
+          r.claimed_by = "";
+          r.version += 1;
+          return { released: true, job: { ...r } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Lease phase: re-queued the long-claimed row with the neutral signal.
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.commErrors).toHaveLength(1);
+      expect(sweep.commErrors[0].jobId).toBe("long-claimed");
+      // Drain: the whole 60-row backlog dies across two passes, but the
+      // graced row — seen only on pass 2 — survives the sweep.
+      expect(sweep.expiredPending).toBe(60);
+      expect(store).toHaveLength(1);
+      expect(store[0].id).toBe("long-claimed");
+      expect(store[0].status).toBe("pending");
     });
   });
 

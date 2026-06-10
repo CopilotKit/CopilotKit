@@ -774,8 +774,14 @@ export function createFleetQueueClient(
         // gray "re-queued / back in flight" dashboard overlay for a row that
         // was never in flight, attributed to a non-existent worker. Not
         // counted in `reclaimed` either (that count is paired 1:1 with the
-        // commErrors it documents).
+        // commErrors it documents). It DOES feed the grace set: this call's
+        // stale phase must not claim-and-delete a row the lease phase just
+        // re-queued (the retry contract is a LATER sweep — re-deleting in the
+        // same sweep would race the very lease/delete failure that put the
+        // row here), so the sweeper-retry row gets the same one sweep of
+        // grace as a worker-reclaimed row.
         if (holder === STALE_PENDING_SWEEPER_ID) {
+          requeuedThisSweep.add(row.id);
           logger.debug("queue-client.stale-sweeper-retry-requeue", {
             jobId: row.id,
           });
