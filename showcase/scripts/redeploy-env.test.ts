@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expandImageConsumers,
+  makeLiveRedeploy,
   parseArgs,
   runRedeploy,
   resolveTargetServices,
 } from "./redeploy-env";
-import { PRODUCTION_ENV_ID, SERVICES } from "./railway-envs";
+import { ENV_ID_BY_NAME, PRODUCTION_ENV_ID, SERVICES } from "./railway-envs";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -315,6 +316,59 @@ describe("runRedeploy", () => {
     ).rejects.toThrow(/Unknown env/);
     expect(redeploy).not.toHaveBeenCalled();
   });
+
+  it("rejects an unnormalized env synonym, pointing at resolveEnv", async () => {
+    // "production" is a resolveEnv synonym, not a registered SSOT env key.
+    // runRedeploy must resolve env ids via the registry (open-env
+    // contract), so the synonym fails loud with a normalization hint.
+    const redeploy = vi.fn();
+    await expect(
+      runRedeploy({ env: "production", redeploy, appendSummary }),
+    ).rejects.toThrow(/Unknown env "production".*resolveEnv/);
+    expect(redeploy).not.toHaveBeenCalled();
+  });
+
+  it("resolves the env id via the ENV_ID_BY_NAME registry (open-env contract)", async () => {
+    // The SSOT's documented contract: a new env needs only a registry
+    // entry — runRedeploy must NOT hardcode the prod/staging pair.
+    // Register a hypothetical env and verify the redeploy fires against
+    // its registered env id.
+    ENV_ID_BY_NAME.preview = "preview-env-id-000";
+    try {
+      const calls: Array<{ environmentId: string }> = [];
+      const redeploy = vi.fn(async (_svc: string, environmentId: string) => {
+        calls.push({ environmentId });
+        return { ok: true as const };
+      });
+      const result = await runRedeploy({
+        env: "preview",
+        redeploy,
+        appendSummary,
+        // Explicitly-named services are attempted even in an env they do
+        // not declare (the documented contract pinned above).
+        services: ["showcase-mastra"],
+      });
+      expect(result.attempted).toBe(1);
+      expect(calls).toEqual([{ environmentId: "preview-env-id-000" }]);
+    } finally {
+      delete ENV_ID_BY_NAME.preview;
+    }
+  });
+
+  it("throws when an explicitly-provided services list resolves to zero entries", async () => {
+    // A provided-but-all-blank list silently redeploying NOTHING with
+    // exit 0 is the silent-no-op class this script's header forbids.
+    const redeploy = vi.fn();
+    await expect(
+      runRedeploy({
+        env: "staging",
+        redeploy,
+        appendSummary,
+        services: ["  ", ""],
+      }),
+    ).rejects.toThrow(/resolved to zero services/);
+    expect(redeploy).not.toHaveBeenCalled();
+  });
 });
 
 describe("resolveTargetServices", () => {
@@ -362,6 +416,73 @@ describe("resolveTargetServices", () => {
     expect(resolved).toContain("pocketbase");
     // webhooks remains out-of-band.
     expect(resolved).not.toContain("webhooks");
+  });
+
+  it("throws when a provided list resolves empty instead of silently no-opping", () => {
+    // parseArgs already rejects empty CSV at the CLI boundary; this guards
+    // the programmatic path (e.g. a caller passing whitespace-only entries)
+    // so an explicit request can never resolve to a zero-service no-op.
+    expect(() => resolveTargetServices([""])).toThrow(
+      /resolved to zero services/,
+    );
+    expect(() => resolveTargetServices(["  ", "\t"])).toThrow(
+      /resolved to zero services/,
+    );
+  });
+});
+
+describe("makeLiveRedeploy", () => {
+  afterEach(() => {
+    // restoreAllMocks does NOT undo stubGlobal — unstub explicitly or the
+    // fetch stub leaks into other files under fork reuse.
+    vi.unstubAllGlobals();
+  });
+
+  function stubFetch(
+    impl: (url: unknown, init?: RequestInit) => Promise<unknown>,
+  ) {
+    const fetchMock = vi.fn(impl);
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("passes an abort signal so a hung Railway API records a per-service FAIL", async () => {
+    // Without a timeout signal a hung Railway API stalls the CI job until
+    // the runner's global timeout; the AbortSignal rejection is caught by
+    // runRedeploy's per-service try/catch and recorded as FAIL instead.
+    let capturedInit: RequestInit | undefined;
+    stubFetch(async (_url, init) => {
+      capturedInit = init;
+      return {
+        ok: true,
+        json: async () => ({ data: { serviceInstanceRedeploy: true } }),
+      };
+    });
+    const redeploy = makeLiveRedeploy("test-token");
+    const outcome = await redeploy("svc-id", "env-id");
+    expect(outcome).toEqual({ ok: true });
+    expect(capturedInit?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("sanitizes GraphQL errors[].message through sanitizeErrorBody", async () => {
+    // Consistency with the HTTP-error path: GraphQL error strings can be
+    // multi-KB / markdown-breaking too. Angle brackets + newlines must be
+    // stripped and long messages capped (200 chars + ellipsis).
+    stubFetch(async () => ({
+      ok: true,
+      json: async () => ({
+        errors: [
+          { message: "boom <script>\nline2" },
+          { message: "x".repeat(250) },
+        ],
+      }),
+    }));
+    const redeploy = makeLiveRedeploy("test-token");
+    const outcome = await redeploy("svc-id", "env-id");
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.error).toBe(`boom scriptline2; ${"x".repeat(200)}…`);
+    }
   });
 });
 

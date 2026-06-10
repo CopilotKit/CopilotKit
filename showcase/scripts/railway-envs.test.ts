@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   CI_BUILT_SERVICES,
   ENV_IDS,
+  ENV_ID_BY_NAME,
   PRODUCTION_ENV_ID,
   PROJECT_ID,
   SERVICES,
@@ -49,6 +50,52 @@ describe("railway-envs SSOT", () => {
   it("throws on unknown env names", () => {
     expect(() => resolveEnv("dev")).toThrow(/Unknown env/);
     expect(() => resolveEnv("")).toThrow(/Unknown env/);
+  });
+
+  it("resolveEnv returns canonical env names derived from the registry", () => {
+    expect(resolveEnv("prod").env).toBe("prod");
+    expect(resolveEnv("production").env).toBe("prod");
+    expect(resolveEnv("staging").env).toBe("staging");
+  });
+
+  it("resolveEnv resolves a runtime-registered hypothetical env (open-env contract)", () => {
+    // The SSOT's documented contract: a new env needs only a registry
+    // entry (an ENV_IDS spelling + an ENV_ID_BY_NAME canonical name) —
+    // resolveEnv must derive its resolution from the registries, not a
+    // hardcoded synonym chain. Register a hypothetical "preview" env
+    // (plus a synonym), resolve it, and clean up.
+    ENV_IDS.preview = "preview-env-id-000";
+    ENV_IDS.pre = "preview-env-id-000"; // synonym
+    ENV_ID_BY_NAME.preview = "preview-env-id-000";
+    try {
+      expect(resolveEnv("preview")).toEqual({
+        env: "preview",
+        envId: "preview-env-id-000",
+      });
+      // Synonym + case-fold + trim all route to the canonical name.
+      expect(resolveEnv(" PRE ").env).toBe("preview");
+    } finally {
+      delete ENV_IDS.preview;
+      delete ENV_IDS.pre;
+      delete ENV_ID_BY_NAME.preview;
+    }
+  });
+
+  it("resolveEnv fails loud on a synonym whose env-id has no canonical name", () => {
+    // A synonym registered in ENV_IDS that points at an env-id missing
+    // from ENV_ID_BY_NAME is a mis-wired registry — resolveEnv must throw,
+    // not invent a canonical name.
+    ENV_IDS.orphan = "orphan-env-id-000";
+    try {
+      expect(() => resolveEnv("orphan")).toThrow(/no canonical name/);
+    } finally {
+      delete ENV_IDS.orphan;
+    }
+  });
+
+  it("resolveEnv rejects inherited Object.prototype keys as env names", () => {
+    expect(() => resolveEnv("constructor")).toThrow(/Unknown env/);
+    expect(() => resolveEnv("toString")).toThrow(/Unknown env/);
   });
 
   it("ENV_IDS contains all synonyms", () => {
@@ -186,6 +233,31 @@ describe("railway-envs SSOT", () => {
   it("repoNameFor returns the service name verbatim when no override exists", () => {
     expect(repoNameFor("showcase-mastra", "prod")).toBe("showcase-mastra");
     expect(repoNameFor("showcase-mastra", "staging")).toBe("showcase-mastra");
+  });
+
+  it("repoNameFor throws on unknown service (no silent verbatim echo)", () => {
+    expect(() => repoNameFor("nope", "prod")).toThrow(
+      /Unknown showcase service/,
+    );
+  });
+
+  it("repoNameFor throws on an unnormalized env synonym", () => {
+    // "production" is a resolveEnv synonym, NOT a registered SSOT env key.
+    // Silently echoing the service name back for it is exactly the
+    // wrong-GHCR-name class the image-ref gate exists to catch.
+    expect(() => repoNameFor("aimock", "production")).toThrow(
+      /Unknown env "production".*resolveEnv/,
+    );
+  });
+
+  it("repoNameFor throws on a registered env the service does not declare", () => {
+    // harness-workers is staging-only and its GHCR repo everywhere is
+    // showcase-harness — echoing "harness-workers" for prod would be a
+    // silently wrong GHCR name (consistent with instanceIdFor/domainFor,
+    // which both throw on an undeclared env).
+    expect(() => repoNameFor("harness-workers", "prod")).toThrow(
+      /has no "prod" environment/,
+    );
   });
 
   it("serviceForDispatchName round-trips through SSOT keys", () => {

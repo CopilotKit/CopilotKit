@@ -55,17 +55,42 @@ export const ENV_ID_BY_NAME: Record<string, string> = {
   staging: STAGING_ENV_ID,
 };
 
+/**
+ * Resolve a human-supplied env spelling (case-insensitive, whitespace
+ * tolerated) to the canonical `{ env, envId }` pair.
+ *
+ * Derived ENTIRELY from the two registries above so there is ONE authority
+ * for env names: ENV_IDS supplies the accepted spellings (synonyms), and
+ * the canonical name is whichever ENV_ID_BY_NAME key carries the same
+ * env-id. Registering a new env (a canonical entry in ENV_ID_BY_NAME plus
+ * at least its own spelling in ENV_IDS) makes it resolvable here with no
+ * code change — the open-env contract.
+ *
+ * THROWS on an unknown spelling, and THROWS on a mis-wired registry (an
+ * ENV_IDS spelling whose env-id has no canonical ENV_ID_BY_NAME name).
+ */
 export function resolveEnv(name: string): { env: EnvName; envId: string } {
   const lower = name.trim().toLowerCase();
-  if (lower === "prod" || lower === "production") {
-    return { env: "prod", envId: PRODUCTION_ENV_ID };
+  // Own-key lookup: a bare `ENV_IDS[lower]` truthiness check would resolve
+  // inherited Object.prototype keys (e.g. "constructor") to truthy non-IDs.
+  if (!Object.hasOwn(ENV_IDS, lower)) {
+    throw new Error(
+      `Unknown env "${name}". Use one of: ${Object.keys(ENV_IDS).join(", ")}.`,
+    );
   }
-  if (lower === "staging") {
-    return { env: "staging", envId: STAGING_ENV_ID };
-  }
-  throw new Error(
-    `Unknown env "${name}". Use one of: prod, production, staging.`,
+  const envId = ENV_IDS[lower];
+  // Canonical name = the ENV_ID_BY_NAME key carrying this env-id. Computed
+  // per call (the registry is tiny) so a runtime-registered env resolves
+  // without a rebuild step.
+  const env = Object.keys(ENV_ID_BY_NAME).find(
+    (n) => ENV_ID_BY_NAME[n] === envId,
   );
+  if (env === undefined) {
+    throw new Error(
+      `Env spelling "${lower}" (ENV_IDS) maps to env-id "${envId}", which has no canonical name in ENV_ID_BY_NAME — register the canonical env name there.`,
+    );
+  }
+  return { env, envId };
 }
 
 /**
@@ -1001,14 +1026,50 @@ export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
 /**
  * Resolve the expected GHCR repo name for a (serviceName, env) pair.
  * Exported so callers (verify-railway-image-refs.ts) and unit tests can
- * exercise override resolution directly. Returns the service name verbatim
- * when no per-env override is set (or the service / env is unknown).
+ * exercise override resolution directly.
+ *
+ * Resolution: the per-env `repoName` override when the service declares
+ * `env` and sets one; otherwise the service name verbatim (the documented
+ * default for services whose GHCR repo matches their Railway name).
+ *
+ * Fail-loud, consistent with instanceIdFor/domainFor — a silently wrong
+ * GHCR name is exactly the drift class the image-ref gate exists to catch:
+ *   - THROWS on an unknown service;
+ *   - THROWS on an env name not registered in ENV_ID_BY_NAME (unnormalized
+ *     synonyms like "production" must go through resolveEnv first);
+ *   - THROWS on a registered env the service does not declare (e.g. the
+ *     staging-only harness-workers asked for prod — its repo everywhere
+ *     is showcase-harness, so echoing the service name would be wrong).
  */
 export function repoNameFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) return serviceName;
-  const override = entry.environments[env]?.repoName;
-  return override ?? serviceName;
+  // Own-property lookups throughout: bare index checks would resolve
+  // inherited Object.prototype keys to truthy non-entries.
+  const entry = Object.hasOwn(SERVICES, serviceName)
+    ? SERVICES[serviceName]
+    : undefined;
+  if (!entry) {
+    throw new Error(
+      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
+    );
+  }
+  if (!Object.hasOwn(ENV_ID_BY_NAME, env)) {
+    throw new Error(
+      `Unknown env "${String(env)}" — repoNameFor requires a normalized SSOT env key (one of: ${Object.keys(ENV_ID_BY_NAME).join(", ")}). Synonyms like "production" must be normalized via resolveEnv() first.`,
+    );
+  }
+  const envCfg = Object.hasOwn(entry.environments, env)
+    ? entry.environments[env]
+    : undefined;
+  if (!envCfg) {
+    throw new Error(
+      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
+        entry.environments,
+      )
+        .sort()
+        .join(", ")}).`,
+    );
+  }
+  return envCfg.repoName ?? serviceName;
 }
 
 /**
@@ -1074,7 +1135,10 @@ export function probeEnabled(serviceName: string, env: EnvName): boolean {
  * Resolve a `showcase_build.yml` `dispatch_name` (e.g. `mastra`,
  * `shell-dashboard`, `showcase-aimock`) to the canonical SSOT key
  * (e.g. `showcase-mastra`, `dashboard`, `aimock`). Returns undefined
- * when the dispatch_name does not correspond to a CI-built service.
+ * when no SSOT entry carries this dispatchName. Note this does NO ciBuilt
+ * filtering: any SSOT entry with a matching dispatchName resolves,
+ * CI-built or not (e.g. the non-CI-built `webhooks` resolves — that is
+ * what lets a human redeploy it on demand via --services).
  */
 export function serviceForDispatchName(
   dispatchName: string,

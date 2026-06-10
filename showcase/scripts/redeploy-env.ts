@@ -54,9 +54,7 @@ import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
   ENV_ID_BY_NAME,
-  PRODUCTION_ENV_ID,
   SERVICES,
-  STAGING_ENV_ID,
   resolveEnv,
   serviceForDispatchName,
 } from "./railway-envs";
@@ -105,14 +103,19 @@ export type RedeployFn = (
 /**
  * Build a `liveRedeploy` RedeployFn bound to a single resolved token, so
  * token resolution happens once per process rather than once per service.
+ * Exported for direct unit testing (timeout signal + error sanitization).
  */
-function makeLiveRedeploy(token: string): RedeployFn {
+export function makeLiveRedeploy(token: string): RedeployFn {
   return async function liveRedeploy(
     serviceId: string,
     environmentId: string,
   ): Promise<RedeployOutcome> {
     const res = await fetch(RAILWAY_API, {
       method: "POST",
+      // A hung Railway API must surface as a per-service FAIL (the timeout
+      // rejection is caught by runRedeploy's per-service try/catch), not
+      // stall the CI job until the runner's global timeout.
+      signal: AbortSignal.timeout(30_000),
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -133,7 +136,13 @@ function makeLiveRedeploy(token: string): RedeployFn {
       errors?: Array<{ message: string }>;
     };
     if (json.errors?.length) {
-      return { ok: false, error: json.errors.map((e) => e.message).join("; ") };
+      // Sanitize each GraphQL error message exactly like the HTTP-error
+      // path above — Railway/Cloudflare error strings can be multi-KB and
+      // markdown-breaking too.
+      return {
+        ok: false,
+        error: json.errors.map((e) => sanitizeErrorBody(e.message)).join("; "),
+      };
     }
     if (json.data?.serviceInstanceRedeploy !== true) {
       return {
@@ -208,6 +217,16 @@ export function resolveTargetServices(input: string[] | undefined): string[] {
     }
     throw new Error(
       `Unknown service "${name}" — not an SSOT key or dispatch_name in railway-envs.ts. Add it to SERVICES (with a dispatchName) or fix the caller.`,
+    );
+  }
+  // An explicitly-provided list that resolves to NOTHING (every entry
+  // empty/whitespace) must fail loud: returning [] would let runRedeploy
+  // exit 0 having redeployed nothing — the silent-no-op class this
+  // script's header forbids. (parseArgs already rejects empty CSV at the
+  // CLI boundary; this guards the programmatic path.)
+  if (resolved.size === 0) {
+    throw new Error(
+      "--services was provided but resolved to zero services — refusing to silently no-op. Pass at least one SSOT key or dispatch_name, or omit --services for the default CI-built scope.",
     );
   }
   return [...resolved];
@@ -304,12 +323,17 @@ export async function runRedeploy(
   opts: RunRedeployOpts,
 ): Promise<RunRedeploySummary> {
   const { env, redeploy, appendSummary, services } = opts;
-  if (env !== "prod" && env !== "staging") {
+  // Resolve the Railway env-id via the canonical registry — NOT a
+  // hardcoded prod/staging pair. The SSOT's open-env contract says a new
+  // env needs only a registry entry; hardcoding the pair here would make
+  // this script the one consumer that silently can't see it. Own-key
+  // lookup so inherited Object.prototype keys don't pass as envs.
+  if (!Object.hasOwn(ENV_ID_BY_NAME, env)) {
     throw new Error(
-      `Unknown env: ${String(env)} (expected "prod" or "staging")`,
+      `Unknown env "${String(env)}" — runRedeploy requires a normalized SSOT env key (one of: ${Object.keys(ENV_ID_BY_NAME).join(", ")}). Synonyms like "production" must be normalized via resolveEnv() first.`,
     );
   }
-  const envId = env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
+  const envId = ENV_ID_BY_NAME[env];
   // Resolve the caller's scope, then pull in every `imageOf` consumer of a
   // service already in scope (env-aware) — a rebuilt image must redeploy
   // ALL the services that run it, not just its build slot.
