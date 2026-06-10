@@ -76,8 +76,14 @@ import java.util.regex.Pattern;
  *       {@link SseEmitter} and write the reasoning frames as raw JSON whose
  *       {@code type} is the literal {@code REASONING_MESSAGE_*} string the
  *       frontend's zod decoder expects (camelCase {@code messageId} / {@code
- *       delta} / {@code role:"reasoning"} per @ag-ui/client 0.0.55).</li>
+ *       delta} / {@code role:"reasoning"}).</li>
  * </ol>
+ *
+ * <p><b>Wire-contract source of truth.</b> Every raw-JSON frame this controller
+ * emits (RUN_*, REASONING_MESSAGE_*, TEXT_MESSAGE_*) was verified against the
+ * {@code @ag-ui/core} zod schemas at version 0.0.56 (the installed version) —
+ * field names, required fields, and the {@code role:"reasoning"} literal all
+ * follow those schemas. Other comments in this file refer back to this note.
  *
  * <p>The shape (RestController, {@code MessageListFilter.filterNulls},
  * {@code AgUiParameters} body, {@code CacheControl.noCache()}) mirrors the other
@@ -154,9 +160,10 @@ public class ReasoningController {
         MessageListFilter.filterNulls(params);
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        // @ag-ui/core's RUN_STARTED/RUN_FINISHED zod schemas (0.0.56) require
-        // BOTH threadId and runId, so give threadId the same UUID fallback as
-        // runId rather than risk emitting a frame with a missing field.
+        // @ag-ui/core's RUN_STARTED/RUN_FINISHED zod schemas (see the
+        // wire-contract note in the class Javadoc) require BOTH threadId and
+        // runId, so give threadId the same UUID fallback as runId rather than
+        // risk emitting a frame with a missing field.
         String threadId = params.getThreadId() != null
                 ? params.getThreadId() : UUID.randomUUID().toString();
         String runId = params.getRunId() != null
@@ -370,6 +377,18 @@ public class ReasoningController {
                 }
             }
 
+            // The stream completed successfully but yielded neither reasoning
+            // nor answer text — the run would otherwise emit RUN_STARTED →
+            // RUN_FINISHED with zero message frames and no diagnostics. Warn
+            // once so a silent-empty run is visible (no synthetic frames). Skip
+            // when parseFailures > 0 already warned above, to avoid a double
+            // warn for the same empty turn.
+            if (reasoningText.isEmpty() && answerText.isEmpty()
+                    && parseFailures == 0) {
+                log.warn("reasoning stream completed but produced no reasoning"
+                        + " or answer text");
+            }
+
             // Emit reasoning message if we captured reasoning content.
             if (!reasoningText.isEmpty()) {
                 reasoningMsgId = UUID.randomUUID().toString();
@@ -438,8 +457,9 @@ public class ReasoningController {
     }
 
     // threadId and runId are both guaranteed non-null by run() (UUID fallback),
-    // and @ag-ui/core's zod schemas require BOTH on RUN_STARTED/RUN_FINISHED, so
-    // write them unconditionally.
+    // and @ag-ui/core's zod schemas require BOTH on RUN_STARTED/RUN_FINISHED
+    // (see the wire-contract note in the class Javadoc), so write them
+    // unconditionally.
     private ObjectNode runStarted(String threadId, String runId) {
         ObjectNode n = event("RUN_STARTED");
         n.put("threadId", threadId);
@@ -460,9 +480,10 @@ public class ReasoningController {
         return n;
     }
 
-    // REASONING_MESSAGE_* frames — wire shape per @ag-ui/client 0.0.55 zod
-    // schema (camelCase messageId, role literal "reasoning"). The Java SDK has
-    // no event class for these, so we build the JSON by hand.
+    // REASONING_MESSAGE_* frames — wire shape per the @ag-ui/core zod schemas
+    // (see the wire-contract note in the class Javadoc): camelCase messageId,
+    // role literal "reasoning". The Java SDK has no event class for these, so
+    // we build the JSON by hand.
     private ObjectNode reasoningStart(String messageId) {
         ObjectNode n = event("REASONING_MESSAGE_START");
         n.put("messageId", messageId);

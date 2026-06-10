@@ -97,13 +97,18 @@ def _coerce_content(content) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        # Multimodal content: join the text parts.
-        return "".join(
-            part.get("text", "")
-            if isinstance(part, dict)
-            else getattr(part, "text", "")
-            for part in content
-        )
+        # Multimodal content: join the text parts. Coerce each part's text to
+        # a string — a None or non-str `text` (e.g. an image part) would make
+        # str.join raise TypeError, so fall back to "" for any non-str value.
+        def _part_text(part) -> str:
+            text = (
+                part.get("text", "")
+                if isinstance(part, dict)
+                else getattr(part, "text", "")
+            )
+            return text if isinstance(text, str) else ""
+
+        return "".join(_part_text(part) for part in content)
     return str(content)
 
 
@@ -209,6 +214,18 @@ async def _run_reasoning_agent(
             else:
                 reasoning_text = ""
                 answer_text = full_text.strip()
+
+        # The stream completed successfully but yielded neither reasoning nor
+        # answer text — the run would otherwise emit RUN_STARTED→RUN_FINISHED
+        # with zero message frames and no diagnostics. Log one server-side warn
+        # so a silent-empty run is visible (no synthetic message frames).
+        if not reasoning_text and not answer_text:
+            print(
+                "[reasoning] WARN: stream completed but produced no reasoning"
+                " or answer text",
+                file=sys.stderr,
+                flush=True,
+            )
 
         # Emit reasoning message if we have reasoning content.
         if reasoning_text:
