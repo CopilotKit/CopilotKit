@@ -21,9 +21,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
+import jakarta.annotation.PreDestroy;
+
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,8 +47,10 @@ import java.util.regex.Pattern;
  * (showcase/integrations/ag2/src/agents/reasoning_agent.py). It replicates the
  * AG2 BEHAVIOR — it is NOT a verbatim port. The emitted wire sequence is:
  * {@code RUN_STARTED} → {@code REASONING_MESSAGE_START} →
- * {@code REASONING_MESSAGE_CONTENT}(streamed) → {@code REASONING_MESSAGE_END}
- * → {@code TEXT_MESSAGE_START/CONTENT/END} → {@code RUN_FINISHED}. The frontend
+ * {@code REASONING_MESSAGE_CONTENT} → {@code REASONING_MESSAGE_END}
+ * → {@code TEXT_MESSAGE_START/CONTENT/END} → {@code RUN_FINISHED}. The full
+ * stream is buffered and the reasoning text is emitted as a single
+ * {@code REASONING_MESSAGE_CONTENT} delta (not chunk-by-chunk). The frontend
  * (CopilotKit reasoning slot) then mounts {@code [data-testid="reasoning-block"]}
  * for the {@code reasoning-custom} cell and the "Thinking…/Thought for …" card
  * for {@code reasoning-default}.
@@ -99,6 +108,29 @@ public class ReasoningController {
     private final String baseUrl;
     private final String apiKey;
 
+    // Dedicated bounded executor for reasoning runs. Each run BLOCKS its worker
+    // thread for the full streaming chat-completions call (stream.toIterable()),
+    // so running on ForkJoinPool.commonPool() would let concurrent reasoning
+    // requests exhaust the CPU-count-sized common pool and starve unrelated
+    // parallel work in the JVM. A small fixed pool of daemon threads isolates
+    // that blocking work and never blocks JVM shutdown.
+    private final ExecutorService reasoningExecutor =
+            Executors.newFixedThreadPool(4, new ThreadFactory() {
+                private final AtomicInteger counter = new AtomicInteger(1);
+
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "reasoning-" + counter.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+
+    @PreDestroy
+    void shutdownReasoningExecutor() {
+        reasoningExecutor.shutdown();
+    }
+
     @Autowired
     public ReasoningController(
             WebClient.Builder webClientBuilder,
@@ -119,15 +151,36 @@ public class ReasoningController {
         MessageListFilter.filterNulls(params);
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        String threadId = params.getThreadId();
+        // @ag-ui/core's RUN_STARTED/RUN_FINISHED zod schemas (0.0.56) require
+        // BOTH threadId and runId, so give threadId the same UUID fallback as
+        // runId rather than risk emitting a frame with a missing field.
+        String threadId = params.getThreadId() != null
+                ? params.getThreadId() : UUID.randomUUID().toString();
         String runId = params.getRunId() != null
                 ? params.getRunId() : UUID.randomUUID().toString();
         String userInput = extractUserInput(params.getMessages());
 
+        // Capture the x-* header context (incl. x-aimock-context) on the
+        // request thread, where AimockHeaderInterceptor has populated it. This
+        // MUST happen before the runAsync hop — the controller returns the
+        // emitter and afterCompletion() clears the request-thread binding.
+        Map<String, String> aimockHeaders = AimockHeaderContext.capture();
+
         // Run the LLM call + emission off the request thread so the controller
-        // returns the emitter immediately (matching AgUiService semantics).
+        // returns the emitter immediately (matching AgUiService semantics). Two
+        // requirements at this hop:
+        //  1. The captured headers are re-established on the worker thread via
+        //     runWith — InheritableThreadLocal does NOT propagate to a
+        //     pre-existing pooled worker, so without this the outbound
+        //     chat-completions call loses x-aimock-context (aimock strict 503).
+        //     Mirrors PropagatingLocalAgent's capture/runWith idiom.
+        //  2. Use the dedicated bounded reasoningExecutor — NOT the ForkJoinPool
+        //     common pool — because runReasoning() blocks its worker thread for
+        //     the entire streaming call (stream.toIterable()).
         CompletableFuture.runAsync(() ->
-                runReasoning(emitter, threadId, runId, userInput));
+                AimockHeaderContext.runWith(aimockHeaders, () ->
+                        runReasoning(emitter, threadId, runId, userInput)),
+                reasoningExecutor);
 
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
@@ -168,6 +221,12 @@ public class ReasoningController {
 
             StringBuilder fullText = new StringBuilder();
             StringBuilder nativeReasoning = new StringBuilder();
+
+            // Track per-chunk parse failures so a systematic format change
+            // (every chunk unparseable → empty output) surfaces as one warn
+            // instead of vanishing into off-by-default debug logging.
+            int parseFailures = 0;
+            Exception lastParseErr = null;
 
             // Single streaming chat-completions call. The header-forwarding
             // exchange filter (WebClientConfig) carries x-aimock-context so
@@ -223,9 +282,23 @@ public class ReasoningController {
                             fullText.append(contentPiece.asText());
                         }
                     } catch (Exception parseErr) {
+                        parseFailures++;
+                        lastParseErr = parseErr;
                         log.debug("Skipping unparseable chat-completion chunk", parseErr);
                     }
                 }
+            }
+
+            // Any parse failure is worth one warn: a partially-corrupt stream
+            // (some chunks parsed, some dropped) would otherwise truncate the
+            // turn silently. Report the count, the last error, and whether any
+            // content survived so both the total-empty and partial cases show up.
+            if (parseFailures > 0) {
+                boolean producedContent =
+                        fullText.length() > 0 || nativeReasoning.length() > 0;
+                log.warn("reasoning stream: {} chunk(s) failed to parse"
+                        + " (content produced: {}) — last error:",
+                        parseFailures, producedContent, lastParseErr);
             }
 
             String reasoningText;
@@ -262,7 +335,8 @@ public class ReasoningController {
                 reasoningMsgId = null;
             }
 
-            // Always emit a text message so CopilotKit renders the answer bubble.
+            // Emit a text message only when there's a non-empty answer, so
+            // CopilotKit renders the answer bubble (matches the Python siblings).
             if (!answerText.isEmpty()) {
                 textMsgId = UUID.randomUUID().toString();
                 send(emitter, textMessageStart(textMsgId));
@@ -339,17 +413,20 @@ public class ReasoningController {
         return node;
     }
 
+    // threadId and runId are both guaranteed non-null by run() (UUID fallback),
+    // and @ag-ui/core's zod schemas require BOTH on RUN_STARTED/RUN_FINISHED, so
+    // write them unconditionally.
     private ObjectNode runStarted(String threadId, String runId) {
         ObjectNode n = event("RUN_STARTED");
-        if (threadId != null) n.put("threadId", threadId);
-        if (runId != null) n.put("runId", runId);
+        n.put("threadId", threadId);
+        n.put("runId", runId);
         return n;
     }
 
     private ObjectNode runFinished(String threadId, String runId) {
         ObjectNode n = event("RUN_FINISHED");
-        if (threadId != null) n.put("threadId", threadId);
-        if (runId != null) n.put("runId", runId);
+        n.put("threadId", threadId);
+        n.put("runId", runId);
         return n;
     }
 
