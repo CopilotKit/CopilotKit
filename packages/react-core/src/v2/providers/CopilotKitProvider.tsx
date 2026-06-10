@@ -724,8 +724,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // Sync runtime feature flags from the core once runtime info is fetched
   useEffect(() => {
-    // Check current value immediately (may already be set before subscription)
+    // Read all current values immediately: runtime /info may have already
+    // resolved before this effect subscribed, and no further
+    // onRuntimeConnectionStatusChanged event would fire to deliver them.
     setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+    setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
+    setRuntimeLicenseStatus(copilotkit.licenseStatus);
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);

@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import { CopilotKitCoreReact } from "../../lib/react-core";
 import { useOpenGenerativeUIOptions } from "../OpenGenerativeUIOptionsContext";
 import { OPEN_GEN_UI_DESIGN_SYSTEM_CSS } from "../../lib/designSystemCss";
 import { DEFAULT_OPEN_GEN_UI_LIBRARIES } from "../../lib/assembleDocument";
@@ -517,6 +518,34 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       );
       // No pre-wired libraries block on the legacy path.
       expect(description).not.toContain("Do NOT add <script src>");
+    });
+  });
+
+  describe("(q) runtime-flag-only activation when /info resolved before subscription", () => {
+    it("openGenerativeUIEnabled getter already true at mount, no status callback → generateSandboxedUi is registered", () => {
+      // Simulate the runtime /info handshake resolving BEFORE the provider's
+      // connection-status effect subscribes: the core's synchronous getter is
+      // already `true` at construction, and no onRuntimeConnectionStatusChanged
+      // event ever fires to deliver the flag later. Without the immediate read
+      // in that effect, runtimeOpenGenUIEnabled stays false and the built-in
+      // tool is never registered (RED). With the immediate read it activates
+      // purely from the runtime flag (GREEN) — no `openGenerativeUI` prop given.
+      vi.spyOn(
+        CopilotKitCoreReact.prototype,
+        "openGenerativeUIEnabled",
+        "get",
+      ).mockReturnValue(true);
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>{children}</CopilotKitProvider>
+        ),
+      });
+
+      const tool = result.current.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
     });
   });
 });
