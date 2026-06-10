@@ -806,5 +806,52 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       const agentCssIdx = headPayload.indexOf(agentCss);
       expect(kitIdx).toBeLessThan(agentCssIdx);
     });
+
+    // Test D — the overflow-hidden guard style must survive the head assignment.
+    // The head innerHTML assignment used to clobber a separately-appended overflow
+    // style; the guard must now be baked into the assigned head content so the
+    // preview iframe never shows scrollbars.
+    it("keeps the overflow guard in the head assignment alongside the kit", async () => {
+      const agentCss = "body { color: hotpink; }";
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            html: ["<body><div>Preview body</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox is created
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Resolve the preview sandbox promise so the head/body run calls fire
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // Inspect the LAST document.head.innerHTML run call — it must carry BOTH
+      // the overflow guard and the design-system kit (the guard survives).
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+
+      const headPayload: string = headCalls[headCalls.length - 1][0] as string;
+      expect(headPayload).toContain("overflow: hidden");
+      expect(headPayload).toContain("data-ck-design-system");
+    });
   });
 });

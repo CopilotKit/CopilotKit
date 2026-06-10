@@ -240,27 +240,22 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             if (cancelled) return;
             previewReadyRef.current = true;
 
-            // Prevent scrollbars inside preview iframe
-            sandbox.run(`
-            var s = document.createElement('style');
-            s.textContent = 'html, body { overflow: hidden !important; }';
-            document.head.appendChild(s);
-          `);
-
-            // Inject CSS from the dedicated parameter + any inline styles from HTML
-            // Order: kit → agent css → extracted preview styles
-            const headParts: string[] = [];
+            // Inject CSS from the dedicated parameter + any inline styles from HTML.
+            // The overflow guard must be part of the assigned head content (not a
+            // separate append) so it survives the head.innerHTML assignment.
+            // Order: overflow guard → kit → agent css → extracted preview styles
+            const headParts: string[] = [
+              "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
+            ];
             if (designSystemCss)
               headParts.push(
                 `<style data-ck-design-system>${designSystemCss}</style>`,
               );
             if (css) headParts.push(`<style>${css}</style>`);
             if (previewStyles) headParts.push(previewStyles);
-            if (headParts.length) {
-              sandbox.run(
-                `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-              );
-            }
+            sandbox.run(
+              `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+            );
             if (previewBody) {
               sandbox.run(
                 `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
@@ -283,19 +278,21 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0b — Preview content updates (body + styles)
     useEffect(() => {
       if (!previewSandboxRef.current || !previewReadyRef.current) return;
-      // Order: kit → agent css → extracted preview styles
-      const headParts: string[] = [];
+      // The overflow guard must be part of the assigned head content (not a
+      // separate append) so it survives the head.innerHTML assignment.
+      // Order: overflow guard → kit → agent css → extracted preview styles
+      const headParts: string[] = [
+        "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
+      ];
       if (designSystemCss)
         headParts.push(
           `<style data-ck-design-system>${designSystemCss}</style>`,
         );
       if (css) headParts.push(`<style>${css}</style>`);
       if (previewStyles) headParts.push(previewStyles);
-      if (headParts.length) {
-        previewSandboxRef.current.run(
-          `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-        );
-      }
+      previewSandboxRef.current.run(
+        `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
+      );
       if (!previewBody) return;
       previewSandboxRef.current.run(
         `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
