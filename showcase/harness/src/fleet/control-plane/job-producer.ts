@@ -181,6 +181,14 @@ export interface TickResult {
   sweepFailed: boolean;
   /** Expired leases reclaimed by the sweep, when one ran (else 0). */
   reclaimed: number;
+  /**
+   * True iff the enumerator THREW on this tick (production short-circuited —
+   * nothing was enqueued). Without this flag a discovery outage was
+   * indistinguishable from a legitimately empty catalog in the tick outcome
+   * (both report `enqueued: 0`) — the same ambiguity class `sweepFailed`
+   * exists to remove.
+   */
+  enumerateFailed: boolean;
 }
 
 export interface JobProducerOptions {
@@ -563,6 +571,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           sweptExpired: false,
           sweepFailed: false,
           reclaimed: 0,
+          enumerateFailed: false,
         };
       }
 
@@ -594,6 +603,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           sweptExpired: sweep.swept,
           sweepFailed: sweep.sweepFailed,
           reclaimed: sweep.reclaimed,
+          enumerateFailed: true,
         };
       }
 
@@ -672,6 +682,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         sweptExpired: sweep.swept,
         sweepFailed: sweep.sweepFailed,
         reclaimed: sweep.reclaimed,
+        enumerateFailed: false,
       };
     },
   };

@@ -53,6 +53,7 @@ function makeFakeProducer(): JobProducer & {
         sweptExpired: false,
         sweepFailed: false,
         reclaimed: 0,
+        enumerateFailed: false,
       };
     },
     isRunning() {

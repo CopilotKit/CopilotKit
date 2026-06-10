@@ -407,6 +407,32 @@ describe("job-producer — failure isolation", () => {
     expect(queue.sweepCalls).toEqual([1_000]);
   });
 
+  it("a failing enumerate is reported as enumerateFailed (not a legitimately empty run)", async () => {
+    // Mirror of the sweepFailed test: pre-fix the enumerate-throw path
+    // returned the same shape as an enumerator that legitimately yielded no
+    // services — `enqueued: 0` — so a discovery outage was indistinguishable
+    // from an empty catalog in the TickResult.
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => {
+        throw new Error("railway discovery down");
+      },
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    const result = await producer.tick();
+    expect(result.enqueued).toBe(0);
+    expect(result.enumerateFailed).toBe(true);
+  });
+
+  it("an empty (but successful) enumeration reports enumerateFailed:false", async () => {
+    const { producer } = startedProducer({ specs: [] });
+    const result = await producer.tick();
+    expect(result.enqueued).toBe(0);
+    expect(result.enumerateFailed).toBe(false);
+  });
+
   it("a failing sweep does not abort job production", async () => {
     const queue = makeFakeQueue({
       sweepImpl: async () => {
