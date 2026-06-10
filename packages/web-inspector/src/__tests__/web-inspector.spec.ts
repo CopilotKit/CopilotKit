@@ -1,6 +1,6 @@
-import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
+import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   type CopilotKitCoreSubscriber,
 } from "@copilotkit/core";
