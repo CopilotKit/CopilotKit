@@ -136,7 +136,7 @@ function buildGenerateSandboxedUiDescription(opts: {
   if (opts.libraries.length > 0) {
     description += `\n\nPre-wired ES-module libraries (importmap is already in the document): ${opts.libraries.join(
       ", ",
-    )}. Import them with bare specifiers inside <script type="module"> (e.g. import * as THREE from "three"; OrbitControls from "three/examples/jsm/controls/OrbitControls.js"). Do NOT add <script src> CDN tags for these libraries.`;
+    )}. Import them with bare specifiers inside <script type="module"> (e.g. import * as THREE from "three"; import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"). Do NOT add <script src> CDN tags for these libraries.`;
   }
 
   return description;
