@@ -8,7 +8,7 @@
 
 import {
   defineComponent,
-  ref,
+  shallowRef,
   onUnmounted,
   watch,
   type VNode,
@@ -68,17 +68,27 @@ export function createVueComponent<Api extends ComponentApi, S = void>(
       },
     },
     setup(wrapperProps) {
-      const resolvedProps = ref<Props>({} as Props);
+      const resolvedProps = shallowRef<Props>({} as Props);
       let binder: GenericBinder<Props> | null = null;
+      let subscription: { unsubscribe(): void } | null = null;
       const state = setupState ? setupState() : (undefined as S);
 
-      function initBinder(context: ComponentContext) {
+      function teardownBinder() {
+        if (subscription) {
+          subscription.unsubscribe();
+          subscription = null;
+        }
         if (binder) {
           binder.dispose();
+          binder = null;
         }
+      }
+
+      function initBinder(context: ComponentContext) {
+        teardownBinder();
         binder = new GenericBinder<Props>(context, api.schema);
         resolvedProps.value = binder.snapshot;
-        binder.subscribe((newProps: Props) => {
+        subscription = binder.subscribe((newProps: Props) => {
           resolvedProps.value = newProps;
         });
       }
@@ -92,12 +102,7 @@ export function createVueComponent<Api extends ComponentApi, S = void>(
         },
       );
 
-      onUnmounted(() => {
-        if (binder) {
-          binder.dispose();
-          binder = null;
-        }
-      });
+      onUnmounted(teardownBinder);
 
       return () =>
         renderFn({

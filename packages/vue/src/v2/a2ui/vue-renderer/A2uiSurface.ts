@@ -9,7 +9,9 @@ import {
   defineComponent,
   h,
   ref,
-  onUnmounted,
+  watch,
+  onBeforeUnmount,
+  computed,
   type PropType,
   type VNode,
 } from "vue";
@@ -17,6 +19,7 @@ import {
   ComponentContext,
   type SurfaceModel,
   type ComponentModel,
+  type Subscription,
 } from "@a2ui/web_core/v0_9";
 import type { VueComponentImplementation } from "./adapter";
 
@@ -36,27 +39,53 @@ const DeferredChild = defineComponent({
     basePath: { type: String, required: true },
   },
   setup(props) {
-    // Reactive trigger — incremented when the component is created/deleted
     const version = ref(0);
 
-    const sub1 = props.surface.componentsModel.onCreated.subscribe(
-      (comp: ComponentModel) => {
-        if (comp.id === props.id) {
-          version.value++;
-        }
-      },
-    );
-    const sub2 = props.surface.componentsModel.onDeleted.subscribe(
-      (delId: string) => {
-        if (delId === props.id) {
-          version.value++;
-        }
+    let sub1: Subscription | null = null;
+    let sub2: Subscription | null = null;
+
+    function teardownSubscriptions() {
+      if (sub1) {
+        sub1.unsubscribe();
+        sub1 = null;
+      }
+      if (sub2) {
+        sub2.unsubscribe();
+        sub2 = null;
+      }
+    }
+
+    function setupSubscriptions() {
+      teardownSubscriptions();
+      sub1 = props.surface.componentsModel.onCreated.subscribe(
+        (comp: ComponentModel) => {
+          if (comp.id === props.id) {
+            version.value++;
+          }
+        },
+      );
+      sub2 = props.surface.componentsModel.onDeleted.subscribe(
+        (delId: string) => {
+          if (delId === props.id) {
+            version.value++;
+          }
+        },
+      );
+    }
+
+    setupSubscriptions();
+
+    watch(
+      () => [props.surface, props.id] as const,
+      () => {
+        setupSubscriptions();
       },
     );
 
-    onUnmounted(() => {
-      sub1.unsubscribe();
-      sub2.unsubscribe();
+    onBeforeUnmount(teardownSubscriptions);
+
+    const context = computed(() => {
+      return new ComponentContext(props.surface, props.id, props.basePath);
     });
 
     function buildChild(childId: string, specificPath?: string): VNode {
@@ -70,13 +99,11 @@ const DeferredChild = defineComponent({
     }
 
     return () => {
-      // Touch version to ensure reactivity
       void version.value;
 
       const componentModel = props.surface.componentsModel.get(props.id);
 
       if (!componentModel) {
-        // Shimmer placeholder while component isn't yet available
         return h("div", {
           style: {
             padding: "12px 16px",
@@ -103,16 +130,8 @@ const DeferredChild = defineComponent({
         );
       }
 
-      // Create context for this component
-      const context = new ComponentContext(
-        props.surface,
-        props.id,
-        props.basePath,
-      );
-
-      // Render the catalog component's Vue wrapper (created by createVueComponent)
       return h(compImpl.render, {
-        context,
+        context: context.value,
         buildChild,
       });
     };

@@ -1,6 +1,6 @@
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
-  BasicAgent,
+  BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
@@ -79,53 +79,41 @@ class DemoButtonAgent extends AbstractAgent {
           messageId: activityId,
           activityType: "a2ui-surface",
           content: {
-            operations: [
+            a2ui_operations: [
               {
-                beginRendering: {
+                version: "v0.9",
+                createSurface: {
                   surfaceId: "demo-surface",
-                  root: "container",
+                  catalogId:
+                    "https://a2ui.org/specification/v0_9/basic_catalog.json",
                 },
               },
               {
-                surfaceUpdate: {
+                version: "v0.9",
+                updateComponents: {
                   surfaceId: "demo-surface",
                   components: [
                     {
-                      id: "container",
-                      component: {
-                        Column: {
-                          children: {
-                            explicitList: ["prompt-text", "confirm-btn"],
-                          },
-                        },
-                      },
+                      id: "root",
+                      component: "Column",
+                      children: ["prompt-text", "confirm-btn"],
                     },
                     {
                       id: "prompt-text",
-                      component: {
-                        Text: {
-                          text: {
-                            literalString:
-                              "Click the button to trigger a response:",
-                          },
-                        },
-                      },
+                      component: "Text",
+                      text: "Click the button to trigger a response:",
                     },
                     {
                       id: "btn-label",
-                      component: {
-                        Text: { text: { literalString: "Confirm" } },
-                      },
+                      component: "Text",
+                      text: "Confirm",
                     },
                     {
                       id: "confirm-btn",
-                      component: {
-                        Button: {
-                          child: "btn-label",
-                          action: { name: "confirm" },
-                          primary: true,
-                        },
-                      },
+                      component: "Button",
+                      child: "btn-label",
+                      action: { event: { name: "confirm" } },
+                      variant: "primary",
                     },
                   ],
                 },
@@ -165,7 +153,7 @@ class DemoButtonAgent extends AbstractAgent {
 export const createDefaultRuntime = () =>
   new CopilotRuntime({
     agents: {
-      default: new BasicAgent({
+      default: new BuiltInAgent({
         model: determineModel(),
         prompt: "You are a helpful AI assistant.",
         temperature: 0.7,
@@ -178,7 +166,7 @@ export const createDefaultRuntime = () =>
   });
 
 export const createMcpRuntime = () => {
-  const agent = new BasicAgent({
+  const agent = new BuiltInAgent({
     model: determineModel(),
     prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
     temperature: 0.7,

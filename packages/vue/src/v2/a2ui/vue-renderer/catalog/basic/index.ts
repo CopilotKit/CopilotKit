@@ -29,7 +29,7 @@ import {
   BASIC_FUNCTIONS,
 } from "@a2ui/web_core/v0_9/basic_catalog";
 
-import { createVueComponent, type VueComponentImplementation } from "./adapter";
+import { createVueComponent, type VueComponentImplementation } from "../../adapter";
 import {
   LEAF_MARGIN,
   STANDARD_BORDER,

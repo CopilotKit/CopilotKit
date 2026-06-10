@@ -16,7 +16,7 @@ import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import { getThreadClone } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
-import { createA2UIMessageRenderer } from "../../../components/A2UIMessageRenderer";
+import { createA2UIMessageRenderer } from "../../../a2ui/A2UIMessageRenderer";
 import {
   activitySnapshotEvent,
   MockReconnectableAgent,
