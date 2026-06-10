@@ -1733,6 +1733,96 @@ describe("FleetQueueClient.renewLease", () => {
     expect(lease?.payload).toEqual(payload);
   });
 
+  it("EVICTS the cached payload when the renew CAS is lost (no payloadCache leak)", async () => {
+    // A lost renew CAS means this worker never touches the job again — no
+    // report() (whose finally is the only other eviction), no further renew.
+    // Without eviction here the claim-time cache entry strands FOREVER and
+    // the per-client map grows with every abandoned/stolen job. Proof of
+    // eviction: a LATER successful renew for the same jobId must take the
+    // convenience RE-READ path (cache miss → pb.getOne), not the cache.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    let renewWins = false;
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+      renewLease: vi.fn(
+        async (): Promise<RenewResult> =>
+          renewWins
+            ? {
+                renewed: true,
+                job: jobView({
+                  id: "j1",
+                  status: "running",
+                  claimed_by: "worker-7",
+                  lease_expires_at: "2026-06-04T00:02:00.000Z",
+                  version: 2,
+                }),
+              }
+            : { renewed: false },
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    // Claim populates the cache…
+    await q.claimNext("worker-7", 30);
+    expect(getOneSpy).not.toHaveBeenCalled();
+    // …the renew LOSES the CAS → null AND the cache entry is evicted…
+    expect(await q.renewLease("j1", "worker-7", 30)).toBeNull();
+    // …so a later successful renew re-hydrates via the re-read, proving the
+    // entry is gone (a leaked entry would skip getOne entirely).
+    renewWins = true;
+    const lease = await q.renewLease("j1", "worker-7", 30);
+    expect(lease).not.toBeNull();
+    expect(lease?.payload).toEqual(payload);
+    expect(getOneSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("claim → report → renew takes the re-read path (report's eviction actually evicts)", async () => {
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+      renewLease: vi.fn(
+        async (): Promise<RenewResult> => ({
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+    // The cache entry died with the report; a renew (e.g. a late heartbeat
+    // racing the report) must re-read rather than serve the stale entry.
+    const lease = await q.renewLease("j1", "worker-7", 30);
+    expect(lease).not.toBeNull();
+    expect(getOneSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("returns a lease on a SUCCESSFUL CAS even when cache miss AND reread fail", async () => {
     // The CAS renewed (won), but there is NO prior same-process claim (cache
     // empty) AND the convenience re-read THROWS (PB blip). A successful CAS

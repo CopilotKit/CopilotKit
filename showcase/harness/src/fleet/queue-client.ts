@@ -667,7 +667,16 @@ export function createFleetQueueClient(
       leaseSeconds: number,
     ): Promise<JobLease | null> {
       const result = await claim.renewLease(jobId, workerId, leaseSeconds);
-      if (!result.renewed || !result.job) return null;
+      if (!result.renewed || !result.job) {
+        // The renew CAS was LOST: the lease is gone for this worker (stolen,
+        // swept, or already terminal) and it will never report or renew this
+        // job again — `report()`'s finally (the only other eviction) never
+        // runs for an abandoned job, so without evicting HERE the claim-time
+        // cache entry strands forever and the per-client map grows with
+        // every lost/abandoned job.
+        payloadCache.delete(jobId);
+        return null;
+      }
       // The renew CAS already returned the authoritative lifecycle columns. The
       // payload is the only thing it omits, so prefer the claim-time cache. A
       // momentary PB read blip must NEVER turn a SUCCESSFUL renew into a thrown
