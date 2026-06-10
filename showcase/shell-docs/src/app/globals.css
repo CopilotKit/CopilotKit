@@ -1146,11 +1146,12 @@ samp {
 }
 
 /* Heading anchors — H2/H3 surface a hover-only `#` link aligned to the
- * right of the heading text, matching canonical fumadocs prose. The
- * anchor is part of the heading's normal flow (not absolute) so it
- * never collides with the right-rail TOC at narrow widths. */
+ * right of the heading text, matching canonical fumadocs prose. Keep the
+ * heading itself block-level so adjacent headings never share a line; the
+ * anchor is part of the heading's normal flow (not absolute) so it never
+ * collides with the right-rail TOC at narrow widths. */
 .reference-content .docs-heading {
-  display: inline-flex;
+  display: flex;
   align-items: baseline;
   gap: 0.5rem;
 }
