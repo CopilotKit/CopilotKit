@@ -41,7 +41,7 @@ function main() {
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
     console.error(
-      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--suffix <label>] [--dry-run]`,
+      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--dry-run]`,
     );
     process.exit(1);
   }
@@ -52,6 +52,12 @@ function main() {
   // Read the version from package.json — already bumped by bump-prerelease.ts
   // in the CI build job.
   const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
   const publishVersion = packages[0]?.pkg.version ?? getCurrentVersion(scope);
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${publishVersion}`);

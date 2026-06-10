@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -22,6 +22,7 @@ afterEach(() => {
     process.env.GITHUB_OUTPUT = originalGithubOutput;
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });
+  vi.restoreAllMocks();
 });
 
 describe("emitGithubOutputs", () => {
@@ -45,8 +46,25 @@ describe("emitGithubOutputs", () => {
 
   it("is a no-op when GITHUB_OUTPUT is unset", () => {
     delete process.env.GITHUB_OUTPUT;
+    const appendSpy = vi.spyOn(fs, "appendFileSync");
 
     expect(() => emitGithubOutputs({ version: "1.2.3" })).not.toThrow();
-    expect(fs.readFileSync(outputFile, "utf8")).toBe("");
+    expect(appendSpy).not.toHaveBeenCalled();
+  });
+
+  it("throws when a value contains a newline, naming the offending key", () => {
+    expect(() =>
+      emitGithubOutputs({ version: "1.2.3\nmalicious=evil" }),
+    ).toThrow(/version/);
+  });
+
+  it("throws when a value contains a carriage return", () => {
+    expect(() => emitGithubOutputs({ version: "1.2.3\r" })).toThrow(/version/);
+  });
+
+  it("throws when a key contains a newline", () => {
+    expect(() => emitGithubOutputs({ "bad\nkey": "value" })).toThrow(
+      /bad\\nkey/,
+    );
   });
 });

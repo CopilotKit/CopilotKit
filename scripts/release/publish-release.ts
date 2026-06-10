@@ -161,9 +161,16 @@ async function main() {
   // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
+  const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
   console.log("\nPublishing packages...");
   let skipped = 0;
-  for (const p of getPackagesForScope(scope)) {
+  for (const p of packages) {
     const pubVersion = getPublishedVersion(p.name);
     if (pubVersion === version) {
       console.log(`  Skipping ${p.name}@${version} (already published)`);
