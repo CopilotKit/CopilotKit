@@ -41,6 +41,8 @@ from __future__ import annotations
 
 import asyncio
 import re
+import sys
+import traceback
 import uuid
 from typing import AsyncIterator
 
@@ -108,6 +110,13 @@ async def _run_reasoning_agent(
     """
     run_id = run_input.run_id or str(uuid.uuid4())
     thread_id = run_input.thread_id
+
+    # Track the in-flight message frame so a mid-stream failure can close it
+    # with the matching *_END before RUN_ERROR. @ag-ui/client's verifyEvents
+    # rejects a RUN_FINISHED while a text/tool frame is open, and the apply
+    # layer otherwise leaves a half-built message in client state.
+    reasoning_msg_id: str | None = None
+    text_msg_id: str | None = None
 
     try:
         user_input = _extract_user_input(run_input.messages or [])
@@ -186,6 +195,7 @@ async def _run_reasoning_agent(
                 type=EventType.REASONING_MESSAGE_END,
                 message_id=reasoning_msg_id,
             )
+            reasoning_msg_id = None
 
         # Always emit a text message so CopilotKit renders an assistant bubble.
         if answer_text:
@@ -204,6 +214,7 @@ async def _run_reasoning_agent(
                 type=EventType.TEXT_MESSAGE_END,
                 message_id=text_msg_id,
             )
+            text_msg_id = None
 
         yield RunFinishedEvent(
             type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
@@ -212,7 +223,29 @@ async def _run_reasoning_agent(
     except asyncio.CancelledError:  # noqa: TRY302 — propagate cancellation
         raise
     except Exception as exc:  # noqa: BLE001
-        yield RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc))
+        # Log the full failure server-side (never sent to the browser).
+        print(f"[reasoning] run failed: {exc!r}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        # Close any message frame opened before the failure so the terminal
+        # RUN_ERROR is protocol-clean (no dangling *_START in client state).
+        if text_msg_id is not None:
+            yield TextMessageEndEvent(
+                type=EventType.TEXT_MESSAGE_END,
+                message_id=text_msg_id,
+            )
+        if reasoning_msg_id is not None:
+            yield ReasoningMessageEndEvent(
+                type=EventType.REASONING_MESSAGE_END,
+                message_id=reasoning_msg_id,
+            )
+        # Generic client-facing message — no raw exception text (which can
+        # carry provider URLs / request details) reaches the SSE stream.
+        # RUN_ERROR is terminal: @ag-ui/client's verifyEvents rejects ANY
+        # event after it, so we do NOT emit RUN_FINISHED here.
+        yield RunErrorEvent(
+            type=EventType.RUN_ERROR,
+            message=f"agent run failed: {type(exc).__name__} (see server logs)",
+        )
 
 
 class ReasoningEndpoint(HTTPEndpoint):

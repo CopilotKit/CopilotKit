@@ -157,6 +157,12 @@ public class ReasoningController {
      */
     private void runReasoning(SseEmitter emitter, String threadId, String runId,
                               String userInput) {
+        // Track the in-flight message frame so a mid-stream failure can close it
+        // with the matching *_END before RUN_ERROR. @ag-ui/client's verifyEvents
+        // otherwise leaves a half-built message in client state, and RUN_ERROR is
+        // a terminal event (see the catch block).
+        String reasoningMsgId = null;
+        String textMsgId = null;
         try {
             send(emitter, runStarted(threadId, runId));
 
@@ -249,18 +255,20 @@ public class ReasoningController {
 
             // Emit reasoning message if we captured reasoning content.
             if (!reasoningText.isEmpty()) {
-                String reasoningMsgId = UUID.randomUUID().toString();
+                reasoningMsgId = UUID.randomUUID().toString();
                 send(emitter, reasoningStart(reasoningMsgId));
                 send(emitter, reasoningContent(reasoningMsgId, reasoningText));
                 send(emitter, reasoningEnd(reasoningMsgId));
+                reasoningMsgId = null;
             }
 
             // Always emit a text message so CopilotKit renders the answer bubble.
             if (!answerText.isEmpty()) {
-                String textMsgId = UUID.randomUUID().toString();
+                textMsgId = UUID.randomUUID().toString();
                 send(emitter, textMessageStart(textMsgId));
                 send(emitter, textMessageContent(textMsgId, answerText));
                 send(emitter, textMessageEnd(textMsgId));
+                textMsgId = null;
             }
 
             send(emitter, runFinished(threadId, runId));
@@ -268,12 +276,24 @@ public class ReasoningController {
         } catch (Exception e) {
             log.error("Reasoning run failed", e);
             try {
+                // Close any message frame opened before the failure so the
+                // terminal RUN_ERROR is protocol-clean (no dangling *_START in
+                // client state).
+                if (textMsgId != null) {
+                    send(emitter, textMessageEnd(textMsgId));
+                }
+                if (reasoningMsgId != null) {
+                    send(emitter, reasoningEnd(reasoningMsgId));
+                }
                 // RUN_ERROR must follow a started run; keep the message generic
-                // (no provider URLs / credentials in the SSE stream).
+                // (no provider URLs / credentials in the SSE stream). RUN_ERROR
+                // is terminal: @ag-ui/client's verifyEvents rejects ANY event
+                // after it (it sets the errored flag and throws on the next
+                // event), so we do NOT emit RUN_FINISHED here — the Python
+                // siblings emit only RUN_ERROR for the same reason.
                 send(emitter, runError(String.format(
                         "agent run failed: %s (see server logs)",
                         e.getClass().getSimpleName())));
-                send(emitter, runFinished(threadId, runId));
                 emitter.complete();
             } catch (Exception sendErr) {
                 emitter.completeWithError(sendErr);
