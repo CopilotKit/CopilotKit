@@ -97,11 +97,12 @@ export interface CopilotKitProviderProps {
    */
   credentials?: RequestCredentials;
   /**
-   * The Copilot Cloud public API key.
+   * Your CopilotKit public license key. Prefer `publicLicenseKey` in new code.
    */
   publicApiKey?: string;
   /**
-   * Alias for `publicApiKey`
+   * Your public license key for accessing premium CopilotKit features.
+   * Run `npx copilotkit@latest license`, or copy it from https://dashboard.operations.copilotkit.ai.
    **/
   publicLicenseKey?: string;
   /**

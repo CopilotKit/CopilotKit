@@ -37,7 +37,7 @@ import { provideCopilotKit } from "@copilotkitnext/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
-      licenseKey: "ck_pub_your_public_api_key",
+      licenseKey: "ck_pub_your_license_key",
       runtimeUrl: "http://localhost:3001/api/copilotkit",
       headers: { Authorization: "Bearer ..." },
       properties: { app: "demo" },
@@ -121,7 +121,7 @@ export interface CopilotKitConfig {
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
-- `licenseKey`: Copilot Cloud public API key (`ck_pub_...`), required by `provideCopilotKit`.
+- `licenseKey`: CopilotKit public license key (`ck_pub_...`), required by `provideCopilotKit`. Get one with `npx copilotkit@latest license`.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
 - `tools`: Tool definitions advertised to the runtime (no handler).
@@ -289,7 +289,7 @@ registerHumanInTheLoop({
 
 ```ts
 provideCopilotKit({
-  licenseKey: "ck_pub_your_public_api_key",
+  licenseKey: "ck_pub_your_license_key",
   frontendTools: [
     /* FrontendToolConfig[] */
   ],

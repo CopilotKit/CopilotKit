@@ -13,17 +13,19 @@
  */
 
 import {
-  type Action,
-  type CopilotErrorHandler,
   CopilotKitMisuseError,
-  type MaybePromise,
-  type NonEmptyRecord,
-  type Parameter,
   readBody,
   getZodParameters,
-  type PartialBy,
   isTelemetryDisabled,
-  type DebugConfig,
+} from "@copilotkit/shared";
+import type {
+  Action,
+  CopilotErrorHandler,
+  MaybePromise,
+  NonEmptyRecord,
+  Parameter,
+  PartialBy,
+  DebugConfig,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -33,13 +35,15 @@ import type {
 } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  type CopilotRuntimeOptions,
-  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  type AgentRunner,
-  type AgentsConfig,
-  type AgentsFactory,
-  type AgentFactoryContext,
   InMemoryAgentRunner,
+} from "../../v2/runtime";
+import type {
+  CopilotRuntimeOptions,
+  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  AgentRunner,
+  AgentsConfig,
+  AgentsFactory,
+  AgentFactoryContext,
 } from "../../v2/runtime";
 
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
@@ -50,11 +54,11 @@ import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
 
-import {
-  EndpointType,
-  type EndpointDefinition,
-  type CopilotKitEndpoint,
-  type LangGraphPlatformEndpoint,
+import { EndpointType } from "./types";
+import type {
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./types";
 
 import type {
@@ -65,13 +69,10 @@ import type {
 import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
-import {
-  type MCPClient,
-  type MCPEndpointConfig,
-  type MCPTool,
-  extractParametersFromSchema,
-} from "./mcp-tools-utils";
-import { BuiltInAgent, type BuiltInAgentClassicConfig } from "../../agent";
+import { extractParametersFromSchema } from "./mcp-tools-utils";
+import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
+import { BuiltInAgent } from "../../agent";
+import type { BuiltInAgentClassicConfig } from "../../agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -217,10 +218,10 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   /**
    * Configuration for LLM request/response logging.
-   * Requires publicApiKey from CopilotKit component to be set:
+   * Requires a public license key on the CopilotKit component:
    *
    * ```tsx
-   * <CopilotKit publicApiKey="ck_pub_..." />
+   * <CopilotKit publicLicenseKey="ck_pub_..." />
    * ```
    *
    * Example logging config:
@@ -276,8 +277,8 @@ export interface CopilotRuntimeConstructorParams_BASE<
   /**
    * Optional error handler for comprehensive debugging and observability.
    *
-   * **Requires publicApiKey**: Error handling only works when requests include a valid publicApiKey.
-   * This is a premium Copilot Cloud feature.
+   * **Requires a license key**: Error handling only works when requests include a valid public license key.
+   * This is a premium feature.
    *
    * @param errorEvent - Structured error event with rich debugging context
    *
