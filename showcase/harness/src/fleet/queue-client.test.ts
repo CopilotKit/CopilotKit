@@ -942,6 +942,66 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(sweep.expiredPending).toBe(0);
       expect(store.find((r) => r.id === "odd")?.status).toBe("pending");
     });
+
+    it("grants one sweep of grace to a row re-queued by the lease phase in the SAME sweep (commError stands; control row still expires)", async () => {
+      // A long-claimed row: its lease just expired AND its `created` (the
+      // ORIGINAL enqueue time — the lease phase's re-queue does not touch it)
+      // already exceeds the stale window. Without the grace, the lease phase
+      // re-queues it to pending and emits `worker-reclaimed-pending` ("back in
+      // flight"), then the stale-pending phase of the SAME sweepExpired call
+      // lists pending fresh, ages it off `created`, and claims-then-deletes
+      // it — falsifying the comm error (and orphaning downstream overlay
+      // resolution on the deleted row).
+      const longClaimed: CreatedJobRow = {
+        ...jobView({
+          id: "long-claimed",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 4 * HOUR).toISOString(), // > 3 × 60min default
+      };
+      // Control: a genuinely stale pending row UNTOUCHED by the lease phase
+      // must still expire in this same sweep.
+      const untouchedStale = pendingRow("untouched-old", "d6:b", T - 4 * HOUR);
+      const { pb, store } = makePagingPb([longClaimed, untouchedStale]);
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        // Store-mutating release: the sweeper re-queues on behalf of the dead
+        // holder, flipping the row back to pending so the SAME call's fresh
+        // pending list (the bug path) actually sees it.
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          r.status = status;
+          r.claimed_by = "";
+          r.version += 1;
+          return { released: true, job: { ...r } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Lease phase: re-queued and emitted the neutral comm error...
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.commErrors).toHaveLength(1);
+      expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
+      expect(sweep.commErrors[0].jobId).toBe("long-claimed");
+      // ...and the SAME sweep's stale phase must NOT delete it: one sweep of
+      // grace keeps "re-queued to pending" true. If truly stale it ages out
+      // on the NEXT sweep.
+      expect(store.find((r) => r.id === "long-claimed")?.status).toBe(
+        "pending",
+      );
+      // The control row still expires — the grace is scoped to rows the lease
+      // phase re-queued in THIS call, not a blanket stale-phase skip.
+      expect(sweep.expiredPending).toBe(1);
+      expect(store.find((r) => r.id === "untouched-old")).toBeUndefined();
+    });
   });
 });
 

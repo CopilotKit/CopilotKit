@@ -689,6 +689,17 @@ export function createFleetQueueClient(
       // Scan claimed/running rows for expired leases (crashed/unreachable
       // workers). PB lacks an OR-of-equals shortcut here, so list both running
       // states and filter by lease in-process.
+      //
+      // ONE SWEEP OF GRACE: rows the lease phase re-queues below are tracked
+      // and EXCLUDED from this call's stale-pending phase. The stale phase
+      // ages off PB's system `created` (the ORIGINAL enqueue time — re-queue
+      // does not touch it), so a long-claimed job would otherwise be re-queued
+      // ("back in flight" per the worker-reclaimed-pending comm error) and
+      // then immediately claimed-and-deleted by the SAME call — falsifying the
+      // comm error and nulling downstream aggregate-key resolution on the
+      // deleted row. If the job is truly stale it ages out on the NEXT sweep.
+      // (Re-anchoring the age to the re-queue time would need a column; the
+      // `created` anchor is kept otherwise.)
       const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
         filter: 'status = "claimed" || status = "running"',
         perPage: CLAIM_CANDIDATE_PAGE,
@@ -696,6 +707,7 @@ export function createFleetQueueClient(
       });
       const commErrors: PoolCommError[] = [];
       let reclaimed = 0;
+      const requeuedThisSweep = new Set<string>();
       const observedAt = new Date(nowMs).toISOString();
       for (const row of page.items) {
         if (!leaseExpired(row.lease_expires_at, nowMs)) continue;
@@ -717,6 +729,7 @@ export function createFleetQueueClient(
           continue;
         }
         reclaimed += 1;
+        requeuedThisSweep.add(row.id);
         // The sweep boundary CANNOT distinguish a real worker crash from an
         // expected platform teardown (Railway scale-down / redeploy SIGKILL with
         // no graceful drain) — both leave an identical expired lease on a
@@ -768,6 +781,14 @@ export function createFleetQueueClient(
           },
         );
         for (const row of pendingPage.items) {
+          // ONE SWEEP OF GRACE (see function header): a row the lease phase
+          // re-queued moments ago in THIS call is "back in flight" — deleting
+          // it now would falsify the worker-reclaimed-pending comm error just
+          // emitted for it. Skip it; if truly stale it expires next sweep.
+          if (requeuedThisSweep.has(row.id)) {
+            logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
+            continue;
+          }
           // Age off PB's system `created` (space-separated date form —
           // normalize with the SAME anchored rewrite as leaseExpired). Unlike
           // the lease path, an unparseable value is conservatively SKIPPED:
