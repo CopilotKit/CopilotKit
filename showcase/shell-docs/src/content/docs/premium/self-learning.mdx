@@ -1,0 +1,115 @@
+---
+title: "Self-Learning"
+icon: "lucide/BrainCircuit"
+description: "Give your agent a memory of how your team actually works. Self-Learning quietly studies real conversations and the actions users take, distills the durable lessons into a shared knowledge base, and lets the agent reuse them — turning yesterday's manual, multi-step workarounds into things it can just do."
+doc_type: explanation
+premium: true
+---
+
+<InsecurePasswordProtected password="cpki-mem-beta">
+
+## An agent that learns how your team works
+
+Your users already know the job. Every product builds up a layer of hard-won, practical knowledge — the workarounds, the conditions that unlock the next step, the multi-step workflows everyone on the team just *knows*. It's the kind of expertise a new hire spends months absorbing, and it's some of the most valuable knowledge your company has.
+
+Today it lives in people's heads and old chat threads, and your agent ships knowing only what fits in its prompt. But that knowledge is being created every single day — in the conversations users have with the agent and the actions they take in your app.
+
+Self-Learning lets your agent pick it up from that everyday use. Instead of staying exactly as capable as the day it launched, it gets better the more your team works — learning your team's workflows by watching how the work *actually* gets done — then runs them for everyone.
+
+## How it works
+
+A learner runs on the Intelligence platform. It reviews conversations and the user actions you record, distills what matters, and makes it available to your agents on their next run. All of this happens automatically. Wiring it into your app comes down to two integration points: a runtime flag that enables Enterprise Learning, and a hook that records the user actions worth learning from.
+
+<Callout type="info" title="This page is about your application code">
+  The learner, the knowledge base, and the scheduling all live on the Intelligence platform. Standing that up — the Helm chart, the worker, the model-provider credentials — is covered in [Self-Hosting Intelligence](/premium/self-hosting). Here we only cover the code in your app.
+</Callout>
+
+## Set it up
+
+### 1. Turn on Intelligence, with learning enabled
+
+On the server, run your agent on an Intelligence runtime and flip a single flag. `enableEnterpriseLearning: true` hands every user-resolved run the platform's built-in tools — recall over the user's past threads, plus read access to the knowledge base the learner maintains.
+
+```ts title="runtime.ts"
+import {
+  CopilotIntelligenceRuntime,
+  CopilotKitIntelligence,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_API_URL!,
+  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  enableEnterpriseLearning: true, // [!code highlight]
+});
+
+const runtime = new CopilotIntelligenceRuntime({
+  agents,
+  intelligence,
+  // Required in Intelligence mode. The resolved user is also how
+  // learning is attributed and recall is scoped — one user never
+  // sees another user's threads.
+  identifyUser: async (req) => ({ userId: await getUserId(req) }),
+});
+```
+
+On the client, point CopilotKit at your runtime and drop in a chat. Conversations flowing through it are picked up by the learner automatically.
+
+```tsx title="app.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-ui";
+
+export function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChat />
+      {/* the rest of your app */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+<Callout type="warn" title="One platform switch is also required">
+  `enableEnterpriseLearning` is the application half. The platform half — `SL_ENABLED` on `app-api` and the self-learning worker — is set when you deploy the chart. Without it, the runtime has nothing to attach to. See [Self-Hosting Intelligence → Enterprise Learning](/premium/self-hosting).
+</Callout>
+
+### 2. Teach it from what your users do
+
+Conversations are only half the story. The richest signal is often a deliberate action a user takes in your UI — the decision, the correction, the workaround they reach for. Record those with one call and the learner reads them alongside the chat history.
+
+```tsx title="incident-form.tsx"
+import { useLearnFromUserActionInCurrentThread } from "@copilotkit/react-core";
+
+function IncidentForm({ order }: { order: Order }) {
+  const learnFromUserAction = useLearnFromUserActionInCurrentThread();
+
+  async function handleSubmit(reason: string) {
+    await createIncident(order.id, { reason });
+
+    // Record what the user did — and, crucially, why.
+    void learnFromUserAction({
+      title: "Filed a damage incident for an order",
+      description: `Reported "${reason}" on order ${order.id}.`,
+      data: { orderId: order.id, reason },
+    });
+  }
+
+  return <IncidentFields onSubmit={handleSubmit} />;
+}
+```
+
+A few things worth knowing:
+
+- **`useLearnFromUserActionInCurrentThread`** binds to the current chat's thread automatically. If you're recording from somewhere outside a chat subtree, reach for [`useLearnFromUserAction`](/reference) instead and pass an explicit `threadId`.
+- Calls are **idempotent-friendly** — a stray double-fire collapses to one event — so you can call it from an event handler without defensive plumbing.
+
+## What you end up with
+
+You haven't built a training pipeline or grown your prompt. You flipped one flag and added a line or two where your users do meaningful work. From there the loop runs itself: the agent watches how your team operates, keeps what matters, and quietly gets better at *your* workflows — so the multi-step things people used to do by hand become things the agent just does.
+
+<Callout type="info" title="Keep going">
+  - [Self-Hosting Intelligence](/premium/self-hosting) — deploy the platform and the self-learning worker.
+  - [Threads](/threads) — the persistent conversations the learner reviews.
+</Callout>
+
+</InsecurePasswordProtected>

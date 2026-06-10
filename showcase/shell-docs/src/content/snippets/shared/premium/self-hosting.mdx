@@ -380,6 +380,120 @@ The chart auto-wires `auth.issuer` to the in-cluster Keycloak service, so leavin
 
 For production self-hosted deployments, leave `keycloak.enabled: false` and point `auth.issuer` at your own IdP.
 
+## Enterprise Learning (self-learning)
+
+<InsecurePasswordProtected password="cpki-mem-beta">
+
+Enterprise Learning lets agent runs use the platform's built-in tools — a sandboxed `bash` tool over a shared, project-scoped **knowledge base** (`/project`) and the calling user's own **thread history** (`/threads`) — and runs a background **self-learning worker** that distills recorded user actions and finished agent runs into that knowledge base on a schedule. The result is an agent that improves over time from how your users actually work.
+
+It is **opt-in** and **off by default**. Turning it on takes two coordinated changes: a flag in your application's runtime, and three pieces of platform configuration in this chart.
+
+<Callout type="info" title="Chart version">
+  Enterprise Learning relies on the `sl-worker` CronJob shipped by the chart. Confirm a `slWorker` block exists in the pulled chart's `values.yaml` before relying on these settings; if it does not, upgrade to a chart version that includes it.
+</Callout>
+
+### 1. Enable it in your runtime (application code)
+
+Construct `CopilotKitIntelligence` with `enableEnterpriseLearning: true`. This attaches the platform's `/mcp` tools to every agent run that resolves a user, uniformly across agent frameworks (via `@ag-ui/mcp-middleware`):
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_API_URL,
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY,
+  enableEnterpriseLearning: true,
+});
+```
+
+The agent's framework must support middleware (expose a `.use()` method). If it does not, the run proceeds without the tools and the runtime logs a warning rather than failing. The flag defaults to `false`, so existing intelligence setups are unaffected until they opt in.
+
+### 2. Enable the platform tools on `app-api`
+
+The `/mcp` endpoint, the annotation connector (which records the learning signal), and the writer-side `/threads` + `/project` paths are gated behind `SL_ENABLED` on the `app-api` service. Set it through the `appApi.env` passthrough in your values file:
+
+```yaml
+appApi:
+  env:
+    - name: SL_ENABLED
+      value: "true" # always quote — Kubernetes rejects non-string env values
+```
+
+Without this, `enableEnterpriseLearning` in your runtime has nothing to attach to: agent runs reach a `/mcp` endpoint that returns `404`, and no user actions are recorded for the worker to learn from.
+
+### 3. Turn on the self-learning worker
+
+The worker is a CronJob that periodically sweeps recorded `user_action` annotations and finished agent runs, then invokes a writer agent (backed by a model provider you choose) to update the knowledge base. Enabling `slWorker` renders the CronJob and runs its pod with `SL_ENABLED=true` automatically — you only need to give it a provider credential:
+
+```yaml
+slWorker:
+  enabled: true # renders the CronJob; the worker pod gets SL_ENABLED=true automatically
+  agentProvider: anthropic # Pi provider id — selects which API-key env var the writer reads
+  # agentModel: "claude-sonnet-4-6"   # optional; empty → the provider's default model
+  env: # inject the provider credential (same shape as appApi.env)
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: cpki-sl-provider
+          key: api-key
+```
+
+Create the provider Secret first (or mount it via External Secrets / `selfHostedSecrets`):
+
+```bash
+kubectl create secret generic cpki-sl-provider \
+  --from-literal=api-key='<your provider API key>' \
+  -n copilot-intelligence
+```
+
+`slWorker.agentProvider` selects which credential env var the writer reads: `anthropic → ANTHROPIC_API_KEY`, `openai → OPENAI_API_KEY`, `google → GEMINI_API_KEY`, `groq → GROQ_API_KEY`, and so on. The cloud-IAM providers (`amazon-bedrock`, `google-vertex`) use the ambient AWS / GCP credential chain instead of a key. Match the env var you mount in `slWorker.env` to the provider you set.
+
+<Callout type="warn" title="Provider spend">
+  The writer makes real model-provider calls on every tick that finds work (default every 5 minutes, up to `slWorker.writerMaxTurns` tool-turns per tenant per tick). On an active deployment this is ongoing spend. Tune `slWorker.schedule` and the caps in the configuration table below, or suspend the CronJob when it is not needed:
+
+  ```bash
+  kubectl patch cronjob -n copilot-intelligence \
+    <release>-copilot-intelligence-sl-worker -p '{"spec":{"suspend":true}}'
+  ```
+</Callout>
+
+### Verify
+
+```bash
+# The CronJob exists and is scheduled
+kubectl get cronjob -n copilot-intelligence
+
+# Logs from the most recent sweep
+kubectl logs -n copilot-intelligence \
+  -l app.kubernetes.io/component=sl-worker --tail=50
+
+# Per-tenant cursors advance as work is processed
+kubectl exec -n copilot-intelligence <postgres-pod> -- \
+  psql "$DATABASE_URL" \
+  -c 'SELECT organization_id, project_id, source, last_event_id FROM cpki.sl_cursors;'
+```
+
+A healthy run logs `sl-worker: starting sweep` → `scope discovery complete` → per-scope `scope processed` (with `userActionsCount`, `editCount`, `tokensIn`, `tokensOut`) → `sweep complete`. On a cold install the very first CronJob pod can land in `Error` if it races the migrations Job (the `cpki.sl_annotations` table does not exist yet); it recovers on the next tick once migrations have applied, so a single early failure here is expected and self-healing.
+
+### Configuration
+
+All `slWorker.*` values. The worker only runs when `slWorker.enabled: true` **and** `SL_ENABLED=true` is set on `appApi.env`.
+
+| Key | Description | Default |
+|---|---|---|
+| `slWorker.enabled` | Render the self-learning sweep CronJob (the worker pod runs with `SL_ENABLED=true`) | `false` |
+| `slWorker.schedule` | Cron expression for the sweep | `*/5 * * * *` |
+| `slWorker.agentProvider` | Pi provider id; selects the writer's model provider and which API-key env var it reads | `anthropic` |
+| `slWorker.agentModel` | Writer model id override; empty → the provider's default | `""` |
+| `slWorker.env` | Extra env for the worker pod — mount the provider API-key Secret here (same shape as `appApi.env`) | `[]` |
+| `slWorker.batchCap` | Per-source row cap, applied independently to the `user_actions` and run-event queues, so a mixed tick can hand the writer up to 2× this value | `"100"` |
+| `slWorker.historyCap` | Already-processed user actions passed to the writer as continuity context | `"20"` |
+| `slWorker.safetyLagMs` | Ignore rows newer than this many ms (guards the identity-sequence visibility race) | `"5000"` |
+| `slWorker.writerTimeoutMs` | Wall-clock cap per writer call | `"300000"` |
+| `slWorker.writerMaxTurns` | Hard cap on writer agent tool-turns per tick | `"20"` |
+| `slWorker.activeDeadlineSeconds` | CronJob pod deadline before Kubernetes marks the run failed | `600` |
+| `slWorker.backoffLimit` | Retry count (`0` — the sweep retries failed scopes on the next tick) | `0` |
+
+</InsecurePasswordProtected>
+
 ## Configuration reference
 
 The tables below summarize the most common values. For every option, see `values.yaml` in the pulled chart.

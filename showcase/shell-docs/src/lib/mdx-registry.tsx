@@ -32,6 +32,7 @@ import { DemoSource } from "@/components/demo-source";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import {
@@ -259,6 +260,7 @@ export const docsComponents = {
   Card,
   Accordions,
   Accordion,
+  InsecurePasswordProtected,
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
