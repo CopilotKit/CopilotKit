@@ -21,8 +21,9 @@ progressively, and finally JavaScript expressions execute one by one.
 Key benefits:
 
 - **No predefined components** — the agent creates any UI it needs, on demand
+- **Design system built in** — a token-based CSS kit (light/dark, styled form controls, SVG helpers) is pre-injected into every generated document
+- **Pre-wired libraries** — Three.js, GSAP, D3, and Chart.js are import-ready via a pinned importmap; other CDN libraries can still be loaded via `<script>`/`<link>` tags
 - **Live streaming** — HTML streams into a preview as it's generated
-- **CDN libraries** — the generated UI can load Chart.js, D3, Three.js, etc. via `<script>` tags
 - **Secure sandboxing** — content runs in an isolated iframe without same-origin access
 - **Sandbox functions** — optionally expose host functions to the generated UI for two-way communication
 
@@ -109,19 +110,58 @@ The middleware parses the tool-call arguments incrementally and emits
 activity events as each parameter completes, so the preview updates
 progressively.
 
-## Using CDN libraries
+## Using libraries
 
-The sandboxed iframe can load external libraries from CDNs; just include
-`<script>` or `<link>` tags in the generated HTML `<head>`. Chart.js, D3,
-Three.js, and any other CDN-hosted library work out of the box.
+Three.js, GSAP, D3, and Chart.js are **pre-wired**: every generated document
+ships with a pinned importmap, so the agent imports them as bare module
+specifiers inside `<script type="module">` — no CDN `<script src>` tags needed
+for these four (the built-in tool description steers the agent accordingly).
 
 ```html
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
 <body>
-  <canvas id="myChart"></canvas>
+  <canvas id="scene"></canvas>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+    // …
+  </script>
 </body>
+```
+
+Any **other** CDN-hosted library still works the classic way — include its
+`<script>` or `<link>` tag in the generated HTML `<head>`.
+
+Override or disable the importmap via the provider:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  openGenerativeUI={{
+    libraries: { lodash: "https://esm.sh/lodash-es@4.17.21" }, // merged over the defaults
+    // libraries: false  — disable the importmap entirely
+  }}
+>
+```
+
+## The built-in design system
+
+Every generated document is assembled with a default design system: CSS
+design tokens with automatic light/dark (`--color-*`, `--font-*`,
+`--border-radius-*`), pre-styled form controls, and SVG helper classes
+(`.c-purple`…`.c-red`, `.box`, `.arr`). The agent is instructed to build on
+these tokens instead of hand-rolling palettes, so generated UIs stay
+consistent and theme-aware.
+
+Supply your own kit — or opt out for the legacy blank-document behavior:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  openGenerativeUI={{
+    designSystem: { css: myDesignSystemCss }, // custom kit (pair with a designSkill)
+    // designSystem: false  — no injected styles (legacy behavior)
+  }}
+>
 ```
 
 <IntegrationGrid path="generative-ui/open-generative-ui" />
