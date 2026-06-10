@@ -9,10 +9,13 @@
  *
  * - PROJECT_ID is the CopilotKit Showcase Railway project.
  * - ENV_IDS maps human env names (and common synonyms) to Railway env IDs.
+ *   (bin/railway's Ruby ENV_IDS additionally accepts the "stage" spelling —
+ *   a Ruby-side-only synonym not mirrored here; add it to BOTH registries'
+ *   tooling deliberately if the divergence ever needs reconciling.)
  * - SERVICES is the per-service map of serviceId + a per-env `environments`
  *   record. Each environment carries its own serviceInstance ID, public
- *   domain (optional — domainless workers omit it), probe flag, and GHCR
- *   repo-name override (optional).
+ *   domain (optional — domainless workers omit it), probe flag (optional,
+ *   defaults true), and GHCR repo-name override (optional).
  *
  * Service-instance IDs are env-scoped, so prod and staging IDs differ for
  * the same service. Use instanceIdFor(serviceName, env) to get the right one.
@@ -203,9 +206,11 @@ export interface ServiceEntry {
    *     image can never put the consumer in the CI redeploy scope);
    *   - the consumer itself must NOT be `ciBuilt` (a build slot is its
    *     own image producer — no consumer-of-consumer chains);
-   *   - the consumer's declared `environments` must be a subset of its
-   *     `imageOf` producer's environments (a consumer env the producer
-   *     never builds for would run a never-rebuilt image there).
+   *   - the consumer's declared `environments` must be a NON-EMPTY subset
+   *     of its `imageOf` producer's environments (a consumer env the
+   *     producer never builds for would run a never-rebuilt image there,
+   *     and a consumer with zero declared envs would never be redeployed
+   *     in any env — both are rejected at module load).
    *
    * The expansion is env-aware: a consumer only enters an env's redeploy
    * scope if it declares that env (the staging-only worker never enters
@@ -944,11 +949,14 @@ export const SERVICES: Record<
     // it is built by a separate release workflow — not showcase_build.yml.
     // The dispatch_name entry exists so humans can redeploy/verify
     // webhooks from CI on demand; the build slot is no-op (skip_build).
-    // NOTE: that no-op slot still reports build status "success", so a
-    // manual `service=all` build dispatch puts webhooks in the matrix ∩
-    // success-set and MAY bounce webhooks staging (Railway re-pulls its
-    // out-of-band :latest). Only the push-driven DEFAULT scope (ciBuilt
-    // + paths-filter) is guaranteed to leave webhooks untouched.
+    // NOTE: that no-op slot still reports build status "success", so
+    // webhooks enters the redeploy CSV whenever its matrix slot is
+    // selected — and MAY be bounced (Railway re-pulls its out-of-band
+    // :latest) by BOTH a manual `service=all` build dispatch AND a push
+    // that touches the build workflow files (the `workflow_config`
+    // paths-filter disjunct selects EVERY slot, webhooks included).
+    // Only an ordinary code push — one matching per-service paths
+    // filters but not workflow_config — leaves webhooks untouched.
     environments: {
       prod: {
         instanceId: "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
@@ -1035,9 +1043,11 @@ export function envsFor(serviceName: string): EnvName[] {
 
 /**
  * Every (serviceName, env) pair across the whole SSOT, sorted by service
- * name then env name. The canonical iteration order for any consumer that
- * must visit every env-scoped instance (the image-ref gate, exhaustive
- * snapshots, etc.) without hardcoding ["prod","staging"].
+ * name then env name. Intended as the canonical iteration helper for any
+ * consumer that must visit every env-scoped instance without hardcoding
+ * ["prod","staging"] — NOT YET CONSUMED by any caller (the image-ref gate
+ * iterates each entry's `environments` directly); kept exported so new
+ * exhaustive-iteration consumers reach for it instead of reinventing it.
  */
 export function serviceEnvPairs(): Array<{ name: string; env: EnvName }> {
   const pairs: Array<{ name: string; env: EnvName }> = [];

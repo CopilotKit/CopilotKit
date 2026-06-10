@@ -250,7 +250,6 @@ describe("runRedeploy", () => {
     const failTarget = SERVICES["showcase-mastra"].serviceId;
     const redeploy = vi.fn(async (serviceId: string) => {
       if (serviceId === failTarget) {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw null;
       }
       return { ok: true as const };
@@ -456,7 +455,7 @@ describe("runRedeploy", () => {
   it("rejects unknown env names", async () => {
     const redeploy = vi.fn();
     await expect(
-      runRedeploy({ env: "dev" as never, redeploy, appendSummary }),
+      runRedeploy({ env: "dev", redeploy, appendSummary }),
     ).rejects.toThrow(/Unknown env/);
     expect(redeploy).not.toHaveBeenCalled();
   });

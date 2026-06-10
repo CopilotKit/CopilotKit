@@ -24,12 +24,6 @@ import {
 } from "./railway-envs";
 import type { EnvironmentConfig, ProbeDriver } from "./railway-envs";
 
-// Compile-time guard: ensure the EnvironmentConfig type alias is referenced
-// so this import is not removed by an over-eager organizer. The runtime body
-// of this assignment is unused; it exists solely to anchor the type.
-const _envConfigTypeAnchor: EnvironmentConfig | undefined = undefined;
-void _envConfigTypeAnchor;
-
 describe("railway-envs SSOT", () => {
   it("exposes the canonical project id", () => {
     expect(PROJECT_ID).toBe("6f8c6bff-a80d-4f8f-b78d-50b32bcf4479");
@@ -362,8 +356,10 @@ describe("webhooks SSOT entry", () => {
     // The workflow_dispatch.inputs.service options list MUST include
     // the SSOT dispatchName for webhooks so humans can target it.
     expect(yml).toMatch(/^\s*- webhooks\s*$/m);
-    // The ALL_SERVICES matrix MUST include a webhooks entry.
-    expect(yml).toMatch(/"dispatch_name":"webhooks"/);
+    // The ALL_SERVICES matrix MUST include a webhooks entry. Same
+    // whitespace tolerance as the extraction regex in the bidirectional
+    // dispatch_name test above, so a reformat can't split the two.
+    expect(yml).toMatch(/"dispatch_name"\s*:\s*"webhooks"/);
   });
 
   it("is wired into showcase_deploy.yml's verify matrix via the SSOT", () => {
@@ -792,7 +788,7 @@ describe("railway-envs SSOT — domains + probe", () => {
     );
   });
 
-  it("confirmed prod domains match the bin/railway:73-88 EXPECTED_DOMAINS", () => {
+  it("confirmed prod domains match bin/railway's EXPECTED_DOMAINS", () => {
     expect(SERVICES.shell.environments.prod.domain).toBe(
       "showcase.copilotkit.ai",
     );
