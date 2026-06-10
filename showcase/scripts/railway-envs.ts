@@ -171,7 +171,10 @@ export interface ServiceEntry {
    *   - the target must be `ciBuilt: true` (consuming a non-CI-built
    *     image can never put the consumer in the CI redeploy scope);
    *   - the consumer itself must NOT be `ciBuilt` (a build slot is its
-   *     own image producer — no consumer-of-consumer chains).
+   *     own image producer — no consumer-of-consumer chains);
+   *   - the consumer's declared `environments` must be a subset of its
+   *     `imageOf` producer's environments (a consumer env the producer
+   *     never builds for would run a never-rebuilt image there).
    *
    * The expansion is env-aware: a consumer only enters an env's redeploy
    * scope if it declares that env (the staging-only worker never enters
@@ -984,7 +987,10 @@ export function listServiceNames(): string[] {
  * pushes. Excludes `webhooks` (released by its own repo's workflow).
  * pocketbase IS CI-built (its matrix slot is gated to
  * `showcase/pocketbase/**` changes). Default target set for
- * `redeploy-env.ts <env>` when no explicit `--services` list is provided.
+ * `redeploy-env.ts <env>` when no explicit `--services` list is provided
+ * — though the actual default redeploy scope is this set PLUS any
+ * `imageOf` consumers that declare the target env (e.g. staging adds
+ * harness-workers → 27 attempted).
  */
 export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
   Object.entries(SERVICES)

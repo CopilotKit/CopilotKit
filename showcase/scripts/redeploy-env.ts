@@ -192,7 +192,11 @@ export function resolveTargetServices(input: string[] | undefined): string[] {
   for (const raw of input) {
     const name = raw.trim();
     if (!name) continue;
-    if (SERVICES[name]) {
+    // Own-property lookup: a bare `SERVICES[name]` truthiness check would
+    // resolve inherited Object.prototype keys (e.g. "toString") to a
+    // truthy non-entry, letting a bogus name flow downstream to a
+    // redeploy(undefined, …) call instead of failing loud here.
+    if (Object.hasOwn(SERVICES, name)) {
       resolved.add(name);
       continue;
     }
@@ -218,8 +222,12 @@ export function resolveTargetServices(input: string[] | undefined): string[] {
  *
  * Env-aware: a consumer is only added if it declares `env` in its
  * `environments` map (the staging-only worker must never enter a prod
- * redeploy). Single-level by design — `assertImageConsumersValid` in
- * railway-envs.ts forbids imageOf on ciBuilt services, so there are no
+ * redeploy). The `env` parameter must be the normalized EnvName key as
+ * stored in the SSOT `environments` maps ("prod"/"staging"); synonyms
+ * like "production" must go through resolveEnv first, otherwise the
+ * expansion silently adds nothing. Single-level by design —
+ * `assertImageConsumersValid` in railway-envs.ts forbids imageOf on
+ * ciBuilt services, so there are no
  * consumer-of-consumer chains to chase. Preserves the input order and
  * appends consumers (callers sort before iterating). Exported for direct
  * unit testing.
@@ -317,7 +325,17 @@ export async function runRedeploy(
   appendSummary("");
 
   for (const name of names) {
-    const entry = SERVICES[name];
+    // Defensive own-property lookup. resolveTargetServices already rejects
+    // non-SSOT names (including inherited Object.prototype keys), so this
+    // is unreachable via the CLI — but runRedeploy is an exported API and
+    // a caller-supplied name that dodged resolution must fail loud as an
+    // operator error, never reach redeploy(undefined, envId).
+    const entry = Object.hasOwn(SERVICES, name) ? SERVICES[name] : undefined;
+    if (entry === undefined) {
+      throw new Error(
+        `Unknown service "${name}" — not an SSOT key in railway-envs.ts. Add it to SERVICES or fix the caller.`,
+      );
+    }
     process.stdout.write(`  ${name.padEnd(36)} `);
     try {
       const outcome = await redeploy(entry.serviceId, envId);

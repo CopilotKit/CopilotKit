@@ -5,7 +5,7 @@ import {
   runRedeploy,
   resolveTargetServices,
 } from "./redeploy-env";
-import { SERVICES } from "./railway-envs";
+import { PRODUCTION_ENV_ID, SERVICES } from "./railway-envs";
 
 describe("runRedeploy", () => {
   let consoleErrSpy: ReturnType<typeof vi.spyOn>;
@@ -94,6 +94,35 @@ describe("runRedeploy", () => {
     expect(seenIds).toEqual([
       SERVICES.harness.serviceId, // alphabetical iteration
       SERVICES["harness-workers"].serviceId,
+    ]);
+  });
+
+  it("CONTRACT PIN: an explicitly-named service is attempted even in an env it does not declare (harness-workers on prod)", async () => {
+    // Documented in the header: the env filter applies ONLY to consumers
+    // added by imageOf expansion — a service the caller explicitly names
+    // in --services is attempted even in an env it does not declare.
+    // harness-workers is staging-only, yet an explicit prod request must
+    // still fire against the prod env id. If a future "cleanup"
+    // env-filters explicit requests, this test fails loudly against that
+    // documented contract; change the docs AND this pin together or not
+    // at all.
+    const calls: Array<{ serviceId: string; environmentId: string }> = [];
+    const redeploy = vi.fn(async (serviceId: string, environmentId: string) => {
+      calls.push({ serviceId, environmentId });
+      return { ok: true as const };
+    });
+    const result = await runRedeploy({
+      env: "prod",
+      redeploy,
+      appendSummary,
+      services: ["harness-workers"],
+    });
+    expect(result.attempted).toBe(1);
+    expect(calls).toEqual([
+      {
+        serviceId: SERVICES["harness-workers"].serviceId,
+        environmentId: PRODUCTION_ENV_ID,
+      },
     ]);
   });
 
@@ -306,6 +335,23 @@ describe("resolveTargetServices", () => {
   it("throws on inputs that match neither SSOT keys nor dispatch_names", () => {
     expect(() => resolveTargetServices(["mastra", "garbage"])).toThrow(
       /Unknown service "garbage"/,
+    );
+  });
+
+  it("rejects inherited Object.prototype keys as unknown services", () => {
+    // `SERVICES[name]` with name "toString" resolves to the inherited
+    // Object.prototype method — a truthy non-entry. The lookup must use
+    // an own-property check, or a prototype key sails through as a
+    // "valid" service whose entry.serviceId is undefined downstream,
+    // violating the header's "unknown service ALWAYS fails loud" contract.
+    expect(() => resolveTargetServices(["toString"])).toThrow(
+      /Unknown service "toString"/,
+    );
+    expect(() => resolveTargetServices(["constructor"])).toThrow(
+      /Unknown service "constructor"/,
+    );
+    expect(() => resolveTargetServices(["hasOwnProperty"])).toThrow(
+      /Unknown service "hasOwnProperty"/,
     );
   });
 
