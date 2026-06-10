@@ -639,9 +639,11 @@ const STARTER_LEVEL_DESCRIPTION: Readonly<Record<StarterLevel, string>> = {
  *                      downgraded to degraded (delegated to `buildBadge`).
  *
  * The data-bearing states (green/red/stale/gray) are delegated to the shared
- * `buildBadge` path under the `health` dimension label so the level glyphs/copy
- * reuse the same staleness downgrade + tooltip machinery as every other badge;
- * the per-level descriptor is appended to the tooltip.
+ * `buildBadge` path under the `starter` dimension label — NOT `health`, whose
+ * dimension branch renders the up/down/stale word labels; the ✓/✗/~ glyph
+ * vocabulary above requires the non-health branch of `formatLabel`. The shared
+ * path supplies the same staleness downgrade + tooltip machinery as every
+ * other badge; the per-level descriptor is appended to the tooltip.
  */
 export function buildStarterBadge(
   level: StarterLevel,
