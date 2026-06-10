@@ -26,7 +26,22 @@ import {
   hydrateProbeLastRuns,
   surfaceReclaimedCommErrors,
   verifyWorkerRegistered,
+  drainFleetWorker,
+  DRAIN_DEREGISTER_TIMEOUT_MS,
 } from "./orchestrator.js";
+import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
+import { registerWorker } from "./fleet/worker/registration.js";
+import type { RegistrationPbClient } from "./fleet/worker/registration.js";
+import type { FleetRoleConfig } from "./fleet/role-config.js";
+import type {
+  FleetQueueClient,
+  ClaimedJob,
+  JobLease,
+} from "./fleet/contracts.js";
+import type {
+  ServiceJobDriver,
+  ServiceDriverContext,
+} from "./fleet/worker/worker-loop.js";
 import {
   DEFAULT_PRODUCER_CRON,
   FLEET_PRODUCER_SCHEDULE_ID,
@@ -2792,6 +2807,612 @@ describe("orchestrator.verifyWorkerRegistered (CR-FIX #4)", () => {
     const body = (await res.json()) as { registered: boolean };
     expect(res.status).toBe(503);
     expect(body.registered).toBe(false);
+  });
+});
+
+/**
+ * Deregister-FIRST drain ordering (platform-kill hardening).
+ *
+ * Live Railway redeploys proved the platform's stop grace (~10s after
+ * SIGTERM) is SHORT — shorter than the 25s drain grace the worker shipped
+ * with (WORKER_DRAIN_GRACE_MS, since lowered to a 6s default so the SERIAL
+ * deregister-cap + grace budget fits UNDER the platform window): workers stuck in slow browser-context teardown were HARD-KILLED
+ * before the old `await worker.stop()` → deregister sequence ever reached the
+ * roster delete, stranding stale rows that fleet-health reclaimed red at its
+ * 180s stale mark (the residual deploy red-splash). `drainFleetWorker` is the
+ * reordered critical path: signal the drain synchronously, deregister
+ * IMMEDIATELY (<1s), and only THEN spend the grace budget on best-effort
+ * teardown. These tests compose the REAL fleet `runWorker` handle with the
+ * REAL `registerWorker` handle (fake PB/queue/driver) so the ordering under
+ * test is the production wiring, not a re-implementation.
+ */
+describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const silentFleetLogger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+
+  const fleetConfig: FleetRoleConfig = { role: "worker", poolCount: 1 };
+
+  const budgetSource = {
+    budget: () => ({
+      inUse: 0,
+      available: 5,
+      max: 24,
+      pidsCurrent: 10,
+      pidsMax: 1000,
+    }),
+  };
+
+  function makeDrainLease(): JobLease {
+    return {
+      job: {
+        id: "job-drain-1",
+        probe_key: "d6:langgraph-python",
+        status: "claimed",
+        claimed_by: "worker-drain",
+        lease_expires_at: "2026-06-04T00:05:00.000Z",
+        version: 1,
+      },
+      payload: {
+        probeKey: "d6:langgraph-python",
+        serviceSlug: "langgraph-python",
+        driverKind: "e2e_d6",
+        meta: {
+          runId: "run-drain",
+          triggered: false,
+          enqueuedAt: "2026-06-04T00:00:00.000Z",
+        },
+      },
+      leaseExpiresAt: "2026-06-04T00:05:00.000Z",
+    };
+  }
+
+  /** A queue fake that hands out ONE claim then reports nothing claimable. */
+  function makeDrainQueue(): FleetQueueClient {
+    let claimed = false;
+    return {
+      async enqueue() {
+        throw new Error("enqueue not used by worker");
+      },
+      async claimNext(): Promise<ClaimedJob> {
+        if (claimed) return { claimed: false };
+        claimed = true;
+        return { claimed: true, lease: makeDrainLease() };
+      },
+      async renewLease() {
+        return makeDrainLease();
+      },
+      async report() {},
+      async sweepExpired() {
+        return { reclaimed: 0, commErrors: [] };
+      },
+    };
+  }
+
+  /**
+   * Registration fake PB mirroring registration.test.ts's: records upserts and
+   * deletes, plus an ordered `settled` log proving no upsert lands after the
+   * delete. `onDelete` lets a test thread the delete into a shared event log.
+   */
+  function makeRegPb(onDelete?: () => void): {
+    pb: RegistrationPbClient;
+    deletes: Array<{ collection: string; filter: string }>;
+    settled: Array<"upsert" | "delete">;
+  } {
+    const deletes: Array<{ collection: string; filter: string }> = [];
+    const settled: Array<"upsert" | "delete"> = [];
+    const pb: RegistrationPbClient = {
+      async upsertByField<T>(): Promise<T> {
+        settled.push("upsert");
+        return {} as T;
+      },
+      async deleteByFilter(
+        collection: string,
+        filter: string,
+      ): Promise<number> {
+        deletes.push({ collection, filter });
+        settled.push("delete");
+        onDelete?.();
+        return 1;
+      },
+    };
+    return { pb, deletes, settled };
+  }
+
+  /**
+   * A driver whose run HANGS until `release()` and IGNORES the drain abort —
+   * the stand-in for the slow browser-context teardown that outlives the
+   * platform kill grace. Resolves GREEN on release (worst case for the
+   * never-report guarantee).
+   */
+  function makeWedgedDriver(onSettle?: () => void): {
+    driver: ServiceJobDriver;
+    started: Promise<void>;
+    release: () => void;
+    runSettled: () => boolean;
+  } {
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    let releaseFn!: () => void;
+    const released = new Promise<void>((res) => {
+      releaseFn = res;
+    });
+    let settled = false;
+    const driver: ServiceJobDriver = {
+      async run(ctx: ServiceDriverContext): Promise<ProbeResult> {
+        markStarted();
+        await released; // deliberately ignores ctx.abortSignal
+        settled = true;
+        onSettle?.();
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    return {
+      driver,
+      started,
+      release: () => releaseFn(),
+      runSettled: () => settled,
+    };
+  }
+
+  it("reaches the roster delete while a wedged teardown NEVER resolves within the drain (deregister does not gate on teardown)", async () => {
+    // Shrink the loop's drain grace so the best-effort teardown phase detaches
+    // fast under test (read from env at startWorkerLoop construction).
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
+    const events: string[] = [];
+    const { pb, deletes } = makeRegPb(() => events.push("roster-delete"));
+    const queue = makeDrainQueue();
+    const reportSpy = vi.spyOn(queue, "report");
+    const { driver, started, release, runSettled } = makeWedgedDriver(() =>
+      events.push("teardown-complete"),
+    );
+
+    const worker = await runFleetWorker(fleetConfig, {
+      queue,
+      workerId: "worker-drain-a",
+      skipHealthServer: true,
+      budgetSource,
+      driver,
+      payloadToInput: () => ({ key: "d6:langgraph-python" }),
+      logger: silentFleetLogger,
+      env: {},
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    const registration = await registerWorker({
+      pb,
+      pool: budgetSource,
+      logger: silentFleetLogger,
+      workerId: "worker-drain-a",
+      endpoint: "http://worker-drain-a:8080",
+      setIntervalImpl: (() => 0) as unknown as typeof setInterval,
+    });
+
+    await started;
+    const drainPromise = drainFleetWorker({
+      worker,
+      registration,
+      shutdownPool: async () => {
+        events.push("pool-shutdown");
+      },
+    });
+
+    // THE FIX: the roster delete lands while the wedged run is STILL hung —
+    // under the old ordering (await worker.stop() first) this waitFor would
+    // time out because deregister sat behind the teardown grace (200ms here;
+    // 25s in prod at the time of the live Railway hard-kills).
+    await vi.waitFor(() => expect(deletes).toHaveLength(1));
+    expect(runSettled()).toBe(false);
+    expect(deletes[0]!.filter).toContain("worker-drain-a");
+
+    // The full drain still completes (grace detach), teardown never finished,
+    // pool shutdown stays last, and the abandoned job was never reported.
+    await drainPromise;
+    expect(runSettled()).toBe(false);
+    expect(events).toEqual(["roster-delete", "pool-shutdown"]);
+    expect(reportSpy).not.toHaveBeenCalled();
+
+    // Cleanup: un-wedge the driver so the loop (and its heartbeat timer) wind
+    // down; the second stop() awaits the settled loop.
+    release();
+    await worker.stop();
+  });
+
+  it("deregisters BEFORE teardown completes, never reports the abandoned job, and latches out the post-deregister job-settle heartbeat", async () => {
+    // Shrink the drain grace (like test A) so the assertion is insensitive to
+    // the default's value and the grace detach stays fast under test.
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
+    const events: string[] = [];
+    const { pb, settled } = makeRegPb(() => events.push("roster-delete"));
+    const queue = makeDrainQueue();
+    const reportSpy = vi.spyOn(queue, "report");
+    const { driver, started, release } = makeWedgedDriver(() =>
+      events.push("teardown-complete"),
+    );
+
+    const registration = await registerWorker({
+      pb,
+      pool: budgetSource,
+      logger: silentFleetLogger,
+      workerId: "worker-drain-b",
+      endpoint: "http://worker-drain-b:8080",
+      setIntervalImpl: (() => 0) as unknown as typeof setInterval,
+    });
+    const worker = await runFleetWorker(fleetConfig, {
+      queue,
+      workerId: "worker-drain-b",
+      skipHealthServer: true,
+      budgetSource,
+      driver,
+      payloadToInput: () => ({ key: "d6:langgraph-python" }),
+      logger: silentFleetLogger,
+      env: {},
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+      // PRODUCTION WIRING: the job-settle beat is fire-and-forget into the
+      // registration handle — after deregister it MUST be latched out or it
+      // would re-create the just-deleted roster row.
+      onCurrentJobChange: (currentJobId) => {
+        void registration.heartbeat(currentJobId);
+      },
+    });
+
+    await started;
+    const drainPromise = drainFleetWorker({
+      worker,
+      registration,
+      shutdownPool: async () => {
+        events.push("pool-shutdown");
+      },
+    });
+
+    // Deregister lands FIRST, while teardown is still hung…
+    await vi.waitFor(() => expect(events).toContain("roster-delete"));
+    expect(events).not.toContain("teardown-complete");
+
+    // …then the wedged teardown "completes" the run GREEN. The drain signal
+    // (not stop() completion) keys the report-skip, so it is still abandoned.
+    //
+    // GRACE-RACE NOTE: with the 200ms grace stubbed above, stop() either (a)
+    // observes the released run settle first, or (b) detaches at grace expiry
+    // while the release's microtasks land moments later. BOTH outcomes are
+    // safe for the assertions below: the roster delete already happened (so
+    // the roster-delete < teardown-complete ordering holds either way), the
+    // report-skip keys on the drain SIGNAL (so the green settle is never
+    // reported in either branch), and `teardown-complete` is pushed by the
+    // driver's own settle, not by stop() resolving.
+    release();
+    await drainPromise;
+
+    // FINAL QUIESCENCE (vacuous-pass guard): in the grace-DETACH branch of
+    // the race note above, drainPromise can resolve while the released run's
+    // microtasks — including the fire-and-forget job-settle heartbeat — are
+    // still landing. Asserting the `settled` latch immediately could then
+    // pass VACUOUSLY, with a late resurrection upsert arriving only after
+    // the assertion ran. The second stop() awaits the (released, settling)
+    // loop to completion, so every job-settle beat has fired through the
+    // latched registration handle before the assertions below.
+    await worker.stop();
+
+    expect(events.indexOf("roster-delete")).toBeLessThan(
+      events.indexOf("teardown-complete"),
+    );
+    expect(reportSpy).not.toHaveBeenCalled();
+    // The run-settle heartbeat fired AFTER deregister was latched out: the
+    // delete is the LAST roster write — no resurrection upsert follows it.
+    expect(settled[settled.length - 1]).toBe("delete");
+  });
+
+  it("always runs shutdownPool even when worker.stop() rejects (the rejection still surfaces)", async () => {
+    // A1: `stop()` is the BEST-EFFORT teardown phase — a rejecting stop must
+    // not strand the pool's chromium processes (PID-ceiling compounding). The
+    // pool shutdown ALWAYS runs; the stop rejection is surfaced to the caller
+    // (the signal handler logs it via signal-drain-failed), never swallowed.
+    const shutdownPool = vi.fn(async () => {});
+    const registration = {
+      stop: vi.fn(),
+      deregister: vi.fn(async () => {}),
+    };
+    const worker = {
+      drain: vi.fn(),
+      stop: vi.fn(async () => {
+        throw new Error("teardown exploded");
+      }),
+    };
+
+    await expect(
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    ).rejects.toThrow("teardown exploded");
+    // Deregister (unconditional) ran before the failed teardown…
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    // …and the pool shutdown still ran despite the stop rejection.
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces the stop() error — not the pool error — when BOTH stop and shutdownPool reject", async () => {
+    // A bare `finally { await shutdownPool() }` MASKS the stop rejection with
+    // the pool one when both reject (the later throw wins), contra the
+    // surfacing contract above. The stop error is the primary failure: the
+    // pool failure is logged best-effort and the stop error is the one thrown.
+    const shutdownPool = vi.fn(async () => {
+      throw new Error("pool exploded");
+    });
+    const registration = {
+      stop: vi.fn(),
+      deregister: vi.fn(async () => {}),
+    };
+    const worker = {
+      drain: vi.fn(),
+      stop: vi.fn(async () => {
+        throw new Error("teardown exploded");
+      }),
+    };
+
+    await expect(
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    ).rejects.toThrow("teardown exploded");
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds a HUNG deregister: teardown and pool shutdown are still reached at DRAIN_DEREGISTER_TIMEOUT_MS", async () => {
+    // A HUNG — not failing — PocketBase must not consume Railway's ~10s kill
+    // window: the deregister await is raced against a bound; on timeout the
+    // drain logs `fleet.worker.deregister-timeout` and PROCEEDS to teardown
+    // (the roster row strands, degrading to the documented crash-path
+    // reclaim). Pre-fix this drain hung forever on the unresolved deregister.
+    vi.useFakeTimers();
+    try {
+      const shutdownPool = vi.fn(async () => {});
+      const stop = vi.fn(async () => {});
+      const registration = {
+        stop: vi.fn(),
+        // Never settles — the wedged-PB stand-in.
+        deregister: vi.fn(() => new Promise<void>(() => {})),
+      };
+
+      const drainPromise = drainFleetWorker({
+        worker: { drain: vi.fn(), stop },
+        registration,
+        shutdownPool,
+      });
+      await vi.advanceTimersByTimeAsync(DRAIN_DEREGISTER_TIMEOUT_MS);
+      await expect(drainPromise).resolves.toBeUndefined();
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(shutdownPool).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a deregister that rejects AFTER the timeout wins never surfaces as an unhandled rejection (race losers stay subscribed)", async () => {
+    // EMPIRICAL PIN of the ECMAScript Promise.race semantics this drain (and
+    // the loop's stop() grace race) relies on — repeatedly re-flagged in
+    // review, so this test is the standing refutation: `Promise.race`
+    // SUBSCRIBES to every input when it is constructed, so a LOSER that
+    // rejects after the winner settled is a HANDLED rejection (consumed by
+    // the race's own subscription), never an unhandled one. vitest surfaces
+    // unhandled rejections as failures, so the pin is non-vacuous: the test
+    // deliberately attaches NO handler of its own to the losing deregister —
+    // if the race did not keep it subscribed, the late rejection below would
+    // fail this run.
+    vi.useFakeTimers();
+    let rejectDeregister!: (err: Error) => void;
+    try {
+      const shutdownPool = vi.fn(async () => {});
+      const registration = {
+        stop: vi.fn(),
+        // Hangs past the cap, then REJECTS only after the timeout arm won.
+        deregister: vi.fn(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              rejectDeregister = reject;
+            }),
+        ),
+      };
+
+      const drainPromise = drainFleetWorker({
+        worker: { drain: vi.fn(), stop: vi.fn(async () => {}) },
+        registration,
+        shutdownPool,
+      });
+      // The deregister cap elapses → the timeout arm wins and the drain runs
+      // through teardown to completion.
+      await vi.advanceTimersByTimeAsync(DRAIN_DEREGISTER_TIMEOUT_MS);
+      await expect(drainPromise).resolves.toBeUndefined();
+      expect(shutdownPool).toHaveBeenCalledTimes(1);
+      // NOW the losing deregister rejects, 50ms after the race settled.
+      await vi.advanceTimersByTimeAsync(50);
+      rejectDeregister(new Error("post-timeout deregister rejection"));
+    } finally {
+      vi.useRealTimers();
+    }
+    // Give the would-be unhandledRejection a real macrotask turn to surface —
+    // an unsubscribed loser would fail the run here, not pass silently.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+
+  it("a THROWING structural drain()/registration.stop() never skips the roster delete (log-and-proceed)", async () => {
+    // `worker.drain()` and `registration.stop()` are structural handles — the
+    // REAL ones never throw, but drainFleetWorker sits on the SIGTERM
+    // critical path, so a throwing caller-supplied handle gets the same
+    // log-and-proceed discipline as deregister: the roster delete is the ONLY
+    // step that must beat the platform kill, and a throw upstream of it must
+    // not abort the drain sequence. Pre-fix both calls were unguarded — a
+    // throw here escaped drainFleetWorker before deregister ever ran.
+    const shutdownPool = vi.fn(async () => {});
+    const stop = vi.fn(async () => {});
+    const registration = {
+      stop: vi.fn(() => {
+        throw new Error("registration.stop exploded");
+      }),
+      deregister: vi.fn(async () => {}),
+    };
+    const worker = {
+      drain: vi.fn(() => {
+        throw new Error("drain exploded");
+      }),
+      stop,
+    };
+
+    await expect(
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    ).resolves.toBeUndefined();
+    // The roster delete still landed despite BOTH structural steps throwing…
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    // …and the best-effort teardown phases still ran, in order.
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("a THROWING logger.warn inside the drain's catch blocks never skips the roster delete or teardown", async () => {
+    // The failing component may BE the logger: the structural-throw catches
+    // above LOG before proceeding, so an unguarded logger.warn inside either
+    // pre-deregister catch would escape drainFleetWorker before the roster
+    // delete ever ran — the exact failure class requestDrain() already
+    // guards with its abort-before-log discipline. The post-deregister warns
+    // are guarded the same way so the teardown phases stay reachable too.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {
+      throw new Error("logger exploded");
+    });
+    try {
+      const shutdownPool = vi.fn(async () => {});
+      const stop = vi.fn(async () => {});
+      const registration = {
+        stop: vi.fn(() => {
+          throw new Error("registration.stop exploded");
+        }),
+        deregister: vi.fn(async () => {}),
+      };
+      const worker = {
+        drain: vi.fn(() => {
+          throw new Error("drain exploded");
+        }),
+        stop,
+      };
+
+      await expect(
+        drainFleetWorker({ worker, registration, shutdownPool }),
+      ).resolves.toBeUndefined();
+      // The roster delete still landed despite BOTH structural steps throwing
+      // AND the logger throwing inside both catch blocks…
+      expect(registration.deregister).toHaveBeenCalledTimes(1);
+      // …and the best-effort teardown phases still ran, in order.
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(shutdownPool).toHaveBeenCalledTimes(1);
+      // The warns were ATTEMPTED (forensics stay best-effort, not skipped).
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("a REJECTING deregister (structural-contract caller) degrades like the timeout: teardown still runs", async () => {
+    // registration.ts's deregister() contract is never-reject (failed deletes
+    // are swallowed + warned there) — but drainFleetWorker takes a structural
+    // `{ deregister(): Promise<void> }`, so a caller-supplied handle that DOES
+    // reject must degrade the same way the hang does: proceed to teardown.
+    const shutdownPool = vi.fn(async () => {});
+    const stop = vi.fn(async () => {});
+    const registration = {
+      stop: vi.fn(),
+      deregister: vi.fn(async () => {
+        throw new Error("pb exploded");
+      }),
+    };
+
+    await expect(
+      drainFleetWorker({
+        worker: { drain: vi.fn(), stop },
+        registration,
+        shutdownPool,
+      }),
+    ).resolves.toBeUndefined();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("idle drain (no in-flight job): deregister still precedes teardown, abandons nothing, completes promptly", async () => {
+    vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
+    const events: string[] = [];
+    const { pb, deletes } = makeRegPb(() => events.push("roster-delete"));
+    // A queue that never has work — the worker stays idle the whole time.
+    const queue: FleetQueueClient = {
+      ...makeDrainQueue(),
+      claimNext: async () => ({ claimed: false }),
+    };
+    const run = vi.fn(async (): Promise<ProbeResult> => {
+      throw new Error("driver must never run on an idle drain");
+    });
+    const info = vi.fn();
+    const recordingLogger = { ...silentFleetLogger, info };
+
+    const worker = await runFleetWorker(fleetConfig, {
+      queue,
+      workerId: "worker-drain-idle",
+      skipHealthServer: true,
+      budgetSource,
+      driver: { run },
+      payloadToInput: () => ({ key: "d6:langgraph-python" }),
+      logger: recordingLogger,
+      env: {},
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+    const registration = await registerWorker({
+      pb,
+      pool: budgetSource,
+      logger: silentFleetLogger,
+      workerId: "worker-drain-idle",
+      endpoint: "http://worker-drain-idle:8080",
+      setIntervalImpl: (() => 0) as unknown as typeof setInterval,
+    });
+
+    // An idle drain has nothing to wait on: it must complete promptly (well
+    // under the grace), with the same deregister-before-teardown ordering.
+    await expect(
+      Promise.race([
+        drainFleetWorker({
+          worker,
+          registration,
+          shutdownPool: async () => {
+            events.push("pool-shutdown");
+          },
+        }),
+        new Promise<never>((_res, rej) =>
+          setTimeout(
+            () => rej(new Error("idle drain did not complete promptly")),
+            1000,
+          ),
+        ),
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(run).not.toHaveBeenCalled();
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0]!.filter).toContain("worker-drain-idle");
+    expect(events).toEqual(["roster-delete", "pool-shutdown"]);
+    // The abandon decision records NO job — the worker was idle.
+    expect(info).toHaveBeenCalledWith("fleet.worker.drain-requested", {
+      workerId: "worker-drain-idle",
+      abandoningJobId: null,
+    });
   });
 });
 

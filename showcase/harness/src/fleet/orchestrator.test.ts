@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import net from "node:net";
 import type { Browser } from "playwright";
 import { runWorker } from "./orchestrator.js";
 import type { FleetRoleConfig } from "./role-config.js";
@@ -11,6 +12,7 @@ import type {
   ServiceJobResult,
 } from "./contracts.js";
 import type { Logger } from "../types/index.js";
+import { BrowserPool } from "../probes/helpers/browser-pool.js";
 import type {
   LaunchBrowser,
   CgroupPidsReader,
@@ -167,5 +169,118 @@ describe("runWorker default (self-contained) boot", () => {
     expect(result.commError).toBeUndefined();
     expect(result.aggregateState).toBe("green");
     expect(result.aggregateKey).toBe("e2e_d6:langgraph-python");
+  });
+});
+
+/** Bind-then-release an ephemeral port for the worker /health server. */
+async function pickPort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address() as net.AddressInfo;
+      srv.close(() => resolve(addr.port));
+    });
+  });
+}
+
+describe("runWorker loop-crash surfacing", () => {
+  it("logs fleet.worker.loop-crashed (with stack), flips /health to 503, and a throwing stop-path logger still tears everything down", async () => {
+    // B4: `loop.done` rejecting is a CRASHED worker loop. Pre-fix the handle
+    // wiring was `void loop.done.finally(...)` — the rejection propagated
+    // through the derived chain as an UNHANDLED rejection and nothing logged
+    // why the loop died; /health flipped silently. The crash must be logged
+    // loud (message + stack) and /health must report loop:"stopped" (503).
+    //
+    // Rejection vector: with every IIFE log guarded (`safeLog`), a throwing
+    // logger no longer crashes the loop — the residual seam is a
+    // structurally POISON queue result whose `.claimed` getter throws
+    // outside the loop's claimNext try/catch.
+    //
+    // STOP-PATH GUARD (extends the teardown contract below): the logger ALSO
+    // throws on `fleet.worker.stopping`/`fleet.worker.stopped`. Pre-guard,
+    // `fleet.worker.stopping` sat unguarded BEFORE stop()'s try/finally, so
+    // the logger throw escaped stop() FIRST — loop.stop was never awaited,
+    // the /health server stayed bound, and the pool's chromium processes
+    // stranded. Post-guard, stop() surfaces the loop-crash error and both
+    // teardown arms still run.
+    const queueBase = makeQueue([]);
+    const queue: FleetQueueClient = {
+      ...queueBase,
+      async claimNext(): Promise<ClaimedJob> {
+        return {
+          get claimed(): boolean {
+            throw new Error("poison claim");
+          },
+        } as ClaimedJob;
+      },
+    };
+    const errors: Array<[string, Record<string, unknown> | undefined]> = [];
+    const logger: Logger = {
+      ...silentLogger,
+      info: (msg) => {
+        if (msg === "fleet.worker.stopping" || msg === "fleet.worker.stopped") {
+          throw new Error("logger exploded on stop path");
+        }
+      },
+      error: (msg, meta) => {
+        errors.push([msg, meta]);
+      },
+    };
+    const port = await pickPort();
+    // Spy on the pool the DEFAULT (self-contained) boot path constructs so the
+    // stop() teardown contract below is observable: a rejecting loop.stop()
+    // must still shut the pool down (PID-ceiling compounding otherwise).
+    const shutdownSpy = vi.spyOn(BrowserPool.prototype, "shutdown");
+    try {
+      const worker = await runWorker(config, {
+        queue,
+        workerId: "worker-crash",
+        logger,
+        env: {},
+        port,
+        // Default-boot seams (no injected budgetSource/driver) so runWorker
+        // constructs its OWN pool — the one stop() must shut down. The crash
+        // fires on the poison claim, before the d6 driver ever runs.
+        launchBrowser: makeNoopLauncher(),
+        cgroupPidsReader: headroomPidsReader,
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+
+      // The crash is LOGGED — message and stack both carried.
+      await vi.waitFor(() =>
+        expect(errors.map((e) => e[0])).toContain("fleet.worker.loop-crashed"),
+      );
+      const crash = errors.find((e) => e[0] === "fleet.worker.loop-crashed")!;
+      expect(crash[1]).toMatchObject({
+        workerId: "worker-crash",
+        err: "poison claim",
+      });
+      expect(String((crash[1] as { stack?: string }).stack)).toContain(
+        "poison claim",
+      );
+
+      // …and /health reflects the dead loop (503, loop:"stopped").
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { loop: string };
+      expect(body.loop).toBe("stopped");
+
+      // stop() re-awaits the rejected done: the rejection SURFACES to the
+      // caller — but the /health server is closed and the pool is shut down
+      // anyway. Pre-fix the rejection escaped BEFORE either teardown arm,
+      // leaking the bound port and stranding the pool's chromium processes.
+      // The LOOP-CRASH error surfaces — NOT "logger exploded on stop path":
+      // the guarded `fleet.worker.stopping` log cannot preempt the teardown.
+      await expect(worker.stop()).rejects.toThrow("poison claim");
+      expect(shutdownSpy).toHaveBeenCalledTimes(1);
+      // The port no longer accepts connections — the health server really
+      // closed (a still-bound server would answer this fetch).
+      await expect(fetch(`http://127.0.0.1:${port}/health`)).rejects.toThrow();
+    } finally {
+      shutdownSpy.mockRestore();
+    }
   });
 });
