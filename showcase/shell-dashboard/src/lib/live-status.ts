@@ -269,10 +269,21 @@ export function keyFor(
       `keyFor: slug must not contain ':' or '/' (got ${JSON.stringify(slug)})`,
     );
   }
-  if (featureId && (featureId.includes(":") || featureId.includes("/"))) {
-    throw new Error(
-      `keyFor: featureId must not contain ':' or '/' (got ${JSON.stringify(featureId)})`,
-    );
+  if (featureId !== undefined) {
+    // An EMPTY featureId is falsy: a bare truthiness guard would skip the
+    // delimiter validation AND the per-feature branch below, silently
+    // fabricating the integration-aggregate key (`<dimension>:<slug>`) for
+    // what the caller meant as a per-feature lookup. Throw loudly instead.
+    if (featureId === "") {
+      throw new Error(
+        `keyFor: featureId must not be empty for a per-feature dimension key (dimension=${JSON.stringify(dimension)}, slug=${JSON.stringify(slug)})`,
+      );
+    }
+    if (featureId.includes(":") || featureId.includes("/")) {
+      throw new Error(
+        `keyFor: featureId must not contain ':' or '/' (got ${JSON.stringify(featureId)})`,
+      );
+    }
   }
   return featureId
     ? `${dimension}:${slug}/${featureId}`

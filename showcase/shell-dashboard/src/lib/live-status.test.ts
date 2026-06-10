@@ -92,6 +92,13 @@ describe("keyFor", () => {
     expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
     expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
   });
+  it("throws on an empty-string featureId instead of fabricating the aggregate key", () => {
+    // An empty featureId is falsy, so a truthiness guard would skip the
+    // delimiter validation AND the per-feature branch, silently producing the
+    // integration-aggregate key (`e2e:agno`) for what the caller meant as a
+    // per-feature lookup. Throw loudly, matching the guard's defensive posture.
+    expect(() => keyFor("e2e", "agno", "")).toThrow(/empty/);
+  });
   it("every CATALOG_TO_D5_KEY mapping value is delimiter-free (keyFor feeds these as featureId)", () => {
     // resolveD5Row/resolveD6Row pass each mapping value into keyFor as the
     // featureId segment. keyFor's guard protects slug + the caller-supplied
