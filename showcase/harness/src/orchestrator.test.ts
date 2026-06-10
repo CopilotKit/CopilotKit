@@ -17,6 +17,7 @@ import {
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
   buildProducerSchedules,
+  FLEET_FAMILY_PERIODS_MS,
   FLEET_PRODUCER_SMOKE_CRON,
   FLEET_PRODUCER_DEMOS_CRON,
   FLEET_PRODUCER_DEEP_CRON,
@@ -60,8 +61,19 @@ import type {
   StatusWriter,
   OverlayWriteOutcome,
 } from "./writers/status-writer.js";
-import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
+import {
+  FLEET_COMM_ERROR_SIGNAL_KEY,
+  probeKeyFamily,
+} from "./fleet/contracts.js";
 import type { PoolCommError } from "./fleet/contracts.js";
+import {
+  createD6ServiceEnumerator,
+  createE2eSmokeServiceEnumerator,
+  createE2eDeepServiceEnumerator,
+  createE2eDemosServiceEnumerator,
+} from "./fleet/control-plane/catalog-enumerator.js";
+import type { DiscoverySource } from "./probes/types.js";
+import type { RailwayServiceInfo } from "./probes/discovery/railway-services.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
@@ -5208,6 +5220,71 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
       "5,20,35,50 * * * *",
+    );
+  });
+});
+
+/**
+ * Drift-lock: FLEET_FAMILY_PERIODS_MS keys must EXACTLY match the probe-key
+ * families the four real enumerators enqueue under. The map feeds the queue
+ * client's stale-pending expiry; `stalePendingFilters` silently falls back to
+ * the 1h default for any family missing from the map, so a typo'd family key
+ * (e.g. "d5" vs "d5-single-pill-e2e") would never throw — it would just
+ * quietly mis-size that family's drain window. The families are derived by
+ * RUNNING each enumerator factory against a fake discovery source, so this
+ * test breaks if either side (map key or enumerator prefix) drifts.
+ *
+ * NOTE: this locks the NOMINAL period map only. The d6 cron-override drift
+ * (FLEET_PRODUCER_CRON changing d6's real cadence without updating the map)
+ * is a documented limitation on FLEET_FAMILY_PERIODS_MS, not testable here.
+ */
+describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
+  it("map keys exactly match the families the four enumerators enqueue under", async () => {
+    const service: RailwayServiceInfo = {
+      name: "showcase-langgraph-python",
+      imageRef: "ghcr.io/org/showcase-langgraph-python:latest",
+      publicUrl: "http://langgraph-python:10000",
+      env: {},
+      shape: "package",
+      deployedDigest: "",
+      demos: ["agentic_chat"],
+      notSupportedFeatures: [],
+      deployedAt: "",
+    };
+    const source = {
+      name: "railway-services",
+      async enumerate(): Promise<RailwayServiceInfo[]> {
+        return [service];
+      },
+    } as unknown as DiscoverySource<RailwayServiceInfo>;
+    const silent = {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    };
+    const deps = {
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: silent,
+    };
+
+    const enumerators = [
+      createD6ServiceEnumerator(deps),
+      createE2eSmokeServiceEnumerator(deps),
+      createE2eDeepServiceEnumerator(deps),
+      createE2eDemosServiceEnumerator(deps),
+    ];
+    const families = new Set<string>();
+    for (const enumerate of enumerators) {
+      const specs = await enumerate({ triggered: false, runId: "drift-lock" });
+      expect(specs.length).toBeGreaterThan(0);
+      for (const spec of specs) families.add(probeKeyFamily(spec.probeKey));
+    }
+
+    expect([...families].sort()).toEqual(
+      Object.keys(FLEET_FAMILY_PERIODS_MS).sort(),
     );
   });
 });

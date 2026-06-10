@@ -1316,6 +1316,15 @@ export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
  * family has enqueued fresher batches since) and is swept off the queue so a
  * backlog drains instead of compounding. Keep in lockstep with the cron
  * constants above (and the d6 `DEFAULT_PRODUCER_CRON`).
+ *
+ * KNOWN DRIFT LIMITATION: the d6 entry assumes the DEFAULT cron. A
+ * `FLEET_PRODUCER_CRON` env override (the local fast-cadence seam — see
+ * `buildProducerSchedules`) changes d6's REAL production period without
+ * updating this map, so under an override the stale-pending expiry window for
+ * d6 is computed from the nominal hourly period, not the overridden cadence.
+ * Acceptable today (the override is a local/dev seam; staleness only widens or
+ * narrows the 3× drain window), but don't rely on this map being exact when
+ * the override is set.
  */
 export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
   /** d6 — DEFAULT_PRODUCER_CRON `40 * * * *` (hourly). */
