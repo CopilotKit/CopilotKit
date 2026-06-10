@@ -154,14 +154,15 @@ design tokens with automatic light/dark (`--color-*`, `--font-*`,
 these tokens instead of hand-rolling palettes, so generated UIs stay
 consistent and theme-aware.
 
-Supply your own kit — or opt out for the legacy blank-document behavior:
+Supply your own kit — or opt out of the injected styles:
 
 ```tsx
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   openGenerativeUI={{
     designSystem: { css: myDesignSystemCss }, // custom kit (pair with a designSkill)
-    // designSystem: false  — no injected styles (legacy behavior)
+    // designSystem: false — no design-system styles; importmap still injects
+    // (set libraries: false too for a fully un-augmented legacy document)
   }}
 >
 ```
