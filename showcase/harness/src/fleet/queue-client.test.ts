@@ -310,6 +310,28 @@ describe("FleetQueueClient.enqueue", () => {
     expect(rows[0].claimed_by).toBe("");
     expect(rows[0].payload).toEqual(samplePayload());
   });
+
+  it("validates the payload BEFORE creating the row (no poison row persisted)", async () => {
+    // enqueue used to deref payload.meta.runId only AFTER pb.create — a
+    // malformed caller payload threw AFTER persisting an undecodable row,
+    // i.e. a poison row every claimer then has to release-as-failed. The
+    // validation must run first so nothing is written.
+    const { pb, rows } = makeFakePb();
+    const createSpy = vi.fn(pb.create.bind(pb));
+    pb.create = createSpy as PbClient["create"];
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const badPayload = {
+      ...samplePayload(),
+      meta: "not-an-object",
+    } as unknown as ServiceJobPayload;
+    await expect(q.enqueue({ payload: badPayload })).rejects.toThrow(
+      /meta/i,
+    );
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(0);
+  });
 });
 
 describe("FleetQueueClient.claimNext", () => {
@@ -464,6 +486,58 @@ describe("FleetQueueClient.claimNext", () => {
     expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
     expect(claimed.claimed).toBe(true);
     expect(claimed.lease?.job.id).toBe("j2");
+  });
+
+  it("treats malformed meta.triggered/meta.enqueuedAt/cellIds/driverInputs as decode failures (releases + skips)", async () => {
+    // decodePayload used to validate only probeKey/serviceSlug/driverKind and
+    // meta.runId — the REST of the payload (meta.triggered, meta.enqueuedAt,
+    // cellIds, driverInputs) was cast through unchecked, deferring malformed
+    // shapes to undefined derefs deep in the worker/aggregator. Each bad
+    // shape must fail LOUD at this boundary: release the won row, move on.
+    const bad = (id: string, payload: unknown): JobRow => ({
+      ...jobView({ id }),
+      payload: payload as ServiceJobPayload,
+    });
+    const { pb } = makeFakePb([
+      bad("j1", {
+        ...samplePayload(),
+        meta: { ...samplePayload().meta, triggered: "yes" },
+      }),
+      bad("j2", {
+        ...samplePayload(),
+        meta: { ...samplePayload().meta, enqueuedAt: 1234 },
+      }),
+      bad("j3", { ...samplePayload(), cellIds: "shared-state" }),
+      bad("j4", { ...samplePayload(), driverInputs: ["not", "a", "record"] }),
+      { ...jobView({ id: "j5" }), payload: samplePayload() },
+    ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    // Identity order: poison rows j1–j4 are tried before the good j5.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    for (const id of ["j1", "j2", "j3", "j4"]) {
+      expect(releaseJob).toHaveBeenCalledWith(id, "worker-7", "failed");
+    }
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.lease?.job.id).toBe("j5");
   });
 
   it("attributes a decode-failed row as worker-protocol-violation via a synthetic result (not a crash)", async () => {
@@ -1002,6 +1076,80 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     expect(await q.countPendingForFamily("e2e-demos")).toBe(2);
     expect(await q.countPendingForFamily("d4")).toBe(1);
     expect(await q.countPendingForFamily("d6")).toBe(0);
+  });
+
+  it("warns when family discovery hits the MAX_PENDING_FAMILIES bound with families still hidden (17 families)", async () => {
+    // The discovery loop is bounded at 16 distinct families; tripping the
+    // bound used to be SILENT — the 17th family simply never entered the
+    // rotation, i.e. exactly the starvation class fairness exists to prevent,
+    // with zero observability. Mirror the sweep's truncation warn.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const rows = Array.from({ length: 17 }, (_, i) => {
+      const probeKey = `f${String(i).padStart(2, "0")}:svc`;
+      return {
+        ...jobView({ id: `r${i}`, probe_key: probeKey }),
+        payload: samplePayload({ probeKey }),
+        created: new Date(t0 + i * 1000).toISOString(),
+      };
+    });
+    const { pb, store } = makePagingPb(rows);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    const claimed = await q.claimNext("w1", 30);
+
+    expect(claimed.claimed).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-discovery-truncated",
+      expect.objectContaining({
+        maxFamilies: 16,
+        // The 17th-oldest family is the first one the bound hid.
+        nextProbeKey: "f16:svc",
+      }),
+    );
+  });
+
+  it("escapes LIKE wildcards in family clauses — a '%' family must not occlude other families from discovery", async () => {
+    // PB's `~`/`!~` build SQL `LIKE ... ESCAPE '\\'` (PocketBase 0.22
+    // tools/search/filter.go), so `\\%`/`\\_` are LITERAL chars — escapable.
+    // Unescaped, a family like "d%" makes the discovery EXCLUSION leg
+    // `probe_key !~ "d%:%"` glob-match d6:/d4: keys too, hiding those
+    // families from discovery while "d%" rows exist (starvation), and makes
+    // the inclusion/count legs over-match symmetrically.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const mk = (id: string, probeKey: string, offsetMs: number) => ({
+      ...jobView({ id, probe_key: probeKey }),
+      payload: samplePayload({ probeKey }),
+      created: new Date(t0 + offsetMs).toISOString(),
+    });
+    const { pb, store } = makePagingPb([
+      mk("weird-a", "d%:a", 0),
+      mk("weird-b", "d%:b", 1000),
+      mk("normal", "d6:y", 2000),
+    ]);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    // The count leg must not over-match: exactly the two literal d% rows.
+    expect(await q.countPendingForFamily("d%")).toBe(2);
+    expect(await q.countPendingForFamily("d6")).toBe(1);
+
+    // Round-robin across BOTH discovered families: with the unescaped
+    // exclusion leg, d6 is never discovered while d% rows exist and the
+    // first two claims would both come from d% (d6 starved).
+    const claimedFamilies: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const c = await q.claimNext("w1", 30);
+      expect(c.claimed).toBe(true);
+      claimedFamilies.push(probeKeyFamily(c.lease!.job.probe_key));
+    }
+    expect(new Set(claimedFamilies)).toEqual(new Set(["d%", "d6"]));
   });
 
   it("countPendingForFamily explicitly requests totals (skipTotal: false) — the backlog gate must not fail open", async () => {
@@ -2048,9 +2196,12 @@ describe("FleetQueueClient.report", () => {
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
+    // The error must say what actually happened: the computed result IS
+    // discarded and the job re-runs — NOT the old "nothing was lost" framing
+    // (the ROW isn't lost, but this worker's work product is).
     await expect(
       q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
-    ).rejects.toThrow(/release/i);
+    ).rejects.toThrow(/release refused .* result is DISCARDED/i);
     // A refused release must never leave a result on a row this worker no
     // longer owns — the consumer would otherwise aggregate a stale result.
     expect(rows[0].result).toBeUndefined();

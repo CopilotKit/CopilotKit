@@ -203,17 +203,19 @@ interface ProbeJobRecord extends JobView {
 }
 
 /**
- * Decode a row's `payload` JSON into a typed `ServiceJobPayload`. The column is
- * a structured JSON object; PB returns it already-parsed. We do a minimal
- * structural check so a malformed/absent payload fails LOUD here (at the
- * enqueue→claim boundary) rather than surfacing as an `undefined` deref deep in
- * the worker.
+ * Structurally validate an (untrusted) value as a `ServiceJobPayload`,
+ * failing LOUD with `label` naming the boundary. Shared by BOTH ends of the
+ * row round-trip so the encode and decode checks can never drift apart:
+ * `enqueue` runs it BEFORE `pb.create` (a malformed caller payload must not
+ * persist a poison row), and `decodePayload` runs it on the claimed row's
+ * JSON column.
  */
-function decodePayload(jobId: string, raw: unknown): ServiceJobPayload {
+function assertServiceJobPayload(
+  label: string,
+  raw: unknown,
+): ServiceJobPayload {
   if (raw === null || typeof raw !== "object") {
-    throw new Error(
-      `queue-client: job ${jobId} has no decodable payload on its probe_jobs row`,
-    );
+    throw new Error(`queue-client: ${label} has no decodable payload`);
   }
   const candidate = raw as Partial<ServiceJobPayload>;
   if (
@@ -223,26 +225,62 @@ function decodePayload(jobId: string, raw: unknown): ServiceJobPayload {
     candidate.meta === undefined
   ) {
     throw new Error(
-      `queue-client: job ${jobId} payload is missing required fields (probeKey/serviceSlug/driverKind/meta)`,
+      `queue-client: ${label} payload is missing required fields (probeKey/serviceSlug/driverKind/meta)`,
     );
   }
   // `meta` is typed `ServiceJobMeta`, but the JSON column is untrusted: a
   // non-object `meta` (string/number/array) satisfies the `!== undefined`
   // check above yet would deref to `undefined` deep in the worker (the
-  // aggregator groups by `meta.runId`). Assert it is a non-null object with a
-  // string `runId` and fail LOUD at this boundary.
+  // aggregator groups by `meta.runId`). Assert the FULL required meta shape —
+  // `triggered`/`enqueuedAt` are consumed downstream just like `runId`, so a
+  // half-validated meta would only defer the failure past this boundary.
   const meta = candidate.meta as Partial<ServiceJobMeta> | null;
   if (
     meta === null ||
     typeof meta !== "object" ||
     Array.isArray(meta) ||
-    typeof meta.runId !== "string"
+    typeof meta.runId !== "string" ||
+    typeof meta.triggered !== "boolean" ||
+    typeof meta.enqueuedAt !== "string"
   ) {
     throw new Error(
-      `queue-client: job ${jobId} payload.meta must be a non-null object with a string runId`,
+      `queue-client: ${label} payload.meta must be a non-null object with a string runId, boolean triggered and string enqueuedAt`,
+    );
+  }
+  // Optional fields still have REQUIRED shapes when present: cellIds is a
+  // string array (the worker iterates it as feature ids) and driverInputs is
+  // a plain record (the worker reads keys off it).
+  if (
+    candidate.cellIds !== undefined &&
+    (!Array.isArray(candidate.cellIds) ||
+      candidate.cellIds.some((c) => typeof c !== "string"))
+  ) {
+    throw new Error(
+      `queue-client: ${label} payload.cellIds must be an array of strings when present`,
+    );
+  }
+  if (
+    candidate.driverInputs !== undefined &&
+    (candidate.driverInputs === null ||
+      typeof candidate.driverInputs !== "object" ||
+      Array.isArray(candidate.driverInputs))
+  ) {
+    throw new Error(
+      `queue-client: ${label} payload.driverInputs must be a plain object when present`,
     );
   }
   return candidate as ServiceJobPayload;
+}
+
+/**
+ * Decode a row's `payload` JSON into a typed `ServiceJobPayload`. The column is
+ * a structured JSON object; PB returns it already-parsed. The structural check
+ * (shared with `enqueue` — see `assertServiceJobPayload`) makes a
+ * malformed/absent payload fail LOUD here (at the enqueue→claim boundary)
+ * rather than surfacing as an `undefined` deref deep in the worker.
+ */
+function decodePayload(jobId: string, raw: unknown): ServiceJobPayload {
+  return assertServiceJobPayload(`job ${jobId}`, raw);
 }
 
 /** Build the `JobLease` a worker holds from a claimed row + its decoded payload. */
@@ -258,6 +296,16 @@ function leaseFromJob(job: JobView, payload: ServiceJobPayload): JobLease {
  * than a null that the heartbeat would misread as a lost lease. We seed the
  * join keys from the authoritative CAS row and leave the rest empty; a renew is
  * in practice always preceded by a same-process claim, so this path is rare.
+ *
+ * WARNING — HEARTBEAT-ONLY VALUE. This placeholder must NEVER feed
+ * aggregation or be persisted as (part of) a result: `serviceSlug` and
+ * `meta.runId` are empty sentinels, and an empty runId would silently group
+ * into nothing in the aggregator (which groups by `meta.runId`) while an
+ * empty serviceSlug would corrupt the per-service rollup. The contract is:
+ * a payload obtained from a RENEW exists only to keep the lease object
+ * shape intact for the heartbeat; reporting always uses the payload the
+ * worker received from its CLAIM. (A readonly marker field would need a
+ * contracts.ts change; this comment is the boundary documentation.)
  */
 function emptyPayloadForLease(job: JobView): ServiceJobPayload {
   return {
@@ -310,24 +358,44 @@ export function leaseExpired(
 }
 
 /**
- * Escape a value for embedding in a double-quoted PB filter literal. Families
- * come from probe_key prefixes (config-controlled slugs like `d6` /
- * `e2e-demos`), so this only needs to neutralize the quote/backslash chars
- * that could break out of the literal. LIKE wildcards (`%`/`_`) are not
- * expected in family names and are deliberately left alone.
+ * Escape a value for embedding in a double-quoted PB filter literal:
+ * neutralizes the quote/backslash chars that could break out of the literal.
+ * Sufficient on its own ONLY for the equality (`=`/`!=`) legs — the LIKE
+ * (`~`/`!~`) legs must ALSO escape SQL wildcards via `escapeLikeLiteral`.
  */
 function escapeFilterLiteral(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 /**
+ * Escape a value for a `~`/`!~` LIKE leg. VERIFIED against PocketBase
+ * 0.22.21 (tools/search/filter.go): `~` builds SQL `LIKE ... ESCAPE '\'`,
+ * and its auto-`%`-wrap is skipped when the operand contains an unescaped
+ * `%` (ours always does — the trailing `:%` wildcard), so a
+ * backslash-escaped `%`/`_` reaches SQLite as a LITERAL character. fexpr
+ * (the filter tokenizer) passes non-quote backslashes through verbatim, so
+ * the single backslash emitted here survives filter parsing intact.
+ *
+ * Without this, a family containing `%`/`_` over-matches in BOTH directions:
+ * family `d%`'s discovery EXCLUSION leg `probe_key !~ "d%:%"` also excludes
+ * `d6:`/`d4:` keys, hiding those families from the rotation while `d%` rows
+ * exist (starvation), and the inclusion/count legs over-claim/over-count
+ * symmetrically.
+ */
+function escapeLikeLiteral(value: string): string {
+  return escapeFilterLiteral(value)
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+}
+
+/**
  * PB filter clause matching every probe_key in `family`. Keys are
- * `<family>:<slug>` (the `~` LIKE leg); a colon-less probe_key IS its own
- * family (the `=` leg) so such rows are still claimable under fairness.
+ * `<family>:<slug>` (the `~` LIKE leg, family wildcard-escaped); a colon-less
+ * probe_key IS its own family (the `=` leg) so such rows are still claimable
+ * under fairness.
  */
 function familyInclusionClause(family: string): string {
-  const esc = escapeFilterLiteral(family);
-  return `(probe_key ~ "${esc}:%" || probe_key = "${esc}")`;
+  return `(probe_key ~ "${escapeLikeLiteral(family)}:%" || probe_key = "${escapeFilterLiteral(family)}")`;
 }
 
 /**
@@ -336,8 +404,7 @@ function familyInclusionClause(family: string): string {
  * grammar has no group negation.
  */
 function familyExclusionClause(family: string): string {
-  const esc = escapeFilterLiteral(family);
-  return `probe_key !~ "${esc}:%" && probe_key != "${esc}"`;
+  return `probe_key !~ "${escapeLikeLiteral(family)}:%" && probe_key != "${escapeFilterLiteral(family)}"`;
 }
 
 /**
@@ -433,7 +500,10 @@ export function createFleetQueueClient(
   async function discoverPendingFamilies(): Promise<string[]> {
     const families: string[] = [];
     const exclusions: string[] = [];
-    for (let i = 0; i < MAX_PENDING_FAMILIES; i++) {
+    // One iteration PAST the bound: iteration MAX_PENDING_FAMILIES never adds
+    // a family — it only probes whether MORE families exist beyond the cap,
+    // so tripping the bound is observable instead of silent.
+    for (let i = 0; i <= MAX_PENDING_FAMILIES; i++) {
       const filter = ['status = "pending"', ...exclusions].join(" && ");
       const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
         filter,
@@ -443,6 +513,18 @@ export function createFleetQueueClient(
       });
       const head = page.items[0];
       if (!head) break;
+      if (i === MAX_PENDING_FAMILIES) {
+        // The bound tripped with at least one family still hidden. A
+        // silently-undiscovered family never enters the rotation — exactly
+        // the starvation class fairness exists to prevent — so mirror the
+        // sweep's truncation warn. The hidden family is still claimable on
+        // later polls once the families ahead of it drain out of pending.
+        logger.warn("queue-client.family-discovery-truncated", {
+          maxFamilies: MAX_PENDING_FAMILIES,
+          nextProbeKey: head.probe_key,
+        });
+        break;
+      }
       const family = probeKeyFamily(head.probe_key);
       // Defensive: a backend that didn't honor the exclusion clause would
       // re-yield a seen family forever — break instead of spinning.
@@ -468,6 +550,19 @@ export function createFleetQueueClient(
   return {
     async enqueue(input: EnqueueJobInput): Promise<JobView> {
       const { payload } = input;
+      // Validate BEFORE creating the row: enqueue used to deref
+      // `payload.meta.runId` only AFTER `pb.create`, so a malformed caller
+      // payload threw AFTER persisting an undecodable row — a poison row
+      // every claimer then has to win, fail to decode, and release-as-failed.
+      // Failing loud first keeps the queue clean and keeps the encode and
+      // decode boundaries byte-symmetric (same shared assertion).
+      assertServiceJobPayload(
+        `enqueue(probe_key ${String(
+          (payload as Partial<ServiceJobPayload> | null)?.probeKey ??
+            "unknown",
+        )})`,
+        payload,
+      );
       // A fresh job is `pending` with no owner and no lease. `probe_key` is the
       // join key (== payload.probeKey, the d6 aggregate row key); the work
       // rides in the `payload` JSON column for the worker to read post-claim.
@@ -732,12 +827,14 @@ export function createFleetQueueClient(
         );
         if (!result.released) {
           // The CAS refused the release — not the lease holder, or the row is
-          // no longer running (likely already swept/reclaimed). The row is NOT
-          // terminal-by-us and carries NO result, so nothing was lost: the
-          // sweeper's reclaim path (REQ-B) covers the dashboard signal. Fail
-          // loud, but flag it as "release failed (job not lost)".
+          // no longer running (likely already swept/reclaimed). The JOB is not
+          // lost (the sweeper's reclaim path, REQ-B, keeps it in flight), but
+          // this worker's COMPUTED RESULT is: it is never persisted, and the
+          // re-queued job re-runs from scratch on another claim. Say exactly
+          // that — the old "nothing was lost" framing hid a full job's worth
+          // of discarded work from the operator reading the log.
           throw new Error(
-            `queue-client: release failed (job not lost) for job ${input.jobId} (worker ${input.workerId}, status ${status}) — not the lease holder or row not running`,
+            `queue-client: release refused for job ${input.jobId} (worker ${input.workerId}, status ${status}) — not the lease holder or row not running; this worker's computed result is DISCARDED and the job re-runs after reclamation`,
           );
         }
         // PERSIST the per-service result onto the now-terminal row so the
