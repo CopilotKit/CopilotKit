@@ -15,6 +15,7 @@ import type {
   ServiceJobResult,
   ReportJobInput,
 } from "./contracts.js";
+import { probeKeyFamily } from "./contracts.js";
 import { logger } from "../logger.js";
 
 /**
@@ -552,11 +553,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
   // exactly-one-winner semantics are untouched — only the candidate SELECTION
   // changed.
 
-  /** probe_key → family (prefix before the first ":"), local to these tests. */
-  const famOf = (probeKey: string): string => {
-    const idx = probeKey.indexOf(":");
-    return idx === -1 ? probeKey : probeKey.slice(0, idx);
-  };
+  // probe_key → family extraction comes from the PRODUCTION helper
+  // (`probeKeyFamily` in contracts.ts) rather than a local re-implementation,
+  // so these tests can never drift from the family rule the queue actually
+  // partitions on.
 
   /** A JobRow carrying PB's system `created` column (the paging sort key). */
   interface CreatedJobRow extends JobRow {
@@ -727,7 +727,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     for (let i = 0; i < 6; i++) {
       const c = await q.claimNext("w1", 30);
       expect(c.claimed).toBe(true);
-      claimedFamilies.push(famOf(c.lease!.job.probe_key));
+      claimedFamilies.push(probeKeyFamily(c.lease!.job.probe_key));
     }
 
     // The e2e-demos jobs sit ENTIRELY outside the oldest-50 global page (60
@@ -754,7 +754,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     const c = await q.claimNext("w1", 30);
 
     expect(c.claimed).toBe(true);
-    expect(famOf(c.lease!.job.probe_key)).toBe("e2e-demos");
+    expect(probeKeyFamily(c.lease!.job.probe_key)).toBe("e2e-demos");
   });
 
   it("countPendingForFamily counts ONLY that family's pending rows (producer backlog gate)", async () => {

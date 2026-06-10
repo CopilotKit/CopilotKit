@@ -437,6 +437,14 @@ describe("createControlPlane — multi-schedule hardening", () => {
     // Nothing registered.
     expect(scheduler.entries.size).toBe(0);
 
+    // `started` is not latched true on the FAILED instance: a retry on the
+    // SAME control-plane re-validates and throws again (a latched-true latch
+    // would make the second start() a silent no-op).
+    expect(() => cp.start()).toThrow(/fleet-bad/);
+    expect(producerA.started).toBe(false);
+    expect(producerB.started).toBe(false);
+    expect(scheduler.entries.size).toBe(0);
+
     // `started` is not latched true: a subsequent start() with valid crons works.
     const cpOk = createControlPlane({
       producer: producerA,

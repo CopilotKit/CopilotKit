@@ -102,6 +102,21 @@ import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
  * the two probes F1.1 is about; pb-up status is orthogonal and already
  * covered by server.test.ts.
  */
+// FILE-LEVEL MOCK HYGIENE: vi.doMock factories persist across the whole file
+// (vi.resetModules clears the module CACHE, not the mock REGISTRY), so a
+// describe that doMocks a module and only runs resetModules/restoreAllMocks in
+// its afterEach leaks its factory into every later test that imports the same
+// module without re-mocking it. The HTTP-probes describe already doUnmocks its
+// own set per-describe; these three are doMocked by the REQ-B / worker-self-
+// report / 4-schedules describes which did NOT unmock them. Unmock after EVERY
+// test so a leaked queue-client/status-writer/result-consumer stub can never
+// poison a sibling.
+afterEach(() => {
+  vi.doUnmock("./fleet/queue-client.js");
+  vi.doUnmock("./writers/status-writer.js");
+  vi.doUnmock("./fleet/control-plane/result-consumer.js");
+});
+
 async function pickPort(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const s = net.createServer();
@@ -1559,6 +1574,9 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
     const prevNodeEnv = process.env.NODE_ENV;
     const prevSecret = process.env.SHARED_SECRET;
     const prevPrev = process.env.SHARED_SECRET_PREV;
+    // Save/restore POCKETBASE_URL like the HF13-A2 tests — an unconditional
+    // `delete` in finally would clobber a pre-existing value for later tests.
+    const prevPbUrl = process.env.POCKETBASE_URL;
     process.env.NODE_ENV = "production";
     delete process.env.SHARED_SECRET;
     delete process.env.SHARED_SECRET_PREV;
@@ -1574,7 +1592,8 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
       if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
-      delete process.env.POCKETBASE_URL;
+      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
+      else process.env.POCKETBASE_URL = prevPbUrl;
     }
   });
 
@@ -1604,6 +1623,9 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
   it("boots successfully in production when at least one webhook secret is set", async () => {
     const prevNodeEnv = process.env.NODE_ENV;
     const prevSecret = process.env.SHARED_SECRET;
+    // Save/restore POCKETBASE_URL like the HF13-A2 tests — an unconditional
+    // `delete` in finally would clobber a pre-existing value for later tests.
+    const prevPbUrl = process.env.POCKETBASE_URL;
     process.env.NODE_ENV = "production";
     process.env.SHARED_SECRET = "test-secret-prod-ok";
     process.env.POCKETBASE_URL = "http://localhost:8090";
@@ -1620,7 +1642,8 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
       else delete process.env.SHARED_SECRET;
-      delete process.env.POCKETBASE_URL;
+      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
+      else process.env.POCKETBASE_URL = prevPbUrl;
     }
   });
 });

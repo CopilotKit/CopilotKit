@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   createJobProducer,
   DEFAULT_SWEEP_INTERVAL_MS,
@@ -635,6 +635,12 @@ describe("job-producer — sweep cadence", () => {
 });
 
 describe("job-producer — #72 pre-dispatch health warm-up", () => {
+  afterEach(() => {
+    // restoreAllMocks does NOT undo vi.stubGlobal — a leaked global fetch stub
+    // poisons unrelated files under fork-reuse (repo discipline).
+    vi.unstubAllGlobals();
+  });
+
   /** A fetch spy that records each warm URL and resolves a 200. */
   function makeFetchSpy(): {
     fetchImpl: typeof fetch;
@@ -696,7 +702,14 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
   });
 
   it("does NOT warm when no warmHealth config is supplied (legacy behavior)", async () => {
-    const { fetchImpl, calls } = makeFetchSpy();
+    // Stub the GLOBAL fetch: the meaningful no-warm guarantee is that an
+    // unconfigured producer never falls back to `globalThis.fetch` for warm
+    // GETs. (The prior shape of this test asserted zero calls on a local spy
+    // it never wired in — vacuously true by construction.)
+    const globalFetchSpy = vi.fn(
+      async (): Promise<Response> => new Response(null, { status: 200 }),
+    );
+    vi.stubGlobal("fetch", globalFetchSpy);
     const queue = makeFakeQueue();
     const producer = createJobProducer({
       queue,
@@ -705,10 +718,10 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       // no warmHealth
     });
     producer.start();
-    await producer.tick();
-    // fetchImpl was never wired, so nothing was warmed.
-    expect(calls).toHaveLength(0);
-    void fetchImpl;
+    const result = await producer.tick();
+    // The tick produced normally but fired no warm GET at all.
+    expect(result.enqueued).toBe(1);
+    expect(globalFetchSpy).not.toHaveBeenCalled();
   });
 
   it("a rejecting warm fetch never aborts job production (best-effort)", async () => {
