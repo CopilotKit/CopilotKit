@@ -102,6 +102,8 @@ function makeBrowser(opts?: {
 function makeCtx(overrides?: {
   writer?: ProbeResultWriter;
   featureTypes?: string[];
+  abortSignal?: AbortSignal;
+  drainReason?: "shutdown";
 }): ProbeContext {
   return {
     now: () => new Date("2025-01-01T00:00:00Z"),
@@ -109,6 +111,8 @@ function makeCtx(overrides?: {
     env: {},
     writer: overrides?.writer,
     featureTypes: overrides?.featureTypes,
+    abortSignal: overrides?.abortSignal,
+    drainReason: overrides?.drainReason,
   };
 }
 
@@ -267,6 +271,150 @@ describe("e2e-full driver", () => {
       expect(sideRow).toBeDefined();
       expect(sideRow!.state).toBe("green");
     });
+  });
+
+  // FIX 3 (graceful drain): when the run is aborted as part of a worker drain
+  // (`ctx.drainReason === "shutdown"`), the driver must SUPPRESS the red
+  // per-cell `errorClass: "abort"` side-emits it would otherwise write for
+  // not-yet-completed features — a redeploy must not paint a mass-red block.
+  // The worker-loop layer separately skips reporting the partial; the driver's
+  // job here is purely to suppress the per-cell red side-emits.
+  describe("graceful-drain abort suppression", () => {
+    it("suppresses red abort side-emits for unstarted features when drainReason=shutdown", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Pre-aborted signal = the worker has already started draining when the
+      // feature loop reaches this pill, so the abort branch fires immediately.
+      const ac = new AbortController();
+      ac.abort();
+
+      await driver.run(
+        makeCtx({ writer, abortSignal: ac.signal, drainReason: "shutdown" }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        },
+      );
+
+      // NO red per-cell abort side-emit for the unstarted pill.
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells).toEqual([]);
+    });
+
+    it("STILL emits red abort side-emits when aborted WITHOUT a drain reason (timeout/error abort)", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Pre-aborted, but NOT a drain (no drainReason) — a timeout/error abort
+      // still paints red so a genuine failure is visible.
+      const ac = new AbortController();
+      ac.abort();
+
+      await driver.run(makeCtx({ writer, abortSignal: ac.signal }), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells.length).toBeGreaterThan(0);
+    });
+
+    it("internal timeout abort STILL emits red side-emits even when ctx carries an un-fired drain signal", async () => {
+      // Fleet-shaped ctx: in production the worker threads its drain signal
+      // into EVERY ctx (and stamps drainReason alongside it), but here the
+      // signal never FIRES — the abort is the driver's own wall-clock
+      // `timeoutMs` cap. A timeout is a genuine failure and must paint red;
+      // suppression is only for an abort caused by the external drain signal
+      // actually firing. Saturate the semaphore so the queued feature hits the
+      // pre-start abort branch and the running ones hit the mid-run branch.
+      const featureTypes = [
+        "agentic-chat",
+        "tool-rendering",
+        "shared-state-read",
+        "shared-state-write",
+        "hitl-text-input",
+      ] as const;
+      expect(featureTypes.length).toBeGreaterThan(FEATURE_CONCURRENCY_D6);
+      for (const ft of featureTypes) {
+        registerD5Script(makeScript([ft]));
+      }
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const { launcher } = makeSlowTeardownLauncherFull({
+        gotoDelayMs: 200,
+        closeDelayMs: 5,
+      });
+      const driver = createE2eFullDriver({
+        launcher,
+        scriptLoader: noopScriptLoader(),
+        // Large enough that the OUTER cap (not the per-feature timer) drives
+        // the abort.
+        featureTimeoutMs: 60_000,
+      });
+
+      // The drain signal EXISTS but never fires.
+      const ac = new AbortController();
+
+      const result = await driver.run(
+        makeCtx({ writer, abortSignal: ac.signal, drainReason: "shutdown" }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: [...featureTypes],
+          // Tiny outer cap so the driver's INTERNAL timeout abort fires fast.
+          timeout_ms: 5,
+        },
+      );
+
+      expect(result.state).toBe("red");
+      // The timeout abort must paint red per-cell side-emits — the un-fired
+      // drain signal must NOT suppress them.
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells.length).toBeGreaterThan(0);
+    }, 20_000);
   });
 
   // Regression guard: the dashboard reads the integration-scoped aggregate

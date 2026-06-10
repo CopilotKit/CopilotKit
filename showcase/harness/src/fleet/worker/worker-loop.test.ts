@@ -945,6 +945,225 @@ describe("startWorkerLoop", () => {
     await handle.stop();
     expect(reports[0]!.aggregateState).toBe("green");
   });
+
+  // ── Graceful drain (FIX 3): stop() aborts the in-flight driver run ─────────
+
+  /**
+   * A driver fake that BLOCKS until `ctx.abortSignal` fires (mirroring a
+   * long-lived d6 browser run that observes the external abort). It captures the
+   * ctx it was handed so the test can assert the loop populated `abortSignal` +
+   * `drainReason`. On abort it behaves like the real d6 per-feature abort branch:
+   * it would side-emit a red `errorClass: "abort"` cell — UNLESS
+   * `ctx.drainReason === "shutdown"`, in which case it SUPPRESSES that emit
+   * (the real driver-side suppression this test stands in for).
+   */
+  function makeBlockingDrainDriver(): {
+    driver: ServiceJobDriver;
+    seenCtx: () => ServiceDriverContext | undefined;
+    started: Promise<void>;
+  } {
+    let captured: ServiceDriverContext | undefined;
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    const driver: ServiceJobDriver = {
+      async run(ctx, _input): Promise<ProbeResult> {
+        captured = ctx;
+        markStarted();
+        // Wait for the external (drain) abort.
+        await new Promise<void>((resolve) => {
+          if (ctx.abortSignal?.aborted) {
+            resolve();
+            return;
+          }
+          ctx.abortSignal?.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        const observedAt = ctx.now().toISOString();
+        // Real-d6-like per-feature abort emit, suppressed on drain.
+        if (ctx.drainReason !== "shutdown") {
+          await ctx.writer.write({
+            key: "d6:langgraph-python/shared-state",
+            state: "red",
+            signal: { featureType: "shared-state", errorClass: "abort" },
+            observedAt,
+          });
+        }
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "red",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt,
+        };
+      },
+    };
+    return { driver, seenCtx: () => captured, started };
+  }
+
+  it("stop() during an in-flight job aborts the driver (ctx.abortSignal defined+fired) and resolves bounded", async () => {
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, seenCtx, started } = makeBlockingDrainDriver();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    // Wait until the driver is actually running (claimed + in run()).
+    await started;
+    const ctx = seenCtx();
+    expect(ctx).toBeDefined();
+    // The loop threads its stopAbort signal into ctx.abortSignal, un-fired
+    // until stop().
+    expect(ctx!.abortSignal).toBeDefined();
+    expect(ctx!.abortSignal!.aborted).toBe(false);
+
+    // stop() must abort the run and resolve promptly (bounded), not hang on the
+    // driver's full timeout. A 1s budget proves it doesn't block.
+    await expect(
+      Promise.race([
+        handle.stop(),
+        new Promise<never>((_res, rej) =>
+          setTimeout(
+            () => rej(new Error("stop() did not resolve bounded")),
+            1000,
+          ),
+        ),
+      ]),
+    ).resolves.toBeUndefined();
+    expect(ctx!.abortSignal!.aborted).toBe(true);
+    expect(ctx!.drainReason).toBe("shutdown");
+  });
+
+  it("drain does NOT emit red cells for not-yet-run pills (drainReason suppresses)", async () => {
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const { driver, started } = makeBlockingDrainDriver();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    await started;
+    await handle.stop();
+    // No red abort cell was reported (the worker also skips report on drain, so
+    // we assert via the queue: nothing reported, hence no red cell painted).
+    const reportedRedAbort = queue.reports.some((r) =>
+      (r.cells ?? []).some(
+        (c) =>
+          c.state === "red" &&
+          (c.signal as { errorClass?: string })?.errorClass === "abort",
+      ),
+    );
+    expect(reportedRedAbort).toBe(false);
+  });
+
+  it("drain does NOT report the in-flight job (lets the lease expire → sweeper re-queues neutral-gray)", async () => {
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const reportSpy = vi.spyOn(queue, "report");
+    const { driver, started } = makeBlockingDrainDriver();
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    await started;
+    await handle.stop();
+    // The worker abandons the partial: no report for the drained job. The lease
+    // lapses and `sweepExpired` re-queues it neutral-gray (a reported partial
+    // would paint red — terminalJobStatus maps any non-green aggregate to failed).
+    expect(reportSpy).not.toHaveBeenCalled();
+  });
+
+  it("ctx.drainReason is undefined while the drain signal has NOT fired and becomes 'shutdown' after stop()", async () => {
+    // `drainReason` means "the EXTERNAL drain signal FIRED", not "a drain
+    // signal exists". In fleet production every ctx carries the worker's
+    // stopAbort signal, so a statically-stamped "shutdown" would mislabel the
+    // driver's own wall-clock timeout abort as a graceful drain and suppress
+    // its red cells. The ctx must therefore expose drainReason LIVE: undefined
+    // until the signal fires, "shutdown" after.
+    let reasonAtStart: "shutdown" | undefined;
+    let reasonAfterAbort: "shutdown" | undefined;
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    const driver: ServiceJobDriver = {
+      async run(ctx, _input): Promise<ProbeResult> {
+        reasonAtStart = ctx.drainReason;
+        markStarted();
+        await new Promise<void>((resolve) => {
+          if (ctx.abortSignal?.aborted) {
+            resolve();
+            return;
+          }
+          ctx.abortSignal?.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        reasonAfterAbort = ctx.drainReason;
+        return {
+          key: "e2e_d6:langgraph-python",
+          state: "red",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    await started;
+    // Before stop(): the drain signal exists but has NOT fired — a timeout
+    // abort at this point is a genuine failure, so drainReason must be unset.
+    expect(reasonAtStart).toBeUndefined();
+    await handle.stop();
+    // After stop(): the drain signal fired — the abort IS a graceful drain.
+    expect(reasonAfterAbort).toBe("shutdown");
+  });
 });
 
 // ── Driver REGISTRY: dispatch by payload.driverKind ────────────────────────

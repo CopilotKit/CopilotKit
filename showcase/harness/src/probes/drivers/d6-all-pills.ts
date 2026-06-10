@@ -49,8 +49,11 @@ import type playwright from "playwright";
  *      featureType — unlike D5 which skips with green, D6 treats
  *      missing scripts as a hard failure.
  *   3. Opens a fresh Playwright context with `X-AIMock-Context: <slug>`
- *      and `X-Test-Id: d6-<slug>` headers, navigates to the per-feature
- *      route, and runs the conversation through `runConversation`.
+ *      and `X-Test-Id: d6-<slug>-<runId>` headers (see `buildE2eTestId`;
+ *      the runId suffix gives each run fresh aimock fixture-count state —
+ *      the old per-slug constant id caused the staging flap), navigates to
+ *      the per-feature route, and runs the conversation through
+ *      `runConversation`.
  *   4. Emits one `d6:<slug>/<featureType>` diagnostic side row per
  *      feature (not consumed by dashboard rollup — diagnostic only).
  *   5. Emits an aggregate `d6:<slug>` primary result that is green ONLY
@@ -253,6 +256,28 @@ export interface E2eFullDriverDeps {
    * swallowed by `writeDiagEvent` and can never break a probe.
    */
   diagPb?: DiagSinkClient;
+  /**
+   * Factory for the per-`run()` correlation id (`runId`). Defaults to
+   * `mintRunId` (`crypto.randomUUID()`). Injectable ONLY so unit tests can
+   * supply a deterministic counter and assert the per-run-unique X-Test-Id
+   * (`d6-<slug>-<runId>`) without matching a brittle UUID regex. Production
+   * always uses the default. The id is minted once per `run()` and is stable
+   * across every feature-cell of that run, unique across runs.
+   */
+  idFactory?: () => string;
+}
+
+/**
+ * Build the per-feature aimock X-Test-Id. Folds the per-`run()` correlation
+ * id (`runId`) into the previously per-slug-only id so each run starts from a
+ * fresh aimock per-test-id fixture-match count, eliminating the cross-run
+ * sequence/turn-count desync that flapped the staging dashboard. Stable across
+ * a run's feature-cells (same `runId`), unique across runs. D5 runs THIS driver
+ * (take-one), so it is covered by the same `d6-` value; the D5 dashboard column
+ * is derived from `rowPrefix`, not from this header.
+ */
+export function buildE2eTestId(slug: string, runId: string): string {
+  return `d6-${slug}-${runId}`;
 }
 
 /**
@@ -674,6 +699,7 @@ export function createE2eFullDriver(
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
   const representatives = deps.representatives ?? D5_REPRESENTATIVES;
   const diagPb = deps.diagPb;
+  const idFactory = deps.idFactory ?? mintRunId;
 
   return {
     kind: "e2e_d6",
@@ -713,7 +739,7 @@ export function createE2eFullDriver(
       // component tag distinguishes the D5 take-one path from a full D6 run
       // even though they share THIS driver — that distinction is the whole
       // point of the CV incident (D5/CV red while D6 green).
-      const runId = mintRunId();
+      const runId = idFactory();
       const cvComponent = rowPrefix === "d5" ? "harness-d5" : "harness-d6";
       // The aimock base URL the framework apps are wired to send X-AIMock-*
       // against. Read from env (orchestrator sets AIMOCK_URL; the CLI sets
@@ -1071,29 +1097,48 @@ export function createE2eFullDriver(
           > = [];
           try {
             if (abort.signal.aborted) {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  errorClass: "abort",
-                  errorDesc: timedOut
-                    ? `timeout after ${timeoutMs}ms`
-                    : "aborted",
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): when the abort is a worker drain —
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually FIRED — SUPPRESS the red per-cell side-emit for this
+              // not-yet-started pill; a redeploy must not paint a mass-red
+              // block. The pill keeps its prior dashboard colour; the
+              // worker-loop layer separately abandons the partial (skips
+              // `queue.report`) so the lease lapses into the sweeper's
+              // neutral-gray re-queue. The internal `abort` controller ALSO
+              // fires on the driver's own wall-clock `timeoutMs` cap, so the
+              // drain reason alone is not proof of a drain — require
+              // `ctx.abortSignal.aborted` too. A timeout/error abort still
+              // emits red so a genuine failure stays visible.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true;
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    errorClass: "abort",
+                    errorDesc: timedOut
+                      ? `timeout after ${timeoutMs}ms`
+                      : "aborted",
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
                 pass: false,
                 errorDesc: timedOut
                   ? `timeout after ${timeoutMs}ms`
-                  : "aborted",
+                  : drainAborted
+                    ? "drain-suppressed"
+                    : "aborted",
                 durationMs: Date.now() - featureStart,
               });
               return {
@@ -1262,31 +1307,48 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: true,
               });
               return { ft, ok: true as const };
             } else {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  turns_completed: featureResult.conversation?.turns_completed,
-                  total_turns: featureResult.conversation?.total_turns,
-                  failure_turn: featureResult.conversation?.failure_turn,
-                  turn_durations_ms:
-                    featureResult.conversation?.turn_durations_ms,
-                  errorDesc: featureResult.errorDesc,
-                  errorClass: featureResult.errorClass,
-                  diagnostics: featureResult.diagnostics,
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): a feature that STARTED then got aborted
+              // MID-RUN by the worker drain (`errorClass: "abort"` while
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually fired) is a not-yet-completed pill — suppress its red
+              // side-emit too so a redeploy doesn't paint it red. The internal
+              // abort ALSO fires on the driver's own wall-clock `timeoutMs`
+              // cap, so require `ctx.abortSignal.aborted` to distinguish a true
+              // drain from a timeout — a timeout abort, and a genuine in-driver
+              // failure (any non-abort errorClass), still paint red even within
+              // the drain window.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true &&
+                featureResult.errorClass === "abort";
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    turns_completed:
+                      featureResult.conversation?.turns_completed,
+                    total_turns: featureResult.conversation?.total_turns,
+                    failure_turn: featureResult.conversation?.failure_turn,
+                    turn_durations_ms:
+                      featureResult.conversation?.turn_durations_ms,
+                    errorDesc: featureResult.errorDesc,
+                    errorClass: featureResult.errorClass,
+                    diagnostics: featureResult.diagnostics,
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
@@ -1307,7 +1369,7 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: false,
                 featureError: featureResult.errorDesc,
               });
@@ -1492,7 +1554,7 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
-  const testId = `d6-${slug}`;
+  const testId = buildE2eTestId(slug, runId);
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
     //
