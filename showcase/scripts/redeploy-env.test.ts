@@ -385,6 +385,29 @@ describe("runRedeploy", () => {
     }
   });
 
+  it("warns to stderr when REDEPLOY_SUMMARY_JSON is whitespace-only (trimmed before the set-but-empty check)", async () => {
+    // A whitespace-only value is exactly as unusable as the empty string,
+    // but without trimming it is truthy — it would skip the loud warn and
+    // attempt a JSON write against a garbage path instead.
+    vi.stubEnv("REDEPLOY_SUMMARY_JSON", "   \n\t");
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    try {
+      const redeploy = vi.fn(async () => ({ ok: true as const }));
+      await runRedeploy({
+        env: "staging",
+        redeploy,
+        appendSummary,
+        services: ["showcase-mastra"],
+      });
+      const written = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+      expect(written).toMatch(/REDEPLOY_SUMMARY_JSON is set but empty/);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
   it("env=prod returns exitCode 0 when all services succeed", async () => {
     const redeploy = vi.fn(async () => ({ ok: true as const }));
     const result = await runRedeploy({
@@ -688,9 +711,10 @@ describe("expandImageConsumers", () => {
   });
 
   it("throws on an inherited prototype key as env instead of silently not expanding", () => {
-    // `entry.environments["constructor"]` resolves to a truthy inherited
-    // value, so the old `=== undefined` skip-check would not have caught it
-    // either way — the registry own-key validation must reject it up front.
+    // The registry own-key validation rejects a prototype-named env up
+    // front, and the per-entry skip-check is itself an own-property test
+    // (`Object.hasOwn(entry.environments, env)`), so even a registered
+    // prototype-named env could not match a truthy inherited value.
     expect(() => expandImageConsumers(["harness"], "constructor")).toThrow(
       /Unknown env "constructor"/,
     );

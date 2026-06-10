@@ -676,6 +676,54 @@ describe("env-registry consistency invariant", () => {
       /"ghost".*no ENV_IDS spelling/i,
     );
   });
+
+  it("throws when a key in BOTH registries carries different env-ids (ENV_IDS.prod drifted to the staging id)", () => {
+    // The empirical gap this clause closes: with ENV_IDS.prod pointing at
+    // the STAGING env-id (while "production" still carries the real prod
+    // id), every other clause passes — ids are unique, every canonical
+    // name has a spelling, no orphans — yet resolveEnv("prod") silently
+    // returns { env: "staging" }. A redeploy typed as "prod" hits staging.
+    const byName = { prod: "prod-id", staging: "staging-id" };
+    const ids = {
+      prod: "staging-id", // drifted!
+      production: "prod-id",
+      staging: "staging-id",
+    };
+    expect(() => assertEnvRegistryConsistent({}, byName, ids)).toThrow(
+      /cross-wired.*"prod"/i,
+    );
+  });
+
+  it("throws on an orphan ENV_IDS spelling (env-id carried by no canonical name)", () => {
+    // Previously only caught lazily inside resolveEnv, at call time, for
+    // the one spelling an operator happened to type. The invariant makes
+    // the mis-wire loud at module load for EVERY orphan spelling.
+    const byName = { prod: "id-1" };
+    const ids = { prod: "id-1", legacy: "id-9" };
+    expect(() => assertEnvRegistryConsistent({}, byName, ids)).toThrow(
+      /orphan.*"legacy".*"id-9"/i,
+    );
+  });
+
+  it("throws on a registry key that is not trim().toLowerCase()-normalized (registered but unreachable)", () => {
+    // resolveEnv lowercases its input before the own-key lookup, so a
+    // non-lowercase spelling can never match — it is registered noise.
+    const byName = { prod: "id-1", Preview: "id-2" };
+    const ids = { prod: "id-1", preview: "id-2", Production: "id-1" };
+    const run = () => assertEnvRegistryConsistent({}, byName, ids);
+    expect(run).toThrow(/ENV_ID_BY_NAME key "Preview"/);
+    expect(run).toThrow(/ENV_IDS key "Production"/);
+  });
+
+  it("throws on a registry key that is an Object.prototype property name (both registries)", () => {
+    // A prototype-named env ("constructor", "toString", …) defeats every
+    // own-property lookup discipline in this file — reject it outright.
+    const byName = { prod: "id-1", constructor: "id-2" };
+    const ids = { prod: "id-1", constructor: "id-2" };
+    const run = () => assertEnvRegistryConsistent({}, byName, ids);
+    expect(run).toThrow(/ENV_IDS key "constructor".*Object\.prototype/);
+    expect(run).toThrow(/ENV_ID_BY_NAME key "constructor".*Object\.prototype/);
+  });
 });
 
 describe("service/instance id uniqueness invariant", () => {

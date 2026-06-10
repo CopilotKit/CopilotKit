@@ -275,7 +275,7 @@ export function expandImageConsumers(names: string[], env: EnvName): string[] {
   for (const [consumer, entry] of Object.entries(SERVICES)) {
     if (entry.imageOf === undefined) continue;
     if (!inScope.has(entry.imageOf)) continue;
-    if (entry.environments[env] === undefined) continue;
+    if (!Object.hasOwn(entry.environments, env)) continue;
     out.add(consumer);
   }
   return [...out];
@@ -486,7 +486,10 @@ export async function runRedeploy(
   // a CI consumer racing the writer never sees a partial file. A failure
   // here is warn-only — PR #5093's exit-code semantics MUST NOT regress
   // on a disk hiccup.
-  const jsonPath = process.env.REDEPLOY_SUMMARY_JSON;
+  // Trimmed: a whitespace-only value is exactly as unusable as the empty
+  // string and must hit the same loud warn path below — untrimmed it is
+  // truthy and would fall through to a write against a garbage path.
+  const jsonPath = process.env.REDEPLOY_SUMMARY_JSON?.trim();
   if (jsonPath === "") {
     // Set-but-empty is almost certainly a workflow wiring bug (e.g. an
     // unexpanded expression) — the falsy check below would silently skip

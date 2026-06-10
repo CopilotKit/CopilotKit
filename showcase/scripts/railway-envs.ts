@@ -1314,7 +1314,23 @@ export function assertImageConsumersValid(
  *         shadows the second name;
  *   (iii) every ENV_ID_BY_NAME canonical name must have at least one
  *         ENV_IDS spelling — a canonical name no spelling maps to can never
- *         be produced by resolveEnv (a registered-but-unnameable env).
+ *         be produced by resolveEnv (a registered-but-unnameable env);
+ *   (iv)  a key present in BOTH registries must carry the SAME env-id in
+ *         both — without this, ENV_IDS.prod drifting to the staging id
+ *         passes every other clause while resolveEnv("prod") silently
+ *         returns staging (a cross-wired redeploy target);
+ *   (v)   every ENV_IDS env-id must be carried by some ENV_ID_BY_NAME
+ *         canonical name — an orphan spelling is otherwise rejected only
+ *         lazily inside resolveEnv, at call time, for the one spelling an
+ *         operator happens to type;
+ *   (vi)  every key of both registries must equal its own
+ *         trim().toLowerCase() — resolveEnv lowercases its input before
+ *         the own-key lookup, so a non-normalized spelling is registered
+ *         but unreachable;
+ *   (vii) no key of either registry may be an Object.prototype property
+ *         name ("constructor", "toString", …) — a prototype-named env
+ *         defeats the own-property lookup discipline used throughout this
+ *         file and redeploy-env.ts.
  *
  * Accepts injected maps for testing; defaults to the real registries.
  */
@@ -1353,6 +1369,44 @@ export function assertEnvRegistryConsistent(
       problems.push(
         `  - canonical env "${name}" (env-id "${id}") has no ENV_IDS spelling — resolveEnv can never produce it; register at least its own name in ENV_IDS`,
       );
+    }
+  }
+  // (iv) Cross-wire: a key in BOTH registries must carry the SAME env-id.
+  for (const [key, id] of Object.entries(envIds)) {
+    if (Object.hasOwn(envIdByName, key) && envIdByName[key] !== id) {
+      problems.push(
+        `  - cross-wired env "${key}": ENV_IDS maps it to "${id}" but ENV_ID_BY_NAME maps it to "${envIdByName[key]}" — resolveEnv("${key}") would silently resolve to the OTHER env`,
+      );
+    }
+  }
+  // (v) Orphan spelling: every ENV_IDS env-id must have a canonical name.
+  const canonicalIds = new Set(Object.values(envIdByName));
+  for (const [spelling, id] of Object.entries(envIds)) {
+    if (!canonicalIds.has(id)) {
+      problems.push(
+        `  - orphan ENV_IDS spelling "${spelling}": its env-id "${id}" is carried by no ENV_ID_BY_NAME canonical name — resolveEnv would reject it only lazily at call time`,
+      );
+    }
+  }
+  // (vi)+(vii) Key hygiene on both registries: lowercase-normalized and
+  // never an Object.prototype property name.
+  const protoNames = new Set(Object.getOwnPropertyNames(Object.prototype));
+  const registries: Array<[string, Record<string, string>]> = [
+    ["ENV_IDS", envIds],
+    ["ENV_ID_BY_NAME", envIdByName],
+  ];
+  for (const [registryName, registry] of registries) {
+    for (const key of Object.keys(registry)) {
+      if (key !== key.trim().toLowerCase()) {
+        problems.push(
+          `  - ${registryName} key "${key}" is not trim().toLowerCase()-normalized — resolveEnv lowercases its input, so this spelling is registered but unreachable`,
+        );
+      }
+      if (protoNames.has(key)) {
+        problems.push(
+          `  - ${registryName} key "${key}" is an Object.prototype property name — a prototype-named env defeats own-property lookups; pick a different name`,
+        );
+      }
     }
   }
   if (problems.length > 0) {
