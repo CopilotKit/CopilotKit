@@ -11,7 +11,7 @@
  */
 
 import { spawnSync } from "child_process";
-import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
+import { getPackagesForScope } from "./lib/versions.js";
 import { ROOT, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
@@ -58,7 +58,13 @@ function main() {
     );
     process.exit(1);
   }
-  const publishVersion = packages[0]?.pkg.version ?? getCurrentVersion(scope);
+  const publishVersion = packages[0].pkg.version;
+  if (!publishVersion) {
+    console.error(
+      `Package ${packages[0].name} has no version field; refusing to publish.`,
+    );
+    process.exit(1);
+  }
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${publishVersion}`);
   console.log(`Dist tag: ${distTag}`);
@@ -68,6 +74,9 @@ function main() {
     for (const p of packages) {
       console.log(`  ${p.name}@${p.pkg.version}`);
     }
+    // Emitting in dry-run is safe — the publish workflow gates both the
+    // publish step and the verify guard on `inputs.dry-run != true`, so this
+    // only serves local/e2e verification of the output contract.
     emitGithubOutputs({ version: publishVersion, scope });
     console.log("\n[DRY RUN] Exiting.");
     return;

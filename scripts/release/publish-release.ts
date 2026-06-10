@@ -96,6 +96,18 @@ async function main() {
 
   const version = getCurrentVersion(scope);
   const scopeConfig = getScopeConfig(scope);
+
+  // Resolve packages before any version/registry safety checks so that a
+  // misconfigured scope fails with a clear "no packages" error instead of a
+  // misleading "not greater than published" one.
+  const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
+
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${version}`);
 
@@ -161,13 +173,6 @@ async function main() {
   // npm 11 uses GitHub Actions OIDC tokens for auth when id-token: write
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
-  const packages = getPackagesForScope(scope);
-  if (packages.length === 0) {
-    console.error(
-      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
-    );
-    process.exit(1);
-  }
   console.log("\nPublishing packages...");
   let skipped = 0;
   for (const p of packages) {

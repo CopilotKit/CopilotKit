@@ -16,13 +16,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Restore spies first so they cannot leak into the env/fs cleanup below.
+  vi.restoreAllMocks();
   if (originalGithubOutput === undefined) {
     delete process.env.GITHUB_OUTPUT;
   } else {
     process.env.GITHUB_OUTPUT = originalGithubOutput;
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });
-  vi.restoreAllMocks();
 });
 
 describe("emitGithubOutputs", () => {
@@ -64,7 +65,29 @@ describe("emitGithubOutputs", () => {
 
   it("throws when a key contains a newline", () => {
     expect(() => emitGithubOutputs({ "bad\nkey": "value" })).toThrow(
-      /bad\\nkey/,
+      /alphanumeric/,
     );
+  });
+
+  it("throws when a key contains '='", () => {
+    expect(() => emitGithubOutputs({ "bad=key": "value" })).toThrow(
+      /alphanumeric/,
+    );
+  });
+
+  it("throws when a key contains a space", () => {
+    expect(() => emitGithubOutputs({ "bad key": "value" })).toThrow(
+      /alphanumeric/,
+    );
+  });
+
+  it("throws when a key is empty", () => {
+    expect(() => emitGithubOutputs({ "": "value" })).toThrow(/alphanumeric/);
+  });
+
+  it("accepts a value containing '=' and writes it verbatim", () => {
+    emitGithubOutputs({ note: "a=b" });
+
+    expect(fs.readFileSync(outputFile, "utf8")).toBe("note=a=b\n");
   });
 });
