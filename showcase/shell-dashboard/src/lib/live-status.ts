@@ -55,7 +55,12 @@ export const POOL_COMM_ERROR_KINDS = [
   "claim-comm-failure",
   /** The worker exceeded the protocol response deadline (hung, no crash). */
   "worker-protocol-timeout",
-  /** The worker died mid-job: lease expired with no terminal report. */
+  /**
+   * The worker's OWN self-monitor observed an in-driver pool-infra crash
+   * mid-job and reported it directly (a known crash — stays red). A lease
+   * that merely expired with no terminal report is NOT this kind; the sweep
+   * emits `worker-reclaimed-pending` for that.
+   */
   "worker-crashed-mid-job",
   /** A report arrived but failed schema/shape validation (protocol mismatch). */
   "worker-protocol-violation",

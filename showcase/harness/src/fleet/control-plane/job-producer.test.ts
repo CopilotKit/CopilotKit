@@ -486,7 +486,7 @@ describe("job-producer — sweep cadence", () => {
         reclaimed: 2,
         commErrors: [
           {
-            kind: "worker-crashed-mid-job",
+            kind: "worker-reclaimed-pending",
             message: "lease expired",
             observedAt: new Date(nowMs).toISOString(),
           },
@@ -498,16 +498,16 @@ describe("job-producer — sweep cadence", () => {
     expect(result.reclaimed).toBe(2);
   });
 
-  it("[REQ-B] forwards the swept worker-crashed comm errors to the onSweepCommErrors sink", async () => {
-    // The whole point of REQ-B: a crashed/lease-expired worker's job is
-    // reclaimed and produces a worker-crashed-mid-job comm error. Previously
-    // the producer only LOGGED commErrors.length and DISCARDED the array, so
-    // the dashboard overlay was never written (the red state). Now the producer
-    // FORWARDS the array to an injected sink the control-plane routes to the
-    // aggregator.
+  it("[REQ-B] forwards the swept worker-reclaimed-pending comm errors to the onSweepCommErrors sink", async () => {
+    // The whole point of REQ-B: a lease-expired worker's job is reclaimed
+    // (re-queued to pending) and produces a worker-reclaimed-pending comm
+    // error. Previously the producer only LOGGED commErrors.length and
+    // DISCARDED the array, so the dashboard surface was never written. Now
+    // the producer FORWARDS the array to an injected sink the control-plane
+    // routes to the aggregator.
     const sweptErrors: PoolCommError[] = [
       {
-        kind: "worker-crashed-mid-job",
+        kind: "worker-reclaimed-pending",
         message: "lease for job j1 expired; re-queued",
         workerId: "worker-dead",
         jobId: "j1",
@@ -557,7 +557,7 @@ describe("job-producer — sweep cadence", () => {
         reclaimed: 1,
         commErrors: [
           {
-            kind: "worker-crashed-mid-job",
+            kind: "worker-reclaimed-pending",
             message: "lease expired",
             jobId: "j1",
             observedAt: "2026-06-04T00:00:09.000Z",

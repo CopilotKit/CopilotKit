@@ -33,13 +33,15 @@
  * the PB client returns.
  *
  * ── WHY sweepExpired RE-QUEUES VIA S0 releaseJob(pending) ──────────────────
- * A worker that crashes mid-job leaves its lease to expire with no terminal
- * report. The sweeper (control-plane S4) finds those rows, re-queues each via
- * S0's `releaseJob(..., "pending")` ON BEHALF of the dead holder (the CAS
- * checks `claimed_by`, which is still the dead worker, so the release is
- * authorized and atomic), and synthesizes a `worker-crashed-mid-job`
- * `PoolCommError` (REQ-B) per reclaimed job so the dashboard renders
- * "couldn't reach the pool" distinctly from a probe red.
+ * A lease that expires with no terminal report could be a real worker crash
+ * OR an expected platform teardown (Railway scale-down / redeploy SIGKILL) —
+ * the sweep boundary cannot tell them apart. The sweeper (control-plane S4)
+ * finds those rows, re-queues each via S0's `releaseJob(..., "pending")` ON
+ * BEHALF of the lapsed holder (the CAS checks `claimed_by`, which is still
+ * that worker, so the release is authorized and atomic), and synthesizes a
+ * neutral `worker-reclaimed-pending` `PoolCommError` (REQ-B) per reclaimed
+ * job — the dashboard renders it as a gray "re-queued" surface, NOT a red
+ * crash/unreachable overlay (the job is back in flight).
  */
 
 import type { Logger } from "../types/index.js";

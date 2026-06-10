@@ -240,7 +240,12 @@ export const POOL_COMM_ERROR_KINDS = [
   "claim-comm-failure",
   /** The worker exceeded the protocol response deadline (hung, no crash). */
   "worker-protocol-timeout",
-  /** The worker died mid-job: lease expired with no terminal report. */
+  /**
+   * The worker's OWN self-monitor observed an in-driver pool-infra crash
+   * mid-job and reported it directly (a known crash — stays red). A lease
+   * that merely expired with no terminal report is NOT this kind; the sweep
+   * emits `worker-reclaimed-pending` for that.
+   */
   "worker-crashed-mid-job",
   /** A report arrived but failed schema/shape validation (protocol mismatch). */
   "worker-protocol-violation",
@@ -491,8 +496,9 @@ export interface WorkerRegistration {
 /**
  * The periodic heartbeat a worker writes to refresh its liveness + capacity.
  * fleet-health (S10) reads `lastHeartbeatAt` against a staleness window to
- * derive `WorkerHealthState`; a worker whose heartbeat lapses is what the
- * control-plane treats as `worker-crashed-mid-job` (see PoolCommErrorKind).
+ * derive `WorkerHealthState`; a worker whose heartbeat lapses leaves its
+ * leases to expire, which the sweep reclaims and surfaces as the neutral
+ * `worker-reclaimed-pending` kind (see PoolCommErrorKind).
  */
 export interface WorkerHeartbeat {
   workerId: string;
@@ -601,7 +607,7 @@ export interface ReportJobInput {
 export interface SweepResult {
   /** Number of expired leases reclaimed (jobs re-queued to pending). */
   reclaimed: number;
-  /** The comm errors synthesized for each reclaimed (crashed) worker job. */
+  /** The `worker-reclaimed-pending` comm errors synthesized per reclaimed job. */
   commErrors: PoolCommError[];
   /**
    * Number of STALE PENDING jobs expired (claimed-then-deleted) because they
@@ -622,8 +628,9 @@ export interface SweepResult {
  *     a `JobLease` to the worker on a win (the exactly-one-winner guarantee
  *     comes from S0).
  *   - `renewLease` / `report` delegate to S0's `renewLease` / `releaseJob`.
- *   - `sweepExpired` reclaims leases from crashed workers and emits the
- *     `worker-crashed-mid-job` comm errors (REQ-B) the dashboard renders.
+ *   - `sweepExpired` reclaims expired leases (re-queues the jobs to pending)
+ *     and emits the neutral `worker-reclaimed-pending` comm errors (REQ-B)
+ *     the dashboard renders as a gray "re-queued" surface.
  *
  * Producers (control-plane S4) use `enqueue` + `sweepExpired`; consumers
  * (worker loop S7) use `claimNext` + `renewLease` + `report`.

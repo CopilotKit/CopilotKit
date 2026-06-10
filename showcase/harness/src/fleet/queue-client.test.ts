@@ -22,8 +22,8 @@ import { logger } from "../logger.js";
  * over S0's JobClaimClient + the PB client. The three load-bearing behaviors
  * are an enqueue→claimNext round-trip (payload survives the row), report mapping
  * a result onto the terminal JobStatus S0's releaseJob expects, and
- * sweepExpired surfacing `worker-crashed-mid-job` comm errors for leases that
- * expired mid-run.
+ * sweepExpired re-queueing expired leases to pending and surfacing the neutral
+ * `worker-reclaimed-pending` comm errors for them.
  */
 
 function samplePayload(

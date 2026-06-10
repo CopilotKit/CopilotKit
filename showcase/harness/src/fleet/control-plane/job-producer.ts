@@ -52,8 +52,9 @@ import { deriveHealthUrl } from "../../probes/liveness.js";
 
 /**
  * Sink the producer hands its lease-sweep comm errors to (REQ-B). `sweepExpired`
- * reclaims a crashed/lease-expired worker's job and synthesizes one
- * `worker-crashed-mid-job` `PoolCommError` per reclaimed job; those errors only
+ * reclaims a lease-expired worker's job (re-queues it to pending) and
+ * synthesizes one neutral `worker-reclaimed-pending` `PoolCommError` per
+ * reclaimed job; those errors only
  * reach the dashboard once they are written onto the job's status row. The
  * producer does NOT own the status pipeline (it owns no PB/aggregator), so it
  * FORWARDS the swept errors to this injected sink — the wiring slot
@@ -156,7 +157,7 @@ export interface TickOptions {
 export interface TickResult {
   /** The run batch id every enqueued job in this tick shares. */
   runId: string;
-  /** Number of per-service jobs enqueued (== services enumerated, minus failures). */
+  /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures and backlog-gate skips). */
   enqueued: number;
   /** Number of enqueue attempts that threw (a service that failed to enqueue). */
   enqueueFailures: number;
@@ -199,11 +200,11 @@ export interface JobProducerOptions {
    */
   runIdFactory?: () => string;
   /**
-   * Sink for the lease-sweep's `worker-crashed-mid-job` comm errors (REQ-B).
+   * Sink for the lease-sweep's `worker-reclaimed-pending` comm errors (REQ-B).
    * When omitted, swept errors are logged only (the legacy behaviour) — but the
-   * wiring slot injects this so a crashed worker's "unreachable" overlay reaches
-   * the dashboard via the aggregator. Failures are swallowed (logged) and never
-   * abort job production.
+   * wiring slot injects this so a reclaimed job's gray "re-queued" surface
+   * reaches the dashboard via the aggregator. Failures are swallowed (logged)
+   * and never abort job production.
    */
   onSweepCommErrors?: SweepCommErrorSink;
   /**
@@ -322,9 +323,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           expiredPending: result.expiredPending ?? 0,
         });
       }
-      // REQ-B: forward the swept `worker-crashed-mid-job` comm errors to the
-      // injected sink so each reclaimed job's "unreachable" overlay reaches the
-      // dashboard (the producer owns no status pipeline of its own). Previously
+      // REQ-B: forward the swept `worker-reclaimed-pending` comm errors to the
+      // injected sink so each reclaimed job's gray "re-queued" surface reaches
+      // the dashboard (the producer owns no status pipeline of its own). Previously
       // these were DROPPED after logging their count — the crash/lease-expiry
       // overlay never surfaced. Best-effort: a sink failure must not abort job
       // production, so we log and swallow (the next sweep retries).
