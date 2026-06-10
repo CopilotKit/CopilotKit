@@ -11,6 +11,10 @@ features:
       description: Talk to the AG-UI agent from any channel
       usage_hint: "<your message>"
       should_escape: false
+    - command: /triage
+      description: Triage this thread — summarize and propose Linear issues
+      usage_hint: ""
+      should_escape: false
 oauth_config:
   scopes:
     bot:
@@ -42,14 +46,11 @@ oauth_config:
       - channels:join
       # --- Slash commands ---
       - commands
-      # --- Optional: enables Slack's AI Assistant UI surface (future) ---
-      - assistant:write
 settings:
   event_subscriptions:
     bot_events:
       - app_mention
       - message.im # DMs to the bot (for later, when we add DM flow)
-      - assistant_thread_started # for the AI Assistant UI surface (future)
   interactivity:
     is_enabled: true
   socket_mode_enabled: true

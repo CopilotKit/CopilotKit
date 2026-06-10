@@ -1,7 +1,7 @@
 {
   "display_information": {
     "name": "CopilotKit Triage",
-    "description": "On-call triage assistant — query/file Linear issues and find/write Notion pages from Slack.",
+    "description": "On-call triage assistant \u2014 query/file Linear issues and find/write Notion pages from Slack.",
     "background_color": "#1a1a1a"
   },
   "features": {
@@ -19,6 +19,12 @@
         "command": "/agent",
         "description": "Talk to the AG-UI agent from any channel",
         "usage_hint": "<your message>",
+        "should_escape": false
+      },
+      {
+        "command": "/triage",
+        "description": "Triage this thread \u2014 summarize and propose Linear issues",
+        "usage_hint": "",
         "should_escape": false
       }
     ]
@@ -49,8 +55,7 @@
         "files:read",
         "files:write",
         "channels:join",
-        "commands",
-        "assistant:write"
+        "commands"
       ]
     }
   },
@@ -61,8 +66,7 @@
         "message.channels",
         "message.groups",
         "message.im",
-        "message.mpim",
-        "assistant_thread_started"
+        "message.mpim"
       ]
     },
     "interactivity": {
