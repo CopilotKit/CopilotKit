@@ -33,6 +33,19 @@ import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
+ * Stable per-row React key. The AG-UI client sets `renderId` when a message's
+ * canonical `id` changes mid-stream (a transient streaming/run id replaced by a
+ * provider's final id); keying by `renderId ?? id` lets React reconcile the
+ * same row in place instead of remounting it — the remount being what caused
+ * the HITL chat flash. `renderId` is read defensively: it only exists on
+ * `@ag-ui/core` versions that ship the field, and absent it we fall back to
+ * `id` (the keying is then identical to the previous behavior).
+ */
+function getRowRenderKey(message: Message): string {
+  return (message as { renderId?: string }).renderId ?? message.id;
+}
+
+/**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
  * slot forms: a component type, a className string, or a partial-props object.
  */
@@ -557,11 +570,12 @@ export function CopilotChatMessageView({
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
     const stateSnapshot = getStateSnapshotForMessage(message.id);
+    const rowKey = getRowRenderKey(message);
 
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${message.id}-custom-before`}
+          key={`${rowKey}-custom-before`}
           message={message}
           position="before"
           renderCustomMessage={renderCustomMessage}
@@ -573,7 +587,7 @@ export function CopilotChatMessageView({
     if (message.role === "assistant") {
       elements.push(
         <MemoizedAssistantMessage
-          key={message.id}
+          key={rowKey}
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
@@ -584,7 +598,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "user") {
       elements.push(
         <MemoizedUserMessage
-          key={message.id}
+          key={rowKey}
           message={message as UserMessage}
           UserMessageComponent={UserComponent}
           slotProps={userSlotProps}
@@ -593,7 +607,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "activity") {
       elements.push(
         <MemoizedActivityMessage
-          key={message.id}
+          key={rowKey}
           message={message as ActivityMessage}
           renderActivityMessage={renderActivityMessage}
         />,
@@ -601,7 +615,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "reasoning") {
       elements.push(
         <MemoizedReasoningMessage
-          key={message.id}
+          key={rowKey}
           message={message as ReasoningMessage}
           messages={messages}
           isRunning={isRunning}
@@ -614,7 +628,7 @@ export function CopilotChatMessageView({
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${message.id}-custom-after`}
+          key={`${rowKey}-custom-after`}
           message={message}
           position="after"
           renderCustomMessage={renderCustomMessage}
@@ -685,7 +699,7 @@ export function CopilotChatMessageView({
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
               <div
-                key={message.id}
+                key={getRowRenderKey(message)}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
