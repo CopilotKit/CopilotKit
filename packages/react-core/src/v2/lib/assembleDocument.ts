@@ -119,13 +119,24 @@ export function assembleDocument(
   // Match only a real head-opening tag: `<head>`, or `<head` followed by
   // whitespace + attributes. This deliberately excludes `<header …>`, which the
   // looser `/<head[^>]*>/i` would have captured (injecting into the body).
-  const headOpenMatch = html.match(/<head(\s[^>]*)?>/i);
+  // `[^<>]*` (not `[^>]*`) bounds the attribute span so the tag can never
+  // greedily swallow a following `<tag>` — e.g. `<head\t<body>` no longer
+  // matches as one "opening tag" and splices the prefix into the body.
+  const headOpenMatch = html.match(/<head(\s[^<>]*)?>/i);
   if (headOpenMatch && headOpenMatch.index !== undefined) {
     prefixInsertAt = headOpenMatch.index + headOpenMatch[0].length;
     html = html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
     // The inserted prefix shifts the insertion point past its own bytes so
     // the css fallback lands after the prefix (kit), preserving the cascade.
     prefixInsertAt += prefix.length;
+  } else {
+    // No real head-opening tag exists that we can anchor to (e.g. an
+    // unterminated `<head \nclass=x` token that `ensureHead` saw via
+    // `/<head[\s>]/` and therefore declined to prepend). Synthesize a head at
+    // position 0 carrying the prefix — and, in cascade order, the agent css —
+    // so the prefix is NEVER dropped. We return immediately: the css here is
+    // already injected, so the css branch below must not run for this path.
+    return `<head>${prefix}${css ? `<style>${css}</style>` : ""}</head>` + html;
   }
 
   // Inject agent CSS immediately before </head> (legacy algorithm).

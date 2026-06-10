@@ -124,7 +124,7 @@ describe("assembleDocument", () => {
       importMap: { three: "https://esm.sh/three@0.180.0" },
     });
     // Exactly one <head opening tag — no duplicate head was prepended.
-    const headOpenings = out.match(/<head(\s[^>]*)?>/gi) ?? [];
+    const headOpenings = out.match(/<head(\s[^<>]*)?>/gi) ?? [];
     expect(headOpenings).toHaveLength(1);
     // Cascade order: importmap, then kit, then agent css.
     const importmapIdx = out.indexOf('<script type="importmap">');
@@ -184,11 +184,16 @@ describe("assembleDocument", () => {
       '<head data-x="1"><title>t</title></head><body>v</body>', // attributes
       "<header>h</header><head></head><body>w</body>", // header before head
       "<header>only</header><div>z</div>", // header, no head
+      "<head \nclass=x", // unterminated head token (no `>`) — must not drop prefix
+      "<head\tfoo", // unterminated head token, tab + bareword — must not drop prefix
+      "a<head\t<body>z</body>", // head token whose attr span runs into <body> — prefix must stay out of the body
     ];
     const CSS = [undefined, ".x{}"];
     // A real head-opening tag: `<head>` or `<head ...attrs>`, excluding
-    // `<header ...>`. Non-legacy mode must never emit more than one.
-    const HEAD_OPEN = /<head(\s[^>]*)?>/gi;
+    // `<header ...>`. `[^<>]*` (matching the production insertion regex) bounds
+    // the attribute span so a tag can never swallow a following `<tag>`.
+    // Non-legacy mode must never emit more than one.
+    const HEAD_OPEN = /<head(\s[^<>]*)?>/gi;
 
     // (1) LEGACY MODE — byte-identical to the legacy reference for every input ×
     // css, under BOTH `importMap: false` and `importMap: {}` (an empty importmap
