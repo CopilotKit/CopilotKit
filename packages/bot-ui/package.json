@@ -1,0 +1,29 @@
+{
+  "name": "@copilotkit/bot-ui",
+  "version": "0.0.1",
+  "private": true,
+  "description": "JSX runtime, IR, and cross-platform component vocabulary for CopilotKit bots.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./jsx-runtime": { "types": "./dist/jsx-runtime.d.ts", "import": "./dist/jsx-runtime.js" },
+    "./jsx-dev-runtime": { "types": "./dist/jsx-dev-runtime.d.ts", "import": "./dist/jsx-dev-runtime.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": { "@copilotkit/shared": "workspace:*" },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

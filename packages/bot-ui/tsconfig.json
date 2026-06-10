@@ -1,0 +1,13 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["es2022"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/bot-ui",
+    "paths": { "@copilotkit/bot-ui/jsx-runtime": ["./src/jsx-runtime.ts"] }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist", "node_modules"]
+}
