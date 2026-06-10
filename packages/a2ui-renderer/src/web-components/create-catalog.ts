@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { type ZodObject, type ZodRawShape, type ZodTypeAny } from "zod";
+import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -61,6 +61,9 @@ export function createCatalog<D extends CatalogDefinitions>(
     const renderer = (renderers as Record<string, ComponentRenderer<any>>)[
       name
     ];
+    if (renderer === undefined) {
+      throw new Error(`Missing renderer for component "${name}"`);
+    }
     customComponents.push(
       createLitComponent(api, ({ props, buildChild, context }) =>
         renderer({
