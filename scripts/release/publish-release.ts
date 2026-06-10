@@ -34,6 +34,7 @@ import {
   loadConfig,
   type ReleaseScope,
 } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -192,11 +193,7 @@ async function main() {
   }
 
   // Output version for downstream steps
-  const outputPath = process.env.GITHUB_OUTPUT;
-  if (outputPath) {
-    fs.appendFileSync(outputPath, `version=${version}\n`);
-    fs.appendFileSync(outputPath, `scope=${scope}\n`);
-  }
+  emitGithubOutputs({ version, scope });
 
   console.log(`\nRelease published: ${version} (${scope})`);
 }

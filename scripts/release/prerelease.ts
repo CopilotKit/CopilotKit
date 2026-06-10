@@ -12,7 +12,9 @@
 
 import { spawnSync } from "child_process";
 import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -60,6 +62,7 @@ function main() {
     for (const p of packages) {
       console.log(`  ${p.name}@${p.pkg.version}`);
     }
+    emitGithubOutputs({ version: publishVersion, scope });
     console.log("\n[DRY RUN] Exiting.");
     return;
   }
@@ -93,6 +96,10 @@ function main() {
       { cwd: p.dir },
     );
   }
+
+  // The workflow's "Verify publish step emitted version" guard and the
+  // prerelease summary read these from steps.publish.outputs.
+  emitGithubOutputs({ version: publishVersion, scope });
 
   console.log(`\nPrerelease published: ${publishVersion} (tag: ${distTag})`);
 }
