@@ -418,6 +418,37 @@ describe("imageOf consumer invariant", () => {
     };
     expect(() => assertImageConsumersValid(synthetic)).not.toThrow();
   });
+
+  it("throws when a consumer declares an env its imageOf producer never builds for", () => {
+    // A consumer env outside the producer's env set would run an image
+    // that no CI build ever refreshes for that env — exactly the
+    // stale-image class this invariant exists to prevent. The message
+    // must name the offending env.
+    const synthetic = {
+      producer: { ciBuilt: true, environments: { staging: {} } },
+      worker: {
+        ciBuilt: false,
+        imageOf: "producer",
+        environments: { staging: {}, prod: {} },
+      },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).toThrow(
+      /worker.*"prod".*producer/i,
+    );
+  });
+
+  it("treats inherited Object.prototype keys as dangling imageOf targets", () => {
+    // `services[target]` with target "toString" resolves to the inherited
+    // Object.prototype method — a truthy non-entry. The assert must use an
+    // own-property lookup so this reports the DANGLING-target message, not
+    // a bogus "not ciBuilt" complaint about Function.prototype.toString.
+    const synthetic = {
+      worker: { ciBuilt: false, imageOf: "toString" },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).toThrow(
+      /imageOf "toString".*worker.*not an SSOT key/i,
+    );
+  });
 });
 
 describe("railway-envs SSOT — domains + probe", () => {
@@ -430,9 +461,12 @@ describe("railway-envs SSOT — domains + probe", () => {
         expect(cfg.domain, `${name}.environments.${env}.domain`).toMatch(
           /^[A-Za-z0-9.-]+$/,
         );
+        // `://` is the scheme discriminator (matching domainFor's guard) —
+        // a `startsWith("http")` check would falsely reject legitimate
+        // `httpd-*` / `httpbin*` hosts.
         expect(
-          cfg.domain.startsWith("http"),
-          `${name}.${env}: domain must not include scheme`,
+          cfg.domain.includes("://"),
+          `${name}.${env}: domain must not include a scheme separator`,
         ).toBe(false);
       }
     }

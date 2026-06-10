@@ -33,7 +33,9 @@
  *     redeploys whenever that image's builder is in scope. The expansion
  *     is env-aware — a consumer only joins envs it actually declares, so
  *     the staging-only worker is never ADDED to a prod redeploy by
- *     expansion (an explicit --services request is passed through as-is).
+ *     expansion. That env filter applies ONLY to consumers added by
+ *     expansion: a service the caller explicitly names in `--services`
+ *     is attempted even in an env it does not declare.
  *   - Per-service Railway failures (including the all-services-fail case)
  *     are logged to stderr and $GITHUB_STEP_SUMMARY but DO NOT fail the
  *     process for staging. Staging is not a release gate; the

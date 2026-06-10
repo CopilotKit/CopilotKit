@@ -1122,15 +1122,23 @@ export function assertDispatchNamesUnique(
 
 /**
  * Throw on SSOT load if any `imageOf` is mis-wired. A dangling target,
- * a target without a build slot, or an imageOf on a build slot would each
- * silently break the "rebuilt image redeploys ALL its consumers" contract
- * in `redeploy-env.ts` — fail loud at module load instead (same style as
+ * a target without a build slot, an imageOf on a build slot, or a consumer
+ * env the producer never builds for would each silently break the
+ * "rebuilt image redeploys ALL its consumers" contract in
+ * `redeploy-env.ts` — fail loud at module load instead (same style as
  * `assertDispatchNamesUnique`).
  *
  * Accepts an injected map for testing; defaults to the real SERVICES map.
  */
 export function assertImageConsumersValid(
-  services: Record<string, { ciBuilt: boolean; imageOf?: string }> = SERVICES,
+  services: Record<
+    string,
+    {
+      ciBuilt: boolean;
+      imageOf?: string;
+      environments?: Record<string, unknown>;
+    }
+  > = SERVICES,
 ): void {
   const problems: string[] = [];
   for (const [key, entry] of Object.entries(services)) {
@@ -1142,24 +1150,41 @@ export function assertImageConsumersValid(
       );
       continue;
     }
-    const targetEntry = services[target];
-    if (!targetEntry) {
+    // Own-property lookup: a bare `services[target]` truthiness check
+    // would resolve inherited Object.prototype keys (e.g. imageOf:
+    // "toString") to a truthy non-entry and misreport the dangling target.
+    if (!Object.hasOwn(services, target)) {
       problems.push(
         `  - imageOf "${target}" on "${key}" is not an SSOT key in SERVICES`,
       );
       continue;
     }
+    const targetEntry = services[target];
     if (!targetEntry.ciBuilt) {
       problems.push(
         `  - imageOf "${target}" on "${key}" points at a service that is not ciBuilt — only showcase_build.yml build slots can have image consumers`,
       );
+      continue;
+    }
+    // Env overlap: every env the consumer declares must also be one the
+    // producer builds for. A consumer-only env would run an image that no
+    // CI build ever refreshes there — a silently never-updating service,
+    // the exact stale-image failure this invariant exists to prevent.
+    const producerEnvs = targetEntry.environments ?? {};
+    for (const env of Object.keys(entry.environments ?? {})) {
+      if (!Object.hasOwn(producerEnvs, env)) {
+        problems.push(
+          `  - "${key}" declares env "${env}" but its imageOf "${target}" has no "${env}" environment — "${key}" would run a never-rebuilt image there`,
+        );
+      }
     }
   }
   if (problems.length > 0) {
     throw new Error(
       `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
-        `Fix: imageOf must name an existing, ciBuilt SSOT key, and may ` +
-        `only appear on a non-ciBuilt consumer.`,
+        `Fix: imageOf must name an existing, ciBuilt SSOT key, may only ` +
+        `appear on a non-ciBuilt consumer, and the consumer's declared ` +
+        `environments must be a subset of its producer's.`,
     );
   }
 }
