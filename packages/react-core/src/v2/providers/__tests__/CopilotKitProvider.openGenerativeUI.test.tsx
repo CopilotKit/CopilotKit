@@ -341,4 +341,71 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       );
     });
   });
+
+  describe("(m) resolved options stay referentially stable across re-renders with inline props", () => {
+    it("a fresh inline openGenerativeUI object each render → useOpenGenerativeUIOptions() result (and importMap) is referentially equal across renders", () => {
+      // The documented inline idiom creates new `openGenerativeUI`,
+      // `libraries`, and `designSystem` objects on every render. The resolved
+      // options must stay referentially stable so downstream consumers (the
+      // live sandbox iframe) are not destroyed and rebuilt on unrelated parent
+      // re-renders.
+      const { result, rerender } = renderHook(
+        () => useOpenGenerativeUIOptions(),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{
+                libraries: { foo: "https://x" },
+                designSystem: { css: "X{}" },
+              }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      const first = result.current;
+      const firstImportMap = result.current.importMap;
+
+      // Re-render the wrapper, which builds a brand-new inline object literal.
+      rerender();
+
+      expect(result.current).toBe(first);
+      expect(result.current.importMap).toBe(firstImportMap);
+    });
+  });
+
+  describe("(n) genuine value changes are still detected", () => {
+    it("rerender with a different inline libraries value → importMap identity changes and contains the new entry", () => {
+      // Drive the inline value from a closure variable the wrapper reads on
+      // every render, so we can change the VALUE (foo → bar) between renders
+      // while still passing a fresh inline object literal each time.
+      let libKey = "foo";
+      const { result, rerender } = renderHook(
+        () => useOpenGenerativeUIOptions(),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{ libraries: { [libKey]: "https://x" } }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      const firstImportMap = result.current.importMap as Record<string, string>;
+      expect(firstImportMap).toHaveProperty("foo", "https://x");
+
+      // Change the actual value (foo → bar); identity must change.
+      libKey = "bar";
+      rerender();
+
+      expect(result.current.importMap).not.toBe(firstImportMap);
+      const nextImportMap = result.current.importMap as Record<string, string>;
+      expect(nextImportMap).toHaveProperty("bar", "https://x");
+      expect(nextImportMap).not.toHaveProperty("foo");
+    });
+  });
 });

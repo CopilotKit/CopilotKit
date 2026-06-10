@@ -349,40 +349,60 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Both the injection decision (`openGenUIOptions.designSystemCss`) and the
   // guidance decision (`usingBuiltInKit`) derive from this so they can never
   // disagree about what actually landed in the document.
-  const customKitCss = useMemo(() => {
-    const ds = openGenerativeUI?.designSystem;
-    return ds &&
-      typeof ds === "object" &&
-      typeof ds.css === "string" &&
-      ds.css.trim().length > 0
-      ? ds.css
+  //
+  // Computed as a plain const (cheap string ops; output is the primitive
+  // `string | undefined`) rather than a memo keyed on the `designSystem` object
+  // identity — the documented inline idiom (`designSystem={{ css }}`) passes a
+  // fresh object every render, so an identity-keyed memo would recompute (and
+  // break referential stability of the resolved options) on every parent
+  // re-render even when the value is unchanged.
+  const designSystem = openGenerativeUI?.designSystem;
+  const customKitCss =
+    designSystem &&
+    typeof designSystem === "object" &&
+    typeof designSystem.css === "string" &&
+    designSystem.css.trim().length > 0
+      ? designSystem.css
       : undefined;
-  }, [openGenerativeUI?.designSystem]);
+  const designSystemOff = designSystem === false;
+
+  // Value-stable key for the library importmap. The inline idiom
+  // (`libraries={{ … }}`) passes a fresh object every render; JSON.stringify of
+  // a small literal yields a stable string whenever the VALUE is unchanged
+  // (key order from an inline literal is stable across renders), so the memo
+  // below recomputes only on genuine value changes — not object-identity churn.
+  const libs = openGenerativeUI?.libraries;
+  const librariesKey = libs === false ? "false" : JSON.stringify(libs ?? null);
 
   // Resolve the design-system CSS + library importmap once. Defaults inject the
   // built-in kit and pinned libraries; `designSystem: false` / `libraries: false`
   // restore legacy (no-injection) behavior.
-  const openGenUIOptions = useMemo<OpenGenerativeUIResolvedOptions>(() => {
-    const ds = openGenerativeUI?.designSystem;
-    const libs = openGenerativeUI?.libraries;
-    return {
-      designSystemCss:
-        ds === false ? false : (customKitCss ?? OPEN_GEN_UI_DESIGN_SYSTEM_CSS),
+  //
+  // Deps are VALUE keys (primitives), not object identities, so inline-but-
+  // unchanged configs keep a referentially stable result. This matters because
+  // the resolved options flow into the live sandbox iframe: a new identity on an
+  // unrelated parent re-render would destroy and rebuild the iframe (flicker +
+  // full JS-state wipe). The memo body may read the latest `libs` closure since
+  // `librariesKey` changes whenever the VALUE changes.
+  const openGenUIOptions = useMemo<OpenGenerativeUIResolvedOptions>(
+    () => ({
+      designSystemCss: designSystemOff
+        ? false
+        : (customKitCss ?? OPEN_GEN_UI_DESIGN_SYSTEM_CSS),
       importMap:
         libs === false ? false : { ...DEFAULT_OPEN_GEN_UI_LIBRARIES, ...libs },
-    };
-  }, [
-    openGenerativeUI?.designSystem,
-    openGenerativeUI?.libraries,
-    customKitCss,
-  ]);
+    }),
+    // identity-stable: deps are value keys, not object identities. `libs` is
+    // intentionally read from the latest closure (gated by `librariesKey`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [designSystemOff, customKitCss, librariesKey],
+  );
 
   // Distinguish the built-in kit from a custom one so downstream guidance
   // (tool description + design skill) advertises only what's actually injected.
   // Built-in kit = anything except `false` (disabled) or a non-empty custom
   // `{ css }`. A custom kit may not define the built-in token/SVG names.
-  const usingBuiltInKit =
-    openGenerativeUI?.designSystem !== false && customKitCss === undefined;
+  const usingBuiltInKit = !designSystemOff && customKitCss === undefined;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     string | undefined
   >(undefined);
