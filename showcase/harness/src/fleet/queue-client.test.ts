@@ -1004,6 +1004,37 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     expect(await q.countPendingForFamily("d6")).toBe(0);
   });
 
+  it("countPendingForFamily explicitly requests totals (skipTotal: false) — the backlog gate must not fail open", async () => {
+    // The gate reads totalItems off a perPage=1 list. If totals are skipped
+    // (PB client default elsewhere in this file is skipTotal: true) PB
+    // returns totalItems: -1 — and -1 is never above the producer's backlog
+    // threshold, so the gate would silently FAIL OPEN and enqueue a fresh
+    // batch on top of an existing backlog. Pin the explicit request.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      {
+        ...jobView({ id: "d4-0", probe_key: "d4:x" }),
+        payload: samplePayload({ probeKey: "d4:x" }),
+        created: new Date(t0).toISOString(),
+      },
+    ]);
+    const captured: ListOpts[] = [];
+    const realList = pb.list.bind(pb);
+    pb.list = vi.fn(async (collection: string, opts?: ListOpts) => {
+      captured.push(opts ?? {});
+      return realList(collection, opts);
+    }) as PbClient["list"];
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    expect(await q.countPendingForFamily("d4")).toBe(1);
+    expect(captured).toHaveLength(1);
+    expect(captured[0].skipTotal).toBe(false);
+  });
+
   it("drains the remaining family once the other is exhausted", async () => {
     const t0 = Date.parse("2026-06-04T00:00:00.000Z");
     const rows: CreatedJobRow[] = [

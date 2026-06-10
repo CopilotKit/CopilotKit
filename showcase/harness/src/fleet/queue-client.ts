@@ -797,9 +797,14 @@ export function createFleetQueueClient(
     async countPendingForFamily(family: string): Promise<number> {
       // Producer backlog gate: a totals-bearing perPage=1 list — PB computes
       // the COUNT server-side (totalItems); we never page rows back.
+      // skipTotal MUST be explicitly false: if totals are skipped PB returns
+      // totalItems: -1, and -1 is never above the producer's backlog
+      // threshold — the gate would silently FAIL OPEN and enqueue fresh
+      // batches on top of an existing backlog.
       const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
         filter: `status = "pending" && ${familyInclusionClause(family)}`,
         perPage: 1,
+        skipTotal: false,
       });
       return page.totalItems;
     },
