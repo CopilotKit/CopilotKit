@@ -287,6 +287,85 @@ describe("assembleDocument", () => {
     expect(out).toContain("data-ck-design-system");
   });
 
+  // Mask-before-match finding: a `<head>` token inside an HTML COMMENT before the
+  // real <head> must NOT capture the importmap/kit prefix splice. RED pre-fix:
+  // the head-open match ran on the raw html, so the prefix was spliced INSIDE the
+  // comment (libraries + design tokens silently inert).
+  it("splices the prefix into the real <head>, not a <head> token inside a comment", () => {
+    const html =
+      "<!-- build the <head> here --><head><title>t</title></head><body><p>Hi</p></body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    const commentClose = out.indexOf("-->");
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const cssIdx = out.indexOf(".a{color:red}");
+    expect(importmapIdx).toBeGreaterThan(-1);
+    // The prefix lands AFTER the comment closes — i.e. inside the real <head>,
+    // not inside the comment.
+    expect(importmapIdx).toBeGreaterThan(commentClose);
+    expect(kitIdx).toBeGreaterThan(commentClose);
+    // The comment text is preserved verbatim (the prefix did not splice into it).
+    expect(out).toContain("<!-- build the <head> here -->");
+    // Cascade order preserved: importmap -> kit -> agent css.
+    expect(importmapIdx).toBeLessThan(kitIdx);
+    expect(kitIdx).toBeLessThan(cssIdx);
+    // websandbox's literal token is present. Exactly one REAL head-open tag
+    // exists after the comment (the `<head>` inside the comment is inert text,
+    // not a structural open tag, so we count only those past the comment close).
+    expect(out).toContain("<head>");
+    expect(
+      out
+        .slice(commentClose)
+        .match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [],
+    ).toHaveLength(1);
+  });
+
+  // Same hazard for a `<head>` token inside <style> CONTENT before the real head.
+  it("splices the prefix into the real <head>, not a <head> token inside <style> content", () => {
+    const html =
+      "<style>.x{}/* <head> */</style><head><title>t</title></head><body><p>Hi</p></body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    const styleClose = out.indexOf("</style>");
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    // The prefix lands AFTER the agent's leading <style> block closes — inside
+    // the real <head>, not inside the style content.
+    expect(importmapIdx).toBeGreaterThan(styleClose);
+    expect(kitIdx).toBeGreaterThan(styleClose);
+    // The original style content (with its <head> lookalike) is preserved.
+    expect(out).toContain("<style>.x{}/* <head> */</style>");
+    expect(importmapIdx).toBeLessThan(kitIdx);
+  });
+
+  // A `</head>` token inside a comment AFTER the prefix must not be mistaken for
+  // the real close: the agent css must land before the REAL </head>.
+  it("anchors agent css to the real </head>, not a </head> token inside a comment", () => {
+    const html =
+      "<head><title>t</title><!-- </head> --></head><body><p>Hi</p></body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    const titleIdx = out.indexOf("<title>");
+    const commentIdx = out.indexOf("<!-- </head> -->");
+    const cssIdx = out.indexOf(".a{color:red}");
+    // The agent css lands after the head content (title) AND after the inert
+    // comment — i.e. immediately before the REAL </head>.
+    expect(cssIdx).toBeGreaterThan(titleIdx);
+    expect(cssIdx).toBeGreaterThan(commentIdx);
+    // The comment with its </head> lookalike is preserved.
+    expect(out).toContain("<!-- </head> -->");
+  });
+
   // Convergence sweep: a single input matrix that pins the two invariants this
   // function keeps drifting on — (1) byte-identity to legacy when no prefix is
   // injected, and (2) no duplicate head / correct cascade order in non-legacy

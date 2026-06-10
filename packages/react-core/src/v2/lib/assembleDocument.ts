@@ -112,6 +112,71 @@ export function ensureHead(html: string): string {
   return `<head></head>${html}`;
 }
 
+/** Quote-aware open-tag end scan: from a `<style`/`<script` start, matches
+ * through the tag's `>`, allowing a `>` inside a quoted attribute value. */
+const ASSEMBLE_OPEN_TAG_END =
+  /^<[a-zA-Z][^\s/>]*(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/;
+
+/**
+ * Length-preserving mask of the CONTENT of every COMPLETE `<style>`/`<script>`
+ * block and `<!-- … -->` comment (and the quoted attribute values inside those
+ * style/script open tags) with spaces. Used by the NON-LEGACY path of
+ * {@link assembleDocument} so a `<head>`/`</head>` token that appears INSIDE a
+ * comment or inside style/script content BEFORE the real `<head>` cannot capture
+ * the importmap/kit prefix splice (which would render the libraries and design
+ * tokens inert). Indices map 1:1 to the original, so the prefix is spliced on the
+ * ORIGINAL string at the masked match positions. A single left-to-right pass
+ * masks whichever construct opens first, so the constructs never interfere.
+ *
+ * NOTE: this is intentionally NOT used by the legacy path, which is
+ * byte-identity-locked to the historical `ensureHead`/`injectCssIntoHtml`
+ * composition (a `</head>` lookalike inside a comment there is a pre-existing
+ * quirk the byte-identity tests pin).
+ */
+function maskInertSpans(html: string): string {
+  const blockRe = /<style\b|<script\b|<!--/gi;
+  let out = "";
+  let last = 0;
+  blockRe.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = blockRe.exec(html)) !== null) {
+    const start = match.index;
+    if (start < last) continue;
+    const token = match[0];
+    if (token === "<!--") {
+      const close = html.indexOf("-->", start + 4);
+      const contentStart = start + 4;
+      const contentEnd = close === -1 ? html.length : close;
+      out += html.slice(last, contentStart);
+      out += " ".repeat(contentEnd - contentStart);
+      last = contentEnd;
+      blockRe.lastIndex = close === -1 ? html.length : close + 3;
+    } else {
+      const tagName = token.slice(1);
+      const openEndMatch = html.slice(start).match(ASSEMBLE_OPEN_TAG_END);
+      const openEnd = openEndMatch
+        ? start + openEndMatch[0].length
+        : html.length;
+      const closeRe = new RegExp(`</${tagName}>`, "i");
+      const closeRel = openEndMatch ? html.slice(openEnd).search(closeRe) : -1;
+      const contentEnd = closeRel === -1 ? html.length : openEnd + closeRel;
+      out += html.slice(last, start);
+      out += html
+        .slice(start, openEnd)
+        .replace(
+          /"[^"]*"|'[^']*'/g,
+          (q) => q[0] + " ".repeat(q.length - 2) + q[0],
+        );
+      out += " ".repeat(contentEnd - openEnd);
+      last = contentEnd;
+      blockRe.lastIndex =
+        closeRel === -1 ? html.length : contentEnd + `</${tagName}>`.length;
+    }
+  }
+  out += html.slice(last);
+  return out;
+}
+
 /**
  * Assembles a complete document string suitable for mounting in a sandbox iframe.
  *
@@ -127,6 +192,16 @@ export function ensureHead(html: string): string {
  * byte-identical to the legacy `ensureHead(css ? injectCssIntoHtml(html, css)
  * : html)` path for ALL inputs, by construction (the legacy composition is
  * reproduced verbatim, injecting CSS into the raw html *before* ensuring head).
+ *
+ * Mask-before-match (NON-LEGACY path only): the head-open match and the agent-css
+ * `</head>` close search both run on a length-preserving MASKED copy
+ * ({@link maskInertSpans}) where the content of complete comments and
+ * style/script blocks is blanked. A `<head>`/`</head>` token that appears inside
+ * a comment (`<!-- build the <head> here -->`) or inside style/script content
+ * BEFORE the real head therefore cannot capture the importmap/kit prefix splice
+ * (which would render the libraries and design tokens inert inside that comment).
+ * The legacy path is intentionally NOT masked — it is byte-identity-locked to the
+ * historical composition, where a `</head>` lookalike is a pinned quirk.
  *
  * Literal-`<head>` normalization (NON-LEGACY path only): `@jetbrains/websandbox`
  * requires the exact 6-character lowercase token `<head>` in `frameContent` — it
@@ -208,7 +283,16 @@ export function assembleDocument(
   // quoted runs (`"…"` / `'…'`) may contain `<`/`>` so a realistic
   // `<head data-config='{"a":">"}'>` is matched whole rather than truncated at
   // the first quoted `>` (which would splice the prefix mid-attribute).
-  const headOpenMatch = html.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+  //
+  // Run the match on a MASKED copy (comment + style/script content blanked) so a
+  // `<head>` token that appears INSIDE a comment or style/script content BEFORE
+  // the real `<head>` does not capture the prefix splice (which would render the
+  // importmap/kit inert inside that comment). Indices align 1:1, so the prefix is
+  // spliced on the ORIGINAL `html` at the masked match index.
+  const masked = maskInertSpans(html);
+  const headOpenMatch = masked.match(
+    /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i,
+  );
   if (headOpenMatch && headOpenMatch.index !== undefined) {
     const matchIdx = headOpenMatch.index;
     const matchedToken = headOpenMatch[0];
@@ -259,8 +343,15 @@ export function assembleDocument(
   // guarantees the css lands inside the anchored head; if no close exists
   // at/after the anchor we fall through to the post-prefix fallback below
   // (never to an earlier global match).
+  //
+  // Search on a freshly MASKED copy of the spliced html so a `</head>` token
+  // inside a comment or style/script content (after the prefix) cannot be
+  // mistaken for the real close tag — the css would otherwise land inside that
+  // inert region. The injected prefix's own `<script type="importmap">`/`<style>`
+  // content is masked too (it carries no `</head>`), so this is safe.
   if (css) {
-    const closeRel = html.slice(prefixInsertAt).search(/<\/head>/i);
+    const maskedAfter = maskInertSpans(html);
+    const closeRel = maskedAfter.slice(prefixInsertAt).search(/<\/head>/i);
     const headCloseIdx = closeRel !== -1 ? closeRel + prefixInsertAt : -1;
     if (headCloseIdx !== -1) {
       return (
