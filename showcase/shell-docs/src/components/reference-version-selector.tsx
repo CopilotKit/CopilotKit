@@ -15,9 +15,10 @@ export type ReferenceVersionOption = {
 // The selector now switches between SDKs, not just React versions. Labels
 // are user-facing; keep them in sync with REFERENCE_VERSIONS.
 const VERSION_LABELS: Record<ReferenceVersion, string> = {
-  v2: "React v2",
-  v1: "React v1",
+  v2: "React (V2)",
+  v1: "React (V1)",
   core: "Core (TypeScript)",
+  bot: "Bots",
 };
 
 export function ReferenceVersionSelector({
