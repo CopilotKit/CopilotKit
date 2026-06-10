@@ -234,4 +234,111 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       expect(tool!.description!).toContain(".c-purple");
     });
   });
+
+  describe("(j) degenerate empty object designSystem behaves like the built-in kit", () => {
+    it("designSystem: {} → designSystemCss is the built-in kit, description advertises built-in tokens, design skill is token-based", () => {
+      const { result } = renderHook(
+        () => ({
+          options: useOpenGenerativeUIOptions(),
+          ck: useCopilotKit(),
+        }),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider openGenerativeUI={{ designSystem: {} as any }}>
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      // A `{}` (no `css` key) carries no custom stylesheet, so the built-in kit
+      // is what actually lands in the document.
+      expect(result.current.options.designSystemCss).toBe(
+        OPEN_GEN_UI_DESIGN_SYSTEM_CSS,
+      );
+
+      // Guidance must match the injected kit: built-in token block in the tool
+      // description, token-based design skill.
+      const tool = result.current.ck.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      expect(tool!.description!).toContain("--color-background-primary");
+
+      const designContext = findDesignSkillContext(
+        result.current.ck.copilotkit.context,
+      );
+      expect(designContext).toBeDefined();
+      expect(designContext!.value).toContain("var(--color-");
+    });
+  });
+
+  describe("(k) whitespace/empty custom css behaves like the built-in kit", () => {
+    it('designSystem: { css: "" } → designSystemCss is the built-in kit, description advertises built-in tokens, design skill is token-based', () => {
+      const { result } = renderHook(
+        () => ({
+          options: useOpenGenerativeUIOptions(),
+          ck: useCopilotKit(),
+        }),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{ designSystem: { css: "" } }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      // An empty custom stylesheet injects nothing, so the built-in kit is the
+      // only thing that can land — guidance must reflect that, not a phantom
+      // custom stylesheet.
+      expect(result.current.options.designSystemCss).toBe(
+        OPEN_GEN_UI_DESIGN_SYSTEM_CSS,
+      );
+
+      const tool = result.current.ck.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      expect(tool!.description!).toContain("--color-background-primary");
+
+      const designContext = findDesignSkillContext(
+        result.current.ck.copilotkit.context,
+      );
+      expect(designContext).toBeDefined();
+      expect(designContext!.value).toContain("var(--color-");
+    });
+  });
+
+  describe("(l) non-empty custom css is preserved and advertised as custom", () => {
+    it('designSystem: { css: "X{}" } → designSystemCss === "X{}" and the description advertises the custom-kit line', () => {
+      const { result } = renderHook(
+        () => ({
+          options: useOpenGenerativeUIOptions(),
+          ck: useCopilotKit(),
+        }),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{ designSystem: { css: "X{}" } }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      expect(result.current.options.designSystemCss).toBe("X{}");
+
+      const tool = result.current.ck.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      expect(tool!.description!).toContain(
+        "A custom design system stylesheet is PRE-INJECTED",
+      );
+    });
+  });
 });

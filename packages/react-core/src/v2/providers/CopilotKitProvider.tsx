@@ -204,7 +204,8 @@ export interface CopilotKitProviderProps {
     /**
      * Design-system CSS injected into every generated document.
      * `true` (default) injects the built-in token/SVG/form kit; `false` disables;
-     * `{ css }` replaces the kit with a custom one.
+     * `{ css }` replaces the kit with a custom one (a degenerate object such as
+     * `{}` or `{ css: "" }` falls back to the built-in kit).
      */
     designSystem?: boolean | { css: string };
     /**
@@ -341,38 +342,47 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  // Single source of truth for the custom design-system stylesheet. A custom kit
+  // is only present when `designSystem` is an object carrying a non-empty `css`
+  // string; `{}`, `{ css: "" }`, whitespace-only css, `null` and `undefined` all
+  // resolve to `undefined` here and therefore behave like the built-in kit.
+  // Both the injection decision (`openGenUIOptions.designSystemCss`) and the
+  // guidance decision (`usingBuiltInKit`) derive from this so they can never
+  // disagree about what actually landed in the document.
+  const customKitCss = useMemo(() => {
+    const ds = openGenerativeUI?.designSystem;
+    return ds &&
+      typeof ds === "object" &&
+      typeof ds.css === "string" &&
+      ds.css.trim().length > 0
+      ? ds.css
+      : undefined;
+  }, [openGenerativeUI?.designSystem]);
+
   // Resolve the design-system CSS + library importmap once. Defaults inject the
   // built-in kit and pinned libraries; `designSystem: false` / `libraries: false`
   // restore legacy (no-injection) behavior.
   const openGenUIOptions = useMemo<OpenGenerativeUIResolvedOptions>(() => {
     const ds = openGenerativeUI?.designSystem;
     const libs = openGenerativeUI?.libraries;
-    // `null` behaves like `undefined` (built-in kit), consistent with the
-    // lenient `libraries` resolver below. Guard the object branch so a stray
-    // `null` doesn't crash render via `ds.css` (typeof null === "object").
-    const customKitCss = ds && typeof ds === "object" ? ds.css : undefined;
     return {
       designSystemCss:
-        ds === false
-          ? false
-          : customKitCss !== undefined
-            ? customKitCss
-            : OPEN_GEN_UI_DESIGN_SYSTEM_CSS,
+        ds === false ? false : (customKitCss ?? OPEN_GEN_UI_DESIGN_SYSTEM_CSS),
       importMap:
         libs === false ? false : { ...DEFAULT_OPEN_GEN_UI_LIBRARIES, ...libs },
     };
-  }, [openGenerativeUI?.designSystem, openGenerativeUI?.libraries]);
+  }, [
+    openGenerativeUI?.designSystem,
+    openGenerativeUI?.libraries,
+    customKitCss,
+  ]);
 
   // Distinguish the built-in kit from a custom one so downstream guidance
   // (tool description + design skill) advertises only what's actually injected.
-  // Built-in kit = `true` / `undefined` / `null` (not `false`, not a custom
-  // `{ css }` object). A custom kit may not define the built-in token/SVG names.
-  const usingBuiltInKit = useMemo(() => {
-    const ds = openGenerativeUI?.designSystem;
-    if (ds === false) return false;
-    if (ds && typeof ds === "object") return false;
-    return true;
-  }, [openGenerativeUI?.designSystem]);
+  // Built-in kit = anything except `false` (disabled) or a non-empty custom
+  // `{ css }`. A custom kit may not define the built-in token/SVG names.
+  const usingBuiltInKit =
+    openGenerativeUI?.designSystem !== false && customKitCss === undefined;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     string | undefined
   >(undefined);
