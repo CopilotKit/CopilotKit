@@ -239,8 +239,15 @@ export function processPartialHtml(html: string): string {
   const openMatch = masked.match(/<body[\s>]/i);
   if (openMatch && openMatch.index !== undefined) {
     // Remove just the `<body…>` open tag, keeping content before and after it.
-    const openTagEnd =
-      openMatch.index + masked.slice(openMatch.index).search(/>/) + 1;
+    // Quote-aware end-of-tag scan (same shape as assembleDocument's head
+    // matcher) so a quoted `>` in an attribute — `<body data-x="a>b">` — can't
+    // truncate the tag early and leak attribute fragments as visible content.
+    const openTag = masked
+      .slice(openMatch.index)
+      .match(/^<body(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+    const openTagEnd = openTag
+      ? openMatch.index + openTag[0].length
+      : openMatch.index + masked.slice(openMatch.index).search(/>/) + 1;
     result = result.slice(0, openMatch.index) + result.slice(openTagEnd);
   }
   // Drop the `<html…>`/`</html>` structural wrappers (the browser drops them in

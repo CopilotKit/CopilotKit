@@ -278,4 +278,13 @@ describe("processPartialHtml / extractCompleteStyles — shared boundary parity"
     expect(hoisted).toBe(""); // NOT hoisted
     expect(body).toBe("<style>.head-style{}</style>BODYTEXT"); // kept in body
   });
+
+  // Case G — quote-aware open-tag scan: a quoted `>` inside a <body> attribute
+  // must not truncate the open tag early and leak attribute fragments.
+  it("G: quoted > in a <body> attribute → no attribute fragments leak", () => {
+    const input = '<body data-x="a>b"><p>hi</p></body>';
+    const body = processPartialHtml(input);
+    expect(body).toBe("<p>hi</p>");
+    expect(body).not.toContain('b">');
+  });
 });
