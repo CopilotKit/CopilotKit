@@ -97,12 +97,69 @@ const MAX_PENDING_FAMILIES = 16;
  */
 const RESULT_WRITE_MAX_ATTEMPTS = 3;
 
+/**
+ * Default multiple of a family's production period after which an unclaimed
+ * pending job is STALE (its family has enqueued ~3 fresher batches since; the
+ * job's eventual result would be ancient data). Tunable via
+ * `StalePendingPolicy.expiryPeriods`.
+ */
+export const DEFAULT_STALE_PENDING_EXPIRY_PERIODS = 3;
+
+/**
+ * Default per-family production period used when `familyPeriodsMs` has no
+ * entry for a family — one hour, the SLOWEST fleet producer cadence (d6 +
+ * e2e-demos tick hourly), so an unconfigured family is never expired more
+ * aggressively than the slowest known one.
+ */
+export const DEFAULT_STALE_PENDING_FAMILY_PERIOD_MS = 60 * 60 * 1000;
+
+/**
+ * Synthetic workerId the stale-pending sweep claims rows under before
+ * deleting them. The claim CAS is what makes the delete race-free (a racing
+ * worker either wins the row — and the sweeper backs off — or loses it and
+ * never sees it again); the id makes the sweeper's ownership legible in the
+ * CAS audit columns while it briefly holds the row.
+ */
+const STALE_PENDING_SWEEPER_ID = "stale-pending-sweeper";
+
+/** Lease the sweeper takes on a stale row for the claim→delete window. If the
+ * delete fails the lease simply expires and the NEXT lease sweep re-queues the
+ * row to pending, where a later stale sweep retries it — self-healing. */
+const STALE_PENDING_SWEEPER_LEASE_SECONDS = 60;
+
+/**
+ * STALE-PENDING EXPIRY policy (`sweepExpired`). A pending job that sits
+ * unclaimed for `expiryPeriods` × its family's production period is expired
+ * (claimed via the S0 CAS under `STALE_PENDING_SWEEPER_ID`, then deleted) so
+ * an accumulated backlog drains STRUCTURALLY instead of waiting on 2 serial
+ * workers to chew through thousands of obsolete rows (staging hit 3,734
+ * pending, oldest 22h). The producers re-enqueue fresh batches on their
+ * normal cadence, so nothing is lost but stale work.
+ */
+export interface StalePendingPolicy {
+  /**
+   * Production period per family (ms) — how often that family's producer
+   * ticks. The wiring slot derives this from the producer crons. Families
+   * absent here use `defaultPeriodMs`.
+   */
+  familyPeriodsMs?: Record<string, number>;
+  /** Fallback period for unlisted families. Default
+   * `DEFAULT_STALE_PENDING_FAMILY_PERIOD_MS` (1h, the slowest cadence). */
+  defaultPeriodMs?: number;
+  /** Periods a pending job may age before expiry. <= 0 disables the stale
+   * sweep entirely. Default `DEFAULT_STALE_PENDING_EXPIRY_PERIODS`. */
+  expiryPeriods?: number;
+}
+
 export interface FleetQueueClientConfig {
   /** Record-level PB access for enqueue (create) + queue reads (list). */
   pb: PbClient;
   /** S0's atomic claim/renew/release primitive. */
   claim: JobClaimClient;
   logger: Logger;
+  /** Stale-pending expiry policy for `sweepExpired`. Omitted → defaults
+   * (3 × 1h for every family). See `StalePendingPolicy`. */
+  stalePending?: StalePendingPolicy;
   /**
    * Injectable RNG in [0,1) used to RANDOMIZE the candidate-attempt order in
    * `claimNext` (defaults to `Math.random`). See the claim-fairness note in
@@ -122,6 +179,9 @@ export interface FleetQueueClientConfig {
 interface ProbeJobRecord extends JobView {
   /** The serialized per-service work (migration 1779989500 adds this column). */
   payload?: unknown;
+  /** PB system timestamp (space-separated date form) — the stale-pending
+   * sweep's age anchor. */
+  created?: string;
 }
 
 /**
@@ -277,6 +337,13 @@ export function createFleetQueueClient(
 ): FleetQueueClient {
   const { pb, claim, logger } = config;
   const rng = config.rng ?? Math.random;
+  const stalePolicy = config.stalePending ?? {};
+  const staleExpiryPeriods =
+    stalePolicy.expiryPeriods ?? DEFAULT_STALE_PENDING_EXPIRY_PERIODS;
+  const staleDefaultPeriodMs =
+    stalePolicy.defaultPeriodMs ?? DEFAULT_STALE_PENDING_FAMILY_PERIOD_MS;
+  const stalePeriodMsFor = (family: string): number =>
+    stalePolicy.familyPeriodsMs?.[family] ?? staleDefaultPeriodMs;
 
   // Per-client cache of a claimed job's decoded payload, keyed by jobId. The
   // renew CAS returns the lifecycle columns but NOT the payload, and the
@@ -675,7 +742,88 @@ export function createFleetQueueClient(
           workerId: row.claimed_by,
         });
       }
-      return { reclaimed, commErrors };
+
+      // ── STALE-PENDING EXPIRY (structural backlog drain) ──────────────────
+      // A pending row had NO terminal path: the lease sweep above only touches
+      // claimed/running rows, so an accumulated backlog (staging: 3,734
+      // pending, oldest 22h) could only drain through the 2 serial workers and
+      // effectively never did. Expire pending jobs older than expiryPeriods ×
+      // their family's production period — the family has enqueued ~3 fresher
+      // batches since, so the stale job's eventual result would be ancient
+      // data. Each stale row is CLAIMED via the S0 CAS first (a racing worker
+      // either wins the row — the sweeper backs off — or loses it and never
+      // sees it again; the exactly-one-winner invariant makes the delete
+      // race-free) and then deleted. No comm error is synthesized: an
+      // expired-pending job never ran, and its family's next batch is the
+      // dashboard signal.
+      let expiredPending = 0;
+      if (staleExpiryPeriods > 0) {
+        const pendingPage = await pb.list<ProbeJobRecord>(
+          PROBE_JOBS_COLLECTION,
+          {
+            filter: 'status = "pending"',
+            sort: "created",
+            perPage: CLAIM_CANDIDATE_PAGE,
+            skipTotal: true,
+          },
+        );
+        for (const row of pendingPage.items) {
+          // Age off PB's system `created` (space-separated date form —
+          // normalize with the SAME anchored rewrite as leaseExpired). Unlike
+          // the lease path, an unparseable value is conservatively SKIPPED:
+          // delete is destructive, and "never wedge the queue" doesn't apply —
+          // a pending row is claimable regardless.
+          const createdMs = Date.parse(
+            String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+          );
+          if (Number.isNaN(createdMs)) {
+            logger.warn("queue-client.sweep-stale-unparseable-created", {
+              jobId: row.id,
+              created: row.created ?? null,
+            });
+            continue;
+          }
+          const family = probeKeyFamily(row.probe_key);
+          const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
+          const ageMs = nowMs - createdMs;
+          if (ageMs <= maxAgeMs) continue;
+          const won = await claim.claimJob(
+            row.id,
+            STALE_PENDING_SWEEPER_ID,
+            STALE_PENDING_SWEEPER_LEASE_SECONDS,
+          );
+          if (!won.won) {
+            // A worker won the race — the job is in flight after all; not ours
+            // to expire.
+            logger.debug("queue-client.sweep-stale-claim-lost", {
+              jobId: row.id,
+            });
+            continue;
+          }
+          try {
+            await pb.delete(PROBE_JOBS_COLLECTION, row.id);
+          } catch (err) {
+            // The row stays claimed by the sweeper; its short lease expires
+            // and the NEXT lease sweep re-queues it to pending, where a later
+            // stale sweep retries — self-healing, so log and move on.
+            logger.error("queue-client.sweep-stale-delete-failed", {
+              jobId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          expiredPending += 1;
+          logger.warn("queue-client.sweep-expired-pending", {
+            jobId: row.id,
+            probeKey: row.probe_key,
+            family,
+            ageMs,
+            maxAgeMs,
+          });
+        }
+      }
+
+      return { reclaimed, commErrors, expiredPending };
     },
   };
 }

@@ -533,7 +533,7 @@ describe("FleetQueueClient.claimNext — CLAIM FAIRNESS (Part B contention)", ()
   });
 });
 
-describe("FleetQueueClient.claimNext — FAMILY FAIRNESS (backlogged families must not starve)", () => {
+describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not starve)", () => {
   // ── ROOT CAUSE (verified in prod + staging) ─────────────────────────────────
   // claimNext listed ONE global pending page (the oldest CLAIM_CANDIDATE_PAGE
   // rows). With a persistent backlog from the high-frequency families (d4 + d5
@@ -637,7 +637,11 @@ describe("FleetQueueClient.claimNext — FAMILY FAIRNESS (backlogged families mu
       create: unsupported("create") as PbClient["create"],
       update: unsupported("update") as PbClient["update"],
       upsertByField: unsupported("upsertByField") as PbClient["upsertByField"],
-      delete: unsupported("delete") as PbClient["delete"],
+      async delete(_collection: string, id: string): Promise<void> {
+        const idx = store.findIndex((r) => r.id === id);
+        if (idx === -1) throw new Error(`paging-pb: delete of missing ${id}`);
+        store.splice(idx, 1);
+      },
       deleteByFilter: unsupported(
         "deleteByFilter",
       ) as PbClient["deleteByFilter"],
@@ -815,6 +819,129 @@ describe("FleetQueueClient.claimNext — FAMILY FAIRNESS (backlogged families mu
     // The queue is now empty.
     const done = await q.claimNext("w1", 30);
     expect(done.claimed).toBe(false);
+  });
+
+  describe("sweepExpired — STALE-PENDING EXPIRY (structural backlog drain)", () => {
+    // sweepExpired only reclaimed claimed/running leases — a pending row had
+    // NO terminal path, so an accumulated backlog (staging: 3,734 pending,
+    // oldest 22h) could only drain through 2 serial workers and effectively
+    // never did. The sweep now ALSO expires pending jobs older than
+    // expiryPeriods × their family's production period (the job's data is
+    // stale — its family has long since enqueued fresher batches): each stale
+    // row is first CLAIMED via the S0 CAS under a synthetic sweeper id (so a
+    // racing worker can never lose a row out from under itself) and then
+    // DELETED.
+
+    const T = Date.parse("2026-06-04T12:00:00.000Z");
+    const HOUR = 60 * 60 * 1000;
+    const MIN = 60 * 1000;
+
+    function pendingRow(
+      id: string,
+      probeKey: string,
+      createdMs: number,
+    ): CreatedJobRow {
+      return {
+        ...jobView({ id, probe_key: probeKey }),
+        payload: samplePayload({ probeKey }),
+        created: new Date(createdMs).toISOString(),
+      };
+    }
+
+    it("claims-then-deletes pending jobs older than expiryPeriods × the (default) family period", async () => {
+      const stale = pendingRow("old", "d6:a", T - 4 * HOUR); // > 3 × 60min
+      const fresh = pendingRow("new", "d6:b", T - 10 * MIN);
+      const { pb, store } = makePagingPb([stale, fresh]);
+      const claimJobCalls: Array<[string, string]> = [];
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        async claimJob(jobId, workerId, leaseSeconds) {
+          claimJobCalls.push([jobId, workerId]);
+          return base.claimJob(jobId, workerId, leaseSeconds);
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(1);
+      // The stale row was CLAIMED first (CAS — never delete a row a worker
+      // could be racing for) and then deleted.
+      expect(claimJobCalls.map(([id]) => id)).toEqual(["old"]);
+      expect(store.find((r) => r.id === "old")).toBeUndefined();
+      // The fresh row is untouched and still claimable.
+      expect(store.find((r) => r.id === "new")?.status).toBe("pending");
+      // No comm error for an expired-pending row — it never ran.
+      expect(sweep.commErrors).toHaveLength(0);
+    });
+
+    it("does NOT delete a stale pending row whose claim is lost to a racing worker", async () => {
+      const stale = pendingRow("old", "d6:a", T - 4 * HOUR);
+      const { pb, store } = makePagingPb([stale]);
+      // A worker wins every CAS race — the sweeper must back off.
+      const claim = makeStoreClaim(store, { loseFor: () => true });
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "old")?.status).toBe("pending");
+    });
+
+    it("honors per-family periods from stalePending.familyPeriodsMs", async () => {
+      // 50min-old rows: stale for d4 (3 × 15min = 45min) but NOT for d6
+      // (default 3 × 60min = 3h).
+      const d4 = pendingRow("d4-old", "d4:a", T - 50 * MIN);
+      const d6 = pendingRow("d6-young", "d6:a", T - 50 * MIN);
+      const { pb, store } = makePagingPb([d4, d6]);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+        stalePending: { familyPeriodsMs: { d4: 15 * MIN } },
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(1);
+      expect(store.find((r) => r.id === "d4-old")).toBeUndefined();
+      expect(store.find((r) => r.id === "d6-young")?.status).toBe("pending");
+    });
+
+    it("is disabled when expiryPeriods <= 0", async () => {
+      const stale = pendingRow("old", "d6:a", T - 48 * HOUR);
+      const { pb, store } = makePagingPb([stale]);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+        stalePending: { expiryPeriods: 0 },
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "old")?.status).toBe("pending");
+    });
+
+    it("conservatively skips a pending row whose created timestamp is unparseable (delete is destructive)", async () => {
+      const garbage = {
+        ...pendingRow("odd", "d6:a", T),
+        created: "not-a-date",
+      };
+      const { pb, store } = makePagingPb([garbage]);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "odd")?.status).toBe("pending");
+    });
   });
 });
 

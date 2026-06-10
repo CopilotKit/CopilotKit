@@ -1309,6 +1309,26 @@ export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
 export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
 
 /**
+ * Nominal production period per probe FAMILY (the probe_key prefix each
+ * producer enqueues under — see `probeKeyFamily`), derived from the producer
+ * crons above. Feeds the queue client's STALE-PENDING EXPIRY policy: a
+ * pending job older than 3 × its family's period is structurally stale (its
+ * family has enqueued fresher batches since) and is swept off the queue so a
+ * backlog drains instead of compounding. Keep in lockstep with the cron
+ * constants above (and the d6 `DEFAULT_PRODUCER_CRON`).
+ */
+export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
+  /** d6 — DEFAULT_PRODUCER_CRON `40 * * * *` (hourly). */
+  d6: 60 * 60 * 1000,
+  /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
+  d4: 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
+  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
+  "e2e-demos": 60 * 60 * 1000,
+};
+
+/**
  * Assemble the multi-schedule producer manifest `runControlPlane` passes to
  * `createControlPlane`. Pure (no I/O) so the schedule ids + crons are
  * unit-testable without booting the control-plane. Each browser family ticks on
@@ -2253,7 +2273,16 @@ export async function runControlPlane(
     logger,
   });
   const bus = createEventBus();
-  const queue = createFleetQueueClient({ pb, claim, logger });
+  // The control-plane's sweep expires stale pending jobs per family period
+  // (the structural backlog drain) — wire the per-family cadences so the
+  // 15min families (d4/d5) expire on a 45min window instead of the 3h
+  // default. The worker-side queue client never sweeps, so it stays unwired.
+  const queue = createFleetQueueClient({
+    pb,
+    claim,
+    logger,
+    stalePending: { familyPeriodsMs: FLEET_FAMILY_PERIODS_MS },
+  });
   const scheduler = createScheduler({ logger });
 
   // S5 aggregator — the ONLY authoritative dashboard writer — over the

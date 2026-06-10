@@ -311,10 +311,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     lastSweepAt = nowMs;
     try {
       const result = await queue.sweepExpired(nowMs);
-      if (result.reclaimed > 0 || result.commErrors.length > 0) {
+      if (
+        result.reclaimed > 0 ||
+        result.commErrors.length > 0 ||
+        (result.expiredPending ?? 0) > 0
+      ) {
         logger.warn("fleet.producer.sweep-reclaimed", {
           reclaimed: result.reclaimed,
           commErrors: result.commErrors.length,
+          expiredPending: result.expiredPending ?? 0,
         });
       }
       // REQ-B: forward the swept `worker-crashed-mid-job` comm errors to the

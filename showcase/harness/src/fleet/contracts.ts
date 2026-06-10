@@ -603,6 +603,14 @@ export interface SweepResult {
   reclaimed: number;
   /** The comm errors synthesized for each reclaimed (crashed) worker job. */
   commErrors: PoolCommError[];
+  /**
+   * Number of STALE PENDING jobs expired (claimed-then-deleted) because they
+   * sat unclaimed longer than their family's expiry window — the structural
+   * backlog drain (see queue-client `stalePending`). Optional so the many
+   * sweep fakes keyed on the reclamation contract stay valid; the real
+   * queue-client always reports it.
+   */
+  expiredPending?: number;
 }
 
 /**
