@@ -71,18 +71,38 @@ export function assembleDocument(
   html = ensureHead(html);
 
   // Step 2: build the prefix to insert immediately after the opening <head…> tag.
-  const importMapPart = importMap ? buildImportMapScript(importMap) : "";
+  // An empty importMap object ({}) is treated as no importmap — it would
+  // otherwise emit an inert `<script type="importmap">{"imports":{}}</script>`.
+  const importMapPart =
+    importMap && Object.keys(importMap).length > 0
+      ? buildImportMapScript(importMap)
+      : "";
   const designSystemPart = designSystemCss
     ? `<style data-ck-design-system>${designSystemCss}</style>`
     : "";
   const prefix = importMapPart + designSystemPart;
 
-  if (prefix) {
-    // Insert right after the first <head…> opening tag.
-    const headOpenMatch = html.match(/<head[^>]*>/i);
-    if (headOpenMatch && headOpenMatch.index !== undefined) {
-      const insertAt = headOpenMatch.index + headOpenMatch[0].length;
-      html = html.slice(0, insertAt) + prefix + html.slice(insertAt);
+  // Non-legacy mode is active whenever a design-system or importmap injection is
+  // requested. The agent-css fallback below is scoped to this path so the legacy
+  // mode (both falsy) stays byte-identical to the original algorithm.
+  const nonLegacy = Boolean(designSystemCss) || Boolean(importMap);
+
+  // Track where the prefix's opening <head…> tag ends so the css fallback can
+  // inject immediately after the prefix instead of prepending a second head.
+  let prefixInsertAt: number | undefined;
+
+  // Match only a real head-opening tag: `<head>`, or `<head` followed by
+  // whitespace + attributes. This deliberately excludes `<header …>`, which the
+  // looser `/<head[^>]*>/i` would have captured (injecting into the body).
+  const headOpenMatch = html.match(/<head(\s[^>]*)?>/i);
+  if (headOpenMatch && headOpenMatch.index !== undefined) {
+    prefixInsertAt = headOpenMatch.index + headOpenMatch[0].length;
+    if (prefix) {
+      html =
+        html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
+      // The inserted prefix shifts the insertion point past its own bytes so
+      // the css fallback lands after the prefix (kit), preserving the cascade.
+      prefixInsertAt += prefix.length;
     }
   }
 
@@ -94,6 +114,18 @@ export function assembleDocument(
         html.slice(0, headCloseIdx) +
         `<style>${css}</style>` +
         html.slice(headCloseIdx)
+      );
+    }
+    // No </head> exists. In non-legacy mode a real head-opening tag is always
+    // present (ensureHead guarantees it), so inject the agent css right after
+    // the kit/importmap prefix — keeping the documented cascade (kit first,
+    // agent css after) and avoiding a duplicate <head>. In pure legacy mode we
+    // preserve the original prepend-second-head quirk byte-for-byte.
+    if (nonLegacy && prefixInsertAt !== undefined) {
+      return (
+        html.slice(0, prefixInsertAt) +
+        `<style>${css}</style>` +
+        html.slice(prefixInsertAt)
       );
     }
     return `<head><style>${css}</style></head>${html}`;

@@ -77,4 +77,76 @@ describe("assembleDocument", () => {
       }
     }
   });
+
+  // Finding 1: a <header> element preceding a real <head> must not capture the
+  // kit/importmap insertion point. The prefix belongs inside the real <head>.
+  it("inserts kit + importmap into the real <head>, not a preceding <header>", () => {
+    const out = assembleDocument(
+      "<header>Title</header><head></head><body>x</body>",
+      {
+        designSystemCss: KIT,
+        importMap: { three: "https://esm.sh/three@0.180.0" },
+      },
+    );
+    const headerOpen = out.indexOf("<header>");
+    const headerClose = out.indexOf("</header>");
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    // The prefix must land after the </header> close tag (i.e. inside the
+    // real <head>), never between <header> and </header>.
+    expect(importmapIdx).toBeGreaterThan(headerClose);
+    expect(kitIdx).toBeGreaterThan(headerClose);
+    // Sanity: the <header> element itself is left untouched.
+    expect(headerOpen).toBeGreaterThan(-1);
+    expect(headerClose).toBeGreaterThan(headerOpen);
+    // Order within the head is preserved: importmap before kit.
+    expect(importmapIdx).toBeLessThan(kitIdx);
+  });
+
+  // Finding 2: an open <head> without a </head> must not produce a second head
+  // nor invert the cascade. Order must be importmap -> kit -> agent css.
+  it("handles an unclosed <head> without duplicating it (importmap -> kit -> css)", () => {
+    const out = assembleDocument("<head><body><p>x</p></body>", {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // Exactly one <head opening tag — no duplicate head was prepended.
+    const headOpenings = out.match(/<head(\s[^>]*)?>/gi) ?? [];
+    expect(headOpenings).toHaveLength(1);
+    // Cascade order: importmap, then kit, then agent css.
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const cssIdx = out.indexOf(".a{color:red}");
+    expect(importmapIdx).toBeGreaterThan(-1);
+    expect(importmapIdx).toBeLessThan(kitIdx);
+    expect(kitIdx).toBeLessThan(cssIdx);
+  });
+
+  // Finding 2 (constraint): in PURE LEGACY mode the unclosed-<head> quirk must
+  // remain byte-identical to the legacy algorithm (prepend a second head).
+  it("preserves the legacy prepend-second-head quirk for unclosed <head> in pure legacy mode", () => {
+    const html = "<head><body><p>x</p></body>";
+    const css = ".a{color:red}";
+    // Legacy reference: ensureHead is a no-op (a head-opening tag exists), then
+    // injectCssIntoHtml finds no </head> and prepends a fresh head.
+    const legacy = `<head><style>${css}</style></head>${html}`;
+    const next = assembleDocument(html, {
+      css,
+      designSystemCss: false,
+      importMap: false,
+    });
+    expect(next).toBe(legacy);
+  });
+
+  // Finding 3: an empty importMap object must not emit an inert importmap script.
+  it("emits no importmap script when importMap is an empty object", () => {
+    const out = assembleDocument("<head></head><body></body>", {
+      designSystemCss: KIT,
+      importMap: {},
+    });
+    expect(out).not.toContain('<script type="importmap">');
+    // The kit still injects normally.
+    expect(out).toContain("data-ck-design-system");
+  });
 });
