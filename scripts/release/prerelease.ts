@@ -11,8 +11,10 @@
  */
 
 import { spawnSync } from "child_process";
-import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
+import { getPackagesForScope } from "./lib/versions.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -39,7 +41,7 @@ function main() {
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
     console.error(
-      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--suffix <label>] [--dry-run]`,
+      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--dry-run]`,
     );
     process.exit(1);
   }
@@ -50,7 +52,19 @@ function main() {
   // Read the version from package.json — already bumped by bump-prerelease.ts
   // in the CI build job.
   const packages = getPackagesForScope(scope);
-  const publishVersion = packages[0]?.pkg.version ?? getCurrentVersion(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
+  const publishVersion = packages[0].pkg.version;
+  if (!publishVersion) {
+    console.error(
+      `Package ${packages[0].name} has no version field; refusing to publish.`,
+    );
+    process.exit(1);
+  }
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${publishVersion}`);
   console.log(`Dist tag: ${distTag}`);
@@ -60,6 +74,10 @@ function main() {
     for (const p of packages) {
       console.log(`  ${p.name}@${p.pkg.version}`);
     }
+    // Emitting in dry-run is safe — the publish workflow gates both the
+    // publish step and the verify guard on `inputs.dry-run != true`, so this
+    // only serves local/e2e verification of the output contract.
+    emitGithubOutputs({ version: publishVersion, scope });
     console.log("\n[DRY RUN] Exiting.");
     return;
   }
@@ -93,6 +111,10 @@ function main() {
       { cwd: p.dir },
     );
   }
+
+  // The workflow's "Verify publish step emitted version" guard and the
+  // prerelease summary read these from steps.publish.outputs.
+  emitGithubOutputs({ version: publishVersion, scope });
 
   console.log(`\nPrerelease published: ${publishVersion} (tag: ${distTag})`);
 }
