@@ -1403,7 +1403,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       };
     }
 
-    it("reclaims expired leases buried beyond the 50-row page on the FIRST sweep (lease_expires_at ascending) and warns on truncation", async () => {
+    it("reclaims expired leases buried beyond the 50-row page on the FIRST sweep (lease_expires_at ascending); a live tail is NOT a truncation warn", async () => {
       // 52 live rows inserted FIRST, 3 expired rows LAST: under insertion
       // order the perPage-50 page contains ONLY live rows, so the unsorted
       // scan misses the expired ones on every sweep (RED: zero reclaimed
@@ -1435,10 +1435,13 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       for (let i = 0; i < 3; i++) {
         expect(store.find((r) => r.id === `dead-${i}`)?.status).toBe("pending");
       }
-      // A full page means rows were truncated — that must be observable.
-      expect(warnSpy).toHaveBeenCalledWith(
+      // The page IS full, but its TAIL lease is live — under the ascending
+      // sort every truncated row beyond it is live too, so nothing expirable
+      // was hidden and the truncation warn must NOT fire (it would be a false
+      // positive at any healthy ≥50-in-flight steady state).
+      expect(warnSpy).not.toHaveBeenCalledWith(
         "queue-client.sweep-lease-page-truncated",
-        expect.objectContaining({ perPage: 50 }),
+        expect.anything(),
       );
 
       // A second sweep finds nothing further expired (and reclaims nothing
@@ -1446,6 +1449,52 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       const sweep2 = await q.sweepExpired(NOW);
       expect(sweep2.reclaimed).toBe(0);
       warnSpy.mockRestore();
+    });
+
+    it("does NOT warn on a FULL page of exactly 50 all-live leases (healthy steady state)", async () => {
+      // Boundary: exactly perPage healthy in-flight jobs. The old any-full-page
+      // warn fired here every sweep — pure noise with nothing truncated that
+      // could matter.
+      const rows = Array.from({ length: 50 }, (_, i) =>
+        runningRow(`live-${String(i).padStart(2, "0")}`, "2026-06-04T00:06:00.000Z"),
+      );
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreReleaseClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(NOW);
+
+      expect(sweep.reclaimed).toBe(0);
+      expect(logger.warn).not.toHaveBeenCalledWith(
+        "queue-client.sweep-lease-page-truncated",
+        expect.anything(),
+      );
+    });
+
+    it("warns on a FULL page whose TAIL lease is expired (expirable rows may lie beyond)", async () => {
+      // Boundary: exactly perPage rows, ALL expired — the tail being expired
+      // means rows beyond the page (if any) could be expired too, so the
+      // truncation is the one that matters and must be observable.
+      const rows = Array.from({ length: 50 }, (_, i) =>
+        runningRow(`dead-${String(i).padStart(2, "0")}`, "2026-06-04T00:01:00.000Z"),
+      );
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreReleaseClaim(store),
+        logger,
+      });
+
+      const sweep = await q.sweepExpired(NOW);
+
+      expect(sweep.reclaimed).toBe(50);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "queue-client.sweep-lease-page-truncated",
+        expect.objectContaining({ perPage: 50 }),
+      );
     });
 
     it("does NOT warn about truncation when the claimed/running page is not full", async () => {

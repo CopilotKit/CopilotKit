@@ -740,9 +740,19 @@ export function createFleetQueueClient(
         perPage: CLAIM_CANDIDATE_PAGE,
         skipTotal: true,
       });
-      if (page.items.length === CLAIM_CANDIDATE_PAGE) {
-        // A full page means rows beyond it were truncated this sweep — make
-        // that observable instead of silently draining over multiple sweeps.
+      const pageTail = page.items[page.items.length - 1];
+      if (
+        page.items.length === CLAIM_CANDIDATE_PAGE &&
+        pageTail !== undefined &&
+        leaseExpired(pageTail.lease_expires_at, nowMs)
+      ) {
+        // A full page whose TAIL lease is already expired: under the
+        // ascending lease sort, rows truncated beyond the page may be expired
+        // too — make that observable instead of silently draining over
+        // multiple sweeps. A full page with a LIVE tail is NOT warned: every
+        // truncated row has an even later expiry, so nothing expirable was
+        // hidden (warning there would false-positive on every sweep at any
+        // healthy ≥50-in-flight steady state).
         logger.warn("queue-client.sweep-lease-page-truncated", {
           perPage: CLAIM_CANDIDATE_PAGE,
         });
