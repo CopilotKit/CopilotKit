@@ -2,10 +2,8 @@ import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { z } from "zod";
-import {
-  OpenGenerativeUIActivityRenderer,
-  OpenGenerativeUIContent,
-} from "../OpenGenerativeUIRenderer";
+import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
+import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
@@ -83,7 +81,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const [, options] = mockCreate.mock.calls[0];
-    expect(options.frameContent).toBe(html);
+    // assembleDocument injects importmap + design system kit into the head before agent html
+    expect(options.frameContent).toContain("<body><p>Hello</p></body>");
     expect(options.frameContainer).toBeInstanceOf(HTMLElement);
   });
 
@@ -110,7 +109,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const [, options] = mockCreate.mock.calls[0];
-    expect(options.frameContent).toContain("<head></head>");
+    // assembleDocument ensures a <head> exists then injects kit into it
+    expect(options.frameContent).toContain("<head>");
+    expect(options.frameContent).toContain("<body><p>No head</p></body>");
   });
 
   it("joins html chunks when complete", async () => {
@@ -122,7 +123,9 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const [, options] = mockCreate.mock.calls[0];
-    expect(options.frameContent).toBe("<head></head><body><p>Hello</p></body>");
+    // assembleDocument injects importmap + design system kit into the head before agent content
+    expect(options.frameContent).toContain("<body><p>Hello</p></body>");
+    expect(options.frameContent).toContain("<head>");
   });
 
   it("destroys sandbox on unmount", async () => {

@@ -10,6 +10,8 @@ import React, {
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
+import { useOpenGenerativeUIOptions } from "../providers/OpenGenerativeUIOptionsContext";
+import { assembleDocument } from "../lib/assembleDocument";
 import {
   processPartialHtml,
   extractCompleteStyles,
@@ -151,28 +153,12 @@ interface InnerProps {
   content: OpenGenerativeUIContent;
 }
 
-function ensureHead(html: string): string {
-  if (/<head[\s>]/i.test(html)) return html;
-  return `<head></head>${html}`;
-}
-
-function injectCssIntoHtml(html: string, css: string): string {
-  const headCloseIdx = html.indexOf("</head>");
-  if (headCloseIdx !== -1) {
-    return (
-      html.slice(0, headCloseIdx) +
-      `<style>${css}</style>` +
-      html.slice(headCloseIdx)
-    );
-  }
-  return `<head><style>${css}</style></head>${html}`;
-}
-
 const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
     const initialHeight = content.initialHeight ?? 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
+    const { designSystemCss, importMap } = useOpenGenerativeUIOptions();
 
     const localApi = useMemo(() => {
       const api: Record<string, Function> = {};
@@ -262,7 +248,12 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           `);
 
             // Inject CSS from the dedicated parameter + any inline styles from HTML
+            // Order: kit → agent css → extracted preview styles
             const headParts: string[] = [];
+            if (designSystemCss)
+              headParts.push(
+                `<style data-ck-design-system>${designSystemCss}</style>`,
+              );
             if (css) headParts.push(`<style>${css}</style>`);
             if (previewStyles) headParts.push(previewStyles);
             if (headParts.length) {
@@ -292,7 +283,12 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0b — Preview content updates (body + styles)
     useEffect(() => {
       if (!previewSandboxRef.current || !previewReadyRef.current) return;
+      // Order: kit → agent css → extracted preview styles
       const headParts: string[] = [];
+      if (designSystemCss)
+        headParts.push(
+          `<style data-ck-design-system>${designSystemCss}</style>`,
+        );
       if (css) headParts.push(`<style>${css}</style>`);
       if (previewStyles) headParts.push(previewStyles);
       if (headParts.length) {
@@ -327,7 +323,11 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       pendingQueueRef.current = [];
 
       // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
-      const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
+      const htmlContent = assembleDocument(fullHtml, {
+        css,
+        designSystemCss,
+        importMap,
+      });
       import("@jetbrains/websandbox")
         .then((mod: any) => {
           if (cancelled) return;
@@ -338,7 +338,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           const Websandbox = mod.default?.default ?? mod.default;
           const sandbox = Websandbox.create(localApi, {
             frameContainer: container,
-            frameContent: ensureHead(htmlContent),
+            frameContent: htmlContent,
             allowAdditionalAttributes: "",
           });
           sandboxRef.current = sandbox;
@@ -390,7 +390,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         sandboxReadyRef.current = false;
         setAutoHeight(null);
       };
-    }, [fullHtml, css, localApi]);
+      // designSystemCss and importMap are stable context values (set once at provider mount)
+    }, [fullHtml, css, localApi, designSystemCss, importMap]);
 
     // Effect 2 — jsFunctions injection (depends on content.jsFunctions)
     useEffect(() => {
