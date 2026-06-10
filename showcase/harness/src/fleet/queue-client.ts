@@ -703,11 +703,31 @@ export function createFleetQueueClient(
       // deleted row. If the job is truly stale it ages out on the NEXT sweep.
       // (Re-anchoring the age to the re-queue time would need a column; the
       // `created` anchor is kept otherwise.)
+      //
+      // MASS-CRASH PAGING: with >CLAIM_CANDIDATE_PAGE claimed/running rows
+      // (mass worker crash), an UNSORTED single page left the contents to PB's
+      // unspecified default order — the same page of live-lease rows could
+      // come back every sweep, leaving expired leases beyond it PERMANENTLY
+      // invisible. Sorting by `lease_expires_at` ascending (indexed —
+      // idx_probe_jobs_lease; empty dates sort first, and an empty lease
+      // counts as expired) puts the most-expired rows at the head of the page,
+      // so every sweep reclaims the oldest expirations first. We deliberately
+      // KEEP the single page per sweep: the sort guarantees forward progress
+      // (each reclaim frees head slots for the next sweep), so a backlog
+      // drains progressively without unbounded pagination inside one sweep.
       const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
         filter: 'status = "claimed" || status = "running"',
+        sort: "lease_expires_at",
         perPage: CLAIM_CANDIDATE_PAGE,
         skipTotal: true,
       });
+      if (page.items.length === CLAIM_CANDIDATE_PAGE) {
+        // A full page means rows beyond it were truncated this sweep — make
+        // that observable instead of silently draining over multiple sweeps.
+        logger.warn("queue-client.sweep-lease-page-truncated", {
+          perPage: CLAIM_CANDIDATE_PAGE,
+        });
+      }
       const commErrors: PoolCommError[] = [];
       let reclaimed = 0;
       const requeuedThisSweep = new Set<string>();

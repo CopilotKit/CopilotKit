@@ -567,7 +567,8 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
    * A PAGING-FAITHFUL fake pb: unlike `makeFakePb` (which ignores `perPage` and
    * probe_key clauses), this fake honors the parts of the PB list API the
    * fairness fix depends on — `status` equality, `probe_key` `~`/`!~`/`=`/`!=`
-   * clauses with `%` globs, `created` ascending sort, and `perPage` truncation —
+   * clauses with `%` globs, `created`/`lease_expires_at` ascending sorts, and
+   * `perPage` truncation —
    * so the production starvation (oldest-50 page saturated by one family) is
    * reproduced faithfully.
    */
@@ -624,7 +625,16 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         opts: ListOpts = {},
       ): Promise<ListResult<T>> {
         let items = store.filter((r) => rowMatches(r, opts.filter));
-        if (opts.sort && opts.sort.includes("created")) {
+        if (opts.sort && opts.sort.includes("lease_expires_at")) {
+          // PB ascending date sort; empty/null dates sort first (and a
+          // null/empty lease counts as expired — leaseExpired(null) === true —
+          // so "nulls first" is exactly the expired-first semantics).
+          items = [...items].sort((a, b) =>
+            String(a.lease_expires_at ?? "").localeCompare(
+              String(b.lease_expires_at ?? ""),
+            ),
+          );
+        } else if (opts.sort && opts.sort.includes("created")) {
           items = [...items].sort((a, b) => a.created.localeCompare(b.created));
         }
         const totalItems = items.length;
@@ -1074,6 +1084,120 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // phase re-queued in THIS call, not a blanket stale-phase skip.
       expect(sweep.expiredPending).toBe(1);
       expect(store.find((r) => r.id === "untouched-old")).toBeUndefined();
+    });
+  });
+
+  describe("sweepExpired — LEASE-SCAN PAGING (mass worker crash backlog)", () => {
+    // The lease phase lists claimed/running rows with perPage 50. Under a mass
+    // worker crash (>50 such rows), an UNSORTED list left the page contents to
+    // PB's unspecified default order — the same 50 live-lease rows could come
+    // back every sweep, leaving expired leases beyond the page PERMANENTLY
+    // invisible (zero reclaimed, zero signal). The fix sorts by
+    // lease_expires_at ascending so the most-expired rows always land at the
+    // head of the page, and WARNs when the page is full (truncation is
+    // observable).
+
+    const NOW = Date.parse("2026-06-04T00:05:00.000Z");
+
+    function runningRow(id: string, leaseExpiresAt: string): CreatedJobRow {
+      return {
+        ...jobView({
+          id,
+          probe_key: `d6:${id}`,
+          status: "running",
+          claimed_by: `w-${id}`,
+          lease_expires_at: leaseExpiresAt,
+          version: 1,
+        }),
+        payload: samplePayload({ probeKey: `d6:${id}` }),
+        // Recent enough that the stale-pending phase never touches a
+        // reclaimed (now-pending) row in the same sweep.
+        created: "2026-06-04T00:00:00.000Z",
+      };
+    }
+
+    /** A store-mutating releaseJob: CAS on claimed_by, re-queues to pending. */
+    function makeStoreReleaseClaim(store: CreatedJobRow[]): JobClaimClient {
+      return {
+        ...makeStoreClaim(store),
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const row = store.find((r) => r.id === jobId);
+          if (!row || row.claimed_by !== workerId) return { released: false };
+          row.status = status as JobStatus;
+          row.claimed_by = "";
+          row.lease_expires_at = null;
+          row.version += 1;
+          return { released: true, job: { ...row } };
+        },
+      };
+    }
+
+    it("reclaims expired leases buried beyond the 50-row page on the FIRST sweep (lease_expires_at ascending) and warns on truncation", async () => {
+      // 52 live rows inserted FIRST, 3 expired rows LAST: under insertion
+      // order the perPage-50 page contains ONLY live rows, so the unsorted
+      // scan misses the expired ones on every sweep (RED: zero reclaimed
+      // across two sweeps).
+      const rows: CreatedJobRow[] = [];
+      for (let i = 0; i < 52; i++) {
+        rows.push(
+          runningRow(
+            `live-${String(i).padStart(2, "0")}`,
+            "2026-06-04T00:06:00.000Z",
+          ),
+        );
+      }
+      for (let i = 0; i < 3; i++) {
+        rows.push(runningRow(`dead-${i}`, "2026-06-04T00:01:00.000Z"));
+      }
+      const { pb, store } = makePagingPb(rows);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreReleaseClaim(store),
+        logger,
+      });
+      const warnSpy = vi.spyOn(logger, "warn");
+
+      const sweep = await q.sweepExpired(NOW);
+
+      // Expired-first sort surfaces all 3 dead leases on the FIRST sweep.
+      expect(sweep.reclaimed).toBe(3);
+      for (let i = 0; i < 3; i++) {
+        expect(store.find((r) => r.id === `dead-${i}`)?.status).toBe(
+          "pending",
+        );
+      }
+      // A full page means rows were truncated — that must be observable.
+      expect(warnSpy).toHaveBeenCalledWith(
+        "queue-client.sweep-lease-page-truncated",
+        expect.objectContaining({ perPage: 50 }),
+      );
+
+      // A second sweep finds nothing further expired (and reclaims nothing
+      // twice) — forward progress, not the same-page-forever pathology.
+      const sweep2 = await q.sweepExpired(NOW);
+      expect(sweep2.reclaimed).toBe(0);
+      warnSpy.mockRestore();
+    });
+
+    it("does NOT warn about truncation when the claimed/running page is not full", async () => {
+      const { pb, store } = makePagingPb([
+        runningRow("dead-0", "2026-06-04T00:01:00.000Z"),
+      ]);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreReleaseClaim(store),
+        logger,
+      });
+      const warnSpy = vi.spyOn(logger, "warn");
+
+      const sweep = await q.sweepExpired(NOW);
+
+      expect(sweep.reclaimed).toBe(1);
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        "queue-client.sweep-lease-page-truncated",
+        expect.anything(),
+      );
+      warnSpy.mockRestore();
     });
   });
 });
