@@ -689,14 +689,20 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
 }
 
 /**
- * Default run-id factory: timestamp + monotonic counter composite,
- * matching the scheduler's `nextRunId` idiom so two runs that land in the
- * same ms still get distinct ids.
+ * Default run-id factory: timestamp + per-factory random discriminator +
+ * monotonic counter composite, matching the scheduler's `nextRunId` idiom so
+ * two runs that land in the same ms still get distinct ids. The DISCRIMINATOR
+ * (generated once at factory creation) exists because every producer instance
+ * gets an INDEPENDENT default factory whose counter starts at 0 — without it,
+ * two producers ticking in the same ms with equal tick counts minted the SAME
+ * runId, and the aggregator groups results by `meta.runId`. The timestamp
+ * segment still leads, keeping ids sortable-prefixed.
  */
 function defaultRunIdFactory(): () => string {
   let counter = 0;
+  const discriminator = Math.random().toString(36).slice(2, 8).padEnd(6, "0");
   return () => {
     counter += 1;
-    return `frun_${Date.now().toString(36)}_${counter.toString(36)}`;
+    return `frun_${Date.now().toString(36)}_${discriminator}_${counter.toString(36)}`;
   };
 }

@@ -947,6 +947,43 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
   });
 });
 
+describe("job-producer — default run-id factory", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("two producers created back-to-back never collide for equal (timestamp, counter)", async () => {
+    // Four producers each get an INDEPENDENT default factory with its counter
+    // starting at 0 — same-ms ticks with equal counts used to produce the SAME
+    // id, and the aggregator groups by meta.runId. Pin the clock so both
+    // producers see an identical (ts, counter) pair; the per-factory random
+    // discriminator must still keep the ids distinct.
+    vi.spyOn(Date, "now").mockReturnValue(1_765_000_000_000);
+    vi.spyOn(Math, "random")
+      .mockReturnValueOnce(0.1234567)
+      .mockReturnValueOnce(0.7654321);
+    const make = () => {
+      const producer = createJobProducer({
+        queue: makeFakeQueue(),
+        enumerate: () => d6Specs(["a"]),
+        logger: SILENT_LOGGER,
+        // no runIdFactory → the DEFAULT factory under test
+      });
+      producer.start();
+      return producer;
+    };
+    const p1 = make();
+    const p2 = make();
+    const r1 = await p1.tick();
+    const r2 = await p2.tick();
+    expect(r1.runId).not.toBe(r2.runId);
+    // Ids stay sortable-prefixed (timestamp segment leads).
+    const ts36 = (1_765_000_000_000).toString(36);
+    expect(r1.runId.startsWith(`frun_${ts36}_`)).toBe(true);
+    expect(r2.runId.startsWith(`frun_${ts36}_`)).toBe(true);
+  });
+});
+
 describe("job-producer — lifecycle seams (start/stop/tick)", () => {
   it("isRunning reflects start()/stop()", async () => {
     const queue = makeFakeQueue();
