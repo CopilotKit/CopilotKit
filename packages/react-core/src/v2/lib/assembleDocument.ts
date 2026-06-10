@@ -55,9 +55,11 @@ export function ensureHead(html: string): string {
  * 4. `<style>` containing `opts.css` — agent-authored CSS, immediately before
  *    `</head>` so it wins over the kit on specificity ties
  *
- * Backward-compat invariant: when both `designSystemCss` and `importMap` are
- * falsy, the output is byte-identical to the legacy
- * `ensureHead(css ? injectCssIntoHtml(html, css) : html)` path.
+ * Backward-compat invariant: when no prefix is injected — i.e. `designSystemCss`
+ * is falsy AND `importMap` is falsy or an empty object — the output is
+ * byte-identical to the legacy `ensureHead(css ? injectCssIntoHtml(html, css)
+ * : html)` path for ALL inputs, by construction (the legacy composition is
+ * reproduced verbatim, injecting CSS into the raw html *before* ensuring head).
  *
  * Pure string function — no DOM, no React.
  */
@@ -67,25 +69,48 @@ export function assembleDocument(
 ): string {
   const { css, designSystemCss, importMap } = opts;
 
-  // Step 1: ensure a <head> tag exists.
-  html = ensureHead(html);
-
-  // Step 2: build the prefix to insert immediately after the opening <head…> tag.
+  // Build the prefix to insert immediately after the opening <head…> tag.
   // An empty importMap object ({}) is treated as no importmap — it would
   // otherwise emit an inert `<script type="importmap">{"imports":{}}</script>`.
-  const importMapPart =
-    importMap && Object.keys(importMap).length > 0
-      ? buildImportMapScript(importMap)
-      : "";
+  const hasImports = !!importMap && Object.keys(importMap).length > 0;
+  const importMapPart = hasImports ? buildImportMapScript(importMap) : "";
   const designSystemPart = designSystemCss
     ? `<style data-ck-design-system>${designSystemCss}</style>`
     : "";
   const prefix = importMapPart + designSystemPart;
 
-  // Non-legacy mode is active whenever a design-system or importmap injection is
-  // requested. The agent-css fallback below is scoped to this path so the legacy
-  // mode (both falsy) stays byte-identical to the original algorithm.
-  const nonLegacy = Boolean(designSystemCss) || Boolean(importMap);
+  // Non-legacy mode means "a prefix was actually injected". An empty importMap
+  // ({}) with no design-system CSS produces an empty prefix and therefore stays
+  // on the pure-legacy path — `importMap: {}` behaves exactly like `importMap:
+  // false`. (Equivalent to `Boolean(designSystemCss) || hasImports`.)
+  const nonLegacy = prefix !== "";
+
+  // PURE LEGACY PATH — no prefix to inject. Reproduce the legacy composition
+  // verbatim: inject the agent CSS into the RAW html first (the legacy
+  // injectCssIntoHtml algorithm), THEN ensure a <head> exists (legacy
+  // ensureHead). Applying the two helpers in this order makes the output
+  // byte-identical to the legacy path for ALL inputs by construction —
+  // including degenerate inputs where `</head>` appears before/without an
+  // opening `<head>` (ensuring head first would otherwise inject a spurious
+  // earlier `</head>` and the CSS would land in the wrong place).
+  if (!nonLegacy) {
+    if (css) {
+      const headCloseIdx = html.indexOf("</head>");
+      const injected =
+        headCloseIdx !== -1
+          ? html.slice(0, headCloseIdx) +
+            `<style>${css}</style>` +
+            html.slice(headCloseIdx)
+          : `<head><style>${css}</style></head>${html}`;
+      return ensureHead(injected);
+    }
+    return ensureHead(html);
+  }
+
+  // ASSEMBLED (NON-LEGACY) PATH — a prefix exists. Ensure a <head> first so the
+  // prefix has a real head-opening tag to anchor to, then inject prefix +
+  // agent css, preserving the documented cascade: importmap -> kit -> agent css.
+  html = ensureHead(html);
 
   // Track where the prefix's opening <head…> tag ends so the css fallback can
   // inject immediately after the prefix instead of prepending a second head.
@@ -97,16 +122,13 @@ export function assembleDocument(
   const headOpenMatch = html.match(/<head(\s[^>]*)?>/i);
   if (headOpenMatch && headOpenMatch.index !== undefined) {
     prefixInsertAt = headOpenMatch.index + headOpenMatch[0].length;
-    if (prefix) {
-      html =
-        html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
-      // The inserted prefix shifts the insertion point past its own bytes so
-      // the css fallback lands after the prefix (kit), preserving the cascade.
-      prefixInsertAt += prefix.length;
-    }
+    html = html.slice(0, prefixInsertAt) + prefix + html.slice(prefixInsertAt);
+    // The inserted prefix shifts the insertion point past its own bytes so
+    // the css fallback lands after the prefix (kit), preserving the cascade.
+    prefixInsertAt += prefix.length;
   }
 
-  // Step 3: inject agent CSS immediately before </head> (legacy algorithm).
+  // Inject agent CSS immediately before </head> (legacy algorithm).
   if (css) {
     const headCloseIdx = html.indexOf("</head>");
     if (headCloseIdx !== -1) {
@@ -116,12 +138,11 @@ export function assembleDocument(
         html.slice(headCloseIdx)
       );
     }
-    // No </head> exists. In non-legacy mode a real head-opening tag is always
-    // present (ensureHead guarantees it), so inject the agent css right after
-    // the kit/importmap prefix — keeping the documented cascade (kit first,
-    // agent css after) and avoiding a duplicate <head>. In pure legacy mode we
-    // preserve the original prepend-second-head quirk byte-for-byte.
-    if (nonLegacy && prefixInsertAt !== undefined) {
+    // No </head> exists. ensureHead guarantees a real head-opening tag is
+    // present, so inject the agent css right after the kit/importmap prefix —
+    // keeping the documented cascade (kit first, agent css after) and avoiding
+    // a duplicate <head>.
+    if (prefixInsertAt !== undefined) {
       return (
         html.slice(0, prefixInsertAt) +
         `<style>${css}</style>` +

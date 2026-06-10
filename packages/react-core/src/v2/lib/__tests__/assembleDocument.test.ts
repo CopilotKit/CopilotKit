@@ -5,6 +5,18 @@ import {
   DEFAULT_OPEN_GEN_UI_LIBRARIES,
 } from "../assembleDocument";
 
+// Legacy reference implementations, copied verbatim from
+// OpenGenerativeUIRenderer.tsx. Hoisted to module scope so the invariant sweep
+// can reuse them without re-declaring on every test invocation.
+const legacyEnsureHeadRef = (html: string) =>
+  /<head[\s>]/i.test(html) ? html : `<head></head>${html}`;
+const legacyInjectRef = (html: string, css: string) => {
+  const i = html.indexOf("</head>");
+  return i !== -1
+    ? html.slice(0, i) + `<style>${css}</style>` + html.slice(i)
+    : `<head><style>${css}</style></head>${html}`;
+};
+
 describe("assembleDocument", () => {
   const KIT = "body{--x:1}";
 
@@ -148,5 +160,92 @@ describe("assembleDocument", () => {
     expect(out).not.toContain('<script type="importmap">');
     // The kit still injects normally.
     expect(out).toContain("data-ck-design-system");
+  });
+
+  // Convergence sweep: a single input matrix that pins the two invariants this
+  // function keeps drifting on — (1) byte-identity to legacy when no prefix is
+  // injected, and (2) no duplicate head / correct cascade order in non-legacy
+  // mode. Adding a degenerate input here is cheaper than discovering the next
+  // off-by-one in production.
+  describe("input-matrix invariant sweep", () => {
+    // Reuse the module-scoped legacy reference implementations (verbatim from
+    // OpenGenerativeUIRenderer.tsx, identical to the byte-equivalence test).
+    const legacyEnsureHead = legacyEnsureHeadRef;
+    const legacyInject = legacyInjectRef;
+
+    const INPUTS = [
+      "<head></head><body>a</body>",
+      "<body>b</body>",
+      "<div>c</div>",
+      "</head><body>x</body>", // stray close before open
+      "foo</head>bar",
+      "<head><body>unclosed</body>", // open without close
+      "<HEAD ><title>t</title></HEAD><body>u</body>", // uppercase + attr-ish
+      '<head data-x="1"><title>t</title></head><body>v</body>', // attributes
+      "<header>h</header><head></head><body>w</body>", // header before head
+      "<header>only</header><div>z</div>", // header, no head
+    ];
+    const CSS = [undefined, ".x{}"];
+    // A real head-opening tag: `<head>` or `<head ...attrs>`, excluding
+    // `<header ...>`. Non-legacy mode must never emit more than one.
+    const HEAD_OPEN = /<head(\s[^>]*)?>/gi;
+
+    // (1) LEGACY MODE — byte-identical to the legacy reference for every input ×
+    // css, under BOTH `importMap: false` and `importMap: {}` (an empty importmap
+    // injects no prefix, so it must behave exactly like pure legacy).
+    for (const importMap of [false, {} as Record<string, string>]) {
+      const label = importMap === false ? "importMap:false" : "importMap:{}";
+      for (const html of INPUTS) {
+        for (const css of CSS) {
+          it(`legacy byte-identity (${label}) — ${JSON.stringify(
+            html,
+          )} / css=${JSON.stringify(css)}`, () => {
+            const legacy = legacyEnsureHead(
+              css ? legacyInject(html, css) : html,
+            );
+            const next = assembleDocument(html, {
+              css,
+              designSystemCss: false,
+              importMap,
+            });
+            expect(next).toBe(legacy);
+          });
+        }
+      }
+    }
+
+    // (2) NON-LEGACY MODE — kit string + one pinned library. Assert the cascade
+    // order invariants and that exactly one head-opening tag exists. Bytes are
+    // not pinned here because the prefix legitimately changes the output.
+    const PINNED = { three: "https://esm.sh/three@0.180.0" };
+    for (const html of INPUTS) {
+      for (const css of CSS) {
+        it(`non-legacy order + single head — ${JSON.stringify(
+          html,
+        )} / css=${JSON.stringify(css)}`, () => {
+          const out = assembleDocument(html, {
+            css,
+            designSystemCss: KIT,
+            importMap: PINNED,
+          });
+          const importmapIdx = out.indexOf('<script type="importmap">');
+          const kitIdx = out.indexOf("data-ck-design-system");
+          // importmap precedes the kit.
+          expect(importmapIdx).toBeGreaterThan(-1);
+          expect(importmapIdx).toBeLessThan(kitIdx);
+          // Exactly one head-opening tag — non-legacy mode never duplicates the
+          // head, even for the legacy-quirk inputs (stray close, unclosed head).
+          expect(out.match(HEAD_OPEN) ?? []).toHaveLength(1);
+          if (css) {
+            const cssMarker = ".x{}";
+            const cssIdx = out.indexOf(cssMarker);
+            // Agent css follows the kit…
+            expect(kitIdx).toBeLessThan(cssIdx);
+            // …and appears exactly once.
+            expect(out.split(cssMarker)).toHaveLength(2);
+          }
+        });
+      }
+    }
   });
 });
