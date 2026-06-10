@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@ai-sdk/mcp': 1.0.21
+
 importers:
 
   .:
@@ -139,8 +142,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/mcp@1.0.47':
-    resolution: {integrity: sha512-ZeiF2DyhyOBnvRumOeq6WCkGuQ3fJeuDObnT7nZRTM+fJbzt0Aa/cOmbpDnCPx9rUB/OZBqsWP5nmDXNpfDCDQ==}
+  '@ai-sdk/mcp@1.0.21':
+    resolution: {integrity: sha512-dRX2X6GDadZNpiylNnw0HP7zJC8ggVOOJV/JtxuF6CgtP8CKnc7a/wEzpUw1m/4AGdD3mTDhKnKFwC4y10a8FQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -163,6 +166,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@4.0.15':
+    resolution: {integrity: sha512-8XiKWbemmCbvNN0CLR9u3PQiet4gtEVIrX4zzLxnCj06AwsEDJwJVBbKrEI4t6qE8XRSIvU2irka0dcpziKW6w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider-utils@4.0.27':
     resolution: {integrity: sha512-ubkAJ+xODouwtmN1tYlvTPphH1hPOBfZaEQe8U7skGvFAnIRs9PPpsq57bC2+Ky/MB4yzhd6YOsxTAx9sGpazw==}
     engines: {node: '>=18'}
@@ -175,6 +184,10 @@ packages:
 
   '@ai-sdk/provider@3.0.10':
     resolution: {integrity: sha512-Q3BZ27qfpYqnCYGvE3vt+Qi6LGOF9R5Nmzn+9JoM1lCRsD9mYaIhfJLkSunN48nfGXJ6n+XNV0J/XVpqGQl7Dw==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.8':
+    resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
   '@bufbuild/protobuf@2.12.0':
@@ -2358,10 +2371,10 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/mcp@1.0.47(zod@3.25.76)':
+  '@ai-sdk/mcp@1.0.21(zod@3.25.76)':
     dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
+      '@ai-sdk/provider': 3.0.8
+      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       pkce-challenge: 5.0.1
       zod: 3.25.76
 
@@ -2384,6 +2397,13 @@ snapshots:
       eventsource-parser: 3.1.0
       zod: 3.25.76
 
+  '@ai-sdk/provider-utils@4.0.15(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.1.0
+      zod: 3.25.76
+
   '@ai-sdk/provider-utils@4.0.27(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -2396,6 +2416,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.10':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.8':
     dependencies:
       json-schema: 0.4.0
 
@@ -2471,7 +2495,7 @@ snapshots:
       '@ai-sdk/anthropic': 3.0.82(zod@3.25.76)
       '@ai-sdk/google': 3.0.80(zod@3.25.76)
       '@ai-sdk/google-vertex': 3.0.141(zod@3.25.76)
-      '@ai-sdk/mcp': 1.0.47(zod@3.25.76)
+      '@ai-sdk/mcp': 1.0.21(zod@3.25.76)
       '@ai-sdk/openai': 3.0.69(zod@3.25.76)
       '@copilotkit/license-verifier': 0.4.2
       '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)
