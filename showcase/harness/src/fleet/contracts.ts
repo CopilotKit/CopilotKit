@@ -718,5 +718,8 @@ export function terminalJobStatus(
  */
 export function probeKeyFamily(probeKey: string): string {
   const idx = probeKey.indexOf(":");
-  return idx === -1 ? probeKey : probeKey.slice(0, idx);
+  // idx <= 0: a leading-colon key has NO family prefix — treat the whole key
+  // as its own family rather than letting the empty string flow into
+  // countPendingForFamily / the fairness partition as a phantom bucket.
+  return idx <= 0 ? probeKey : probeKey.slice(0, idx);
 }

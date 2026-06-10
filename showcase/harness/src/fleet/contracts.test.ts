@@ -13,6 +13,7 @@ import {
   isWorkerStale,
   workerCapacityFromBudget,
   terminalJobStatus,
+  probeKeyFamily,
   FLEET_COMM_ERROR_SIGNAL_KEY,
   WORKERS_COLLECTION,
 } from "./contracts.js";
@@ -270,6 +271,26 @@ describe("terminalJobStatus", () => {
     expect(
       terminalJobStatus(makeResult({ commError: SAMPLE_COMM_ERROR })),
     ).toBe("failed");
+  });
+});
+
+describe("probeKeyFamily", () => {
+  it("extracts the prefix before the first ':'", () => {
+    expect(probeKeyFamily("d6:langgraph-python")).toBe("d6");
+    expect(probeKeyFamily("e2e-demos:agno")).toBe("e2e-demos");
+    expect(probeKeyFamily("d6:agno:extra")).toBe("d6");
+  });
+
+  it("returns the whole key when no ':' is present", () => {
+    expect(probeKeyFamily("standalone")).toBe("standalone");
+  });
+
+  it("treats a leading-colon key as having NO family prefix (whole key, never '')", () => {
+    // A key beginning with ':' would otherwise yield the EMPTY-STRING family,
+    // which flows into countPendingForFamily and the claimNext fairness
+    // partition as a phantom real bucket.
+    expect(probeKeyFamily(":weird")).toBe(":weird");
+    expect(probeKeyFamily(":")).toBe(":");
   });
 });
 
