@@ -989,8 +989,17 @@ export function resolveCell(
 
 /**
  * Shallow equality on the row fields that change observably between
- * SSE updates: `key`, `state`, `observed_at`, `transitioned_at`, plus the
- * PRESENCE (not content) of `signal`.
+ * SSE updates: `id`, `key`, `state`, `observed_at`, `transitioned_at`,
+ * `fail_count`, `first_failure_at`, plus the PRESENCE (not content) of
+ * `signal`.
+ *
+ * `fail_count` and `first_failure_at` are observable on their own:
+ * `first_failure_at` is load-bearing in `formatTooltip` ("red since ..."),
+ * and `fail_count` feeds the drilldown/alerting surfaces — a delta moving
+ * only one of them must not be discarded. `id` changes when a status row is
+ * deleted and recreated upstream (same key, fresh PB record id); swallowing
+ * that delta would strand the stale id in the map and break any id-keyed
+ * follow-up fetch.
  *
  * Signal handling: the initial fetch projection drops `signal`, so initial
  * rows arrive with `signal === undefined` and rely on SSE deltas to deliver
@@ -1018,10 +1027,13 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
   const a = prev as Record<string, unknown>;
   const b = next as Record<string, unknown>;
   return (
+    a.id === b.id &&
     a.key === b.key &&
     a.state === b.state &&
     a.observed_at === b.observed_at &&
     a.transitioned_at === b.transitioned_at &&
+    a.fail_count === b.fail_count &&
+    a.first_failure_at === b.first_failure_at &&
     (a.signal === undefined) === (b.signal === undefined)
   );
 }
@@ -1031,9 +1043,10 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
  * live-subscribe reducer when the SSE stream emits a record update.
  *
  * Returns the SAME array reference when the incoming row is a no-op
- * (key + state + observed_at + transitioned_at unchanged AND signal
- * presence unchanged) so React's reference-equality short-circuit can
- * skip re-rendering downstream memoised components.
+ * (id + key + state + observed_at + transitioned_at + fail_count +
+ * first_failure_at unchanged AND signal presence unchanged) so React's
+ * reference-equality short-circuit can skip re-rendering downstream
+ * memoised components.
  */
 export function upsertByKey<T extends { key: string }>(
   rows: T[],
@@ -1061,8 +1074,8 @@ export function upsertByKey<T extends { key: string }>(
  *
  * The warning fires only on GENUINE divergence — two rows with the same key
  * but a different observable state (compared via `rowsAreNoop`, the same
- * key/state/observed_at/transitioned_at + signal-presence shallow check the
- * reducer uses).
+ * id/key/state/observed_at/transitioned_at/fail_count/first_failure_at +
+ * signal-presence shallow check the reducer uses).
  * Identical-content-but-different-reference rows (e.g. the same producer row
  * re-allocated across two groups) are NOT a real invariant violation and used
  * to fire a noisy false warning under the old reference-based `prior !== r`

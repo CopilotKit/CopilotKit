@@ -150,6 +150,42 @@ describe("upsertByKey", () => {
     expect(after).not.toBe(before);
     expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
   });
+  it("allocates a new array when only fail_count changes (not a no-op)", () => {
+    // A red row's fail_count increments on every consecutive failure while
+    // observed_at/transitioned_at can stay put within a tick; the drilldown
+    // and alerting surfaces read it, so the delta must NOT be swallowed.
+    const a = row("k:fc", "smoke", "red", { fail_count: 1 });
+    const b = row("k:fc", "smoke", "red", { fail_count: 2 });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.fail_count).toBe(2);
+  });
+  it("allocates a new array when only first_failure_at changes (load-bearing in tooltips)", () => {
+    // formatTooltip renders "red since <first_failure_at>" — a delta that
+    // moves only this field is observable copy and must not be discarded.
+    const a = row("k:ffa", "smoke", "red", {
+      first_failure_at: "2026-06-01T00:00:00.000Z",
+    });
+    const b = row("k:ffa", "smoke", "red", {
+      first_failure_at: "2026-06-02T00:00:00.000Z",
+    });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.first_failure_at).toBe("2026-06-02T00:00:00.000Z");
+  });
+  it("allocates a new array when only id changes (deleted-and-recreated PB row)", () => {
+    // A status row deleted and recreated upstream keeps its key but gets a
+    // fresh PB id; keeping the stale id in the map breaks any id-keyed
+    // follow-up fetch (e.g. the drilldown's full-row load).
+    const a = row("k:id", "smoke", "green", { id: "rec-old" });
+    const b = row("k:id", "smoke", "green", { id: "rec-new" });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.id).toBe("rec-new");
+  });
   it("applies a row whose signal goes from absent to present (SSE full-row delivery)", () => {
     // The initial fetch projection drops `signal`, so initial rows arrive with
     // `signal === undefined` and rely on SSE deltas to deliver the populated
