@@ -117,7 +117,7 @@ export interface ServiceJobMeta {
   triggered: boolean;
   /** ISO timestamp the control-plane enqueued the job. */
   enqueuedAt: string;
-  /** Optional priority hint; higher pulls first when a worker has a choice. */
+  /** Optional priority hint. Reserved; not currently consulted by claimNext. */
   priority?: number;
 }
 
