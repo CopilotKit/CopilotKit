@@ -297,6 +297,26 @@ describe("job-producer — per-service enqueue", () => {
     expect(queue.enqueued[0]!.payload.meta.triggered).toBe(true);
   });
 
+  it("does NOT forward a filter on a scheduled tick (a scheduled tick must never be scoped)", async () => {
+    // The filter is documented trigger-only: an operator filter accidentally
+    // threaded into a scheduled (cron) tick must not scope the run.
+    const seen: Array<{ triggered: boolean; filter?: unknown }> = [];
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: (ctx) => {
+        seen.push({ triggered: ctx.triggered, filter: ctx.filter });
+        return d6Specs(["a", "b"]);
+      },
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    await producer.tick({ filter: { slugs: ["crewai"] } }); // NOT triggered
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.triggered).toBe(false);
+    expect(seen[0]!.filter).toBeUndefined();
+  });
+
   it("enqueues nothing when the enumerator returns no services", async () => {
     const { producer, queue } = startedProducer({ specs: [] });
     const result = await producer.tick();

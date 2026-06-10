@@ -118,7 +118,11 @@ export interface ServiceJobSpec {
   cellIds?: string[];
   /** Free-form driver inputs threaded to the worker's driver. */
   driverInputs?: Record<string, unknown>;
-  /** Optional per-job priority hint (higher pulls first). */
+  /**
+   * Optional per-job priority hint, copied verbatim onto `meta.priority`.
+   * RESERVED: not currently consulted by `claimNext` (workers pull in queue
+   * order regardless of this value).
+   */
   priority?: number;
 }
 
@@ -143,7 +147,11 @@ export interface EnumerateContext {
   triggered: boolean;
   /** Stable id of this run batch (same id stamped onto every job's meta). */
   runId: string;
-  /** Optional operator filter (slug / feature scoping), trigger-only. */
+  /**
+   * Optional operator filter (slug / feature scoping). Only ever present on
+   * TRIGGERED runs — the producer never forwards a filter on a scheduled
+   * tick (a scheduled tick must never be scoped).
+   */
   filter?: { slugs?: string[]; featureTypes?: string[] };
 }
 
@@ -151,7 +159,11 @@ export interface EnumerateContext {
 export interface TickOptions {
   /** True when an operator triggered this run; default false (scheduled). */
   triggered?: boolean;
-  /** Operator filter forwarded to the enumerator (trigger-only). */
+  /**
+   * Operator filter forwarded to the enumerator — TRIGGERED ticks only. A
+   * filter passed without `triggered: true` is IGNORED (warned, not
+   * forwarded): a scheduled tick must never be scoped.
+   */
   filter?: { slugs?: string[]; featureTypes?: string[] };
 }
 
@@ -579,7 +591,16 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       const triggered = tickOpts?.triggered === true;
 
       const enumerateCtx: EnumerateContext = { triggered, runId };
-      if (tickOpts?.filter !== undefined) enumerateCtx.filter = tickOpts.filter;
+      // The filter is TRIGGER-ONLY: a scheduled (cron) tick must never be
+      // scoped, so a filter passed without `triggered: true` is dropped (and
+      // warned) rather than forwarded to the enumerator.
+      if (tickOpts?.filter !== undefined) {
+        if (triggered) {
+          enumerateCtx.filter = tickOpts.filter;
+        } else {
+          logger.warn("fleet.producer.filter-ignored-scheduled", { runId });
+        }
+      }
 
       let specs: ServiceJobSpec[];
       try {
