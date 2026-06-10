@@ -24,15 +24,39 @@ export const COPILOTKIT_VERSION = packageJson.version;
 // like createLicenseChecker and getLicenseWarningHeader directly from
 // @copilotkit/license-verifier.
 export type {
-  LicenseContextValue,
   LicenseChecker,
   LicenseStatus,
   LicensePayload,
   LicenseFeatures,
   LicenseTier,
   LicenseOwner,
-  LicenseMode,
 } from "@copilotkit/license-verifier";
+
+import type {
+  LicenseStatus,
+  LicensePayload,
+} from "@copilotkit/license-verifier";
+
+// LicenseContextValue and LicenseMode were dropped from license-verifier's
+// public API in 0.3.0, so they are defined here. The context shape is owned
+// by this package anyway via createLicenseContextValue below.
+
+/**
+ * License context value exposed to child components.
+ * Frontend providers create their own context using this shape.
+ */
+export interface LicenseContextValue {
+  /** The resolved license status after verification. Null if no token provided. */
+  status: LicenseStatus | null;
+  /** Convenience: the license payload if valid, null otherwise. */
+  license: LicensePayload | null;
+  /** Whether a specific feature is licensed. Returns true if no licensing is active (no token). */
+  checkFeature: (feature: string) => boolean;
+  /** Get a numeric feature limit. Returns null if not applicable. */
+  getLimit: (feature: string) => number | null;
+}
+
+export type LicenseMode = "online" | "offline";
 
 /**
  * Client-safe license context factory.
