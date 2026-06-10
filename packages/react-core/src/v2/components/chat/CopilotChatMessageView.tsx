@@ -50,9 +50,18 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
  * Collision rule: two distinct assistant messages can occasionally share a
  * first-tool-call id (e.g. due to upstream bugs or replayed state). First
  * occurrence (in list order) claims `tc:<id>`; later collisions fall back to
- * `message.id`. Assigned keys are tracked in the claimed set, so keys are
- * unique by construction: post-dedup message ids are unique, and the `tc:`
- * prefix namespaces tool-call keys away from raw message ids.
+ * `message.id`. Every assigned key is checked against the claimed set, so
+ * keys are unique even for pathological ids (e.g. a raw message id beginning
+ * with "tc:"); collisions disambiguate with a deterministic numeric suffix.
+ *
+ * Precondition: callers must pass a deduplicated list (see
+ * `deduplicateMessages`); duplicate message ids would silently overwrite map
+ * entries.
+ *
+ * Order caveat: the collision rule is order-sensitive — if two messages
+ * sharing a first tool-call id swap list positions across renders, the
+ * claimant changes and both rows remount. Acceptable: that situation already
+ * indicates an upstream id bug, and keys remain unique.
  */
 function buildRowRenderKeys(messages: Message[]): Map<string, string> {
   const keys = new Map<string, string>();
@@ -65,11 +74,17 @@ function buildRowRenderKeys(messages: Message[]): Map<string, string> {
         candidate = `tc:${anchorToolCallId}`;
       }
     }
-    let assigned: string;
+    let assigned = message.id;
     if (candidate && !claimed.has(candidate)) {
       assigned = candidate;
-    } else {
-      assigned = message.id;
+    } else if (claimed.has(assigned)) {
+      // Pathological: a raw message id collides with an already-claimed key
+      // (e.g. a backend emits a message id that literally starts with "tc:").
+      // Disambiguate deterministically by claim order so the result is stable
+      // across renders for a stable list.
+      let n = 2;
+      while (claimed.has(`${assigned}:${n}`)) n += 1;
+      assigned = `${assigned}:${n}`;
     }
     keys.set(message.id, assigned);
     claimed.add(assigned);

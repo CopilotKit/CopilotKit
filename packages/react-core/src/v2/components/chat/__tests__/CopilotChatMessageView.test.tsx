@@ -259,14 +259,48 @@ describe("CopilotChatMessageView stable row keying across message id changes", (
 
     render(messageViewTree(messages));
 
-    // Both assistant rows must render — duplicate React keys would silently
-    // drop one of them from the output.
+    // Both assistant rows must render — duplicate React keys can cause React
+    // to reconcile a row with the wrong DOM node and inherit stale state; the
+    // warning-count assertion below is the actual safety net.
     const assistantMessages = screen.getAllByTestId(
       "copilot-assistant-message",
     );
     expect(assistantMessages).toHaveLength(2);
 
+    // Render order matches input order — pins first-claimant-wins precedence
+    // so the first occurrence keeps `tc:<id>` and the second falls back to id.
+    expect(assistantMessages[0].textContent).toContain("First");
+    expect(assistantMessages[1].textContent).toContain("Second");
+
     // No React "two children with the same key" warning should fire.
+    const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" &&
+        call[0].includes("two children with the same key"),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("keeps row keys unique when a literal message id collides with an earlier tc:-prefixed key", () => {
+    // Pathological: a backend emits a message id that literally starts with
+    // "tc:" and matches an earlier assistant's first tool-call id. The
+    // structural uniqueness guard in buildRowRenderKeys must disambiguate.
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const messages: Message[] = [
+      assistantMsg("a-1", "First", [toolCall("tc-1", "approve")]),
+      assistantMsg("tc:tc-1", "Second"),
+    ];
+
+    render(messageViewTree(messages));
+
+    const assistantMessages = screen.getAllByTestId(
+      "copilot-assistant-message",
+    );
+    expect(assistantMessages).toHaveLength(2);
+
     const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
       (call) =>
         typeof call[0] === "string" &&
