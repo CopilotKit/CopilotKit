@@ -207,6 +207,69 @@ describe("job-producer — per-service enqueue", () => {
     );
   });
 
+  it("stamps enqueuedAt at ENQUEUE time, not tick start (a slow enumerate must not back-date it)", async () => {
+    // nowMs used to be captured BEFORE the potentially-seconds-long
+    // enumerate() await, so meta.enqueuedAt (documented as 'ISO timestamp the
+    // control-plane enqueued the job') was the tick-START time.
+    let t = 1_000;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => {
+        t = 61_000; // a slow discovery: 60s elapse inside enumerate
+        return d6Specs(["a"]);
+      },
+      logger: SILENT_LOGGER,
+      now: () => t,
+    });
+    producer.start();
+    await producer.tick();
+    expect(queue.enqueued[0]!.payload.meta.enqueuedAt).toBe(
+      new Date(61_000).toISOString(),
+    );
+  });
+
+  it("re-reads the clock for the sweep AFTER enumerate (expiry decisions are not back-dated)", async () => {
+    let t = 1_000;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => {
+        t = 61_000;
+        return d6Specs(["a"]);
+      },
+      logger: SILENT_LOGGER,
+      now: () => t,
+    });
+    producer.start();
+    await producer.tick();
+    // sweepExpired must be evaluated against the post-enumerate clock.
+    expect(queue.sweepCalls).toEqual([61_000]);
+  });
+
+  it("the default runId factory reads the INJECTED clock, not Date.now", async () => {
+    const dateNowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(9_999_999_999_999);
+    try {
+      const queue = makeFakeQueue();
+      const producer = createJobProducer({
+        queue,
+        enumerate: () => d6Specs(["a"]),
+        logger: SILENT_LOGGER,
+        now: () => 123_456,
+        // no runIdFactory → default factory under test
+      });
+      producer.start();
+      const result = await producer.tick();
+      expect(
+        result.runId.startsWith(`frun_${(123_456).toString(36)}_`),
+      ).toBe(true);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
   it("marks scheduled (cron) ticks as triggered:false", async () => {
     const { producer, queue } = startedProducer({ specs: d6Specs(["a"]) });
     await producer.tick();

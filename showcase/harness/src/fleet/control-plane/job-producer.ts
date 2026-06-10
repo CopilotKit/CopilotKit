@@ -207,8 +207,9 @@ export interface JobProducerOptions {
   sweepIntervalMs?: number;
   /**
    * Clock, injectable for tests. Returns ms-since-epoch. Used for the
-   * sweep cadence gate and `ServiceJobMeta.enqueuedAt`. Defaults to
-   * `Date.now`.
+   * sweep cadence gate (re-read after the enumerate await, never tick
+   * start), `ServiceJobMeta.enqueuedAt` (stamped at enqueue time), and the
+   * default run-id factory. Defaults to `Date.now`.
    */
   now?: () => number;
   /**
@@ -287,7 +288,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   const { queue, enumerate, logger } = opts;
   const now = opts.now ?? (() => Date.now());
   const sweepIntervalMs = opts.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS;
-  const runIdFactory = opts.runIdFactory ?? defaultRunIdFactory();
+  const runIdFactory = opts.runIdFactory ?? defaultRunIdFactory(now);
   const onSweepCommErrors = opts.onSweepCommErrors;
   const warmHealth = opts.warmHealth;
 
@@ -576,8 +577,6 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       }
 
       const triggered = tickOpts?.triggered === true;
-      const nowMs = now();
-      const enqueuedAt = new Date(nowMs).toISOString();
 
       const enumerateCtx: EnumerateContext = { triggered, runId };
       if (tickOpts?.filter !== undefined) enumerateCtx.filter = tickOpts.filter;
@@ -588,13 +587,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       } catch (err) {
         // Enumeration failure short-circuits production (no services →
         // nothing to enqueue). Still attempt the sweep so dead-worker
-        // reclamation isn't starved by a flaky discovery upstream.
+        // reclamation isn't starved by a flaky discovery upstream. The clock
+        // is read AFTER the (potentially slow) enumerate await so the sweep's
+        // expiry decisions aren't back-dated to tick start.
         logger.error("fleet.producer.enumerate-failed", {
           runId,
           triggered,
           err: err instanceof Error ? err.message : String(err),
         });
-        const sweep = await maybeSweep(nowMs);
+        const sweep = await maybeSweep(now());
         return {
           runId,
           enqueued: 0,
@@ -618,8 +619,11 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // backlog gate means the very tick that drains a family also resumes
       // its production — sweeping after the gate made production resume a
       // full cron period late. Same cadence gate and fail-open semantics
-      // (maybeSweep swallows sweep failures); only the order changed.
-      const sweep = await maybeSweep(nowMs);
+      // (maybeSweep swallows sweep failures); only the order changed. The
+      // clock is re-read HERE — after the potentially-seconds-long enumerate
+      // await — so lease-expiry decisions and lastSweepAt aren't back-dated
+      // to tick start.
+      const sweep = await maybeSweep(now());
 
       // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
       // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
@@ -643,7 +647,10 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         const meta: ServiceJobMeta = {
           runId,
           triggered,
-          enqueuedAt,
+          // Stamped at ENQUEUE time (the documented meaning: 'ISO timestamp
+          // the control-plane enqueued the job'), not at tick start — a slow
+          // enumerate/sweep must not back-date it.
+          enqueuedAt: new Date(now()).toISOString(),
         };
         if (spec.priority !== undefined) meta.priority = spec.priority;
         try {
@@ -696,13 +703,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
  * gets an INDEPENDENT default factory whose counter starts at 0 — without it,
  * two producers ticking in the same ms with equal tick counts minted the SAME
  * runId, and the aggregator groups results by `meta.runId`. The timestamp
- * segment still leads, keeping ids sortable-prefixed.
+ * segment still leads, keeping ids sortable-prefixed. Reads the producer's
+ * injected clock (injection-discipline consistency with the rest of the
+ * module); behavior is otherwise identical to the Date.now form.
  */
-function defaultRunIdFactory(): () => string {
+function defaultRunIdFactory(now: () => number = () => Date.now()): () => string {
   let counter = 0;
   const discriminator = Math.random().toString(36).slice(2, 8).padEnd(6, "0");
   return () => {
     counter += 1;
-    return `frun_${Date.now().toString(36)}_${discriminator}_${counter.toString(36)}`;
+    return `frun_${now().toString(36)}_${discriminator}_${counter.toString(36)}`;
   };
 }
