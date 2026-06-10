@@ -309,7 +309,7 @@ export function installStreamingFetch(): void {
                 const text = await fullTextPromise;
                 try {
                   return JSON.parse(text);
-                } catch {
+                } catch (e) {
                   throw new TypeError(
                     `Failed to parse JSON from ${method} ${url} (status ${xhrStatus}): ${
                       text.length > 200 ? text.slice(0, 200) + "..." : text
