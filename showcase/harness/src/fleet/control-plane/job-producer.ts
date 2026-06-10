@@ -169,6 +169,14 @@ export interface TickResult {
   skippedForBacklog: number;
   /** True iff a lease sweep ran during this tick. */
   sweptExpired: boolean;
+  /**
+   * True iff a sweep RAN during this tick but FAILED (the `sweepExpired` call
+   * threw). `sweptExpired` stays true in that case — a failed sweep still
+   * consumes its cadence window (see `maybeSweep`) — so without this flag a
+   * failed sweep was indistinguishable from a clean zero-reclaim sweep in the
+   * tick outcome.
+   */
+  sweepFailed: boolean;
   /** Expired leases reclaimed by the sweep, when one ran (else 0). */
   reclaimed: number;
 }
@@ -303,12 +311,12 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    */
   async function maybeSweep(
     nowMs: number,
-  ): Promise<{ swept: boolean; reclaimed: number }> {
+  ): Promise<{ swept: boolean; sweepFailed: boolean; reclaimed: number }> {
     const due =
       sweepIntervalMs <= 0 ||
       lastSweepAt === null ||
       nowMs - lastSweepAt >= sweepIntervalMs;
-    if (!due) return { swept: false, reclaimed: 0 };
+    if (!due) return { swept: false, sweepFailed: false, reclaimed: 0 };
     lastSweepAt = nowMs;
     try {
       const result = await queue.sweepExpired(nowMs);
@@ -339,15 +347,17 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           });
         }
       }
-      return { swept: true, reclaimed: result.reclaimed };
+      return { swept: true, sweepFailed: false, reclaimed: result.reclaimed };
     } catch (err) {
       logger.error("fleet.producer.sweep-failed", {
         err: err instanceof Error ? err.message : String(err),
       });
       // A failed sweep still counts as "swept" for cadence purposes — we
       // don't want a persistently-failing sweep to fire on every tick and
-      // bury the logs; the window already advanced via lastSweepAt.
-      return { swept: true, reclaimed: 0 };
+      // bury the logs; the window already advanced via lastSweepAt. But it
+      // is REPORTED as failed (`sweepFailed: true`) so the tick outcome no
+      // longer presents a thrown sweep as a clean zero-reclaim success.
+      return { swept: true, sweepFailed: true, reclaimed: 0 };
     }
   }
 
@@ -496,6 +506,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           enqueueFailures: 0,
           skippedForBacklog: 0,
           sweptExpired: false,
+          sweepFailed: false,
           reclaimed: 0,
         };
       }
@@ -526,6 +537,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           enqueueFailures: 0,
           skippedForBacklog: 0,
           sweptExpired: sweep.swept,
+          sweepFailed: sweep.sweepFailed,
           reclaimed: sweep.reclaimed,
         };
       }
@@ -593,6 +605,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         enqueueFailures,
         skippedForBacklog: gate.skipped,
         sweptExpired: sweep.swept,
+        sweepFailed: sweep.sweepFailed,
         reclaimed: sweep.reclaimed,
       });
 
@@ -602,6 +615,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         enqueueFailures,
         skippedForBacklog: gate.skipped,
         sweptExpired: sweep.swept,
+        sweepFailed: sweep.sweepFailed,
         reclaimed: sweep.reclaimed,
       };
     },

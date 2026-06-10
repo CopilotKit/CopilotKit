@@ -422,6 +422,43 @@ describe("job-producer — failure isolation", () => {
     expect(result.enqueued).toBe(2);
     expect(result.reclaimed).toBe(0);
   });
+
+  it("a failing sweep is reported as sweepFailed (not a clean zero-reclaim sweep)", async () => {
+    // Pre-fix the catch arm returned the same shape as a clean sweep that
+    // reclaimed nothing — `sweptExpired: true, reclaimed: 0` — so a thrown
+    // sweep was indistinguishable from success in the TickResult / tick log.
+    const queue = makeFakeQueue({
+      sweepImpl: async () => {
+        throw new Error("sweep endpoint 500");
+      },
+    });
+    const { producer } = startedProducer({
+      specs: d6Specs(["a"]),
+      queue,
+    });
+    const result = await producer.tick();
+    // The sweep RAN (cadence window consumed) but FAILED.
+    expect(result.sweptExpired).toBe(true);
+    expect(result.sweepFailed).toBe(true);
+    expect(result.reclaimed).toBe(0);
+  });
+
+  it("a clean sweep reports sweepFailed:false (and so does a skipped sweep)", async () => {
+    let t = 0;
+    const { producer } = startedProducer({
+      specs: d6Specs(["a"]),
+      now: () => t,
+      sweepIntervalMs: 30_000,
+    });
+    t = 0;
+    const first = await producer.tick(); // sweeps (first tick), succeeds
+    expect(first.sweptExpired).toBe(true);
+    expect(first.sweepFailed).toBe(false);
+    t = 10_000; // inside the cadence window — no sweep runs
+    const second = await producer.tick();
+    expect(second.sweptExpired).toBe(false);
+    expect(second.sweepFailed).toBe(false);
+  });
 });
 
 describe("job-producer — sweep cadence", () => {

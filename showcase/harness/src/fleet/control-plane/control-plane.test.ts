@@ -51,6 +51,7 @@ function makeFakeProducer(): JobProducer & {
         enqueueFailures: 0,
         skippedForBacklog: 0,
         sweptExpired: false,
+        sweepFailed: false,
         reclaimed: 0,
       };
     },
