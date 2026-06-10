@@ -279,6 +279,12 @@ a:hover { text-decoration: underline; }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+@media (prefers-color-scheme: dark) {
+  input:focus, textarea:focus, select:focus {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+  }
 }`;
 
 export const OPEN_GEN_UI_DESIGN_SYSTEM_CSS = [
