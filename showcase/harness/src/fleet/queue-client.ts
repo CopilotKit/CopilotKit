@@ -46,7 +46,7 @@
 
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
-import type { JobClaimClient, JobView } from "./job-claim.js";
+import type { JobClaimClient, JobView, ReleaseResult } from "./job-claim.js";
 import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
 import type {
   ClaimedJob,
@@ -760,7 +760,26 @@ export function createFleetQueueClient(
         // Re-queue on behalf of the dead holder: the CAS authorizes on
         // `claimed_by` (still the dead worker), so this atomically flips the
         // row back to pending and drops ownership.
-        const released = await claim.releaseJob(row.id, holder, "pending");
+        //
+        // PER-ROW containment (REQ-B): a release that THROWS (transport blip —
+        // distinct from a refused CAS, handled below) must not escape the
+        // loop. The producer swallows a sweepExpired throw, so an escape would
+        // discard the commErrors ALREADY synthesized for rows ALREADY released
+        // to pending in this pass — their gray "re-queued" surfaces would
+        // never reach the dashboard and are never regenerated (those rows are
+        // pending now; no later sweep re-emits them). This row's lease is
+        // still expired, so the next sweep simply retries it.
+        let released: ReleaseResult;
+        try {
+          released = await claim.releaseJob(row.id, holder, "pending");
+        } catch (err) {
+          logger.warn("queue-client.sweep-release-threw", {
+            jobId: row.id,
+            workerId: holder,
+            err: err instanceof Error ? err.message : String(err),
+          });
+          continue;
+        }
         if (!released.released) {
           // Another sweeper or a late worker report won the race — not an
           // error, just nothing for us to reclaim on this row.
@@ -840,8 +859,32 @@ export function createFleetQueueClient(
       // the next-oldest batch. A pass that expires NOTHING terminates the
       // loop: every remaining page-1 row was skipped (too young / unparseable
       // / claim lost), and re-listing would return the same rows forever.
+      // PHASE containment (REQ-B): the whole stale drain is wrapped so a
+      // throw anywhere inside it (the pending pb.list, the claim CAS — only
+      // pb.delete was caught per-row) still returns the lease phase's partial
+      // result above. The producer swallows a sweepExpired throw, so an
+      // escape here would discard every commError the lease phase just
+      // synthesized — the same dashboard-signal loss as an escaped release.
+      // The drain itself is retried in full by the next sweep.
       let expiredPending = 0;
-      if (staleExpiryPeriods > 0) {
+      try {
+        await drainStalePending();
+      } catch (err) {
+        logger.error("queue-client.sweep-stale-phase-threw", {
+          expiredPendingBeforeThrow: expiredPending,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      return { reclaimed, commErrors, expiredPending };
+
+      /**
+       * The stale-pending drain loop (see the STALE-PENDING EXPIRY comment
+       * above). Mutates the enclosing `expiredPending` PER ROW (not per pass)
+       * so the partial count survives a mid-pass throw.
+       */
+      async function drainStalePending(): Promise<void> {
+        if (staleExpiryPeriods <= 0) return;
         for (let pass = 0; pass < STALE_PENDING_MAX_PAGES_PER_SWEEP; pass++) {
           const pendingPage = await pb.list<ProbeJobRecord>(
             PROBE_JOBS_COLLECTION,
@@ -911,6 +954,9 @@ export function createFleetQueueClient(
               continue;
             }
             passExpired += 1;
+            // Per ROW (not per pass) so a mid-pass throw caught by the phase
+            // wrapper still reports the rows already expired.
+            expiredPending += 1;
             logger.warn("queue-client.sweep-expired-pending", {
               jobId: row.id,
               probeKey: row.probe_key,
@@ -919,7 +965,6 @@ export function createFleetQueueClient(
               maxAgeMs,
             });
           }
-          expiredPending += passExpired;
           // No progress → every remaining pending row is non-expirable; a
           // short page → we have already seen the queue's tail. Either way
           // there is nothing more for THIS sweep to do.
@@ -927,8 +972,6 @@ export function createFleetQueueClient(
           if (pendingPage.items.length < CLAIM_CANDIDATE_PAGE) break;
         }
       }
-
-      return { reclaimed, commErrors, expiredPending };
     },
   };
 }

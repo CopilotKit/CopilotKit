@@ -1090,6 +1090,35 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       debugSpy.mockRestore();
     });
 
+    it("a claimJob THROW mid stale-drain keeps the rows already expired in the partial result (REQ-B)", async () => {
+      // The first (oldest) stale row claims-and-deletes cleanly; the second
+      // row's claim CAS THROWS (transport blip). The phase must contain the
+      // throw and still report the work it DID do — letting it escape would
+      // also discard the lease phase's commErrors at the producer.
+      const ok = pendingRow("old-ok", "d6:a", T - 5 * HOUR);
+      const boom = pendingRow("old-boom", "d6:b", T - 4 * HOUR);
+      const { pb, store } = makePagingPb([ok, boom]);
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        async claimJob(jobId, workerId, leaseSeconds) {
+          if (jobId === "old-boom") throw new Error("cas 502");
+          return base.claimJob(jobId, workerId, leaseSeconds);
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      expect(sweep.expiredPending).toBe(1);
+      expect(store.find((r) => r.id === "old-ok")).toBeUndefined();
+      expect(store.find((r) => r.id === "old-boom")?.status).toBe("pending");
+      expect(logger.error).toHaveBeenCalledWith(
+        "queue-client.sweep-stale-phase-threw",
+        expect.objectContaining({ err: "cas 502" }),
+      );
+    });
+
     it("drains MULTIPLE pages of stale pending rows in ONE sweep (a backlog must not take hours to expire)", async () => {
       // 120 stale rows span 3 candidate pages (perPage 50). A single-page
       // sweep would expire only 50 — against the motivating 3,734-row staging
@@ -1754,6 +1783,90 @@ describe("FleetQueueClient.sweepExpired", () => {
       "j2",
       expect.anything(),
       expect.anything(),
+    );
+  });
+
+  it("a releaseJob THROW on one row does not abort the sweep or lose other rows' comm errors (REQ-B)", async () => {
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    // Three expired leases; the MIDDLE row's release THROWS (transport blip,
+    // not a refused CAS). Without per-row containment the throw escapes
+    // sweepExpired, the producer's catch swallows it, and the comm errors
+    // ALREADY synthesized for rows ALREADY released to pending are discarded —
+    // their gray "re-queued" dashboard surfaces never render and are never
+    // regenerated (the rows are pending now, so no later sweep re-emits them).
+    const mkExpired = (id: string, worker: string): JobRow => ({
+      ...jobView({
+        id,
+        status: "running",
+        claimed_by: worker,
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+        version: 2,
+      }),
+      payload: samplePayload(),
+    });
+    const { pb } = makeFakePb([
+      mkExpired("j1", "w1"),
+      mkExpired("j2", "w2"),
+      mkExpired("j3", "w3"),
+    ]);
+    const releaseJob = vi.fn(
+      async (jobId: string): Promise<ReleaseResult> => {
+        if (jobId === "j2") throw new Error("pb 502 mid-release");
+        return { released: true };
+      },
+    );
+    const claim = makeFakeClaim({ releaseJob });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    // j1 (released BEFORE the throw) and j3 (after) both survive the blip.
+    expect(sweep.reclaimed).toBe(2);
+    expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["j1", "j3"]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.sweep-release-threw",
+      expect.objectContaining({ jobId: "j2", workerId: "w2" }),
+    );
+  });
+
+  it("a THROW in the stale-pending phase still returns the lease phase's partial result (REQ-B)", async () => {
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    const expired: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "worker-dead",
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+      }),
+      payload: samplePayload(),
+    };
+    const { pb } = makeFakePb([expired]);
+    // The stale phase's pending list THROWS (PB blip). The lease phase's
+    // reclaim + comm error must still come back to the producer — losing them
+    // here is the same REQ-B hole as the per-row release throw above.
+    const realList = pb.list.bind(pb);
+    pb.list = vi.fn(async (collection: string, opts?: ListOpts) => {
+      if (opts?.filter?.includes('status = "pending"')) {
+        throw new Error("pb list 502");
+      }
+      return realList(collection, opts);
+    }) as PbClient["list"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    expect(sweep.reclaimed).toBe(1);
+    expect(sweep.commErrors).toHaveLength(1);
+    expect(sweep.commErrors[0].jobId).toBe("j1");
+    expect(sweep.expiredPending).toBe(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.sweep-stale-phase-threw",
+      expect.objectContaining({ err: "pb list 502" }),
     );
   });
 
