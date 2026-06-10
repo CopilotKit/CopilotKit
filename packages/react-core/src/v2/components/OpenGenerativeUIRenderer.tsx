@@ -300,7 +300,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       previewSandboxRef.current.run(
         `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
       );
-    }, [previewBody, previewStyles, css]);
+      // designSystemCss is a stable context value (set once at provider mount)
+    }, [previewBody, previewStyles, css, designSystemCss]);
 
     // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
     useEffect(() => {
@@ -434,14 +435,16 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // is clamped to the iframe viewport and can never shrink below the current size.
     const generationDone = content.generating === false;
     useEffect(() => {
-      const sandbox = sandboxRef.current;
-      if (!generationDone || !sandbox) return;
+      if (!generationDone) return;
 
       let handled = false;
       const onMessage = (e: MessageEvent) => {
         if (handled) return;
+        // Read sandboxRef lazily — on the fast-completion path the sandbox may
+        // still be null when this listener is attached, so capturing it in the
+        // closure would drop the message. Resolve the iframe at message time.
         if (
-          e.source === sandbox.iframe.contentWindow &&
+          e.source === sandboxRef.current?.iframe?.contentWindow &&
           e.data?.type === "__ck_resize"
         ) {
           handled = true;
@@ -465,8 +468,14 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         })();
       `;
 
-      if (sandboxReadyRef.current) {
-        sandbox.run(measureOnce);
+      // When generation completes in the same commit that schedules sandbox
+      // creation (reconnect/restore + non-streaming completion), sandboxRef is
+      // still null here. Queue the measurement so Effect 1's sandbox.promise.then
+      // flushes it after jsFunctions/jsExpressions (measure last). Effect 1 runs
+      // earlier in the same commit and resets pendingQueueRef before this push,
+      // so the queued script survives.
+      if (sandboxReadyRef.current && sandboxRef.current) {
+        sandboxRef.current.run(measureOnce);
       } else {
         pendingQueueRef.current.push(measureOnce);
       }
@@ -572,7 +581,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
       setVisibleMessageIndex(messages.length - 1);
     }
 
-    // Auto-cycle every 3s while still in progress
+    // Auto-cycle every 5s while still in progress
     if (props.status === ToolCallStatus.Complete) return;
     const timer = setInterval(() => {
       setVisibleMessageIndex((i) => (i + 1) % messages.length);

@@ -662,8 +662,38 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(mockCreate).toHaveBeenCalledTimes(1);
       const [, options] = mockCreate.mock.calls[0];
       expect(options.frameContent).toContain("Done");
-      // Final sandbox uses localApi, not empty object
+      // frameContent is the assembled final document, not the empty preview template
       expect(options.frameContent).not.toBe("<head></head><body></body>");
+    });
+
+    it("measures height on fast completion (htmlComplete + generating:false in one snapshot)", async () => {
+      // Reconnect/restore + non-streaming completion path: a single content
+      // snapshot arrives already complete. The sandbox is only scheduled (async
+      // import) when Effect 4 runs, so the height measurement must be queued and
+      // flushed once the sandbox is ready — otherwise the iframe stays clamped
+      // at initialHeight and taller content is clipped.
+      renderRenderer({
+        html: ["<head></head><body><div>Tall content</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        generating: false,
+      });
+      await flushImport();
+
+      // Resolve the sandbox ready promise so the pending queue is flushed
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // The one-shot measurement script must have executed via the flushed queue
+      const measureCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
+      );
+      expect(measureCalls.length).toBeGreaterThanOrEqual(1);
     });
   });
 
