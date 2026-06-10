@@ -1,5 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-import { createFleetQueueClient, leaseExpired } from "./queue-client.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  createFleetQueueClient,
+  leaseExpired,
+  PB_DATE_SEP_RE,
+} from "./queue-client.js";
 import type {
   JobClaimClient,
   ClaimResult,
@@ -16,7 +22,36 @@ import type {
   ReportJobInput,
 } from "./contracts.js";
 import { probeKeyFamily } from "./contracts.js";
-import { logger } from "../logger.js";
+import type { Logger } from "../types/index.js";
+
+/**
+ * Per-FILE SILENT logger. Deliberately NOT the shared `../logger.js` module
+ * object: spying on the shared logger leaks the spy into every other test
+ * file under fork-reuse when an assertion failure skips `mockRestore()` (the
+ * repo's known spy-leak class). Each method is a `vi.fn()` so tests can
+ * assert log emissions directly (or via `vi.spyOn`, which is now safe — the
+ * spied object is file-local). `vi.restoreAllMocks()` in `afterEach` clears
+ * call history between tests even when an assertion fails mid-test.
+ */
+const logger: Logger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
+
+afterEach(() => {
+  // Restore any vi.spyOn wrappers FIRST (even when an assertion failure
+  // skipped an in-test mockRestore), then REBUILD the logger methods: under
+  // vitest 3 a restored spy leaves a plain (non-mock) function behind, and a
+  // shared mock would otherwise carry call history across tests. Fresh
+  // vi.fn()s per test keep every emission assertion isolated.
+  vi.restoreAllMocks();
+  logger.debug = vi.fn();
+  logger.info = vi.fn();
+  logger.warn = vi.fn();
+  logger.error = vi.fn();
+});
 
 /**
  * Pins the control-plane ↔ worker QUEUE layer (S3): FleetQueueClient layered
@@ -64,6 +99,83 @@ interface JobRow extends JobView {
 }
 
 /**
+ * Convert a PB `~`/`!~` LIKE pattern into an anchored RegExp, faithful to
+ * PocketBase 0.22's semantics: the SQL is built as `LIKE ... ESCAPE '\'`
+ * (pocketbase tools/search/filter.go), so a `\`-escaped `%`/`_` is a LITERAL
+ * character while unescaped `%`/`_` are wildcards. The fakes must honor the
+ * escape form, or a family containing a wildcard char would over-match here
+ * exactly as it would against real PB before the client escaped it.
+ */
+function likeToRegExp(pattern: string): RegExp {
+  const escapeRegExp = (ch: string): string =>
+    ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let out = "";
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === "\\" && i + 1 < pattern.length) {
+      out += escapeRegExp(pattern[i + 1]);
+      i += 1;
+    } else if (ch === "%") {
+      out += ".*";
+    } else if (ch === "_") {
+      out += ".";
+    } else {
+      out += escapeRegExp(ch);
+    }
+  }
+  return new RegExp(`^${out}$`);
+}
+
+/** The row shape the shared filter matcher evaluates. */
+interface FilterableRow {
+  status: JobStatus;
+  probe_key: string;
+}
+
+/**
+ * Shared `status`/`probe_key` filter evaluation for BOTH fake PB clients
+ * (`makeFakePb` + `makePagingPb`). A clause on a field the fakes can't honor
+ * THROWS loudly — matching the fakes' own unsupported-method philosophy — so
+ * a future test exercising an unmodeled filter shape can never pass
+ * vacuously by silently matching every row.
+ */
+function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
+  if (!filter) return true;
+  for (const [, field] of filter.matchAll(
+    /([A-Za-z_][\w.]*)\s*(?:!~|!=|~|=)/g,
+  )) {
+    if (field !== "status" && field !== "probe_key") {
+      throw new Error(
+        `fake-pb: filter clause on unsupported field "${field}" — only status/probe_key are honored (filter: ${filter})`,
+      );
+    }
+  }
+  const statuses = [...filter.matchAll(/status\s*=\s*"(\w+)"/g)].map(
+    (m) => m[1],
+  );
+  if (statuses.length > 0 && !statuses.includes(row.status)) return false;
+  const clauses = [...filter.matchAll(/probe_key\s*(!~|!=|~|=)\s*"([^"]*)"/g)];
+  const negatives = clauses.filter((m) => m[1] === "!~" || m[1] === "!=");
+  const positives = clauses.filter((m) => m[1] === "~" || m[1] === "=");
+  for (const m of negatives) {
+    const matches =
+      m[1] === "!~"
+        ? likeToRegExp(m[2]).test(row.probe_key)
+        : row.probe_key === m[2];
+    if (matches) return false;
+  }
+  if (positives.length > 0) {
+    const anyMatch = positives.some((m) =>
+      m[1] === "~"
+        ? likeToRegExp(m[2]).test(row.probe_key)
+        : row.probe_key === m[2],
+    );
+    if (!anyMatch) return false;
+  }
+  return true;
+}
+
+/**
  * Minimal fake PbClient backed by an in-memory row map. Only the methods the
  * queue-client actually calls are implemented; the rest throw so an accidental
  * dependency surfaces loudly rather than silently returning undefined.
@@ -97,17 +209,12 @@ function makeFakePb(rows: JobRow[] = []): {
       _collection: string,
       opts: ListOpts = {},
     ): Promise<ListResult<T>> {
-      let items = store;
-      // Honor a `status = "x"` / `status = "x" || status = "y"` filter the way
-      // the real client would, so both the claimNext candidate scan and the
-      // sweepExpired claimed-or-running scan are exercised faithfully.
-      const matches = [
-        ...(opts.filter ?? "").matchAll(/status\s*=\s*"(\w+)"/g),
-      ];
-      if (matches.length > 0) {
-        const wanted = new Set(matches.map((mm) => mm[1]));
-        items = store.filter((r) => wanted.has(r.status));
-      }
+      // Honor `status` AND `probe_key` clauses faithfully (shared matcher) so
+      // the claimNext candidate scan, the family-discovery exclusions, and the
+      // sweepExpired scans are exercised the way real PB would serve them. A
+      // clause on any OTHER field THROWS (see rowMatchesFilter) instead of
+      // silently matching everything.
+      const items = store.filter((r) => rowMatchesFilter(r, opts.filter));
       return {
         page: 1,
         perPage: opts.perPage ?? items.length,
@@ -170,12 +277,15 @@ function sampleResult(
 ): ServiceJobResult {
   return {
     jobId: "j1",
-    probeKey: "e2e_d6:langgraph-python",
+    // NOTE the probe-key POSITION carries the `d6:<slug>` aggregate row key —
+    // `e2e_d6` is the DRIVER KIND, which must never leak into a probe key
+    // (contracts.ts: "There is NO `e2e_d6:<slug>` row in the fleet path").
+    probeKey: "d6:langgraph-python",
     serviceSlug: "langgraph-python",
     runId: "run-1",
     workerId: "worker-7",
     aggregateState: "green",
-    aggregateKey: "e2e_d6:langgraph-python",
+    aggregateKey: "d6:langgraph-python",
     aggregateSignal: { failedCount: 0 },
     cells: [],
     rollup: { total: 1, passed: 1, failed: 0 },
@@ -564,11 +674,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
   }
 
   /**
-   * A PAGING-FAITHFUL fake pb: unlike `makeFakePb` (which ignores `perPage` and
-   * probe_key clauses), this fake honors the parts of the PB list API the
-   * fairness fix depends on — `status` equality, `probe_key` `~`/`!~`/`=`/`!=`
-   * clauses with `%` globs, `created`/`lease_expires_at` ascending sorts, and
-   * `perPage` truncation —
+   * A PAGING-FAITHFUL fake pb: unlike `makeFakePb` (which ignores `perPage`),
+   * this fake honors the parts of the PB list API the fairness fix depends
+   * on — the shared `status`/`probe_key` clause matcher (`rowMatchesFilter`),
+   * `created`/`lease_expires_at` ascending sorts, and `perPage` truncation —
    * so the production starvation (oldest-50 page saturated by one family) is
    * reproduced faithfully.
    */
@@ -585,46 +694,12 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     const unsupported = (name: string) => () => {
       throw new Error(`paging-pb: ${name} not implemented`);
     };
-    const globToRegExp = (pattern: string): RegExp =>
-      new RegExp(
-        `^${pattern
-          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-          .replace(/%/g, ".*")}$`,
-      );
-    const rowMatches = (row: CreatedJobRow, filter?: string): boolean => {
-      if (!filter) return true;
-      const statuses = [...filter.matchAll(/status\s*=\s*"(\w+)"/g)].map(
-        (m) => m[1],
-      );
-      if (statuses.length > 0 && !statuses.includes(row.status)) return false;
-      const clauses = [
-        ...filter.matchAll(/probe_key\s*(!~|!=|~|=)\s*"([^"]*)"/g),
-      ];
-      const positives = clauses.filter((m) => m[1] === "~" || m[1] === "=");
-      const negatives = clauses.filter((m) => m[1] === "!~" || m[1] === "!=");
-      for (const m of negatives) {
-        const matches =
-          m[1] === "!~"
-            ? globToRegExp(m[2]).test(row.probe_key)
-            : row.probe_key === m[2];
-        if (matches) return false;
-      }
-      if (positives.length > 0) {
-        const anyMatch = positives.some((m) =>
-          m[1] === "~"
-            ? globToRegExp(m[2]).test(row.probe_key)
-            : row.probe_key === m[2],
-        );
-        if (!anyMatch) return false;
-      }
-      return true;
-    };
     const pb: PbClient = {
       async list<T>(
         _collection: string,
         opts: ListOpts = {},
       ): Promise<ListResult<T>> {
-        let items = store.filter((r) => rowMatches(r, opts.filter));
+        let items = store.filter((r) => rowMatchesFilter(r, opts.filter));
         if (opts.sort && opts.sort.includes("lease_expires_at")) {
           // PB ascending date sort; empty/null dates sort first (and a
           // null/empty lease counts as expired — leaseExpired(null) === true —
@@ -1727,21 +1802,85 @@ describe("leaseExpired (anchored PB date-separator parse)", () => {
     expect(leaseExpired("2026-06-04T00:06:00.000Z", now)).toBe(false);
   });
 
-  it("ANCHORS the space rewrite to the date/time boundary, not the FIRST space anywhere", () => {
-    // A leading-space value is NOT the canonical `^YYYY-MM-DD ` shape, so the
-    // anchored rewrite must leave it UNTOUCHED (the date/time boundary further
-    // in is preserved). A bare String.replace(" ", "T") would rewrite the
-    // LEADING space into "T2099-..." → NaN → wrongly EXPIRED. The anchored
-    // form leaves the (future, year-2099) value parseable → correctly LIVE.
-    // This pins the client to the JSVM hook's anchored regex; it FAILS under a
-    // bare first-space replace.
-    expect(leaseExpired(" 2099-01-01 00:00:00.000Z", now)).toBe(false);
+  it("ANCHORS the space rewrite to the date/time boundary, not the FIRST space anywhere (string-level pin)", () => {
+    // Pinned at the STRING level, NOT through Date.parse: the discriminating
+    // input for the anchoring (a non-canonical shape like a leading-space
+    // value) is exactly where V8 and goja — the PB JSVM — DIVERGE in parse
+    // leniency (V8 parses " 2099-01-01 00:00:00.000Z" leniently; goja's
+    // stricter Date.parse returns NaN). A Date.parse-based assertion here
+    // would pin V8-specific behavior the hook does not share. The string
+    // rewrite itself IS engine-independent and is the byte-equivalent
+    // contract with the hook's `/^(\d{4}-\d{2}-\d{2}) /` anchor.
+    //
+    // RESIDUAL ENGINE DIVERGENCE (acknowledged, not closable here): after the
+    // anchored rewrite leaves a non-canonical value untouched, V8 may still
+    // parse it (→ live) where goja yields NaN (→ expired-by-policy). Such a
+    // value can only come from a corrupted/hand-written lease column — the
+    // canonical PB date form and the ISO form parse identically in both.
+    // Canonical PB shape: ONLY the date/time-boundary space is rewritten.
+    expect("2026-06-04 00:04:00.000Z".replace(PB_DATE_SEP_RE, "$1T")).toBe(
+      "2026-06-04T00:04:00.000Z",
+    );
+    // Non-canonical (leading space): NOT anchored at `^YYYY-MM-DD ` — left
+    // UNTOUCHED. A bare String.replace(" ", "T") would have produced
+    // "T2099-01-01 00:00:00.000Z" (mangled); this FAILS under a bare replace.
+    expect(" 2099-01-01 00:00:00.000Z".replace(PB_DATE_SEP_RE, "$1T")).toBe(
+      " 2099-01-01 00:00:00.000Z",
+    );
+    // Already-ISO value: no space at the boundary, untouched.
+    expect("2026-06-04T00:06:00.000Z".replace(PB_DATE_SEP_RE, "$1T")).toBe(
+      "2026-06-04T00:06:00.000Z",
+    );
   });
 
   it("treats a genuinely-unparseable value as expired (NaN → expired, not coerced)", () => {
     // An odd shape falls through to NaN → expired BY POLICY (never wedge the
     // queue) — but only because it genuinely failed to parse, NOT because a
-    // bare first-space replace mangled it into something parseable.
+    // bare first-space replace mangled it into something parseable. Both V8
+    // and goja agree this input is unparseable (the anchored rewrite yields
+    // "2099-01-01Tgarbage").
     expect(leaseExpired("2099-01-01 garbage", now)).toBe(true);
+  });
+
+  it("treats a lease expiring EXACTLY at nowMs as EXPIRED (boundary: <=, matching the hook)", () => {
+    // Shared fixture with the JSVM hook's semantics: BOTH sides compare with
+    // `t <= now` (client `t <= nowMs`; hook `t <= Date.now()` — operator
+    // parity is pinned against the hook source below), so a lease elapsing at
+    // exactly the observation millisecond is reclaimable on both sides. A
+    // `<`/`<=` mismatch would open a 1ms window where the client reclaims a
+    // row the hook still treats as live (or vice versa).
+    const expiry = "2026-06-04 00:05:00.000Z"; // canonical PB space form
+    const expiryMs = Date.parse("2026-06-04T00:05:00.000Z");
+    expect(leaseExpired(expiry, expiryMs)).toBe(true); // t <= now → expired
+    expect(leaseExpired(expiry, expiryMs - 1)).toBe(false); // 1ms early → live
+  });
+});
+
+describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => {
+  // The client's leaseExpired and the hook's leaseExpired must agree BYTE FOR
+  // BYTE on the anchored date rewrite and on the comparison operator — the
+  // exactly-one-winner CAS depends on both sides deciding "expired" the same
+  // way. The hook runs under goja (untestable from vitest), so these pins
+  // assert against the hook SOURCE the deploy actually ships.
+  const hookSource = readFileSync(
+    fileURLToPath(
+      new URL(
+        "../../../pocketbase/pb_hooks/fleet-claim.pb.js",
+        import.meta.url,
+      ),
+    ),
+    "utf8",
+  );
+
+  it("every handler embeds the SAME anchored date-separator regex as the client", () => {
+    // PB_DATE_SEP_RE.source is the canonical anchor; the hook defines it
+    // inline per handler (PB 0.22 pooled-runtime gotcha), 3 handlers.
+    const occurrences = hookSource.split(PB_DATE_SEP_RE.source).length - 1;
+    expect(occurrences).toBeGreaterThanOrEqual(3);
+  });
+
+  it("every handler compares lease expiry with the client's operator (t <= now)", () => {
+    const occurrences = hookSource.split("t <= Date.now()").length - 1;
+    expect(occurrences).toBeGreaterThanOrEqual(3);
   });
 });

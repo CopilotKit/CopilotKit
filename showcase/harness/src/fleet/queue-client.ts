@@ -280,8 +280,13 @@ function emptyPayloadForLease(job: JobView): ServiceJobPayload {
  * expired, or vice versa). An odd shape must fall through to NaN → expired
  * (never wedge the queue), but only because the value genuinely failed to
  * parse, not because we mangled it into a parseable one.
+ *
+ * Exported (like `leaseExpired`) for direct unit testing: the anchoring
+ * contract is pinned at the STRING level so the test does not depend on
+ * engine-specific `Date.parse` leniency (V8 parses some non-canonical shapes
+ * that goja — the PB JSVM — rejects; see the leaseExpired test suite).
  */
-const PB_DATE_SEP_RE = /^(\d{4}-\d{2}-\d{2}) /;
+export const PB_DATE_SEP_RE = /^(\d{4}-\d{2}-\d{2}) /;
 
 /**
  * Has `leaseExpiresAt` elapsed as of `nowMs`? A null/empty/unparseable lease is
