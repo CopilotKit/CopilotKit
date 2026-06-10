@@ -63,6 +63,29 @@ interface OpenGenerativeUIActivityRendererProps {
 const THROTTLE_MS = 1000;
 
 /**
+ * One-shot height measurement script. Temporarily forces `body` to auto-size,
+ * reads `body.scrollHeight` (plus vertical margins), then posts the result back
+ * to the parent as a `__ck_resize` message. Static — hoisted so both Effect 4
+ * (initial measurement) and Effect 1 (re-measure on rebuild) reference the same
+ * string. Uses body.scrollHeight (not documentElement.scrollHeight) because the
+ * latter is clamped to the iframe viewport and can never shrink below the
+ * current size.
+ */
+const MEASURE_ONCE_SCRIPT = `
+        (function() {
+          var s = document.createElement('style');
+          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+          document.head.appendChild(s);
+          var h = document.body.scrollHeight;
+          var cs = getComputedStyle(document.body);
+          h += parseFloat(cs.marginTop) || 0;
+          h += parseFloat(cs.marginBottom) || 0;
+          s.remove();
+          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
+        })();
+      `;
+
+/**
  * Returns true when the inner component should re-render immediately
  * (no throttle delay).
  */
@@ -207,6 +230,11 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const executedIndexRef = useRef(0);
     const pendingQueueRef = useRef<string[]>([]);
     const jsFunctionsInjectedRef = useRef(false);
+    // Tracks whether Effect 1 has already built a final sandbox. Survives the
+    // effect's cleanup (unlike sandboxRef, which the cleanup nulls), so Effect 1
+    // can tell a first build from a rebuild and only re-measure on rebuilds —
+    // the first measurement is owned by Effect 4.
+    const finalSandboxBuiltRef = useRef(false);
 
     // Effect 0 — Preview sandbox creation
     useEffect(() => {
@@ -327,6 +355,9 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       // content.jsFunctions/jsExpressions are read as a rebuild-time snapshot and
       // are intentionally not in the dep array; the memoized inner component
       // re-renders on content change so this closure is always current.
+      // Replay semantics: a rebuild intentionally REPLAYS jsFunctions/jsExpressions
+      // (and re-measures below) so the artifact stays alive — expressions with host
+      // side effects therefore re-fire on every rebuild.
       if (content.jsFunctions) {
         pendingQueueRef.current.push(content.jsFunctions);
         jsFunctionsInjectedRef.current = true;
@@ -335,6 +366,18 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         pendingQueueRef.current.push(...content.jsExpressions);
         executedIndexRef.current = content.jsExpressions.length;
       }
+      // Re-measure when REBUILDING an already-completed artifact. Effect 4 (keyed
+      // on generationDone) measured the first sandbox and won't re-fire for a
+      // rebuild, so the new sandbox would stay clamped at initialHeight and clip
+      // taller content. Guard on finalSandboxBuiltRef so this fires only on a
+      // rebuild — on the first build Effect 4 still owns the measurement (pushing
+      // here too would queue it twice). Push the measurement last (functions →
+      // expressions → measure); the still-attached __ck_resize listener resolves
+      // sandboxRef lazily, so it matches this new sandbox.
+      if (content.generating === false && finalSandboxBuiltRef.current) {
+        pendingQueueRef.current.push(MEASURE_ONCE_SCRIPT);
+      }
+      finalSandboxBuiltRef.current = true;
 
       // Dynamic import to avoid SSR issues (websandbox references `self` at module level)
       const htmlContent = assembleDocument(fullHtml, {
@@ -446,8 +489,6 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [content.jsExpressions?.length]);
 
     // Effect 4 — One-shot height measurement (fires once when generation completes)
-    // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
-    // is clamped to the iframe viewport and can never shrink below the current size.
     const generationDone = content.generating === false;
     useEffect(() => {
       if (!generationDone) return;
@@ -457,7 +498,11 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         if (handled) return;
         // Read sandboxRef lazily — on the fast-completion path the sandbox may
         // still be null when this listener is attached, so capturing it in the
-        // closure would drop the message. Resolve the iframe at message time.
+        // closure would drop the message. Resolving the iframe at message time
+        // also lets this listener serve a sandbox rebuilt by Effect 1 after
+        // completion: sandboxRef.current then points at the NEW iframe, and this
+        // listener survives the rebuild (its cleanup only runs on generationDone
+        // change/unmount, which a rebuild does not trigger).
         if (
           e.source === sandboxRef.current?.iframe?.contentWindow &&
           e.data?.type === "__ck_resize"
@@ -469,20 +514,6 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       };
       window.addEventListener("message", onMessage);
 
-      const measureOnce = `
-        (function() {
-          var s = document.createElement('style');
-          s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
-          document.head.appendChild(s);
-          var h = document.body.scrollHeight;
-          var cs = getComputedStyle(document.body);
-          h += parseFloat(cs.marginTop) || 0;
-          h += parseFloat(cs.marginBottom) || 0;
-          s.remove();
-          parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
-        })();
-      `;
-
       // When generation completes in the same commit that schedules sandbox
       // creation (reconnect/restore + non-streaming completion), sandboxRef is
       // still null here. Queue the measurement so Effect 1's sandbox.promise.then
@@ -490,11 +521,14 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       // earlier in the same commit and resets pendingQueueRef before this push,
       // so the queued script survives.
       if (sandboxReadyRef.current && sandboxRef.current) {
-        sandboxRef.current.run(measureOnce);
+        sandboxRef.current.run(MEASURE_ONCE_SCRIPT);
       } else {
-        pendingQueueRef.current.push(measureOnce);
+        pendingQueueRef.current.push(MEASURE_ONCE_SCRIPT);
       }
 
+      // NOTE: this effect handles only the FIRST measurement (keyed on
+      // generationDone). A rebuild after completion does not re-fire it, so
+      // Effect 1's re-queue block re-pushes MEASURE_ONCE_SCRIPT itself.
       return () => {
         window.removeEventListener("message", onMessage);
       };

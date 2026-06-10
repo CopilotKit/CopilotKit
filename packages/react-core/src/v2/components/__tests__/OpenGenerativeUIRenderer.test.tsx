@@ -776,6 +776,109 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       );
       expect(measureCalls.length).toBeGreaterThanOrEqual(1);
     });
+
+    it("re-measures height when the final sandbox is rebuilt after completion", async () => {
+      // A rebuild AFTER completion (here: a sandbox-functions identity change)
+      // destroys the measured sandbox and resets autoHeight. Effect 4 is keyed on
+      // generationDone and will NOT re-fire, so without Effect 1's re-queue the
+      // new sandbox is never measured: it stays clamped at initialHeight and
+      // taller content is clipped. Effect 1 must re-push the measurement.
+      const completedContent = {
+        html: ["<head></head><body><div>Tall content</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        generating: false,
+      } as const;
+
+      const handler1 = vi.fn();
+      const fns1: SandboxFunction[] = [
+        {
+          name: "fn1",
+          description: "first",
+          parameters: z.object({}),
+          handler: handler1,
+        },
+      ];
+
+      const { rerender } = render(
+        <SandboxFunctionsContext.Provider value={fns1}>
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={completedContent}
+            message={{}}
+            agent={{}}
+          />
+        </SandboxFunctionsContext.Provider>,
+      );
+      await flushImport();
+
+      // First sandbox ready — flush its queued measurement
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // The first sandbox ran the one-shot measurement
+      const measureCallsFirst = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
+      );
+      expect(measureCallsFirst.length).toBeGreaterThanOrEqual(1);
+
+      // Rebuild WITHOUT changing content — only the sandbox-functions context
+      // value changes (localApi identity), which re-fires Effect 1 but not
+      // Effect 4. The new sandbox must still be measured.
+      mockRun.mockClear();
+      resetMockPromise();
+      const handler2 = vi.fn();
+      const fns2: SandboxFunction[] = [
+        {
+          name: "fn2",
+          description: "second",
+          parameters: z.object({}),
+          handler: handler2,
+        },
+      ];
+      rerender(
+        <SandboxFunctionsContext.Provider value={fns2}>
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={completedContent}
+            message={{}}
+            agent={{}}
+          />
+        </SandboxFunctionsContext.Provider>,
+      );
+      await flushImport();
+
+      // Old sandbox destroyed, new one created
+      expect(mockDestroy).toHaveBeenCalledTimes(1);
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+
+      // New sandbox not ready yet — measurement still queued, nothing flushed
+      const measureBeforeReady = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
+      );
+      expect(measureBeforeReady.length).toBe(0);
+
+      // Resolve the second sandbox — the re-queued measurement must replay
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // RED pre-fix (0 on the rebuilt sandbox), GREEN post-fix: the second
+      // sandbox re-ran the one-shot measurement.
+      const measureCallsSecond = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
+      );
+      expect(measureCallsSecond.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe("design-system / importmap injection", () => {
