@@ -100,12 +100,23 @@ function CommandCard({
     // so this intentionally uses a different event name to avoid
     // double-counting that funnel. `command` is page content (bounded
     // cardinality: bare + one variant per CLI framework), not user input.
+    //
+    // `location` mirrors the pathname `cli_command_copied` records, so the two
+    // paired events join on the same dimension. It's the only surface signal
+    // for the `onboard` card, whose command is byte-identical on the home hero
+    // and every framework landing hero (only `create` embeds the framework in
+    // `command`). Guarded for SSR to match the <CopyTracker> sibling, though
+    // onCopy only runs from a browser click.
     const trackHeroCopy = (clipboardBlocked: boolean) => {
       try {
         posthog?.capture("hero_command_copied", {
           command_id: id,
           command,
           clipboard_blocked: clipboardBlocked,
+          location:
+            typeof window !== "undefined"
+              ? window.location.pathname
+              : undefined,
         });
       } catch {
         // Never let analytics break the copy interaction.
