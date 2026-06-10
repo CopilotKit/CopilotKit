@@ -9,6 +9,7 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   assertDispatchNamesUnique,
+  assertImageConsumersValid,
   domainFor,
   envsFor,
   instanceIdFor,
@@ -367,6 +368,58 @@ describe("dispatchName uniqueness invariant", () => {
   });
 });
 
+describe("imageOf consumer invariant", () => {
+  it("the production SSOT's imageOf entries are all valid", () => {
+    // Calls the invariant against the real exported SERVICES map; it MUST
+    // pass on a healthy tree (harness-workers → harness is the one
+    // consumer today).
+    expect(() => assertImageConsumersValid()).not.toThrow();
+  });
+
+  it("throws on an imageOf pointing at a nonexistent SSOT key", () => {
+    const synthetic = {
+      worker: { ciBuilt: false, imageOf: "no-such-service" },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).toThrow(
+      /imageOf "no-such-service".*worker.*not an SSOT key/i,
+    );
+  });
+
+  it("throws on an imageOf pointing at a non-ciBuilt service", () => {
+    // webhooks-shaped target: a real SSOT entry that is NOT built by
+    // showcase_build.yml. Consuming its image cannot put the consumer in
+    // the CI redeploy scope, so the SSOT must reject the wiring loudly.
+    const synthetic = {
+      "out-of-band": { ciBuilt: false },
+      worker: { ciBuilt: false, imageOf: "out-of-band" },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).toThrow(
+      /imageOf "out-of-band".*worker.*not ciBuilt/i,
+    );
+  });
+
+  it("throws when a ciBuilt service itself declares imageOf", () => {
+    // A build slot IS its own image producer — imageOf on it is a
+    // modeling contradiction (and would imply consumer-of-consumer
+    // chains, which the redeploy expansion deliberately does not do).
+    const synthetic = {
+      builder: { ciBuilt: true },
+      "also-built": { ciBuilt: true, imageOf: "builder" },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).toThrow(
+      /also-built.*ciBuilt.*imageOf/i,
+    );
+  });
+
+  it("ignores entries without imageOf", () => {
+    const synthetic = {
+      builder: { ciBuilt: true },
+      "out-of-band": { ciBuilt: false },
+    };
+    expect(() => assertImageConsumersValid(synthetic)).not.toThrow();
+  });
+});
+
 describe("railway-envs SSOT — domains + probe", () => {
   it("every declared env exposes a no-scheme domain (where a domain is set)", () => {
     for (const [name, entry] of Object.entries(SERVICES)) {
@@ -475,8 +528,11 @@ describe("railway-envs SSOT — domains + probe", () => {
     // Railway-internal healthcheck).
     expect(probeEnabled("harness-workers", "staging")).toBe(false);
     // Runs the shared showcase-harness image; not separately CI-built; kept
-    // out of both gate directions via gateIgnore.
+    // out of both gate directions via gateIgnore. The image consumption is
+    // modeled explicitly via imageOf so a rebuilt showcase-harness:latest
+    // redeploys the worker alongside the scheduler.
     expect(worker.environments.staging.repoName).toBe("showcase-harness");
+    expect(worker.imageOf).toBe("harness");
     expect(worker.ciBuilt).toBe(false);
     expect(worker.gateIgnore).toBe(true);
     expect(worker.serviceId).toBe("c2aa8a0b-350e-4b76-8541-3012dfac41d0");
@@ -505,9 +561,7 @@ describe("railway-envs SSOT — domains + probe", () => {
     // is no longer a type error — it resolves to "no such environment" at
     // runtime (the service simply has no `dev` key in `environments`). This
     // is the env-map analogue of the old closed-union "Unknown env" guard.
-    expect(() => domainFor("docs", "dev")).toThrow(
-      /has no "dev" environment/,
-    );
+    expect(() => domainFor("docs", "dev")).toThrow(/has no "dev" environment/);
   });
 
   it("domainFor scheme guard rejects scheme-included literals but accepts http*-prefixed hosts", () => {

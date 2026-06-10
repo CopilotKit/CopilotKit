@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseArgs, runRedeploy, resolveTargetServices } from "./redeploy-env";
+import {
+  expandImageConsumers,
+  parseArgs,
+  runRedeploy,
+  resolveTargetServices,
+} from "./redeploy-env";
 import { SERVICES } from "./railway-envs";
 
 describe("runRedeploy", () => {
@@ -29,7 +34,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default scope (no --services) targets the 26 CI-built services (incl. pocketbase), NOT all 27", async () => {
+  it("default staging scope = 26 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -45,17 +50,63 @@ describe("runRedeploy", () => {
       env: "staging",
       redeploy,
       appendSummary,
-      // services omitted → default = CI_BUILT_SERVICES
+      // services omitted → default = CI_BUILT_SERVICES ∪ imageOf consumers
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.attempted).toBe(26);
-    expect(result.succeeded).toBe(26);
-    expect(redeploy).toHaveBeenCalledTimes(26);
+    expect(result.attempted).toBe(27);
+    expect(result.succeeded).toBe(27);
+    expect(redeploy).toHaveBeenCalledTimes(27);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
+    // harness-workers runs the shared showcase-harness image (imageOf:
+    // "harness") and must follow the scheduler into the staging scope.
+    expect(seenNames).toContain("harness-workers");
     // webhooks remains out-of-band.
     expect(seenNames).not.toContain("webhooks");
+  });
+
+  it("explicit --services harness pulls in its imageOf consumer harness-workers (staging)", async () => {
+    // THE regression behind PR #5352: CI rebuilds showcase-harness:latest
+    // and passes only the built slot (`showcase-harness` dispatch_name) to
+    // redeploy-env.ts — the workers run the SAME image and silently kept
+    // the stale one. The scope must expand to every imageOf consumer.
+    const seenIds: string[] = [];
+    const redeploy = vi.fn(async (serviceId: string) => {
+      seenIds.push(serviceId);
+      return { ok: true as const };
+    });
+    const result = await runRedeploy({
+      env: "staging",
+      redeploy,
+      appendSummary,
+      services: ["showcase-harness"], // the build matrix dispatch_name
+    });
+    expect(result.attempted).toBe(2);
+    expect(seenIds).toEqual([
+      SERVICES.harness.serviceId, // alphabetical iteration
+      SERVICES["harness-workers"].serviceId,
+    ]);
+  });
+
+  it("default prod scope does NOT include the staging-only harness-workers", async () => {
+    // imageOf expansion is env-aware: harness-workers has no prod env, so
+    // prod behavior is unchanged (26 CI-built services, no worker).
+    const seenNames: string[] = [];
+    const redeploy = vi.fn(async (serviceId: string) => {
+      const name = Object.entries(SERVICES).find(
+        ([, e]) => e.serviceId === serviceId,
+      )?.[0];
+      if (name) seenNames.push(name);
+      return { ok: true as const };
+    });
+    const result = await runRedeploy({
+      env: "prod",
+      redeploy,
+      appendSummary,
+    });
+    expect(result.attempted).toBe(26);
+    expect(seenNames).not.toContain("harness-workers");
   });
 
   it("default whole-env staging redeploy NEVER bounces webhooks (out-of-band)", async () => {
@@ -257,6 +308,33 @@ describe("resolveTargetServices", () => {
     expect(resolved).toContain("pocketbase");
     // webhooks remains out-of-band.
     expect(resolved).not.toContain("webhooks");
+  });
+});
+
+describe("expandImageConsumers", () => {
+  it("adds imageOf consumers of a built service for staging", () => {
+    expect(expandImageConsumers(["harness"], "staging")).toEqual([
+      "harness",
+      "harness-workers",
+    ]);
+  });
+
+  it("excludes consumers that do not declare the target env (prod)", () => {
+    // harness-workers is staging-only; a prod redeploy of harness must not
+    // attempt the worker.
+    expect(expandImageConsumers(["harness"], "prod")).toEqual(["harness"]);
+  });
+
+  it("returns the input unchanged for services without consumers", () => {
+    expect(
+      expandImageConsumers(["showcase-mastra", "aimock"], "staging"),
+    ).toEqual(["showcase-mastra", "aimock"]);
+  });
+
+  it("does not duplicate a consumer that is already in the input", () => {
+    expect(
+      expandImageConsumers(["harness", "harness-workers"], "staging"),
+    ).toEqual(["harness", "harness-workers"]);
   });
 });
 

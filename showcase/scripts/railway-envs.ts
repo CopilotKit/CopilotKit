@@ -155,6 +155,32 @@ export interface ServiceEntry {
    */
   gateValidated: boolean;
   /**
+   * SSOT key of the CI-built service whose GHCR image this service RUNS.
+   *
+   * Models explicit image consumption for services that share another
+   * service's image instead of having their own build slot (e.g.
+   * `harness-workers` runs the same `showcase-harness` image as the
+   * `harness` scheduler). `redeploy-env.ts` expands the redeploy scope
+   * so a rebuilt image redeploys ALL its consumers — without this, a
+   * main-merge rebuild of `showcase-harness:latest` only bounced the
+   * scheduler and the workers silently kept the stale image.
+   *
+   * Constraints (enforced fail-loud at module load by
+   * `assertImageConsumersValid`):
+   *   - must point at an existing SSOT key;
+   *   - the target must be `ciBuilt: true` (consuming a non-CI-built
+   *     image can never put the consumer in the CI redeploy scope);
+   *   - the consumer itself must NOT be `ciBuilt` (a build slot is its
+   *     own image producer — no consumer-of-consumer chains).
+   *
+   * The expansion is env-aware: a consumer only enters an env's redeploy
+   * scope if it declares that env (the staging-only worker never enters
+   * the prod scope). Omit for any service with its own build slot or a
+   * pinned/out-of-band image (e.g. `harness-legacy`, which deliberately
+   * runs a pinned pre-fleet digest and must NOT follow rebuilds).
+   */
+  imageOf?: string;
+  /**
    * Opt-out flag for the image-ref gate. When `true`, the gate ignores
    * this service entirely in BOTH the SSOT→Railway direction (no
    * "missing from Railway" failure if absent) AND the Railway→SSOT
@@ -349,10 +375,13 @@ export const SERVICES: Record<
     // STAGING-ONLY worker (pool-fleet cutover). There is no prod
     // serviceInstance — the pool-fleet runs in staging only for now. Under
     // the env-map schema we simply OMIT the prod key (no placeholder ID is
-    // needed). gateIgnore skips both gate directions, and ciBuilt:false
-    // keeps it out of the default CI_BUILT_SERVICES redeploy scope. If/when
-    // a prod worker is provisioned, add a `prod` env entry and flip
-    // gateIgnore off.
+    // needed). gateIgnore skips both gate directions; ciBuilt:false because
+    // the worker has no build slot of its own — but `imageOf: "harness"`
+    // (below) puts it in the staging redeploy scope whenever the shared
+    // showcase-harness image is rebuilt. If/when a prod worker is
+    // provisioned, add a `prod` env entry and flip gateIgnore off (the
+    // imageOf expansion is env-aware and will start covering prod
+    // automatically once the prod env entry exists).
     ciBuilt: false,
     // gateIgnore: deliberately-untracked for the image-ref gate. The
     // worker is staging-only and domainless (it pulls jobs from the
@@ -369,9 +398,13 @@ export const SERVICES: Record<
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
-    // no `harness-workers` build slot. Hence ciBuilt:false. The
+    // no `harness-workers` build slot. Hence ciBuilt:false, with the
+    // consumption modeled explicitly via imageOf so the staging redeploy
+    // after a successful `showcase-harness` build bounces the worker too
+    // (it used to be silently skipped, leaving it on the stale image). The
     // repoName override points at `showcase-harness` so the image-ref shape
     // resolves correctly if the gate ever validates it.
+    imageOf: "harness",
     //
     // No public domain (queue worker, not HTTP-exposed) and probe disabled:
     // verify-deploy skips probe:false services, and the schema no longer
@@ -1087,7 +1120,52 @@ export function assertDispatchNamesUnique(
   }
 }
 
-// Module-load assertion: fail any importer if the SSOT drifts into a
-// collision. Tests that exercise the invariant with synthetic input
-// call assertDispatchNamesUnique(synthetic) directly.
+/**
+ * Throw on SSOT load if any `imageOf` is mis-wired. A dangling target,
+ * a target without a build slot, or an imageOf on a build slot would each
+ * silently break the "rebuilt image redeploys ALL its consumers" contract
+ * in `redeploy-env.ts` — fail loud at module load instead (same style as
+ * `assertDispatchNamesUnique`).
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertImageConsumersValid(
+  services: Record<string, { ciBuilt: boolean; imageOf?: string }> = SERVICES,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    const target = entry.imageOf;
+    if (target === undefined) continue;
+    if (entry.ciBuilt) {
+      problems.push(
+        `  - "${key}" is ciBuilt but declares imageOf "${target}" — a build slot is its own image producer; drop one of the two`,
+      );
+      continue;
+    }
+    const targetEntry = services[target];
+    if (!targetEntry) {
+      problems.push(
+        `  - imageOf "${target}" on "${key}" is not an SSOT key in SERVICES`,
+      );
+      continue;
+    }
+    if (!targetEntry.ciBuilt) {
+      problems.push(
+        `  - imageOf "${target}" on "${key}" points at a service that is not ciBuilt — only showcase_build.yml build slots can have image consumers`,
+      );
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: imageOf must name an existing, ciBuilt SSOT key, and may ` +
+        `only appear on a non-ciBuilt consumer.`,
+    );
+  }
+}
+
+// Module-load assertions: fail any importer if the SSOT drifts into a
+// collision or a mis-wired image consumer. Tests that exercise the
+// invariants with synthetic input call the assert functions directly.
 assertDispatchNamesUnique();
+assertImageConsumersValid();

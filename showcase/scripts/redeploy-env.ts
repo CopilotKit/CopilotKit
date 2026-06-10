@@ -22,6 +22,12 @@
  *     resolveTargetServices honors any SSOT key the caller asks for.
  *   - When `--services` is provided, each entry is resolved via
  *     resolveTargetServices() against SSOT keys + dispatch_names.
+ *   - In BOTH cases the resolved set is expanded with `imageOf` consumers
+ *     (expandImageConsumers): a service that runs another service's image
+ *     (e.g. harness-workers running the shared showcase-harness image)
+ *     redeploys whenever that image's builder is in scope. The expansion
+ *     is env-aware — a consumer only joins envs it actually declares, so
+ *     the staging-only worker never enters a prod redeploy.
  *   - Per-service Railway failures (including the all-services-fail case)
  *     are logged to stderr and $GITHUB_STEP_SUMMARY but DO NOT fail the
  *     process for staging. Staging is not a release gate; the
@@ -139,9 +145,11 @@ export interface RunRedeployOpts {
    * (e.g. `showcase-mastra`) or a `showcase_build.yml` dispatch_name
    * (e.g. `mastra`, `shell-dashboard`, `showcase-aimock`).
    *
-   * When undefined, the default scope is `CI_BUILT_SERVICES` (the 25
-   * services that `showcase_build.yml` actually builds). pocketbase
-   * and webhooks are NEVER in the default scope.
+   * When undefined, the default scope is `CI_BUILT_SERVICES` (the
+   * services that `showcase_build.yml` actually builds). webhooks is
+   * NEVER in the default scope. In both branches the scope is then
+   * expanded with env-declaring `imageOf` consumers (see
+   * expandImageConsumers).
    */
   services?: string[];
 }
@@ -190,6 +198,34 @@ export function resolveTargetServices(input: string[] | undefined): string[] {
     );
   }
   return [...resolved];
+}
+
+/**
+ * Expand a resolved SSOT-key list with its `imageOf` consumers for the
+ * given env: any service whose `imageOf` names a service already in the
+ * list runs that service's image, so a redeploy of the builder must also
+ * redeploy the consumer (a rebuilt `showcase-harness:latest` that only
+ * bounces the `harness` scheduler leaves `harness-workers` silently
+ * running the stale image — the PR #5352 regression).
+ *
+ * Env-aware: a consumer is only added if it declares `env` in its
+ * `environments` map (the staging-only worker must never enter a prod
+ * redeploy). Single-level by design — `assertImageConsumersValid` in
+ * railway-envs.ts forbids imageOf on ciBuilt services, so there are no
+ * consumer-of-consumer chains to chase. Preserves the input order and
+ * appends consumers (callers sort before iterating). Exported for direct
+ * unit testing.
+ */
+export function expandImageConsumers(names: string[], env: EnvName): string[] {
+  const out = new Set(names);
+  const inScope = new Set(names);
+  for (const [consumer, entry] of Object.entries(SERVICES)) {
+    if (entry.imageOf === undefined) continue;
+    if (!inScope.has(entry.imageOf)) continue;
+    if (entry.environments[env] === undefined) continue;
+    out.add(consumer);
+  }
+  return [...out];
 }
 
 /**
@@ -247,7 +283,13 @@ export async function runRedeploy(
     );
   }
   const envId = env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
-  const names = resolveTargetServices(services).sort();
+  // Resolve the caller's scope, then pull in every `imageOf` consumer of a
+  // service already in scope (env-aware) — a rebuilt image must redeploy
+  // ALL the services that run it, not just its build slot.
+  const names = expandImageConsumers(
+    resolveTargetServices(services),
+    env,
+  ).sort();
 
   const failures: Array<{ service: string; error: string }> = [];
   // Per-service structured records — cross-workstream contract consumed
