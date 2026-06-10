@@ -1,6 +1,14 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { useCopilotKit } from "../../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
@@ -239,7 +247,11 @@ const sampleThreads = [
   },
 ];
 
-const { useThreads } = await import("../use-threads");
+let useThreads: typeof import("../use-threads").useThreads;
+
+beforeAll(async () => {
+  ({ useThreads } = await import("../use-threads"));
+});
 
 describe("useThreads", () => {
   beforeEach(() => {

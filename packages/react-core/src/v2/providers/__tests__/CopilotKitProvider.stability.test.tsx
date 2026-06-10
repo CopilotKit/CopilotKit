@@ -150,11 +150,11 @@ describe("CopilotKitProvider stability", () => {
       const setAgentsSpy = vi.fn();
       let spyAttached = false;
       let registeredAgent: unknown;
-      let capturedInstance: CopilotKitCoreReact | null = null;
+      const capturedInstances: CopilotKitCoreReact[] = [];
 
       function SpyAttacher() {
         const { copilotkit } = useCopilotKit();
-        capturedInstance = copilotkit;
+        capturedInstances.push(copilotkit);
         if (!spyAttached) {
           const original =
             copilotkit.setAgents__unsafe_dev_only.bind(copilotkit);
@@ -186,9 +186,11 @@ describe("CopilotKitProvider stability", () => {
       );
 
       expect(setAgentsSpy).not.toHaveBeenCalled();
-      expect(capturedInstance?.getAgent("registered-after-mount")).toBe(
-        registeredAgent,
-      );
+      expect(
+        capturedInstances[capturedInstances.length - 1]?.getAgent(
+          "registered-after-mount",
+        ),
+      ).toBe(registeredAgent);
     });
 
     it("calls setTools when frontendTools change instead of recreating instance", () => {

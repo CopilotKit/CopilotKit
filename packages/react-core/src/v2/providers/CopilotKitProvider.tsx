@@ -55,6 +55,25 @@ import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+// Adapts zod-to-json-schema's zod-specific signature to the injectable
+// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
+// for schemas whose `~standard.vendor` is "zod".
+const zodToJsonSchemaAdapter = (
+  schema: unknown,
+  options?: { $refStrategy?: string },
+): Record<string, unknown> => {
+  const refStrategy = options?.$refStrategy;
+  return zodToJsonSchema(
+    schema as z.ZodType,
+    refStrategy === "root" ||
+      refStrategy === "relative" ||
+      refStrategy === "none" ||
+      refStrategy === "seen"
+      ? { $refStrategy: refStrategy }
+      : {},
+  );
+};
+
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 // Stable frozen defaults keep provider effects from re-running just because a
@@ -455,10 +474,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       if (tool.render) {
         processedRenderToolCalls.push({
           name: tool.name,
-          args: tool.parameters!,
-          render: tool.render,
+          args: tool.parameters,
+          render: tool.render as React.ComponentType<any>,
           ...(tool.agentId && { agentId: tool.agentId }),
-        } as ReactToolCallRenderer<unknown>);
+        });
       }
     });
 
@@ -737,7 +756,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       sandboxFunctionsList.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, { zodToJsonSchema }),
+        parameters: schemaToJsonSchema(fn.parameters, {
+          zodToJsonSchema: zodToJsonSchemaAdapter,
+        }),
       })),
     );
   }, [sandboxFunctionsList]);

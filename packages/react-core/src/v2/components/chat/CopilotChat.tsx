@@ -315,13 +315,16 @@ export function CopilotChat({
   // so it is reached through a type guard, not a cast. Agents that don't
   // implement the contract degrade safely (the await is skipped).
   const waitForActiveRunToSettle = useCallback(async () => {
-    if (
-      agent.isRunning &&
-      isRunCompletionAware(agent) &&
-      agent.activeRunCompletionPromise
-    ) {
+    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
+    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
+    // and collapse the narrowed type to `never`.
+    const maybeAware: unknown = agent;
+    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
+      ? maybeAware.activeRunCompletionPromise
+      : undefined;
+    if (agent.isRunning && activeRunCompletionPromise) {
       try {
-        await agent.activeRunCompletionPromise;
+        await activeRunCompletionPromise;
       } catch (error) {
         // The in-flight run rejected — proceed with the new send anyway,
         // but log so a chronically-failing in-flight run is observable.
