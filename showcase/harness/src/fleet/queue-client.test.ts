@@ -533,6 +533,247 @@ describe("FleetQueueClient.claimNext — CLAIM FAIRNESS (Part B contention)", ()
   });
 });
 
+describe("FleetQueueClient.claimNext — FAMILY FAIRNESS (backlogged families must not starve)", () => {
+  // ── ROOT CAUSE (verified in prod + staging) ─────────────────────────────────
+  // claimNext listed ONE global pending page (the oldest CLAIM_CANDIDATE_PAGE
+  // rows). With a persistent backlog from the high-frequency families (d4 + d5
+  // tick every 15min ≈ ~180 jobs/hr against 2 serial browser workers), the
+  // oldest-50 page is permanently saturated by those families — a low-frequency
+  // family's jobs (e2e-demos, hourly) NEVER enter the candidate page and are
+  // NEVER claimed. Prod: all 18 e2e-demos jobs stuck pending forever behind a
+  // 137-job backlog; staging: 3,734 pending with the oldest 22h old.
+  //
+  // ── THE FIX (what these tests pin) ──────────────────────────────────────────
+  // claimNext now discovers the DISTINCT families present in pending (oldest
+  // first) and tries them in ROTATION (round-robin across calls, resuming after
+  // the last family this client claimed), listing a PER-FAMILY candidate page
+  // for each. Every discovered family is attempted before claimNext gives up,
+  // so no family can starve while any of its jobs are claimable. The CAS
+  // exactly-one-winner semantics are untouched — only the candidate SELECTION
+  // changed.
+
+  /** probe_key → family (prefix before the first ":"), local to these tests. */
+  const famOf = (probeKey: string): string => {
+    const idx = probeKey.indexOf(":");
+    return idx === -1 ? probeKey : probeKey.slice(0, idx);
+  };
+
+  /** A JobRow carrying PB's system `created` column (the paging sort key). */
+  interface CreatedJobRow extends JobRow {
+    created: string;
+  }
+
+  /**
+   * A PAGING-FAITHFUL fake pb: unlike `makeFakePb` (which ignores `perPage` and
+   * probe_key clauses), this fake honors the parts of the PB list API the
+   * fairness fix depends on — `status` equality, `probe_key` `~`/`!~`/`=`/`!=`
+   * clauses with `%` globs, `created` ascending sort, and `perPage` truncation —
+   * so the production starvation (oldest-50 page saturated by one family) is
+   * reproduced faithfully.
+   */
+  function makePagingPb(rows: CreatedJobRow[]): {
+    pb: PbClient;
+    store: CreatedJobRow[];
+  } {
+    const store = [...rows];
+    const unsupported = (name: string) => () => {
+      throw new Error(`paging-pb: ${name} not implemented`);
+    };
+    const globToRegExp = (pattern: string): RegExp =>
+      new RegExp(
+        `^${pattern
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          .replace(/%/g, ".*")}$`,
+      );
+    const rowMatches = (row: CreatedJobRow, filter?: string): boolean => {
+      if (!filter) return true;
+      const statuses = [...filter.matchAll(/status\s*=\s*"(\w+)"/g)].map(
+        (m) => m[1],
+      );
+      if (statuses.length > 0 && !statuses.includes(row.status)) return false;
+      const clauses = [
+        ...filter.matchAll(/probe_key\s*(!~|!=|~|=)\s*"([^"]*)"/g),
+      ];
+      const positives = clauses.filter((m) => m[1] === "~" || m[1] === "=");
+      const negatives = clauses.filter((m) => m[1] === "!~" || m[1] === "!=");
+      for (const m of negatives) {
+        const matches =
+          m[1] === "!~"
+            ? globToRegExp(m[2]).test(row.probe_key)
+            : row.probe_key === m[2];
+        if (matches) return false;
+      }
+      if (positives.length > 0) {
+        const anyMatch = positives.some((m) =>
+          m[1] === "~"
+            ? globToRegExp(m[2]).test(row.probe_key)
+            : row.probe_key === m[2],
+        );
+        if (!anyMatch) return false;
+      }
+      return true;
+    };
+    const pb: PbClient = {
+      async list<T>(
+        _collection: string,
+        opts: ListOpts = {},
+      ): Promise<ListResult<T>> {
+        let items = store.filter((r) => rowMatches(r, opts.filter));
+        if (opts.sort && opts.sort.includes("created")) {
+          items = [...items].sort((a, b) => a.created.localeCompare(b.created));
+        }
+        const totalItems = items.length;
+        if (opts.perPage !== undefined) items = items.slice(0, opts.perPage);
+        return {
+          page: 1,
+          perPage: opts.perPage ?? items.length,
+          totalPages: 1,
+          totalItems,
+          items: items as unknown as T[],
+        };
+      },
+      getOne: unsupported("getOne") as PbClient["getOne"],
+      getFirst: unsupported("getFirst") as PbClient["getFirst"],
+      create: unsupported("create") as PbClient["create"],
+      update: unsupported("update") as PbClient["update"],
+      upsertByField: unsupported("upsertByField") as PbClient["upsertByField"],
+      delete: unsupported("delete") as PbClient["delete"],
+      deleteByFilter: unsupported(
+        "deleteByFilter",
+      ) as PbClient["deleteByFilter"],
+      health: unsupported("health") as PbClient["health"],
+      createBackup: unsupported("createBackup") as PbClient["createBackup"],
+      downloadBackup: unsupported(
+        "downloadBackup",
+      ) as PbClient["downloadBackup"],
+      deleteBackup: unsupported("deleteBackup") as PbClient["deleteBackup"],
+    };
+    return { pb, store };
+  }
+
+  /** A store-mutating CAS fake: exactly-one-winner over the shared store. */
+  function makeStoreClaim(
+    store: CreatedJobRow[],
+    opts?: { loseFor?: (row: CreatedJobRow) => boolean },
+  ): JobClaimClient {
+    return {
+      async claimJob(jobId, workerId): Promise<ClaimResult> {
+        const row = store.find((r) => r.id === jobId);
+        if (!row || row.status !== "pending") return { won: false };
+        if (opts?.loseFor?.(row)) return { won: false };
+        row.status = "claimed";
+        row.claimed_by = workerId;
+        row.version += 1;
+        return { won: true, job: { ...row } };
+      },
+      renewLease: vi.fn(async (): Promise<RenewResult> => ({ renewed: false })),
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: false }),
+      ),
+    };
+  }
+
+  /** Seed: 60 old d4 jobs (oldest-50 page saturators) + 18 newer e2e-demos. */
+  function starvedStore(): CreatedJobRow[] {
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const rows: CreatedJobRow[] = [];
+    for (let i = 0; i < 60; i++) {
+      const probeKey = `d4:svc-${String(i).padStart(2, "0")}`;
+      rows.push({
+        ...jobView({ id: `d4-${i}`, probe_key: probeKey }),
+        payload: samplePayload({ probeKey, serviceSlug: `svc-${i}` }),
+        created: new Date(t0 + i * 1000).toISOString(),
+      });
+    }
+    for (let i = 0; i < 18; i++) {
+      const probeKey = `e2e-demos:svc-${String(i).padStart(2, "0")}`;
+      rows.push({
+        ...jobView({ id: `demos-${i}`, probe_key: probeKey }),
+        payload: samplePayload({ probeKey, serviceSlug: `svc-${i}` }),
+        created: new Date(t0 + 3_600_000 + i * 1000).toISOString(),
+      });
+    }
+    return rows;
+  }
+
+  it("claims a low-frequency family's jobs even when an older backlog saturates the candidate page (round-robin across families)", async () => {
+    const { pb, store } = makePagingPb(starvedStore());
+    const claim = makeStoreClaim(store);
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimedFamilies: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const c = await q.claimNext("w1", 30);
+      expect(c.claimed).toBe(true);
+      claimedFamilies.push(famOf(c.lease!.job.probe_key));
+    }
+
+    // The e2e-demos jobs sit ENTIRELY outside the oldest-50 global page (60
+    // older d4 rows precede them) — head-of-queue paging never claims them.
+    expect(claimedFamilies).toContain("e2e-demos");
+    // Round-robin: while BOTH families have pending jobs, consecutive claims
+    // alternate families instead of draining the older family first.
+    expect(new Set(claimedFamilies.slice(0, 2))).toEqual(
+      new Set(["d4", "e2e-demos"]),
+    );
+    expect(new Set(claimedFamilies.slice(2, 4))).toEqual(
+      new Set(["d4", "e2e-demos"]),
+    );
+  });
+
+  it("tries EVERY pending family before reporting not-claimed (peer contention on one family cannot starve the rest)", async () => {
+    const { pb, store } = makePagingPb(starvedStore());
+    // Peers win every d4 CAS race; only the e2e-demos family is winnable.
+    const claim = makeStoreClaim(store, {
+      loseFor: (row) => row.probe_key.startsWith("d4:"),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const c = await q.claimNext("w1", 30);
+
+    expect(c.claimed).toBe(true);
+    expect(famOf(c.lease!.job.probe_key)).toBe("e2e-demos");
+  });
+
+  it("drains the remaining family once the other is exhausted", async () => {
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const rows: CreatedJobRow[] = [
+      {
+        ...jobView({ id: "d4-0", probe_key: "d4:only" }),
+        payload: samplePayload({ probeKey: "d4:only" }),
+        created: new Date(t0).toISOString(),
+      },
+      {
+        ...jobView({ id: "demos-0", probe_key: "e2e-demos:a" }),
+        payload: samplePayload({ probeKey: "e2e-demos:a" }),
+        created: new Date(t0 + 1000).toISOString(),
+      },
+      {
+        ...jobView({ id: "demos-1", probe_key: "e2e-demos:b" }),
+        payload: samplePayload({ probeKey: "e2e-demos:b" }),
+        created: new Date(t0 + 2000).toISOString(),
+      },
+    ];
+    const { pb, store } = makePagingPb(rows);
+    const claim = makeStoreClaim(store);
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimedIds: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const c = await q.claimNext("w1", 30);
+      expect(c.claimed).toBe(true);
+      claimedIds.push(c.lease!.job.id);
+    }
+    // All three jobs are claimed across families; nothing is stranded.
+    expect(new Set(claimedIds)).toEqual(
+      new Set(["d4-0", "demos-0", "demos-1"]),
+    );
+    // The queue is now empty.
+    const done = await q.claimNext("w1", 30);
+    expect(done.claimed).toBe(false);
+  });
+});
+
 describe("FleetQueueClient.renewLease", () => {
   it("delegates to S0 renewLease and returns the refreshed lease", async () => {
     const { pb } = makeFakePb([{ ...jobView(), payload: samplePayload() }]);

@@ -45,7 +45,7 @@
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
 import type { JobClaimClient, JobView } from "./job-claim.js";
-import { terminalJobStatus } from "./contracts.js";
+import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
 import type {
   ClaimedJob,
   EnqueueJobInput,
@@ -67,8 +67,22 @@ import type {
  */
 export const PROBE_JOBS_COLLECTION = "probe_jobs";
 
-/** Max pending candidates `claimNext` scans per attempt — bounds the CAS race. */
+/**
+ * Max pending candidates `claimNext` scans PER FAMILY per attempt — bounds the
+ * CAS race. NOTE this is a per-family page, not one global page: a single
+ * oldest-50 global page let a high-frequency family's backlog permanently
+ * crowd a low-frequency family's jobs out of the candidate set (the e2e-demos
+ * starvation — see the FAMILY FAIRNESS note in `claimNext`).
+ */
 const CLAIM_CANDIDATE_PAGE = 50;
+
+/**
+ * Cap on the family-discovery loop in `claimNext` (one tiny query per distinct
+ * pending family). The fleet runs a handful of probe families (d4/d5/d6/
+ * e2e-demos); 16 is generous headroom while still bounding the per-poll query
+ * count if probe_key shapes ever proliferate unexpectedly.
+ */
+const MAX_PENDING_FAMILIES = 16;
 
 /**
  * Bounded retries for the post-release result write in `report()`. The release
@@ -213,6 +227,37 @@ export function leaseExpired(
 }
 
 /**
+ * Escape a value for embedding in a double-quoted PB filter literal. Families
+ * come from probe_key prefixes (config-controlled slugs like `d6` /
+ * `e2e-demos`), so this only needs to neutralize the quote/backslash chars
+ * that could break out of the literal. LIKE wildcards (`%`/`_`) are not
+ * expected in family names and are deliberately left alone.
+ */
+function escapeFilterLiteral(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/**
+ * PB filter clause matching every probe_key in `family`. Keys are
+ * `<family>:<slug>` (the `~` LIKE leg); a colon-less probe_key IS its own
+ * family (the `=` leg) so such rows are still claimable under fairness.
+ */
+function familyInclusionClause(family: string): string {
+  const esc = escapeFilterLiteral(family);
+  return `(probe_key ~ "${esc}:%" || probe_key = "${esc}")`;
+}
+
+/**
+ * PB filter clause EXCLUDING every probe_key in `family` — the complement of
+ * `familyInclusionClause`, spelled with `!~`/`!=` because the PB filter
+ * grammar has no group negation.
+ */
+function familyExclusionClause(family: string): string {
+  const esc = escapeFilterLiteral(family);
+  return `probe_key !~ "${esc}:%" && probe_key != "${esc}"`;
+}
+
+/**
  * In-place Fisher-Yates shuffle used to randomize the candidate-attempt order
  * so concurrent workers don't all attack the same head-of-page row each poll.
  * Pure given the injected `rng`; mutates + returns `arr` for call-site brevity.
@@ -242,6 +287,56 @@ export function createFleetQueueClient(
   // time and reuse it on renew, making the re-read a non-fatal convenience.
   const payloadCache = new Map<string, ServiceJobPayload>();
 
+  // FAMILY FAIRNESS rotation cursor: the family this client most recently
+  // claimed from. The next claimNext starts its family rotation AFTER this
+  // one, so consecutive claims round-robin across the distinct families
+  // present in pending instead of draining the oldest family first.
+  let lastClaimedFamily: string | null = null;
+
+  /**
+   * Discover the DISTINCT families present in pending, oldest job first. PB's
+   * records API has no DISTINCT, so this peels one family per tiny query: read
+   * the single oldest pending row, note its family, and re-query with that
+   * family excluded until the queue is exhausted (or the MAX_PENDING_FAMILIES
+   * bound trips). At most F+1 perPage=1 queries for F families — cheap against
+   * the status-indexed probe_jobs table, and the price of never letting one
+   * family's backlog hide another family from the candidate scan.
+   */
+  async function discoverPendingFamilies(): Promise<string[]> {
+    const families: string[] = [];
+    const exclusions: string[] = [];
+    for (let i = 0; i < MAX_PENDING_FAMILIES; i++) {
+      const filter = ['status = "pending"', ...exclusions].join(" && ");
+      const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
+        filter,
+        sort: "created",
+        perPage: 1,
+        skipTotal: true,
+      });
+      const head = page.items[0];
+      if (!head) break;
+      const family = probeKeyFamily(head.probe_key);
+      // Defensive: a backend that didn't honor the exclusion clause would
+      // re-yield a seen family forever — break instead of spinning.
+      if (families.includes(family)) break;
+      families.push(family);
+      exclusions.push(familyExclusionClause(family));
+    }
+    return families;
+  }
+
+  /**
+   * Rotate `families` so iteration starts AFTER the family this client last
+   * claimed from (round-robin). An unknown/absent cursor keeps the discovered
+   * (oldest-first) order.
+   */
+  function rotateFamilies(families: string[]): string[] {
+    if (lastClaimedFamily === null) return families;
+    const idx = families.indexOf(lastClaimedFamily);
+    if (idx === -1) return families;
+    return [...families.slice(idx + 1), ...families.slice(0, idx + 1)];
+  }
+
   return {
     async enqueue(input: EnqueueJobInput): Promise<JobView> {
       const { payload } = input;
@@ -268,34 +363,69 @@ export function createFleetQueueClient(
       workerId: string,
       leaseSeconds: number,
     ): Promise<ClaimedJob> {
-      // List pending candidates, then race S0's atomic claim against each until
-      // one wins. Losing a CAS means a peer took it — fall through, don't error.
-      const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
-        filter: 'status = "pending"',
-        perPage: CLAIM_CANDIDATE_PAGE,
-        skipTotal: true,
-      });
-      // CLAIM FAIRNESS: every worker lists the SAME deterministically-ordered
-      // pending page (PB's default order is stable across callers), so iterating
-      // it head-first makes all 6 replicas thunder on the same head row every
-      // poll. The worker that re-polls fractionally first keeps winning the head;
-      // the losers burn extra CAS round-trips walking down the list, which makes
-      // them slower, poll less often, and claim less — compounding into a ~4x
-      // skew onto 2 hot workers (the observed staging contention that tipped legit
-      // settles past the per-turn budget). RANDOMIZING each worker's attempt
-      // order spreads the herd across the whole candidate page so a peer that
-      // already won the head doesn't force everyone else to serialize behind it —
-      // wins distribute evenly and no worker becomes a hot outlier. The CAS still
-      // guarantees exactly-one-winner per row; this only changes which order a
-      // given worker TRIES candidates, never the atomicity.
-      const candidates = shuffleInPlace([...page.items], rng);
-      for (const candidate of candidates) {
-        const result = await claim.claimJob(
-          candidate.id,
-          workerId,
-          leaseSeconds,
-        );
-        if (result.won && result.job) {
+      // FAMILY FAIRNESS: a single global oldest-50 pending page let a
+      // high-frequency family's persistent backlog (d4+d5 tick every 15min)
+      // permanently saturate the candidate page, so a low-frequency family's
+      // jobs (e2e-demos, hourly) NEVER entered it and were NEVER claimed
+      // (prod: all 18 e2e-demos jobs pending forever; staging: 3,734 pending,
+      // oldest 22h). So claimNext now discovers the DISTINCT families present
+      // in pending (oldest first) and tries them in ROTATION — round-robin
+      // across calls, resuming after the family this client last claimed —
+      // listing a PER-FAMILY candidate page for each. Every discovered family
+      // is attempted before giving up, so no family starves while any of its
+      // jobs are claimable. The CAS exactly-one-winner semantics are
+      // untouched; only the candidate SELECTION changed.
+      const families = rotateFamilies(await discoverPendingFamilies());
+      for (const family of families) {
+        // List this family's pending candidates (oldest first), then race
+        // S0's atomic claim against each until one wins. Losing a CAS means a
+        // peer took it — fall through, don't error.
+        const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
+          filter: `status = "pending" && ${familyInclusionClause(family)}`,
+          sort: "created",
+          perPage: CLAIM_CANDIDATE_PAGE,
+          skipTotal: true,
+        });
+        // CLAIM FAIRNESS (worker herd): every worker lists the SAME
+        // deterministically-ordered pending page, so iterating it head-first
+        // makes all 6 replicas thunder on the same head row every poll. The
+        // worker that re-polls fractionally first keeps winning the head; the
+        // losers burn extra CAS round-trips walking down the list, which makes
+        // them slower, poll less often, and claim less — compounding into a
+        // ~4x skew onto 2 hot workers (the observed staging contention that
+        // tipped legit settles past the per-turn budget). RANDOMIZING each
+        // worker's attempt order spreads the herd across the whole candidate
+        // page so a peer that already won the head doesn't force everyone else
+        // to serialize behind it — wins distribute evenly and no worker
+        // becomes a hot outlier. The CAS still guarantees exactly-one-winner
+        // per row; this only changes which order a given worker TRIES
+        // candidates, never the atomicity.
+        const candidates = shuffleInPlace([...page.items], rng);
+        const won = await raceCandidates(candidates, workerId, leaseSeconds);
+        if (won) {
+          lastClaimedFamily = family;
+          return won;
+        }
+      }
+      return { claimed: false };
+
+      /**
+       * Race S0's atomic claim against `candidates` in order until one wins.
+       * Returns the won ClaimedJob, or null when every candidate was lost to
+       * a peer (or released on decode failure).
+       */
+      async function raceCandidates(
+        candidates: ProbeJobRecord[],
+        raceWorkerId: string,
+        raceLeaseSeconds: number,
+      ): Promise<ClaimedJob | null> {
+        for (const candidate of candidates) {
+          const result = await claim.claimJob(
+            candidate.id,
+            raceWorkerId,
+            raceLeaseSeconds,
+          );
+          if (!result.won || !result.job) continue;
           // The CAS already WON — this worker now OWNS the row. Decoding the
           // payload from the (pre-claim) candidate row can still throw on a
           // malformed/absent payload; if we let that throw escape, the job is
@@ -311,18 +441,18 @@ export function createFleetQueueClient(
           } catch (err) {
             logger.error("queue-client.claim-decode-failed", {
               jobId: result.job.id,
-              workerId,
+              workerId: raceWorkerId,
               err: err instanceof Error ? err.message : String(err),
             });
             // Best-effort terminal release so the poison row doesn't re-list
             // forever. A refused release here is non-fatal — another sweeper or
             // a later reclaim handles it; we must not throw out of claimNext.
             try {
-              await claim.releaseJob(result.job.id, workerId, "failed");
+              await claim.releaseJob(result.job.id, raceWorkerId, "failed");
             } catch (releaseErr) {
               logger.warn("queue-client.claim-decode-release-failed", {
                 jobId: result.job.id,
-                workerId,
+                workerId: raceWorkerId,
                 err:
                   releaseErr instanceof Error
                     ? releaseErr.message
@@ -336,12 +466,12 @@ export function createFleetQueueClient(
           payloadCache.set(result.job.id, payload);
           logger.debug("queue-client.claimed", {
             jobId: result.job.id,
-            workerId,
+            workerId: raceWorkerId,
           });
           return { claimed: true, lease: leaseFromJob(result.job, payload) };
         }
+        return null;
       }
-      return { claimed: false };
     },
 
     async renewLease(

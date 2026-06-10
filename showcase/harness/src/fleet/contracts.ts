@@ -659,3 +659,19 @@ export function terminalJobStatus(
   if (result.commError) return "failed";
   return result.aggregateState === "green" ? "done" : "failed";
 }
+
+/**
+ * Extract a probe_key's FAMILY — the prefix before the first ":" (the whole
+ * key when no ":" is present). The family is the probe-family partition the
+ * producers enqueue per schedule (`d6:<slug>` → `d6`, `d4:<slug>` → `d4`,
+ * `e2e-demos:<slug>` → `e2e-demos`, ...). It is the FAIRNESS unit of the
+ * queue: `claimNext` round-robins claims across the distinct families present
+ * in pending so a high-frequency family's backlog can never starve a
+ * low-frequency family's jobs out of the candidate page, and the producer's
+ * backlog dedupe gates each tick on its own family's pending count. Pure;
+ * unit-tested via the queue-client + producer suites.
+ */
+export function probeKeyFamily(probeKey: string): string {
+  const idx = probeKey.indexOf(":");
+  return idx === -1 ? probeKey : probeKey.slice(0, idx);
+}
