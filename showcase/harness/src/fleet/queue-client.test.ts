@@ -1786,6 +1786,80 @@ describe("FleetQueueClient.sweepExpired", () => {
     );
   });
 
+  it("does NOT reclaim a job renewed between the list snapshot and the release CAS (TOCTOU close)", async () => {
+    const NOW = Date.parse("2026-06-04T00:05:00.000Z");
+    // CURRENT row state: the worker RENEWED moments ago — live lease.
+    const renewedRow: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "worker-live",
+        lease_expires_at: "2026-06-04T00:06:00.000Z",
+        version: 5,
+      }),
+      payload: samplePayload(),
+    };
+    const { pb, rows } = makeFakePb([renewedRow]);
+    // The sweeper's list SNAPSHOT is stale: it observed the pre-renew lease
+    // (expired) — the renew landed between the list and the release CAS.
+    const realList = pb.list.bind(pb);
+    pb.list = vi.fn(async (collection: string, opts?: ListOpts) => {
+      const page = await realList(collection, opts);
+      return {
+        ...page,
+        items: page.items.map((it) =>
+          (it as JobRow).id === "j1"
+            ? {
+                ...(it as JobRow),
+                lease_expires_at: "2026-06-04T00:04:00.000Z",
+                version: 4,
+              }
+            : it,
+        ),
+      };
+    }) as PbClient["list"];
+    // Hook-faithful releaseJob (fleet-claim.pb.js /api/fleet/release):
+    // authorizes on claimed_by AND — the TOCTOU close — refuses a
+    // pending-target release while the row's CURRENT lease is still live,
+    // re-checked at release time inside the transaction (NOT from the
+    // caller's snapshot). Expiry compared via the exported leaseExpired so
+    // this fake stays byte-equivalent with both sides of the contract.
+    const releaseJob = vi.fn(
+      async (
+        jobId: string,
+        workerId: string,
+        status: "done" | "failed" | "pending",
+      ): Promise<ReleaseResult> => {
+        const row = rows.find((r) => r.id === jobId);
+        if (!row || !["claimed", "running"].includes(row.status)) {
+          return { released: false };
+        }
+        if (row.claimed_by !== workerId) return { released: false };
+        if (status === "pending" && !leaseExpired(row.lease_expires_at, NOW)) {
+          return { released: false };
+        }
+        row.status = status;
+        row.claimed_by = "";
+        row.lease_expires_at = null;
+        return { released: true, job: { ...row } };
+      },
+    );
+    const claim = makeFakeClaim({ releaseJob });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(NOW);
+
+    // The release was ATTEMPTED (the stale snapshot looked expired)...
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-live", "pending");
+    // ...but REFUSED server-side, so the live just-renewed job is untouched:
+    // no reclaim, no false worker-reclaimed-pending, no duplicate execution.
+    expect(sweep.reclaimed).toBe(0);
+    expect(sweep.commErrors).toHaveLength(0);
+    expect(rows[0].status).toBe("running");
+    expect(rows[0].claimed_by).toBe("worker-live");
+    expect(rows[0].lease_expires_at).toBe("2026-06-04T00:06:00.000Z");
+  });
+
   it("a releaseJob THROW on one row does not abort the sweep or lose other rows' comm errors (REQ-B)", async () => {
     const now = Date.parse("2026-06-04T00:05:00.000Z");
     // Three expired leases; the MIDDLE row's release THROWS (transport blip,
@@ -1995,5 +2069,18 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
   it("every handler compares lease expiry with the client's operator (t <= now)", () => {
     const occurrences = hookSource.split("t <= Date.now()").length - 1;
     expect(occurrences).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the release handler re-checks lease expiry for a pending-target (sweeper) release — TOCTOU close", () => {
+    // The sweeper decides "expired" from a LISTED SNAPSHOT, then releases on
+    // behalf of the holder; the release CAS authorizes on `claimed_by`, which
+    // a holder that RENEWED between the list and the release still matches.
+    // Without a server-side re-check the renewed (LIVE) job is yanked back to
+    // pending — duplicate execution plus a false worker-reclaimed-pending
+    // comm error. The hook must refuse a pending-target release while the
+    // row's CURRENT lease is still live, inside the same transaction.
+    expect(hookSource).toContain(
+      'if (target === "pending" && !leaseExpired(rec)) return;',
+    );
   });
 });

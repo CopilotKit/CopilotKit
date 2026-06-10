@@ -256,6 +256,21 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     // claimed_by match above still authorizes it, and re-queue to pending is
     // always safe: it just resets the row to claimable.
     if (target !== "pending" && leaseExpired(rec)) return;
+    // TOCTOU close (the sweepers' list→release race): a "pending" release is
+    // a SWEEPER re-queueing an EXPIRED lease on behalf of its lapsed holder —
+    // but the sweeper decided "expired" from a LISTED SNAPSHOT. If the holder
+    // RENEWED between that list and this release, `claimed_by` still matches
+    // and an unguarded release would yank a LIVE, just-renewed job back to
+    // pending (duplicate execution + a false worker-reclaimed-pending comm
+    // error on the dashboard). Re-check expiry HERE, at release time, inside
+    // the same transaction: a still-live lease means the holder is alive —
+    // refuse, and the sweeper's released:false path skips the row (it retries
+    // on a later sweep once the lease has truly lapsed). This also guards
+    // fleet-health's reclaim of a heartbeat-stale worker whose job loop is
+    // still renewing: a renewing worker is alive, so refusal is correct
+    // there too. leaseExpired stays byte-equivalent to the client's anchored
+    // parse, so both sides agree on what "expired" means.
+    if (target === "pending" && !leaseExpired(rec)) return;
 
     rec.set("status", target);
     if (target === "pending") {
