@@ -109,9 +109,10 @@ describe("mcpServers — real MCP server integration", () => {
     expect(callArgs.tools).toHaveProperty("get_weather");
   });
 
-  it("SSE transport against MCPMock emits RUN_ERROR or completes without crash", async () => {
-    // MCPMock only supports Streamable HTTP, not SSE.
-    // The agent should emit RUN_ERROR when SSE connection fails.
+  it("an unreachable MCP server (SSE vs HTTP-only mock) is skipped, not fatal", async () => {
+    // MCPMock only supports Streamable HTTP, not SSE — so the SSE client
+    // fails to connect. The run must degrade gracefully: no RUN_ERROR, and
+    // streamText still runs (just without that server's tools).
     const result = await startMcpServer([
       { name: "get_weather", description: "Get the weather" },
     ]);
@@ -124,27 +125,44 @@ describe("mcpServers — real MCP server integration", () => {
     });
 
     vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
     );
 
-    // Collect events manually — the Observable may error after emitting RUN_ERROR
-    const events: any[] = [];
-    try {
-      await new Promise((resolve, reject) => {
-        agent["run"](baseInput).subscribe({
-          next: (event: any) => events.push(event),
-          error: (err: any) => reject(err),
-          complete: () => resolve(events),
-        });
-      });
-      // If it completes without error, that's also acceptable (graceful fallthrough)
-    } catch {
-      // Expected — SSE transport failure should emit RUN_ERROR then error
-    }
+    const events = await collectEvents(agent["run"](baseInput));
 
-    const hasRunError = events.some((e) => e.type === EventType.RUN_ERROR);
-    // Either we got a RUN_ERROR or streamText was never called (connection failed before tools fetch)
-    expect(hasRunError || !vi.mocked(streamText).mock.calls.length).toBe(true);
+    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
+    expect(vi.mocked(streamText).mock.calls.length).toBeGreaterThan(0);
+    // The failed server contributed no tools.
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.tools ?? {}).not.toHaveProperty("get_weather");
+  });
+
+  it("a down MCP server is skipped while a healthy one still loads its tools", async () => {
+    const result = await startMcpServer([
+      { name: "get_weather", description: "Get the weather" },
+    ]);
+    llm = result.llm;
+    mcpMock = result.mcpMock;
+
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpServers: [
+        { type: "http", url: "http://127.0.0.1:1/mcp" }, // unreachable
+        { type: "http", url: result.mcpUrl }, // healthy
+      ],
+    });
+
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
+    );
+
+    const events = await collectEvents(agent["run"](baseInput));
+
+    // The dead server is skipped; the run completes and the healthy server's
+    // tools are present.
+    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.tools).toHaveProperty("get_weather");
   });
 
   it("tool call round-trip emits TOOL_CALL_START, TOOL_CALL_RESULT, and TEXT_MESSAGE_CHUNK", async () => {
@@ -223,32 +241,22 @@ describe("mcpServers — real MCP server integration", () => {
     );
   });
 
-  it("unreachable MCP server emits RUN_ERROR", async () => {
+  it("the only MCP server being unreachable does NOT fail the run", async () => {
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
       mcpServers: [{ type: "http", url: "http://localhost:59999" }],
     });
 
     vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
     );
 
-    const events: any[] = [];
-    try {
-      await new Promise((resolve, reject) => {
-        agent["run"](baseInput).subscribe({
-          next: (event: any) => events.push(event),
-          error: (err: any) => reject(err),
-          complete: () => resolve(events),
-        });
-      });
-    } catch {
-      // Expected — connection refused should cause an error
-    }
+    const events = await collectEvents(agent["run"](baseInput));
 
-    expect(events.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
-    // streamText should not have been called since MCP init failed
-    expect(streamText).not.toHaveBeenCalled();
+    // Graceful degradation: the unreachable server is skipped, no RUN_ERROR,
+    // and the run still proceeds (just with no MCP tools).
+    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
+    expect(vi.mocked(streamText).mock.calls.length).toBeGreaterThan(0);
   });
 
   it("MCP clients are cleaned up after streamText error — subsequent run still works", async () => {
