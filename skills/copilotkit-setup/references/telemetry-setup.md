@@ -1,14 +1,14 @@
-# CopilotCloud Telemetry Setup
+# CopilotKit Intelligence Telemetry Setup
 
-## What is CopilotCloud?
+## What is CopilotKit Intelligence?
 
-CopilotCloud is CopilotKit's hosted platform that provides:
+CopilotKit Intelligence is CopilotKit's hosted platform that provides:
 
 - **Usage analytics** -- see how users interact with your AI features (message volume, tool usage, session duration)
 - **Error monitoring** -- surface runtime errors and failed agent interactions
 - **Premium features** -- access to hosted runtimes, advanced agent orchestration, and priority support (requires a paid plan)
 
-The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotCloud. It does not gate any open-source functionality -- CopilotKit works fully without it.
+The license key is a lightweight identifier that connects your local CopilotKit instance to CopilotKit Intelligence. It does not gate any open-source functionality -- CopilotKit works fully without it.
 
 ## The `npx copilotkit auth` flow
 
@@ -18,9 +18,9 @@ Running the CLI command starts an interactive authentication (verify the exact c
 npx copilotkit auth
 ```
 
-1. The CLI opens your default browser to the CopilotCloud login/signup page.
+1. The CLI opens your default browser to the CopilotKit Intelligence login/signup page.
 2. Sign in with GitHub, Google, or email.
-3. Select or create a project in the CopilotCloud dashboard.
+3. Select or create a project in the CopilotKit Intelligence dashboard.
 4. The CLI receives the license key and prints it to stdout:
    ```
    Successfully authenticated!
@@ -65,4 +65,4 @@ The `NEXT_PUBLIC_` or `VITE_` prefix is required because the license key is used
 
 ## Opting out
 
-To disconnect from CopilotCloud, simply remove the `publicLicenseKey` prop from the `CopilotKit` provider (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.
+To disconnect from CopilotKit Intelligence, simply remove the `publicLicenseKey` prop from the `CopilotKit` provider (and delete the environment variable if you set one). No other changes are needed -- CopilotKit will continue to function normally without it.

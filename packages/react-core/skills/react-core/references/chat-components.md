@@ -1,7 +1,8 @@
 # CopilotKit Chat Components (React)
 
 This skill builds on `copilotkit/provider-setup`. Read it first — every
-chat component must be inside `CopilotKitProvider`.
+chat component must be inside the `CopilotKit` provider (from
+`@copilotkit/react-core/v2`).
 
 All chat components live on `@copilotkit/react-core/v2`. The legacy
 `@copilotkit/react-ui` package is v1-only; its `/v2` subpath is a CSS-only

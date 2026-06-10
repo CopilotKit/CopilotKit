@@ -223,7 +223,7 @@ Errors can be handled at two levels:
 
 ```tsx
 // Provider-level: catches all errors
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={({ error, code, context }) => {
     console.error("CopilotKit error:", code, error.message);
@@ -236,7 +236,7 @@ Errors can be handled at two levels:
       showToast(`Agent error: ${error.message}`);
     }}
   />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 The chat-level `onError` fires in addition to (not instead of) the provider-level handler. It only receives errors whose `context.agentId` matches the chat's agent.

@@ -1,7 +1,7 @@
 # CopilotKit Debug Mode (React)
 
 This skill builds on `copilotkit/provider-setup`. Both debug surfaces are
-props on `CopilotKitProvider`.
+props on the `CopilotKit` provider (from `@copilotkit/react-core/v2`).
 
 Two independent knobs:
 
@@ -14,17 +14,17 @@ Both should be `'auto'` / off in production.
 
 ```tsx
 "use client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit"
       showDevConsole="auto"
       debug={{ events: true, lifecycle: true, verbose: false }}
     >
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -41,7 +41,7 @@ leaking PII by default. For a bug repro, explicitly set `verbose: true` to
 dump full message/tool-call payloads.
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   debug={{ events: true, lifecycle: true, verbose: true }}
 />
@@ -50,7 +50,7 @@ dump full message/tool-call payloads.
 ### Anchor the inspector on narrow viewports
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   showDevConsole="auto"
   inspectorDefaultAnchor="bottom-left"
@@ -60,7 +60,7 @@ dump full message/tool-call payloads.
 ### Env-gate the inspector
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   showDevConsole={process.env.NODE_ENV !== "production"}
 />
@@ -73,13 +73,13 @@ dump full message/tool-call payloads.
 Wrong:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole={true} />
+<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={true} />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto" />
+<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto" />
 // "auto" enables only on localhost / 127.0.0.1
 ```
 
@@ -93,14 +93,14 @@ Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:301-321`
 Wrong:
 
 ```tsx
-<CopilotKitProvider debug={true} />
+<CopilotKit debug={true} />
 // Then wondering why message contents aren't in the console
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider debug={{ events: true, lifecycle: true, verbose: true }} />
+<CopilotKit debug={{ events: true, lifecycle: true, verbose: true }} />
 ```
 
 `debug: true` is shorthand for `{ events: true, lifecycle: true, verbose: false }`.
@@ -114,13 +114,13 @@ Source: `docs/snippets/shared/troubleshooting/debug-mode.mdx:85-93`
 Wrong:
 
 ```tsx
-<CopilotKitProvider debug={{ events: true, network: true, errors: true }} />
+<CopilotKit debug={{ events: true, network: true, errors: true }} />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider debug={{ events: true, lifecycle: true, verbose: true }} />
+<CopilotKit debug={{ events: true, lifecycle: true, verbose: true }} />
 ```
 
 `DebugConfig` has exactly three fields: `events`, `lifecycle`, `verbose`.
@@ -134,13 +134,13 @@ Wrong:
 
 ```tsx
 // App embedded in a sandboxed iframe with showDevConsole on
-<CopilotKitProvider runtimeUrl="..." showDevConsole="auto" />
+<CopilotKit runtimeUrl="..." showDevConsole="auto" />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="..."
   showDevConsole={typeof window !== "undefined" && window.self === window.top}
 />

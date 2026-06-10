@@ -73,14 +73,14 @@ Every integration shares these patterns on the frontend side.
 ### CopilotKit Provider (layout.tsx)
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react";
-import "@copilotkit/react/styles.css";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 
 export default function RootLayout({ children }) {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agent="my_agent_name">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent_name">
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```

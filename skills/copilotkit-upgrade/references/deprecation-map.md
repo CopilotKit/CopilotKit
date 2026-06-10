@@ -31,22 +31,24 @@ Complete mapping of every deprecated v1 API to its v2 replacement.
 
 ## Components
 
-| v1 Component                  | v1 Package                   | v2 Replacement                | v2 Package          | Status                               |
-| ----------------------------- | ---------------------------- | ----------------------------- | ------------------- | ------------------------------------ |
-| `CopilotKit`                  | `@copilotkit/react-core`     | `CopilotKitProvider`          | `@copilotkit/react` | Renamed                              |
-| `CopilotChat`                 | `@copilotkit/react-ui`       | `CopilotChat`                 | `@copilotkit/react` | Same name, new package               |
-| `CopilotPopup`                | `@copilotkit/react-ui`       | `CopilotPopup`                | `@copilotkit/react` | Same name, new package               |
-| `CopilotSidebar`              | `@copilotkit/react-ui`       | `CopilotSidebar`              | `@copilotkit/react` | Same name, new package               |
-| `CopilotTextarea`             | `@copilotkit/react-textarea` | --                            | --                  | **Removed**                          |
-| `CopilotDevConsole`           | `@copilotkit/react-ui`       | `CopilotKitInspector`         | `@copilotkit/react` | Renamed                              |
-| `Markdown`                    | `@copilotkit/react-ui`       | --                            | --                  | Removed (use A2UI renderer)          |
-| `AssistantMessage`            | `@copilotkit/react-ui`       | `CopilotChatAssistantMessage` | `@copilotkit/react` | Renamed                              |
-| `UserMessage`                 | `@copilotkit/react-ui`       | `CopilotChatUserMessage`      | `@copilotkit/react` | Renamed                              |
-| `ImageRenderer`               | `@copilotkit/react-ui`       | --                            | --                  | Removed                              |
-| `RenderSuggestionsList`       | `@copilotkit/react-ui`       | `CopilotChatSuggestionView`   | `@copilotkit/react` | Renamed                              |
-| `RenderSuggestion`            | `@copilotkit/react-ui`       | `CopilotChatSuggestionPill`   | `@copilotkit/react` | Renamed                              |
-| `CoAgentStateRendersProvider` | `@copilotkit/react-core`     | --                            | --                  | Removed (no v2 equivalent)           |
-| `ThreadsProvider`             | `@copilotkit/react-core`     | --                            | --                  | Removed (threads managed by runtime) |
+| v1 Component                  | v1 Package                   | v2 Replacement                | v2 Package                  | Status                               |
+| ----------------------------- | ---------------------------- | ----------------------------- | --------------------------- | ------------------------------------ |
+| `CopilotKit`                  | `@copilotkit/react-core`     | `CopilotKit`                  | `@copilotkit/react-core/v2` | Same name, new import path           |
+| `CopilotChat`                 | `@copilotkit/react-ui`       | `CopilotChat`                 | `@copilotkit/react`         | Same name, new package               |
+| `CopilotPopup`                | `@copilotkit/react-ui`       | `CopilotPopup`                | `@copilotkit/react`         | Same name, new package               |
+| `CopilotSidebar`              | `@copilotkit/react-ui`       | `CopilotSidebar`              | `@copilotkit/react`         | Same name, new package               |
+| `CopilotTextarea`             | `@copilotkit/react-textarea` | --                            | --                          | **Removed**                          |
+| `CopilotDevConsole`           | `@copilotkit/react-ui`       | `CopilotKitInspector`         | `@copilotkit/react`         | Renamed                              |
+| `Markdown`                    | `@copilotkit/react-ui`       | --                            | --                          | Removed (use A2UI renderer)          |
+| `AssistantMessage`            | `@copilotkit/react-ui`       | `CopilotChatAssistantMessage` | `@copilotkit/react`         | Renamed                              |
+| `UserMessage`                 | `@copilotkit/react-ui`       | `CopilotChatUserMessage`      | `@copilotkit/react`         | Renamed                              |
+| `ImageRenderer`               | `@copilotkit/react-ui`       | --                            | --                          | Removed                              |
+| `RenderSuggestionsList`       | `@copilotkit/react-ui`       | `CopilotChatSuggestionView`   | `@copilotkit/react`         | Renamed                              |
+| `RenderSuggestion`            | `@copilotkit/react-ui`       | `CopilotChatSuggestionPill`   | `@copilotkit/react`         | Renamed                              |
+| `CoAgentStateRendersProvider` | `@copilotkit/react-core`     | --                            | --                          | Removed (no v2 equivalent)           |
+| `ThreadsProvider`             | `@copilotkit/react-core`     | --                            | --                          | Removed (threads managed by runtime) |
+
+> **Note:** `@copilotkit/react-core/v2` also exports a `CopilotKitProvider` component. Do not migrate to it -- it is a functionality subset of `CopilotKit` (from `/v2`), which is the compatibility bridge across v1 and v2.
 
 ## Runtime Classes
 
@@ -79,21 +81,21 @@ Complete mapping of every deprecated v1 API to its v2 replacement.
 
 ## Types
 
-| v1 Type                              | v1 Package               | v2 Replacement                   | v2 Package                   | Status                     |
-| ------------------------------------ | ------------------------ | -------------------------------- | ---------------------------- | -------------------------- |
-| `CopilotKitProps`                    | `@copilotkit/react-core` | `CopilotKitProviderProps`        | `@copilotkit/react`          | Renamed                    |
-| `CopilotContextParams`               | `@copilotkit/react-core` | `CopilotKitContextValue`         | `@copilotkit/react`          | Renamed                    |
-| `FrontendAction`                     | `@copilotkit/react-core` | `ReactFrontendTool`              | `@copilotkit/react`          | Renamed + restructured     |
-| `ActionRenderProps`                  | `@copilotkit/react-core` | `ReactToolCallRenderer`          | `@copilotkit/react`          | Renamed + restructured     |
-| `DocumentPointer`                    | `@copilotkit/react-core` | --                               | --                           | **Removed**                |
-| `SystemMessageFunction`              | `@copilotkit/react-core` | --                               | --                           | **Removed**                |
-| `CopilotChatSuggestionConfiguration` | `@copilotkit/react-core` | `Suggestion`                     | `@copilotkit/core`           | Renamed                    |
-| `Parameter`                          | `@copilotkit/shared`     | Zod schemas / `StandardSchemaV1` | `zod` / `@copilotkit/shared` | Replaced with schema-based |
-| `CopilotServiceAdapter`              | `@copilotkit/runtime`    | `AbstractAgent`                  | `@ag-ui/client`              | Replaced                   |
-| `TextMessageEvents`                  | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)  |
-| `ToolCallEvents`                     | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)  |
-| `CustomEventNames`                   | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)  |
-| `PredictStateTool`                   | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)  |
+| v1 Type                              | v1 Package               | v2 Replacement                   | v2 Package                   | Status                                                         |
+| ------------------------------------ | ------------------------ | -------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| `CopilotKitProps`                    | `@copilotkit/react-core` | `CopilotKitProps`                | `@copilotkit/react-core/v2`  | Same name, new import path (extends `CopilotKitProviderProps`) |
+| `CopilotContextParams`               | `@copilotkit/react-core` | `CopilotKitContextValue`         | `@copilotkit/react`          | Renamed                                                        |
+| `FrontendAction`                     | `@copilotkit/react-core` | `ReactFrontendTool`              | `@copilotkit/react`          | Renamed + restructured                                         |
+| `ActionRenderProps`                  | `@copilotkit/react-core` | `ReactToolCallRenderer`          | `@copilotkit/react`          | Renamed + restructured                                         |
+| `DocumentPointer`                    | `@copilotkit/react-core` | --                               | --                           | **Removed**                                                    |
+| `SystemMessageFunction`              | `@copilotkit/react-core` | --                               | --                           | **Removed**                                                    |
+| `CopilotChatSuggestionConfiguration` | `@copilotkit/react-core` | `Suggestion`                     | `@copilotkit/core`           | Renamed                                                        |
+| `Parameter`                          | `@copilotkit/shared`     | Zod schemas / `StandardSchemaV1` | `zod` / `@copilotkit/shared` | Replaced with schema-based                                     |
+| `CopilotServiceAdapter`              | `@copilotkit/runtime`    | `AbstractAgent`                  | `@ag-ui/client`              | Replaced                                                       |
+| `TextMessageEvents`                  | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)                                      |
+| `ToolCallEvents`                     | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)                                      |
+| `CustomEventNames`                   | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)                                      |
+| `PredictStateTool`                   | `@copilotkit/runtime`    | --                               | --                           | **Removed** (@deprecated)                                      |
 
 ## v1 Props Marked @deprecated Within v1
 

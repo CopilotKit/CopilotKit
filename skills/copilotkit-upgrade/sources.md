@@ -10,7 +10,7 @@ Generated: 2026-03-28
 - packages/v1/react-textarea/src/index.ts (CopilotTextarea export, confirmed removed in v2)
 - packages/v1/runtime/src/index.ts (v1 runtime exports: CopilotRuntime, OpenAIAdapter, AnthropicAdapter, GoogleGenerativeAIAdapter, LangChainAdapter, copilotRuntimeNextJSAppRouterEndpoint, copilotKitEndpoint)
 - packages/v1/runtime-client-gql/src/index.ts (v1 GraphQL types: TextMessage, MessageRole, ActionExecutionMessage, ResultMessage)
-- packages/v2/react/src/index.ts (v2 hook exports: useFrontendTool, useAgentContext, useAgent, useInterrupt, useSuggestions, useConfigureSuggestions, useRenderToolCall, useRenderActivityMessage, CopilotKitProvider)
+- packages/v2/react/src/index.ts (v2 hook exports: useFrontendTool, useAgentContext, useAgent, useInterrupt, useSuggestions, useConfigureSuggestions, useRenderToolCall, useRenderActivityMessage, CopilotKit compat provider -- the recommended migration target; CopilotKitProvider is also exported but is a functionality subset)
 - packages/v2/runtime/src/index.ts (v2 runtime exports: CopilotRuntime, createCopilotEndpoint, createCopilotEndpointExpress, CopilotKitIntelligence)
 - packages/v2/agent/src/index.ts (v2 agent exports: BuiltInAgent, defineTool)
 - packages/v2/core/src/ (CopilotKitCore, AG-UI event types, AbstractAgent interface)

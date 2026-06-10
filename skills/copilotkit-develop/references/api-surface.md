@@ -342,14 +342,16 @@ Returns a function to render custom message decorators at `"before"` or `"after"
 
 ## Components (`@copilotkit/react`)
 
-### CopilotKitProvider
+### CopilotKit (provider)
+
+Import from `@copilotkit/react-core/v2`. The recommended root provider -- a compatibility bridge across v1 and v2 and a strict superset of the legacy `CopilotKitProvider` (all props below work on it).
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl?: string
   headers?: Record<string, string>
   credentials?: RequestCredentials
-  publicApiKey?: string          // alias: publicLicenseKey
+  publicLicenseKey?: string      // deprecated alias: publicApiKey
   properties?: Record<string, unknown>
   agents__unsafe_dev_only?: Record<string, AbstractAgent>
   selfManagedAgents?: Record<string, AbstractAgent>
@@ -364,7 +366,7 @@ Returns a function to render custom message decorators at `"before"` or `"after"
   a2ui?: { theme?: A2UITheme }
 >
   {children}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 Root provider. Configures the runtime connection, registers static tool renderers and tools, and provides the CopilotKit context to all descendant hooks and components.
