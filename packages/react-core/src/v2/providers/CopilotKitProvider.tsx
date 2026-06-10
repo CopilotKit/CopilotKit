@@ -22,7 +22,11 @@ import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
-import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
+import type {
+  LicenseContextValue,
+  DebugConfig,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -294,7 +298,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    string | undefined
+    RuntimeLicenseStatus | undefined
   >(undefined);
 
   useEffect(() => {
@@ -783,8 +787,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(null),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (

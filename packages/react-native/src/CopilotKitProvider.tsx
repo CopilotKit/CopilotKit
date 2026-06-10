@@ -10,7 +10,8 @@ import type {
 } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
-import type { DebugConfig } from "@copilotkit/shared";
+import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
 import { RenderToolProvider } from "./hooks/RenderToolContext";
 
 export interface CopilotKitNativeProviderProps {
@@ -165,6 +166,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     ReadonlySet<string>
   >(() => new Set());
 
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
+    RuntimeLicenseStatus | undefined
+  >(undefined);
+
   // Use ref to avoid subscription churn when onError changes
   const onErrorRef = useRef(onError);
   useEffect(() => {
@@ -203,6 +208,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           );
         }
       },
+      onRuntimeConnectionStatusChanged: () => {
+        setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      },
     });
     return () => subscription.unsubscribe();
   }, [copilotkit]);
@@ -215,14 +223,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
+  // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => ({
-      status: null as null,
-      license: null as null,
-      checkFeature: () => true,
-      getLimit: () => null,
-    }),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (
