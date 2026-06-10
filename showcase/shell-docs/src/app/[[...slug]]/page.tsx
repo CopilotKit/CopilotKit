@@ -9,8 +9,11 @@
 import React from "react";
 import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
-import { HeroCommandCopy } from "@/components/hero-command-copy";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import {
+  HeroStartActions,
+  LearnMoreAgentsLink,
+} from "@/components/hero-start-commands";
 import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -42,7 +45,6 @@ export const dynamic = "force-dynamic";
 // here keeps the sidebar tree on `/` identical to what the user sees
 // after clicking any Built-in Agent sidebar link.
 const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
-const CREATE_COMMAND = "npx copilotkit@latest create";
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -122,6 +124,9 @@ function DocsOverview() {
     ...pageTree,
     children: rewriteUrls(pageTree.children),
   };
+  // The home hero has no framework context, so its quickstart CTA is the
+  // framework picker dropdown (same accent treatment as the framework pages'
+  // direct quickstart link). The default framework sorts first.
   const quickstartOptions = getIntegrations()
     .filter((i) => getDocsMode(i.slug) !== "hidden")
     .slice()
@@ -136,7 +141,6 @@ function DocsOverview() {
       logo: i.logo ?? null,
       href: `/${i.slug}/quickstart`,
     }));
-
   return (
     <ShellDocsLayout tree={homePageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
@@ -154,9 +158,13 @@ function DocsOverview() {
                 human-in-the-loop workflows on any AG-UI compatible backend.
               </p>
             </div>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <HeroQuickstartDropdown options={quickstartOptions} />
-              <HeroCommandCopy command={CREATE_COMMAND} />
+            <div className="mt-7">
+              <HeroStartActions
+                quickstart={
+                  <HeroQuickstartDropdown options={quickstartOptions} />
+                }
+                trailing={<LearnMoreAgentsLink />}
+              />
             </div>
           </div>
         </section>
