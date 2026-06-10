@@ -33,22 +33,48 @@ import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
- * Stable per-row React key. A message's canonical `id` is not stable within a
- * turn: some backends re-key a message mid-stream (e.g. LangChain replaces its
- * transient `lc_run--…` streaming id with the provider's final `resp_…` id in
- * the MESSAGES_SNAPSHOT). Keying rows by `id` made React unmount/remount the
- * row on that swap — the visible HITL chat flash. Tool-call ids survive the
+ * Builds a map of message.id → stable per-row React key for an entire message
+ * list. A message's canonical `id` is not stable within a turn: some backends
+ * re-key a message mid-stream (e.g. LangChain replaces its transient
+ * `lc_run--…` streaming id with the provider's final `resp_…` id in the
+ * MESSAGES_SNAPSHOT). Keying rows by `id` made React unmount/remount the row
+ * on that swap — the visible HITL chat flash. Tool-call ids survive the
  * rename, so an assistant message anchored by a tool call is keyed by its
- * first tool-call id; everything else falls back to `id`.
+ * first tool-call id (`tc:<anchorToolCallId>`); everything else falls back to
+ * `id`.
+ *
+ * Load-bearing assumption: this only helps when the first tool-call id itself
+ * is stable across the rename; backends that re-key tool-call ids mid-stream
+ * still remount.
+ *
+ * Collision rule: two distinct assistant messages can occasionally share a
+ * first-tool-call id (e.g. due to upstream bugs or replayed state). First
+ * occurrence (in list order) claims `tc:<id>`; later collisions fall back to
+ * `message.id`. Assigned keys are tracked in the claimed set, so keys are
+ * unique by construction: post-dedup message ids are unique, and the `tc:`
+ * prefix namespaces tool-call keys away from raw message ids.
  */
-function getRowRenderKey(message: Message): string {
-  if (message.role === "assistant") {
-    const anchorToolCallId = (message as AssistantMessage).toolCalls?.[0]?.id;
-    if (anchorToolCallId) {
-      return `tc:${anchorToolCallId}`;
+function buildRowRenderKeys(messages: Message[]): Map<string, string> {
+  const keys = new Map<string, string>();
+  const claimed = new Set<string>();
+  for (const message of messages) {
+    let candidate: string | undefined;
+    if (message.role === "assistant") {
+      const anchorToolCallId = (message as AssistantMessage).toolCalls?.[0]?.id;
+      if (anchorToolCallId) {
+        candidate = `tc:${anchorToolCallId}`;
+      }
     }
+    let assigned: string;
+    if (candidate && !claimed.has(candidate)) {
+      assigned = candidate;
+    } else {
+      assigned = message.id;
+    }
+    keys.set(message.id, assigned);
+    claimed.add(assigned);
   }
-  return message.id;
+  return keys;
 }
 
 /**
@@ -466,6 +492,16 @@ export function CopilotChatMessageView({
     [messages],
   );
 
+  // Map message.id → stable row key for the current list. Computed at the list
+  // level (not per message) so the helper can detect tool-call id collisions
+  // across distinct assistant messages and fall back to message.id for later
+  // claimants — preventing duplicate React keys (which would silently drop a
+  // row from the rendered output).
+  const rowRenderKeys = useMemo(
+    () => buildRowRenderKeys(deduplicatedMessages),
+    [deduplicatedMessages],
+  );
+
   if (
     process.env.NODE_ENV === "development" &&
     deduplicatedMessages.length < messages.length
@@ -576,7 +612,7 @@ export function CopilotChatMessageView({
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const elements: (React.ReactElement | null | undefined)[] = [];
     const stateSnapshot = getStateSnapshotForMessage(message.id);
-    const rowKey = getRowRenderKey(message);
+    const rowKey = rowRenderKeys.get(message.id) ?? message.id;
 
     if (renderCustomMessage) {
       elements.push(
@@ -705,7 +741,7 @@ export function CopilotChatMessageView({
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
               <div
-                key={getRowRenderKey(message)}
+                key={rowRenderKeys.get(message.id) ?? message.id}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 style={{
