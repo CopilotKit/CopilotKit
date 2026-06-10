@@ -64,6 +64,23 @@ describe("assembleDocument", () => {
     expect(json.imports["three/"]).toMatch(/\/$/);
   });
 
+  it("escapes < in library URLs so the importmap script cannot be terminated early", () => {
+    const script = buildImportMapScript({
+      evil: "https://x.example/lib</script><script>alert(1)//",
+    });
+    // No literal close tag inside the importmap payload (only the real one at the end)
+    expect(script.indexOf("</script>")).toBe(
+      script.length - "</script>".length,
+    );
+    // The escaped JSON still parses back to the original URL
+    const json = JSON.parse(
+      script.replace('<script type="importmap">', "").replace("</script>", ""),
+    );
+    expect(json.imports.evil).toBe(
+      "https://x.example/lib</script><script>alert(1)//",
+    );
+  });
+
   it("matches the legacy path byte-for-byte when designSystemCss and importMap are false", () => {
     // legacy reference implementations, copied verbatim from OpenGenerativeUIRenderer.tsx
     const legacyEnsureHead = (html: string) =>

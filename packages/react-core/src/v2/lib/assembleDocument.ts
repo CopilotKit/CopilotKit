@@ -94,9 +94,12 @@ export interface AssembleDocumentOptions {
 /**
  * Builds an HTML `<script type="importmap">` tag from the given library map.
  * The map is serialised as `{ imports: libs }` per the importmap spec.
+ * Every `<` is escaped inside the serialized JSON (a lossless encoding) so a
+ * URL containing `</script>` cannot terminate the importmap tag early.
  */
 export function buildImportMapScript(libs: Record<string, string>): string {
-  return `<script type="importmap">${JSON.stringify({ imports: libs })}</script>`;
+  const json = JSON.stringify({ imports: libs }).replace(/</g, "\\u003c");
+  return `<script type="importmap">${json}</script>`;
 }
 
 /**
