@@ -96,10 +96,13 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 
 // Base generateSandboxedUi tool description. When the design system / library
 // importmap are injected into the document, append guidance so the model knows
-// the kit and pre-wired ES-module libraries exist. With both disabled this
+// the kit and pre-wired ES-module libraries exist.
+// `designSystem` is three-state: "builtin" advertises the built-in token/SVG
+// kit; "custom" appends a short neutral line (the custom CSS may not define the
+// built-in token names); "off" appends nothing. With "off" + no libraries this
 // returns the original (legacy) description text verbatim.
 function buildGenerateSandboxedUiDescription(opts: {
-  designSystem: boolean;
+  designSystem: "builtin" | "custom" | "off";
   libraries: string[];
 }): string {
   let description =
@@ -116,12 +119,15 @@ function buildGenerateSandboxedUiDescription(opts: {
     "4. jsFunctions (reusable helper functions)\n" +
     "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
 
-  if (opts.designSystem) {
+  if (opts.designSystem === "builtin") {
     description +=
       "\n\nA design system is PRE-INJECTED into the document. Prefer it over hand-rolled styles:\n" +
       "- CSS variables: var(--color-background-primary|secondary|tertiary), var(--color-text-primary|secondary|tertiary), var(--color-border-*), semantic info/danger/success/warning variants, var(--font-sans|serif|mono), var(--border-radius-md|lg|xl). Light/dark is automatic — do NOT hardcode colors for things the tokens cover.\n" +
       "- Form controls (button, input, textarea, select, range, checkbox, radio) are pre-styled; write semantic HTML and skip restyling basics.\n" +
       "- SVG helper classes: text.t/.ts/.th for typography; .box, .node, .arr, .leader; color ramps .c-purple/.c-teal/.c-coral/.c-pink/.c-gray/.c-blue/.c-green/.c-amber/.c-red for fills+strokes with dark-mode handled.";
+  } else if (opts.designSystem === "custom") {
+    description +=
+      "\n\nA custom design system stylesheet is PRE-INJECTED into the document. Prefer its existing styles over hand-rolled CSS.";
   }
 
   if (opts.libraries.length > 0) {
@@ -341,17 +347,32 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const openGenUIOptions = useMemo<OpenGenerativeUIResolvedOptions>(() => {
     const ds = openGenerativeUI?.designSystem;
     const libs = openGenerativeUI?.libraries;
+    // `null` behaves like `undefined` (built-in kit), consistent with the
+    // lenient `libraries` resolver below. Guard the object branch so a stray
+    // `null` doesn't crash render via `ds.css` (typeof null === "object").
+    const customKitCss = ds && typeof ds === "object" ? ds.css : undefined;
     return {
       designSystemCss:
         ds === false
           ? false
-          : typeof ds === "object"
-            ? ds.css
+          : customKitCss !== undefined
+            ? customKitCss
             : OPEN_GEN_UI_DESIGN_SYSTEM_CSS,
       importMap:
         libs === false ? false : { ...DEFAULT_OPEN_GEN_UI_LIBRARIES, ...libs },
     };
   }, [openGenerativeUI?.designSystem, openGenerativeUI?.libraries]);
+
+  // Distinguish the built-in kit from a custom one so downstream guidance
+  // (tool description + design skill) advertises only what's actually injected.
+  // Built-in kit = `true` / `undefined` / `null` (not `false`, not a custom
+  // `{ css }` object). A custom kit may not define the built-in token/SVG names.
+  const usingBuiltInKit = useMemo(() => {
+    const ds = openGenerativeUI?.designSystem;
+    if (ds === false) return false;
+    if (ds && typeof ds === "object") return false;
+    return true;
+  }, [openGenerativeUI?.designSystem]);
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     string | undefined
   >(undefined);
@@ -550,7 +571,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         name: "generateSandboxedUi",
         description: buildGenerateSandboxedUiDescription({
-          designSystem: openGenUIOptions.designSystemCss !== false,
+          designSystem:
+            openGenUIOptions.designSystemCss === false
+              ? "off"
+              : usingBuiltInKit
+                ? "builtin"
+                : "custom",
           libraries: openGenUIOptions.importMap
             ? Object.keys(openGenUIOptions.importMap).filter(
                 (k) => !k.endsWith("/"),
@@ -563,7 +589,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         render: OpenGenerativeUIToolRenderer,
       },
     ];
-  }, [openGenUIActive, openGenUIOptions]);
+  }, [openGenUIActive, openGenUIOptions, usingBuiltInKit]);
 
   // Combine all tools for CopilotKitCore
   const allTools = useMemo(() => {
@@ -800,13 +826,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, defaultThrottleMs]);
 
   // Register design skill as agent context for the generateSandboxedUi tool.
-  // When the design system is disabled, fall back to the legacy (hardcoded
-  // palette) skill so the model still gets concrete color/border guidance.
+  // The token-based skill (which references built-in var(--color-*) names) is
+  // only safe when the built-in kit is injected. For a custom kit or a disabled
+  // design system, fall back to the generic legacy skill so the model gets
+  // concrete color/border guidance instead of token names it may not have.
   const designSkill =
     openGenerativeUI?.designSkill ??
-    (openGenUIOptions.designSystemCss === false
-      ? LEGACY_DEFAULT_DESIGN_SKILL
-      : DEFAULT_DESIGN_SKILL);
+    (usingBuiltInKit ? DEFAULT_DESIGN_SKILL : LEGACY_DEFAULT_DESIGN_SKILL);
 
   useLayoutEffect(() => {
     if (!copilotkit || !openGenUIActive) return;

@@ -138,4 +138,100 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       expect(designContext!.value).toContain("var(--color-");
     });
   });
+
+  describe("(g) custom kit pairs with neutral guidance, not built-in tokens", () => {
+    it("custom kit → design-skill context has no built-in token names and tool description advertises the custom-kit line, not built-in tokens/SVG classes", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            openGenerativeUI={{ designSystem: { css: ".my-kit{color:red}" } }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      // Design-skill context must be the generic legacy skill (no built-in
+      // token names a custom kit may not define).
+      const designContext = findDesignSkillContext(
+        result.current.copilotkit.context,
+      );
+      expect(designContext).toBeDefined();
+      expect(designContext!.value).not.toContain("var(--color-");
+      expect(designContext!.value).not.toContain("var(--border-radius-");
+
+      // The generateSandboxedUi tool description must NOT advertise the
+      // built-in token/SVG block, but MUST include the neutral custom-kit line.
+      const tool = result.current.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      const description = tool!.description!;
+      expect(description).not.toContain(".c-purple");
+      expect(description).not.toContain("--color-background-primary");
+      expect(description).toContain(
+        "A custom design system stylesheet is PRE-INJECTED",
+      );
+    });
+  });
+
+  describe("(h) built-in kit advertises the token block in the tool description", () => {
+    it("openGenerativeUI={{}} → tool description contains built-in tokens and SVG color ramp classes", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider openGenerativeUI={{}}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const tool = result.current.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      const description = tool!.description!;
+      expect(description).toContain("--color-background-primary");
+      expect(description).toContain(".c-purple");
+    });
+  });
+
+  describe("(i) designSystem: null resolves to built-in kit without crashing", () => {
+    it("null designSystem → no crash, options resolve to the built-in kit, token-based guidance applied", () => {
+      const { result } = renderHook(
+        () => ({
+          options: useOpenGenerativeUIOptions(),
+          ck: useCopilotKit(),
+        }),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{ designSystem: null as any }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      // Resolves to the built-in kit, exactly like `undefined`.
+      expect(result.current.options.designSystemCss).toBe(
+        OPEN_GEN_UI_DESIGN_SYSTEM_CSS,
+      );
+
+      // And is treated as the built-in kit downstream: token-based design skill
+      // and the built-in token/SVG block in the tool description.
+      const designContext = findDesignSkillContext(
+        result.current.ck.copilotkit.context,
+      );
+      expect(designContext).toBeDefined();
+      expect(designContext!.value).toContain("var(--color-");
+
+      const tool = result.current.ck.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      expect(tool!.description!).toContain("--color-background-primary");
+      expect(tool!.description!).toContain(".c-purple");
+    });
+  });
 });
