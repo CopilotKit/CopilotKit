@@ -854,11 +854,17 @@ export function createFleetQueueClient(
       // dashboard signal.
       // The drain LOOPS pages (up to STALE_PENDING_MAX_PAGES_PER_SWEEP): a
       // single 50-row page per sweep would take ~7.5h to drain the motivating
-      // 3,734-row backlog at ~10 sweeps/hour. Each pass re-lists PAGE 1 —
-      // deleting rows shifts pagination, so the next listing naturally yields
-      // the next-oldest batch. A pass that expires NOTHING terminates the
-      // loop: every remaining page-1 row was skipped (too young / unparseable
-      // / claim lost), and re-listing would return the same rows forever.
+      // 3,734-row backlog at ~10 sweeps/hour. When a pass removed rows from
+      // pending (deleted, or a claim CAS ran — win or lose, the row LEFT
+      // pending), pagination shifted back, so the SAME page index is
+      // re-listed and naturally yields the shifted-in batch. When a FULL page
+      // produced no claim attempt at all (every row too young / graced /
+      // unparseable), nothing shifted — ADVANCE to the next page instead of
+      // stopping: expiry is per-FAMILY while the sort is absolute `created`,
+      // so younger expirable fast-family rows can sit BEYOND a full page of
+      // not-yet-expirable slow-family rows (cross-family occlusion — the
+      // class this drain exists to fix). Only a NON-FULL page proves the
+      // queue's tail was seen; the page cap still bounds a sweep's work.
       // PHASE containment (REQ-B): the whole stale drain is wrapped so a
       // throw anywhere inside it (the pending pb.list, the claim CAS — only
       // pb.delete was caught per-row) still returns the lease phase's partial
@@ -885,18 +891,23 @@ export function createFleetQueueClient(
        */
       async function drainStalePending(): Promise<void> {
         if (staleExpiryPeriods <= 0) return;
+        let listPage = 1;
         for (let pass = 0; pass < STALE_PENDING_MAX_PAGES_PER_SWEEP; pass++) {
           const pendingPage = await pb.list<ProbeJobRecord>(
             PROBE_JOBS_COLLECTION,
             {
               filter: 'status = "pending"',
               sort: "created",
+              page: listPage,
               perPage: CLAIM_CANDIDATE_PAGE,
               skipTotal: true,
             },
           );
           if (pendingPage.items.length === 0) break;
-          let passExpired = 0;
+          // Rows that reached the claim CAS this pass — win or lose, such a
+          // row LEFT "pending" (won → claimed by the sweeper; lost → claimed
+          // by a racing worker), so any attempt means pagination shifted.
+          let passAttempted = 0;
           for (const row of pendingPage.items) {
             // ONE SWEEP OF GRACE (see function header): a row the lease phase
             // re-queued moments ago in THIS call is "back in flight" — deleting
@@ -927,6 +938,7 @@ export function createFleetQueueClient(
             const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
             const ageMs = nowMs - createdMs;
             if (ageMs <= maxAgeMs) continue;
+            passAttempted += 1;
             const won = await claim.claimJob(
               row.id,
               STALE_PENDING_SWEEPER_ID,
@@ -953,7 +965,6 @@ export function createFleetQueueClient(
               });
               continue;
             }
-            passExpired += 1;
             // Per ROW (not per pass) so a mid-pass throw caught by the phase
             // wrapper still reports the rows already expired.
             expiredPending += 1;
@@ -965,11 +976,17 @@ export function createFleetQueueClient(
               maxAgeMs,
             });
           }
-          // No progress → every remaining pending row is non-expirable; a
-          // short page → we have already seen the queue's tail. Either way
-          // there is nothing more for THIS sweep to do.
-          if (passExpired === 0) break;
+          // A NON-FULL page → we have already seen the queue's tail; nothing
+          // more for this sweep to do. (A zero-EXPIRY pass is intentionally
+          // NOT a termination signal: claim-CAS-lost rows LEAVE pending, so
+          // expiring nothing does not mean re-listing returns the same rows.)
           if (pendingPage.items.length < CLAIM_CANDIDATE_PAGE) break;
+          // A FULL page where no row even reached the claim CAS: nothing left
+          // pending, pagination did not shift — ADVANCE past it (cross-family
+          // occlusion; see the drain header). Otherwise rows left pending and
+          // pagination shifted back, so re-list the SAME page index to see
+          // the shifted-in batch.
+          if (passAttempted === 0) listPage += 1;
         }
       }
     },

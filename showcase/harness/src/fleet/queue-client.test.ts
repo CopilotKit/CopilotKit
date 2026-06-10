@@ -713,9 +713,14 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
           items = [...items].sort((a, b) => a.created.localeCompare(b.created));
         }
         const totalItems = items.length;
-        if (opts.perPage !== undefined) items = items.slice(0, opts.perPage);
+        if (opts.perPage !== undefined) {
+          // Honor `page` (1-based) the way PB does — the stale drain advances
+          // past a full page of rows it could not act on.
+          const page = opts.page ?? 1;
+          items = items.slice((page - 1) * opts.perPage, page * opts.perPage);
+        }
         return {
-          page: 1,
+          page: opts.page ?? 1,
           perPage: opts.perPage ?? items.length,
           totalPages: 1,
           totalItems,
@@ -1139,6 +1144,41 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
 
       expect(sweep.expiredPending).toBe(120);
       expect(store).toHaveLength(0);
+    });
+
+    it("drains expirable fast-family rows occluded behind a FULL page of not-yet-expirable slow-family rows (cross-family occlusion)", async () => {
+      // Expiry is PER FAMILY but the drain's sort is absolute `created`: 50
+      // OLDER d6 rows (default 3h window — NOT expirable at 1h old) fill page
+      // 1, while YOUNGER d4 rows (45min window, 50min old — expirable) sit on
+      // page 2. An early `if (passExpired === 0) break` stops at page 1 and
+      // strands the d4 rows for the whole sweep — the exact cross-family
+      // occlusion class the multi-page drain exists to fix. A full page that
+      // produced no claim attempts must ADVANCE to the next page (still
+      // bounded by the per-sweep page cap); only a NON-FULL page proves the
+      // queue's tail was seen.
+      const slow = Array.from({ length: 50 }, (_, i) =>
+        pendingRow(`slow-${i}`, "d6:a", T - HOUR - i * 1000),
+      );
+      const fast = Array.from({ length: 10 }, (_, i) =>
+        pendingRow(`fast-${i}`, "d4:a", T - 50 * MIN + i * 1000),
+      );
+      const { pb, store } = makePagingPb([...slow, ...fast]);
+      const q = createFleetQueueClient({
+        pb,
+        claim: makeStoreClaim(store),
+        logger,
+        stalePending: { familyPeriodsMs: { d4: 15 * MIN } },
+      });
+
+      const sweep = await q.sweepExpired(T);
+
+      // All 10 expirable d4 rows reclaimed in ONE sweep…
+      expect(sweep.expiredPending).toBe(10);
+      expect(
+        store.filter((r) => r.probe_key.startsWith("d4:")),
+      ).toHaveLength(0);
+      // …and the not-yet-expirable slow family is untouched.
+      expect(store).toHaveLength(50);
     });
 
     it("caps a single sweep at 10 pages (500 rows) so one sweep cannot monopolize the producer tick", async () => {
