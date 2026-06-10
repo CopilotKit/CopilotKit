@@ -30,51 +30,124 @@
  * 2. MASK BEFORE MEASURING. Every structural search (locating `<head>` elements,
  *    the `<body[\s>]` boundary, the `</body>` close, `<script>`/`<head>` element
  *    spans) runs on a single shared masked copy of the input where the CONTENT
- *    of every COMPLETE `<style>`/`<script>` block is replaced with same-length
- *    placeholders. Indices are preserved 1:1, so spans map straight back to the
- *    original. A tag-lookalike token inside CSS/JS — `content:"<body>"`, a
- *    `<body` mention inside a CSS comment, or `x="</head>"` in a script string —
- *    therefore can NEVER fake a boundary or split a style block. Both exported
+ *    of every COMPLETE `<style>`/`<script>` block AND every COMPLETE `<!-- … -->`
+ *    HTML COMMENT is replaced with same-length placeholders. Indices are
+ *    preserved 1:1, so spans map straight back to the original. A tag-lookalike
+ *    token inside CSS/JS or inside a comment — `content:"<body>"`,
+ *    `/* hide <body /> default *​/`, `x="</head>"`, `<!-- <body> -->`,
+ *    `<!-- <script>x</script> -->` — therefore can NEVER fake a boundary, split
+ *    a style block, or be mistaken for real structure to strip. Both exported
  *    functions derive their classifications from this ONE computation
  *    ({@link analyzeRegions}).
  *
- * The `<body[\s>]` / `</body>` / `<head\b` guards are all word-bounded so
- * `<bodyguard …>`, `<header>`, etc. are never mistaken for `<body>`/`<head>`.
+ * The `<body[\s>]` / `</body>` / `<head\b` / `<html[\s>]` guards are all
+ * word-bounded so `<bodyguard …>`, `<header>`, `<htmlfoo>`, etc. are never
+ * mistaken for `<body>`/`<head>`/`<html>`.
  *
- * Incomplete trailing `<style>`/`<script>`/`<head>` blocks (an open tag with no
- * matching close through end of string) are still stripped entirely — an
- * unterminated block mid-stream must never leak its raw CSS/JS text into the
- * preview body as visible content.
+ * Incomplete trailing `<style>`/`<script>`/`<head>` blocks and an incomplete
+ * trailing `<!-- …` comment (an open token with no matching close through end of
+ * string) are still stripped entirely — an unterminated block mid-stream must
+ * never leak its raw CSS/JS/comment text into the preview body as visible
+ * content, and an unterminated comment must never fake structure (it would
+ * swallow the rest of the document once `-->` arrives, so the preview drops it
+ * to match the final document's effective rendering).
+ *
+ * An UNCLOSED `<head>` whose region reaches a `<body[\s>]` token (with no
+ * `</head>` first) is treated as if the head closed at that implicit `<body>`
+ * boundary — exactly how a browser renders the final document (`ensureHead` +
+ * `injectCssIntoHtml` leave the in-head css in the head and the body content in
+ * the body when no `</head>` is emitted). So an in-head style there is hoisted
+ * and the body content is kept — content never vanishes. An unclosed `<head>`
+ * with content but NO `<body>` token is still stripped (a head that is genuinely
+ * still streaming its own content).
  *
  * Pure functions — no DOM, no Vue.
  */
 
-/** Matches a COMPLETE `<style>`/`<script>` block, capturing the tag name and its content. */
-const COMPLETE_STYLE_OR_SCRIPT = /<(style|script)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+/**
+ * Quote-aware open-tag end scan: from a `<style`/`<script`/`<head` (etc.) start,
+ * matches through the tag's `>`, allowing a `>` inside a quoted attribute value
+ * (`<style data-x="a>b">`). Used so the masked content boundary is the REAL end
+ * of the open tag, not a quoted `>` mid-attribute.
+ */
+const OPEN_TAG_END = /^<[a-zA-Z][^\s/>]*(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/;
 
 /**
- * Replaces the CONTENT (between the open tag's `>` and the matching `</tag>`) of
- * every COMPLETE `<style>`/`<script>` block with same-length space placeholders.
- * The tags themselves are untouched. Length-preserving, so every index in the
- * returned string maps 1:1 to the original — callers locate structure on the
- * masked string and slice the matching text out of the original.
+ * Blanks the INSIDES of quoted runs (`"…"` / `'…'`) in a tag string with spaces,
+ * length-preserving. A structural-looking token inside an open tag's attribute
+ * value — `<style data-x="<body>">`, `<script src="</head>">` — must not be left
+ * visible to the structural searches (it would fake a boundary), so its bytes are
+ * blanked while the tag skeleton (name + attribute names + delimiters) is kept.
+ */
+function blankQuotedRuns(tag: string): string {
+  return tag.replace(
+    /"[^"]*"|'[^']*'/g,
+    (q) => q[0] + " ".repeat(q.length - 2) + q[0],
+  );
+}
+
+/**
+ * Replaces the CONTENT of every COMPLETE `<style>`/`<script>` block (between the
+ * open tag's real `>` and the matching `</tag>`) and the CONTENT of every
+ * COMPLETE `<!-- … -->` comment (between `<!--` and `-->`) with same-length space
+ * placeholders, and additionally blanks the quoted attribute values inside those
+ * style/script open tags. The delimiting tokens (and attribute skeletons) are
+ * untouched. Length-preserving, so every index in the returned string maps 1:1 to
+ * the original — callers locate structure on the masked string and slice the
+ * matching text out of the original.
+ *
+ * A single left-to-right pass masks whichever construct opens FIRST at each
+ * position, so the three constructs never interfere: a `<style>` mentioned inside
+ * a comment is masked as comment content (not treated as a real style), and a
+ * `-->` inside CSS is masked as style content (not treated as a comment close).
  */
 function maskBlockContent(html: string): string {
+  const blockRe = /<style\b|<script\b|<!--/gi;
   let out = "";
   let last = 0;
-  COMPLETE_STYLE_OR_SCRIPT.lastIndex = 0;
+  blockRe.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = COMPLETE_STYLE_OR_SCRIPT.exec(html)) !== null) {
-    const full = match[0];
-    const content = match[2]!;
-    // Content starts right after the open tag's first `>`. (Open tags cannot
-    // contain a `>` here — these are `<style …>`/`<script …>` with no `>` in
-    // their attribute values in any realistic streamed document.)
-    const contentStart = match.index + full.indexOf(">") + 1;
-    const contentEnd = contentStart + content.length;
-    out += html.slice(last, contentStart);
-    out += " ".repeat(content.length);
-    last = contentEnd;
+  while ((match = blockRe.exec(html)) !== null) {
+    const start = match.index;
+    if (start < last) continue; // inside a region already masked
+    const token = match[0];
+    if (token === "<!--") {
+      const close = html.indexOf("-->", start + 4);
+      // Content runs from just after `<!--` to just before `-->`. An
+      // UNTERMINATED comment masks to end of string: anything after `<!--`
+      // would be swallowed by the comment once `-->` arrives, so no tag
+      // lookalike inside it (a complete-looking `<style>`, a `<body>`) may be
+      // mistaken for real structure. The trailing `<!-- …` is removed from the
+      // body by the comment-strip step.
+      const contentStart = start + 4;
+      const contentEnd = close === -1 ? html.length : close;
+      out += html.slice(last, contentStart);
+      out += " ".repeat(contentEnd - contentStart);
+      last = contentEnd;
+      blockRe.lastIndex = close === -1 ? html.length : close + 3;
+    } else {
+      // <style …> / <script …>. Find the REAL end of the open tag quote-aware
+      // (a quoted `>` in an attribute — `<style data-x="a>b">` — must not be
+      // mistaken for the end of the open tag), then mask up to the matching
+      // close tag. The open tag's quoted attribute VALUES are blanked too so a
+      // `<body>`/`</head>` inside one cannot fake a boundary. An unterminated
+      // open tag or block masks to end of string and is removed from the body by
+      // the unterminated-block strip step.
+      const tagName = token.slice(1); // "style" | "script"
+      const openEndMatch = html.slice(start).match(OPEN_TAG_END);
+      const openEnd = openEndMatch
+        ? start + openEndMatch[0].length
+        : html.length;
+      const closeRe = new RegExp(`</${tagName}>`, "i");
+      const closeRel = openEndMatch ? html.slice(openEnd).search(closeRe) : -1;
+      const contentEnd = closeRel === -1 ? html.length : openEnd + closeRel;
+      out += html.slice(last, start);
+      out += blankQuotedRuns(html.slice(start, openEnd));
+      out += " ".repeat(contentEnd - openEnd);
+      last = contentEnd;
+      blockRe.lastIndex =
+        closeRel === -1 ? html.length : contentEnd + `</${tagName}>`.length;
+    }
   }
   out += html.slice(last);
   return out;
@@ -104,17 +177,41 @@ interface Regions {
 function analyzeRegions(html: string): Regions {
   const masked = maskBlockContent(html);
 
-  // Complete <head>…</head> element spans. `<head\b` is word-bounded so it never
-  // matches `<header>`; masking ensures a `<head`/`</head>` token inside CSS/JS
-  // cannot open or close a phantom element here.
+  // Head ELEMENT spans, `[start, end)`. `<head\b` is word-bounded so it never
+  // matches `<header>`; masking ensures a `<head`/`</head>`/`<body>` token inside
+  // CSS/JS or a comment cannot open or close a phantom element here.
+  //
+  // A head element ends at its `</head>` when one exists. When an opened head has
+  // NO `</head>` but its region reaches a `<body[\s>]` token, the head is treated
+  // as IMPLICITLY closed at that body boundary (span ends just before `<body>`,
+  // which the browser does when rendering the final document) so an in-head style
+  // is still hoisted and the body content is preserved. A head opened with no
+  // `</head>` and no following `<body>` is genuinely still streaming and yields
+  // NO span (the unterminated-block strip step removes it).
   const headElementSpans: Array<[number, number]> = [];
-  const headRe = /<head\b[^>]*>[\s\S]*?<\/head>/gi;
-  let headMatch: RegExpExecArray | null;
-  while ((headMatch = headRe.exec(masked)) !== null) {
-    headElementSpans.push([
-      headMatch.index,
-      headMatch.index + headMatch[0].length,
-    ]);
+  // Quote-aware open-tag match (same family as the final document's head matcher)
+  // so a quoted `>` in a head attribute does not truncate the tag early and a
+  // `<body>` inside the head's own attribute (before openEnd) is not seen by the
+  // implicit-close search below.
+  const headOpenRe = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
+  let headOpen: RegExpExecArray | null;
+  while ((headOpen = headOpenRe.exec(masked)) !== null) {
+    const openStart = headOpen.index;
+    const openEnd = openStart + headOpen[0].length;
+    const closeRel = masked.slice(openEnd).search(/<\/head>/i);
+    if (closeRel !== -1) {
+      const end = openEnd + closeRel + "</head>".length;
+      headElementSpans.push([openStart, end]);
+      headOpenRe.lastIndex = end;
+      continue;
+    }
+    // No close — fall back to an implicit `<body>` close.
+    const bodyRel = masked.slice(openEnd).search(/<body[\s>]/i);
+    if (bodyRel !== -1) {
+      headElementSpans.push([openStart, openEnd + bodyRel]);
+    }
+    // Either way there is no further `</head>` to find — stop scanning heads.
+    break;
   }
 
   // Every complete <style> block, tagged by containment in a head element. A
@@ -131,25 +228,48 @@ function analyzeRegions(html: string): Regions {
     styleSpans.push({ start, end, inHead });
   }
 
-  // Complete <script> and <head> ELEMENT spans — stripped from the body markup
-  // everywhere. (A head element's in-head <style> blocks are contained within
-  // these spans, so stripping the element removes the hoisted styles too; we
-  // therefore never strip those styles a second time.)
-  const scriptOrHeadSpans: Array<[number, number]> = [];
-  const scriptOrHeadRe = /<(script|head)\b[^>]*>[\s\S]*?<\/\1>/gi;
-  let shMatch: RegExpExecArray | null;
-  while ((shMatch = scriptOrHeadRe.exec(masked)) !== null) {
-    scriptOrHeadSpans.push([shMatch.index, shMatch.index + shMatch[0].length]);
+  // Complete <script> ELEMENT spans — stripped from the body markup everywhere.
+  const scriptSpans: Array<[number, number]> = [];
+  const scriptRe = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+  let scriptMatch: RegExpExecArray | null;
+  while ((scriptMatch = scriptRe.exec(masked)) !== null) {
+    scriptSpans.push([
+      scriptMatch.index,
+      scriptMatch.index + scriptMatch[0].length,
+    ]);
   }
+
+  // <script> AND <head> ELEMENT spans are both stripped from the body markup.
+  // (A head element's in-head <style> blocks are contained within its span, so
+  // stripping the element removes the hoisted styles too; we therefore never
+  // strip those styles a second time. The implicit-close head span is included
+  // here as well, so an unclosed-head-with-body strips its head region — keeping
+  // the in-head style hoisted XOR present, never both.)
+  const scriptOrHeadSpans = [...scriptSpans, ...headElementSpans];
 
   return { scriptOrHeadSpans, styleSpans };
 }
 
-/** Removes a set of `[start, end)` spans from `html`, applied right-to-left so
+/** Removes a set of `[start, end)` spans from `html`. Spans are coalesced first
+ * (a `<script>` nested inside a `<head>` element yields a script span contained
+ * in the head span — overlapping/contained ranges must be merged or a
+ * right-to-left splice would use a stale offset), then applied right-to-left so
  * earlier offsets stay valid. */
 function removeSpans(html: string, spans: Array<[number, number]>): string {
+  if (spans.length === 0) return html;
+  const sorted = [...spans].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const merged: Array<[number, number]> = [];
+  for (const [start, end] of sorted) {
+    const lastMerged = merged[merged.length - 1];
+    if (lastMerged && start <= lastMerged[1]) {
+      lastMerged[1] = Math.max(lastMerged[1], end);
+    } else {
+      merged.push([start, end]);
+    }
+  }
   let out = html;
-  for (const [start, end] of [...spans].sort((a, b) => b[0] - a[0])) {
+  for (let i = merged.length - 1; i >= 0; i--) {
+    const [start, end] = merged[i]!;
     out = out.slice(0, start) + out.slice(end);
   }
   return out;
@@ -194,9 +314,12 @@ export function extractCompleteStyles(html: string): string {
  *    which leaves it in the body region.
  * 2. Strip an incomplete tag at the very end — e.g. `<div class="fo`.
  * 3. Strip an incomplete (unterminated) trailing `<style>`/`<script>`/`<head>`
- *    block. Complete blocks are already removed (head/script) or intentionally
- *    kept (body/top-level styles), so this only catches a genuinely unterminated
- *    trailing block — raw CSS/JS text must never leak into the preview body.
+ *    block AND an incomplete trailing `<!-- …` comment. Complete blocks/comments
+ *    are already removed (head/script) or masked/intentionally kept (body styles,
+ *    complete comments), so this only catches a genuinely unterminated trailing
+ *    construct — raw CSS/JS text must never leak into the preview body, and an
+ *    unterminated comment must vanish (the final document's `-->` would swallow
+ *    the remainder, so the preview shows nothing for it).
  * 4. Strip an incomplete HTML entity at the end — e.g. `&amp` without `;`.
  * 5. Reduce to the body region: drop the `<body…>` open tag and the matching
  *    `</body>` (and everything after it), and drop the `<html…>`/`</html>`
@@ -205,9 +328,11 @@ export function extractCompleteStyles(html: string): string {
  *    how a browser renders the FINAL document's body region: `<html>`/`<head>`
  *    are wrappers the parser drops, while a pre-`<body>` style is real
  *    cascade-bearing content that stays with the body. The `<body[\s>]`/`</body>`
- *    matches are word-bounded (never `<bodyguard …>`) and run on a freshly
- *    masked string so a `<body>`/`</body>` token inside a surviving style block
- *    cannot fake the boundary.
+ *    /`<html[\s>]` matches are word-bounded (never `<bodyguard …>`/`<htmlfoo>`)
+ *    and run on a freshly masked string so a token inside a surviving style block
+ *    or comment cannot fake the boundary. The `<html…>` open tag is stripped
+ *    wherever it appears (not only when leading), so a prefixed wrapper —
+ *    `text<html>…` — does not leak the tag into the preview body.
  */
 export function processPartialHtml(html: string): string {
   const { scriptOrHeadSpans } = analyzeRegions(html);
@@ -217,23 +342,43 @@ export function processPartialHtml(html: string): string {
   // styles are preserved.
   let result = removeSpans(html, scriptOrHeadSpans);
 
-  // 2. Strip an incomplete tag at the very end.
-  result = result.replace(/<[^>]*$/, "");
+  // Steps 2–3 locate the trailing-incomplete cut point on a MASKED copy so a
+  // `<`, `<style`/`<head`/`<!--` token inside a COMPLETE style block's content or
+  // a quoted attribute value cannot be mistaken for a genuinely unterminated
+  // trailing construct; the cut is then applied to the original by index.
+  let trimMask = maskBlockContent(result);
 
-  // 3. Strip an INCOMPLETE (unterminated) trailing <style>/<script>/<head> block
-  // — an open tag with no matching close through end of string.
-  result = result.replace(
-    /<(style|script|head)\b[^>]*>(?:(?!<\/\1>)[\s\S])*$/gi,
-    "",
+  // 2. Strip an incomplete tag at the very end (e.g. `<div class="fo`).
+  const incompleteTag = trimMask.search(/<[^>]*$/);
+  if (incompleteTag !== -1) {
+    result = result.slice(0, incompleteTag);
+    trimMask = maskBlockContent(result);
+  }
+
+  // 3. Strip an INCOMPLETE (unterminated) trailing <!-- … comment, then an
+  // unterminated trailing <style>/<script>/<head> block. The unterminated
+  // construct masks to end-of-string in maskBlockContent, so its open token
+  // remains the only structural marker on the masked copy at the tail; complete
+  // blocks (with their close tags) never match here.
+  const incompleteComment = trimMask.search(/<!--(?:(?!-->)[\s\S])*$/);
+  if (incompleteComment !== -1) {
+    result = result.slice(0, incompleteComment);
+    trimMask = maskBlockContent(result);
+  }
+  const incompleteBlock = trimMask.search(
+    /<(style|script|head)\b[^>]*>(?:(?!<\/\1>)[\s\S])*$/i,
   );
+  if (incompleteBlock !== -1) {
+    result = result.slice(0, incompleteBlock);
+  }
 
   // 4. Strip an incomplete HTML entity at the end.
   result = result.replace(/&[a-zA-Z0-9#]*$/, "");
 
-  // 5. Reduce to the body region. Mask first so a <body>/</body> token inside a
-  // surviving complete style block cannot be mistaken for the real boundary.
-  // Strip </body> (+ everything after) BEFORE the open tag so the open-tag
-  // index stays valid for the original string.
+  // 5. Reduce to the body region. Mask first so a <body>/</body>/<html> token
+  // inside a surviving complete style block or comment cannot be mistaken for the
+  // real boundary. Strip </body> (+ everything after) BEFORE the open tag so the
+  // open-tag index stays valid for the original string.
   let masked = maskBlockContent(result);
   const closeIdx = masked.search(/<\/body>/i);
   if (closeIdx !== -1) {
@@ -243,13 +388,34 @@ export function processPartialHtml(html: string): string {
   const openMatch = masked.match(/<body[\s>]/i);
   if (openMatch && openMatch.index !== undefined) {
     // Remove just the `<body…>` open tag, keeping content before and after it.
-    const openTagEnd =
-      openMatch.index + masked.slice(openMatch.index).search(/>/) + 1;
+    // Quote-aware end-of-tag scan (same shape as the final document's head
+    // matcher) so a quoted `>` in an attribute — `<body data-x="a>b">` — can't
+    // truncate the tag early and leak attribute fragments as visible content.
+    const openTag = masked
+      .slice(openMatch.index)
+      .match(/^<body(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+    const openTagEnd = openTag
+      ? openMatch.index + openTag[0].length
+      : openMatch.index + masked.slice(openMatch.index).search(/>/) + 1;
     result = result.slice(0, openMatch.index) + result.slice(openTagEnd);
+    masked = maskBlockContent(result);
   }
-  // Drop the `<html…>`/`</html>` structural wrappers (the browser drops them in
-  // an innerHTML body context); a pre-`<body>` `<style>` is content and stays.
-  result = result.replace(/^<html\b[^>]*>/i, "").replace(/<\/html>/gi, "");
+  // Drop the `<html…>` open tag wherever it appears (the browser drops the
+  // wrapper in an innerHTML body context); a pre-`<body>` `<style>` is content
+  // and stays. Quote-aware end-of-tag scan + masked search so an `<html>` token
+  // inside a surviving style/comment cannot fake it, and a prefixed wrapper
+  // (`text<html>…`) is handled, not just a leading one.
+  const htmlOpen = masked.match(/<html[\s>]/i);
+  if (htmlOpen && htmlOpen.index !== undefined) {
+    const openTag = masked
+      .slice(htmlOpen.index)
+      .match(/^<html(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+    const openTagEnd = openTag
+      ? htmlOpen.index + openTag[0].length
+      : htmlOpen.index + masked.slice(htmlOpen.index).search(/>/) + 1;
+    result = result.slice(0, htmlOpen.index) + result.slice(openTagEnd);
+  }
+  result = result.replace(/<\/html>/gi, "");
 
   return result;
 }
