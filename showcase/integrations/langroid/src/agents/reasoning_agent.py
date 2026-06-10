@@ -19,15 +19,20 @@ adapter can never light up CopilotKit's reasoning slot.
 This module mounts a small custom `/` handler (mirroring ag2's
 `_run_reasoning_agent`) that:
   1. Calls the OpenAI-compatible chat-completions endpoint directly
-     (streaming) with the agent's system prompt — a single LLM call, so it
-     stays aimock-friendly (no multi-call CoT loop).
-  2. Reads BOTH `delta.reasoning_content` (native reasoning channel, what
-     aimock's `reasoning` field feeds) AND `delta.content` (the answer).
+     (streaming) with the agent's system prompt plus the full prior
+     conversation history (so follow-up questions keep their context, parity
+     with the agno reference) — a single LLM call, so it stays
+     aimock-friendly (no multi-call CoT loop).
+  2. Buffers the FULL upstream response, accumulating BOTH
+     `delta.reasoning_content` (native reasoning channel, what aimock's
+     `reasoning` field feeds) AND `delta.content` (the answer); it does not
+     forward upstream deltas incrementally.
   3. Falls back to parsing <reasoning>...</reasoning> tags out of the text
      when no native reasoning channel is present (defensive parity with
      ag2's fallback path).
-  4. Emits REASONING_MESSAGE_START/CONTENT/END for the reasoning portion,
-     then TEXT_MESSAGE_START/CONTENT/END for the answer.
+  4. Emits each channel as a single CONTENT delta:
+     REASONING_MESSAGE_START/CONTENT/END for the buffered reasoning portion,
+     then TEXT_MESSAGE_START/CONTENT/END for the buffered answer.
 
 The emitted channel is REASONING_MESSAGE_* (role "reasoning") — NOT THINKING_*,
 which @ag-ui/client silently drops.
@@ -80,24 +85,54 @@ _REASONING_PATTERN = re.compile(
 )
 
 
-def _extract_user_input(messages: list) -> str:
-    """Return the last user message's text content (stock AGUI behaviour)."""
-    for msg in reversed(messages or []):
-        role = getattr(msg, "role", None)
-        if role == "user":
-            content = getattr(msg, "content", "") or ""
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                # Multimodal content: join the text parts.
-                return "".join(
-                    part.get("text", "")
-                    if isinstance(part, dict)
-                    else getattr(part, "text", "")
-                    for part in content
-                )
-            return str(content)
-    return ""
+def _coerce_content(content) -> str:
+    """Coerce an AG-UI message's content into a plain string.
+
+    Handles the multimodal list shape (join the text parts) and the
+    None/non-string fallbacks — the same coercion the previous
+    single-turn `_extract_user_input` applied to the last user message.
+    """
+    content = content or ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        # Multimodal content: join the text parts.
+        return "".join(
+            part.get("text", "")
+            if isinstance(part, dict)
+            else getattr(part, "text", "")
+            for part in content
+        )
+    return str(content)
+
+
+def _to_chat_messages(messages: list) -> list:
+    """Map the AG-UI message list into chat-completions `messages`.
+
+    System prompt first, then every prior user/assistant turn (in order)
+    with its coerced text content. tool/system messages from the input are
+    skipped — only the conversation turns are threaded so follow-up
+    questions keep their context (parity with the agno reference, which
+    threads full history through Agno's Agent).
+
+    For a single user-message input this returns exactly
+    ``[{system}, {user: <text>}]`` — byte-equal to the previous single-turn
+    behaviour, which the aimock D6 fixtures replay. When the input has no
+    user/assistant turns the result is ``[{system}, {user: ""}]`` (an empty
+    user turn), preserving the prior empty-input behaviour.
+    """
+    chat: list = [{"role": "system", "content": SYSTEM_PROMPT}]
+    turns = [
+        {"role": role, "content": _coerce_content(getattr(msg, "content", ""))}
+        for msg in (messages or [])
+        for role in (getattr(msg, "role", None),)
+        if role in ("user", "assistant")
+    ]
+    if turns:
+        chat.extend(turns)
+    else:
+        chat.append({"role": "user", "content": ""})
+    return chat
 
 
 async def _run_reasoning_agent(
@@ -119,7 +154,7 @@ async def _run_reasoning_agent(
     text_msg_id: str | None = None
 
     try:
-        user_input = _extract_user_input(run_input.messages or [])
+        chat_messages = _to_chat_messages(run_input.messages or [])
 
         yield RunStartedEvent(
             type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
@@ -132,10 +167,7 @@ async def _run_reasoning_agent(
         client = openai.AsyncOpenAI()
         response_stream = await client.chat.completions.create(
             model=MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_input},
-            ],
+            messages=chat_messages,
             stream=True,
         )
 
@@ -197,7 +229,8 @@ async def _run_reasoning_agent(
             )
             reasoning_msg_id = None
 
-        # Always emit a text message so CopilotKit renders an assistant bubble.
+        # Emit a text message (only when non-empty answer text exists) so
+        # CopilotKit renders an assistant bubble.
         if answer_text:
             text_msg_id = str(uuid.uuid4())
             yield TextMessageStartEvent(

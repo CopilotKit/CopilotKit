@@ -53,7 +53,10 @@ import java.util.regex.Pattern;
  * {@code REASONING_MESSAGE_CONTENT} delta (not chunk-by-chunk). The frontend
  * (CopilotKit reasoning slot) then mounts {@code [data-testid="reasoning-block"]}
  * for the {@code reasoning-custom} cell and the "Thinking…/Thought for …" card
- * for {@code reasoning-default}.
+ * for {@code reasoning-default}. Like the AG2 reference (and the agno
+ * reference both descend from), the full multi-turn conversation history is
+ * threaded into the chat-completions request so follow-up questions keep
+ * their context — see {@link #buildRequestBody(List)}.
  *
  * <h2>Why a custom controller (not StreamingToolAgent + AgUiService)</h2>
  * <p>Two independent gaps force a bespoke SSE path:</p>
@@ -158,7 +161,7 @@ public class ReasoningController {
                 ? params.getThreadId() : UUID.randomUUID().toString();
         String runId = params.getRunId() != null
                 ? params.getRunId() : UUID.randomUUID().toString();
-        String userInput = extractUserInput(params.getMessages());
+        String requestBody = buildRequestBody(params.getMessages());
 
         // Capture the x-* header context (incl. x-aimock-context) on the
         // request thread, where AimockHeaderInterceptor has populated it. This
@@ -179,7 +182,7 @@ public class ReasoningController {
         //     the entire streaming call (stream.toIterable()).
         CompletableFuture.runAsync(() ->
                 AimockHeaderContext.runWith(aimockHeaders, () ->
-                        runReasoning(emitter, threadId, runId, userInput)),
+                        runReasoning(emitter, threadId, runId, requestBody)),
                 reasoningExecutor);
 
         return ResponseEntity.ok()
@@ -187,19 +190,60 @@ public class ReasoningController {
                 .body(emitter);
     }
 
-    /** Returns the last user message's text content (stock AG-UI behaviour). */
-    private String extractUserInput(List<BaseMessage> messages) {
-        if (messages == null) {
-            return "";
-        }
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            BaseMessage msg = messages.get(i);
-            if (msg != null && msg.getRole() == Role.user) {
+    /**
+     * Builds the chat-completions request body, threading the full
+     * conversation history: system prompt first, then every prior
+     * user/assistant turn (in order) with its text content. tool/system
+     * messages from the input are skipped — only the conversation turns are
+     * threaded so follow-up questions keep their context (parity with the
+     * agno reference, which threads full history through Agno's Agent).
+     *
+     * <p>For a single user-message input this produces exactly
+     * {@code [{system}, {user: <text>}]} — byte-equal to the previous
+     * single-turn behaviour, which the aimock fixtures replay. When the input
+     * has no user/assistant turns the result is {@code [{system}, {user: ""}]}
+     * (an empty user turn), preserving the prior empty-input behaviour.
+     */
+    private String buildRequestBody(List<BaseMessage> messages) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("model", MODEL);
+        body.put("stream", true);
+        ArrayNode chat = body.putArray("messages");
+        ObjectNode system = chat.addObject();
+        system.put("role", "system");
+        system.put("content", SYSTEM_PROMPT);
+
+        boolean appendedTurn = false;
+        if (messages != null) {
+            for (BaseMessage msg : messages) {
+                if (msg == null) {
+                    continue;
+                }
+                Role role = msg.getRole();
+                if (role != Role.user && role != Role.assistant) {
+                    continue;
+                }
                 String content = msg.getContent();
-                return content != null ? content : "";
+                ObjectNode turn = chat.addObject();
+                turn.put("role", role == Role.user ? "user" : "assistant");
+                turn.put("content", content != null ? content : "");
+                appendedTurn = true;
             }
         }
-        return "";
+        // No conversation turns — preserve the prior empty-input behaviour
+        // (an empty user turn) so the request shape stays well-formed.
+        if (!appendedTurn) {
+            ObjectNode user = chat.addObject();
+            user.put("role", "user");
+            user.put("content", "");
+        }
+
+        try {
+            return objectMapper.writeValueAsString(body);
+        } catch (Exception e) {
+            // Should never happen for a hand-built ObjectNode.
+            throw new IllegalStateException("Failed to serialize request body", e);
+        }
     }
 
     /**
@@ -209,7 +253,7 @@ public class ReasoningController {
      * emit REASONING_MESSAGE_* (if any) followed by TEXT_MESSAGE_*.
      */
     private void runReasoning(SseEmitter emitter, String threadId, String runId,
-                              String userInput) {
+                              String requestBody) {
         // Track the in-flight message frame so a mid-stream failure can close it
         // with the matching *_END before RUN_ERROR. @ag-ui/client's verifyEvents
         // otherwise leaves a half-built message in client state, and RUN_ERROR is
@@ -241,7 +285,7 @@ public class ReasoningController {
                         }
                         h.set("Accept", MediaType.TEXT_EVENT_STREAM_VALUE);
                     })
-                    .bodyValue(buildRequestBody(userInput))
+                    .bodyValue(requestBody)
                     .retrieve()
                     .bodyToFlux(String.class);
 
@@ -372,26 +416,6 @@ public class ReasoningController {
             } catch (Exception sendErr) {
                 emitter.completeWithError(sendErr);
             }
-        }
-    }
-
-    /** Chat-completions request body: system prompt + user turn, streaming. */
-    private String buildRequestBody(String userInput) {
-        ObjectNode body = objectMapper.createObjectNode();
-        body.put("model", MODEL);
-        body.put("stream", true);
-        ArrayNode messages = body.putArray("messages");
-        ObjectNode system = messages.addObject();
-        system.put("role", "system");
-        system.put("content", SYSTEM_PROMPT);
-        ObjectNode user = messages.addObject();
-        user.put("role", "user");
-        user.put("content", userInput);
-        try {
-            return objectMapper.writeValueAsString(body);
-        } catch (Exception e) {
-            // Should never happen for a hand-built ObjectNode.
-            throw new IllegalStateException("Failed to serialize request body", e);
         }
     }
 
