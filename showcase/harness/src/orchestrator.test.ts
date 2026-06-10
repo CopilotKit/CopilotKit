@@ -3910,7 +3910,9 @@ describe("orchestrator runControlPlane REQ-B sweep wiring — non-d6 producer (s
         createPbClient: () => ({
           health: async () => true,
           getOne: async (_collection: string, id: string) =>
-            id === "job-swept-smoke" ? { probe_key: "d6:swept-svc-smoke" } : null,
+            id === "job-swept-smoke"
+              ? { probe_key: "d6:swept-svc-smoke" }
+              : null,
           getFirst: async () => null,
         }),
       };

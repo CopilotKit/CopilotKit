@@ -1289,9 +1289,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // Expired-first sort surfaces all 3 dead leases on the FIRST sweep.
       expect(sweep.reclaimed).toBe(3);
       for (let i = 0; i < 3; i++) {
-        expect(store.find((r) => r.id === `dead-${i}`)?.status).toBe(
-          "pending",
-        );
+        expect(store.find((r) => r.id === `dead-${i}`)?.status).toBe("pending");
       }
       // A full page means rows were truncated — that must be observable.
       expect(warnSpy).toHaveBeenCalledWith(
