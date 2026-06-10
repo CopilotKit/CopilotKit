@@ -27,5 +27,13 @@
     "./src/**/__tests__/*",
     "./tests/**/*.ts"
   ],
-  "exclude": ["dist", "build", "node_modules"]
+  "exclude": ["dist", "build", "node_modules"],
+  // ts-node runs scripts/generate-gql-schema.ts (extensionless CJS-style
+  // imports); without this override it picks up module es2022 above and
+  // executes the script as ESM, which fails to resolve those imports.
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  }
 }
