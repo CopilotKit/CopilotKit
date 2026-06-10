@@ -117,7 +117,7 @@ export class TelemetryClient {
     };
 
     const flattenedProperties = flattenObject(properties);
-    const propertiesWithGlobal = {
+    const propertiesWithGlobal: Record<string, any> = {
       ...this.globalProperties,
       ...samplingMeta,
       ...flattenedProperties,
