@@ -432,4 +432,91 @@ describe("CopilotKitProvider — openGenerativeUI option-resolution wiring", () 
       expect(nextImportMap).not.toHaveProperty("foo");
     });
   });
+
+  describe("(o) reordered libraries keys keep the importmap referentially stable", () => {
+    it("rerender with the SAME entries in reversed key order → importMap is referentially equal", () => {
+      // A dynamically built `libraries` object (spread merges, Object.fromEntries)
+      // can emit the same entries with a different key order between renders.
+      // The memo key must be VALUE-stable (sorted), not insertion-order-stable —
+      // otherwise key churn rebuilds the live sandbox iframe. Drive the key order
+      // from a closure variable the wrapper reads on every render.
+      let reversed = false;
+      const { result, rerender } = renderHook(
+        () => useOpenGenerativeUIOptions(),
+        {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider
+              openGenerativeUI={{
+                libraries: reversed
+                  ? { gsap: "https://y", three: "https://x" }
+                  : { three: "https://x", gsap: "https://y" },
+              }}
+            >
+              {children}
+            </CopilotKitProvider>
+          ),
+        },
+      );
+
+      const firstImportMap = result.current.importMap;
+
+      // Same entries, reversed key order. RED pre-fix: key-order-sensitive
+      // stringify churns the key → new importMap identity → iframe rebuild.
+      reversed = true;
+      rerender();
+
+      expect(result.current.importMap).toBe(firstImportMap);
+    });
+  });
+
+  describe("(p) the tool description does not contradict itself about CDN script tags", () => {
+    it("default options → no Chart.js/D3/Three.js CDN example, but keeps the 'Do NOT add <script src>' clause and the x-data-spreadsheet example", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider openGenerativeUI={{}}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const tool = result.current.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      const description = tool!.description!;
+
+      // The pre-wired libraries block forbids CDN script tags for these
+      // libraries; the base CDN example must no longer name them.
+      expect(description).not.toContain("Chart.js, D3, Three.js");
+      // But the non-pre-wired example and the forbidding clause must remain.
+      expect(description).toContain("x-data-spreadsheet");
+      expect(description).toContain("Do NOT add <script src>");
+    });
+
+    it("legacy path ({ designSystem: false, libraries: false }) → original CDN example list is preserved byte-for-byte", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            openGenerativeUI={{ designSystem: false, libraries: false }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const tool = result.current.copilotkit.getTool({
+        toolName: "generateSandboxedUi",
+      });
+      expect(tool).toBeDefined();
+      const description = tool!.description!;
+
+      // With the libraries block absent, the base text is untouched: the
+      // original example list (naming Chart.js/D3/Three.js) stays verbatim.
+      expect(description).toContain(
+        "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.).",
+      );
+      // No pre-wired libraries block on the legacy path.
+      expect(description).not.toContain("Do NOT add <script src>");
+    });
+  });
 });

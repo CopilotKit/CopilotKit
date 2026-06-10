@@ -134,6 +134,15 @@ function buildGenerateSandboxedUiDescription(opts: {
   }
 
   if (opts.libraries.length > 0) {
+    // The appended block below tells the model NOT to add <script src> CDN tags
+    // for the pre-wired libraries. The base text's CDN example previously named
+    // some of those same libraries (Chart.js, D3, Three.js), directly
+    // contradicting that instruction — so when the block is appended, drop the
+    // pre-wired names from the example and keep only a non-pre-wired one.
+    description = description.replace(
+      "(e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.)",
+      "(e.g., x-data-spreadsheet, etc.)",
+    );
     description += `\n\nPre-wired ES-module libraries (importmap is already in the document): ${opts.libraries.join(
       ", ",
     )}. Import them with bare specifiers inside <script type="module"> (e.g. import * as THREE from "three"; import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"). Do NOT add <script src> CDN tags for these libraries.`;
@@ -177,12 +186,10 @@ export interface CopilotKitProviderProps {
    *
    * @example
    * ```tsx
-   * <CopilotKit
-   *   runtimeUrl="/api/copilotkit"
-   *   openGenerativeUI={{
-   *     sandboxFunctions: [{ name: "addToCart", description: "…", parameters: schema, handler: fn }],
-   *   }}
-   * >
+   * // define outside the component (or useMemo) — a stable identity avoids sandbox rebuilds
+   * const sandboxFunctions = [{ name: "addToCart", description: "…", parameters: schema, handler: fn }];
+   *
+   * <CopilotKit runtimeUrl="/api/copilotkit" openGenerativeUI={{ sandboxFunctions }}>
    * ```
    */
   openGenerativeUI?: {
@@ -370,12 +377,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const designSystemOff = designSystem === false;
 
   // Value-stable key for the library importmap. The inline idiom
-  // (`libraries={{ … }}`) passes a fresh object every render; JSON.stringify of
-  // a small literal yields a stable string whenever the VALUE is unchanged
-  // (key order from an inline literal is stable across renders), so the memo
-  // below recomputes only on genuine value changes — not object-identity churn.
+  // (`libraries={{ … }}`) passes a fresh object every render, and a dynamically
+  // built object (spread merges, Object.fromEntries) can also reorder keys
+  // between renders while carrying the same entries. JSON.stringify is
+  // insertion-order-sensitive, so we serialize from sorted entries — the key
+  // changes only on a genuine VALUE change, never on key-order or
+  // object-identity churn. The memo below therefore recomputes only when the
+  // resolved importmap would actually differ.
   const libs = openGenerativeUI?.libraries;
-  const librariesKey = libs === false ? "false" : JSON.stringify(libs ?? null);
+  const librariesKey =
+    libs === false
+      ? "false"
+      : libs == null
+        ? "null"
+        : JSON.stringify(
+            Object.fromEntries(
+              Object.entries(libs).sort(([a], [b]) =>
+                a < b ? -1 : a > b ? 1 : 0,
+              ),
+            ),
+          );
 
   // Resolve the design-system CSS + library importmap once. Defaults inject the
   // built-in kit and pinned libraries; `designSystem: false` / `libraries: false`
