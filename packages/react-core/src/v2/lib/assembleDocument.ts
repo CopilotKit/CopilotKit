@@ -34,7 +34,10 @@ export const DEFAULT_OPEN_GEN_UI_LIBRARIES: Record<string, string> = {
  * - For every override key `K` that does NOT end with `/`, where `defaults`
  *   has a `K + "/"` sibling and `overrides` did NOT explicitly provide
  *   `K + "/"`: set `K + "/"` to the override URL with a single trailing slash
- *   appended (appended only if the URL does not already end with one).
+ *   inserted into the PATH — before any `?` query string or `#` fragment
+ *   (appended only if that path part does not already end with one). esm.sh
+ *   query idioms like `?bundle` are routine, so appending the slash after the
+ *   query (`…three@x?bundle/`) would yield a broken subpath URL.
  * - Explicit user `K/` entries always win (never clobbered by derivation).
  * - New libraries with no default sibling get no invented `K/` entry.
  * - Override keys that themselves end in `/` are treated as plain entries.
@@ -57,7 +60,19 @@ export function mergeLibraries(
       !Object.prototype.hasOwnProperty.call(overrides, slashKey)
     ) {
       const url = overrides[key];
-      merged[slashKey] = url.endsWith("/") ? url : url + "/";
+      // Insert the subpath slash into the PATH, before any query (`?`) or
+      // fragment (`#`) — whichever comes first. A pure string split (no URL
+      // constructor) keeps relative-protocol and exotic specifiers unharmed.
+      // Appending the slash after a query (`…?bundle/`) would break the URL,
+      // and esm.sh query idioms (`?bundle`, `?dev`, `?target=es2022`) are
+      // routine.
+      const qIdx = url.indexOf("?");
+      const hIdx = url.indexOf("#");
+      const sepIdx =
+        qIdx === -1 ? hIdx : hIdx === -1 ? qIdx : Math.min(qIdx, hIdx);
+      const path = sepIdx === -1 ? url : url.slice(0, sepIdx);
+      const rest = sepIdx === -1 ? "" : url.slice(sepIdx);
+      merged[slashKey] = path.endsWith("/") ? url : path + "/" + rest;
     }
   }
 

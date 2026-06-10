@@ -405,6 +405,45 @@ describe("mergeLibraries", () => {
     expect(out["chart.js/"]).toBe(DEFAULTS["chart.js/"]);
   });
 
+  // (6) esm.sh query idioms (?bundle, ?dev, ?target=es2022) are routine. The
+  // subpath slash must be inserted into the PATH, before the `?`, so the
+  // sibling stays a valid URL — not appended after the query.
+  it("inserts the subpath slash before a query string", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0?bundle",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0?bundle");
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/?bundle");
+  });
+
+  // (7) Same for a fragment: the slash goes before the `#`, not after it.
+  it("inserts the subpath slash before a fragment", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0#frag",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0#frag");
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/#frag");
+  });
+
+  // (8) When the path already ends with `/` (before the query), no second slash
+  // is inserted — the sibling is left as-is.
+  it("does not double the slash when the path already ends in one before a query", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0/?bundle",
+    });
+    expect(out.three).toBe("https://esm.sh/three@0.999.0/?bundle");
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/?bundle");
+  });
+
+  // (9) A clean URL with no query or fragment still gets a single trailing slash
+  // (existing behavior preserved).
+  it("appends a single trailing slash to a clean URL with no query or fragment", () => {
+    const out = mergeLibraries(DEFAULTS, {
+      three: "https://esm.sh/three@0.999.0",
+    });
+    expect(out["three/"]).toBe("https://esm.sh/three@0.999.0/");
+  });
+
   // Does not mutate its inputs (the defaults map is a shared module constant).
   it("does not mutate its arguments", () => {
     const defaults = { ...DEFAULTS };
