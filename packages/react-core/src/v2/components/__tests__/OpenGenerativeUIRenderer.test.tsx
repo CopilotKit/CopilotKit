@@ -1090,5 +1090,75 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(headPayload).toContain("overflow: hidden");
       expect(headPayload).toContain("data-ck-design-system");
     });
+
+    // Test E — preview cascade must match the final document's cascade. The
+    // assembled final document (assembleDocument) orders head styles as
+    // kit -> agent's inline <style> blocks (in place) -> agent css param LAST so
+    // the agent css wins equal-specificity ties. The streaming preview must use
+    // the SAME order in its document.head.innerHTML assignment, otherwise an
+    // artifact whose inline style and css param collide at equal specificity
+    // visibly restyles at the preview -> final swap.
+    //
+    // RED pre-fix: the preview pushed the agent css param BEFORE the extracted
+    // inline preview styles, so index(css param) < index(inline style) — the
+    // OPPOSITE of the final document. GREEN post-fix:
+    // index(kit) < index(inline style) < index(css param).
+    it("orders preview head as kit -> inline styles -> agent css (matches final document cascade)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const inlineStyleContent = ".inline-block { color: seagreen; }";
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            // A COMPLETE inline <style> block plus body content. The streaming
+            // pipeline extracts the <style> into previewStyles and strips it from
+            // the previewBody.
+            html: [
+              `<style>${inlineStyleContent}</style><body><div class="inline-block">Preview body</div>`,
+            ],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox is created
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      // Resolve the preview sandbox promise so the head/body run calls fire
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // Read the LAST document.head.innerHTML run payload.
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+      const headPayload: string = headCalls[headCalls.length - 1][0] as string;
+
+      // All three must be present in the assigned head content.
+      const kitIdx = headPayload.indexOf("data-ck-design-system");
+      const inlineStyleIdx = headPayload.indexOf(inlineStyleContent);
+      const agentCssIdx = headPayload.indexOf(agentCss);
+      expect(kitIdx).toBeGreaterThan(-1);
+      expect(inlineStyleIdx).toBeGreaterThan(-1);
+      expect(agentCssIdx).toBeGreaterThan(-1);
+
+      // Cascade order: kit first, then the agent's inline <style> block, then the
+      // agent css param LAST — identical to assembleDocument's final cascade.
+      expect(kitIdx).toBeLessThan(inlineStyleIdx);
+      expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+    });
   });
 });

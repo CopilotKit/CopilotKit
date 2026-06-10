@@ -271,7 +271,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             // Inject CSS from the dedicated parameter + any inline styles from HTML.
             // The overflow guard must be part of the assigned head content (not a
             // separate append) so it survives the head.innerHTML assignment.
-            // Order: overflow guard → kit → agent css → extracted preview styles
+            // Order: overflow guard → kit → extracted preview styles → agent css
+            // (css last, matching the final document's cascade)
             const headParts: string[] = [
               "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
             ];
@@ -279,8 +280,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
               headParts.push(
                 `<style data-ck-design-system>${designSystemCss}</style>`,
               );
-            if (css) headParts.push(`<style>${css}</style>`);
             if (previewStyles) headParts.push(previewStyles);
+            if (css) headParts.push(`<style>${css}</style>`);
             sandbox.run(
               `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
             );
@@ -308,7 +309,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       if (!previewSandboxRef.current || !previewReadyRef.current) return;
       // The overflow guard must be part of the assigned head content (not a
       // separate append) so it survives the head.innerHTML assignment.
-      // Order: overflow guard → kit → agent css → extracted preview styles
+      // Order: overflow guard → kit → extracted preview styles → agent css
+      // (css last, matching the final document's cascade)
       const headParts: string[] = [
         "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
       ];
@@ -316,8 +318,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         headParts.push(
           `<style data-ck-design-system>${designSystemCss}</style>`,
         );
-      if (css) headParts.push(`<style>${css}</style>`);
       if (previewStyles) headParts.push(previewStyles);
+      if (css) headParts.push(`<style>${css}</style>`);
       previewSandboxRef.current.run(
         `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
       );
