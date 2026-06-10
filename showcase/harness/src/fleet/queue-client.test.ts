@@ -466,6 +466,129 @@ describe("FleetQueueClient.claimNext", () => {
     expect(claimed.lease?.job.id).toBe("j2");
   });
 
+  it("attributes a decode-failed row as worker-protocol-violation via a synthetic result (not a crash)", async () => {
+    // After the decode-fail release the row is terminal-but-RESULTLESS; the
+    // result consumer's contract synthesizes worker-crashed-mid-job (a RED
+    // "crashed" overlay) for such rows past grace. A poison payload is a
+    // PROTOCOL failure, not a crash — the queue-client must write a synthetic
+    // result carrying a worker-protocol-violation commError so the consumer
+    // renders the honest signal.
+    const { pb, rows } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
+    // The synthetic result landed on the row, unprocessed, attributing the
+    // poison payload — NOT left for the consumer's crash synthesis.
+    const written = rows[0].result as ServiceJobResult;
+    expect(written.commError?.kind).toBe("worker-protocol-violation");
+    expect(written.commError?.jobId).toBe("j1");
+    expect(written.commError?.workerId).toBe("worker-7");
+    expect(written.jobId).toBe("j1");
+    expect(written.workerId).toBe("worker-7");
+    // No decodable payload → aggregate key falls back to the row's probe_key.
+    expect(written.aggregateKey).toBe("d6:langgraph-python");
+    expect(written.aggregateState).toBe("error");
+    expect(rows[0].result_processed).toBe(false);
+  });
+
+  it("a releaseJob THROW during decode-fail cleanup must not strand the loop (warn + continue)", async () => {
+    // The decode-fail release can THROW (transport blip), not just refuse.
+    // claimNext must contain it — warn and fall through to the next
+    // candidate — or the whole claim poll dies on one poison row.
+    const { pb } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+      { ...jobView({ id: "j2" }), payload: samplePayload() },
+    ]);
+    const releaseJob = vi.fn(async (): Promise<ReleaseResult> => {
+      throw new Error("release transport blip");
+    });
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    // Identity-order rng: j1 (poison) before j2.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.lease?.job.id).toBe("j2");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-decode-release-failed",
+      expect.objectContaining({
+        jobId: "j1",
+        err: "release transport blip",
+      }),
+    );
+  });
+
+  it("returns { claimed: false } when EVERY candidate decode-fails (no throw, nothing stranded)", async () => {
+    const { pb } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+      {
+        ...jobView({ id: "j2" }),
+        payload: "garbage" as unknown as ServiceJobPayload,
+      },
+    ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(claimed.lease).toBeUndefined();
+    // Both poison rows were released (none stranded for a false crash).
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
+    expect(releaseJob).toHaveBeenCalledWith("j2", "worker-7", "failed");
+  });
+
   it("falls through to the next candidate when it loses the CAS on the first", async () => {
     const { pb } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },

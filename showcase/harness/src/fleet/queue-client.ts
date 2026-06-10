@@ -57,6 +57,7 @@ import type {
   ReportJobInput,
   ServiceJobMeta,
   ServiceJobPayload,
+  ServiceJobResult,
   SweepResult,
 } from "./contracts.js";
 
@@ -376,6 +377,44 @@ export function createFleetQueueClient(
   // time and reuse it on renew, making the re-read a non-fatal convenience.
   const payloadCache = new Map<string, ServiceJobPayload>();
 
+  /**
+   * Bounded-retry persistence of a per-service result onto an ALREADY
+   * TERMINAL probe_jobs row — the SEPARATE record write that follows a
+   * release CAS (migration 1779989700 adds `result` + `result_processed`).
+   * Never throws: returns `{ ok: true }` on success, or `{ ok: false,
+   * lastErr }` after RESULT_WRITE_MAX_ATTEMPTS attempts so each caller
+   * decides whether the loss is fatal (`report` — distinct "result lost"
+   * error) or best-effort (the decode-failure attribution in `claimNext`).
+   * `result_processed` seeds false: the consumer latches it true after
+   * aggregating exactly once.
+   */
+  async function writeResult(
+    jobId: string,
+    workerId: string,
+    result: ServiceJobResult,
+  ): Promise<{ ok: boolean; lastErr?: unknown }> {
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= RESULT_WRITE_MAX_ATTEMPTS; attempt++) {
+      try {
+        await pb.update(PROBE_JOBS_COLLECTION, jobId, {
+          result,
+          result_processed: false,
+        });
+        return { ok: true };
+      } catch (err) {
+        lastErr = err;
+        logger.warn("queue-client.result-write-failed", {
+          jobId,
+          workerId,
+          attempt,
+          maxAttempts: RESULT_WRITE_MAX_ATTEMPTS,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { ok: false, lastErr };
+  }
+
   // FAMILY FAIRNESS rotation cursor: the family this client most recently
   // claimed from. The next claimNext starts its family rotation AFTER this
   // one, so consecutive claims round-robin across the distinct families
@@ -537,7 +576,66 @@ export function createFleetQueueClient(
             // forever. A refused release here is non-fatal — another sweeper or
             // a later reclaim handles it; we must not throw out of claimNext.
             try {
-              await claim.releaseJob(result.job.id, raceWorkerId, "failed");
+              const released = await claim.releaseJob(
+                result.job.id,
+                raceWorkerId,
+                "failed",
+              );
+              if (released.released) {
+                // The row is now TERMINAL but RESULTLESS — per the result
+                // consumer's contract a terminal resultless row past its grace
+                // window is synthesized as `worker-crashed-mid-job` (a RED
+                // "crashed" overlay). A poison payload is NOT a crash: write a
+                // best-effort synthetic result attributing the failure as
+                // `worker-protocol-violation` (the taxonomy's "failed
+                // schema/shape validation" kind) so the consumer renders the
+                // honest signal. Best-effort: if the write itself is lost the
+                // consumer's crash synthesis remains the fallback — log and
+                // move on, never throw out of claimNext.
+                const observedAt = new Date().toISOString();
+                const message = `job ${result.job.id} payload failed to decode at claim time: ${
+                  err instanceof Error ? err.message : String(err)
+                }`;
+                const violation: ServiceJobResult = {
+                  jobId: result.job.id,
+                  probeKey: candidate.probe_key,
+                  // No decodable payload → no serviceSlug/runId to echo; the
+                  // aggregate key falls back to the row's probe_key (the
+                  // `d6:<slug>` aggregate row key), mirroring the worker's
+                  // comm-error result builder.
+                  serviceSlug: "",
+                  runId: "",
+                  workerId: raceWorkerId,
+                  aggregateState: "error",
+                  aggregateKey: candidate.probe_key,
+                  aggregateSignal: { error: message },
+                  cells: [],
+                  rollup: { total: 0, passed: 0, failed: 0 },
+                  finishedAt: observedAt,
+                  commError: {
+                    kind: "worker-protocol-violation",
+                    message,
+                    workerId: raceWorkerId,
+                    jobId: result.job.id,
+                    observedAt,
+                  },
+                };
+                const write = await writeResult(
+                  result.job.id,
+                  raceWorkerId,
+                  violation,
+                );
+                if (!write.ok) {
+                  logger.warn("queue-client.claim-decode-result-write-lost", {
+                    jobId: result.job.id,
+                    workerId: raceWorkerId,
+                    err:
+                      write.lastErr instanceof Error
+                        ? write.lastErr.message
+                        : String(write.lastErr),
+                  });
+                }
+              }
             } catch (releaseErr) {
               logger.warn("queue-client.claim-decode-release-failed", {
                 jobId: result.job.id,
@@ -648,36 +746,26 @@ export function createFleetQueueClient(
         // consumer aggregates. If this write fails and we just gave up, the
         // result is SILENTLY DROPPED (terminal row, empty result → the consumer
         // latches it resultless past grace, the dashboard never updates). So
-        // RETRY the write (bounded) before surfacing a DISTINCT "result lost"
-        // error, so the failure mode is unmistakable in logs vs. a refused
-        // release.
-        let lastErr: unknown;
-        for (let attempt = 1; attempt <= RESULT_WRITE_MAX_ATTEMPTS; attempt++) {
-          try {
-            await pb.update(PROBE_JOBS_COLLECTION, input.jobId, {
-              result: input.result,
-              result_processed: false,
-            });
-            logger.debug("queue-client.reported", {
-              jobId: input.jobId,
-              workerId: input.workerId,
-              status,
-            });
-            return;
-          } catch (err) {
-            lastErr = err;
-            logger.warn("queue-client.result-write-failed", {
-              jobId: input.jobId,
-              workerId: input.workerId,
-              attempt,
-              maxAttempts: RESULT_WRITE_MAX_ATTEMPTS,
-              err: err instanceof Error ? err.message : String(err),
-            });
-          }
+        // the helper RETRIES the write (bounded) and we surface a DISTINCT
+        // "result lost" error on exhaustion, so the failure mode is
+        // unmistakable in logs vs. a refused release.
+        const write = await writeResult(
+          input.jobId,
+          input.workerId,
+          input.result,
+        );
+        if (write.ok) {
+          logger.debug("queue-client.reported", {
+            jobId: input.jobId,
+            workerId: input.workerId,
+            status,
+          });
+          return;
         }
         // Exhausted the retries: the release SUCCEEDED (row is terminal) but the
         // result write FAILED — the result is LOST. Surface this distinctly so
         // an operator can tell it apart from a refused release.
+        const lastErr = write.lastErr;
         logger.error("queue-client.result-write-lost", {
           jobId: input.jobId,
           workerId: input.workerId,
