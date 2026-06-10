@@ -390,6 +390,25 @@ describe("expandImageConsumers", () => {
       expandImageConsumers(["harness", "harness-workers"], "staging"),
     ).toEqual(["harness", "harness-workers"]);
   });
+
+  it("throws on an unnormalized env synonym instead of silently not expanding", () => {
+    // "production" is a resolveEnv synonym, NOT an SSOT `environments` key.
+    // A silent no-expansion here would recreate the exact stale-image class
+    // this function exists to prevent (harness-workers left running a stale
+    // image because the env string didn't match any `environments` key).
+    expect(() => expandImageConsumers(["harness"], "production")).toThrow(
+      /Unknown env "production".*resolveEnv/,
+    );
+  });
+
+  it("throws on an inherited prototype key as env instead of silently not expanding", () => {
+    // `entry.environments["constructor"]` resolves to a truthy inherited
+    // value, so the old `=== undefined` skip-check would not have caught it
+    // either way — the registry own-key validation must reject it up front.
+    expect(() => expandImageConsumers(["harness"], "constructor")).toThrow(
+      /Unknown env "constructor"/,
+    );
+  });
 });
 
 describe("parseArgs", () => {

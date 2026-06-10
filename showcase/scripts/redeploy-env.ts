@@ -53,6 +53,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
+  ENV_ID_BY_NAME,
   PRODUCTION_ENV_ID,
   SERVICES,
   STAGING_ENV_ID,
@@ -222,17 +223,27 @@ export function resolveTargetServices(input: string[] | undefined): string[] {
  *
  * Env-aware: a consumer is only added if it declares `env` in its
  * `environments` map (the staging-only worker must never enter a prod
- * redeploy). The `env` parameter must be the normalized EnvName key as
- * stored in the SSOT `environments` maps ("prod"/"staging"); synonyms
- * like "production" must go through resolveEnv first, otherwise the
- * expansion silently adds nothing. Single-level by design —
- * `assertImageConsumersValid` in railway-envs.ts forbids imageOf on
- * ciBuilt services, so there are no
+ * redeploy). Contract: the `env` parameter must be a normalized EnvName
+ * key as registered in ENV_ID_BY_NAME ("prod"/"staging") — anything else
+ * (synonyms like "production", garbage, inherited prototype keys) THROWS
+ * up front. Silent no-expansion on a bad env string is exactly the
+ * stale-image regression class this function exists to prevent, so
+ * unknown envs fail loud; route synonyms through resolveEnv first.
+ * Single-level by design — `assertImageConsumersValid` in railway-envs.ts
+ * forbids imageOf on ciBuilt services, so there are no
  * consumer-of-consumer chains to chase. Preserves the input order and
  * appends consumers (callers sort before iterating). Exported for direct
  * unit testing.
  */
 export function expandImageConsumers(names: string[], env: EnvName): string[] {
+  // Own-key check against the canonical env registry: a plain
+  // `ENV_ID_BY_NAME[env]` truthiness test would accept inherited
+  // Object.prototype keys (e.g. "constructor") as known envs.
+  if (!Object.hasOwn(ENV_ID_BY_NAME, env)) {
+    throw new Error(
+      `Unknown env "${String(env)}" — expandImageConsumers requires a normalized SSOT env key (one of: ${Object.keys(ENV_ID_BY_NAME).join(", ")}). Synonyms like "production" must be normalized via resolveEnv() first.`,
+    );
+  }
   const out = new Set(names);
   const inScope = new Set(names);
   for (const [consumer, entry] of Object.entries(SERVICES)) {
@@ -325,11 +336,13 @@ export async function runRedeploy(
   appendSummary("");
 
   for (const name of names) {
-    // Defensive own-property lookup. resolveTargetServices already rejects
-    // non-SSOT names (including inherited Object.prototype keys), so this
-    // is unreachable via the CLI — but runRedeploy is an exported API and
-    // a caller-supplied name that dodged resolution must fail loud as an
-    // operator error, never reach redeploy(undefined, envId).
+    // Defensive own-property lookup. Currently unreachable: every name here
+    // came through resolveTargetServices (which rejects non-SSOT names,
+    // including inherited Object.prototype keys) and expandImageConsumers
+    // (which only adds real SSOT keys). This guard is defense-in-depth
+    // against future refactors of that resolution pipeline — if one ever
+    // lets a bogus name through, fail loud as an operator error instead of
+    // reaching redeploy(undefined, envId).
     const entry = Object.hasOwn(SERVICES, name) ? SERVICES[name] : undefined;
     if (entry === undefined) {
       throw new Error(

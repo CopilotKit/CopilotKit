@@ -458,16 +458,14 @@ describe("railway-envs SSOT — domains + probe", () => {
       for (const [env, cfg] of Object.entries(entry.environments)) {
         // Domainless workers (probe disabled) legitimately omit `domain`.
         if (cfg.domain === undefined) continue;
+        // Charset alone already excludes schemes (":" and "/" are rejected);
+        // domainFor's `://` discriminator has its own dedicated test below
+        // ("domainFor scheme guard rejects scheme-included literals but
+        // accepts http*-prefixed hosts") — that is the authoritative scheme
+        // coverage.
         expect(cfg.domain, `${name}.environments.${env}.domain`).toMatch(
           /^[A-Za-z0-9.-]+$/,
         );
-        // `://` is the scheme discriminator (matching domainFor's guard) —
-        // a `startsWith("http")` check would falsely reject legitimate
-        // `httpd-*` / `httpbin*` hosts.
-        expect(
-          cfg.domain.includes("://"),
-          `${name}.${env}: domain must not include a scheme separator`,
-        ).toBe(false);
       }
     }
   });
