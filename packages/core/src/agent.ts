@@ -1,5 +1,6 @@
 import type {
   AbstractAgent,
+  AgentCapabilities,
   AgentSubscriber,
   BaseEvent,
   HttpAgentConfig,
@@ -12,7 +13,6 @@ import {
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
-import type { AgentCapabilities } from "@ag-ui/core";
 import type { Observable } from "rxjs";
 import { EMPTY, defer, from } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
@@ -430,8 +430,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     cloned.setState(this.state);
     cloned.setMessages(this.messages);
     if (this.delegate) {
-      cloned.delegate = this.delegate.clone();
-      cloned.syncDelegate(cloned.delegate);
+      const clonedDelegate: AbstractAgent = this.delegate.clone();
+      cloned.delegate = clonedDelegate;
+      cloned.syncDelegate(clonedDelegate);
     }
     return cloned;
   }

@@ -38,7 +38,6 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import type { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import {
   ɵphoenixChannel$,
@@ -49,9 +48,22 @@ import {
   ɵobservePhoenixEvent$,
 } from "./utils/phoenix-observable";
 import type {
+  ɵPhoenixChannelLike,
   ɵPhoenixChannelSession,
+  ɵPhoenixPushLike,
+  ɵPhoenixSocketLike,
   ɵPhoenixSocketSession,
 } from "./utils/phoenix-observable";
+
+/**
+ * Structural Phoenix socket/channel contracts used by this agent, derived from
+ * the minimal `*Like` interfaces in {@link ./utils/phoenix-observable}.
+ */
+type Socket = ɵPhoenixSocketLike;
+
+interface Channel extends ɵPhoenixChannelLike {
+  push(event: string, payload: unknown): ɵPhoenixPushLike;
+}
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
@@ -91,8 +103,8 @@ export class AgentThreadLockedError extends Error {
  * notably an interrupt RESUME — finish before dispatching a new run, instead
  * of pre-empting it.
  *
- * The base `AbstractAgent` from `@ag-ui/client` does NOT declare this property,
- * so it is reachable only through this contract plus the
+ * The base `AbstractAgent` from `@ag-ui/client` only declares this property
+ * privately, so it is reachable only through this contract plus the
  * {@link isRunCompletionAware} type guard. This keeps callers off `as unknown`
  * casts while still degrading safely for agents that don't implement it.
  */
@@ -135,21 +147,12 @@ export interface IntelligenceAgentConfig {
   credentials?: RequestCredentials;
 }
 
-export class IntelligenceAgent
-  extends AbstractAgent
-  implements RunCompletionAware
-{
+export class IntelligenceAgent extends AbstractAgent {
   private config: IntelligenceAgentConfig;
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
   private canonicalRunId: string | null = null;
   private sharedState: IntelligenceAgentSharedState;
-  /**
-   * Resolves when the active run's pipeline finalizes; `undefined` between runs.
-   * Set/cleared inside {@link connectAgent}'s observable lifecycle. Declared
-   * here so {@link RunCompletionAware} consumers can read it without a cast.
-   */
-  activeRunCompletionPromise?: Promise<void>;
 
   constructor(
     config: IntelligenceAgentConfig,
@@ -217,7 +220,9 @@ export class IntelligenceAgent
       const subscribers: AgentSubscriber[] = [
         {
           onRunFinishedEvent: (event) => {
-            result = event.result;
+            if (event.outcome === "success") {
+              result = event.result;
+            }
           },
         },
         ...this.subscribers,
@@ -228,13 +233,13 @@ export class IntelligenceAgent
 
       self.activeRunDetach$ = new Subject<void>();
       let resolveCompletion: (() => void) | undefined;
-      this.activeRunCompletionPromise = new Promise<void>((resolve) => {
+      self.activeRunCompletionPromise = new Promise<void>((resolve) => {
         resolveCompletion = resolve;
       });
 
       const source$ = defer(() => this.connect(input)).pipe(
         // transformChunks reassembles partial/streamed messages — still needed.
-        transformChunks(this.debug),
+        transformChunks(this.debugLogger),
         // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
         takeUntil(self.activeRunDetach$),
       );
@@ -253,7 +258,7 @@ export class IntelligenceAgent
             this.onFinalize(input, subscribers);
             resolveCompletion?.();
             resolveCompletion = undefined;
-            this.activeRunCompletionPromise = undefined;
+            self.activeRunCompletionPromise = undefined;
             self.activeRunDetach$ = undefined;
           }),
         ),
@@ -674,7 +679,7 @@ export class IntelligenceAgent
   }
 
   private observeChannelEvent$<T>(
-    channel: Channel,
+    channel: ɵPhoenixChannelLike,
     eventName: string,
   ): Observable<T> {
     return ɵobservePhoenixEvent$<T>(channel, eventName);
