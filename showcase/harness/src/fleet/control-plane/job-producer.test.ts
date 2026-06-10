@@ -42,16 +42,26 @@ const SILENT_LOGGER: Logger = {
 function makeFakeQueue(opts?: {
   enqueueImpl?: (input: EnqueueJobInput) => Promise<JobView>;
   sweepImpl?: (nowMs: number) => Promise<SweepResult>;
+  /** Pending-count per family for the backlog dedupe gate; default 0 (clear). */
+  countPendingImpl?: (family: string) => Promise<number>;
 }): FleetQueueClient & {
   enqueued: EnqueueJobInput[];
   sweepCalls: number[];
+  countCalls: string[];
 } {
   const enqueued: EnqueueJobInput[] = [];
   const sweepCalls: number[] = [];
+  const countCalls: string[] = [];
   let jobSeq = 0;
   return {
     enqueued,
     sweepCalls,
+    countCalls,
+    async countPendingForFamily(family: string): Promise<number> {
+      countCalls.push(family);
+      if (opts?.countPendingImpl) return opts.countPendingImpl(family);
+      return 0;
+    },
     async enqueue(input: EnqueueJobInput): Promise<JobView> {
       enqueued.push(input);
       if (opts?.enqueueImpl) return opts.enqueueImpl(input);
@@ -230,6 +240,101 @@ describe("job-producer — per-service enqueue", () => {
     const result = await producer.tick();
     expect(result.enqueued).toBe(0);
     expect(queue.enqueued).toHaveLength(0);
+  });
+});
+
+describe("job-producer — per-family backlog dedupe", () => {
+  // ── ROOT CAUSE (verified in prod + staging) ─────────────────────────────
+  // Every scheduled tick enqueued a FRESH batch regardless of whether the
+  // family's PREVIOUS batch had even been claimed — with 2 serial browser
+  // workers against ~180 jobs/hr of inflow the backlog compounded without
+  // bound (staging: 3,734 pending, oldest 22h). A scheduled tick must SKIP
+  // its family's batch when that family already has pending (unclaimed)
+  // jobs, bounding the per-family backlog to one batch.
+
+  it("skips the whole batch when the family already has a pending backlog (scheduled tick)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a", "b", "c"]),
+      queue: makeFakeQueue({ countPendingImpl: async () => 4 }),
+    });
+
+    const result = await producer.tick();
+
+    expect(queue.countCalls).toEqual(["d6"]);
+    expect(queue.enqueued).toHaveLength(0);
+    expect(result.enqueued).toBe(0);
+    expect(result.enqueueFailures).toBe(0);
+    expect(result.skippedForBacklog).toBe(3);
+  });
+
+  it("enqueues normally when the family has no pending backlog", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a", "b"]),
+      queue: makeFakeQueue({ countPendingImpl: async () => 0 }),
+    });
+
+    const result = await producer.tick();
+
+    expect(queue.enqueued).toHaveLength(2);
+    expect(result.enqueued).toBe(2);
+    expect(result.skippedForBacklog).toBe(0);
+  });
+
+  it("gates each family independently when a tick spans multiple families", async () => {
+    const specs: ServiceJobSpec[] = [
+      ...d6Specs(["a"]),
+      {
+        probeKey: "e2e-demos:a",
+        serviceSlug: "a",
+        driverKind: "e2e_demos",
+      },
+    ];
+    const { producer, queue } = startedProducer({
+      specs,
+      queue: makeFakeQueue({
+        countPendingImpl: async (family) => (family === "d6" ? 7 : 0),
+      }),
+    });
+
+    const result = await producer.tick();
+
+    // d6 is backlogged (skipped); e2e-demos is clear (enqueued).
+    expect(queue.enqueued.map((e) => e.payload.probeKey)).toEqual([
+      "e2e-demos:a",
+    ]);
+    expect(result.enqueued).toBe(1);
+    expect(result.skippedForBacklog).toBe(1);
+  });
+
+  it("operator-triggered ticks BYPASS the backlog gate (explicit intent wins)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a", "b"]),
+      queue: makeFakeQueue({ countPendingImpl: async () => 99 }),
+    });
+
+    const result = await producer.tick({ triggered: true });
+
+    expect(queue.countCalls).toEqual([]);
+    expect(queue.enqueued).toHaveLength(2);
+    expect(result.enqueued).toBe(2);
+    expect(result.skippedForBacklog).toBe(0);
+  });
+
+  it("fails OPEN when the backlog check itself fails (a count blip must not stop production)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      queue: makeFakeQueue({
+        countPendingImpl: async () => {
+          throw new Error("transient PB count blip");
+        },
+      }),
+    });
+
+    const result = await producer.tick();
+
+    expect(queue.enqueued).toHaveLength(1);
+    expect(result.enqueued).toBe(1);
+    expect(result.skippedForBacklog).toBe(0);
   });
 });
 

@@ -47,6 +47,7 @@ import type {
   ServiceJobMeta,
   ServiceJobPayload,
 } from "../contracts.js";
+import { probeKeyFamily } from "../contracts.js";
 import { deriveHealthUrl } from "../../probes/liveness.js";
 
 /**
@@ -159,6 +160,12 @@ export interface TickResult {
   enqueued: number;
   /** Number of enqueue attempts that threw (a service that failed to enqueue). */
   enqueueFailures: number;
+  /**
+   * Number of per-service jobs SKIPPED because their family already had a
+   * pending (unclaimed) backlog on the queue (scheduled ticks only — the
+   * backlog dedupe gate; operator-triggered ticks bypass it).
+   */
+  skippedForBacklog: number;
   /** True iff a lease sweep ran during this tick. */
   sweptExpired: boolean;
   /** Expired leases reclaimed by the sweep, when one ran (else 0). */
@@ -339,6 +346,61 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   }
 
   /**
+   * BACKLOG DEDUPE GATE (scheduled ticks only). A producer tick must NOT
+   * enqueue a fresh batch for a family that already has pending (unclaimed)
+   * jobs on the queue: with 2 serial browser workers against ~180 jobs/hr of
+   * inflow the un-gated producers compounded a multi-thousand-row backlog
+   * (staging: 3,734 pending, oldest 22h) that starved low-frequency families
+   * out of the claim page entirely. Skipping the batch bounds the per-family
+   * backlog to ONE batch — the next tick re-checks and produces again once
+   * the workers have drained it. Grouped per family so a (hypothetical)
+   * multi-family tick gates each family independently. Fail-OPEN on a count
+   * blip: a transient PB read failure must never stop job production (the
+   * legacy un-gated behavior is the safe fallback), mirroring maybeSweep's
+   * swallow-and-log discipline.
+   */
+  async function filterBackloggedFamilies(
+    specs: ServiceJobSpec[],
+    runId: string,
+  ): Promise<{ specs: ServiceJobSpec[]; skipped: number }> {
+    const byFamily = new Map<string, ServiceJobSpec[]>();
+    for (const spec of specs) {
+      const family = probeKeyFamily(spec.probeKey);
+      const group = byFamily.get(family);
+      if (group) group.push(spec);
+      else byFamily.set(family, [spec]);
+    }
+    const kept: ServiceJobSpec[] = [];
+    let skipped = 0;
+    for (const [family, group] of byFamily) {
+      let pendingCount: number;
+      try {
+        pendingCount = await queue.countPendingForFamily(family);
+      } catch (err) {
+        logger.error("fleet.producer.backlog-check-failed", {
+          runId,
+          family,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        kept.push(...group);
+        continue;
+      }
+      if (pendingCount > 0) {
+        skipped += group.length;
+        logger.warn("fleet.producer.skipped-for-backlog", {
+          runId,
+          family,
+          pendingCount,
+          skippedJobs: group.length,
+        });
+        continue;
+      }
+      kept.push(...group);
+    }
+    return { specs: kept, skipped };
+  }
+
+  /**
    * Fire-and-forget pre-dispatch health warm-up (flap-band #72). For each
    * enumerated spec with a backend URL, fire a `GET <backendUrl>/health` so a
    * cold container starts waking before its pill probes it. Best-effort: every
@@ -426,6 +488,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           runId,
           enqueued: 0,
           enqueueFailures: 0,
+          skippedForBacklog: 0,
           sweptExpired: false,
           reclaimed: 0,
         };
@@ -455,6 +518,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           runId,
           enqueued: 0,
           enqueueFailures: 0,
+          skippedForBacklog: 0,
           sweptExpired: sweep.swept,
           reclaimed: sweep.reclaimed,
         };
@@ -466,16 +530,25 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         services: specs.length,
       });
 
+      // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
+      // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
+      // triggered ticks BYPASS the gate: an explicit trigger is a deliberate
+      // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
+      // operator intent wins over backpressure.
+      const gate = triggered
+        ? { specs, skipped: 0 }
+        : await filterBackloggedFamilies(specs, runId);
+
       // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
-      // enumerated backend BEFORE enqueueing, so cold containers start waking
-      // ahead of the pills that probe them. Best-effort and non-blocking — the
-      // GETs are dispatched (not awaited), so a slow cold container never delays
-      // the run's enqueue.
-      warmEnumeratedBackends(specs);
+      // backend that will actually be enqueued (post-gate) BEFORE enqueueing,
+      // so cold containers start waking ahead of the pills that probe them.
+      // Best-effort and non-blocking — the GETs are dispatched (not awaited),
+      // so a slow cold container never delays the run's enqueue.
+      warmEnumeratedBackends(gate.specs);
 
       let enqueued = 0;
       let enqueueFailures = 0;
-      for (const spec of specs) {
+      for (const spec of gate.specs) {
         const meta: ServiceJobMeta = {
           runId,
           triggered,
@@ -506,6 +579,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         triggered,
         enqueued,
         enqueueFailures,
+        skippedForBacklog: gate.skipped,
         sweptExpired: sweep.swept,
         reclaimed: sweep.reclaimed,
       });
@@ -514,6 +588,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         runId,
         enqueued,
         enqueueFailures,
+        skippedForBacklog: gate.skipped,
         sweptExpired: sweep.swept,
         reclaimed: sweep.reclaimed,
       };

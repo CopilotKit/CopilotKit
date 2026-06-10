@@ -608,6 +608,16 @@ export function createFleetQueueClient(
       }
     },
 
+    async countPendingForFamily(family: string): Promise<number> {
+      // Producer backlog gate: a totals-bearing perPage=1 list — PB computes
+      // the COUNT server-side (totalItems); we never page rows back.
+      const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
+        filter: `status = "pending" && ${familyInclusionClause(family)}`,
+        perPage: 1,
+      });
+      return page.totalItems;
+    },
+
     async sweepExpired(nowMs: number): Promise<SweepResult> {
       // Scan claimed/running rows for expired leases (crashed/unreachable
       // workers). PB lacks an OR-of-equals shortcut here, so list both running

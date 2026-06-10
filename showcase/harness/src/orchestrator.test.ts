@@ -2889,6 +2889,9 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
       async sweepExpired() {
         return { reclaimed: 0, commErrors: [] };
       },
+      async countPendingForFamily(): Promise<number> {
+        throw new Error("countPendingForFamily not used by worker");
+      },
     };
   }
 
@@ -3615,6 +3618,7 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
             swept = true;
             return { reclaimed: 1, commErrors: [sweptCommError] };
           },
+          countPendingForFamily: async () => 0,
         }),
       };
     });
@@ -3833,6 +3837,7 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
           renewLease: async () => null,
           report: async () => undefined,
           sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+          countPendingForFamily: async () => 0,
         }),
       };
     });
@@ -5026,6 +5031,7 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
           renewLease: async () => null,
           report: async () => undefined,
           sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+          countPendingForFamily: async () => 0,
         }),
       };
     });

@@ -735,6 +735,50 @@ describe("FleetQueueClient.claimNext — FAMILY FAIRNESS (backlogged families mu
     expect(famOf(c.lease!.job.probe_key)).toBe("e2e-demos");
   });
 
+  it("countPendingForFamily counts ONLY that family's pending rows (producer backlog gate)", async () => {
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const rows: CreatedJobRow[] = [
+      // Two pending e2e-demos rows (the countable backlog)...
+      {
+        ...jobView({ id: "demos-0", probe_key: "e2e-demos:a" }),
+        payload: samplePayload({ probeKey: "e2e-demos:a" }),
+        created: new Date(t0).toISOString(),
+      },
+      {
+        ...jobView({ id: "demos-1", probe_key: "e2e-demos:b" }),
+        payload: samplePayload({ probeKey: "e2e-demos:b" }),
+        created: new Date(t0 + 1000).toISOString(),
+      },
+      // ...one CLAIMED e2e-demos row (in flight — NOT backlog)...
+      {
+        ...jobView({
+          id: "demos-2",
+          probe_key: "e2e-demos:c",
+          status: "claimed",
+          claimed_by: "w9",
+        }),
+        payload: samplePayload({ probeKey: "e2e-demos:c" }),
+        created: new Date(t0 + 2000).toISOString(),
+      },
+      // ...and a pending row from a DIFFERENT family (must not count).
+      {
+        ...jobView({ id: "d4-0", probe_key: "d4:x" }),
+        payload: samplePayload({ probeKey: "d4:x" }),
+        created: new Date(t0 + 3000).toISOString(),
+      },
+    ];
+    const { pb, store } = makePagingPb(rows);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    expect(await q.countPendingForFamily("e2e-demos")).toBe(2);
+    expect(await q.countPendingForFamily("d4")).toBe(1);
+    expect(await q.countPendingForFamily("d6")).toBe(0);
+  });
+
   it("drains the remaining family once the other is exhausted", async () => {
     const t0 = Date.parse("2026-06-04T00:00:00.000Z");
     const rows: CreatedJobRow[] = [

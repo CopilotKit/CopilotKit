@@ -49,6 +49,7 @@ function makeFakeProducer(): JobProducer & {
         runId: "r",
         enqueued: 0,
         enqueueFailures: 0,
+        skippedForBacklog: 0,
         sweptExpired: false,
         reclaimed: 0,
       };

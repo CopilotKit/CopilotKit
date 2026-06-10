@@ -204,6 +204,9 @@ function makeQueue(claims: ClaimedJob[]): RecordingQueue {
     async sweepExpired() {
       return { reclaimed: 0, commErrors: [] };
     },
+    async countPendingForFamily(): Promise<number> {
+      throw new Error("countPendingForFamily not used by worker");
+    },
   };
 }
 
