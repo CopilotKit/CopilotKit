@@ -474,27 +474,48 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // Fire-and-forget: an AbortController bounds each GET so a hung cold
       // container can't leak a pending request across ticks. The whole chain is
       // swallowed — warm-up is a latency optimization, never a correctness gate.
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), timeoutMs);
-      void fetchImpl(healthUrl, { method: "GET", signal: ac.signal })
-        .then(
-          () => {
-            logger.debug("fleet.producer.warm-ok", {
-              serviceSlug: spec.serviceSlug,
-              healthUrl,
-            });
-          },
-          (err: unknown) => {
-            // A cold container still booting / a network blip is EXPECTED here —
-            // the warm is precisely for the not-yet-ready case. Debug-level only.
-            logger.debug("fleet.producer.warm-failed", {
-              serviceSlug: spec.serviceSlug,
-              healthUrl,
-              err: err instanceof Error ? err.message : String(err),
-            });
-          },
-        )
-        .finally(() => clearTimeout(timer));
+      // The DISPATCH itself is try/caught too: an injected fetchImpl that throws
+      // SYNCHRONOUSLY must not escape the loop and abort the tick before any
+      // job is enqueued.
+      try {
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), timeoutMs);
+        // Never let a pending warm timer hold the process open (guarded:
+        // fake-timer impls may hand back handles without unref).
+        (timer as unknown as { unref?: () => void }).unref?.();
+        void fetchImpl(healthUrl, { method: "GET", signal: ac.signal })
+          .then(
+            (res) => {
+              // Consume the response: under undici an unread body pins the
+              // socket. Best-effort cancel, guarded for non-stream fakes.
+              try {
+                void res.body?.cancel()?.catch?.(() => {});
+              } catch {
+                // a fake Response without a cancellable body — nothing to free
+              }
+              logger.debug("fleet.producer.warm-ok", {
+                serviceSlug: spec.serviceSlug,
+                healthUrl,
+              });
+            },
+            (err: unknown) => {
+              // A cold container still booting / a network blip is EXPECTED here —
+              // the warm is precisely for the not-yet-ready case. Debug-level only.
+              logger.debug("fleet.producer.warm-failed", {
+                serviceSlug: spec.serviceSlug,
+                healthUrl,
+                err: err instanceof Error ? err.message : String(err),
+              });
+            },
+          )
+          .finally(() => clearTimeout(timer));
+      } catch (err) {
+        logger.debug("fleet.producer.warm-failed", {
+          serviceSlug: spec.serviceSlug,
+          healthUrl,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (fired > 0) {
       logger.info("fleet.producer.warmed", { warmed: fired });

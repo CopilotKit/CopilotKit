@@ -719,6 +719,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
     // restoreAllMocks does NOT undo vi.stubGlobal — a leaked global fetch stub
     // poisons unrelated files under fork-reuse (repo discipline).
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   /** A fetch spy that records each warm URL and resolves a 200. */
@@ -819,6 +820,83 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
     const result = await producer.tick();
     // Production proceeded despite every warm GET rejecting.
     expect(result.enqueued).toBe(2);
+  });
+
+  it("a SYNCHRONOUSLY-throwing warm fetch never aborts the tick (per-spec dispatch is isolated)", async () => {
+    // An injected fetchImpl that throws synchronously (not a rejected promise)
+    // must not escape the warm loop and abort the whole tick before any job
+    // is enqueued — warm-up must NEVER block or fail job production.
+    const fetchImpl = (() => {
+      throw new Error("sync EINVAL from fetch impl");
+    }) as unknown as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha", "beta"]),
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    const result = await producer.tick();
+    expect(result.enqueued).toBe(2);
+    expect(queue.enqueued).toHaveLength(2);
+  });
+
+  it("aborts a hanging warm GET once the timeout elapses (AbortController path)", async () => {
+    vi.useFakeTimers();
+    let abortedCount = 0;
+    // A fetch that never settles until its signal aborts — models a hung cold
+    // container that would otherwise pin the request forever.
+    const fetchImpl = ((
+      _input: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          abortedCount += 1;
+          reject(new Error("aborted"));
+        });
+      })) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl, timeoutMs: 1_000 },
+    });
+    producer.start();
+    const result = await producer.tick();
+    // The hung GET never blocked production…
+    expect(result.enqueued).toBe(1);
+    expect(abortedCount).toBe(0);
+    // …and the timeout reaps it.
+    vi.advanceTimersByTime(1_000);
+    expect(abortedCount).toBe(1);
+  });
+
+  it("consumes (cancels) the warm response body so an unread body can't pin the socket", async () => {
+    let cancelled = 0;
+    const fetchImpl = (async (): Promise<Response> => {
+      const body = new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled += 1;
+        },
+      });
+      return new Response(body, { status: 200 });
+    }) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    // The .then success handler runs on a later microtask than tick's return —
+    // yield so the fire-and-forget chain settles.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(cancelled).toBe(1);
   });
 
   it("skips specs with no backendUrl (no bogus warm GET)", async () => {
