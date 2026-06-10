@@ -302,8 +302,9 @@ subtly different each run.
 1. **`<name>` and slot/offset**: `<name>` names the isolated compose project and
    must match `[a-z0-9_-]+` (a docker compose project-name constraint; uppercase
    is lowercased with a warning). Use a distinct name per run. The slot and port
-   offset are **auto-assigned** — each run atomically claims a slot via `mkdir
-/tmp/showcase-isolate-slots/N` and derives its offset as `(slot + 1) * 200`
+   offset are **auto-assigned** — each run atomically claims a slot via `mkdir`
+   under `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots/N`
+   and derives its offset as `(slot + 1) * 200`
    (slot 0 → +200, slot 1 → +400, ...). Up to 46 concurrent runs are supported.
    Do not assign slots manually.
 
@@ -319,11 +320,14 @@ subtly different each run.
    authenticates with no manual setup. A mismatch here is what previously 400'd
    on pb-auth and left the d6 control-plane enqueuing zero jobs.
 
-4. **Temp overlay + cleanup**: `apply_isolation` writes offset copies of
-   `docker-compose.local.yml` and `shared/local-ports.json` into
-   `$TMPDIR/showcase-isolate-$$/` (originals are never touched).
+4. **Scratch overlay + cleanup**: `apply_isolation` writes offset copies of
+   `docker-compose.local.yml` and `shared/local-ports.json` into a per-run
+   scratch dir at
+   `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/runs/<name>/`
+   (originals are never touched).
    `restore_isolation`, registered via `trap EXIT` before any mutation, tears
-   the stack down and frees the slot on exit — even on crashes or `Ctrl-C`.
+   the stack down and frees the slot on exit — even on crashes or `Ctrl-C` —
+   unless `--keep` is set (see Cleanup below).
 
 ### Interpreting results
 
@@ -334,13 +338,24 @@ production for that pill.
 
 ### Cleanup
 
-The isolated stack tears down on exit and frees its slot automatically — the
-normal case needs no cleanup, and each fresh run gets a clean PocketBase volume
-(which is what keeps pb-auth deterministic). The `--keep` flag governs
-harness-started packages on the non-isolate path; it does not override the
-isolated teardown trap. To leave a stack up for inspection, start it explicitly
-with `bin/showcase up` under your own project name. Tear that down by project
-name when done:
+By default the isolated stack tears down on exit and frees its slot
+automatically — the normal case needs no cleanup, and each fresh run gets a
+clean PocketBase volume (which is what keeps pb-auth deterministic).
+
+With `--keep`, the isolated stack survives the run (success or failure): the
+stack is left standing, and the per-run scratch dir and slot are preserved
+(live containers keep the slot from being reaped). That protection applies
+only while the containers are RUNNING — if they stop (manual `docker stop`,
+daemon restart, host reboot), the next isolate run's sweep reclaims the slot,
+composing the stopped containers and named volumes down and removing the
+scratch dir. Inspect a kept stack before stopping it; it does not survive a
+reboot. At exit a survival notice
+prints the stack's host ports (aimock, dashboard, PocketBase) plus the manual
+teardown command
+(`docker compose -p <name> down --remove-orphans && rm -rf <run-dir> <slot-dir>`).
+Note that `down --remove-orphans` does not remove named volumes (e.g.
+`<name>_showcase-pb-data`); for a fully clean slate, tear down by project name
+with volumes (or `docker volume rm` the leftovers):
 
 ```sh
 docker compose --project-name <name> down --volumes
@@ -357,9 +372,9 @@ docker compose --project-name <name> down --volumes
 
   The current isolate behavior auto-detects and cleans up these stale backups on startup, but a manual restore is the safest fix if things look wrong.
 
-- **Temp files**: Overlay directories live at `$TMPDIR/showcase-isolate-*/`. They are cleaned up on normal exit; if a run was killed with `SIGKILL`, the directory may linger. Safe to remove manually.
+- **Scratch files**: Per-run overlay directories live at `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/runs/<name>/`. They are cleaned up on normal exit; if a run was killed with `SIGKILL`, the directory may linger. Safe to remove manually.
 
-- **Slot directories**: Located at `/tmp/showcase-isolate-slots/`. Each numbered subdirectory is a claimed slot. If slots accumulate from killed processes, clean them with `rm -rf /tmp/showcase-isolate-slots/*`.
+- **Slot directories**: Located at `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots/`. Each numbered subdirectory is a claimed slot. Slots from killed processes are auto-reaped on the next isolate run (a slot whose compose project has no live containers is reclaimed); to clean them manually, run `rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots"/*`.
 
 ## Environment Variables
 

@@ -183,9 +183,10 @@ bin/showcase test <slug> --d6 --isolate <name>
   authenticates with no manual setup. (A mismatch here is what previously 400'd
   on pb-auth and left the control-plane enqueuing zero jobs.)
 - **Originals are never modified**: the flag writes offset copies of
-  `docker-compose.local.yml` and `shared/local-ports.json` into
-  `$TMPDIR/showcase-isolate-$$/`. If the process crashes, the originals are
-  untouched.
+  `docker-compose.local.yml` and `shared/local-ports.json` into a per-run
+  scratch dir at
+  `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/runs/<name>/`.
+  If the process crashes, the originals are untouched.
 
 ### Interpreting results
 
@@ -196,28 +197,39 @@ from the shared stack or production for that pill.
 
 ### Cleanup
 
-An isolated run tears its stack down on exit (via `trap EXIT`) and frees its
-slot automatically — the normal, no-cleanup-needed case. Each fresh run gets a
-clean PocketBase volume, which is what makes pb-auth deterministic.
+By default an isolated run tears its stack down on exit (via `trap EXIT`) and
+frees its slot automatically — the normal, no-cleanup-needed case. Each fresh
+run gets a clean PocketBase volume, which is what makes pb-auth deterministic.
 
-To leave the stack up for inspection after the run, start it explicitly with
-`bin/showcase up` under your own compose project name instead of relying on a
-test run's transient stack (the test path always tears its own stack down). The
-`--keep` flag governs harness-started packages on the non-isolate path; it does
-not override the isolated teardown trap.
+To leave the stack up for inspection after the run, pass `--keep`: the isolated
+stack survives the run (success or failure), and the run dir and slot are
+preserved — the live containers keep the slot from being reaped. That
+protection lasts only while the containers are RUNNING: if they stop (manual
+`docker stop`, a daemon restart, a host reboot), the next isolate run's sweep
+reclaims the slot — composing the stopped containers and named volumes down and
+removing the run dir. Inspect a kept stack before stopping it, and don't expect
+it to survive a reboot. At exit the CLI prints a survival notice with the
+stack's host ports (aimock, dashboard, PocketBase) and the manual teardown
+command:
 
-When you're done inspecting a manually-kept stack, tear down its containers and
-volumes by project name:
+```sh
+docker compose -p <name> down --remove-orphans && rm -rf <run-dir> <slot-dir>
+```
+
+Note that `down --remove-orphans` removes containers and networks but NOT named
+volumes (e.g. `<name>_showcase-pb-data`). For a fully clean slate, tear down by
+project name with volumes (or `docker volume rm` the leftovers):
 
 ```sh
 docker compose --project-name <name> down --volumes
 ```
 
-If a run was killed with `SIGKILL` (so the trap never fired), clean up the slot
-reservations manually:
+If a run was killed with `SIGKILL` (so the trap never fired), the next isolate
+run auto-reaps the dead slot (a slot whose compose project has no live
+containers is reclaimed). To clean up the slot reservations manually:
 
 ```sh
-rm -rf /tmp/showcase-isolate-slots/*
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots"/*
 ```
 
 - **Stale `.iso-bak` files**: if you see `docker-compose.local.yml.iso-bak` or
