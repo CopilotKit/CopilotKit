@@ -48,7 +48,9 @@ sandboxed iframe.
 
 ### Drop `<CopilotChat />` into the page
 
-Wrap your app in `CopilotKit` and render `<CopilotChat>` — no extra props needed:
+Wrap your app in `CopilotKit` and render `<CopilotChat>` — the activity
+renderer registers automatically (the sample also opts into a custom
+`designSkill`):
 
 <Snippet region="minimal-provider-setup" />
 
