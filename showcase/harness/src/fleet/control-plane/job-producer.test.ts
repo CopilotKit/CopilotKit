@@ -2609,6 +2609,52 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
     expect(producer.isRunning()).toBe(false);
   });
 
+  it("the tick-while-stopped warn discriminates never-started from stopped-after-running", async () => {
+    // The warn meta carried only `triggered` — an operator chasing a
+    // scheduler-wiring bug could not tell whether the stray tick fired
+    // BEFORE boot wiring started the producer or AFTER a shutdown stopped
+    // it; the two point at opposite ends of the lifecycle.
+    const warnMeta = (): {
+      producer: JobProducer;
+      metas: Array<Record<string, unknown> | undefined>;
+    } => {
+      const metas: Array<Record<string, unknown> | undefined> = [];
+      const producer = createJobProducer({
+        queue: makeFakeQueue(),
+        enumerate: () => d6Specs(["a"]),
+        logger: {
+          ...SILENT_LOGGER,
+          warn: (msg, meta) => {
+            if (msg === "fleet.producer.tick-while-stopped") metas.push(meta);
+          },
+        },
+      });
+      return { producer, metas };
+    };
+
+    // Never started.
+    const before = warnMeta();
+    await before.producer.tick();
+    expect(before.metas).toHaveLength(1);
+    expect(before.metas[0]).toMatchObject({
+      triggered: false,
+      started: false,
+      stopped: false,
+    });
+
+    // Stopped after running.
+    const after = warnMeta();
+    after.producer.start();
+    await after.producer.stop();
+    await after.producer.tick();
+    expect(after.metas).toHaveLength(1);
+    expect(after.metas[0]).toMatchObject({
+      triggered: false,
+      started: true,
+      stopped: true,
+    });
+  });
+
   it("does not restart after stop() (start-after-stop is a no-op)", async () => {
     const { producer } = startedProducer({ specs: d6Specs(["a"]) });
     await producer.stop();

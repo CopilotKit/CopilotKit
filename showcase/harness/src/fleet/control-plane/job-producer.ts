@@ -899,8 +899,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // discipline — no jobs leak past the producer's lifecycle. No runId
       // is minted: a stopped tick must not burn the factory counter or log
       // a phantom runId no job will ever carry.
+      // started/stopped discriminate the two opposite wiring bugs this warn
+      // flags: a tick BEFORE boot wiring started the producer (started:
+      // false) vs a scheduler still firing AFTER shutdown stopped it
+      // (started+stopped: true).
       logger.warn("fleet.producer.tick-while-stopped", {
         triggered: tickOpts?.triggered === true,
+        started,
+        stopped,
       });
       return skippedTickResult();
     }
