@@ -1414,6 +1414,64 @@ describe("buildCellModel", () => {
     });
   });
 
+  // ── G3a: rank-based anyMissing collapse (mirror of live-status Fix A2) ──
+  // resolveD5/resolveD6 collapse a present green/degraded fold to no-data
+  // when a mapped sub-row is missing. That collapse guard must be RANK-based,
+  // not the literal `worstState !== "red"`: `worstState` is typed `State` but
+  // can hold an out-of-vocabulary runtime value (e.g. "error" — the harness
+  // no-data representation), which the A2 rank machinery deliberately ranks
+  // ABOVE red. Literal equality matches neither, so exactly the state the
+  // rank fold exists to surface was being collapsed to benign gray no-data.
+  // Mirrors live-status.test.ts "missing sub-row + out-of-vocab sub-row
+  // SURFACES" for resolveD5Row/resolveD6Row.
+  describe("rank-based anyMissing collapse (G3a)", () => {
+    const OUT_OF_VOCAB = "error" as unknown as State;
+
+    it("d5: missing sub-row + out-of-vocab sub-row SURFACES the row, not the no-data collapse", () => {
+      // beautiful-chat maps to 5 d5 sub-keys; emit ONE row carrying "error"
+      // (4 siblings missing). The literal `!== "red"` guard collapsed this to
+      // { status: null, row: null }; the rank guard must surface the row —
+      // an unrecognized state out-ranks red and dominates no-data.
+      const live = mapOf([
+        row(
+          keyFor("d5", "agno", "beautiful-chat-toggle-theme"),
+          "d5",
+          OUT_OF_VOCAB,
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d5!.exists).toBe(true);
+      expect(model.d5!.row).not.toBeNull();
+      expect(model.d5!.row?.key).toBe("d5:agno/beautiful-chat-toggle-theme");
+    });
+
+    it("d6: missing sub-row + out-of-vocab sub-row SURFACES the row, not the no-data collapse", () => {
+      const live = mapOf([
+        row(
+          keyFor("d6", "agno", "beautiful-chat-pie-chart"),
+          "d6",
+          OUT_OF_VOCAB,
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d6!.exists).toBe(true);
+      expect(model.d6!.row).not.toBeNull();
+      expect(model.d6!.row?.key).toBe("d6:agno/beautiful-chat-pie-chart");
+    });
+
+    it("d5: missing sub-row + green fold still collapses to no-data (strict handling preserved)", () => {
+      // The rank guard must NOT weaken the strict missing-sub-row rule: a
+      // present green fold with a missing sibling stays no-data.
+      const live = mapOf([
+        row(keyFor("d5", "agno", "beautiful-chat-toggle-theme"), "d5", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d5!.exists).toBe(true);
+      expect(model.d5!.status).toBeNull();
+      expect(model.d5!.row).toBeNull();
+    });
+  });
+
   // ── CHARACTERIZATION: buildCellModel does NOT read health:/agent: rows ──
   // resolveD3 credits D3 from the `e2e:<slug>/<feature>` row ALONE. The
   // implicit "D1/D2 gate" (a failing liveness probe drags e2e down) is a

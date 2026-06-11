@@ -306,8 +306,13 @@ function resolveD5(
   // family is unverified. A present RED sub-row still signals a real failure
   // (red dominates no-data), but a present green/degraded fold must NOT be
   // credited — collapse it to no-data (status: null) so achievedDepth caps
-  // below 5 and the chip renders gray, not a false-green/amber.
-  if (anyMissing && worstState !== "red") {
+  // below 5 and the chip renders gray, not a false-green/amber. RANK-based,
+  // not `!== "red"` literal equality: `worstState` is typed `State` but can
+  // hold an out-of-vocabulary runtime value (e.g. "error"), which the A2 rank
+  // machinery deliberately ranks ABOVE red — literal equality would silently
+  // swallow exactly the state the rank fold exists to surface. Mirrors
+  // resolveD5Row/resolveD6Row in live-status.ts.
+  if (anyMissing && rankOfState(worstState) < STATE_RANK.red) {
     return { exists: true, status: null, row: null };
   }
 
@@ -434,8 +439,13 @@ function resolveD6(
   // family is unverified. A present RED sub-row still signals a real failure
   // (red dominates no-data), but a present green/degraded fold must NOT be
   // credited — collapse it to no-data (status: null) so the chip renders
-  // gray/amber per the ladder, not a false-green.
-  if (anyMissing && worstState !== "red") {
+  // gray/amber per the ladder, not a false-green. RANK-based, not `!== "red"`
+  // literal equality: `worstState` is typed `State` but can hold an
+  // out-of-vocabulary runtime value (e.g. "error"), which the A2 rank
+  // machinery deliberately ranks ABOVE red — literal equality would silently
+  // swallow exactly the state the rank fold exists to surface. Mirrors
+  // resolveD5Row/resolveD6Row in live-status.ts.
+  if (anyMissing && rankOfState(worstState) < STATE_RANK.red) {
     return { exists: true, status: null, row: null };
   }
 
