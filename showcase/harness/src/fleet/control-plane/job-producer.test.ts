@@ -248,9 +248,7 @@ describe("job-producer — per-service enqueue", () => {
   });
 
   it("the default runId factory reads the INJECTED clock, not Date.now", async () => {
-    const dateNowSpy = vi
-      .spyOn(Date, "now")
-      .mockReturnValue(9_999_999_999_999);
+    const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(9_999_999_999_999);
     try {
       const queue = makeFakeQueue();
       const producer = createJobProducer({
@@ -262,9 +260,9 @@ describe("job-producer — per-service enqueue", () => {
       });
       producer.start();
       const result = await producer.tick();
-      expect(
-        result.runId.startsWith(`frun_${(123_456).toString(36)}_`),
-      ).toBe(true);
+      expect(result.runId.startsWith(`frun_${(123_456).toString(36)}_`)).toBe(
+        true,
+      );
     } finally {
       dateNowSpy.mockRestore();
     }
@@ -1106,6 +1104,166 @@ describe("job-producer — default run-id factory", () => {
     const ts36 = (1_765_000_000_000).toString(36);
     expect(r1.runId.startsWith(`frun_${ts36}_`)).toBe(true);
     expect(r2.runId.startsWith(`frun_${ts36}_`)).toBe(true);
+  });
+});
+
+describe("job-producer — stop() quiesce", () => {
+  /** A JobView for the fake enqueueImpl gates below. */
+  function jobView(input: EnqueueJobInput): JobView {
+    return {
+      id: `job-${input.payload.serviceSlug}`,
+      probe_key: input.payload.probeKey,
+      status: "pending",
+      claimed_by: "",
+      lease_expires_at: null,
+      version: 1,
+    };
+  }
+
+  it("stop() awaits an in-flight tick (the tick cannot continue past stop()'s resolution)", async () => {
+    // stop() used to flip `running` and resolve immediately — an in-flight
+    // tick kept enumerating/sweeping/enqueueing AFTER stop() resolved, so
+    // "stopped" was a lie to the shutdown sequence that called it.
+    let releaseEnqueue!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnqueue = resolve));
+    const queue = makeFakeQueue({
+      enqueueImpl: async (input) => {
+        await gate;
+        return jobView(input);
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    const tickP = producer.tick();
+    await vi.waitFor(() => {
+      expect(queue.enqueued).toHaveLength(1); // tick reached the gated enqueue
+    });
+    let stopResolved = false;
+    const stopP = producer.stop().then(() => {
+      stopResolved = true;
+    });
+    // Give stop() every chance to (incorrectly) resolve before the tick ends.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(stopResolved).toBe(false);
+    releaseEnqueue();
+    await tickP;
+    await stopP;
+    expect(stopResolved).toBe(true);
+  });
+
+  it("a tick stopped mid-batch truncates the remaining enqueues (and logs the truncation)", async () => {
+    let releaseEnqueue!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnqueue = resolve));
+    const warns: string[] = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg) => {
+        warns.push(msg);
+      },
+    };
+    const queue = makeFakeQueue({
+      enqueueImpl: async (input) => {
+        if (input.payload.serviceSlug === "a") await gate;
+        return jobView(input);
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a", "b", "c"]),
+      logger,
+    });
+    producer.start();
+    const tickP = producer.tick();
+    await vi.waitFor(() => {
+      expect(queue.enqueued).toHaveLength(1);
+    });
+    const stopP = producer.stop(); // flips running=false, then quiesces
+    releaseEnqueue();
+    const result = await tickP;
+    await stopP;
+    // "a" completed; "b" and "c" were truncated, not enqueued post-stop.
+    expect(result.enqueued).toBe(1);
+    expect(queue.enqueued).toHaveLength(1);
+    expect(warns).toContain("fleet.producer.enqueue-truncated-stopped");
+  });
+
+  it("stop() makes one final delivery attempt of buffered sweep comm errors", async () => {
+    // Buffered comm errors used to be silently DROPPED at shutdown — the
+    // reclaimed jobs' dashboard signal vanished with the process.
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: 1,
+        commErrors: [
+          {
+            kind: "worker-reclaimed-pending",
+            message: "lease for job j1 expired; re-queued",
+            jobId: "j1",
+            observedAt: "2026-06-04T00:00:09.000Z",
+          },
+        ],
+      }),
+    });
+    const received: PoolCommError[][] = [];
+    let sinkCalls = 0;
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      onSweepCommErrors: (errs) => {
+        sinkCalls += 1;
+        if (sinkCalls === 1) throw new Error("aggregator down");
+        received.push(errs);
+      },
+    });
+    producer.start();
+    await producer.tick(); // sink fails — j1 buffered
+    await producer.stop(); // final drain: sink healthy again
+    expect(received).toHaveLength(1);
+    expect(received[0]!.map((e) => e.jobId)).toEqual(["j1"]);
+  });
+
+  it("stop() logs the dropped count + jobIds at error level when the final delivery also fails", async () => {
+    const errorLogs: Array<{ msg: string; meta?: Record<string, unknown> }> =
+      [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      error: (msg, meta) => {
+        errorLogs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: 1,
+        commErrors: [
+          {
+            kind: "worker-reclaimed-pending",
+            message: "lease for job j1 expired; re-queued",
+            jobId: "j1",
+            observedAt: "2026-06-04T00:00:09.000Z",
+          },
+        ],
+      }),
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger,
+      onSweepCommErrors: () => {
+        throw new Error("aggregator down for good");
+      },
+    });
+    producer.start();
+    await producer.tick(); // sink fails — j1 buffered
+    await producer.stop(); // final drain fails too — dropped, loudly
+    const dropLog = errorLogs.find(
+      (e) => e.msg === "fleet.producer.stop-commerrors-dropped",
+    );
+    expect(dropLog).toBeDefined();
+    expect(dropLog!.meta).toMatchObject({ dropped: 1, jobIds: ["j1"] });
   });
 });
 

@@ -325,6 +325,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * at `MAX_BUFFERED_SWEEP_COMM_ERRORS`, oldest dropped on overflow.
    */
   let undeliveredCommErrors: PoolCommError[] = [];
+  /**
+   * The currently-executing tick's promise, or null when no tick is in
+   * flight. `stop()` awaits it so "stopped" means QUIESCED — an in-flight
+   * tick can no longer keep enumerating/sweeping/enqueueing after stop()
+   * resolves. (A tick promise never rejects — every failure path inside the
+   * tick is caught — but stop() guards with .catch anyway.)
+   */
+  let inFlightTick: Promise<TickResult> | null = null;
 
   /** Build a `ServiceJobPayload` from a spec + the run's shared meta. */
   function toEnqueueInput(
@@ -565,6 +573,164 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     return fired;
   }
 
+  /** One production cycle — the body `tick()` runs and `stop()` quiesces on. */
+  async function runTick(tickOpts?: TickOptions): Promise<TickResult> {
+    const runId = runIdFactory();
+    if (!running) {
+      // Defensive: a tick that arrives after stop() (or before start())
+      // produces nothing. Mirrors the scheduler's drain-after-stop
+      // discipline — no jobs leak past the producer's lifecycle.
+      logger.warn("fleet.producer.tick-while-stopped", { runId });
+      return {
+        runId,
+        enqueued: 0,
+        enqueueFailures: 0,
+        skippedForBacklog: 0,
+        sweptExpired: false,
+        sweepFailed: false,
+        reclaimed: 0,
+        enumerateFailed: false,
+      };
+    }
+
+    const triggered = tickOpts?.triggered === true;
+
+    const enumerateCtx: EnumerateContext = { triggered, runId };
+    // The filter is TRIGGER-ONLY: a scheduled (cron) tick must never be
+    // scoped, so a filter passed without `triggered: true` is dropped (and
+    // warned) rather than forwarded to the enumerator.
+    if (tickOpts?.filter !== undefined) {
+      if (triggered) {
+        enumerateCtx.filter = tickOpts.filter;
+      } else {
+        logger.warn("fleet.producer.filter-ignored-scheduled", { runId });
+      }
+    }
+
+    let specs: ServiceJobSpec[];
+    try {
+      specs = await enumerate(enumerateCtx);
+    } catch (err) {
+      // Enumeration failure short-circuits production (no services →
+      // nothing to enqueue). Still attempt the sweep so dead-worker
+      // reclamation isn't starved by a flaky discovery upstream. The clock
+      // is read AFTER the (potentially slow) enumerate await so the sweep's
+      // expiry decisions aren't back-dated to tick start.
+      logger.error("fleet.producer.enumerate-failed", {
+        runId,
+        triggered,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      const sweep = await maybeSweep(now());
+      return {
+        runId,
+        enqueued: 0,
+        enqueueFailures: 0,
+        skippedForBacklog: 0,
+        sweptExpired: sweep.swept,
+        sweepFailed: sweep.sweepFailed,
+        reclaimed: sweep.reclaimed,
+        enumerateFailed: true,
+      };
+    }
+
+    logger.info("fleet.producer.tick-start", {
+      runId,
+      triggered,
+      services: specs.length,
+    });
+
+    // SWEEP FIRST: the sweep's stale-pending drain can clear a family's
+    // entire backlog (a backlog of only-stale rows). Running it BEFORE the
+    // backlog gate means the very tick that drains a family also resumes
+    // its production — sweeping after the gate made production resume a
+    // full cron period late. Same cadence gate and fail-open semantics
+    // (maybeSweep swallows sweep failures); only the order changed. The
+    // clock is re-read HERE — after the potentially-seconds-long enumerate
+    // await — so lease-expiry decisions and lastSweepAt aren't back-dated
+    // to tick start.
+    const sweep = await maybeSweep(now());
+
+    // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
+    // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
+    // triggered ticks BYPASS the gate: an explicit trigger is a deliberate
+    // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
+    // operator intent wins over backpressure.
+    const gate = triggered
+      ? { specs, skipped: 0 }
+      : await filterBackloggedFamilies(specs, runId);
+
+    // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
+    // backend that will actually be enqueued (post-gate) BEFORE enqueueing,
+    // so cold containers start waking ahead of the pills that probe them.
+    // Best-effort and non-blocking — the GETs are dispatched (not awaited),
+    // so a slow cold container never delays the run's enqueue.
+    warmEnumeratedBackends(gate.specs);
+
+    let enqueued = 0;
+    let enqueueFailures = 0;
+    for (const spec of gate.specs) {
+      // QUIESCE re-check: stop() flips `running` and then awaits this tick.
+      // Dispatching the REST of the batch after stop began would leak jobs
+      // past the producer's lifecycle — truncate, loudly.
+      if (!running) {
+        logger.warn("fleet.producer.enqueue-truncated-stopped", {
+          runId,
+          enqueued,
+          enqueueFailures,
+          remaining: gate.specs.length - enqueued - enqueueFailures,
+        });
+        break;
+      }
+      const meta: ServiceJobMeta = {
+        runId,
+        triggered,
+        // Stamped at ENQUEUE time (the documented meaning: 'ISO timestamp
+        // the control-plane enqueued the job'), not at tick start — a slow
+        // enumerate/sweep must not back-date it.
+        enqueuedAt: new Date(now()).toISOString(),
+      };
+      if (spec.priority !== undefined) meta.priority = spec.priority;
+      try {
+        await queue.enqueue(toEnqueueInput(spec, meta));
+        enqueued++;
+      } catch (err) {
+        // One service failing to enqueue must NOT abort the rest of the
+        // run — the other services' jobs still get queued, mirroring the
+        // in-process invoker's per-target isolation.
+        enqueueFailures++;
+        logger.error("fleet.producer.enqueue-failed", {
+          runId,
+          probeKey: spec.probeKey,
+          serviceSlug: spec.serviceSlug,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    logger.info("fleet.producer.tick-complete", {
+      runId,
+      triggered,
+      enqueued,
+      enqueueFailures,
+      skippedForBacklog: gate.skipped,
+      sweptExpired: sweep.swept,
+      sweepFailed: sweep.sweepFailed,
+      reclaimed: sweep.reclaimed,
+    });
+
+    return {
+      runId,
+      enqueued,
+      enqueueFailures,
+      skippedForBacklog: gate.skipped,
+      sweptExpired: sweep.swept,
+      sweepFailed: sweep.sweepFailed,
+      reclaimed: sweep.reclaimed,
+      enumerateFailed: false,
+    };
+  }
+
   return {
     start() {
       if (stopped) {
@@ -583,6 +749,32 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       }
       running = false;
       stopped = true;
+      // QUIESCE: an in-flight tick observed `running === true` at entry and
+      // may still be enumerating/sweeping/enqueueing. "Stopped" must mean the
+      // tick is DONE — its enqueue loop truncates on the flag flipped above,
+      // and stop() resolves only once the tick has fully unwound.
+      if (inFlightTick !== null) {
+        await inFlightTick.catch(() => {});
+      }
+      // FINAL DRAIN: buffered undelivered comm errors would otherwise die
+      // with the process — `sweepExpired` cannot re-derive a missed batch.
+      // One best-effort delivery; if it fails too, the batch is dropped
+      // LOUDLY (count + jobIds at error level), never silently.
+      if (undeliveredCommErrors.length > 0 && onSweepCommErrors !== undefined) {
+        const batch = undeliveredCommErrors;
+        undeliveredCommErrors = [];
+        try {
+          await onSweepCommErrors(batch);
+        } catch (err) {
+          logger.error("fleet.producer.stop-commerrors-dropped", {
+            dropped: batch.length,
+            jobIds: batch
+              .map((e) => e.jobId)
+              .filter((id): id is string => id !== undefined),
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
       logger.info("fleet.producer.stop");
     },
 
@@ -591,148 +783,13 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     },
 
     async tick(tickOpts?: TickOptions): Promise<TickResult> {
-      const runId = runIdFactory();
-      if (!running) {
-        // Defensive: a tick that arrives after stop() (or before start())
-        // produces nothing. Mirrors the scheduler's drain-after-stop
-        // discipline — no jobs leak past the producer's lifecycle.
-        logger.warn("fleet.producer.tick-while-stopped", { runId });
-        return {
-          runId,
-          enqueued: 0,
-          enqueueFailures: 0,
-          skippedForBacklog: 0,
-          sweptExpired: false,
-          sweepFailed: false,
-          reclaimed: 0,
-          enumerateFailed: false,
-        };
-      }
-
-      const triggered = tickOpts?.triggered === true;
-
-      const enumerateCtx: EnumerateContext = { triggered, runId };
-      // The filter is TRIGGER-ONLY: a scheduled (cron) tick must never be
-      // scoped, so a filter passed without `triggered: true` is dropped (and
-      // warned) rather than forwarded to the enumerator.
-      if (tickOpts?.filter !== undefined) {
-        if (triggered) {
-          enumerateCtx.filter = tickOpts.filter;
-        } else {
-          logger.warn("fleet.producer.filter-ignored-scheduled", { runId });
-        }
-      }
-
-      let specs: ServiceJobSpec[];
+      const ticking = runTick(tickOpts);
+      inFlightTick = ticking;
       try {
-        specs = await enumerate(enumerateCtx);
-      } catch (err) {
-        // Enumeration failure short-circuits production (no services →
-        // nothing to enqueue). Still attempt the sweep so dead-worker
-        // reclamation isn't starved by a flaky discovery upstream. The clock
-        // is read AFTER the (potentially slow) enumerate await so the sweep's
-        // expiry decisions aren't back-dated to tick start.
-        logger.error("fleet.producer.enumerate-failed", {
-          runId,
-          triggered,
-          err: err instanceof Error ? err.message : String(err),
-        });
-        const sweep = await maybeSweep(now());
-        return {
-          runId,
-          enqueued: 0,
-          enqueueFailures: 0,
-          skippedForBacklog: 0,
-          sweptExpired: sweep.swept,
-          sweepFailed: sweep.sweepFailed,
-          reclaimed: sweep.reclaimed,
-          enumerateFailed: true,
-        };
+        return await ticking;
+      } finally {
+        inFlightTick = null;
       }
-
-      logger.info("fleet.producer.tick-start", {
-        runId,
-        triggered,
-        services: specs.length,
-      });
-
-      // SWEEP FIRST: the sweep's stale-pending drain can clear a family's
-      // entire backlog (a backlog of only-stale rows). Running it BEFORE the
-      // backlog gate means the very tick that drains a family also resumes
-      // its production — sweeping after the gate made production resume a
-      // full cron period late. Same cadence gate and fail-open semantics
-      // (maybeSweep swallows sweep failures); only the order changed. The
-      // clock is re-read HERE — after the potentially-seconds-long enumerate
-      // await — so lease-expiry decisions and lastSweepAt aren't back-dated
-      // to tick start.
-      const sweep = await maybeSweep(now());
-
-      // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
-      // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
-      // triggered ticks BYPASS the gate: an explicit trigger is a deliberate
-      // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
-      // operator intent wins over backpressure.
-      const gate = triggered
-        ? { specs, skipped: 0 }
-        : await filterBackloggedFamilies(specs, runId);
-
-      // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
-      // backend that will actually be enqueued (post-gate) BEFORE enqueueing,
-      // so cold containers start waking ahead of the pills that probe them.
-      // Best-effort and non-blocking — the GETs are dispatched (not awaited),
-      // so a slow cold container never delays the run's enqueue.
-      warmEnumeratedBackends(gate.specs);
-
-      let enqueued = 0;
-      let enqueueFailures = 0;
-      for (const spec of gate.specs) {
-        const meta: ServiceJobMeta = {
-          runId,
-          triggered,
-          // Stamped at ENQUEUE time (the documented meaning: 'ISO timestamp
-          // the control-plane enqueued the job'), not at tick start — a slow
-          // enumerate/sweep must not back-date it.
-          enqueuedAt: new Date(now()).toISOString(),
-        };
-        if (spec.priority !== undefined) meta.priority = spec.priority;
-        try {
-          await queue.enqueue(toEnqueueInput(spec, meta));
-          enqueued++;
-        } catch (err) {
-          // One service failing to enqueue must NOT abort the rest of the
-          // run — the other services' jobs still get queued, mirroring the
-          // in-process invoker's per-target isolation.
-          enqueueFailures++;
-          logger.error("fleet.producer.enqueue-failed", {
-            runId,
-            probeKey: spec.probeKey,
-            serviceSlug: spec.serviceSlug,
-            err: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-
-      logger.info("fleet.producer.tick-complete", {
-        runId,
-        triggered,
-        enqueued,
-        enqueueFailures,
-        skippedForBacklog: gate.skipped,
-        sweptExpired: sweep.swept,
-        sweepFailed: sweep.sweepFailed,
-        reclaimed: sweep.reclaimed,
-      });
-
-      return {
-        runId,
-        enqueued,
-        enqueueFailures,
-        skippedForBacklog: gate.skipped,
-        sweptExpired: sweep.swept,
-        sweepFailed: sweep.sweepFailed,
-        reclaimed: sweep.reclaimed,
-        enumerateFailed: false,
-      };
     },
   };
 }
@@ -749,7 +806,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
  * injected clock (injection-discipline consistency with the rest of the
  * module); behavior is otherwise identical to the Date.now form.
  */
-function defaultRunIdFactory(now: () => number = () => Date.now()): () => string {
+function defaultRunIdFactory(
+  now: () => number = () => Date.now(),
+): () => string {
   let counter = 0;
   const discriminator = Math.random().toString(36).slice(2, 8).padEnd(6, "0");
   return () => {
