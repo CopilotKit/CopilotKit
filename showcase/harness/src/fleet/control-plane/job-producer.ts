@@ -775,10 +775,24 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
               } catch {
                 // a fake Response without a cancellable body — nothing to free
               }
-              logger.debug("fleet.producer.warm-ok", {
-                serviceSlug: spec.serviceSlug,
-                healthUrl,
-              });
+              if (res.ok) {
+                logger.debug("fleet.producer.warm-ok", {
+                  serviceSlug: spec.serviceSlug,
+                  healthUrl,
+                  status: res.status,
+                });
+              } else {
+                // A SETTLED response is not a warm success: a 404/500/503
+                // (e.g. a misderived backendUrl) logged as warm-ok would
+                // masquerade as healthy forever. Still debug-level — a cold
+                // container can 503 while booting, which is the expected
+                // case the warm exists for.
+                logger.debug("fleet.producer.warm-failed", {
+                  serviceSlug: spec.serviceSlug,
+                  healthUrl,
+                  status: res.status,
+                });
+              }
             },
             (err: unknown) => {
               // A cold container still booting / a network blip is EXPECTED here —

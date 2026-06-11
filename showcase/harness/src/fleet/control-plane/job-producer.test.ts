@@ -1350,6 +1350,63 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
     expect(warmed!.meta).toMatchObject({ warmed: 1 }); // beta only
   });
 
+  it("a settled-but-failing warm response (e.g. 503) logs warm-failed with the status, NOT warm-ok", async () => {
+    // The success handler used to log warm-ok for ANY settled response —
+    // including 404/500/503 — so a misderived backendUrl could masquerade
+    // as healthy forever. A non-ok status is a warm FAILURE.
+    const debugs: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      debug: (msg, meta) => {
+        debugs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const fetchImpl = (async (): Promise<Response> =>
+      new Response(null, { status: 503 })) as typeof fetch;
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => d6Specs(["alpha"]),
+      logger,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    // Let the fire-and-forget chain settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(debugs.map((e) => e.msg)).not.toContain("fleet.producer.warm-ok");
+    const failed = debugs.find((e) => e.msg === "fleet.producer.warm-failed");
+    expect(failed).toBeDefined();
+    expect(failed!.meta).toMatchObject({
+      serviceSlug: "alpha",
+      healthUrl: "https://alpha.example.com/health",
+      status: 503,
+    });
+  });
+
+  it("an ok warm response logs warm-ok WITH the status", async () => {
+    const debugs: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      debug: (msg, meta) => {
+        debugs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const fetchImpl = (async (): Promise<Response> =>
+      new Response(null, { status: 200 })) as typeof fetch;
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => d6Specs(["alpha"]),
+      logger,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const ok = debugs.find((e) => e.msg === "fleet.producer.warm-ok");
+    expect(ok).toBeDefined();
+    expect(ok!.meta).toMatchObject({ status: 200 });
+  });
+
   it("a throwing logger inside the warm chain never raises an unhandled rejection", async () => {
     // The fire-and-forget chain's own handlers can throw (an injected logger
     // whose transport is down). Without a terminal catch that surfaces as an
