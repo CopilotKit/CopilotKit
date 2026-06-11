@@ -289,7 +289,7 @@ export async function sweepStaleRuns(
   maxAgeMs: number = 15 * 60 * 1000,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
-  const filter = `state = "running" && started_at < "${cutoff}"`;
+  const filter = `state = "running" && started_at < ${JSON.stringify(cutoff)}`;
   const stale = await pb.list<ProbeRunRow>(PROBE_RUNS_COLLECTION, {
     filter,
     perPage: 50,

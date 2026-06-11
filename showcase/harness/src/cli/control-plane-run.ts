@@ -282,7 +282,7 @@ async function pbFetchStatus(
   token: string,
   keys: string[],
 ): Promise<Map<string, StatusRow>> {
-  const filter = keys.map((k) => `key="${k}"`).join(" || ");
+  const filter = keys.map((k) => `key = ${JSON.stringify(k)}`).join(" || ");
   const qs = new URLSearchParams({
     perPage: "200",
     filter,
