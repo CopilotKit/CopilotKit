@@ -2153,9 +2153,11 @@ describe("buildCellModel", () => {
       it.each(FAMILY_KEYS)(
         "a crash comm error on the %s aggregate row surfaces 'unreachable'",
         (key) => {
-          // Destructure-with-fallback (not a `[0]!` non-null assertion) so the
-          // shape stays valid under `noUncheckedIndexedAccess` and matches the
-          // assertion-free helper in src/lib/cell-model.test.ts.
+          // Destructure-with-fallback (not a `[0]!` non-null assertion):
+          // assertion-free, and it would stay valid if
+          // `noUncheckedIndexedAccess` were ever enabled (it is NOT in this
+          // package's tsconfig today). The sibling helper in
+          // src/lib/cell-model.test.ts uses the same shape.
           const [dimension = ""] = key.split(":");
           const live = mapOf([
             row(key, dimension, "green", {

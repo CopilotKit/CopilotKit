@@ -268,6 +268,21 @@ describe("mergeRowsToMap", () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/disjoint-key invariant violated/);
   });
+  it("does NOT warn when rows differ ONLY by signal presence (projection vs SSE provenance, CF7-F3 #5)", () => {
+    // The initial bulk fetch projects `signal` away while SSE deltas (and the
+    // comm-error supplemental fetch) deliver full rows, so the SAME logical
+    // row can legitimately exist in two groups with and without `signal`.
+    // That presence flip is expected provenance, not a disjoint-key invariant
+    // violation — warning on it is pure noise. (upsertByKey's reducer keeps
+    // treating the flip as observable; only THIS divergence warn excludes it.)
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const projected = row("d6:agno", "d6", "green", { signal: undefined });
+    const full = row("d6:agno", "d6", "green", { signal: { detail: "x" } });
+    const map = mergeRowsToMap([projected], [full]);
+    // Last-wins still applies — the signal-bearing row survives.
+    expect(map.get("d6:agno")?.signal).toEqual({ detail: "x" });
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
 
 describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix A2)", () => {

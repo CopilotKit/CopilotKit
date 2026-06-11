@@ -1146,6 +1146,28 @@ export function resolveCell(
  * equivalent signals upstream).
  */
 function rowsAreNoop(prev: unknown, next: unknown): boolean {
+  if (!coreRowFieldsEqual(prev, next)) return false;
+  if (prev === next) return true;
+  const a = prev as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  return (a.signal === undefined) === (b.signal === undefined);
+}
+
+/**
+ * Equality on the SIGNAL-INDEPENDENT observable row fields (`id`, `key`,
+ * `state`, `observed_at`, `transitioned_at`, `fail_count`,
+ * `first_failure_at`) — `rowsAreNoop` minus the signal-presence term.
+ *
+ * Split out for `mergeRowsToMap`'s divergence warn (CF7-F3 #5): the initial
+ * bulk fetch projects `signal` away while SSE deltas and the comm-error
+ * supplemental fetch deliver full rows, so the SAME logical row legitimately
+ * appears with and without `signal` depending on provenance. The reducer
+ * (`upsertByKey` → `rowsAreNoop`) MUST keep treating that presence flip as
+ * observable (the signal-bearing row has to replace the projected one), but
+ * the disjoint-key invariant warn must NOT fire on it — it is expected
+ * provenance, not an upstream keyspace violation.
+ */
+function coreRowFieldsEqual(prev: unknown, next: unknown): boolean {
   if (prev === next) return true;
   if (
     typeof prev !== "object" ||
@@ -1163,8 +1185,7 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
     a.observed_at === b.observed_at &&
     a.transitioned_at === b.transitioned_at &&
     a.fail_count === b.fail_count &&
-    a.first_failure_at === b.first_failure_at &&
-    (a.signal === undefined) === (b.signal === undefined)
+    a.first_failure_at === b.first_failure_at
   );
 }
 
@@ -1205,9 +1226,13 @@ export function upsertByKey<T extends StatusRow>(rows: T[], next: T): T[] {
  * eventual consistency).
  *
  * The warning fires only on GENUINE divergence — two rows with the same key
- * but a different observable state (compared via `rowsAreNoop`, the same
- * id/key/state/observed_at/transitioned_at/fail_count/first_failure_at +
- * signal-presence shallow check the reducer uses).
+ * but a different observable state (compared via `coreRowFieldsEqual`, the
+ * id/key/state/observed_at/transitioned_at/fail_count/first_failure_at
+ * shallow check the reducer uses — WITHOUT the reducer's signal-presence
+ * term, CF7-F3 #5: the initial fetch projects `signal` away while SSE deltas
+ * and the comm-error supplemental fetch deliver full rows, so a
+ * `signal` undefined⇄defined flip between groups is expected provenance, not
+ * a keyspace violation, and must not warn).
  * Identical-content-but-different-reference rows (e.g. the same producer row
  * re-allocated across two groups) are NOT a real invariant violation and used
  * to fire a noisy false warning under the old reference-based `prior !== r`
@@ -1218,7 +1243,7 @@ export function mergeRowsToMap(...rowGroups: StatusRow[][]): LiveStatusMap {
   for (const rows of rowGroups) {
     for (const r of rows) {
       const prior = map.get(r.key);
-      if (prior !== undefined && !rowsAreNoop(prior, r)) {
+      if (prior !== undefined && !coreRowFieldsEqual(prior, r)) {
         // eslint-disable-next-line no-console
         console.warn(
           `mergeRowsToMap: disjoint-key invariant violated for key="${r.key}" ` +

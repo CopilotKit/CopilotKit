@@ -28,8 +28,8 @@ import {
 } from "./staleness";
 
 // Re-export the staleness windows so existing consumers that import them from
-// this module (e.g. `cell-model.test.ts`) keep resolving — the canonical
-// definitions now live in `./staleness`.
+// this module (e.g. `__tests__/cell-model.test.ts`) keep resolving — the
+// canonical definitions now live in `./staleness`.
 export {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,

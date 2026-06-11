@@ -37,10 +37,14 @@ function row(
   opts: { signal?: unknown; observedAt?: string } = {},
 ): StatusRow {
   const observed = opts.observedAt ?? "2026-06-04T11:59:30.000Z";
+  // Destructure-with-fallback — assertion-free and matches the helper in
+  // __tests__/cell-model.test.ts (and stays valid if
+  // `noUncheckedIndexedAccess` is ever enabled).
+  const [dimension = ""] = key.split(":");
   return {
     id: key,
     key,
-    dimension: key.split(":")[0],
+    dimension,
     state,
     signal: opts.signal ?? null,
     observed_at: observed,
