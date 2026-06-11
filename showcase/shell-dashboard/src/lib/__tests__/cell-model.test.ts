@@ -2090,8 +2090,12 @@ describe("buildCellModel", () => {
       it.each(FAMILY_KEYS)(
         "a crash comm error on the %s aggregate row surfaces 'unreachable'",
         (key) => {
+          // Destructure-with-fallback (not a `[0]!` non-null assertion) so the
+          // shape stays valid under `noUncheckedIndexedAccess` and matches the
+          // assertion-free helper in src/lib/cell-model.test.ts.
+          const [dimension = ""] = key.split(":");
           const live = mapOf([
-            row(key, key.split(":")[0]!, "green", {
+            row(key, dimension, "green", {
               signal: {
                 __fleetCommError: {
                   kind: "worker-crashed-mid-job",
