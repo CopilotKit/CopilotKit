@@ -2886,6 +2886,120 @@ describe("FleetQueueClient.renewLease", () => {
     expect(getOneSpy).not.toHaveBeenCalled();
   });
 
+  it("a thrown renew carrying a DETERMINISTIC 4xx is a definitive loss — evicts the caches and returns null (G1a)", async () => {
+    // The indeterminate containment above is for failures that MAY have
+    // committed (5xx / transport / 2xx-unreadable). A 4xx from the renew
+    // endpoint is the hook REJECTING the request before its transaction ran
+    // (rotated creds → auth 400s, malformed ids, route drift) — it fails
+    // IDENTICALLY on every beat, so "assumed-live, retry next beat" never
+    // converges: the worker holds a phantom lease FOREVER while the server
+    // lease lapses and the sweeper hands the job to another worker
+    // (unbounded double-run — falsifying the documented one-lease-duration
+    // risk bound). A deterministic rejection must be treated like a lost
+    // CAS: error log, evict both caches, return null so the heartbeat stops.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    let renewMode: "reject4xx" | "win" = "reject4xx";
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            status: "claimed",
+            claimed_by: workerId,
+            lease_expires_at: "2026-06-04T00:01:00.000Z",
+            version: 1,
+          }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        if (renewMode === "reject4xx") {
+          throw new JobClaimEndpointError(
+            "/api/fleet/renew",
+            400,
+            "workerId must be a string",
+          );
+        }
+        return {
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        };
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    // Definitive loss: null (heartbeat stops), error-level log.
+    const lost = await q.renewLease("j1", "worker-7", 30);
+    expect(lost).toBeNull();
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.renew-rejected",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7", status: 400 }),
+    );
+    // The assumed-live warn must NOT fire for a deterministic rejection.
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      "queue-client.renew-indeterminate",
+      expect.anything(),
+    );
+
+    // Eviction proof: a later successful renew takes the convenience RE-READ
+    // path (cache miss → pb.getOne) — a leaked cache entry would skip it.
+    renewMode = "win";
+    const lease = await q.renewLease("j1", "worker-7", 30);
+    expect(lease).not.toBeNull();
+    expect(getOneSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a thrown renew carrying a 5xx JobClaimEndpointError KEEPS the assumed-live containment (G1a contrast)", async () => {
+    // Only the DETERMINISTIC 4xx class is carved out: a 5xx is genuinely
+    // indeterminate (the renew may have committed before the error
+    // surfaced), so the lease stays assumed-live and the next beat retries.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            status: "claimed",
+            claimed_by: workerId,
+            lease_expires_at: "2026-06-04T00:01:00.000Z",
+            version: 1,
+          }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        throw new JobClaimEndpointError("/api/fleet/renew", 502, "bad gateway");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    const kept = await q.renewLease("j1", "worker-7", 30);
+    expect(kept).not.toBeNull();
+    expect(kept?.leaseExpiresAt).toBe("2026-06-04T00:01:00.000Z");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.renew-indeterminate",
+      expect.objectContaining({ jobId: "j1" }),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      "queue-client.renew-rejected",
+      expect.anything(),
+    );
+  });
+
   it("a thrown renew with NO locally-known lease still throws (nothing to assume-live from)", async () => {
     const { pb } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },

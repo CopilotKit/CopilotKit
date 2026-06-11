@@ -960,6 +960,31 @@ export function createFleetQueueClient(
       try {
         result = await claim.renewLease(jobId, workerId, leaseSeconds);
       } catch (err) {
+        // DETERMINISTIC 4xx (mirrors the sweep's G1d carve-out): the hook
+        // REJECTED the request before its transaction ran (rotated creds →
+        // auth 400s, malformed ids, route drift) — it fails IDENTICALLY on
+        // every beat, so the assumed-live containment below would never
+        // converge: the worker holds a phantom lease FOREVER while the
+        // server lease lapses and the sweeper hands the job to another
+        // worker — UNBOUNDED double-run, falsifying the one-lease-duration
+        // risk bound documented below. Treat it like a definitively lost
+        // CAS: error log (an operator must look — the rejection recurs),
+        // evict both caches, return null so the heartbeat stops.
+        if (
+          err instanceof JobClaimEndpointError &&
+          err.status >= 400 &&
+          err.status < 500
+        ) {
+          logger.error("queue-client.renew-rejected", {
+            jobId,
+            workerId,
+            status: err.status,
+            err: err.message,
+          });
+          payloadCache.delete(jobId);
+          leaseCache.delete(jobId);
+          return null;
+        }
         // INDETERMINATE renew (thrown 5xx / transport blip / job-claim's
         // 2xx-unreadable): the renew may or may not have committed. The
         // worker heartbeat treats a renewLease THROW as fatal (it breaks),
@@ -967,7 +992,8 @@ export function createFleetQueueClient(
         // reclaims a possibly-LIVE job — a false worker-crashed-mid-job.
         // Contain it: keep the last-known lease ASSUMED-LIVE (no eviction,
         // not null) so the heartbeat retries on the next beat; only a
-        // definitive `renewed: false` stops it.
+        // definitive `renewed: false` (or a deterministic 4xx above) stops
+        // it.
         //
         // ACCEPTED RISK (at most one lease duration): if the renew really
         // did NOT commit, the server-side lease keeps ticking toward its
