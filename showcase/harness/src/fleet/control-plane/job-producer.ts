@@ -429,6 +429,16 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * skip — the already-queued trigger covers "run after the in-flight tick".
    */
   let queuedTrigger: Promise<TickResult> | null = null;
+  /**
+   * The PRIMARY stop()'s full completion — quiesce loop AND final
+   * comm-error drain — published synchronously by the first effective
+   * stop() and shared by every later/concurrent stop(). A secondary stop()
+   * that awaited only the in-flight tick could resolve while the primary
+   * was still mid drain (awaiting the sink); sharing ONE completion means
+   * EVERY stop() resolution implies the drain finished. null until the
+   * primary stop runs.
+   */
+  let stopPromise: Promise<void> | null = null;
 
   /** Build a `ServiceJobPayload` from a spec + the run's shared meta. */
   function toEnqueueInput(
@@ -919,60 +929,69 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     },
 
     async stop() {
-      if (!running) {
-        if (!started) {
-          // stop() BEFORE start(): nothing ever ran, so there is nothing to
-          // quiesce or drain — and latching `stopped` here (the old
-          // behavior) permanently bricked the producer: every later start()
-          // hit the start-after-stop latch. A teardown racing ahead of boot
-          // wiring is a benign ordering, not a lifecycle end — no-op.
-          logger.debug("fleet.producer.stop-before-start");
-          return;
-        }
-        stopped = true;
-        // A SECOND concurrent stop() lands here (the first flipped `running`
-        // synchronously) — it must STILL quiesce: returning while the first
-        // stop()'s tick is mid-enqueue made "stopped" a lie to this caller
-        // (a shutdown racing two stop()s could tear the queue down under a
-        // still-writing tick). Await the in-flight tick AND any queued
-        // trigger, same as the primary path below.
+      // ANY stop() after the primary — concurrent or later — shares the
+      // primary's full completion (quiesce loop AND final drain). The old
+      // secondary path awaited only the in-flight tick / queued trigger,
+      // so with neither in flight it resolved IMMEDIATELY while the primary
+      // was still mid final-drain (awaiting the sink) — a shutdown
+      // sequenced on the second stop() could tear the aggregator down
+      // under the still-delivering drain. Every stop() resolution must
+      // imply the drain finished.
+      if (stopPromise !== null) {
+        await stopPromise;
+        return;
+      }
+      if (!started) {
+        // stop() BEFORE start(): nothing ever ran, so there is nothing to
+        // quiesce or drain — and latching `stopped` here (the old
+        // behavior) permanently bricked the producer: every later start()
+        // hit the start-after-stop latch. A teardown racing ahead of boot
+        // wiring is a benign ordering, not a lifecycle end — no-op.
+        logger.debug("fleet.producer.stop-before-start");
+        return;
+      }
+      // PRIMARY stop. The flags AND stopPromise are published SYNCHRONOUSLY
+      // (before any await), so a concurrent second stop() always lands on
+      // the shared-completion path above — `started && !running` with a
+      // null stopPromise is unreachable.
+      running = false;
+      stopped = true;
+      stopPromise = (async () => {
+        // QUIESCE: an in-flight tick observed `running === true` at entry and
+        // may still be enumerating/sweeping/enqueueing. "Stopped" must mean the
+        // tick is DONE — its enqueue loop truncates on the flag flipped above,
+        // and stop() resolves only once the tick has fully unwound. A LOOP, not
+        // a single await: a queued trigger (see the re-entrancy guard) takes
+        // the in-flight slot after the current tick resolves — its (skipped,
+        // `running` is false) run must also unwind before stop() resolves.
         while (inFlightTick !== null || queuedTrigger !== null) {
           await (inFlightTick ?? queuedTrigger)!.catch(() => {});
         }
-        return;
-      }
-      running = false;
-      stopped = true;
-      // QUIESCE: an in-flight tick observed `running === true` at entry and
-      // may still be enumerating/sweeping/enqueueing. "Stopped" must mean the
-      // tick is DONE — its enqueue loop truncates on the flag flipped above,
-      // and stop() resolves only once the tick has fully unwound. A LOOP, not
-      // a single await: a queued trigger (see the re-entrancy guard) takes
-      // the in-flight slot after the current tick resolves — its (skipped,
-      // `running` is false) run must also unwind before stop() resolves.
-      while (inFlightTick !== null || queuedTrigger !== null) {
-        await (inFlightTick ?? queuedTrigger)!.catch(() => {});
-      }
-      // FINAL DRAIN: buffered undelivered comm errors would otherwise die
-      // with the process — `sweepExpired` cannot re-derive a missed batch.
-      // One best-effort delivery; if it fails too, the batch is dropped
-      // LOUDLY (count + jobIds at error level), never silently.
-      if (undeliveredCommErrors.length > 0 && onSweepCommErrors !== undefined) {
-        const batch = undeliveredCommErrors;
-        undeliveredCommErrors = [];
-        try {
-          await onSweepCommErrors(batch);
-        } catch (err) {
-          logger.error("fleet.producer.stop-commerrors-dropped", {
-            dropped: batch.length,
-            jobIds: batch
-              .map((e) => e.jobId)
-              .filter((id): id is string => id !== undefined),
-            err: err instanceof Error ? err.message : String(err),
-          });
+        // FINAL DRAIN: buffered undelivered comm errors would otherwise die
+        // with the process — `sweepExpired` cannot re-derive a missed batch.
+        // One best-effort delivery; if it fails too, the batch is dropped
+        // LOUDLY (count + jobIds at error level), never silently.
+        if (
+          undeliveredCommErrors.length > 0 &&
+          onSweepCommErrors !== undefined
+        ) {
+          const batch = undeliveredCommErrors;
+          undeliveredCommErrors = [];
+          try {
+            await onSweepCommErrors(batch);
+          } catch (err) {
+            logger.error("fleet.producer.stop-commerrors-dropped", {
+              dropped: batch.length,
+              jobIds: batch
+                .map((e) => e.jobId)
+                .filter((id): id is string => id !== undefined),
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
         }
-      }
-      logger.info("fleet.producer.stop");
+        logger.info("fleet.producer.stop");
+      })();
+      await stopPromise;
     },
 
     isRunning() {

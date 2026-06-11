@@ -1869,6 +1869,67 @@ describe("job-producer — stop() quiesce", () => {
     expect(dropLog).toBeDefined();
     expect(dropLog!.meta).toMatchObject({ dropped: 1, jobIds: ["j1"] });
   });
+
+  it("a SECOND concurrent stop() does not resolve before the FIRST stop's final comm-error drain completes", async () => {
+    // The secondary stop() path used to await only the in-flight tick /
+    // queued trigger — with neither in flight it returned IMMEDIATELY, while
+    // the primary stop() was still mid final-drain (awaiting the sink). A
+    // shutdown sequenced on the second stop() could then tear the aggregator
+    // down under the still-delivering drain. EVERY stop() resolution must
+    // imply the drain finished — both paths share one stop completion.
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: 1,
+        commErrors: [
+          {
+            kind: "worker-reclaimed-pending",
+            message: "lease for job j1 expired; re-queued",
+            jobId: "j1",
+            observedAt: "2026-06-04T00:00:09.000Z",
+          },
+        ],
+      }),
+    });
+    let releaseDrain!: () => void;
+    const drainGate = new Promise<void>((resolve) => {
+      releaseDrain = resolve;
+    });
+    let sinkCalls = 0;
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      onSweepCommErrors: async () => {
+        sinkCalls += 1;
+        if (sinkCalls === 1) throw new Error("aggregator down"); // buffer j1
+        await drainGate; // the stop()-drain delivery hangs until released
+      },
+    });
+    producer.start();
+    await producer.tick(); // sink fails — j1 buffered
+
+    const first = producer.stop(); // primary: quiesce + (gated) final drain
+    const second = producer.stop(); // concurrent secondary
+    let firstResolved = false;
+    let secondResolved = false;
+    void first.then(() => {
+      firstResolved = true;
+    });
+    void second.then(() => {
+      secondResolved = true;
+    });
+
+    // Let microtasks settle: the drain is gated, so NEITHER stop may resolve.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sinkCalls).toBe(2); // the drain delivery is in flight
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
+
+    releaseDrain();
+    await Promise.all([first, second]);
+    expect(firstResolved).toBe(true);
+    expect(secondResolved).toBe(true);
+  });
 });
 
 describe("job-producer — lifecycle seams (start/stop/tick)", () => {
