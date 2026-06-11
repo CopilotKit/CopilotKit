@@ -2,7 +2,11 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 import { getPb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
 import type { ConnectionStatus, StatusRow } from "../lib/live-status";
-import { STATUS_LIST_FIELDS, upsertByKey } from "../lib/live-status";
+import {
+  STATUS_LIST_FIELDS,
+  FLEET_COMM_AGGREGATE_DIMENSIONS,
+  upsertByKey,
+} from "../lib/live-status";
 
 // Back-compat alias: the connection-status union is owned by `live-status.ts`
 // as `ConnectionStatus` (the single source of truth shared with resolveCell /
@@ -213,6 +217,41 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       ? pb.filter("dimension = {:dim}", { dim: dimension })
       : "";
 
+    // SUPPLEMENTAL comm-error aggregate filter (CF7-F3 #1). The bulk initial
+    // fetch projects `signal` away (STATUS_LIST_FIELDS), but
+    // `decodeCellCommError` (cell-model.ts) reads `row.signal` per cell at
+    // render to derive the REQ-B unreachable/pending overlay — so on a cold
+    // load every active overlay was invisible until an SSE delta happened to
+    // re-deliver the row. We re-fetch ONLY the comm-error candidate AGGREGATE
+    // rows WITH `signal`: the FLEET_COMM_AGGREGATE_DIMENSIONS dimensions
+    // (`d6`/`d4`/`e2e-demos`/`d5-single-pill-e2e`), restricted to
+    // integration-level aggregate keys (`key !~ "%/%"` — no `/<featureId>`
+    // segment), which is where the harness mirrors comm errors. That is a few
+    // rows per integration (~4 × #slugs), so the bulk projection's ~61%
+    // payload win is preserved; the per-cell rows under the same dimensions
+    // carry the heavy parity-diff signals and are deliberately NOT re-fetched
+    // (a stale per-cell comm error is only ever a same/lower-severity
+    // tie-break candidate against the aggregate mirror — see the
+    // decodeCellCommError scan doc).
+    //
+    // The dimension literals come from our own `as const` list (never caller
+    // input), so inline interpolation is safe; a caller-scoped `dimension` is
+    // honored by narrowing to the MATCHED literal (scopes outside the
+    // aggregate set skip the fetch entirely — their rows can't carry a
+    // mirrored comm error the dashboard would read).
+    const matchedCommDim =
+      dimension === undefined
+        ? undefined
+        : FLEET_COMM_AGGREGATE_DIMENSIONS.find((d) => d === dimension);
+    const commAggregateFilter: string | null =
+      dimension === undefined
+        ? `(${FLEET_COMM_AGGREGATE_DIMENSIONS.map(
+            (d) => `dimension = "${d}"`,
+          ).join(" || ")}) && key !~ "%/%"`
+        : matchedCommDim !== undefined
+          ? `dimension = "${matchedCommDim}" && key !~ "%/%"`
+          : null;
+
     function teardownSubscription(): void {
       if (cancel) {
         try {
@@ -393,6 +432,40 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       }, HEARTBEAT_INTERVAL_MS);
     }
 
+    /**
+     * Fetch the comm-error candidate AGGREGATE rows WITH `signal` (no
+     * `fields` projection) — the narrow companion to the bulk projected
+     * fetch; see the `commAggregateFilter` doc above (CF7-F3 #1). Returns
+     * `[]` without a request when the hook's dimension scope cannot
+     * intersect the aggregate set. Length-bounded serial pagination: the
+     * result is ~4 rows per integration, so page 1 is essentially always the
+     * only page — the loop is a correctness guard, not a hot path.
+     */
+    async function fetchCommAggregateRows(): Promise<StatusRow[]> {
+      if (commAggregateFilter === null) return [];
+      // `requestKey: null` for the same reason as the bulk fetch: this hits
+      // the SAME path (`/api/collections/status/records`) concurrently with
+      // the bulk pages, so the SDK's default auto-key would cancel one or
+      // the other.
+      const opts = {
+        filter: commAggregateFilter,
+        sort: INITIAL_SORT,
+        skipTotal: true,
+        requestKey: null,
+      };
+      const rows: StatusRow[] = [];
+      let page = 1;
+      for (;;) {
+        const res = await pb
+          .collection("status")
+          .getList<StatusRow>(page, INITIAL_PAGE_SIZE, opts);
+        rows.push(...res.items);
+        if (res.items.length < INITIAL_PAGE_SIZE) break;
+        page += 1;
+      }
+      return rows;
+    }
+
     async function fetchInitial(): Promise<StatusRow[]> {
       // Best-effort consistent snapshot via a stable-sorted, LENGTH-bounded
       // CONCURRENT paged fetch.
@@ -419,7 +492,10 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       // `fields: STATUS_LIST_FIELDS` projects every StatusRow field EXCEPT the
       // heavy `signal` blob (~61% of the payload), the dominant transfer-size
       // win for first paint; the SSE subscription still delivers full rows
-      // (signal included) for every subsequent delta.
+      // (signal included) for every subsequent delta, and the SUPPLEMENTAL
+      // comm-error aggregate fetch (kicked off below, CF7-F3 #1) restores
+      // `signal` on the few aggregate rows the comm-error overlay reads at
+      // render time.
       //
       // `sort: "id"` is forwarded to EVERY page request so all the concurrent
       // reads share the same ordering: for a STABLE collection that means no
@@ -454,52 +530,91 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
             requestKey: null,
           };
 
+      // Kick off the supplemental comm-error aggregate fetch (CF7-F3 #1)
+      // CONCURRENTLY with the bulk pages — it is independent of the page
+      // chain and its rows are merged in after the bulk completes. A no-op
+      // (resolved []) when the dimension scope can't intersect the aggregate
+      // set.
+      const commAggregatePromise = fetchCommAggregateRows();
       const pages: StatusRow[][] = [];
-      const first = await pb
-        .collection("status")
-        .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
-      pages.push(first.items);
-      // Page 1 short ⇒ single-page collection, no fan-out.
-      let lastPageFull = first.items.length === INITIAL_PAGE_SIZE;
-      let nextPage = 2;
-      while (lastPageFull) {
-        // Fan out one wave of consecutive pages CONCURRENTLY. `Promise.all`
-        // preserves request (array-index) order regardless of resolution
-        // order, so the merge stays deterministic page order.
-        const wave: Promise<{ items: StatusRow[] }>[] = [];
-        for (let i = 0; i < INITIAL_FANOUT_BATCH; i++) {
-          const page = nextPage + i;
-          wave.push(
-            pb
-              .collection("status")
-              .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts),
+      try {
+        const first = await pb
+          .collection("status")
+          .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
+        pages.push(first.items);
+        // Page 1 short ⇒ single-page collection, no fan-out.
+        let lastPageFull = first.items.length === INITIAL_PAGE_SIZE;
+        let nextPage = 2;
+        while (lastPageFull) {
+          // Fan out one wave of consecutive pages CONCURRENTLY. `Promise.all`
+          // preserves request (array-index) order regardless of resolution
+          // order, so the merge stays deterministic page order.
+          const wave: Promise<{ items: StatusRow[] }>[] = [];
+          for (let i = 0; i < INITIAL_FANOUT_BATCH; i++) {
+            const page = nextPage + i;
+            wave.push(
+              pb
+                .collection("status")
+                .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts),
+            );
+          }
+          const waveResults = await Promise.all(wave);
+          // Merge the wave in strict page (array-index) order, stopping at the
+          // FIRST short page. This is correct for ANY INITIAL_FANOUT_BATCH, not
+          // just 2: PocketBase pagination is monotonic, so once a page returns
+          // fewer than INITIAL_PAGE_SIZE items it is the LAST page with data and
+          // every page issued AFTER it in the same wave is past the end (empty).
+          // We locate that boundary, append pages up to AND INCLUDING it, and
+          // append nothing after — so no empty tail page is ever merged and no
+          // real tail row is ever dropped, regardless of how many pages a wave
+          // over-fetched past the end. (A larger batch only over-FETCHES extra
+          // empty pages on the wire; it can never corrupt the merge. This guards
+          // against silently reintroducing the #4504 over-fetch-past-end bug if
+          // the constant is tuned.)
+          const shortIdx = waveResults.findIndex(
+            (result) => result.items.length < INITIAL_PAGE_SIZE,
           );
+          const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
+          for (let i = 0; i <= lastIdx; i++) {
+            pages.push(waveResults[i]!.items);
+          }
+          // The wave ended the collection iff it contained a short page.
+          lastPageFull = shortIdx === -1;
+          nextPage += INITIAL_FANOUT_BATCH;
         }
-        const waveResults = await Promise.all(wave);
-        // Merge the wave in strict page (array-index) order, stopping at the
-        // FIRST short page. This is correct for ANY INITIAL_FANOUT_BATCH, not
-        // just 2: PocketBase pagination is monotonic, so once a page returns
-        // fewer than INITIAL_PAGE_SIZE items it is the LAST page with data and
-        // every page issued AFTER it in the same wave is past the end (empty).
-        // We locate that boundary, append pages up to AND INCLUDING it, and
-        // append nothing after — so no empty tail page is ever merged and no
-        // real tail row is ever dropped, regardless of how many pages a wave
-        // over-fetched past the end. (A larger batch only over-FETCHES extra
-        // empty pages on the wire; it can never corrupt the merge. This guards
-        // against silently reintroducing the #4504 over-fetch-past-end bug if
-        // the constant is tuned.)
-        const shortIdx = waveResults.findIndex(
-          (result) => result.items.length < INITIAL_PAGE_SIZE,
-        );
-        const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
-        for (let i = 0; i <= lastIdx; i++) {
-          pages.push(waveResults[i]!.items);
-        }
-        // The wave ended the collection iff it contained a short page.
-        lastPageFull = shortIdx === -1;
-        nextPage += INITIAL_FANOUT_BATCH;
+      } catch (err) {
+        // The bulk fetch failed — connect() retries the WHOLE initial fetch,
+        // supplemental included. Detach the in-flight supplemental promise so
+        // its eventual rejection (the backend is likely down for it too)
+        // can't surface as an unhandled rejection; its rows are useless
+        // without the bulk rows anyway.
+        commAggregatePromise.catch(() => {});
+        throw err;
       }
-      return pages.flat();
+      const bulk = pages.flat();
+      // Merge the supplemental signal-bearing aggregate rows over their
+      // projected bulk twins, BY KEY (CF7-F3 #1). A supplemental row replaces
+      // the projected row in place (preserving the bulk's deterministic page
+      // order); an aggregate row the bulk snapshot didn't carry (created
+      // between the two reads) is appended — the same eventual-consistency
+      // posture as the SSE reconciliation. A supplemental FAILURE intentionally
+      // propagates: a cold load that silently misses active comm-error
+      // overlays is the exact bug this fetch exists to fix, so it retries
+      // through the same connect() chain as the bulk fetch (fail loud, not
+      // fail half-blind).
+      const commAggregates = await commAggregatePromise;
+      if (commAggregates.length === 0) return bulk;
+      const fullByKey = new Map(commAggregates.map((r) => [r.key, r] as const));
+      const merged = bulk.map((r) => {
+        const full = fullByKey.get(r.key);
+        if (full === undefined) return r;
+        fullByKey.delete(r.key);
+        return full;
+      });
+      for (const leftover of fullByKey.values()) {
+        merged.push(leftover);
+      }
+      return merged;
     }
 
     async function connect(): Promise<void> {

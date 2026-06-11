@@ -111,6 +111,32 @@ export interface PoolCommError {
 export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
 
 /**
+ * The status-row DIMENSIONS whose integration-level AGGREGATE rows
+ * (`<dimension>:<slug>`, no `/<featureId>` segment) carry mirrored fleet comm
+ * errors (REQ-B): the harness result-aggregator / control-plane fleet-health
+ * leg mirror onto `d6:<slug>`, and the global lease sweep mirrors onto the
+ * reclaimed job's `probe_key` — `d4:<slug>` (smoke), `e2e-demos:<slug>`
+ * (demos), and `d5-single-pill-e2e:<slug>` (deep) for the non-d6 families
+ * (see harness resolveSweepAggregateKey → aggregateCommError, and the G3f
+ * candidate scan in cell-model.ts `decodeCellCommError`).
+ *
+ * SINGLE SOURCE OF TRUTH shared by two consumers that must stay in lockstep:
+ *   - `decodeCellCommError` (cell-model.ts) scans these aggregate keys for
+ *     the unreachable/pending overlay, and
+ *   - `useLiveStatus`'s supplemental initial fetch re-fetches exactly these
+ *     rows WITH `signal` (the bulk initial fetch projects `signal` away — see
+ *     `STATUS_LIST_FIELDS` — so without the supplemental fetch a cold page
+ *     load would render every active comm-error overlay invisible until an
+ *     SSE delta happened to re-deliver the row; CF7-F3 #1).
+ */
+export const FLEET_COMM_AGGREGATE_DIMENSIONS = [
+  "d6",
+  "d4",
+  "e2e-demos",
+  "d5-single-pill-e2e",
+] as const;
+
+/**
  * The dashboard's per-cell presentation state: the cell's resolved colour
  * vocabulary (`green` | `amber` | `red` | `gray`, i.e. the `ChipColor` the cell
  * already renders) PLUS the comm-error overlay `"unreachable"`. A PRESENTATION
@@ -193,15 +219,26 @@ export interface StatusRow {
 export type LiveStatusMap = Map<string, StatusRow>;
 
 /**
- * Comma-joined PocketBase `fields` projection for the INITIAL status fetch —
- * every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe output:
- * error messages, diffs, nested objects) is ~61% of the status payload by
- * size but is only ever read in the drilldown panel and the per-cell banner,
- * both of which lazy-load the full row on demand. Dropping it from the bulk
- * initial fetch (~2455 rows across ~5 pages) is the dominant transfer-size win
- * for first paint; the live SSE subscription still delivers full rows
- * (`signal` included) for every subsequent delta, so the drilldown/banner are
- * unaffected once a row updates.
+ * Comma-joined PocketBase `fields` projection for the BULK INITIAL status
+ * fetch — every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe
+ * output: error messages, diffs, nested objects) is ~61% of the status
+ * payload by size. Dropping it from the bulk initial fetch (~2455 rows across
+ * ~5 pages) is the dominant transfer-size win for first paint; the live SSE
+ * subscription still delivers full rows (`signal` included) for every
+ * subsequent delta.
+ *
+ * `signal` IS read at render time, in three places:
+ *   - the drilldown panel and the per-cell banner, which lazy-load the full
+ *     row on demand (unaffected by this projection), and
+ *   - `buildCellModel` → `decodeCellCommError` (cell-model.ts), which reads
+ *     `row.signal` PER CELL on every render to derive the REQ-B
+ *     unreachable/pending comm-error overlay. That read cannot lazy-load —
+ *     so `useLiveStatus` issues a SUPPLEMENTAL initial fetch (CF7-F3 #1) of
+ *     ONLY the comm-error candidate aggregate rows
+ *     (`FLEET_COMM_AGGREGATE_DIMENSIONS`, `<dim>:<slug>` keys — a few rows
+ *     per integration, not the whole collection) WITH `signal`, keeping the
+ *     bulk projection's payload win while making active overlays visible
+ *     from a cold load instead of waiting for an SSE re-delivery.
  *
  * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
  * minus `signal`, so a new `StatusRow` field forces a conscious decision about
@@ -940,9 +977,7 @@ function buildBadge(
   // split (see formatTooltip's `stale` param) so the two can never disagree.
   const stale = row !== null && isStale(row, now, maxAgeMs);
   const effRow: StatusRow | null =
-    row && row.state === "green" && stale
-      ? { ...row, state: "degraded" }
-      : row;
+    row && row.state === "green" && stale ? { ...row, state: "degraded" } : row;
   return {
     tone: rowTone(effRow),
     label: formatLabel(dim, effRow, stale),

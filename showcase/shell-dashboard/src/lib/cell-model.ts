@@ -18,6 +18,7 @@ import {
   keyFor,
   CATALOG_TO_D5_KEY,
   commErrorFromStatusSignal,
+  FLEET_COMM_AGGREGATE_DIMENSIONS,
 } from "./live-status";
 import {
   E2E_STALE_AFTER_MS,
@@ -620,7 +621,13 @@ function decodeCellCommError(
   // `probe_key` (also `d6:<slug>`). Without scanning the aggregate key here the
   // dashboard never surfaces the "unreachable" overlay even though the signal
   // is persisted. Checked alongside the per-cell rows so a worker-death comm
-  // error lights up every cell of the affected service.
+  // error lights up every cell of the affected service. NOTE: the full set of
+  // comm-error aggregate dimensions lives in FLEET_COMM_AGGREGATE_DIMENSIONS
+  // (live-status.ts) — the same list useLiveStatus's supplemental initial
+  // fetch uses to re-fetch these rows WITH `signal` (CF7-F3 #1); `d6` is
+  // pushed here (before the per-cell e2e/chat/tools/health candidates — scan
+  // order is the documented equal-timestamp tie-break and is pinned by tests)
+  // and the non-d6 trio below (G3f).
   candidates.push({
     key: keyFor("d6", slug),
     staleAfterMs: E2E_STALE_AFTER_MS,
@@ -650,19 +657,17 @@ function decodeCellCommError(
   // `d5-single-pill-e2e:<slug>` (deep) — see the catalog-enumerator probeKey
   // prefixes. The dashboard reads those rows NOWHERE else, so without
   // scanning them here a reclaim/crash overlay on those families is
-  // invisible. They ride the job-queue (e2e) cadence → e2e window.
-  candidates.push({
-    key: keyFor("d4", slug),
-    staleAfterMs: E2E_STALE_AFTER_MS,
-  });
-  candidates.push({
-    key: keyFor("e2e-demos", slug),
-    staleAfterMs: E2E_STALE_AFTER_MS,
-  });
-  candidates.push({
-    key: keyFor("d5-single-pill-e2e", slug),
-    staleAfterMs: E2E_STALE_AFTER_MS,
-  });
+  // invisible. They ride the job-queue (e2e) cadence → e2e window. Derived
+  // from FLEET_COMM_AGGREGATE_DIMENSIONS (minus `d6`, pushed earlier — see
+  // the aggregate-row note above) so this scan and useLiveStatus's
+  // supplemental signal fetch can never drift apart.
+  for (const dim of FLEET_COMM_AGGREGATE_DIMENSIONS) {
+    if (dim === "d6") continue; // pushed above, in its pinned scan position
+    candidates.push({
+      key: keyFor(dim, slug),
+      staleAfterMs: E2E_STALE_AFTER_MS,
+    });
+  }
 
   // Decode every candidate and keep the WORST comm error, ranking by KIND
   // SEVERITY first and using recency only as a same-severity tie-break. A

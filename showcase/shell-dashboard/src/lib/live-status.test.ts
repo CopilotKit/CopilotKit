@@ -930,8 +930,9 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
 
 describe("resolveD5Row / resolveD6Row — effective (stale-downgraded) winner (G2f)", () => {
   const NOW = Date.parse("2026-05-30T00:00:00Z");
-  const staleAt = new Date(NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000)
-    .toISOString();
+  const staleAt = new Date(
+    NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000,
+  ).toISOString();
   const freshAt = new Date(NOW).toISOString();
 
   it("resolveD5Row returns the EFFECTIVE row for a stale-green winner (.row.state agrees with the fold)", () => {
@@ -1017,8 +1018,9 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
 
   it("an age-downgraded green row keeps the 'stale — last seen' copy (G2f)", () => {
     const NOW = Date.parse("2026-05-30T00:00:00Z");
-    const oldTs = new Date(NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000)
-      .toISOString();
+    const oldTs = new Date(
+      NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000,
+    ).toISOString();
     const live = mapOf([
       row("e2e:a/b", "e2e", "green", { observed_at: oldTs }),
     ]);

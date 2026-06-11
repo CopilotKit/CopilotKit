@@ -62,6 +62,16 @@ const mockState = {
   // pages — offset pagination over a live-mutating collection drops/duplicates
   // rows without one.
   initialPageOpts: [] as { filter?: string; sort?: string }[],
+  // Rows served to the SUPPLEMENTAL comm-error aggregate fetch (CF7-F3 #1) —
+  // the narrow re-fetch of the FLEET_COMM_AGGREGATE_DIMENSIONS aggregate rows
+  // WITH `signal`. Served verbatim (full rows), the way real PB answers a
+  // request with no `fields` projection.
+  commAggregateRows: [] as Record<string, unknown>[],
+  // Supplemental comm-aggregate fetch instrumentation: call count + the last
+  // options, so tests can assert the filter shape and the skip behavior for
+  // dimension scopes outside the aggregate set.
+  commFetchCalls: 0,
+  lastCommFetchOpts: undefined as unknown,
 };
 
 // Build a PocketBase-style paged getList response over `mockState.initial`,
@@ -112,18 +122,19 @@ vi.mock("../lib/pb", () => {
       return out;
     },
     collection: (_name: string) => ({
-      // getList serves two callers, distinguished by `perPage`:
-      //   - heartbeat ping  → getList(1, 1, …)
-      //   - initial fetch   → getList(page, PB_PAGE_SIZE, …) for each page
-      // The initial fetch issues page 1 first (to read totalPages), then fans
-      // out pages 2..N concurrently. To prove the merge is order-safe, a test
-      // can set `pageResolveDelayMs` so a LATER page resolves BEFORE an earlier
-      // one — the hook must still return rows in page order.
+      // getList serves three callers:
+      //   - heartbeat ping       → getList(1, 1, …)            (perPage 1)
+      //   - supplemental comm    → filter contains `key !~`    (CF7-F3 #1)
+      //   - bulk initial fetch   → getList(page, PB_PAGE_SIZE, …) per page
+      // The bulk fetch issues page 1 first, then fans out pages 2..N
+      // concurrently. To prove the merge is order-safe, a test can set
+      // `pageResolveDelayMs` so a LATER page resolves BEFORE an earlier one —
+      // the hook must still return rows in page order.
       getList: vi.fn(
         async (
           page: number,
           perPage: number,
-          opts?: { filter?: string; sort?: string },
+          opts?: { filter?: string; sort?: string; fields?: string },
         ) => {
           // Heartbeat ping: perPage 1. Keep its 1-row contract + fail hook.
           if (perPage === 1) {
@@ -133,6 +144,27 @@ vi.mock("../lib/pb", () => {
               throw new Error("heartbeat-fail");
             }
             return pageResponse(1, 1);
+          }
+          // Supplemental comm-error aggregate fetch (CF7-F3 #1), identified
+          // by its aggregate-key filter marker (`key !~` — aggregate rows
+          // carry no `/<featureId>` segment). Served from a dedicated fixture
+          // VERBATIM (full rows, signal included — no `fields` projection is
+          // sent) and deliberately NOT recorded into the bulk-fetch
+          // instrumentation (initialPageRequestOrder / initialPageOpts /
+          // lastInitialGetListOpts) so the fan-out order/count assertions
+          // keep targeting the bulk fetch alone.
+          if (
+            typeof opts?.filter === "string" &&
+            opts.filter.includes("key !~")
+          ) {
+            mockState.getListCalls += 1;
+            mockState.commFetchCalls += 1;
+            mockState.lastCommFetchOpts = opts;
+            return {
+              items: page === 1 ? mockState.commAggregateRows : [],
+              page,
+              perPage,
+            };
           }
           // Initial paged fetch.
           mockState.getListCalls += 1;
@@ -150,7 +182,27 @@ vi.mock("../lib/pb", () => {
           // Apply the requested `sort` server-side (see pageResponse) so the
           // forwarded-sort contract is exercised behaviorally, not just by
           // inspecting the captured option string.
-          return pageResponse(page, perPage, opts?.sort);
+          const resp = pageResponse(page, perPage, opts?.sort);
+          // Honour the `fields` projection like real PB: the hook's bulk
+          // initial fetch projects `signal` away (STATUS_LIST_FIELDS), so the
+          // rows it receives must NOT carry `signal` — the old mock returned
+          // full rows here, which is exactly how the CF7-F3 #1 cold-fetch
+          // overlay bug stayed invisible to this suite.
+          const fields = opts?.fields;
+          if (
+            typeof fields === "string" &&
+            fields.length > 0 &&
+            !fields.split(",").includes("signal")
+          ) {
+            return {
+              ...resp,
+              items: resp.items.map(
+                ({ signal: _signal, ...rest }) =>
+                  rest as Record<string, unknown>,
+              ),
+            };
+          }
+          return resp;
         },
       ),
       subscribe: vi.fn(async (_topic: string, cb: Listener, opts?: unknown) => {
@@ -175,6 +227,8 @@ vi.mock("../lib/pb", () => {
 });
 
 import { useLiveStatus } from "./useLiveStatus";
+import { buildCellModel } from "../lib/cell-model";
+import { mergeRowsToMap } from "../lib/live-status";
 
 describe("useLiveStatus", () => {
   beforeEach(() => {
@@ -190,6 +244,9 @@ describe("useLiveStatus", () => {
     mockState.pageResolveDelayMs = {};
     mockState.initialPageRequestOrder = [];
     mockState.initialPageOpts = [];
+    mockState.commAggregateRows = [];
+    mockState.commFetchCalls = 0;
+    mockState.lastCommFetchOpts = undefined;
     // Reset the startTransition counter so the transition assertion can't pass
     // on stale state leaked from a prior test (A3).
     startTransitionCalls.count = 0;
@@ -762,5 +819,104 @@ describe("useLiveStatus", () => {
       });
     });
     expect(result.current.rows).toHaveLength(0);
+  });
+
+  describe("supplemental comm-error aggregate fetch (CF7-F3 #1)", () => {
+    // A fresh observedAt (relative to real Date.now(), which buildCellModel
+    // defaults to) so the comm error sits well inside the E2E staleness
+    // window from a cold load.
+    const COMM_OBSERVED_AT = new Date(Date.now() - 60_000).toISOString();
+    const COMM_SIGNAL = {
+      __fleetCommError: {
+        kind: "worker-unreachable",
+        message: "connect refused",
+        workerId: "fleet-worker-1",
+        observedAt: COMM_OBSERVED_AT,
+      },
+    };
+    // The d6:<slug> AGGREGATE row as it exists in the collection: the bulk
+    // initial fetch returns it WITHOUT signal (projection), the supplemental
+    // fetch returns it WITH signal.
+    const aggregateRow = {
+      id: "agg-acme",
+      key: "d6:acme",
+      dimension: "d6",
+      state: "green",
+      signal: COMM_SIGNAL,
+      observed_at: COMM_OBSERVED_AT,
+      transitioned_at: COMM_OBSERVED_AT,
+      fail_count: 0,
+      first_failure_at: null,
+    };
+
+    it("a mirrored comm error renders the overlay from a COLD initial fetch (no SSE delta)", async () => {
+      // REGRESSION (CF7-F3 #1): decodeCellCommError derives the REQ-B
+      // unreachable overlay from row.signal, but the bulk initial fetch
+      // projects signal away (STATUS_LIST_FIELDS) — so on every page refresh
+      // active overlays vanished until an SSE delta happened to re-deliver
+      // the row. The supplemental aggregate fetch must restore the signal on
+      // the comm-error candidate rows at cold-load time.
+      mockState.initial = [aggregateRow];
+      mockState.commAggregateRows = [aggregateRow];
+
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+
+      // The hook's rows must carry the aggregate row WITH its signal —
+      // pre-fix the projected (signal-less) bulk row was all consumers saw.
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg).toBeDefined();
+      expect(agg?.signal).toEqual(COMM_SIGNAL);
+
+      // End-to-end: the cell model derived from a cold fetch renders the
+      // unreachable overlay (this is what buildCellModel does per cell at
+      // render).
+      const model = buildCellModel(mergeRowsToMap([...result.current.rows]), {
+        slug: "acme",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: true,
+      });
+      expect(model.commError?.kind).toBe("worker-unreachable");
+      expect(model.surfaceState).toBe("unreachable");
+    });
+
+    it("requests ONLY aggregate-shaped keys for the comm-error dimensions (narrow filter)", async () => {
+      mockState.commAggregateRows = [aggregateRow];
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(1);
+      const opts = mockState.lastCommFetchOpts as {
+        filter?: string;
+        fields?: string;
+      };
+      // All four comm-error aggregate dimensions, aggregate keys only
+      // (no `/<featureId>` segment).
+      expect(opts.filter).toContain('dimension = "d6"');
+      expect(opts.filter).toContain('dimension = "d4"');
+      expect(opts.filter).toContain('dimension = "e2e-demos"');
+      expect(opts.filter).toContain('dimension = "d5-single-pill-e2e"');
+      expect(opts.filter).toContain('key !~ "%/%"');
+      // Full rows: NO fields projection — signal must come back.
+      expect(opts.fields).toBeUndefined();
+    });
+
+    it("a dimension scope OUTSIDE the aggregate set skips the supplemental fetch entirely", async () => {
+      const { result } = renderHook(() => useLiveStatus("smoke"));
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(0);
+    });
+
+    it("a dimension scope INSIDE the aggregate set narrows the supplemental fetch to that dimension", async () => {
+      mockState.commAggregateRows = [aggregateRow];
+      const { result } = renderHook(() => useLiveStatus("d6"));
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(1);
+      const opts = mockState.lastCommFetchOpts as { filter?: string };
+      expect(opts.filter).toContain('dimension = "d6"');
+      expect(opts.filter).not.toContain("e2e-demos");
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg?.signal).toEqual(COMM_SIGNAL);
+    });
   });
 });
