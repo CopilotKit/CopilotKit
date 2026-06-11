@@ -66,6 +66,11 @@ function shouldFlushImmediately(
 // react-core's assembleDocument head-open matcher.
 const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
 
+// Word-bounded `<body` open token (`<body>` or `<body …>`), used as the implicit
+// head close when no `</head>` follows the head-open. `[\s>]` forbids `<bodyfoo>`
+// from being mistaken for `<body>`. Matched on the masked copy (see below).
+const BODY_OPEN = /<body[\s>]/i;
+
 /**
  * Locates the real head-opening tag on a length-preserving MASKED copy of the
  * raw html — the content of complete `<style>`/`<script>` blocks and `<!-- … -->`
@@ -135,22 +140,29 @@ function ensureHead(html: string): string {
  * and comments are preserved byte-for-byte.
  *
  * Always called after `ensureHead`, so a real head-opening tag exists by
- * construction. Two edge shapes are guarded on the masked copy:
- *  - A stray `</head>` BEFORE the real head: the close search is anchored
- *    at/after the matched head-open so the css lands inside the REAL head (e.g.
- *    `foo</head><head>…</head>`), not at the earlier stray close (which would
- *    put it outside and before the real head — cascade inversion).
- *  - A head-open with NO matching close: the css is inserted immediately AFTER
- *    the (normalized) head-open rather than prepending a fresh `<head>`, which
- *    would otherwise create two head elements with the agent css before the
- *    author's head content.
+ * construction. The anchor is chosen on the masked copy:
+ *  - `</head>` AT/AFTER the matched head-open wins — the css lands inside the
+ *    REAL head (before that close), not at a stray `</head>` PRECEDING it (e.g.
+ *    `foo</head><head>…</head>`), which would put the css outside and before the
+ *    real head (cascade inversion). The close search is anchored at/after the
+ *    head-open to pair it with the SAME head.
+ *  - else the first word-bounded `<body[\s>]` token after the head-open is the
+ *    IMPLICIT head close (the browser closes an unclosed head at `<body>`): the
+ *    css is inserted JUST BEFORE it, so it sits after the author's in-head styles
+ *    (cascade parity) rather than before them.
+ *  - else (no close, no body) insert the css immediately AFTER the (normalized)
+ *    head-open rather than prepending a fresh `<head>`, which would produce two
+ *    head elements with the agent css before the author's head content.
  *
  * Mirrors the masked-matching + real-head/stray-`</head>` anchoring of
  * react-core's assembleDocument NON-legacy path (Vue injects no kit/importmap, so
- * only the agent css is anchored; the no-`</head>` fallback inserts right after
- * the head-open, as react-core's non-legacy path does). react-core's LEGACY path
- * deliberately diverges — raw, unmasked `indexOf("</head>")`, a pinned
- * byte-identity quirk.
+ * only the agent css is anchored). Two intentional differences: the IMPLICIT
+ * `<body>` close fallback matches THIS package's own preview region logic
+ * (`analyzeRegions` in processPartialHtml — an unclosed head closes at `<body>`),
+ * keeping the preview and final document in parity, whereas react-core's
+ * non-legacy no-`</head>` fallback inserts right after the head-open; and
+ * react-core's LEGACY path diverges entirely (raw, unmasked `indexOf("</head>")`,
+ * a pinned byte-identity quirk).
  */
 function injectCssIntoHtml(html: string, css: string): string {
   const masked = maskBlockContent(html);
@@ -170,8 +182,18 @@ function injectCssIntoHtml(html: string, css: string): string {
       html.slice(headCloseIdx)
     );
   }
-  // No `</head>` at/after the head-open. ensureHead guaranteed a real head-open,
-  // so insert the agent css immediately AFTER that (normalized) head-open rather
+  // No `</head>` at/after the head-open. An unclosed head closes IMPLICITLY at
+  // the first `<body>` after it (browser behavior): insert the css JUST BEFORE
+  // that `<body>` so it follows the author's in-head styles (cascade parity).
+  const bodyRel = masked.slice(searchFrom).match(BODY_OPEN);
+  if (bodyRel && bodyRel.index !== undefined) {
+    const bodyIdx = searchFrom + bodyRel.index;
+    return (
+      html.slice(0, bodyIdx) + `<style>${css}</style>` + html.slice(bodyIdx)
+    );
+  }
+  // No `</head>` and no `<body>`. ensureHead guaranteed a real head-open, so
+  // insert the agent css immediately AFTER that (normalized) head-open rather
   // than prepending a fresh `<head>` — which would produce two head elements
   // with the agent css before the author's head content (cascade inversion).
   if (head) {

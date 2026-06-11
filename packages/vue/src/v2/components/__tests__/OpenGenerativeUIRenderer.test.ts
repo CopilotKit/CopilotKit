@@ -815,17 +815,19 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(cssIdx).toBeLessThan(realHeadCloseIdx);
     });
 
-    // Case 5 — head-open with NO close, WITH css. ensureHead normalizes the open
-    // token; injectCssIntoHtml then finds no `</head>` and (pre-fix) PREPENDS a
-    // fresh `<head><style>…</style></head>`, producing TWO head elements with the
-    // agent css before the author's head content. React's assembleDocument for
-    // the same input yields exactly ONE head with the css right after the
-    // head-open. GREEN post-fix: one `<head` token, css after the open and
-    // before the author's <title>.
-    it("inserts css after the head-open (one head) when no close exists", async () => {
+    // Case 5 — head-open with NO close AND NO `<body>`, WITH css (the final
+    // fallback). ensureHead normalizes the open token; injectCssIntoHtml then
+    // finds no `</head>` and no `<body>` and (pre-fix) PREPENDED a fresh
+    // `<head><style>…</style></head>`, producing TWO head elements with the agent
+    // css before the author's head content. GREEN post-fix: exactly ONE `<head`
+    // token, css inserted immediately after the open (no `<body>` exists to
+    // anchor the implicit-close branch — see the unclosed-head-with-body test
+    // below for that path). React's assembleDocument non-legacy fallback inserts
+    // after the head-open here too.
+    it("inserts css after the head-open (one head) when no close and no body exist", async () => {
       const agentCss = ".agent{color:red}";
       renderRenderer({
-        html: ["<HEAD><title>t</title><body>x</body>"],
+        html: ["<HEAD><title>t</title>"],
         htmlComplete: true,
         css: agentCss,
         cssComplete: true,
@@ -958,6 +960,44 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(frameContent).not.toContain('lang="fr"');
       // The author's head content survives.
       expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Finding 2 — an UNCLOSED head WITH css and an in-head author style. RED
+    // pre-fix: with no `</head>`, injectCssIntoHtml inserted the agent css
+    // immediately after the head-open — BEFORE the author's in-head `<style>`,
+    // inverting the author-first/css-last cascade (and flipping order against the
+    // streaming preview, whose analyzeRegions implicitly closes the head at
+    // `<body>`). GREEN post-fix: the first `<body>` after the head-open is the
+    // implicit head close, so the css is inserted JUST BEFORE `<body>` — after
+    // the author style, before the body.
+    it("anchors css to the implicit <body> close for an unclosed head (author style before agent css)", async () => {
+      const authorStyle = ".a{color:blue}";
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: [`<head><style>${authorStyle}</style><body>x</body>`],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // Exactly one head-open token — no duplicate head was synthesized.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+
+      const authorIdx = frameContent.indexOf(authorStyle);
+      const agentIdx = frameContent.indexOf(agentCss);
+      const bodyIdx = frameContent.search(/<body[\s>]/i);
+      expect(authorIdx).toBeGreaterThan(-1);
+      expect(agentIdx).toBeGreaterThan(-1);
+      expect(bodyIdx).toBeGreaterThan(-1);
+      // Cascade parity: author in-head style FIRST, then the agent css, and the
+      // agent css sits before the implicit `<body>` close.
+      expect(authorIdx).toBeLessThan(agentIdx);
+      expect(agentIdx).toBeLessThan(bodyIdx);
     });
   });
 });
