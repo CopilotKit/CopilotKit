@@ -401,6 +401,106 @@ describe("job-claim client", () => {
     expect((thrown as JobClaimEndpointError).path).toBe("/api/fleet/release");
   });
 
+  it("auth 4xx (rotated creds) throws JobClaimEndpointError carrying the auth path + status", async () => {
+    // The deterministic-4xx carve-outs (queue-client renewLease + the
+    // sweep's thrown-release handling) discriminate on
+    // `instanceof JobClaimEndpointError && 4xx`. A plain Error from a
+    // rotated-credential auth 400 routed those callers down the
+    // indeterminate path FOREVER: a phantom assumed-live lease on every
+    // renew beat plus a false worker-reclaimed-pending comm error per
+    // sweep. The auth rejection is deterministic (the same creds 400
+    // identically on every retry), so it must carry the discriminable
+    // class.
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response("invalid credentials", { status: 400 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "rotated-away",
+      logger,
+      fetchImpl,
+    });
+    let thrown: unknown;
+    try {
+      await client.renewLease("j1", "worker-7", 30);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(JobClaimEndpointError);
+    expect((thrown as JobClaimEndpointError).status).toBe(400);
+    expect((thrown as JobClaimEndpointError).path).toContain(
+      "auth-with-password",
+    );
+  });
+
+  it("auth 4xx on the 401-triggered RE-AUTH path also throws JobClaimEndpointError (rotated creds mid-session)", async () => {
+    // The live rotated-creds shape: the session token is invalidated (the
+    // endpoint 401s), postFleet re-auths, and the re-auth 400s. That throw
+    // surfaces from renew/release calls — it must be the discriminable
+    // class, not a plain Error.
+    let authCalls = 0;
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        authCalls += 1;
+        if (authCalls === 1) {
+          return new Response(JSON.stringify({ token: "tok1" }), {
+            status: 200,
+          });
+        }
+        return new Response("invalid credentials", { status: 400 });
+      }
+      return new Response("token expired", { status: 401 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    let thrown: unknown;
+    try {
+      await client.renewLease("j1", "worker-7", 30);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(JobClaimEndpointError);
+    expect((thrown as JobClaimEndpointError).status).toBe(400);
+    expect(authCalls).toBe(2);
+  });
+
+  it("auth 5xx stays a PLAIN Error — indeterminate, never the deterministic class", async () => {
+    // A momentarily-sick PB is not a deterministic rejection: the callers'
+    // conservative paths (assumed-live renew, at-least-once sweep) must
+    // keep handling it.
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response("pb melting", { status: 500 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    let thrown: unknown;
+    try {
+      await client.renewLease("j1", "worker-7", 30);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown).not.toBeInstanceOf(JobClaimEndpointError);
+    expect((thrown as Error).message).toMatch(/auth failed: 500/);
+  });
+
   it("claimJob maps a 5xx to a LOST CAS (won: false) instead of throwing", async () => {
     // A WAL serialization/busy error escaping runInTransaction surfaces as a
     // 500 — indistinguishable from losing the race (the row either was or
@@ -639,8 +739,10 @@ describe("job-claim client", () => {
       logger,
       fetchImpl,
     });
+    // A 4xx auth response throws the DETERMINISTIC class (see the rotated
+    // creds pins above) — still loud, now discriminable.
     await expect(client.claimJob("j1", "worker-7", 30)).rejects.toThrow(
-      /auth failed: 400/,
+      /auth-with-password failed: 400 bad creds/,
     );
   });
 });

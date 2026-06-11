@@ -8,7 +8,7 @@ import {
   RESULT_WRITE_MAX_ATTEMPTS,
   RESULT_WRITE_RETRY_DELAY_MS,
 } from "./queue-client.js";
-import { JobClaimEndpointError } from "./job-claim.js";
+import { createJobClaimClient, JobClaimEndpointError } from "./job-claim.js";
 import type {
   JobClaimClient,
   ClaimResult,
@@ -3634,6 +3634,78 @@ describe("FleetQueueClient.renewLease", () => {
     );
   });
 
+  it("renew under PERSISTENT auth-400 (rotated creds) stops the heartbeat — end-to-end through the REAL job-claim client", async () => {
+    // Integration pin for the rotated-credentials path: the session token is
+    // invalidated, the renew 401s, postFleet re-auths, and the re-auth 400s.
+    // The real job-claim client must surface that as the deterministic
+    // JobClaimEndpointError class so the carve-out above fires — a plain
+    // Error routed it down the indeterminate path FOREVER (phantom
+    // assumed-live lease on every beat while the sweeper hands the job to
+    // another worker).
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    let authCalls = 0;
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const url = String(input);
+      if (url.includes("auth-with-password")) {
+        authCalls += 1;
+        if (authCalls === 1) {
+          return new Response(JSON.stringify({ token: "tok1" }), {
+            status: 200,
+          });
+        }
+        // Creds rotated after the claim: every later auth 400s.
+        return new Response("invalid credentials", { status: 400 });
+      }
+      if (url.includes("/api/fleet/claim")) {
+        const body = JSON.parse(String(init?.body)) as {
+          jobId: string;
+          workerId: string;
+        };
+        return new Response(
+          JSON.stringify({
+            claimed: true,
+            job: jobView({
+              id: body.jobId,
+              status: "claimed",
+              claimed_by: body.workerId,
+              lease_expires_at: "2026-06-04T00:01:00.000Z",
+              version: 1,
+            }),
+          }),
+          { status: 200 },
+        );
+      }
+      // The renew under the now-invalidated token: 401 → re-auth → 400.
+      return new Response("token expired", { status: 401 });
+    }) as unknown as typeof fetch;
+    const claim = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+    expect(claimed.claimed).toBe(true);
+
+    const lost = await q.renewLease("j1", "worker-7", 30);
+    expect(lost).toBeNull();
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.renew-rejected",
+      expect.objectContaining({ jobId: "j1", status: 400 }),
+    );
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      "queue-client.renew-indeterminate",
+      expect.anything(),
+    );
+  });
+
   it("a thrown renew with NO locally-known lease still throws (nothing to assume-live from)", async () => {
     const { pb } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },
@@ -4385,6 +4457,54 @@ describe("FleetQueueClient.sweepExpired", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.sweep-release-threw",
       expect.objectContaining({ jobId: "j1" }),
+    );
+  });
+
+  it("sweep release under auth-400 (rotated creds) takes the DETERMINISTIC branch — end-to-end through the REAL job-claim client", async () => {
+    // Integration pin for the sweep half of the rotated-credentials path: a
+    // plain auth Error fell to the conservative may-have-committed handling,
+    // synthesizing a FALSE worker-reclaimed-pending comm error on EVERY
+    // sweep for a row the release can never move.
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    const expired: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "worker-dead",
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+      }),
+      payload: samplePayload(),
+    };
+    const { pb } = makeFakePb([expired]);
+    const fetchImpl = (async (
+      input: string | URL | Request,
+    ): Promise<Response> => {
+      if (String(input).includes("auth-with-password")) {
+        return new Response("invalid credentials", { status: 400 });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const claim = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "rotated-away",
+      logger,
+      fetchImpl,
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    expect(sweep.reclaimed).toBe(0);
+    expect(sweep.reclaimedIndeterminate).toBe(0);
+    expect(sweep.commErrors).toHaveLength(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.sweep-release-rejected",
+      expect.objectContaining({ jobId: "j1", status: 400 }),
+    );
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      "queue-client.sweep-release-threw",
+      expect.anything(),
     );
   });
 

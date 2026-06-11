@@ -157,6 +157,12 @@ export interface JobClaimClient {
  * The 2xx-unreadable indeterminate throw is deliberately NOT this class:
  * it has no refusal semantics (the CAS committed; only the outcome is
  * unknown), so it must take callers' conservative paths.
+ *
+ * ALSO thrown by the superuser auth round-trip for 4xx auth responses
+ * (rotated/invalid creds — `path` is the auth-with-password route): an auth
+ * rejection fails identically on every retry, so it belongs to the same
+ * deterministic class the carve-outs key on. Auth 5xx / network failures
+ * stay plain Errors (indeterminate).
  */
 export class JobClaimEndpointError extends Error {
   readonly path: string;
@@ -209,16 +215,15 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       password: config.password,
     });
     // PB v0.23+ → /_superusers; v0.22 → /api/admins. Match pb-client.ts.
-    let res = await fetchImpl(
-      `${baseUrl}/api/collections/_superusers/auth-with-password`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: authBody,
-      },
-    );
+    let authPath = "/api/collections/_superusers/auth-with-password";
+    let res = await fetchImpl(`${baseUrl}${authPath}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: authBody,
+    });
     if (res.status === 404) {
-      res = await fetchImpl(`${baseUrl}/api/admins/auth-with-password`, {
+      authPath = "/api/admins/auth-with-password";
+      res = await fetchImpl(`${baseUrl}${authPath}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: authBody,
@@ -226,6 +231,20 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
     }
     if (!res.ok) {
       const text = await res.text().catch(() => "");
+      // DETERMINISTIC 4xx (rotated/invalid creds → PB 400s; route drift):
+      // the callers' deterministic-rejection carve-outs (queue-client's
+      // renewLease and sweepExpired) discriminate on
+      // `JobClaimEndpointError` + 4xx. A plain Error here routed every
+      // rotated-credential failure down the INDETERMINATE path forever — a
+      // phantom assumed-live lease on every renew beat and a false
+      // worker-reclaimed-pending comm error per sweep. The same creds fail
+      // identically on every retry, so thread the discriminable class with
+      // the auth path + HTTP status. 5xx (and thrown network errors) stay
+      // plain: a momentarily-sick PB is genuinely indeterminate and must
+      // keep the callers' conservative handling.
+      if (res.status >= 400 && res.status < 500) {
+        throw new JobClaimEndpointError(authPath, res.status, text);
+      }
       throw new Error(`job-claim auth failed: ${res.status} ${text}`);
     }
     const text = await res.text();
