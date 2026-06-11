@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveDocsHostRedirect, resolveSeoDestination } from "./docs-redirects";
+import {
+  resolveDocsHostRedirect,
+  resolveSeoDestination,
+} from "./docs-redirects";
 
 const DOCS_HOST = "https://docs.showcase.copilotkit.ai";
 const SLUGS = new Set(["mastra", "agno", "langgraph-python"]);
@@ -118,12 +121,14 @@ describe("resolveDocsHostRedirect", () => {
     expect(resolveDocsHostRedirect("/Reference", DOCS_HOST, SLUGS)).toBe(
       `${DOCS_HOST}/reference`,
     );
-    expect(resolveDocsHostRedirect("/Mastra/Quickstart", DOCS_HOST, SLUGS)).toBe(
-      `${DOCS_HOST}/mastra/Quickstart`,
-    );
+    expect(
+      resolveDocsHostRedirect("/Mastra/Quickstart", DOCS_HOST, SLUGS),
+    ).toBe(`${DOCS_HOST}/mastra/Quickstart`);
     // Case-insensitivity must not loosen the prefix-lookalike guards.
     expect(resolveDocsHostRedirect("/DOCSify", DOCS_HOST, SLUGS)).toBeNull();
-    expect(resolveDocsHostRedirect("/AG-UI-extra", DOCS_HOST, SLUGS)).toBeNull();
+    expect(
+      resolveDocsHostRedirect("/AG-UI-extra", DOCS_HOST, SLUGS),
+    ).toBeNull();
   });
 
   it("throws on an empty (post-trim) docs host instead of parsing the path AS the host (SU5-A6)", () => {

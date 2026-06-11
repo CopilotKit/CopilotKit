@@ -51,7 +51,12 @@ export default function setup(): void {
   // the package isn't cached, and `npx` itself isn't directly spawnable on
   // Windows (execFile needs the .cmd shim).
   const tsxCli = createRequire(import.meta.url).resolve("tsx/cli");
-  const generator = path.join(SHELL_ROOT, "..", "scripts", "generate-registry.ts");
+  const generator = path.join(
+    SHELL_ROOT,
+    "..",
+    "scripts",
+    "generate-registry.ts",
+  );
 
   // Generous timeout: the generator validates every manifest and emits
   // catalogs for all shells. Keep stdout quiet but surface stderr — with

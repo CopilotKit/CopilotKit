@@ -300,7 +300,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -327,7 +329,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -352,7 +356,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -375,7 +381,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -441,8 +449,8 @@ describe("server getRuntimeConfig (shell)", () => {
     const spy = vi
       .spyOn(console, "error")
       .mockImplementation(
-          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       expect(freshGet().baseUrl).toBe("https://shell-base-url-missing.invalid");
       expect(errs.some((m) => m.includes("BASE_URL"))).toBe(true);
@@ -498,13 +506,13 @@ describe("server getRuntimeConfig (shell)", () => {
     const warnSpy = vi
       .spyOn(console, "warn")
       .mockImplementation(
-          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
     const errSpy = vi
       .spyOn(console, "error")
       .mockImplementation(
-          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.baseUrl).toBe("http://localhost:3000");
@@ -527,8 +535,8 @@ describe("server getRuntimeConfig (shell)", () => {
     const spy = vi
       .spyOn(console, "error")
       .mockImplementation(
-          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       freshGet();
       const fatal = errs.find((m) => m.includes("BASE_URL is unset"));
@@ -546,7 +554,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -607,7 +617,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -674,7 +686,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -703,13 +717,13 @@ describe("server getRuntimeConfig (shell)", () => {
     const warnSpy = vi
       .spyOn(console, "warn")
       .mockImplementation(
-          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
     const errSpy = vi
       .spyOn(console, "error")
       .mockImplementation(
-          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
-        );
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       // Same fallback VALUE as prod — only the log level/text branches.
@@ -737,7 +751,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -765,7 +781,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
       await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -802,7 +820,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
       await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -990,7 +1010,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     // try/finally so a throwing call can't leak the spy into other
@@ -1022,7 +1044,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation(
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
         (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
       );
     try {
@@ -1041,7 +1065,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation(
+    const spy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(
         (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
       );
     try {
@@ -1151,7 +1177,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation(
+    const spy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(
         (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
       );
     try {
@@ -1174,7 +1202,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation(
+    const spy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(
         (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
       );
     try {

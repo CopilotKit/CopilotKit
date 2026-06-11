@@ -934,9 +934,7 @@ function isDirectRun(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
   try {
-    return (
-      fs.realpathSync(path.resolve(entry)) === fs.realpathSync(__filename)
-    );
+    return fs.realpathSync(path.resolve(entry)) === fs.realpathSync(__filename);
   } catch {
     return false;
   }

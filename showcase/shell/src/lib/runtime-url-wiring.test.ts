@@ -52,7 +52,9 @@ beforeAll(async () => {
     fs.existsSync(REGISTRY_PATH),
     `registry.json missing at ${REGISTRY_PATH} — vitest.global-setup.ts should have generated it`,
   ).toBe(true);
-  registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) as RegistryShape;
+  registry = JSON.parse(
+    fs.readFileSync(REGISTRY_PATH, "utf8"),
+  ) as RegistryShape;
 });
 
 afterAll(() => {

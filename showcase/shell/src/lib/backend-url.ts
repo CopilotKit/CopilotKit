@@ -61,9 +61,7 @@ function fatalPatternOnce(key: string, message: string): void {
     );
   } else {
     // eslint-disable-next-line no-console
-    console.warn(
-      `[backend-url] SHOWCASE_BACKEND_HOST_PATTERN ${message}`,
-    );
+    console.warn(`[backend-url] SHOWCASE_BACKEND_HOST_PATTERN ${message}`);
   }
 }
 
@@ -137,8 +135,7 @@ function patternForbiddenComponent(normalized: string): string | undefined {
   // the first `/` — query/fragment are already rejected above) is a
   // userinfo delimiter; it is never valid inside a hostname.
   const slashAt = normalized.indexOf("/");
-  const authority =
-    slashAt === -1 ? normalized : normalized.slice(0, slashAt);
+  const authority = slashAt === -1 ? normalized : normalized.slice(0, slashAt);
   if (authority.includes("@")) return "userinfo credentials";
   return undefined;
 }

@@ -99,9 +99,9 @@ describe("normalizeBackendHostPattern", () => {
   });
 
   it("passes a well-formed pattern through untouched, no warning", () => {
-    expect(
-      normalizeFresh("showcase-{slug}-production.up.railway.app"),
-    ).toBe("showcase-{slug}-production.up.railway.app");
+    expect(normalizeFresh("showcase-{slug}-production.up.railway.app")).toBe(
+      "showcase-{slug}-production.up.railway.app",
+    );
     expect(warns).toEqual([]);
   });
 
@@ -114,9 +114,9 @@ describe("normalizeBackendHostPattern", () => {
   });
 
   it("trims trailing slashes (route concat would yield //route) and warns", () => {
-    expect(
-      normalizeFresh("showcase-{slug}-staging.up.railway.app/"),
-    ).toBe("showcase-{slug}-staging.up.railway.app");
+    expect(normalizeFresh("showcase-{slug}-staging.up.railway.app/")).toBe(
+      "showcase-{slug}-staging.up.railway.app",
+    );
     expect(warns.some((m) => m.includes("trailing"))).toBe(true);
   });
 
@@ -130,9 +130,9 @@ describe("normalizeBackendHostPattern", () => {
   it("trims leading/trailing whitespace (paste artifact) and warns", () => {
     // Previously the ONE misconfig class with zero warning — a pasted
     // ` host` survives into `https:// host` iframe srcs.
-    expect(
-      normalizeFresh(" showcase-{slug}-staging.up.railway.app\t"),
-    ).toBe("showcase-{slug}-staging.up.railway.app");
+    expect(normalizeFresh(" showcase-{slug}-staging.up.railway.app\t")).toBe(
+      "showcase-{slug}-staging.up.railway.app",
+    );
     expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
   });
 
@@ -142,12 +142,12 @@ describe("normalizeBackendHostPattern", () => {
     // fine) while the RAW control character shipped in every iframe
     // src — and the old warn text claimed it would "fall back". Strip
     // them exactly the way the parser would, and warn.
-    expect(
-      normalizeFresh("showcase-{slug}\t-staging.up.railway.app"),
-    ).toBe("showcase-{slug}-staging.up.railway.app");
-    expect(
-      normalizeFresh("show\rcase-{slug}.example\n.com"),
-    ).toBe("showcase-{slug}.example.com");
+    expect(normalizeFresh("showcase-{slug}\t-staging.up.railway.app")).toBe(
+      "showcase-{slug}-staging.up.railway.app",
+    );
+    expect(normalizeFresh("show\rcase-{slug}.example\n.com")).toBe(
+      "showcase-{slug}.example.com",
+    );
     expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
   });
 
@@ -172,9 +172,9 @@ describe("normalizeBackendHostPattern", () => {
     // prepends https://, so this matches what the URL parser does to
     // the composed URL anyway. The {slug} placeholder is lowercase and
     // survives verbatim.
-    expect(
-      normalizeFresh("SHOWCASE-{slug}-Staging.UP.Railway.App:443"),
-    ).toBe("showcase-{slug}-staging.up.railway.app");
+    expect(normalizeFresh("SHOWCASE-{slug}-Staging.UP.Railway.App:443")).toBe(
+      "showcase-{slug}-staging.up.railway.app",
+    );
     // :80 is NOT the https default — a real port must survive.
     expect(normalizeFresh("showcase-{slug}.example.com:80")).toBe(
       "showcase-{slug}.example.com:80",
@@ -224,9 +224,9 @@ describe("normalizeBackendHostPattern", () => {
     // The strip previously ran ONCE — `https://https://host` left a
     // scheme behind, and the consumer prepends https:// on top: a
     // double-prepended garbage host.
-    expect(
-      normalizeFresh("https://https://showcase-{slug}.example.com"),
-    ).toBe("showcase-{slug}.example.com");
+    expect(normalizeFresh("https://https://showcase-{slug}.example.com")).toBe(
+      "showcase-{slug}.example.com",
+    );
     expect(warns.some((m) => m.includes("scheme"))).toBe(true);
   });
 
@@ -452,18 +452,16 @@ describe("parseLocalBackends", () => {
 
   it("names the env var in a warning when the JSON is unparseable", () => {
     expect(parseFresh("not json")).toEqual({});
-    expect(
-      warns.some((m) => m.includes("NEXT_PUBLIC_LOCAL_BACKENDS")),
-    ).toBe(true);
+    expect(warns.some((m) => m.includes("NEXT_PUBLIC_LOCAL_BACKENDS"))).toBe(
+      true,
+    );
   });
 
   it("ignores non-object JSON top-levels (array / string / null) with a warning", () => {
     expect(parseFresh("[1,2]")).toEqual({});
     expect(parseFresh('"str"')).toEqual({});
     expect(parseFresh("null")).toEqual({});
-    expect(warns.filter((m) => m.includes("not a JSON object")).length).toBe(
-      3,
-    );
+    expect(warns.filter((m) => m.includes("not a JSON object")).length).toBe(3);
   });
 
   it("parses a slug->url map", () => {
@@ -738,9 +736,9 @@ describe("resolveBackendUrl", () => {
       expect(
         resolveFresh("agno", "showcase-{slug}-production.up.railway.app"),
       ).toBe("https://showcase-agno-production.up.railway.app");
-      expect(
-        warns.some((m) => m.includes("agno") && m.includes("empty")),
-      ).toBe(true);
+      expect(warns.some((m) => m.includes("agno") && m.includes("empty"))).toBe(
+        true,
+      );
     } finally {
       warnSpy.mockRestore();
     }

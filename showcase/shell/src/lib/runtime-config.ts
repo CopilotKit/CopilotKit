@@ -594,8 +594,7 @@ function readDocsHost(baseUrl: string, isProd: boolean): string {
         `docs host ${DEFAULT_DOCS_HOST} points at the shell's own host ` +
         `"${shellHost}" — docs redirects are disabled for this deploy ` +
         `(sentinel ${DOCS_REDIRECTS_DISABLED_HOST}).`;
-      guidance =
-        `Set DOCS_HOST on the Railway service to a host other than the shell's.`;
+      guidance = `Set DOCS_HOST on the Railway service to a host other than the shell's.`;
     } else if (fallbackCollides) {
       core =
         `DOCS_HOST ${JSON.stringify(raw)} ${reason}, ` +
@@ -611,9 +610,7 @@ function readDocsHost(baseUrl: string, isProd: boolean): string {
     }
     if (isProd) {
       // eslint-disable-next-line no-console
-      console.error(
-        `[shell runtime-config] FATAL-CONFIG: ${core} ${guidance}`,
-      );
+      console.error(`[shell runtime-config] FATAL-CONFIG: ${core} ${guidance}`);
     } else {
       // eslint-disable-next-line no-console
       console.warn(`[shell runtime-config] ${core}`);

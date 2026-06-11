@@ -63,7 +63,11 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
   /** Exact-match map: source path -> { id, destination } */
   exactMap: Map<string, { id: string; destination: string }>;
   /** Wildcard entries: source has :path* -- stored as { prefix, id, destination } */
-  wildcardEntries: { prefix: string; id: string; destinationTemplate: string }[];
+  wildcardEntries: {
+    prefix: string;
+    id: string;
+    destinationTemplate: string;
+  }[];
 } {
   const exactMap = new Map<string, { id: string; destination: string }>();
   const wildcardEntries: {
@@ -832,10 +836,7 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
   // SEO-table entry can match under /integrations, regardless of what
   // the registry or the table contains (R15/R17 once hijacked
   // /integrations/built-in-agent, a deployed page with internal links).
-  if (
-    matchPath === "/integrations" ||
-    matchPath.startsWith("/integrations/")
-  ) {
+  if (matchPath === "/integrations" || matchPath.startsWith("/integrations/")) {
     return NextResponse.next();
   }
 

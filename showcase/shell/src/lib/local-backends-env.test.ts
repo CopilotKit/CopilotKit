@@ -140,55 +140,61 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
   // a reason unrelated to the code under test) — skip them there.
   const runningAsRoot = process.getuid?.() === 0;
 
-  it.skipIf(runningAsRoot)("labels an unreadable file as a read failure, not as invalid JSON", () => {
-    // fs.readFileSync used to live INSIDE the JSON.parse try — an
-    // EACCES surfaced as "<path> is not valid JSON", sending the
-    // developer to inspect a file's syntax when the problem is its
-    // permissions.
-    fs.writeFileSync(portsPath, "{}");
-    fs.chmodSync(portsPath, 0o000);
-    try {
-      let thrown: unknown;
+  it.skipIf(runningAsRoot)(
+    "labels an unreadable file as a read failure, not as invalid JSON",
+    () => {
+      // fs.readFileSync used to live INSIDE the JSON.parse try — an
+      // EACCES surfaced as "<path> is not valid JSON", sending the
+      // developer to inspect a file's syntax when the problem is its
+      // permissions.
+      fs.writeFileSync(portsPath, "{}");
+      fs.chmodSync(portsPath, 0o000);
       try {
-        localBackendsEnv(portsPath);
-      } catch (err) {
-        thrown = err;
+        let thrown: unknown;
+        try {
+          localBackendsEnv(portsPath);
+        } catch (err) {
+          thrown = err;
+        }
+        expect(thrown).toBeInstanceOf(Error);
+        const message = (thrown as Error).message;
+        expect(message).toContain(portsPath);
+        expect(message).toContain("could not be read");
+        expect(message).not.toContain("not valid JSON");
+      } finally {
+        fs.chmodSync(portsPath, 0o600);
       }
-      expect(thrown).toBeInstanceOf(Error);
-      const message = (thrown as Error).message;
-      expect(message).toContain(portsPath);
-      expect(message).toContain("could not be read");
-      expect(message).not.toContain("not valid JSON");
-    } finally {
-      fs.chmodSync(portsPath, 0o600);
-    }
-  });
+    },
+  );
 
-  it.skipIf(runningAsRoot)("labels an unsearchable parent directory as a read failure, not as a missing file", () => {
-    // fs.existsSync returns false for EACCES on the parent directory —
-    // the old guard masked a permissions problem as "file does not
-    // exist", defeating the labeled-throw design the read/parse split
-    // exists for. The direct-read ENOENT branch keeps missing-file
-    // semantics while every OTHER read error throws with its real cause.
-    fs.writeFileSync(portsPath, "{}");
-    fs.chmodSync(dir, 0o000);
-    try {
-      let thrown: unknown;
+  it.skipIf(runningAsRoot)(
+    "labels an unsearchable parent directory as a read failure, not as a missing file",
+    () => {
+      // fs.existsSync returns false for EACCES on the parent directory —
+      // the old guard masked a permissions problem as "file does not
+      // exist", defeating the labeled-throw design the read/parse split
+      // exists for. The direct-read ENOENT branch keeps missing-file
+      // semantics while every OTHER read error throws with its real cause.
+      fs.writeFileSync(portsPath, "{}");
+      fs.chmodSync(dir, 0o000);
       try {
-        localBackendsEnv(portsPath);
-      } catch (err) {
-        thrown = err;
+        let thrown: unknown;
+        try {
+          localBackendsEnv(portsPath);
+        } catch (err) {
+          thrown = err;
+        }
+        expect(thrown).toBeInstanceOf(Error);
+        const message = (thrown as Error).message;
+        expect(message).toContain(portsPath);
+        expect(message).toContain("could not be read");
+        // It must NOT have taken the missing-file warn path.
+        expect(warns.some((m) => m.includes("does not exist"))).toBe(false);
+      } finally {
+        fs.chmodSync(dir, 0o700);
       }
-      expect(thrown).toBeInstanceOf(Error);
-      const message = (thrown as Error).message;
-      expect(message).toContain(portsPath);
-      expect(message).toContain("could not be read");
-      // It must NOT have taken the missing-file warn path.
-      expect(warns.some((m) => m.includes("does not exist"))).toBe(false);
-    } finally {
-      fs.chmodSync(dir, 0o700);
-    }
-  });
+    },
+  );
 
   it("warns (naming the key) on slugs that violate the [a-z0-9-]+ contract", () => {
     // Registry slugs are [a-z0-9-]+ (see backend-url.ts SLUG_RE) — a

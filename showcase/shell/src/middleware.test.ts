@@ -201,7 +201,9 @@ describe("docs-host redirects at the middleware level (SU-11)", () => {
     // page. /integrations/* is a shell-owned namespace — the guard runs
     // FIRST in middleware (SU4-A1), so no redirect step (docs-host OR
     // SEO table) may ever match under it, structurally.
-    expect(run("/integrations/built-in-agent").headers.get("location")).toBeNull();
+    expect(
+      run("/integrations/built-in-agent").headers.get("location"),
+    ).toBeNull();
     expect(
       run("/integrations/built-in-agent/agentic-chat").headers.get("location"),
     ).toBeNull();
@@ -1373,9 +1375,7 @@ describe("buildRedirectLookup rejects malformed entries (SU3-A3)", () => {
       "/a/z/b/z",
     );
     expect(substituteWildcardTemplate("/a/:path*", "$&x")).toBe("/a/$&x");
-    expect(substituteWildcardTemplate("/a/:path*", ":path*")).toBe(
-      "/a/:path*",
-    );
+    expect(substituteWildcardTemplate("/a/:path*", ":path*")).toBe("/a/:path*");
     expect(substituteWildcardTemplate("/fixed", "anything")).toBe("/fixed");
   });
 });

@@ -257,9 +257,7 @@ describe("writeFileAtomicSync tmp naming matches the straggler-sweep convention 
     // `<target>.<pid>.tmp` shape was invisible to that sweep, so a
     // SIGTERM-killed generator (the one crash mode its try/finally
     // cannot clean up) accumulated un-swept stragglers forever.
-    expect(path.basename(tmp)).toMatch(
-      /^\.registry\.json\.[0-9a-f]{16}\.tmp$/,
-    );
+    expect(path.basename(tmp)).toMatch(/^\.registry\.json\.[0-9a-f]{16}\.tmp$/);
 
     // Contract proof: a straggler left at that path is reaped by the
     // restorer's sweep for the same target.
