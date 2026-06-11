@@ -14,10 +14,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { backendUrlFromPattern } from "./backend-url";
 import { getRuntimeConfig as getClientRuntimeConfig } from "./runtime-config.client";
-import { REGISTRY_FRAMEWORK_SLUGS } from "../middleware";
+
+// Imported dynamically in beforeAll AFTER spying console.warn:
+// middleware emits its module-load table warns (duplicate
+// exact/wildcard sources) at import time, and a static import would
+// land them raw in the test output whenever this file is the first in
+// its worker to load the module.
+let REGISTRY_FRAMEWORK_SLUGS: ReadonlySet<string>;
 
 const SHELL_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -26,12 +32,18 @@ const SHELL_ROOT = path.resolve(
 const REGISTRY_PATH = path.join(SHELL_ROOT, "src", "data", "registry.json");
 
 interface RegistryShape {
-  integrations?: { slug: string }[];
+  // `slug` typed as unknown, not string: this test reads the REAL
+  // generated artifact, and the comparison below must mirror
+  // middleware's drop semantics for malformed entries rather than
+  // assume the happy shape.
+  integrations?: { slug?: unknown }[];
 }
 
 let registry: RegistryShape;
 
-beforeAll(() => {
+beforeAll(async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  ({ REGISTRY_FRAMEWORK_SLUGS } = await import("../middleware"));
   // registry.json is a generated, gitignored artifact (see
   // showcase/.gitignore). The vitest globalSetup (vitest.global-setup.ts)
   // generates it before any worker starts — if this assert fires, the
@@ -41,6 +53,10 @@ beforeAll(() => {
     `registry.json missing at ${REGISTRY_PATH} — vitest.global-setup.ts should have generated it`,
   ).toBe(true);
   registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) as RegistryShape;
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
 });
 
 describe("registry framework slugs (real registry.json)", () => {
@@ -53,8 +69,21 @@ describe("registry framework slugs (real registry.json)", () => {
       expect(typeof slug).toBe("string");
       expect(slug.length).toBeGreaterThan(0);
     }
-    // And it must reflect the real artifact 1:1.
-    const fromFile = new Set((registry.integrations ?? []).map((i) => i.slug));
+    // And it must reflect the real artifact 1:1 — modulo middleware's
+    // construction-time lowercasing (SU4-A4): compare against the
+    // LOWERCASED file slugs (SU5-A6), or a future mixed-case registry
+    // slug fails this wiring test even though middleware handles it.
+    // The re-derivation mirrors extractFrameworkSlugs' DROP semantics
+    // (SU6-B6): entries with a missing or non-string slug are skipped,
+    // not dereferenced — the previous `i.slug.toLowerCase()` would
+    // TypeError on a malformed entry that middleware merely drops,
+    // turning a meaningful set-diff failure into an unrelated crash.
+    const fromFile = new Set(
+      (registry.integrations ?? [])
+        .map((i) => i.slug)
+        .filter((s): s is string => typeof s === "string")
+        .map((s) => s.toLowerCase()),
+    );
     expect(REGISTRY_FRAMEWORK_SLUGS).toEqual(fromFile);
   });
 });
@@ -62,7 +91,14 @@ describe("registry framework slugs (real registry.json)", () => {
 describe("SSR placeholder composed with backendUrlFromPattern", () => {
   it("produces a parseable .invalid URL for a real registry slug", () => {
     const slug = registry.integrations?.[0]?.slug;
-    expect(slug).toBeTruthy();
+    // Hard narrow (not a bare truthiness expect): slug is `unknown` in
+    // RegistryShape, and the substitution below needs a real string.
+    if (typeof slug !== "string" || slug.length === 0) {
+      throw new Error(
+        "registry.json's first integration carries no string slug — " +
+          "the generated artifact is malformed",
+      );
+    }
 
     // Simulate the SSR phase: no `window`, so the client reader returns
     // the placeholder config rather than throwing. stubGlobal (not
@@ -71,7 +107,7 @@ describe("SSR placeholder composed with backendUrlFromPattern", () => {
     vi.stubGlobal("window", undefined);
     try {
       const cfg = getClientRuntimeConfig();
-      const url = backendUrlFromPattern(cfg.backendHostPattern, slug!);
+      const url = backendUrlFromPattern(cfg.backendHostPattern, slug);
       // Parseable (consumers may `new URL()` it inline during SSR) and
       // unresolvable (.invalid is RFC-2606 reserved — no real fetch).
       expect(() => new URL(url)).not.toThrow();

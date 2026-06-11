@@ -17,10 +17,12 @@ describe("server getRuntimeConfig (shell)", () => {
     for (const k of [
       "BASE_URL",
       "POSTHOG_HOST",
+      "POSTHOG_KEY",
       "DOCS_HOST",
       "SHOWCASE_BACKEND_HOST_PATTERN",
       "NEXT_PUBLIC_BASE_URL",
       "NEXT_PUBLIC_POSTHOG_HOST",
+      "NEXT_PUBLIC_POSTHOG_KEY",
       "NEXT_PUBLIC_DOCS_HOST",
       "NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN",
       "NODE_ENV",
@@ -56,16 +58,28 @@ describe("server getRuntimeConfig (shell)", () => {
     });
   });
 
-  it("backendHostPattern/docsHost default to prod values when unset (both envs, no FATAL log)", () => {
+  it("backendHostPattern/docsHost default to prod values when unset (both envs, no FATAL log)", async () => {
     for (const nodeEnv of ["production", "development"]) {
       (process.env as Record<string, string>).NODE_ENV = nodeEnv;
       process.env.BASE_URL = "https://showcase.copilotkit.ai";
+      // The no-FATAL assertions below are about ABSENCE — on the static
+      // module instance they can pass vacuously when a prior test
+      // already consumed the once-guard for these keys. Fresh module so
+      // a log would actually fire if the code were wrong.
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
       const errs: string[] = [];
       const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
         errs.push(m);
       });
-      const cfg = getRuntimeConfig();
-      spy.mockRestore();
+      // try/finally so a failing assertion can't leak the spy into
+      // other tests (matches every other spy in this file).
+      let cfg: ReturnType<typeof freshGet>;
+      try {
+        cfg = freshGet();
+      } finally {
+        spy.mockRestore();
+      }
       expect(cfg.backendHostPattern).toBe(
         "showcase-{slug}-production.up.railway.app",
       );
@@ -116,6 +130,46 @@ describe("server getRuntimeConfig (shell)", () => {
     }
   });
 
+  it("degenerate SHOWCASE_BACKEND_HOST_PATTERN falls back to the default pattern, never an empty string", async () => {
+    // Fix-round interaction bug: "https://" normalized to "" with NO
+    // fallback — server-side iframe srcs became literally "https://",
+    // and the injected "" failed the client reader's
+    // REQUIRED_CONFIG_FIELDS check, crashing EVERY client component
+    // with a message blaming the layout injection instead of the env
+    // var. The degenerate value must produce the default + one FATAL.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const bad of ["https://", "/"]) {
+      process.env.SHOWCASE_BACKEND_HOST_PATTERN = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errs: string[] = [];
+      const errSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation((m: string) => void errs.push(m));
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const cfg = freshGet();
+        expect(cfg.backendHostPattern, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        // The client reader requires a non-empty string — this is the
+        // exact invariant the round-3 check enforces.
+        expect(cfg.backendHostPattern.length).toBeGreaterThan(0);
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN"),
+          ),
+        ).toBe(true);
+      } finally {
+        errSpy.mockRestore();
+        warnSpy.mockRestore();
+      }
+    }
+  });
+
   it("prepends https:// when DOCS_HOST lacks a scheme (host-only misconfig)", () => {
     // Middleware does `new URL(docsHost)` on every docs route. A
     // host-only DOCS_HOST (the documented format of the sibling
@@ -127,6 +181,26 @@ describe("server getRuntimeConfig (shell)", () => {
     const cfg = getRuntimeConfig();
     expect(cfg.docsHost).toBe("https://docs-staging.example.com");
     expect(() => new URL(cfg.docsHost)).not.toThrow();
+  });
+
+  it("prepends http:// (not https://) to scheme-less LOOPBACK hosts", () => {
+    // The documented local-dev DOCS_HOST wiring is `localhost:3005` —
+    // an https:// prepend turns it into a TLS-failing destination with
+    // zero warn (nothing serves TLS on a local dev port). Loopback
+    // hosts (localhost, 127.0.0.1, [::1]) get http:// instead, across
+    // every ensureScheme consumer (BASE_URL, DOCS_HOST, POSTHOG_HOST).
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.BASE_URL = "localhost:3000";
+    process.env.DOCS_HOST = "localhost:3005";
+    process.env.POSTHOG_HOST = "127.0.0.1:8010";
+    const cfg = getRuntimeConfig();
+    expect(cfg.baseUrl).toBe("http://localhost:3000");
+    expect(cfg.docsHost).toBe("http://localhost:3005");
+    expect(cfg.posthogHost).toBe("http://127.0.0.1:8010");
+
+    // IPv6 loopback too.
+    process.env.DOCS_HOST = "[::1]:3005";
+    expect(getRuntimeConfig().docsHost).toBe("http://[::1]:3005");
   });
 
   it("preserves an explicit http:// scheme on DOCS_HOST", () => {
@@ -185,6 +259,511 @@ describe("server getRuntimeConfig (shell)", () => {
     }
   });
 
+  it("prepends https:// when BASE_URL lacks a scheme (host-only misconfig)", async () => {
+    // Consumers compose `new URL(path, baseUrl)` — a scheme-less value
+    // previously passed readUrl unvalidated and threw at every compose
+    // site: opaque 500s with NO log (the env var IS set, so the
+    // unset-fallback never fires).
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "shell.copilotkit.ai";
+    // The no-FATAL assertion below is an ABSENCE assertion — vacuous on
+    // the static module instance if a prior test consumed the BASE_URL
+    // once-guard. Fresh module so a log would actually fire.
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.baseUrl).toBe("https://shell.copilotkit.ai");
+      expect(() => new URL("/some/path", cfg.baseUrl)).not.toThrow();
+      // The prepend FIXES the value — no FATAL noise for it.
+      expect(errs.some((m) => m.includes("BASE_URL"))).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("falls back to the sentinel (one loud log naming the value) for a degenerate BASE_URL of just a scheme", async () => {
+    // `https://` is reduced to `https:` by the trailing-slash strip,
+    // ensureScheme yields `https://https:` which PARSES (hostname
+    // "https") — it must be rejected, not silently returned.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.baseUrl).toBe("https://shell-base-url-missing.invalid");
+      expect(() => new URL("/some/path", cfg.baseUrl)).not.toThrow();
+      // The log must NAME the bad value so the operator can find it.
+      // (readUrl's trailing-slash strip runs first, so the named value
+      // is the post-strip "https:" — still unambiguous.)
+      expect(
+        errs.some((m) => m.includes("BASE_URL") && m.includes('"https:')),
+      ).toBe(true);
+      // Once-guarded — not per request.
+      const before = errs.length;
+      freshGet();
+      expect(errs.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rejects a non-http(s) BASE_URL scheme with the sentinel (ftp:// and the dot-scheme edge)", async () => {
+    // `ftp://shell.x` parses fine; `example.com://oops` matches
+    // SCHEME_RE (dot is a valid scheme char) so ensureScheme leaves it
+    // and it parses with protocol "example.com:" and hostname "oops".
+    // Neither can serve consumers composing http(s) URLs.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    for (const bad of ["ftp://shell.example.com", "example.com://oops"]) {
+      process.env.BASE_URL = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errs: string[] = [];
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation((m: string) => void errs.push(m));
+      try {
+        const cfg = freshGet();
+        expect(cfg.baseUrl, `value ${JSON.stringify(bad)}`).toBe(
+          "https://shell-base-url-missing.invalid",
+        );
+        expect(
+          errs.some((m) => m.includes("BASE_URL") && m.includes("scheme")),
+          `value ${JSON.stringify(bad)} should log a scheme rejection`,
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("rejects a mailto: BASE_URL (userinfo after the https:// prepend) with the sentinel", async () => {
+    // `mailto:ops@example.com` lacks `://` so SCHEME_RE misses it and
+    // the prepend yields `https://mailto:ops@example.com` — a URL with
+    // userinfo "mailto:ops" and host "example.com" that previously
+    // sailed through validation.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "mailto:ops@example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: string) => void errs.push(m));
+    try {
+      expect(freshGet().baseUrl).toBe("https://shell-base-url-missing.invalid");
+      expect(errs.some((m) => m.includes("BASE_URL"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("origin-normalizes a BASE_URL carrying a path/query/fragment with one warn (subpath deploys unsupported)", async () => {
+    // Consumers compose `new URL(path, baseUrl)` — a path/query/fragment
+    // silently corrupts every composed URL (a base path is dropped by
+    // composition, a fragment swallows the path).
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    for (const [bad, why] of [
+      ["https://shell.example.com/sub", "path"],
+      ["https://shell.example.com?a=b", "query"],
+      ["https://shell.example.com#frag", "fragment"],
+    ] as const) {
+      process.env.BASE_URL = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const warns: string[] = [];
+      const spy = vi
+        .spyOn(console, "warn")
+        .mockImplementation((m: string) => void warns.push(m));
+      try {
+        expect(freshGet().baseUrl, `${why} should normalize to origin`).toBe(
+          "https://shell.example.com",
+        );
+        expect(warns.some((m) => m.includes("BASE_URL"))).toBe(true);
+        // Once-guarded — not per request.
+        const before = warns.length;
+        freshGet();
+        expect(warns.length).toBe(before);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("dev-mode SET-but-malformed BASE_URL falls back to localhost with a dev warn, not the prod sentinel", async () => {
+    // The module's contract is frictionless dev: a malformed value in
+    // development previously fell to the PROD `.invalid` sentinel with
+    // Railway-flavored guidance — useless on a laptop.
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.BASE_URL = "https://";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const warns: string[] = [];
+    const errs: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    const errSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: string) => void errs.push(m));
+    try {
+      const cfg = freshGet();
+      expect(cfg.baseUrl).toBe("http://localhost:3000");
+      expect(warns.some((m) => m.includes("BASE_URL"))).toBe(true);
+      // No FATAL noise and no Railway guidance in dev.
+      expect(errs.some((m) => m.includes("BASE_URL"))).toBe(false);
+    } finally {
+      warnSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  });
+
+  it("unset-BASE_URL FATAL names the post-strip sentinel (consistent with the returned value)", async () => {
+    // readUrl returns the trailing-slash-stripped fallback but printed
+    // the PRE-strip form — the log named a value that never appears.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: string) => void errs.push(m));
+    try {
+      freshGet();
+      const fatal = errs.find((m) => m.includes("BASE_URL is unset"));
+      expect(fatal).toBeDefined();
+      expect(fatal).toContain("https://shell-base-url-missing.invalid");
+      expect(fatal).not.toContain("shell-base-url-missing.invalid/");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("falls back to the sentinel (one loud log) when BASE_URL is unparseable garbage", async () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "not a base url";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.baseUrl).toBe("https://shell-base-url-missing.invalid");
+      expect(
+        errs.some(
+          (m) => m.includes("BASE_URL") && m.includes('"not a base url"'),
+        ),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("normalizes a DOCS_HOST carrying a path/query/fragment to its origin (one warn)", async () => {
+    // docs-redirects composes destination paths against this value — a
+    // fragment swallows the path (`https://docs.x.ai#frag` + `/docs/y`
+    // lands on the docs ROOT), a query/path corrupts every destination.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const [bad, why] of [
+      ["https://docs.example.com/sub", "path"],
+      ["https://docs.example.com?a=b", "query"],
+      ["https://docs.example.com#frag", "fragment"],
+    ] as const) {
+      process.env.DOCS_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const warns: string[] = [];
+      const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
+        warns.push(m);
+      });
+      try {
+        const cfg = freshGet();
+        expect(cfg.docsHost, `${why} should normalize to origin`).toBe(
+          "https://docs.example.com",
+        );
+        expect(warns.some((m) => m.includes("DOCS_HOST"))).toBe(true);
+        // Once-guarded — not per request.
+        const before = warns.length;
+        freshGet();
+        expect(warns.length).toBe(before);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("rejects a non-http(s) DOCS_HOST scheme (ftp://) with the loud fallback", async () => {
+    // `ftp://docs.example.com` parses fine — but no middleware redirect
+    // destination can ever use it; it must not pass validation silently.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.DOCS_HOST = "ftp://docs.example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      // The reason must be the scheme — NOT the catch-all "not a
+      // parseable URL" mislabel (it parsed just fine).
+      expect(
+        errs.some(
+          (m) =>
+            m.includes("DOCS_HOST") &&
+            m.includes("scheme") &&
+            !m.includes("not a parseable URL"),
+        ),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rejects a credentialed DOCS_HOST (userinfo) with the loud fallback", async () => {
+    // A credentialed DOCS_HOST lands userinfo in every 308 Location —
+    // browsers strip or silently block credentialed redirect
+    // destinations, so docs redirects break with zero signal. Same
+    // rejection validateBaseUrl has.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const bad of [
+      "https://user:pass@docs.example.com",
+      // Scheme-less form: the https:// prepend manufactures the
+      // userinfo (`user:pass@docs…` → `https://user:pass@docs…`).
+      "user:pass@docs.example.com",
+    ]) {
+      process.env.DOCS_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errs: string[] = [];
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation((m: string) => void errs.push(m));
+      try {
+        const cfg = freshGet();
+        expect(cfg.docsHost, `value ${JSON.stringify(bad)}`).toBe(
+          "https://docs.showcase.copilotkit.ai",
+        );
+        expect(
+          errs.some((m) => m.includes("DOCS_HOST") && m.includes("userinfo")),
+          `value ${JSON.stringify(bad)} should log a userinfo rejection`,
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("labels the degenerate-host rejection as such, not as a parse failure", async () => {
+    // `https://` DID parse (hostname "https") — the operator-facing log
+    // must not send them hunting for a syntax error that isn't there.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.DOCS_HOST = "https://";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      freshGet();
+      expect(
+        errs.some(
+          (m) => m.includes("DOCS_HOST") && !m.includes("not a parseable URL"),
+        ),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("dev-mode SET-but-broken DOCS_HOST falls back with a dev warn, not FATAL-CONFIG / Railway guidance", async () => {
+    // Same dev-vs-prod branch validateBaseUrl has: the FATAL-CONFIG
+    // error and Railway guidance are useless on a laptop — the dev
+    // contract is frictionless iteration with a warn.
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.BASE_URL = "http://localhost:3000";
+    process.env.DOCS_HOST = "https://";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const warns: string[] = [];
+    const errs: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    const errSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((m: string) => void errs.push(m));
+    try {
+      const cfg = freshGet();
+      // Same fallback VALUE as prod — only the log level/text branches.
+      expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(warns.some((m) => m.includes("DOCS_HOST"))).toBe(true);
+      // No FATAL noise and no Railway guidance in dev.
+      expect(errs.some((m) => m.includes("DOCS_HOST"))).toBe(false);
+      expect(
+        warns.some((m) => m.includes("DOCS_HOST") && m.includes("Railway")),
+      ).toBe(false);
+    } finally {
+      warnSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  });
+
+  it("falls back to the default docs host (one loud log) when DOCS_HOST points at the shell's own host", async () => {
+    // The redirect table has self-referential entries (/faq → /faq etc.)
+    // that terminate ONLY because the destination host differs. An
+    // operator pointing DOCS_HOST at the shell's own host turns ~15
+    // paths into ERR_TOO_MANY_REDIRECTS loops.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://shell.example.com";
+    process.env.DOCS_HOST = "https://shell.example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(errs.some((m) => m.includes("DOCS_HOST"))).toBe(true);
+      // Once-guarded — not per request.
+      const before = errs.length;
+      freshGet();
+      expect(errs.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("disables docs redirects (sentinel) when the shell is deployed AT the default docs host with DOCS_HOST unset", async () => {
+    // The unconditional DEFAULT_DOCS_HOST fallback can carry the same
+    // defect it's escaping: shell deployed at the docs host with
+    // DOCS_HOST unset used to log a self-contradictory FATAL ("falling
+    // back to <the same looping value>") AND return the looping value.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://docs.showcase.copilotkit.ai";
+    // DOCS_HOST deliberately unset.
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
+      await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.docsHost).toBe(DOCS_REDIRECTS_DISABLED_HOST);
+      // The sentinel must be parseable (incidental new URL consumers)
+      // and distinct from the looping default.
+      expect(() => new URL(cfg.docsHost)).not.toThrow();
+      expect(cfg.docsHost).not.toBe("https://docs.showcase.copilotkit.ai");
+      // Branched message: names the UNSET case and says redirects are
+      // disabled — never the self-contradictory "falling back to" the
+      // very value that loops.
+      const fatal = errs.find((m) => m.includes("DOCS_HOST"));
+      expect(fatal).toBeDefined();
+      expect(fatal).toContain("unset");
+      expect(fatal).toContain("disabled");
+      expect(fatal).not.toContain(
+        "falling back to https://docs.showcase.copilotkit.ai",
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("disables docs redirects (sentinel) when DOCS_HOST is rejected AND the default fallback also collides", async () => {
+    // Shell deployed at the docs host with DOCS_HOST explicitly SET to
+    // that same host: the configured value is rejected (self-host) and
+    // the default fallback has the identical defect — return the
+    // disabled sentinel, not the looping default.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://docs.showcase.copilotkit.ai";
+    process.env.DOCS_HOST = "https://docs.showcase.copilotkit.ai";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
+      await import("./runtime-config");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.docsHost).toBe(DOCS_REDIRECTS_DISABLED_HOST);
+      const fatal = errs.find((m) => m.includes("DOCS_HOST"));
+      expect(fatal).toBeDefined();
+      expect(fatal).toContain("disabled");
+      expect(fatal).not.toContain(
+        "falling back to https://docs.showcase.copilotkit.ai",
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("still falls back to the default docs host when only the CONFIGURED value collides", async () => {
+    // The fallback re-check must not over-trigger: a shell at its own
+    // (non-docs) host with a colliding DOCS_HOST keeps the working
+    // default — redirects stay enabled.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://shell.example.com";
+    process.env.DOCS_HOST = "https://shell.example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(freshGet().docsHost).toBe("https://docs.showcase.copilotkit.ai");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does NOT trip the loop guard for same-hostname different-port docs (local dev)", () => {
+    // The loop predicate is the full authority (host:port), not the
+    // hostname: localhost:3000 (shell) → localhost:3005 (docs) is the
+    // documented dev wiring and terminates fine.
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.BASE_URL = "http://localhost:3000";
+    process.env.DOCS_HOST = "http://localhost:3005";
+    expect(getRuntimeConfig().docsHost).toBe("http://localhost:3005");
+  });
+
+  it("returns the parsed-normalized form (host case, default port) for BASE_URL/DOCS_HOST/POSTHOG_HOST", () => {
+    // Validation already PARSES every value — returning the raw
+    // candidate string instead of the parsed form leaked un-normalized
+    // values (uppercase hosts, explicit default ports) to consumers,
+    // while the internal comparisons (e.g. the docs self-host guard)
+    // operate on parsed forms: the same authority could compare unequal
+    // to itself depending on which side was spelled canonically.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://Shell.Example.COM:443";
+    process.env.DOCS_HOST = "https://Docs.Example.COM:443";
+    process.env.POSTHOG_HOST = "https://Proxy.Example.COM:443/ingest";
+    const cfg = getRuntimeConfig();
+    expect(cfg.baseUrl).toBe("https://shell.example.com");
+    expect(cfg.docsHost).toBe("https://docs.example.com");
+    // Path preserved (reverse-proxy ingest), host normalized.
+    expect(cfg.posthogHost).toBe("https://proxy.example.com/ingest");
+  });
+
   it("strips trailing slashes", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.BASE_URL = "https://showcase.example.com/";
@@ -217,8 +796,14 @@ describe("server getRuntimeConfig (shell)", () => {
     const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
       errs.push(m);
     });
-    const cfg = freshGet();
-    spy.mockRestore();
+    // try/finally so a throwing call can't leak the spy into other
+    // tests (matches every other spy in this file).
+    let cfg: ReturnType<typeof freshGet>;
+    try {
+      cfg = freshGet();
+    } finally {
+      spy.mockRestore();
+    }
     expect(cfg.baseUrl).toBe("https://shell-base-url-missing.invalid");
     // The sentinel must be a hierarchical URL: the previous
     // `about:blank#...` form was opaque-path, and `new URL(path, base)`
@@ -358,7 +943,172 @@ describe("server getRuntimeConfig (shell)", () => {
     expect(cfg.posthogHost).toBe("https://alt-ph.example.com");
   });
 
+  it("rejects a degenerate POSTHOG_HOST of just a scheme with one warn + default fallback", async () => {
+    // `https://` → readKey strips to `https:` → ensureScheme yields
+    // `https://https:` which PARSES (hostname "https") and would point
+    // every capture fetch at an unresolvable host — all analytics die
+    // via DNS, silently. Same rejection readDocsHost has.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.POSTHOG_HOST = "https://";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const warns: string[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
+      warns.push(m);
+    });
+    try {
+      const cfg = freshGet();
+      expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
+      expect(warns.some((m) => m.includes("POSTHOG_HOST"))).toBe(true);
+      // Once-guarded — not per request.
+      const before = warns.length;
+      freshGet();
+      expect(warns.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rejects a non-http(s) POSTHOG_HOST scheme with the default fallback", async () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.POSTHOG_HOST = "ftp://ph.example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const warns: string[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
+      warns.push(m);
+    });
+    try {
+      expect(freshGet().posthogHost).toBe("https://eu.i.posthog.com");
+      expect(warns.some((m) => m.includes("POSTHOG_HOST"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("rejects a credentialed POSTHOG_HOST (userinfo) with one warn + default fallback", async () => {
+    // The Fetch spec forbids credentialed request URLs — a userinfo-
+    // bearing POSTHOG_HOST makes every capture fetch throw a TypeError
+    // that middleware misattributes as a net-class failure. Same
+    // rejection validateBaseUrl/readDocsHost have.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const bad of [
+      "https://user:pass@ph.example.com",
+      // Scheme-less form: the https:// prepend manufactures the userinfo.
+      "user:pass@ph.example.com",
+    ]) {
+      process.env.POSTHOG_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const warns: string[] = [];
+      const spy = vi
+        .spyOn(console, "warn")
+        .mockImplementation((m: string) => void warns.push(m));
+      try {
+        const cfg = freshGet();
+        expect(cfg.posthogHost, `value ${JSON.stringify(bad)}`).toBe(
+          "https://eu.i.posthog.com",
+        );
+        expect(
+          warns.some(
+            (m) => m.includes("POSTHOG_HOST") && m.includes("userinfo"),
+          ),
+          `value ${JSON.stringify(bad)} should warn a userinfo rejection`,
+        ).toBe(true);
+        // Once-guarded — not per request.
+        const before = warns.length;
+        freshGet();
+        expect(warns.length).toBe(before);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("preserves a path-bearing POSTHOG_HOST (reverse-proxy ingest paths are legitimate)", () => {
+    // Unlike DOCS_HOST, a path here is NOT a misconfig: path-based
+    // PostHog reverse proxies (e.g. /ingest) are a documented pattern.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.POSTHOG_HOST = "https://proxy.example.com/ingest";
+    expect(getRuntimeConfig().posthogHost).toBe(
+      "https://proxy.example.com/ingest",
+    );
+  });
+
+  it("strips a query/fragment from POSTHOG_HOST (keeping the path) with one warn", async () => {
+    // Capture URLs are composed against this value — a `?x=1` or
+    // `#frag` corrupts every capture into a persistent root-POST with
+    // misattributed http-class warns. The PATH is kept: path-based
+    // reverse proxies (/ingest) are the documented pattern.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const [bad, expected] of [
+      [
+        "https://proxy.example.com/ingest?x=1",
+        "https://proxy.example.com/ingest",
+      ],
+      [
+        "https://proxy.example.com/ingest#frag",
+        "https://proxy.example.com/ingest",
+      ],
+      ["https://eu.i.posthog.com?x=1", "https://eu.i.posthog.com"],
+    ] as const) {
+      process.env.POSTHOG_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const warns: string[] = [];
+      const spy = vi
+        .spyOn(console, "warn")
+        .mockImplementation((m: string) => void warns.push(m));
+      try {
+        expect(freshGet().posthogHost, `value ${JSON.stringify(bad)}`).toBe(
+          expected,
+        );
+        expect(warns.some((m) => m.includes("POSTHOG_HOST"))).toBe(true);
+        // Once-guarded — not per request.
+        const before = warns.length;
+        freshGet();
+        expect(warns.length).toBe(before);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("exposes posthogKey with readEnvPair semantics (trim + NEXT_PUBLIC_ fallback)", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+
+    // Unset → undefined (legitimately absent off-prod; no log).
+    expect(getRuntimeConfig().posthogKey).toBeUndefined();
+
+    // Whitespace paste artifacts trimmed.
+    process.env.POSTHOG_KEY = " phc_primary \n";
+    expect(getRuntimeConfig().posthogKey).toBe("phc_primary");
+
+    // NEXT_PUBLIC_ fallback when the bare name is unset/empty.
+    process.env.POSTHOG_KEY = "";
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_alt";
+    expect(getRuntimeConfig().posthogKey).toBe("phc_alt");
+
+    // Bare name wins when both are set.
+    process.env.POSTHOG_KEY = "phc_primary";
+    expect(getRuntimeConfig().posthogKey).toBe("phc_primary");
+  });
+
   it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
+    // Fresh module pair (SU6-B7): earlier tests in this file call
+    // vi.resetModules(), so the STATIC getRuntimeConfig import is bound
+    // to a stale module instance — whether its next/cache binding is
+    // the object spied on below depends on vitest mock-registry
+    // caching internals. Reset and import BOTH modules from the same
+    // fresh registry generation so the spy provably wraps the exact
+    // unstable_noStore these calls go through.
+    vi.resetModules();
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
     // try/finally so a failing assertion can't leak the spy into other
@@ -368,16 +1118,16 @@ describe("server getRuntimeConfig (shell)", () => {
       process.env.BASE_URL = "https://edge.example.com";
       process.env.POSTHOG_HOST = "https://edge-posthog.example.com";
 
-      const { getRuntimeConfigForMiddleware } = await import(
-        "./runtime-config"
-      );
+      const { getRuntimeConfigForMiddleware, getRuntimeConfig: freshGet } =
+        await import("./runtime-config");
       const cfg = getRuntimeConfigForMiddleware();
       expect(cfg.baseUrl).toBe("https://edge.example.com");
       expect(noStoreSpy).not.toHaveBeenCalled();
 
-      // And confirm the default entrypoint DOES call noStore().
+      // And confirm the default entrypoint DOES call noStore() — via
+      // the SAME fresh module instance, not the stale static import.
       noStoreSpy.mockClear();
-      getRuntimeConfig();
+      freshGet();
       expect(noStoreSpy).toHaveBeenCalledTimes(1);
     } finally {
       noStoreSpy.mockRestore();

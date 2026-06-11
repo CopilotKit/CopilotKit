@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveDocsHostRedirect } from "./docs-redirects";
+import { resolveDocsHostRedirect, resolveSeoDestination } from "./docs-redirects";
 
 const DOCS_HOST = "https://docs.showcase.copilotkit.ai";
 const SLUGS = new Set(["mastra", "agno", "langgraph-python"]);
@@ -101,6 +101,43 @@ describe("resolveDocsHostRedirect", () => {
     ).toBeNull();
     // Non-framework docs routes are unaffected by the slug set.
     expect(resolveDocsHostRedirect("/docs", DOCS_HOST, empty)).toBe(DOCS_HOST);
+  });
+
+  it("matches case-insensitively, preserving the remainder's case (SU3-A4)", () => {
+    // Parity with the removed next.config rules (path-to-regexp
+    // sensitive:false): prefixes and slugs match in any case; the
+    // destination uses the canonical lowercase prefix while the matched
+    // remainder keeps its original case (path-to-regexp param behavior).
+    expect(resolveDocsHostRedirect("/DOCS", DOCS_HOST, SLUGS)).toBe(DOCS_HOST);
+    expect(resolveDocsHostRedirect("/DOCS/Quickstart", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/Quickstart`,
+    );
+    expect(resolveDocsHostRedirect("/AG-UI/Events", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/ag-ui/Events`,
+    );
+    expect(resolveDocsHostRedirect("/Reference", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/reference`,
+    );
+    expect(resolveDocsHostRedirect("/Mastra/Quickstart", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/mastra/Quickstart`,
+    );
+    // Case-insensitivity must not loosen the prefix-lookalike guards.
+    expect(resolveDocsHostRedirect("/DOCSify", DOCS_HOST, SLUGS)).toBeNull();
+    expect(resolveDocsHostRedirect("/AG-UI-extra", DOCS_HOST, SLUGS)).toBeNull();
+  });
+
+  it("throws on an empty (post-trim) docs host instead of parsing the path AS the host (SU5-A6)", () => {
+    // "" normalizes to the origin "https://", and
+    // new URL("https:///faq") triggers WHATWG slash-skipping: "faq" is
+    // parsed as the AUTHORITY — the destination path silently becomes
+    // the redirect HOST (Location: https://faq/). Fail loudly instead;
+    // runtime-config never hands middleware an empty host, so the
+    // throw is unreachable through validated callers.
+    expect(() => resolveSeoDestination("/faq", "")).toThrow(/docs host/i);
+    expect(() => resolveSeoDestination("/faq", "///")).toThrow(/docs host/i);
+    expect(() => resolveDocsHostRedirect("/docs/x", "", SLUGS)).toThrow(
+      /docs host/i,
+    );
   });
 
   it("does NOT redirect shell-owned routes", () => {

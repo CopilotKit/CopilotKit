@@ -17,8 +17,25 @@
 // calling noStore() during a client render throws. The client reader
 // consumes window.__SHOWCASE_CONFIG__ which the root layout injects.
 
+// Build-time guard (mirror of the `client-only` import in
+// runtime-config.client.ts): importing this module from a Client
+// Component bundle previously failed SILENTLY — the browser doesn't
+// have the server env vars, so a client consumer would render the
+// dev/sentinel fallbacks with no signal. `server-only` turns that
+// mistake into a Next.js build error. It only errors in CLIENT bundles:
+// the RSC layer and the middleware/Edge layer resolve the package's
+// empty `react-server` export (verified via `next build` — middleware
+// imports this module through getRuntimeConfigForMiddleware). Vitest
+// resolves it to the same empty marker via a resolve.alias in
+// vitest.config.ts (plain Node hits the throwing `default` export).
+import "server-only";
+
 import { unstable_noStore as noStore } from "next/cache";
-import { SCHEME_RE, normalizeBackendHostPattern } from "./backend-url";
+import {
+  DEFAULT_BACKEND_HOST_PATTERN,
+  SCHEME_RE,
+  normalizeBackendHostPattern,
+} from "./backend-url";
 
 export interface RuntimeConfig {
   /** Canonical shell base URL — used for canonical hrefs, OG metadata, etc. */
@@ -37,6 +54,16 @@ export interface RuntimeConfig {
   backendHostPattern: string;
   /** Docs shell host — middleware 308s /docs, /ag-ui, /reference and framework-slug routes here. */
   docsHost: string;
+  /**
+   * PostHog project API key — middleware authenticates capture calls
+   * with it. Optional: legitimately absent on non-production deploys
+   * (capture is disabled, with a warn in middleware). PostHog project
+   * keys are public-by-design (they ship in client bundles), so this
+   * field riding along in the root layout's window.__SHOWCASE_CONFIG__
+   * injection is safe. Optional in the type for the same reason —
+   * absence is a valid state, not a wiring bug.
+   */
+  posthogKey?: string;
 }
 
 // Sentinel for a missing prod BASE_URL. Must be a normal hierarchical
@@ -45,13 +72,40 @@ export interface RuntimeConfig {
 // `new URL(path, baseUrl)` THROWS on opaque bases, so the sentinel
 // itself would 500 any consumer composing URLs. `.invalid` is reserved
 // by RFC 2606, so the breakage stays visible without resolving anywhere.
-const PROD_INVALID_BASE_URL = "https://shell-base-url-missing.invalid/";
+// Declared WITHOUT a trailing slash — consumers receive it exactly as
+// written (the previous slash-bearing form was stripped at every exit
+// path, so the declared value never appeared anywhere).
+const PROD_INVALID_BASE_URL = "https://shell-base-url-missing.invalid";
 
 // Defaults reproduce today's baked prod values exactly, so a deploy
 // with neither env var set (i.e. current prod) behaves byte-identically.
-export const DEFAULT_BACKEND_HOST_PATTERN =
-  "showcase-{slug}-production.up.railway.app";
+// DEFAULT_BACKEND_HOST_PATTERN moved to backend-url.ts (its normalizer
+// falls back to it, and defining it here would create an import cycle)
+// — re-exported to keep this module's public surface unchanged.
+export { DEFAULT_BACKEND_HOST_PATTERN };
 export const DEFAULT_DOCS_HOST = "https://docs.showcase.copilotkit.ai";
+
+/**
+ * Sentinel docs host meaning "docs redirects are DISABLED for this
+ * deploy". Returned by readDocsHost when NO usable docs host exists:
+ * the configured value was rejected for pointing at the shell's own
+ * host AND the DEFAULT_DOCS_HOST fallback has the same defect (the
+ * shell is deployed AT the docs host — e.g. DOCS_HOST unset on that
+ * very service). Falling back to the default there would re-create the
+ * exact redirect loop the self-host guard exists to prevent.
+ *
+ * CONSUMER CONTRACT (middleware / docs-redirects): when
+ * `config.docsHost === DOCS_REDIRECTS_DISABLED_HOST`, skip the
+ * docs-host redirect step entirely (resolveDocsHostRedirect's callers
+ * must not issue 308s to this host). The value is a normal parseable
+ * https URL so incidental `new URL(docsHost)` consumers don't throw,
+ * and uses the RFC-2606-reserved `.invalid` TLD so it can never
+ * resolve if a redirect slips through anyway.
+ */
+export const DOCS_REDIRECTS_DISABLED_HOST =
+  "https://docs-redirects-disabled.invalid";
+// Historic default — matches the previous middleware behavior.
+export const DEFAULT_POSTHOG_HOST = "https://eu.i.posthog.com";
 
 /**
  * Resolve the runtime config for shell. Called by the root layout and
@@ -82,21 +136,23 @@ export function getRuntimeConfig(
   if (opts.noStore !== false) noStore();
   const isProd = process.env.NODE_ENV === "production";
 
-  const baseUrl = readUrl(
-    "BASE_URL",
-    isProd ? PROD_INVALID_BASE_URL : "http://localhost:3000",
+  const baseUrl = validateBaseUrl(
+    readUrl(
+      "BASE_URL",
+      isProd ? PROD_INVALID_BASE_URL : "http://localhost:3000",
+      isProd,
+    ),
     isProd,
   );
   // PostHog host: legitimately absent on non-production deploys; never
-  // log a FATAL-CONFIG for it. The historic default (`eu.i.posthog.com`)
-  // matches the previous middleware behavior. Scheme-less operator
-  // values get https:// prepended (same hardening as readDocsHost) — a
-  // scheme-less host would make every middleware capture fetch throw on
-  // an unparseable URL, and those failures are deliberately swallowed,
-  // so analytics would fail forever and silently.
-  const posthogHost = ensureScheme(
-    readKey("POSTHOG_HOST", "https://eu.i.posthog.com"),
-  );
+  // log a FATAL-CONFIG when UNSET. A SET-but-broken value is still
+  // validated (scheme prepend, degenerate-host rejection) — see
+  // readPosthogHost.
+  const posthogHost = readPosthogHost();
+  // PostHog project key: same readEnvPair semantics as every other env
+  // value (trim + NEXT_PUBLIC_ fallback). Middleware previously read
+  // process.env.POSTHOG_KEY raw, bypassing both.
+  const posthogKey = readEnvPair("POSTHOG_KEY");
 
   // Both URL-routing values have legitimate prod defaults — unset env
   // means "production behavior", so (like POSTHOG_HOST) they never log
@@ -112,19 +168,238 @@ export function getRuntimeConfig(
     readEnvPair("SHOWCASE_BACKEND_HOST_PATTERN") ??
       DEFAULT_BACKEND_HOST_PATTERN,
   );
-  const docsHost = readDocsHost();
+  const docsHost = readDocsHost(baseUrl, isProd);
 
-  return { baseUrl, posthogHost, backendHostPattern, docsHost };
+  return { baseUrl, posthogHost, backendHostPattern, docsHost, posthogKey };
 }
 
-// Prepend https:// to scheme-less host values so downstream
+// Loopback hostnames that can never serve TLS on a local dev port —
+// scheme-less values pointing at them get http:// prepended instead of
+// https:// (see ensureScheme). The WHATWG URL hostname for an IPv6
+// literal keeps its brackets, hence the `[::1]` form.
+const LOOPBACK_HOSTNAME_RE = /^(localhost|127\.0\.0\.1|\[::1\])$/i;
+
+function isLoopbackHostValue(value: string): boolean {
+  // Probe-parse with https:// to extract the hostname; an unparseable
+  // value is not loopback (the caller's validation rejects it later).
+  try {
+    return LOOPBACK_HOSTNAME_RE.test(new URL(`https://${value}`).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Prepend a scheme to scheme-less host values so downstream
 // `new URL(...)` / fetch consumers don't throw on a host-only env value.
+// https:// by default; http:// for loopback hosts — the documented
+// local-dev DOCS_HOST wiring (`localhost:3005`) would otherwise become
+// a TLS-failing https destination with zero warn.
 function ensureScheme(value: string): string {
-  return SCHEME_RE.test(value) ? value : `https://${value}`;
+  if (SCHEME_RE.test(value)) return value;
+  return isLoopbackHostValue(value) ? `http://${value}` : `https://${value}`;
+}
+
+// NOTE on once-guard scope: every warn/error once-guard Set in this
+// module is per-ISOLATE module state. The Node server and the Edge
+// middleware runtime each instantiate their own copy (and a restart
+// resets them), so a misconfig can log once per isolate rather than
+// once globally. Intended: bounded repetition beats lost signal.
+
+// One loud log per distinct (mode, malformed BASE_URL value) — not per
+// request.
+const baseUrlInvalidLogged = new Set<string>();
+// One warn per distinct origin-normalized BASE_URL value.
+const baseUrlNormalizedLogged = new Set<string>();
+
+/**
+ * Validate the BASE_URL value AFTER the unset-fallback resolution.
+ * readUrl only covers the UNSET case — a SET-but-malformed value
+ * (scheme-less `shell.copilotkit.ai`, or a bare `https://` that the
+ * trailing-slash strip reduces to `https:`) previously passed through
+ * unvalidated, and every consumer composing `new URL(path, baseUrl)`
+ * threw: opaque 500s with NO log, because the env var IS set so the
+ * unset-fallback (and its FATAL-CONFIG log) never fires. Same hardening
+ * as its siblings (readDocsHost / readPosthogHost) — the scheme and
+ * degenerate-host rejections originated there; the userinfo rejection
+ * (3) originated HERE and is mirrored into both siblings:
+ *
+ * 1. scheme-less host-only values get `https://` prepended (fixable
+ *    misconfig — no log);
+ * 2. non-http(s) schemes are rejected: `ftp://x` parses fine, and the
+ *    SCHEME_RE dot-scheme edge (`example.com://oops`) parses with
+ *    protocol "example.com:" — neither can serve consumers composing
+ *    http(s) URLs;
+ * 3. userinfo-bearing values are rejected: `mailto:ops@x` lacks `://`
+ *    so the prepend yields `https://mailto:ops@x` (userinfo
+ *    "mailto:ops") — a base URL carrying credentials is always a
+ *    misconfig;
+ * 4. degenerate values that parse but carry no real host (`https://` →
+ *    `https:` → hostname "https") are rejected;
+ * 5. a path/query/fragment is normalized to the origin with one warn —
+ *    consumers compose paths against this value, so subpath deploys
+ *    are deliberately UNSUPPORTED (composition would drop the subpath
+ *    silently anyway);
+ * 6. anything unusable falls back with a once-guarded log NAMING the
+ *    bad value — in production the `.invalid` sentinel plus a
+ *    FATAL-CONFIG error (Railway guidance); in dev the localhost
+ *    fallback plus a console.warn (the module's frictionless-dev
+ *    contract — the prod sentinel and Railway guidance are useless on
+ *    a laptop).
+ */
+function validateBaseUrl(value: string, isProd: boolean): string {
+  const candidate = ensureScheme(value);
+  let reason: string;
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      reason = `uses unsupported scheme "${parsed.protocol}" (consumers compose http(s) URLs against it)`;
+    } else if (parsed.username !== "" || parsed.password !== "") {
+      reason = `carries userinfo credentials after the https:// prepend (e.g. a mailto: value)`;
+    } else if (!parsed.hostname || /^https?$/i.test(parsed.hostname)) {
+      reason = `carries no usable host (a bare scheme like "https://")`;
+    } else if (
+      parsed.pathname !== "/" ||
+      parsed.search !== "" ||
+      parsed.hash !== ""
+    ) {
+      if (!baseUrlNormalizedLogged.has(value)) {
+        baseUrlNormalizedLogged.add(value);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[shell runtime-config] BASE_URL ${JSON.stringify(value)} carries a ` +
+            `path/query/fragment — consumers compose paths against this value ` +
+            `(subpath deploys are unsupported), so the extra parts would ` +
+            `corrupt every composed URL; using origin ${parsed.origin}.`,
+        );
+      }
+      return parsed.origin;
+    } else {
+      // Parsed-normalized form, not the raw candidate: the value is
+      // guaranteed origin-only here (path/query/fragment branch above),
+      // and the raw form leaks un-normalized spellings (uppercase
+      // hosts, explicit default ports) to every consumer while internal
+      // comparisons use parsed forms.
+      return parsed.origin;
+    }
+  } catch {
+    reason = "is not a parseable URL (even after prepending https://)";
+  }
+  const fallback = isProd ? PROD_INVALID_BASE_URL : "http://localhost:3000";
+  const logKey = `${isProd ? "prod" : "dev"}:${value}`;
+  if (!baseUrlInvalidLogged.has(logKey)) {
+    baseUrlInvalidLogged.add(logKey);
+    if (isProd) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[shell runtime-config] FATAL-CONFIG: BASE_URL ${JSON.stringify(value)} ${reason}; ` +
+          `using sentinel ${fallback}. Fix the BASE_URL env var on the Railway service.`,
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[shell runtime-config] BASE_URL ${JSON.stringify(value)} ${reason}; ` +
+          `using dev fallback ${fallback}.`,
+      );
+    }
+  }
+  return fallback;
+}
+
+// One warn per distinct bad POSTHOG_HOST value — not per request.
+const posthogHostInvalidLogged = new Set<string>();
+// One warn per distinct query/fragment-normalized POSTHOG_HOST value.
+const posthogHostNormalizedLogged = new Set<string>();
+
+/**
+ * Read POSTHOG_HOST with the same degenerate-host rejection readDocsHost
+ * has: `POSTHOG_HOST="https://"` strips to `https:`, ensureScheme yields
+ * `https://https:`, and that PARSES (hostname "https") — every capture
+ * fetch then dies on DNS. Middleware warn-onces per capture-failure
+ * class (see warnCaptureFailureOnce in src/middleware.ts), so the
+ * breakage would be LOGGED — but capture stays down until the value is
+ * fixed, hence the validation here. Differences from readDocsHost,
+ * both deliberate:
+ *
+ * - a non-root PATH is preserved: path-based PostHog reverse proxies
+ *   (e.g. `https://proxy.example.com/ingest`) are a documented pattern,
+ *   so a path here is legitimate config — but a query/fragment IS
+ *   stripped (with one warn), since it corrupts every composed capture
+ *   URL;
+ * - the fallback logs console.warn, not FATAL-CONFIG console.error —
+ *   broken analytics degrade reporting, they don't break the site.
+ */
+function readPosthogHost(): string {
+  const raw = readKey("POSTHOG_HOST", DEFAULT_POSTHOG_HOST);
+  const candidate = ensureScheme(raw);
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      throw new Error("unsupported posthog host scheme");
+    }
+    if (parsed.username !== "" || parsed.password !== "") {
+      // Same userinfo rejection validateBaseUrl/readDocsHost have: the
+      // Fetch spec forbids credentialed request URLs, so a userinfo-
+      // bearing host makes EVERY capture fetch throw a TypeError that
+      // middleware misattributes as a net-class failure.
+      if (!posthogHostInvalidLogged.has(raw)) {
+        posthogHostInvalidLogged.add(raw);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[shell runtime-config] POSTHOG_HOST ${JSON.stringify(raw)} carries ` +
+            `userinfo credentials after the https:// prepend (e.g. a mailto: ` +
+            `value) — the Fetch spec forbids credentialed URLs, so every ` +
+            `capture call would throw; falling back to ${DEFAULT_POSTHOG_HOST}. ` +
+            `Fix the POSTHOG_HOST env var on the Railway service.`,
+        );
+      }
+      return DEFAULT_POSTHOG_HOST;
+    }
+    if (!parsed.hostname || /^https?$/i.test(parsed.hostname)) {
+      throw new Error("degenerate posthog host");
+    }
+    if (parsed.search !== "" || parsed.hash !== "") {
+      // Strip query/fragment but KEEP the path (reverse-proxy ingest
+      // paths are documented config) — capture URLs are composed
+      // against this value, and a `?x=1`/`#frag` corrupts every
+      // capture into a persistent root-POST with misattributed
+      // http-class warns from middleware.
+      if (!posthogHostNormalizedLogged.has(raw)) {
+        posthogHostNormalizedLogged.add(raw);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[shell runtime-config] POSTHOG_HOST ${JSON.stringify(raw)} carries a ` +
+            `query/fragment — capture URLs are composed against this value, ` +
+            `so the extra parts would corrupt every capture call; using ` +
+            `${(parsed.origin + parsed.pathname).replace(/\/+$/, "")} (path kept ` +
+            `for reverse-proxy setups).`,
+        );
+      }
+      return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
+    }
+    // Parsed-normalized form (origin + path), not the raw candidate:
+    // query/fragment are empty here, so this is the whole URL — and the
+    // raw form leaks un-normalized spellings (uppercase hosts, explicit
+    // default ports) into every composed capture URL. The trailing-slash
+    // strip preserves the readKey contract for a bare "/" pathname.
+    return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
+  } catch {
+    if (!posthogHostInvalidLogged.has(raw)) {
+      posthogHostInvalidLogged.add(raw);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[shell runtime-config] POSTHOG_HOST ${JSON.stringify(raw)} is not a usable ` +
+          `http(s) URL (even after prepending https://); falling back to ` +
+          `${DEFAULT_POSTHOG_HOST}. Fix the POSTHOG_HOST env var on the Railway service.`,
+      );
+    }
+    return DEFAULT_POSTHOG_HOST;
+  }
 }
 
 // One loud log per distinct bad DOCS_HOST value — not per request.
 const docsHostFallbackLogged = new Set<string>();
+// One warn per distinct origin-normalized DOCS_HOST value.
+const docsHostNormalizedLogged = new Set<string>();
 
 /**
  * Read DOCS_HOST defensively. Middleware composes redirect destinations
@@ -137,40 +412,153 @@ const docsHostFallbackLogged = new Set<string>();
  *    gets `https://` prepended. This is a likely misconfig: the sibling
  *    SHOWCASE_BACKEND_HOST_PATTERN var is documented as scheme-less,
  *    and an operator can easily carry that format over.
- * 2. Degenerate values that parse but carry no real host (e.g.
+ * 2. Non-http(s) schemes (e.g. `ftp://docs.x`) parse fine but can never
+ *    serve as a redirect destination — rejected.
+ * 3. Degenerate values that parse but carry no real host (e.g.
  *    `DOCS_HOST="https://"`, which strips to `https:` and yields a
  *    "host" of `https`) are rejected.
- * 3. If the value isn't usable, log loudly once and fall back to the
- *    default docs host — degraded-but-working docs redirects beat a
- *    sitewide docs 500.
+ * 4. A value pointing at the shell's OWN host is rejected: the redirect
+ *    table has self-referential path entries (/faq → /faq etc.) that
+ *    terminate only because the destination host differs — same-host
+ *    docs redirects loop (ERR_TOO_MANY_REDIRECTS) on ~15 paths. The
+ *    comparison uses the full authority (URL.host, i.e. hostname:port),
+ *    not the hostname: localhost:3000 → localhost:3005 is the
+ *    documented local-dev wiring and must keep working.
+ * 5. A value carrying a path, query, or fragment is normalized to its
+ *    origin with one warn: docs-redirects composes destination paths
+ *    against this value, so the extra parts would silently corrupt
+ *    EVERY redirect (a `#frag` swallows the path entirely — all
+ *    redirects land on the docs root).
+ * 6. If the value isn't usable, log loudly once — with a reason that
+ *    matches the actual rejection, not a catch-all "not parseable"
+ *    mislabel — and fall back to the default docs host:
+ *    degraded-but-working docs redirects beat a sitewide docs 500.
+ *    Same dev-vs-prod branch as validateBaseUrl: in production the log
+ *    is a FATAL-CONFIG console.error with Railway guidance; in dev it
+ *    is a console.warn (the Railway guidance is useless on a laptop).
+ *    The fallback VALUE is identical in both modes.
  */
-function readDocsHost(): string {
-  const raw = readKey("DOCS_HOST", DEFAULT_DOCS_HOST);
-  const candidate = ensureScheme(raw);
+function readDocsHost(baseUrl: string, isProd: boolean): string {
+  // Best-effort shell authority for the loop guard — baseUrl has been
+  // through validateBaseUrl, but guard the parse anyway.
+  let shellHost: string | undefined;
   try {
-    // Parse for validation only — return the string form so trailing-slash
-    // stripping (readKey) is preserved.
-    const parsed = new URL(candidate);
-    // `DOCS_HOST="https://"` slips through parsing: readKey strips the
-    // slashes to "https:", ensureScheme yields "https://https:", and
-    // the URL parses with hostname "https". Reject empty/scheme-word
-    // hosts so the loud fallback fires instead.
-    if (!parsed.hostname || /^https?$/i.test(parsed.hostname)) {
-      throw new Error("degenerate docs host");
-    }
-    return candidate;
+    shellHost = new URL(baseUrl).host;
   } catch {
-    if (!docsHostFallbackLogged.has(raw)) {
-      docsHostFallbackLogged.add(raw);
+    shellHost = undefined;
+  }
+  // Read the env pair directly (same trim/fallback semantics as
+  // readKey) so the fallback path below can branch its FATAL message on
+  // set-vs-unset — with DOCS_HOST unset on a shell deployed AT the docs
+  // host, "DOCS_HOST <default> points at the shell's own host" sends
+  // the operator hunting for an env var that does not exist.
+  const envValue = readEnvPair("DOCS_HOST");
+  const raw = (envValue ?? DEFAULT_DOCS_HOST).replace(/\/+$/, "");
+  const candidate = ensureScheme(raw);
+  // Branched rejection reason: the previous catch-all labeled values
+  // that DID parse (degenerate host) as "not a parseable URL", sending
+  // the operator hunting for a syntax error that isn't there.
+  let reason: string;
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      reason = `uses unsupported scheme "${parsed.protocol}" (docs redirect destinations must be http/https)`;
+    } else if (parsed.username !== "" || parsed.password !== "") {
+      // Same userinfo rejection validateBaseUrl has: a credentialed
+      // DOCS_HOST lands userinfo in every 308 Location header, which
+      // browsers strip or silently block — docs redirects break with
+      // zero signal.
+      reason = `carries userinfo credentials after the https:// prepend (e.g. a mailto: value) — browsers strip or block credentialed redirect destinations`;
+    } else if (!parsed.hostname || /^https?$/i.test(parsed.hostname)) {
+      // `DOCS_HOST="https://"` slips through parsing: readKey strips the
+      // slashes to "https:", ensureScheme yields "https://https:", and
+      // the URL parses with hostname "https". Reject empty/scheme-word
+      // hosts so the loud fallback fires instead.
+      reason = `carries no usable host (a bare scheme like "https://")`;
+    } else if (shellHost !== undefined && parsed.host === shellHost) {
+      reason =
+        `points at the shell's own host "${shellHost}" — the redirect table's ` +
+        `self-referential paths would loop (ERR_TOO_MANY_REDIRECTS)`;
+    } else if (
+      parsed.pathname !== "/" ||
+      parsed.search !== "" ||
+      parsed.hash !== ""
+    ) {
+      if (!docsHostNormalizedLogged.has(raw)) {
+        docsHostNormalizedLogged.add(raw);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[shell runtime-config] DOCS_HOST ${JSON.stringify(raw)} carries a ` +
+            `path/query/fragment — docs redirects compose destination paths ` +
+            `against this value, so the extra parts would corrupt every ` +
+            `redirect; using origin ${parsed.origin}.`,
+        );
+      }
+      return parsed.origin;
+    } else {
+      // Parsed-normalized form, not the raw candidate: the value is
+      // guaranteed origin-only here (path/query/fragment branch above),
+      // and the raw form leaks un-normalized spellings (uppercase
+      // hosts, explicit default ports) into every redirect destination.
+      // parsed.origin never carries a trailing slash, so the strip
+      // applied to `raw` above is preserved too.
+      return parsed.origin;
+    }
+  } catch {
+    reason = "is not a parseable URL (even after prepending https://)";
+  }
+  // Re-check the FALLBACK against the shell host before handing it out:
+  // the unconditional DEFAULT_DOCS_HOST fallback can carry the same
+  // defect the configured value was just rejected for (shell deployed
+  // AT the docs host). Without this, the unset-on-the-docs-host case
+  // logged a self-contradictory "falling back to <the same looping
+  // value>" AND returned the looping value.
+  let fallbackCollides = false;
+  if (shellHost !== undefined) {
+    try {
+      fallbackCollides = new URL(DEFAULT_DOCS_HOST).host === shellHost;
+    } catch {
+      fallbackCollides = false;
+    }
+  }
+  if (!docsHostFallbackLogged.has(raw)) {
+    docsHostFallbackLogged.add(raw);
+    // Core message without log-level dressing — the dev-vs-prod branch
+    // below picks the level and (prod only) appends Railway guidance.
+    let core: string;
+    let guidance: string;
+    if (fallbackCollides && envValue === undefined) {
+      core =
+        `DOCS_HOST is unset and the default ` +
+        `docs host ${DEFAULT_DOCS_HOST} points at the shell's own host ` +
+        `"${shellHost}" — docs redirects are disabled for this deploy ` +
+        `(sentinel ${DOCS_REDIRECTS_DISABLED_HOST}).`;
+      guidance =
+        `Set DOCS_HOST on the Railway service to a host other than the shell's.`;
+    } else if (fallbackCollides) {
+      core =
+        `DOCS_HOST ${JSON.stringify(raw)} ${reason}, ` +
+        `and the default docs host ${DEFAULT_DOCS_HOST} ALSO points at the ` +
+        `shell's own host "${shellHost}" — docs redirects are disabled for ` +
+        `this deploy (sentinel ${DOCS_REDIRECTS_DISABLED_HOST}).`;
+      guidance = `Fix the DOCS_HOST env var on the Railway service.`;
+    } else {
+      core =
+        `DOCS_HOST ${JSON.stringify(raw)} ${reason}; ` +
+        `falling back to ${DEFAULT_DOCS_HOST}.`;
+      guidance = `Fix the DOCS_HOST env var on the Railway service.`;
+    }
+    if (isProd) {
       // eslint-disable-next-line no-console
       console.error(
-        `[shell runtime-config] FATAL-CONFIG: DOCS_HOST ${JSON.stringify(raw)} is not a ` +
-          `parseable URL (even after prepending https://); falling back to ` +
-          `${DEFAULT_DOCS_HOST}. Fix the DOCS_HOST env var on the Railway service.`,
+        `[shell runtime-config] FATAL-CONFIG: ${core} ${guidance}`,
       );
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(`[shell runtime-config] ${core}`);
     }
-    return DEFAULT_DOCS_HOST;
   }
+  return fallbackCollides ? DOCS_REDIRECTS_DISABLED_HOST : DEFAULT_DOCS_HOST;
 }
 
 /**
@@ -209,6 +597,11 @@ function altEnvName(envKey: string): string {
 // the alternate. Values are .trim()ed — whitespace paste artifacts in
 // deploy config (e.g. `BASE_URL=" https://x "`) would otherwise survive
 // into URLs/hosts; a whitespace-only value counts as unset.
+//
+// The dynamic `process.env[key]` reads assume a self-hosted Node runtime
+// (next start / Docker): Edge platforms that statically inline only
+// LITERAL `process.env.X` reads at build would see undefined here and
+// silently fall back to defaults.
 function readEnvPair(envKey: string): string | undefined {
   const primary = process.env[envKey]?.trim();
   if (primary && primary.length > 0) return primary;
@@ -226,6 +619,9 @@ const urlFallbackLogged = new Set<string>();
 function readUrl(envKey: string, fallback: string, isProd: boolean): string {
   const value = readEnvPair(envKey);
   if (value !== undefined) return value.replace(/\/+$/, "");
+  // Strip BEFORE logging so the message names the exact value callers
+  // receive — the pre-strip form (trailing slash) never appears anywhere.
+  const stripped = fallback.replace(/\/+$/, "");
   const logKey = `${isProd ? "prod" : "dev"}:${envKey}`;
   if (!urlFallbackLogged.has(logKey)) {
     urlFallbackLogged.add(logKey);
@@ -233,16 +629,16 @@ function readUrl(envKey: string, fallback: string, isProd: boolean): string {
       // eslint-disable-next-line no-console
       console.error(
         `[shell runtime-config] FATAL-CONFIG: ${envKey} is unset in a production deploy; ` +
-          `using sentinel ${fallback}. Set the env var on the Railway service.`,
+          `using sentinel ${stripped}. Set the env var on the Railway service.`,
       );
     } else {
       // eslint-disable-next-line no-console
       console.warn(
-        `[shell runtime-config] ${envKey} unset; using dev fallback ${fallback}`,
+        `[shell runtime-config] ${envKey} unset; using dev fallback ${stripped}`,
       );
     }
   }
-  return fallback.replace(/\/+$/, "");
+  return stripped;
 }
 
 // Analytics keys (POSTHOG_HOST etc.) are legitimately absent on

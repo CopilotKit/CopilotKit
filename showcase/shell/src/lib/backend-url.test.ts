@@ -48,12 +48,31 @@ describe("backendUrlFromPattern", () => {
     ).toBe("https://mastra.demos.example.com/mastra");
   });
 
-  it("inserts the slug literally even when it contains $-substitution patterns", () => {
-    // String replacement treats "$&" as "the matched text" — a slug of
-    // "$&" would re-insert "{slug}" instead of the slug itself.
-    expect(
-      backendUrlFromPattern("showcase-{slug}.example.com", "$&"),
-    ).toBe("https://showcase-$&.example.com");
+  it("throws on a slug outside [a-z0-9-] (host-injection choke point)", () => {
+    // Every backend URL flows through here and the slug lands in the
+    // HOST of an iframe src — "." or "/" in a slug is host/path
+    // injection. All registry slugs are [a-z0-9-]; anything else is a
+    // contract violation, not data to be passed through.
+    for (const bad of [
+      "evil.example.com",
+      "slug/../path",
+      "$&",
+      "UPPER",
+      "under_score",
+      "",
+      "white space",
+    ]) {
+      expect(
+        () => backendUrlFromPattern("showcase-{slug}.example.com", bad),
+        `slug ${JSON.stringify(bad)} should throw`,
+      ).toThrow(/invalid integration slug/);
+    }
+    // The registry's real slug shapes all pass.
+    for (const ok of ["mastra", "langgraph-python", "ag2", "ms-agent-dotnet"]) {
+      expect(() =>
+        backendUrlFromPattern("showcase-{slug}.example.com", ok),
+      ).not.toThrow();
+    }
   });
 });
 
@@ -117,6 +136,30 @@ describe("normalizeBackendHostPattern", () => {
     expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
   });
 
+  it("whitespace warn text matches the actual outcomes (host position falls back, path position ships)", () => {
+    // The old text claimed internal whitespace "yields a broken backend
+    // host" unconditionally — but HOST-position whitespace fails the
+    // usability gate and gets the DEFAULT fallback (it never ships),
+    // while PATH-position whitespace parses and genuinely ships broken.
+    normalizeFresh(" showcase-{slug}.example.com ");
+    const w = warns.find((m) => m.includes("whitespace"));
+    expect(w).toBeDefined();
+    expect(w).toContain("falls back");
+    expect(w).toContain("path");
+    expect(w).not.toContain("yields a broken backend host");
+  });
+
+  it("names EVERY stripped scheme on a stacked-scheme pattern", () => {
+    // The strip loop is once-guarded per pattern — the second
+    // iteration's warn was swallowed, so only the first scheme was ever
+    // named and the log understated what was removed.
+    normalizeFresh("https://http://showcase-{slug}.example.com");
+    const w = warns.find((m) => m.includes("scheme"));
+    expect(w).toBeDefined();
+    expect(w).toContain('"https://"');
+    expect(w).toContain('"http://"');
+  });
+
   it("warns once per distinct pattern value, not per call", () => {
     const pattern = "https://warn-once-{slug}.example.com/";
     normalizeFresh(pattern);
@@ -124,6 +167,153 @@ describe("normalizeBackendHostPattern", () => {
     expect(after).toBeGreaterThan(0);
     normalizeFresh(pattern);
     expect(warns.length).toBe(after);
+  });
+
+  it("warns when the pattern carries an internal path segment (bare-host contract)", () => {
+    // `host.app/base/{slug}` silently violates the documented bare-host
+    // contract — the consumer prepends https:// and concatenates routes,
+    // so a base path lands in every backend URL unannounced.
+    expect(normalizeFresh("backends.example.com/base/{slug}")).toBe(
+      "backends.example.com/base/{slug}",
+    );
+    expect(warns.some((m) => m.includes("path"))).toBe(true);
+  });
+
+  it("does not fire the path warning for a path-free pattern", () => {
+    normalizeFresh("showcase-{slug}-production.up.railway.app");
+    expect(warns.some((m) => m.includes("path segment"))).toBe(false);
+  });
+
+  it("strips a stacked scheme to convergence (https://https://host)", () => {
+    // The strip previously ran ONCE — `https://https://host` left a
+    // scheme behind, and the consumer prepends https:// on top: a
+    // double-prepended garbage host.
+    expect(
+      normalizeFresh("https://https://showcase-{slug}.example.com"),
+    ).toBe("showcase-{slug}.example.com");
+    expect(warns.some((m) => m.includes("scheme"))).toBe(true);
+  });
+
+  describe("degenerate patterns fall back to the default with one FATAL", () => {
+    let errs: string[];
+    let errSpy: MockInstance<typeof console.error>;
+
+    beforeEach(() => {
+      // The FATAL-CONFIG error (with Railway guidance) is the PROD
+      // posture — in dev the same fallback logs a warn instead (see the
+      // dev-mode test below). NODE_ENV is read at call time.
+      vi.stubEnv("NODE_ENV", "production");
+      errs = [];
+      errSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation((m: string) => void errs.push(m));
+    });
+
+    afterEach(() => {
+      errSpy.mockRestore();
+      vi.unstubAllEnvs();
+    });
+
+    it.each([
+      ["bare scheme", "https://"],
+      ["lone slash", "/"],
+      ["whitespace only", "   "],
+      ["internal whitespace (unparseable host)", "ho st-{slug}.example.com"],
+    ])(
+      "%s (%j) yields the default pattern, never an empty string",
+      (_label, bad) => {
+        const result = normalizeFresh(bad);
+        expect(result).toBe("showcase-{slug}-production.up.railway.app");
+        expect(result.length).toBeGreaterThan(0);
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN"),
+          ),
+        ).toBe(true);
+      },
+    );
+
+    it("rejects a credentialed pattern (userinfo) with the default fallback + one FATAL", () => {
+      // A credentialed pattern yields iframe srcs that Chromium
+      // silently blocks — the integration pane just never loads, with
+      // zero signal. Same userinfo rejection validateBaseUrl has
+      // (runtime-config.ts).
+      for (const bad of [
+        "user:pass@showcase-{slug}.example.com",
+        // Scheme-bearing form: the strip leaves the credentials behind.
+        "https://user:pass@showcase-{slug}.example.com",
+      ]) {
+        const result = normalizeFresh(bad);
+        expect(result, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN") &&
+              m.includes("userinfo"),
+          ),
+          `pattern ${JSON.stringify(bad)} should log a userinfo FATAL`,
+        ).toBe(true);
+      }
+    });
+
+    it("rejects a pattern carrying a query or fragment with the default fallback + one FATAL", () => {
+      // Route concatenation appends demo routes to the composed URL —
+      // `https://host?x=1` + `/route` yields `https://host?x=1/route`,
+      // corrupting EVERY backend URL. Same gate class as userinfo.
+      for (const [bad, component] of [
+        ["showcase-{slug}.example.com?x=1", "query"],
+        ["showcase-{slug}.example.com#frag", "fragment"],
+      ] as const) {
+        const result = normalizeFresh(bad);
+        expect(result, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN") &&
+              m.includes(component),
+          ),
+          `pattern ${JSON.stringify(bad)} should log a ${component} FATAL`,
+        ).toBe(true);
+      }
+    });
+
+    it("FATAL fires once per distinct value, not per call", () => {
+      normalizeFresh("https://");
+      const after = errs.length;
+      expect(after).toBeGreaterThan(0);
+      normalizeFresh("https://");
+      expect(errs.length).toBe(after);
+    });
+
+    it("a well-formed pattern never trips the fallback or the FATAL", () => {
+      expect(normalizeFresh("showcase-{slug}-staging.up.railway.app")).toBe(
+        "showcase-{slug}-staging.up.railway.app",
+      );
+      expect(errs).toEqual([]);
+    });
+
+    it("dev-mode degenerate pattern warns (no FATAL-CONFIG / Railway guidance) and still falls back", () => {
+      // Same dev-vs-prod branch validateBaseUrl has (runtime-config.ts):
+      // Railway guidance is useless on a laptop — dev logs a warn, prod
+      // keeps the FATAL-CONFIG error. The fallback VALUE is identical.
+      vi.stubEnv("NODE_ENV", "development");
+      expect(normalizeFresh("https://")).toBe(
+        "showcase-{slug}-production.up.railway.app",
+      );
+      expect(errs).toEqual([]);
+      expect(
+        warns.some((m) => m.includes("SHOWCASE_BACKEND_HOST_PATTERN")),
+      ).toBe(true);
+      expect(warns.some((m) => m.includes("Railway"))).toBe(false);
+    });
   });
 });
 
@@ -205,6 +395,20 @@ describe("parseLocalBackends", () => {
       parseSpy.mockRestore();
     }
   });
+
+  it("returns frozen objects (the memo is shared across every caller)", () => {
+    // The memoized object is handed to EVERY caller — a consumer
+    // mutating its "own" map would silently change the local-backend
+    // overrides for the whole process.
+    const parsed = parseFresh('{"mastra":"http://localhost:4111"}');
+    expect(Object.isFrozen(parsed)).toBe(true);
+    expect(() => {
+      (parsed as Record<string, string>).mastra = "http://evil.example.com";
+    }).toThrow(TypeError);
+    // The unset/empty/invalid paths return shared objects too.
+    expect(Object.isFrozen(parseFresh(undefined))).toBe(true);
+    expect(Object.isFrozen(parseFresh("not json"))).toBe(true);
+  });
 });
 
 describe("resolveBackendUrl", () => {
@@ -241,6 +445,39 @@ describe("resolveBackendUrl", () => {
     ).toBe("https://showcase-agno-production.up.railway.app");
   });
 
+  it("trims trailing slashes from an accepted local override (host//route class)", () => {
+    // The pattern path guarantees trailing-slash normalization
+    // (normalizeBackendHostPattern) — an override skipping it yields
+    // `host//route` when consumers concatenate demo routes.
+    process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+      mastra: "http://localhost:4111/",
+      agno: "http://localhost:4112//",
+    });
+    expect(
+      resolveBackendUrl("mastra", "showcase-{slug}-production.up.railway.app"),
+    ).toBe("http://localhost:4111");
+    expect(
+      resolveBackendUrl("agno", "showcase-{slug}-production.up.railway.app"),
+    ).toBe("http://localhost:4112");
+  });
+
+  it("returns the parsed-normalized form of an accepted override (host case, default port)", () => {
+    // The override is already parsed for validation — returning the raw
+    // string leaked un-normalized values (uppercase hosts, explicit
+    // default ports) into iframe srcs, while the pattern path always
+    // yields canonical hosts.
+    process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+      mastra: "http://LOCALHOST:4111/Api/",
+      agno: "https://Proxy.Example.COM:443",
+    });
+    expect(
+      resolveBackendUrl("mastra", "showcase-{slug}-production.up.railway.app"),
+    ).toBe("http://localhost:4111/Api");
+    expect(
+      resolveBackendUrl("agno", "showcase-{slug}-production.up.railway.app"),
+    ).toBe("https://proxy.example.com");
+  });
+
   it("ignores an empty-string local override instead of yielding an empty URL", () => {
     // A `??` fallback treated `{"mastra": ""}` as a valid override and
     // returned "" — which renders an iframe src of just the route.
@@ -248,5 +485,114 @@ describe("resolveBackendUrl", () => {
     expect(
       resolveBackendUrl("mastra", "showcase-{slug}-production.up.railway.app"),
     ).toBe("https://showcase-mastra-production.up.railway.app");
+  });
+
+  it("warns and ignores a local override with a non-http(s) scheme (iframe-src injection guard)", async () => {
+    // `javascript://...` and `ftp://...` are scheme-bearing AND
+    // parseable, so they previously passed straight into iframe srcs.
+    // Fresh module instance: the warn-once latch is module state.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+        mastra: "javascript://alert(1)",
+        agno: "ftp://files.example.com",
+        crewai: "http://localhost:4112",
+      });
+      expect(
+        resolveFresh("mastra", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-mastra-production.up.railway.app");
+      expect(
+        resolveFresh("agno", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-agno-production.up.railway.app");
+      // http(s) overrides still win.
+      expect(
+        resolveFresh("crewai", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("http://localhost:4112");
+      expect(warns.some((m) => m.includes("mastra"))).toBe(true);
+      expect(warns.some((m) => m.includes("agno"))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("warns and ignores a local override carrying userinfo, query, or fragment components", async () => {
+    // An override lands verbatim in iframe srcs and route concatenation:
+    // userinfo gets silently blocked by Chromium (same rejection the
+    // pattern path has), and a query/fragment corrupts every composed
+    // URL (`http://host?x=1` + `/route` → `http://host?x=1/route`).
+    // Fresh module instance: the warn-once latch is module state.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+        mastra: "http://user:pass@localhost:4111",
+        agno: "http://localhost:4112?x=1",
+        crewai: "http://localhost:4113#frag",
+        adk: "http://localhost:4114",
+      });
+      for (const slug of ["mastra", "agno", "crewai"]) {
+        expect(
+          resolveFresh(slug, "showcase-{slug}-production.up.railway.app"),
+          `override for "${slug}" should be rejected`,
+        ).toBe(`https://showcase-${slug}-production.up.railway.app`);
+        expect(
+          warns.some((m) => m.includes(slug)),
+          `rejecting "${slug}" should warn`,
+        ).toBe(true);
+      }
+      // A clean http(s) override still wins.
+      expect(
+        resolveFresh("adk", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("http://localhost:4114");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("warns and ignores a local override that is not a scheme-bearing parseable URL", async () => {
+    // `{"mastra": "localhost:4111"}` (no scheme) or outright garbage
+    // would land verbatim in an iframe src — fall back to the pattern
+    // instead, with a warn.
+    //
+    // Fresh module instance: the warn-once latch is module state, so
+    // asserting on the STATIC import is not retry-safe (a --retry rerun
+    // finds the latch already consumed) — same discipline as the
+    // sibling describes.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+        mastra: "localhost:4111",
+        agno: "http://exa mple/",
+        crewai: "http://localhost:4112",
+      });
+      expect(
+        resolveFresh("mastra", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-mastra-production.up.railway.app");
+      expect(
+        resolveFresh("agno", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-agno-production.up.railway.app");
+      // A well-formed override still wins.
+      expect(
+        resolveFresh("crewai", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("http://localhost:4112");
+      expect(warns.some((m) => m.includes("mastra"))).toBe(true);
+      expect(warns.some((m) => m.includes("agno"))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

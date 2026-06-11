@@ -55,6 +55,9 @@ const SSR_PLACEHOLDER: Readonly<RuntimeConfig> = Object.freeze({
   // that is only populated post-hydration.
   backendHostPattern: "showcase-{slug}.ssr-placeholder.invalid",
   docsHost: SSR_PLACEHOLDER_URL,
+  // Optional field (legitimately absent off-prod) — no placeholder
+  // needed; client capture consumers must gate on it anyway.
+  posthogKey: undefined,
 });
 
 /**
@@ -88,15 +91,47 @@ export function getRuntimeConfig(): Readonly<RuntimeConfig> {
         "The root layout must inject runtime config before client mount.",
     );
   }
-  // Minimal field validation: an injection that ran with empty inputs
-  // (layout wired to a broken server read) yields an object that is
-  // truthy but useless — fail loud instead of rendering empty URLs.
-  if (!cfg.baseUrl || !cfg.backendHostPattern) {
+  // Field validation: an injection that ran with empty inputs (layout
+  // wired to a broken server read) yields an object that is truthy but
+  // useless — fail loud instead of rendering empty URLs. ALL FOUR
+  // URL-bearing fields are checked symmetrically (docsHost feeds docs
+  // links, posthogHost feeds capture — an empty value in either is the
+  // same wiring bug as an empty baseUrl). The typeof check catches a
+  // layout bug injecting a non-string (e.g. a number), which previously
+  // sailed through truthiness and exploded far from the cause inside a
+  // consumer's replaceAll. posthogKey is deliberately NOT required —
+  // it is legitimately absent off-prod.
+  for (const field of REQUIRED_CONFIG_FIELDS) {
+    const value = cfg[field];
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(
+        `[runtime-config.client] window.__SHOWCASE_CONFIG__ is incomplete: ` +
+          `field "${field}" is ${
+            typeof value === "string" ? "empty" : `of type ${typeof value}`
+          }. The root layout injection ran with broken inputs — check the ` +
+          `server-side runtime config.`,
+      );
+    }
+  }
+  // posthogKey is exempt from the REQUIRED set because ABSENCE is a
+  // valid state (legitimately unset off-prod) — but the absence
+  // exemption must not exempt wrong TYPES: a layout bug injecting a
+  // number would sail through and explode far from the cause inside a
+  // capture consumer.
+  if (cfg.posthogKey !== undefined && typeof cfg.posthogKey !== "string") {
     throw new Error(
-      "[runtime-config.client] window.__SHOWCASE_CONFIG__ is incomplete " +
-        "(empty baseUrl or backendHostPattern). The root layout injection " +
-        "ran with empty inputs — check the server-side runtime config.",
+      `[runtime-config.client] window.__SHOWCASE_CONFIG__ is malformed: ` +
+        `field "posthogKey" is of type ${typeof cfg.posthogKey} (expected ` +
+        `a string or absence). The root layout injection ran with broken ` +
+        `inputs — check the server-side runtime config.`,
     );
   }
   return Object.freeze(cfg);
 }
+
+const REQUIRED_CONFIG_FIELDS = [
+  "baseUrl",
+  "posthogHost",
+  "backendHostPattern",
+  "docsHost",
+] as const satisfies readonly (keyof RuntimeConfig)[];

@@ -25,21 +25,62 @@ const FEATURE_REGISTRY_PATH = path.join(
   "feature-registry.json",
 );
 
-// Backend host pattern — used to synthesize `backend_url` for any manifest
-// that omits it. `{slug}` is the only placeholder. Default reproduces the
-// Railway hostname convention every existing manifest already uses, so this
-// PR is a no-op for the current dataset (manifest value wins in dual-read).
-//
-// Future PRs will (a) drop `backend_url` from manifests so this synthesis
-// becomes the source of truth, and (b) let CI/tests point a single deployed
-// image at a different env by overriding this var.
+// Backend host pattern — used to synthesize `backend_url` for every
+// manifest. `{slug}` is the only placeholder. Manifests no longer ship
+// `backend_url` (PR2 stripped them all), so this synthesis IS the source
+// of truth; a manifest-supplied value is still honored in the dual-read
+// below for safety/backporting. The default reproduces the Railway
+// hostname convention, and CI/tests can point a single deployed image at
+// a different env by overriding this var — same env var and semantics as
+// the runtime consumer (shell/src/lib/backend-url.ts).
 const DEFAULT_BACKEND_HOST_PATTERN =
   "showcase-{slug}-production.up.railway.app";
 const BACKEND_HOST_PATTERN =
   process.env.SHOWCASE_BACKEND_HOST_PATTERN || DEFAULT_BACKEND_HOST_PATTERN;
 
+// {slug} placeholder validation — build-time fail-loud: a pattern without
+// the placeholder bakes the SAME backend host into every integration's
+// backend_url, silently. At runtime that is only an advisory warn (the
+// request must still be served — see normalizeBackendHostPattern in
+// shell/src/lib/backend-url.ts); here refusing is cheap and correct.
+// stderr + process.exit(1) (not a bare throw) is the error contract this
+// script's consumers rely on: vitest.global-setup.ts and CI run it with
+// stdout ignored and stderr inherited, so a failure must surface as a
+// non-zero exit with the reason on stderr.
+if (!BACKEND_HOST_PATTERN.includes("{slug}")) {
+  console.error(
+    `ERROR: SHOWCASE_BACKEND_HOST_PATTERN ` +
+      `${JSON.stringify(BACKEND_HOST_PATTERN)} lacks the {slug} ` +
+      `placeholder — every integration would resolve to the same backend ` +
+      `host. Fix the env var (default: ${DEFAULT_BACKEND_HOST_PATTERN}).`,
+  );
+  process.exit(1);
+}
+
 function synthesizeBackendUrl(slug: string): string {
-  return `https://${BACKEND_HOST_PATTERN.replace("{slug}", slug)}`;
+  // replaceAll + function replacer — parity with the runtime consumer
+  // (backendUrlFromPattern in shell/src/lib/backend-url.ts): replace()
+  // substitutes only the FIRST {slug} occurrence, and a plain string
+  // replacement is subject to `$` substitution patterns ("$&", "$'", …).
+  return `https://${BACKEND_HOST_PATTERN.replaceAll("{slug}", () => slug)}`;
+}
+
+// Atomic write (SU4-A7): write to a temp sibling, then rename(2) into
+// place. A concurrent reader (a vitest worker importing registry.json,
+// a dev-server build) racing a bare writeFileSync could observe a
+// half-written file — rename within the same directory is atomic on
+// POSIX, so readers see either the old complete file or the new one.
+// try/finally unlink (SU5-A5): a crash between write and rename used to
+// litter the data dir with orphaned .tmp files. After a successful
+// rename the tmp path no longer exists — rmSync(force:true) is a no-op.
+function writeFileAtomicSync(filePath: string, contents: string): void {
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, contents);
+    fs.renameSync(tmpPath, filePath);
+  } finally {
+    fs.rmSync(tmpPath, { force: true });
+  }
 }
 // Registry is consumed by ALL shells:
 //   - shell: home grid, integrations catalog, matrix, middleware
@@ -647,29 +688,35 @@ function main() {
     packages,
   };
 
+  // Compute and serialize ALL outputs BEFORE the first file write
+  // (SU5-A5): catalog generation used to run AFTER the registry and
+  // constraints files were already on disk, so a generateCatalog throw
+  // left a partial multi-file emit (fresh registry.json, stale or
+  // missing catalog.json). All-or-nothing: any failure below this
+  // comment exits before a single byte is written.
   const registryJson = JSON.stringify(registry, null, 2) + "\n";
+  const constraintsJson = JSON.stringify(constraints, null, 2) + "\n";
+
+  // --- Catalog generation (D0-D4 dashboard matrix) ---
+  const catalog = generateCatalog(featureRegistry, integrations);
+  const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
+
   for (const dir of OUTPUT_DIRS) {
     fs.mkdirSync(dir, { recursive: true });
     const outputPath = path.join(dir, "registry.json");
-    fs.writeFileSync(outputPath, registryJson);
+    writeFileAtomicSync(outputPath, registryJson);
     console.log(
       `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
     );
   }
 
   // Write constraints.json for the shell's client-side filtering
-  fs.writeFileSync(
-    CONSTRAINTS_OUTPUT_PATH,
-    JSON.stringify(constraints, null, 2) + "\n",
-  );
+  writeFileAtomicSync(CONSTRAINTS_OUTPUT_PATH, constraintsJson);
   console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
 
-  // --- Catalog generation (D0-D4 dashboard matrix) ---
-  const catalog = generateCatalog(featureRegistry, integrations);
-  const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
   for (const dir of OUTPUT_DIRS) {
     const catalogPath = path.join(dir, "catalog.json");
-    fs.writeFileSync(catalogPath, catalogJson);
+    writeFileAtomicSync(catalogPath, catalogJson);
     console.log(
       `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
     );
