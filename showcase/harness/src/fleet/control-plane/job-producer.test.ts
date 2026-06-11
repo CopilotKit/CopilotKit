@@ -16,6 +16,10 @@ import type {
   PoolCommError,
   SweepResult,
 } from "../contracts.js";
+import {
+  createFleetQueueClient,
+  PoisonedBacklogCountError,
+} from "../queue-client.js";
 import type { Logger } from "../../types/index.js";
 
 /**
@@ -489,9 +493,7 @@ describe("job-producer — per-family backlog dedupe", () => {
       specs: d6Specs(["a", "b"]),
       queue: makeFakeQueue({
         countPendingImpl: async () => {
-          throw new Error(
-            'queue-client: countPendingForFamily("d6") received a non-count totalItems (-1) despite skipTotal:false — refusing to fail the backlog gate open',
-          );
+          throw new PoisonedBacklogCountError("d6", -1);
         },
       }),
       logger: {
@@ -521,9 +523,7 @@ describe("job-producer — per-family backlog dedupe", () => {
       queue: makeFakeQueue({
         countPendingImpl: async (family) => {
           if (family === "d6") {
-            throw new Error(
-              "refusing to fail the backlog gate open (poisoned totalItems)",
-            );
+            throw new PoisonedBacklogCountError("d6", -1);
           }
           throw new Error("transient PB count blip");
         },
@@ -537,6 +537,88 @@ describe("job-producer — per-family backlog dedupe", () => {
       "e2e-demos:a",
     ]);
     expect(result.enqueued).toBe(1);
+    expect(result.skippedForBacklog).toBe(1);
+  });
+
+  it("fail-closed keys on the error CLASS, not message text — a reworded refusal still fails closed (drift guard)", async () => {
+    // The old gate matched a message substring copied from queue-client.ts.
+    // Any rewording of that message silently flipped this fail-closed class
+    // into the generic fail-open catch — the exact silent-fail-open hole the
+    // refusal exists to close. The class is the contract; pin it by throwing
+    // a PoisonedBacklogCountError whose message has fully drifted.
+    const drifted = new PoisonedBacklogCountError("d6", -1);
+    drifted.message = "completely reworded refusal text with no marker phrase";
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      queue: makeFakeQueue({
+        countPendingImpl: async () => {
+          throw drifted;
+        },
+      }),
+    });
+
+    const result = await producer.tick();
+
+    expect(queue.enqueued).toHaveLength(0);
+    expect(result.enqueued).toBe(0);
+    expect(result.skippedForBacklog).toBe(1);
+  });
+
+  it("the REAL queue-client poisoned-count refusal fails the gate closed end-to-end (no test-literal drift)", async () => {
+    // Integration drift guard: drive the producer's gate through the REAL
+    // createFleetQueueClient refusal (a backend returning totalItems -1
+    // despite skipTotal:false) instead of a hand-copied error literal — so
+    // a change to the refusal's class or construction breaks THIS test
+    // rather than silently failing the gate open in production.
+    const enqueued: EnqueueJobInput[] = [];
+    const fakePb = {
+      async list() {
+        return {
+          page: 1,
+          perPage: 1,
+          totalPages: -1,
+          totalItems: -1, // the poisoned non-count despite skipTotal:false
+          items: [],
+        };
+      },
+      async create(_c: string, record: Record<string, unknown>) {
+        enqueued.push({ payload: record.payload as never });
+        return record;
+      },
+      async getOne() {
+        return null;
+      },
+      async update() {
+        throw new Error("not used");
+      },
+      async delete() {
+        throw new Error("not used");
+      },
+    } as unknown as import("../../storage/pb-client.js").PbClient;
+    const realQueue = createFleetQueueClient({
+      pb: fakePb,
+      claim: {
+        claimJob: async () => ({ won: false }),
+        renewLease: async () => ({ renewed: false }),
+        releaseJob: async () => ({ released: false }),
+      },
+      logger: SILENT_LOGGER,
+      // Disable the stale-pending drain so the producer's first-tick sweep
+      // doesn't consume the fake's list responses (this test pins the GATE).
+      stalePending: { expiryPeriods: 0 },
+    });
+    const producer = createJobProducer({
+      queue: realQueue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      sweepIntervalMs: Number.MAX_SAFE_INTEGER,
+    });
+    producer.start();
+
+    const result = await producer.tick();
+
+    expect(enqueued).toHaveLength(0);
+    expect(result.enqueued).toBe(0);
     expect(result.skippedForBacklog).toBe(1);
   });
 });

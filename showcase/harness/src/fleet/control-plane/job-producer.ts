@@ -48,6 +48,7 @@ import type {
   ServiceJobPayload,
 } from "../contracts.js";
 import { probeKeyFamily } from "../contracts.js";
+import { PoisonedBacklogCountError } from "../queue-client.js";
 import { deriveHealthUrl } from "../../probes/liveness.js";
 
 /**
@@ -356,17 +357,6 @@ export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
  * the fresher dashboard signal.
  */
 export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
-
-/**
- * The queue-client's poisoned-count refusal message marker (see
- * `countPendingForFamily` in queue-client.ts: it THROWS rather than return a
- * non-count totalItems that would silently fail the backlog gate open).
- * Matched on the error MESSAGE substring because the queue-client does not
- * export a dedicated error class for the refusal — a defensive string match
- * keyed on the stable, documented phrase. If the queue-client ever exports
- * the error type, switch the gate's catch to `instanceof`.
- */
-const POISONED_COUNT_MARKER = "refusing to fail the backlog gate open";
 
 /**
  * The no-op `TickResult` for a tick that never RAN (skipped because a
@@ -699,11 +689,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         pendingCount = await queue.countPendingForFamily(family);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        if (message.includes(POISONED_COUNT_MARKER)) {
+        if (err instanceof PoisonedBacklogCountError) {
           // FAIL CLOSED: the queue-client refused a poisoned (non-count)
           // totalItems rather than fail the gate open — honoring that means
           // SKIPPING this family's batch, not producing on top of an
-          // unknowable backlog. The next tick re-checks.
+          // unknowable backlog. The next tick re-checks. Discriminated via
+          // the DEDICATED exported class (instanceof) — the old
+          // message-substring match silently flipped this fail-closed class
+          // into the fail-open catch below on any message drift.
           skipped += group.length;
           logger.error("fleet.producer.backlog-check-poisoned", {
             runId,

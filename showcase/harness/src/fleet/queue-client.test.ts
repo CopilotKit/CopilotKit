@@ -5,6 +5,7 @@ import {
   createFleetQueueClient,
   leaseExpired,
   PB_DATE_SEP_RE,
+  PoisonedBacklogCountError,
   RESULT_WRITE_MAX_ATTEMPTS,
   RESULT_WRITE_RETRY_DELAY_MS,
 } from "./queue-client.js";
@@ -2313,6 +2314,13 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
 
     await expect(q.countPendingForFamily("d4")).rejects.toThrow(
       /non-count totalItems/i,
+    );
+    // The refusal is a DEDICATED EXPORTED CLASS, not just message text: the
+    // producer's backlog gate discriminates this fail-closed class via
+    // `instanceof` (message-substring matching silently flipped the gate
+    // fail-closed → fail-open on any message drift).
+    await expect(q.countPendingForFamily("d4")).rejects.toBeInstanceOf(
+      PoisonedBacklogCountError,
     );
   });
 

@@ -214,6 +214,27 @@ export interface FleetQueueClientWithSweepOutcome extends FleetQueueClient {
   sweepExpired(nowMs: number): Promise<SweepResultWithIndeterminate>;
 }
 
+/**
+ * Thrown by `countPendingForFamily` when the backend hands back a non-count
+ * `totalItems` despite `skipTotal:false` — a poisoned value (-1 or garbage)
+ * is never above the producer's backlog threshold, so returning it would
+ * silently FAIL the backlog gate OPEN. A DEDICATED EXPORTED CLASS (not just
+ * message text) because the producer's gate discriminates this fail-closed
+ * class from transient read blips (fail open): an `instanceof` check cannot
+ * drift, whereas the old message-substring match would silently flip the
+ * gate fail-closed → fail-open if this message was ever reworded.
+ */
+export class PoisonedBacklogCountError extends Error {
+  constructor(family: string, totalItems: unknown) {
+    super(
+      `queue-client: countPendingForFamily("${family}") received a non-count totalItems (${String(
+        totalItems,
+      )}) despite skipTotal:false — refusing to fail the backlog gate open`,
+    );
+    this.name = "PoisonedBacklogCountError";
+  }
+}
+
 export interface FleetQueueClientConfig {
   /** Record-level PB access for enqueue (create) + queue reads (list). */
   pb: PbClient;
@@ -1505,11 +1526,7 @@ export function createFleetQueueClient(
       // the backlog gate. Refuse the poisoned value loudly.
       const totalItems: unknown = page.totalItems;
       if (typeof totalItems !== "number" || totalItems < 0) {
-        throw new Error(
-          `queue-client: countPendingForFamily("${family}") received a non-count totalItems (${String(
-            totalItems,
-          )}) despite skipTotal:false — refusing to fail the backlog gate open`,
-        );
+        throw new PoisonedBacklogCountError(family, totalItems);
       }
       return totalItems;
     },
