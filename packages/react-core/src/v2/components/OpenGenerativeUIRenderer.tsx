@@ -350,6 +350,27 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       // designSystemCss is a stable context value (set once at provider mount)
     }, [previewBody, previewStyles, css, designSystemCss]);
 
+    // Effect 0c — Tear down the preview when it empties mid-stream. The streamed
+    // HTML can transiently reduce to an empty body region (e.g. the only complete
+    // markup so far is a <head> element, which processPartialHtml strips), flipping
+    // hasPreview false while still streaming (no fullHtml yet). Effect 0's cleanup
+    // only sets cancelled = true and Effect 1 only runs once fullHtml is truthy, so
+    // without this the orphaned preview iframe stays mounted behind the placeholder
+    // spinner. Mirrors the Vue renderer's watch([hasPreview, fullHtml]) ->
+    // destroyPreview(). Effect 1 owns the teardown on the transition to the final
+    // document, so skip while fullHtml is truthy to avoid a double destroy. Nulling
+    // previewSandboxRef/previewReadyRef lets Effect 0 build a fresh preview when a
+    // later non-empty chunk arrives; latestPreviewRef still feeds that rebuild its
+    // current frame, so the "applies the latest streamed content" path is intact.
+    useEffect(() => {
+      if (fullHtml || hasPreview) return;
+      if (previewSandboxRef.current) {
+        previewSandboxRef.current.destroy();
+        previewSandboxRef.current = null;
+      }
+      previewReadyRef.current = false;
+    }, [hasPreview, fullHtml]);
+
     // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
     useEffect(() => {
       const container = containerRef.current;

@@ -727,6 +727,110 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(options.frameContent).toContain("Hello");
     });
 
+    it("destroys the preview sandbox when the body empties mid-stream, then rebuilds it for a later chunk", async () => {
+      // Mirrors the Vue renderer's watch([hasPreview, fullHtml]) -> destroyPreview()
+      // teardown. While still streaming (htmlComplete:false, no fullHtml), the
+      // accumulated HTML can transiently reduce to an empty body region — e.g. the
+      // only complete markup so far is a <head> element, which processPartialHtml
+      // strips, leaving previewBody empty. hasPreview then flips false and the
+      // container reverts to placeholder styling. The orphaned preview iframe must
+      // be torn down (not left mounted behind the spinner), and a later non-empty
+      // chunk must create a FRESH preview.
+      //
+      // RED pre-fix: only Effect 1 (fullHtml truthy) and unmount destroy the
+      // preview sandbox, so an empty mid-stream body leaves it mounted —
+      // mockDestroy is never called and no second sandbox is created.
+      const { rerender } = render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>Hello</div>"],
+            htmlComplete: false,
+            cssComplete: true,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      // Preview sandbox created and painted.
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      // A chunk arrives whose only complete markup is a <head> element;
+      // processPartialHtml strips it, so previewBody is empty and hasPreview
+      // flips false. This is a throttled change (htmlComplete stays false, no
+      // immediate-flush trigger), so wait out the 1s throttle window.
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<head><style>.x{color:red}</style></head>"],
+            htmlComplete: false,
+            cssComplete: true,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 1100));
+      });
+      await flushImport();
+
+      // The orphaned preview sandbox must be destroyed and the container emptied.
+      expect(mockDestroy).toHaveBeenCalledTimes(1);
+
+      // A later non-empty chunk must build a FRESH preview sandbox (the ref was
+      // reset, so Effect 0 re-creates). New promise for the new sandbox.
+      mockRun.mockClear();
+      resetMockPromise();
+      rerender(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            html: ["<body><div>World</div>"],
+            htmlComplete: false,
+            cssComplete: true,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 1100));
+      });
+      await flushImport();
+
+      // Second preview sandbox created.
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+      const [, options] = mockCreate.mock.calls[1];
+      expect(options.frameContent).toBe("<head></head><body></body>");
+
+      // Resolve the rebuilt preview and assert the new body is painted.
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
+      expect(bodyCalls[bodyCalls.length - 1]![0]).toContain("World");
+    }, 10000);
+
     it("does not show preview until cssComplete, then starts streaming HTML immediately", async () => {
       // Phase 1: HTML chunks arrive but CSS is not yet complete — no preview
       const { rerender } = render(
