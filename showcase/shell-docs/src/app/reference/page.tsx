@@ -18,7 +18,9 @@ import type { ReferenceCategory, ReferenceItem } from "@/lib/reference-items";
 
 function displayTitle(item: ReferenceItem): string {
   if (item.category === "Components") return `<${item.title} />`;
-  if (item.category === "Hooks") return `${item.title}()`;
+  if (item.category === "Hooks" || item.category === "Functions") {
+    return `${item.title}()`;
+  }
   return item.title;
 }
 
@@ -45,6 +47,12 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     description:
       "The framework-agnostic @copilotkit/core client — runs anywhere JavaScript runs.",
     href: referenceVersionHref("core"),
+  },
+  {
+    name: "Bots",
+    description:
+      "The bot stack — createBot, JSX message components, and the Slack adapter.",
+    href: referenceVersionHref("bot"),
   },
 ];
 

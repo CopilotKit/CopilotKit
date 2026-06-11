@@ -8,8 +8,11 @@
 
 import fs from "fs";
 import path from "path";
+import React from "react";
 import matter from "gray-matter";
+import { Slack } from "lucide-react";
 import type * as PageTree from "fumadocs-core/page-tree";
+import { CopilotKitMark } from "@/components/copilotkit-mark";
 import { resolveWithinDir, safeExistsSync } from "@/lib/safe-fs";
 
 export const REFERENCE_CONTENT_DIR = path.join(
@@ -23,7 +26,7 @@ export const REFERENCE_CONTENT_DIR = path.join(
 // `reference-version-selector.tsx` (a `Record<ReferenceVersion, string>`,
 // so a missing label is a compile error), and create a
 // `src/content/reference/<id>/` folder.
-export const REFERENCE_VERSIONS = ["v2", "v1", "core"] as const;
+export const REFERENCE_VERSIONS = ["v2", "v1", "core", "bot"] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
 /** The root SDK whose content lives directly under `reference/`. */
@@ -32,34 +35,41 @@ const ROOT_VERSION: ReferenceVersion = "v2";
 export const REFERENCE_CATEGORIES = [
   "Components",
   "Hooks",
+  "Functions",
   "Classes",
   "Types",
   "Enums",
   "SDKs",
+  "Slack",
 ] as const;
 export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 
 type ReferenceSubdir =
   | "components"
   | "hooks"
+  | "functions"
   | "classes"
   | "types"
   | "enums"
-  | "sdk";
+  | "sdk"
+  | "slack";
 
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
-  v2: ["components", "hooks", "sdk"],
+  v2: ["components", "hooks"],
   v1: ["components", "hooks", "classes", "sdk"],
   core: ["classes", "types", "enums"],
+  bot: ["components", "functions", "classes", "types", "slack"],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   components: "Components",
   hooks: "Hooks",
+  functions: "Functions",
   classes: "Classes",
   types: "Types",
   enums: "Enums",
   sdk: "SDKs",
+  slack: "Slack",
 };
 
 export type ReferenceItem = {
@@ -246,9 +256,106 @@ export function loadReferenceVersionItems(
   );
 }
 
+function itemToPage(item: ReferenceItem): PageTree.Item {
+  return { type: "page", name: item.title, url: item.url };
+}
+
+// Package separators carry the package's mark. Mirror page-tree-bridge:
+// merge icon + label into the separator's `name` (fumadocs renders
+// `[item.icon, item.name]` as a keyless child array, so the split
+// `icon` prop triggers React's key warning).
+function packageSeparator(
+  icon: React.ReactNode,
+  label: string,
+): PageTree.Separator {
+  return {
+    type: "separator",
+    name: React.createElement(
+      React.Fragment,
+      null,
+      React.isValidElement(icon)
+        ? React.cloneElement(icon, { key: "icon" })
+        : icon,
+      React.createElement("span", { key: "label" }, label),
+    ),
+  };
+}
+
+/**
+ * The Bots tab groups the sidebar by package, not by category: a
+ * `@copilotkit/bot` section with collapsed kind-folders (Components /
+ * Functions / Classes / Types), then a flat `@copilotkit/bot-slack`
+ * section listing the adapter's own exports (the `slack/` subdir).
+ */
+function buildBotPageTree(): PageTree.Root {
+  const kindFolder = (
+    name: string,
+    subdir: ReferenceSubdir,
+  ): PageTree.Folder[] => {
+    const items = loadReferenceItems("bot", subdir);
+    if (items.length === 0) return [];
+    return [
+      {
+        type: "folder",
+        name,
+        defaultOpen: false,
+        children: items.map(itemToPage),
+      },
+    ];
+  };
+
+  // Explicit order: the adapter factory first, then rendering, then the
+  // supporting exports. Anything new lands after, in filesystem order.
+  const SLACK_ORDER = [
+    "slack",
+    "slack/renderBlockKit",
+    "slack/markdownToMrkdwn",
+    "slack/defaultSlackTools",
+    "slack/defaultSlackContext",
+    "slack/SanitizingHttpAgent",
+  ];
+  const slackItems = [...loadReferenceItems("bot", "slack")].sort((a, b) => {
+    const ai = SLACK_ORDER.indexOf(a.slug);
+    const bi = SLACK_ORDER.indexOf(b.slug);
+    return (
+      (ai === -1 ? SLACK_ORDER.length : ai) -
+      (bi === -1 ? SLACK_ORDER.length : bi)
+    );
+  });
+
+  const slackCoreFolder: PageTree.Folder[] =
+    slackItems.length === 0
+      ? []
+      : [
+          {
+            type: "folder",
+            name: "Core",
+            defaultOpen: false,
+            children: slackItems.map(itemToPage),
+          },
+        ];
+
+  return {
+    name: "Reference",
+    children: [
+      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/bot"),
+      ...kindFolder("Components", "components"),
+      ...kindFolder("Functions", "functions"),
+      ...kindFolder("Classes", "classes"),
+      ...kindFolder("Types", "types"),
+      packageSeparator(
+        React.createElement(Slack, { size: 16 }),
+        "@copilotkit/bot-slack",
+      ),
+      ...slackCoreFolder,
+    ],
+  };
+}
+
 export function buildReferencePageTree(
   version: ReferenceVersion,
 ): PageTree.Root {
+  if (version === "bot") return buildBotPageTree();
   const allItems = loadReferenceVersionItems(version);
   return {
     name: "Reference",
@@ -259,13 +366,7 @@ export function buildReferencePageTree(
       if (categoryItems.length === 0) return [];
       return [
         { type: "separator" as const, name: category },
-        ...categoryItems.map(
-          (item): PageTree.Item => ({
-            type: "page",
-            name: item.title,
-            url: item.url,
-          }),
-        ),
+        ...categoryItems.map(itemToPage),
       ];
     }),
   };
