@@ -227,8 +227,9 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       await ensureAuth();
       res = await doPost();
     }
-    const text = await res.text().catch(() => "");
     if (!res.ok) {
+      // Failure path: the body is diagnostics only — a failed read is fine.
+      const text = await res.text().catch(() => "");
       logger.warn("job-claim.endpoint-error", {
         path,
         status: res.status,
@@ -239,7 +240,37 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       if (opts?.nullOn5xx && res.status >= 500) return null;
       throw new Error(`job-claim ${path} failed: ${res.status} ${text}`);
     }
-    return text ? (JSON.parse(text) as ClaimEndpointBody) : {};
+    // 2xx: the endpoint COMMITTED the transition server-side. A body we
+    // cannot read/parse — or an empty one — means the OUTCOME of a committed
+    // CAS is UNKNOWN. The old empty→`{}` mapping FABRICATED a CAS loss for
+    // an operation that may have WON: a won claim was abandoned (stranded
+    // claimed row), a successful renew read back as `renewed: false` killed
+    // the worker's heartbeat (recreating the false worker-crashed-mid-job
+    // class), and a committed release read back as `released: false` made
+    // report() falsely declare the result discarded. Indeterminate must
+    // THROW with context; every caller contains the throw (claimNext
+    // per-candidate, queue-client renewLease assumed-live, the sweep's
+    // conservative path, report()'s retry).
+    const indeterminate = (detail: string): Error =>
+      new Error(
+        `job-claim ${path}: 2xx body unreadable — outcome indeterminate (${detail})`,
+      );
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (err) {
+      throw indeterminate(
+        `read failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    if (!text) throw indeterminate("empty body");
+    try {
+      return JSON.parse(text) as ClaimEndpointBody;
+    } catch (err) {
+      throw indeterminate(
+        `unparseable JSON: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   return {

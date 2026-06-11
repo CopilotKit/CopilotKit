@@ -344,18 +344,71 @@ describe("job-claim client", () => {
     );
   });
 
-  it("treats an empty endpoint body as a non-win without throwing", async () => {
-    const fetchImpl = authedFetch(() => new Response("", { status: 200 }));
-    const client = createJobClaimClient({
-      url: "http://pb",
-      email: "a@b",
-      password: "pw",
-      logger,
-      fetchImpl,
+  describe("2xx indeterminate body (G1a) — a committed CAS must never fabricate a loss", () => {
+    // A 2xx means the endpoint COMMITTED the transition server-side. If the
+    // body is then unreadable/empty/unparseable, the OUTCOME is unknown —
+    // the old empty→`{}` mapping fabricated a CAS LOSS for an operation
+    // that may have WON: a won claim was abandoned (stranded claimed row),
+    // a successful renew killed the heartbeat (the false
+    // worker-crashed-mid-job class), a committed release reported the
+    // result discarded. Indeterminate must THROW with context; callers
+    // contain the throw (claimNext per-candidate, renewLease assumed-live,
+    // sweep conservative, report retry).
+    function client(fetchImpl: typeof fetch) {
+      return createJobClaimClient({
+        url: "http://pb",
+        email: "a@b",
+        password: "pw",
+        logger,
+        fetchImpl,
+      });
+    }
+
+    it("claimJob THROWS on a 2xx with an EMPTY body (not won:false)", async () => {
+      const c = client(authedFetch(() => new Response("", { status: 200 })));
+      await expect(c.claimJob("j1", "worker-7", 30)).rejects.toThrow(
+        /job-claim \/api\/fleet\/claim: 2xx body unreadable — outcome indeterminate/,
+      );
     });
-    const r = await client.claimJob("j1", "worker-7", 30);
-    expect(r.won).toBe(false);
-    expect(r.job).toBeUndefined();
+
+    it("renewLease THROWS on a 2xx with an EMPTY body (not renewed:false — no false worker-crashed)", async () => {
+      const c = client(authedFetch(() => new Response("", { status: 200 })));
+      await expect(c.renewLease("j1", "worker-7", 30)).rejects.toThrow(
+        /job-claim \/api\/fleet\/renew: 2xx body unreadable — outcome indeterminate/,
+      );
+    });
+
+    it("releaseJob THROWS on a 2xx with an EMPTY body (not released:false)", async () => {
+      const c = client(authedFetch(() => new Response("", { status: 200 })));
+      await expect(c.releaseJob("j1", "worker-7", "done")).rejects.toThrow(
+        /job-claim \/api\/fleet\/release: 2xx body unreadable — outcome indeterminate/,
+      );
+    });
+
+    it("THROWS on a 2xx whose body is unparseable JSON", async () => {
+      const c = client(
+        authedFetch(() => new Response("<html>proxy", { status: 200 })),
+      );
+      await expect(c.claimJob("j1", "worker-7", 30)).rejects.toThrow(
+        /2xx body unreadable — outcome indeterminate.*unparseable/,
+      );
+    });
+
+    it("THROWS on a 2xx whose body READ rejects (socket reset mid-body)", async () => {
+      const c = client(
+        authedFetch(
+          () =>
+            ({
+              ok: true,
+              status: 200,
+              text: () => Promise.reject(new Error("socket reset mid-body")),
+            }) as unknown as Response,
+        ),
+      );
+      await expect(c.renewLease("j1", "worker-7", 30)).rejects.toThrow(
+        /2xx body unreadable — outcome indeterminate.*socket reset mid-body/,
+      );
+    });
   });
 
   it("throws when the auth endpoint itself fails", async () => {
