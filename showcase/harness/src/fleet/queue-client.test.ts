@@ -108,6 +108,14 @@ interface JobRow extends JobView {
  * character while unescaped `%`/`_` are wildcards. The fakes must honor the
  * escape form, or a family containing a wildcard char would over-match here
  * exactly as it would against real PB before the client escaped it.
+ *
+ * KNOWN LIMITATION (dangling backslash): a pattern ENDING in `\` has nothing
+ * to escape — the `i + 1 < pattern.length` guard fails and the trailing `\`
+ * falls to the else branch, matching a LITERAL backslash. SQLite's
+ * `ESCAPE '\'` behavior for a dangling escape is unspecified-ish; the
+ * production clause builders can never emit one (familyClauseSafe rejects
+ * backslash-bearing families outright), so the fake's literal reading is
+ * just the least-surprising fallback, not a verified PB contract.
  */
 function likeToRegExp(pattern: string): RegExp {
   const escapeRegExp = (ch: string): string =>
@@ -170,10 +178,39 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
       );
     }
   }
+  // BOOLEAN-CONNECTIVE GUARD: the evaluation below ORs all POSITIVE clauses
+  // per field (faithful to the production inclusion groups, which are
+  // `(probe_key ~ x || probe_key = y)` / `(status = a || status = b)`) and
+  // ANDs negatives. Two positive clauses for ONE field joined WITHOUT a
+  // `||` between them are ANDed in the real grammar — a shape this OR-model
+  // would evaluate wrong, so it must throw rather than pass vacuously.
+  const assertPositivesOrJoined = (field: string, re: RegExp): void => {
+    const ms = [...filter.matchAll(re)];
+    for (let i = 1; i < ms.length; i++) {
+      const prev = ms[i - 1];
+      const sep = filter.slice((prev.index ?? 0) + prev[0].length, ms[i].index);
+      if (!sep.includes("||")) {
+        throw new Error(
+          `fake-pb: multiple positive ${field} clauses ANDed — the OR-model cannot honor this shape (filter: ${filter})`,
+        );
+      }
+    }
+  };
+  // `(?:~|=)` requires the operator DIRECTLY after the field (`!~`/`!=`
+  // never match — the `!` breaks the adjacency), so these scan positives only.
+  assertPositivesOrJoined("status", /status\s*=\s*"\w+"/g);
+  assertPositivesOrJoined("probe_key", /probe_key\s*(?:~|=)\s*"[^"]*"/g);
   const statuses = [...filter.matchAll(/status\s*=\s*"(\w+)"/g)].map(
     (m) => m[1],
   );
   if (statuses.length > 0 && !statuses.includes(row.status)) return false;
+  // KNOWN LIMITATION (value extraction): `"([^"]*)"` stops at the FIRST
+  // quote, so a literal containing an ESCAPED quote (`\"`) would be
+  // truncated at the escape and the remainder misparsed as filter text.
+  // Acceptable here: probe keys are slugs and the client's
+  // escapeFilterLiteral only emits `\"` for quote-bearing inputs, which the
+  // production builders never receive (and familyClauseSafe rejects the
+  // backslash class outright).
   const clauses = [...filter.matchAll(/probe_key\s*(!~|!=|~|=)\s*"([^"]*)"/g)];
   const negatives = clauses.filter((m) => m[1] === "!~" || m[1] === "!=");
   const positives = clauses.filter((m) => m[1] === "~" || m[1] === "=");
@@ -349,6 +386,44 @@ describe("test-fake honesty (the fakes must throw, not vacuously match)", () => 
     // The supported shapes still evaluate.
     expect(rowMatchesFilter(row, 'status = "pending"')).toBe(true);
     expect(rowMatchesFilter(row, 'probe_key !~ "d4:%"')).toBe(true);
+  });
+
+  it("rowMatchesFilter throws on boolean-connective shapes its OR-model cannot honor (positives ANDed)", () => {
+    // The matcher ORs all positive clauses per field (faithful to the
+    // production inclusion groups, which are `(a ~ x || a = y)`), and ANDs
+    // negatives. Multiple positive clauses for ONE field joined by `&&`
+    // therefore evaluate WRONG (the model would OR what the filter ANDs) —
+    // a test exercising that shape must fail loudly, not pass vacuously.
+    const row: FilterableRow = { status: "pending", probe_key: "d6:a" };
+    expect(() =>
+      rowMatchesFilter(row, 'probe_key ~ "d6:%" && probe_key ~ "d4:%"'),
+    ).toThrow(/positive probe_key clauses ANDed/);
+    expect(() =>
+      rowMatchesFilter(row, 'probe_key = "d6:a" && probe_key ~ "d6:%"'),
+    ).toThrow(/positive probe_key clauses ANDed/);
+    expect(() =>
+      rowMatchesFilter(row, 'status = "pending" && status = "claimed"'),
+    ).toThrow(/positive status clauses ANDed/);
+    // The production OR-group shapes stay evaluable.
+    expect(
+      rowMatchesFilter(
+        row,
+        'status = "pending" && (probe_key ~ "d6:%" || probe_key = "d6")',
+      ),
+    ).toBe(true);
+    expect(
+      rowMatchesFilter(
+        row,
+        '(status = "pending" || status = "claimed" || status = "running") && (probe_key ~ "d6:%" || probe_key = "d6")',
+      ),
+    ).toBe(true);
+    // Negatives ANDed (the discovery exclusion shape) remain supported.
+    expect(
+      rowMatchesFilter(
+        row,
+        'status = "pending" && probe_key !~ "d4:%" && probe_key != "d4"',
+      ),
+    ).toBe(true);
   });
 
   it("the fakes return totalItems -1 under skipTotal (faithful to PB, no fail-open counts)", async () => {
@@ -1234,6 +1309,13 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
           );
         } else if (sortKey && sortKey.includes("created")) {
           items = [...items].sort((a, b) => a.created.localeCompare(b.created));
+        } else if (sortKey) {
+          // An unmodeled sort key used to fall through UNSORTED — a test
+          // depending on it would pass vacuously on insertion order. Throw,
+          // matching the fakes' unsupported-method philosophy.
+          throw new Error(
+            `paging-pb: unmodeled sort key "${sortKey}" — only created/lease_expires_at are honored`,
+          );
         }
         if (desc) items.reverse();
         const totalItems = items.length;
@@ -1330,6 +1412,31 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     }
     return rows;
   }
+
+  it("makePagingPb throws on an unmodeled sort key instead of silently not sorting", async () => {
+    // The paging fake honors only `created` / `lease_expires_at` (± the `-`
+    // prefix). Any other sort key used to fall through UNSORTED — a test
+    // depending on e.g. a `version` sort would pass vacuously on insertion
+    // order. Unmodeled sorts must throw, matching the fakes' philosophy.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb } = makePagingPb([
+      {
+        ...jobView({ id: "j1", probe_key: "d6:a" }),
+        payload: samplePayload(),
+        created: new Date(t0).toISOString(),
+      },
+    ]);
+    await expect(
+      pb.list("probe_jobs", { filter: 'status = "pending"', sort: "version" }),
+    ).rejects.toThrow(/unmodeled sort key "version"/);
+    // The modeled keys still work, both directions.
+    await expect(
+      pb.list("probe_jobs", { sort: "created" }),
+    ).resolves.toBeTruthy();
+    await expect(
+      pb.list("probe_jobs", { sort: "-created" }),
+    ).resolves.toBeTruthy();
+  });
 
   it("claims a low-frequency family's jobs even when an older backlog saturates the candidate page (round-robin across families)", async () => {
     const { pb, store } = makePagingPb(starvedStore());
