@@ -696,12 +696,14 @@ export interface FleetQueueClient {
   /** Producer: reclaim expired leases from crashed/unreachable workers. */
   sweepExpired(nowMs: number): Promise<SweepResult>;
   /**
-   * Producer: how many of `family`'s jobs are pending (unclaimed). The
-   * producer's per-tick backlog gate: a scheduled tick must NOT enqueue a
-   * fresh batch for a family whose previous batch is still sitting unclaimed
-   * (the compounding-backlog half of the e2e-demos starvation — see
-   * `probeKeyFamily`). Claimed/running/terminal rows do NOT count: a batch
-   * being actively worked is not a backlog.
+   * Producer: how many of `family`'s jobs are NON-TERMINAL (pending, claimed,
+   * or running). The producer's per-tick backlog gate: a scheduled tick must
+   * NOT enqueue a fresh batch for a family whose previous batch is still in
+   * flight — either sitting unclaimed (the compounding-backlog half of the
+   * e2e-demos starvation — see `probeKeyFamily`) or claimed/running (where a
+   * fresh batch would double the family's concurrent runs). Only terminal
+   * rows (done/failed) stop gating. (Name kept for history: "pending" here
+   * means "not yet finished", not the `pending` status.)
    */
   countPendingForFamily(family: string): Promise<number>;
 }

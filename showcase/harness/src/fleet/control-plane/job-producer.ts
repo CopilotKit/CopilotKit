@@ -194,8 +194,9 @@ export interface TickResult {
   enqueueFailures: number;
   /**
    * Number of per-service jobs SKIPPED because their family already had a
-   * pending (unclaimed) backlog on the queue (scheduled ticks only — the
-   * backlog dedupe gate; operator-triggered ticks bypass it).
+   * non-terminal (pending/claimed/running) batch on the queue (scheduled
+   * ticks only — the backlog dedupe gate; operator-triggered ticks bypass
+   * it).
    */
   skippedForBacklog: number;
   /** True iff a lease sweep ran during this tick. */
@@ -503,13 +504,16 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
 
   /**
    * BACKLOG DEDUPE GATE (scheduled ticks only). A producer tick must NOT
-   * enqueue a fresh batch for a family that already has pending (unclaimed)
-   * jobs on the queue: with 2 serial browser workers against ~180 jobs/hr of
-   * inflow the un-gated producers compounded a multi-thousand-row backlog
-   * (staging: 3,734 pending, oldest 22h) that starved low-frequency families
-   * out of the claim page entirely. Skipping the batch bounds the per-family
-   * backlog to ONE batch — the next tick re-checks and produces again once
-   * the workers have drained it. Grouped per family so a (hypothetical)
+   * enqueue a fresh batch for a family that already has NON-TERMINAL
+   * (pending/claimed/running) jobs on the queue: with 2 serial browser
+   * workers against ~180 jobs/hr of inflow the un-gated producers compounded
+   * a multi-thousand-row backlog (staging: 3,734 pending, oldest 22h) that
+   * starved low-frequency families out of the claim page entirely. Counting
+   * in-flight (claimed/running) rows too means the gate bounds the family's
+   * CONCURRENT RUNS, not just its unclaimed batches — a fresh batch on top
+   * of a claimed-but-running one would double the family's concurrency.
+   * Skipping the batch bounds the per-family backlog to ONE batch — the next
+   * tick re-checks and produces again once the workers have finished it. Grouped per family so a (hypothetical)
    * multi-family tick gates each family independently. Fail-OPEN on a count
    * blip: a transient PB read failure must never stop job production (the
    * legacy un-gated behavior is the safe fallback), mirroring maybeSweep's
@@ -717,7 +721,8 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     const sweep = await maybeSweep(now());
 
     // BACKLOG DEDUPE: scheduled ticks skip any family whose previous batch
-    // is still pending (unclaimed) — see filterBackloggedFamilies. Operator-
+    // is still non-terminal (pending/claimed/running) — see
+    // filterBackloggedFamilies. Operator-
     // triggered ticks BYPASS the gate: an explicit trigger is a deliberate
     // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
     // operator intent wins over backpressure.

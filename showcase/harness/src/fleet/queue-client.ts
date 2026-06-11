@@ -1034,12 +1034,16 @@ export function createFleetQueueClient(
       }
       // Producer backlog gate: a totals-bearing perPage=1 list — PB computes
       // the COUNT server-side (totalItems); we never page rows back.
+      // NON-TERMINAL, not just pending: the gate bounds the family's
+      // CONCURRENT RUNS — a batch that is claimed/running is still in flight,
+      // and enqueueing a fresh batch on top of it doubles the family's
+      // concurrency (only done/failed rows stop gating).
       // skipTotal MUST be explicitly false: if totals are skipped PB returns
       // totalItems: -1, and -1 is never above the producer's backlog
       // threshold — the gate would silently FAIL OPEN and enqueue fresh
       // batches on top of an existing backlog.
       const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
-        filter: `status = "pending" && ${familyInclusionClause(family)}`,
+        filter: `(status = "pending" || status = "claimed" || status = "running") && ${familyInclusionClause(family)}`,
         perPage: 1,
         skipTotal: false,
       });

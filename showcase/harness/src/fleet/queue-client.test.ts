@@ -1249,10 +1249,14 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     expect(probeKeyFamily(c.lease!.job.probe_key)).toBe("e2e-demos");
   });
 
-  it("countPendingForFamily counts ONLY that family's pending rows (producer backlog gate)", async () => {
+  it("countPendingForFamily counts that family's NON-TERMINAL rows — claimed/running gate the family too (producer backlog gate)", async () => {
+    // The gate bounds CONCURRENT RUNS per family, not just unclaimed batches:
+    // a batch that has been claimed (or is running) is still in flight, and a
+    // scheduled tick that enqueues a fresh batch on top of it doubles the
+    // family's concurrency. Only TERMINAL rows (done/failed) stop gating.
     const t0 = Date.parse("2026-06-04T00:00:00.000Z");
     const rows: CreatedJobRow[] = [
-      // Two pending e2e-demos rows (the countable backlog)...
+      // Two pending e2e-demos rows (the classic countable backlog)...
       {
         ...jobView({ id: "demos-0", probe_key: "e2e-demos:a" }),
         payload: samplePayload({ probeKey: "e2e-demos:a" }),
@@ -1263,7 +1267,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         payload: samplePayload({ probeKey: "e2e-demos:b" }),
         created: new Date(t0 + 1000).toISOString(),
       },
-      // ...one CLAIMED e2e-demos row (in flight — NOT backlog)...
+      // ...one CLAIMED e2e-demos row (in flight — MUST gate)...
       {
         ...jobView({
           id: "demos-2",
@@ -1273,6 +1277,27 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         }),
         payload: samplePayload({ probeKey: "e2e-demos:c" }),
         created: new Date(t0 + 2000).toISOString(),
+      },
+      // ...one RUNNING e2e-demos row (in flight — MUST gate)...
+      {
+        ...jobView({
+          id: "demos-3",
+          probe_key: "e2e-demos:d",
+          status: "running",
+          claimed_by: "w9",
+        }),
+        payload: samplePayload({ probeKey: "e2e-demos:d" }),
+        created: new Date(t0 + 2500).toISOString(),
+      },
+      // ...one TERMINAL e2e-demos row (finished — must NOT count)...
+      {
+        ...jobView({
+          id: "demos-4",
+          probe_key: "e2e-demos:e",
+          status: "done",
+        }),
+        payload: samplePayload({ probeKey: "e2e-demos:e" }),
+        created: new Date(t0 + 2750).toISOString(),
       },
       // ...and a pending row from a DIFFERENT family (must not count).
       {
@@ -1288,9 +1313,36 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       logger,
     });
 
-    expect(await q.countPendingForFamily("e2e-demos")).toBe(2);
+    // pending(2) + claimed(1) + running(1); the done row is invisible.
+    expect(await q.countPendingForFamily("e2e-demos")).toBe(4);
     expect(await q.countPendingForFamily("d4")).toBe(1);
     expect(await q.countPendingForFamily("d6")).toBe(0);
+  });
+
+  it("countPendingForFamily gates a family whose batch is claimed-but-running with ZERO pending rows", async () => {
+    // The producer regression this pins: family's whole batch is claimed (no
+    // pending rows left) — a fresh scheduled batch on top would double the
+    // family's concurrent runs, so the count must still be non-zero.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      {
+        ...jobView({
+          id: "demos-0",
+          probe_key: "e2e-demos:a",
+          status: "running",
+          claimed_by: "w1",
+        }),
+        payload: samplePayload({ probeKey: "e2e-demos:a" }),
+        created: new Date(t0).toISOString(),
+      },
+    ]);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    expect(await q.countPendingForFamily("e2e-demos")).toBe(1);
   });
 
   it("warns when family discovery hits the MAX_PENDING_FAMILIES bound with families still hidden (17 families)", async () => {
