@@ -154,7 +154,7 @@ describe("CP1: tooltipOpen resets on mouseleave/blur", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "RT");
+    const rtBadge = findBadgeByName(container, "E2E");
     fireEvent.mouseEnter(rtBadge);
     // Allow microtask to flush.
     await Promise.resolve();
@@ -173,7 +173,7 @@ describe("CP1: tooltipOpen resets on mouseleave/blur", () => {
     // and gated on open, never on close).
     expect(mockState.fetchCount).toBe(countAfterEnter);
     // The badge remains in the document after the reset.
-    expect(findBadgeByName(container, "RT")).toBeInTheDocument();
+    expect(findBadgeByName(container, "E2E")).toBeInTheDocument();
   });
 });
 
@@ -193,12 +193,12 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "RT");
+    const rtBadge = findBadgeByName(container, "E2E");
     fireEvent.mouseEnter(rtBadge);
     // Wait for the lazy fetch + state update (waitFor, not a fixed sleep, to
     // avoid flakiness — mirrors the sibling first/error/green_to_red cases).
     await waitFor(() => {
-      const el = findBadgeByName(container, "RT");
+      const el = findBadgeByName(container, "E2E");
       expect(el.getAttribute("title")).toContain("(initial: green)");
     });
   });
@@ -218,14 +218,14 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "RT");
+    const rtBadge = findBadgeByName(container, "E2E");
     fireEvent.mouseEnter(rtBadge);
     await waitFor(() => {
-      const el = findBadgeByName(container, "RT");
+      const el = findBadgeByName(container, "E2E");
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(el.getAttribute("title")!).toMatch(/\(error → red\)/);
     });
-    const updated = findBadgeByName(container, "RT");
+    const updated = findBadgeByName(container, "E2E");
     expect(updated.getAttribute("title")).toContain("(error → red)");
   });
 
@@ -244,14 +244,14 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "RT");
+    const rtBadge = findBadgeByName(container, "E2E");
     fireEvent.mouseEnter(rtBadge);
     await waitFor(() => {
-      const el = findBadgeByName(container, "RT");
+      const el = findBadgeByName(container, "E2E");
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(el.getAttribute("title")!).toMatch(/\(green → red\)/);
     });
-    const updated = findBadgeByName(container, "RT");
+    const updated = findBadgeByName(container, "E2E");
     expect(updated.getAttribute("title")).toContain("(green → red)");
   });
 });
@@ -398,7 +398,7 @@ describe("docs-only kind hides ALL badges", () => {
     const { container } = render(<CellStatus ctx={ctx} />);
     const text = container.textContent ?? "";
     expect(text).not.toContain("API");
-    expect(text).not.toContain("RT");
+    expect(text).not.toContain("E2E");
     expect(text).not.toContain("CV");
   });
 });

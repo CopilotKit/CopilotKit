@@ -203,13 +203,13 @@ const CHIP_CLASS: Record<ChipColor, string> = {
 //     asserted as the RENDERED badge tone class + glyph.
 // ===========================================================================
 
-describe("(1) per-depth badge rendering — API/RT/CV/D6", () => {
+describe("(1) per-depth badge rendering — E2E/RT/CV/D6", () => {
   // agentic-chat is 1:1 mapped (CATALOG_TO_D5_KEY["agentic-chat"] =
   // ["agentic-chat"]) so each depth is a single key, isolating one badge.
   const FEATURE = "agentic-chat";
 
   interface DepthCase {
-    badge: "API" | "RT" | "CV" | "D6";
+    badge: "E2E" | "RT" | "CV" | "D6";
     /** rows that set THIS depth's state; gate rows added automatically. */
     rows: StatusRow[];
     expectStatus: TestStatus;
@@ -218,14 +218,15 @@ describe("(1) per-depth badge rendering — API/RT/CV/D6", () => {
   // Each case sets the named depth's underlying row(s); for the chip to even
   // reach a given depth the lower rungs must be green, so we layer rows.
   const cases: DepthCase[] = [
-    // API (d3) — single e2e key
+    // E2E (d3) — single e2e key (legend-correct: D3 is the demo round-trip,
+    // formerly mislabelled "API" which is the D2 badge's name)
     {
-      badge: "API",
+      badge: "E2E",
       rows: [row(keyFor("e2e", SLUG, FEATURE), "e2e", "green")],
       expectStatus: "green",
     },
     {
-      badge: "API",
+      badge: "E2E",
       rows: [row(keyFor("e2e", SLUG, FEATURE), "e2e", "red")],
       expectStatus: "red",
     },
@@ -288,7 +289,7 @@ describe("(1) per-depth badge rendering — API/RT/CV/D6", () => {
     it(`${c.badge} ${c.expectStatus} → tone ${BADGE_RENDER[c.expectStatus ?? "null"].tone}, glyph ${BADGE_RENDER[c.expectStatus ?? "null"].glyph}`, () => {
       const live = mapOf(c.rows);
       const { container } = renderCell(live, FEATURE, ["health"]);
-      // Find the badge by its leading label text (API/RT/CV/D6).
+      // Find the badge by its leading label text (E2E/RT/CV/D6).
       const labels = Array.from(container.querySelectorAll("span")).filter(
         (s) => s.textContent === c.badge,
       );
