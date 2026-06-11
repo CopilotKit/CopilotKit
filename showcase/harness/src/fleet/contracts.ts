@@ -335,12 +335,24 @@ export interface PoolCommError {
  *     through — the neutral overlay must never mask a genuine failure.
  *   - otherwise the row's last-known probe colour (`state`).
  *
- * DELIBERATE ASYMMETRY in the pending gate: this HARNESS derivation is
- * green-ONLY because `ProbeState` has no no-data colour to route. The
- * dashboard's derivation runs over its `ChipColor` vocabulary, whose `gray`
- * is a dashboard-only no-data colour this side cannot represent — there, a
- * reclaim on a green OR gray (non-regressed) cell becomes `"pending"`. The
- * shared invariant both sides pin is the NEVER-MASK rule: red / degraded
+ * TWO DELIBERATE DIVERGENCES from the dashboard mirror (`cell-model.ts`):
+ *
+ *   1. PENDING-GATE VOCABULARY: this HARNESS derivation is green-ONLY
+ *      because `ProbeState` has no no-data colour to route. The dashboard's
+ *      derivation runs over its `ChipColor` vocabulary, whose `gray` is a
+ *      dashboard-only no-data colour this side cannot represent — there, a
+ *      reclaim on a green OR gray (non-regressed) cell becomes `"pending"`.
+ *   2. RECENCY: this derivation has NO recency gate — a present `commError`
+ *      always overlays, regardless of its `observedAt` age. The dashboard
+ *      mirror staleness-gates comm errors (see `decodeCellCommError`'s
+ *      per-row-family window) because nothing clears the mirrored signal
+ *      blob on recovery and a stale overlay would pin cells "unreachable"
+ *      forever. Harness-side that gate is deliberately ABSENT: consumers
+ *      here receive rows the aggregator just wrote (the comm error is fresh
+ *      by construction at the write site) — recency is the CALLER's concern
+ *      when this is ever applied to read-back rows.
+ *
+ * The shared invariant both sides pin is the NEVER-MASK rule: red / degraded
  * (amber) / error / out-of-vocabulary states — and, dashboard-side, a
  * regression — always pass through; only healthy-or-no-data becomes pending.
  * The dashboard's commError-contract-drift.test.ts pins both derivations.
@@ -383,10 +395,13 @@ export interface FleetStatusRow {
  * colour passes through unchanged.
  *
  * The dashboard's `cell-model.ts` mirrors this derivation over its
- * `ChipColor` vocabulary with ONE deliberate difference (see the
- * `FleetSurfaceState` doc above): its dashboard-only no-data `gray` ALSO
+ * `ChipColor` vocabulary with TWO deliberate differences (enumerated in the
+ * `FleetSurfaceState` doc above): (1) its dashboard-only no-data `gray` ALSO
  * becomes `"pending"` — green-only here purely because `ProbeState` has no
- * no-data colour. The never-mask rule is identical on both sides.
+ * no-data colour; and (2) the dashboard staleness-gates comm errors before
+ * deriving, while this derivation has no recency gate (the aggregator-side
+ * callers see freshly-written rows; recency is the caller's concern). The
+ * never-mask rule is identical on both sides.
  */
 export function fleetSurfaceState(row: FleetStatusRow): FleetSurfaceState {
   if (!row.commError) return row.state;
@@ -602,14 +617,18 @@ export function isWorkerStale(
 /**
  * Build a `WorkerCapacity` from a `BrowserPoolBudget` (S6). Thin, explicit
  * field copy so the registration/heartbeat path never accidentally widens with
- * pool-internal fields. Pure; unit-tested.
+ * pool-internal fields. `available` is CLAMPED at 0: the capacity contract
+ * documents it "never negative", and a racy/mid-teardown pool snapshot can
+ * transiently compute a negative remainder — the mapper enforces the
+ * invariant rather than leak the racy value to registry/heartbeat consumers.
+ * Pure; unit-tested.
  */
 export function workerCapacityFromBudget(
   budget: BrowserPoolBudget,
 ): WorkerCapacity {
   return {
     inUse: budget.inUse,
-    available: budget.available,
+    available: Math.max(0, budget.available),
     max: budget.max,
     pidsCurrent: budget.pidsCurrent,
     pidsMax: budget.pidsMax,
@@ -645,11 +664,27 @@ export interface ClaimedJob {
   lease?: JobLease;
 }
 
-/** Input a worker passes to report a finished job back to the control-plane. */
+/**
+ * Input a worker passes to report a finished job back to the control-plane.
+ *
+ * EQUALITY INVARIANT: `jobId === result.jobId` and
+ * `workerId === result.workerId`. The top-level fields are the claim-row
+ * coordinates the queue's release path keys on; `result` echoes them so the
+ * aggregator can group results without re-joining the claim row. The
+ * duplication is deliberate (release and aggregation read different halves
+ * of this input) but the values MUST be equal.
+ *
+ * INTEGRATOR NOTE: the queue-client's `report()` does NOT currently validate
+ * this equality — it releases on the top-level `jobId`/`workerId` and
+ * persists `result` verbatim, so a mismatched caller would release one row
+ * while filing the result under another job's/worker's ids. Callers are the
+ * enforcement point today; a queue-client-side validation would belong in
+ * `report()` (sibling-owned file — not changed here).
+ */
 export interface ReportJobInput {
-  /** The claim row id being terminated (S0 `JobView.id`). */
+  /** The claim row id being terminated (S0 `JobView.id`). Must equal `result.jobId`. */
   jobId: string;
-  /** The reporting worker (S0 `JobView.claimed_by`). */
+  /** The reporting worker (S0 `JobView.claimed_by`). Must equal `result.workerId`. */
   workerId: string;
   /** The per-service result, OR a comm-error-only terminal report. */
   result: ServiceJobResult;

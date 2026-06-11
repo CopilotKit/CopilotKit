@@ -273,6 +273,21 @@ describe("worker capacity + staleness", () => {
     expect(workerCapacityFromBudget(budget)).toEqual(budget);
   });
 
+  it("clamps a negative budget.available to 0 (WorkerCapacity.available is documented never-negative)", () => {
+    // A pool budget computed mid-teardown (or from a racy snapshot) can
+    // transiently report available < 0; the capacity CONTRACT documents
+    // `available` as "never negative", so the mapper must enforce it rather
+    // than leak the racy value to the registry/heartbeat consumers.
+    const budget: BrowserPoolBudget = {
+      inUse: 9,
+      available: -1,
+      max: 8,
+      pidsCurrent: 120,
+      pidsMax: 1000,
+    };
+    expect(workerCapacityFromBudget(budget).available).toBe(0);
+  });
+
   it("isWorkerStale flags a heartbeat older than the window", () => {
     const now = Date.parse("2026-06-04T00:01:00.000Z");
     expect(isWorkerStale("2026-06-04T00:00:00.000Z", now, 30_000)).toBe(true);
