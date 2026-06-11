@@ -993,11 +993,23 @@ describe("FleetQueueClient.claimNext", () => {
     );
   });
 
-  it("warns on the protocol violation `won && !job` before falling through (CAS contract breach must be visible)", async () => {
+  it("releases a won-without-job row back to pending before falling through — never abandons a row this worker may own (G1e)", async () => {
+    // won:true with NO job view violates the endpoint contract — but the
+    // CAS may genuinely have committed, so this worker may now OWN the row.
+    // Falling through silently wedged a full lease window: nobody renews or
+    // reports the orphaned claim, the sweeper later reclaims it and paints a
+    // false worker-reclaimed-pending overlay. Mirror the decode-failure
+    // containment: best-effort release back to `pending` (no work happened —
+    // unlike the decode poison row, the job itself may be perfectly
+    // runnable) before moving on.
     const { pb } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },
     ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
     const claim = makeFakeClaim({
+      releaseJob,
       // won:true with NO job violates the endpoint contract (a win always
       // carries the row view).
       claimJob: vi.fn(async (): Promise<ClaimResult> => ({ won: true })),
@@ -1010,6 +1022,44 @@ describe("FleetQueueClient.claimNext", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.claim-won-without-job",
       expect.objectContaining({ jobId: "j1" }),
+    );
+    // The possibly-owned row was released back to pending (no work ran).
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "pending");
+  });
+
+  it("a THROWN won-without-job release is swallowed with a warn — best-effort only (G1e)", async () => {
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+      { ...jobView({ id: "j2" }), payload: samplePayload() },
+    ]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(async (): Promise<ReleaseResult> => {
+        throw new Error("release transport blip");
+      }),
+      claimJob: vi.fn(async (jobId, workerId): Promise<ClaimResult> => {
+        if (jobId === "j1") return { won: true }; // breach on j1
+        return {
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        };
+      }),
+    });
+    // Identity order: the breach row j1 is tried before the healthy j2.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    // The throw did not abort the rotation; j2 still claimed.
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.lease?.job.id).toBe("j2");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-won-without-job-release-failed",
+      expect.objectContaining({ jobId: "j1", err: "release transport blip" }),
     );
   });
 

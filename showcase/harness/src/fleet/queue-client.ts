@@ -838,13 +838,50 @@ export function createFleetQueueClient(
           }
           if (result.won && !result.job) {
             // PROTOCOL VIOLATION: a win always carries the row view (the
-            // hook builds them together inside the transaction). Falling
-            // through silently abandons a row this worker may now OWN —
-            // make the contract breach visible before moving on.
+            // hook builds them together inside the transaction). The CAS may
+            // genuinely have committed, so this worker may now OWN the row —
+            // falling through without releasing wedged a full lease window
+            // (nobody renews or reports the orphaned claim; the sweeper
+            // later reclaims it under a FALSE worker-reclaimed-pending
+            // overlay). Make the breach visible, then mirror the
+            // decode-failure containment with a best-effort release back to
+            // `pending` (no work happened, and unlike a poison payload the
+            // job itself may be perfectly runnable). Failures are
+            // swallowed+warned: if this worker did NOT actually own the row,
+            // the release is refused/4xxs and nothing changes.
             logger.warn("queue-client.claim-won-without-job", {
               jobId: candidate.id,
               workerId: raceWorkerId,
             });
+            try {
+              const released = await claim.releaseJob(
+                candidate.id,
+                raceWorkerId,
+                "pending",
+              );
+              if (!released.released) {
+                logger.warn(
+                  "queue-client.claim-won-without-job-release-refused",
+                  {
+                    jobId: candidate.id,
+                    workerId: raceWorkerId,
+                    reason: released.reason ?? "unknown",
+                  },
+                );
+              }
+            } catch (releaseErr) {
+              logger.warn(
+                "queue-client.claim-won-without-job-release-failed",
+                {
+                  jobId: candidate.id,
+                  workerId: raceWorkerId,
+                  err:
+                    releaseErr instanceof Error
+                      ? releaseErr.message
+                      : String(releaseErr),
+                },
+              );
+            }
           }
           if (!result.won || !result.job) continue;
           // The CAS already WON — this worker now OWNS the row. Decoding the
