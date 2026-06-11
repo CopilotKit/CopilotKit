@@ -306,6 +306,11 @@ function leaseFromJob(job: JobView, payload: ServiceJobPayload): JobLease {
  * shape intact for the heartbeat; reporting always uses the payload the
  * worker received from its CLAIM. (A readonly marker field would need a
  * contracts.ts change; this comment is the boundary documentation.)
+ * The one path that DOES persist a result without a decodable payload — the
+ * decode-failure worker-protocol-violation synthesis in `claimNext` — honors
+ * this contract by recovering `serviceSlug` from the probe_key's slug
+ * segment (`probeKeySlug`) and minting a non-colliding synthetic runId
+ * instead of writing these empty sentinels.
  */
 function emptyPayloadForLease(job: JobView): ServiceJobPayload {
   return {
@@ -314,6 +319,19 @@ function emptyPayloadForLease(job: JobView): ServiceJobPayload {
     driverKind: "",
     meta: { runId: "", triggered: false, enqueuedAt: "" },
   };
+}
+
+/**
+ * The slug segment of a probe key — the complement of
+ * `probeKeyFamily` (contracts.ts): `d6:langgraph-python` →
+ * `langgraph-python`. Mirrors that helper's `idx <= 0` rule: a colon-less
+ * (or leading-colon) key has no family prefix, so the whole key doubles as
+ * the slug. Used to recover a non-empty `serviceSlug` for the synthetic
+ * worker-protocol-violation result when the payload itself is undecodable.
+ */
+function probeKeySlug(probeKey: string): string {
+  const idx = probeKey.indexOf(":");
+  return idx <= 0 ? probeKey : probeKey.slice(idx + 1);
 }
 
 /**
@@ -694,12 +712,18 @@ export function createFleetQueueClient(
                 const violation: ServiceJobResult = {
                   jobId: result.job.id,
                   probeKey: candidate.probe_key,
-                  // No decodable payload → no serviceSlug/runId to echo; the
+                  // No decodable payload → nothing to ECHO, but the result
+                  // must not carry the empty `serviceSlug`/`runId` sentinels
+                  // `emptyPayloadForLease` forbids feeding aggregation (an
+                  // empty runId groups into nothing; an empty serviceSlug
+                  // corrupts the per-service rollup). Recover the slug from
+                  // the row's probe_key (`d6:<slug>` → `<slug>`) and mint a
+                  // non-colliding synthetic runId from the jobId. The
                   // aggregate key falls back to the row's probe_key (the
                   // `d6:<slug>` aggregate row key), mirroring the worker's
                   // comm-error result builder.
-                  serviceSlug: "",
-                  runId: "",
+                  serviceSlug: probeKeySlug(candidate.probe_key),
+                  runId: `pviol_${result.job.id}`,
                   workerId: raceWorkerId,
                   aggregateState: "error",
                   aggregateKey: candidate.probe_key,

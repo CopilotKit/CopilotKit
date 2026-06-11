@@ -582,6 +582,12 @@ describe("FleetQueueClient.claimNext", () => {
     // No decodable payload → aggregate key falls back to the row's probe_key.
     expect(written.aggregateKey).toBe("d6:langgraph-python");
     expect(written.aggregateState).toBe("error");
+    // The result must NOT carry the empty sentinels emptyPayloadForLease
+    // forbids feeding aggregation: serviceSlug is recovered from the
+    // probe_key's slug segment, and runId is a non-colliding synthetic id
+    // (an empty runId would silently group into nothing downstream).
+    expect(written.serviceSlug).toBe("langgraph-python");
+    expect(written.runId).toBe("pviol_j1");
     expect(rows[0].result_processed).toBe(false);
   });
 
