@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/vue";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import type { Ref } from "vue";
 import { ToolCallStatus } from "@copilotkit/core";
 import {
@@ -50,6 +50,40 @@ vi.mock("@jetbrains/websandbox", () => ({
 
 async function flushImport() {
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+// The renderer's content watcher throttles non-immediate changes with
+// window.setTimeout(flush, THROTTLE_MS). Keep this in lockstep with the 1000ms
+// throttle window in the source.
+const THROTTLE_MS = 1000;
+
+/**
+ * Fake-timer-safe drain of the Vue scheduler + the dynamic-import / sandbox-ready
+ * microtask chain the renderer kicks off (the `import("@jetbrains/websandbox")`
+ * resolve, its `.then` running `create`, and the `sandbox.promise.then` ready
+ * callback are each a microtask hop, interleaved with Vue reactive re-renders).
+ * Uses ONLY microtask hops (`Promise.resolve()`) and `nextTick` — NO real timer
+ * — so, unlike `flushImport`'s `setTimeout(0)`, it does not hang under
+ * `vi.useFakeTimers()`. Mirrors react-core's fake-timer-safe `flushImport` loop.
+ */
+async function flushMicrotasks() {
+  for (let i = 0; i < 8; i++) {
+    await Promise.resolve();
+    await nextTick();
+  }
+}
+
+/**
+ * Advance the renderer's throttle window deterministically. Under
+ * `vi.useFakeTimers()` we step exactly THROTTLE_MS so the deferred flush fires
+ * (no wall-clock margin a loaded parallel worker can blow through), then drain
+ * the scheduler + microtask chain the resulting reactive update queues (the
+ * preview head/body `run` calls). Requires `vi.useFakeTimers()` to be active —
+ * it uses NO real timer. Mirrors react-core's `flushThrottle`.
+ */
+async function flushThrottle() {
+  await vi.advanceTimersByTimeAsync(THROTTLE_MS);
+  await flushMicrotasks();
 }
 
 function renderRenderer(
@@ -397,17 +431,29 @@ describe("OpenGenerativeUIRenderer", () => {
     });
 
     it("updates preview after throttled rerender", async () => {
+      // Deterministic throttle: drive the whole test with fake timers and step
+      // exactly THROTTLE_MS for the deferred flush, instead of racing a real
+      // 1100ms wall-clock wait against the renderer's 1000ms throttle (the
+      // ~100ms margin a loaded parallel worker could blow through). Fake timers
+      // are enabled from the START so the sandbox-setup chain and the rerender's
+      // throttle timer share one fake clock; flushMicrotasks drains the
+      // import/promise chain without a real timer. vi.useRealTimers() in
+      // afterEach restores real timers.
+      vi.useFakeTimers();
       const mounted = renderRenderer({
         html: ["<body><div>Hello</div>"],
         htmlComplete: false,
         cssComplete: true,
         generating: true,
       });
-      await flushImport();
+      // Drain the dynamic import + Websandbox.create chain (fake-timer-safe).
+      await flushMicrotasks();
 
+      // Resolve the preview sandbox's ready promise, then drain the resulting
+      // head/body assignment (the initial content is an immediate flush, so no
+      // throttle timer is pending after this).
       mockPromiseResolve();
-      await mockPromise;
-      await flushImport();
+      await flushMicrotasks();
       mockRun.mockClear();
 
       mounted.rerender({
@@ -422,8 +468,9 @@ describe("OpenGenerativeUIRenderer", () => {
         agent: {},
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1100));
-      await flushImport();
+      // Advance exactly the throttle window so the deferred flush fires, then
+      // drain the reactive update it queues.
+      await flushThrottle();
 
       const bodyCalls = mockRun.mock.calls.filter(
         (call) =>
