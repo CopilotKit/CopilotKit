@@ -73,6 +73,7 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _a2uiEnabled: boolean = false;
+  private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
@@ -116,6 +117,14 @@ export class AgentRegistry {
 
   get a2uiEnabled(): boolean {
     return this._a2uiEnabled;
+  }
+
+  /**
+   * Agent ids the runtime applies A2UI to (#5369). `undefined` means A2UI
+   * applies to every agent — or is disabled entirely; check `a2uiEnabled`.
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this._a2uiAgents;
   }
 
   get openGenerativeUIEnabled(): boolean {
@@ -354,6 +363,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
@@ -416,7 +426,10 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
-      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
+      const a2uiInfo = runtimeInfoResponse.a2ui;
+      this._a2uiEnabled =
+        a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
+      this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
@@ -434,6 +447,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
