@@ -715,6 +715,15 @@ function decodeCellCommError(
     // the skew tolerance gets the same treatment (CF7-F3 #4): `now - parsed`
     // is negative so the age check can never expire it — clock skew would pin
     // the overlay indefinitely, the same permanent-phantom failure mode.
+    //
+    // KNOWN FAIL-SAFE DIVERGENCE vs `isStale` (staleness.ts, CF7-F3 #3): the
+    // shared row-level predicate treats an unparseable `observed_at` as NOT
+    // stale ("staleness must be a positive signal"), because there a false
+    // `stale` would DOWNGRADE a live green row. Here the polarity inverts: a
+    // false NOT-stale would PIN an uncleared overlay forever, so an
+    // unparseable timestamp must read as stale/skip. The two sites fail safe
+    // in OPPOSITE directions by design of their respective blast radii;
+    // `isStale` itself predates this branch and is deliberately left as-is.
     if (
       Number.isNaN(parsed) ||
       parsed - now > COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS ||
