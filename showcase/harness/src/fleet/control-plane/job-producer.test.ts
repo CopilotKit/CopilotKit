@@ -14,6 +14,7 @@ import type {
   FleetQueueClient,
   JobView,
   PoolCommError,
+  PruneAgedResult,
   SweepResult,
 } from "../contracts.js";
 import {
@@ -53,6 +54,7 @@ function makeFakeQueue(opts?: {
   sweepImpl?: (nowMs: number) => Promise<SweepResult>;
   /** Pending-count per family for the backlog dedupe gate; default 0 (clear). */
   countPendingImpl?: (family: string) => Promise<number>;
+  pruneImpl?: (nowMs: number) => Promise<PruneAgedResult>;
 }): FleetQueueClient & {
   /**
    * Every enqueue ATTEMPT, recorded BEFORE a throwing `enqueueImpl` gets to
@@ -62,10 +64,12 @@ function makeFakeQueue(opts?: {
   enqueued: EnqueueJobInput[];
   sweepCalls: number[];
   countCalls: string[];
+  pruneCalls: number[];
 } {
   const enqueued: EnqueueJobInput[] = [];
   const sweepCalls: number[] = [];
   const countCalls: string[] = [];
+  const pruneCalls: number[] = [];
   let jobSeq = 0;
   return {
     enqueued,
@@ -76,6 +80,7 @@ function makeFakeQueue(opts?: {
       if (opts?.countPendingImpl) return opts.countPendingImpl(family);
       return 0;
     },
+    pruneCalls,
     async enqueue(input: EnqueueJobInput): Promise<JobView> {
       enqueued.push(input);
       if (opts?.enqueueImpl) return opts.enqueueImpl(input);
@@ -93,6 +98,11 @@ function makeFakeQueue(opts?: {
       sweepCalls.push(nowMs);
       if (opts?.sweepImpl) return opts.sweepImpl(nowMs);
       return { reclaimed: 0, commErrors: [] };
+    },
+    async pruneAged(nowMs: number): Promise<PruneAgedResult> {
+      pruneCalls.push(nowMs);
+      if (opts?.pruneImpl) return opts.pruneImpl(nowMs);
+      return { terminal: 0, zombie: 0 };
     },
     claimNext() {
       throw new Error("producer must not call claimNext");
@@ -123,6 +133,7 @@ function startedProducer(overrides?: {
   queue?: ReturnType<typeof makeFakeQueue>;
   runIdFactory?: () => string;
   logger?: Logger;
+  family?: string;
 }): {
   producer: JobProducer;
   queue: ReturnType<typeof makeFakeQueue>;
@@ -134,6 +145,8 @@ function startedProducer(overrides?: {
     queue,
     enumerate: () => specs,
     logger: overrides?.logger ?? SILENT_LOGGER,
+    logger: SILENT_LOGGER,
+    family: overrides?.family ?? "d6",
     ...(overrides?.now ? { now: overrides.now } : {}),
     ...(overrides?.sweepIntervalMs !== undefined
       ? { sweepIntervalMs: overrides.sweepIntervalMs }
@@ -298,6 +311,7 @@ describe("job-producer — per-service enqueue", () => {
         return d6Specs(ctx.filter?.slugs ?? ["a"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     await producer.tick({ triggered: true, filter: { slugs: ["crewai"] } });
@@ -834,6 +848,7 @@ describe("job-producer — failure isolation", () => {
         throw new Error("railway discovery down");
       },
       logger: SILENT_LOGGER,
+      family: "d6",
       now: () => 1_000,
     });
     producer.start();
@@ -1075,6 +1090,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       onSweepCommErrors: (errs) => {
         received.push(errs);
       },
@@ -1095,6 +1111,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       onSweepCommErrors: () => {
         calls += 1;
       },
@@ -1122,6 +1139,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a", "b"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       onSweepCommErrors: () => {
         throw new Error("aggregator down");
       },
@@ -1471,6 +1489,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       now: () => t,
     });
     producer.start();
@@ -1481,6 +1500,93 @@ describe("job-producer — sweep cadence", () => {
     t = DEFAULT_SWEEP_INTERVAL_MS; // window reached
     await producer.tick(); // sweep
     expect(queue.sweepCalls).toEqual([0, DEFAULT_SWEEP_INTERVAL_MS]);
+  });
+});
+
+describe("job-producer — family stamping + d6-gated retention prune", () => {
+  it("tick stamps options.family onto every EnqueueJobInput it builds", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a", "b", "c"]),
+      family: "d6",
+    });
+    await producer.tick();
+    expect(queue.enqueued).toHaveLength(3);
+    for (const input of queue.enqueued) {
+      expect(input.family).toBe("d6");
+    }
+  });
+
+  it("stamps a non-d6 family verbatim (the §5.1 registry id, not a derivation)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      family: "e2e-demos",
+    });
+    await producer.tick();
+    expect(queue.enqueued[0]!.family).toBe("e2e-demos");
+  });
+
+  it("the d6 producer invokes queue.pruneAged when the sweep window is due", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      family: "d6",
+      now: () => 5_000,
+    });
+    await producer.tick(); // first tick: sweep due (lastSweepAt seeded null)
+    expect(queue.sweepCalls).toEqual([5_000]);
+    expect(queue.pruneCalls).toEqual([5_000]);
+  });
+
+  it("a non-d6 producer never invokes queue.pruneAged (single-owner prune)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      family: "e2e-smoke",
+      sweepIntervalMs: 0, // sweep due on EVERY tick — prune still must not fire
+    });
+    await producer.tick();
+    await producer.tick();
+    expect(queue.sweepCalls).toHaveLength(2);
+    expect(queue.pruneCalls).toHaveLength(0);
+  });
+
+  it("pruneAged is not invoked when the sweep cadence window has not elapsed", async () => {
+    let t = 0;
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a"]),
+      family: "d6",
+      now: () => t,
+      sweepIntervalMs: 30_000,
+    });
+    t = 0;
+    await producer.tick(); // sweep + prune @0
+    t = 10_000; // < 30s later — window not elapsed
+    await producer.tick(); // no sweep, no prune
+    expect(queue.pruneCalls).toEqual([0]);
+  });
+
+  it("a pruneAged failure is logged and never aborts production", async () => {
+    const queue = makeFakeQueue({
+      pruneImpl: async () => {
+        throw new Error("PB delete blip");
+      },
+    });
+    const warns: string[] = [];
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a", "b"]),
+      logger: {
+        ...SILENT_LOGGER,
+        warn: (msg: string) => {
+          warns.push(msg);
+        },
+      },
+      family: "d6",
+    });
+    producer.start();
+    const result = await producer.tick();
+    // Production completed despite the prune throwing (mirror maybeSweep's
+    // swallow discipline).
+    expect(result.enqueued).toBe(2);
+    expect(warns).toContain("fleet.producer.prune-failed");
   });
 });
 
@@ -1532,6 +1638,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha", "beta"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1566,6 +1673,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       // no warmHealth
     });
     producer.start();
@@ -1584,6 +1692,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha", "beta"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl: failingFetch },
     });
     producer.start();
@@ -1804,6 +1913,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
         },
       ],
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -2536,6 +2646,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
       queue,
       enumerate: () => [],
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     expect(producer.isRunning()).toBe(false);
     producer.start();
@@ -2550,6 +2661,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     const result = await producer.tick();
     expect(result.enqueued).toBe(0);
@@ -2673,6 +2785,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
       queue,
       enumerate: () => d6Specs(["a", "b"]),
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     await producer.tick();

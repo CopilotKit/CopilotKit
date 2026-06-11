@@ -285,6 +285,19 @@ export interface JobProducerOptions {
   enumerate: ServiceEnumerator;
   logger: Logger;
   /**
+   * The producing family's id — a `FLEET_FAMILIES[*].family` value from the
+   * §5.1 registry (e.g. `"d6"`, `"d5"`, `"e2e-demos"`, `"e2e-smoke"`). Stamped
+   * onto every `EnqueueJobInput` this producer builds (the queue-client
+   * denormalizes it into the `probe_jobs.family` column), and ALSO the
+   * prune-ownership key: the §4.2 retention prune runs only when
+   * `family === "d6"` so four producers sharing the sweep-gate pattern never
+   * run four concurrent delete passes (single-owner by configuration).
+   * A constructor option rather than scheduleId-derived because the producer
+   * deliberately has no knowledge of its schedule id (bound later, in
+   * `buildProducerSchedules`).
+   */
+  family: string;
+  /**
    * How often to run `sweepExpired()` for dead-worker reclamation, in ms.
    * The sweep runs at most once per `sweepIntervalMs` window, evaluated on
    * each tick against the clock — the producer never owns its own timer
@@ -537,7 +550,10 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     if (spec.cellIds !== undefined) payload.cellIds = spec.cellIds;
     if (spec.driverInputs !== undefined)
       payload.driverInputs = spec.driverInputs;
-    return { payload };
+    // §4.2: every job a producer enqueues carries its family id so the
+    // queue-client can denormalize it into the indexed `probe_jobs.family`
+    // column (per-family listing without prefix-parsing probe_key).
+    return { payload, family: opts.family };
   }
 
   /**
@@ -651,6 +667,28 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // deliverSweepCommErrors — it runs on every sweep attempt, even a failed
       // one). The buffer is capped at MAX_BUFFERED_SWEEP_COMM_ERRORS.
       await deliverSweepCommErrors(result.commErrors);
+      // §4.2 RETENTION PRUNE — gated on the d6 family so exactly ONE of the
+      // four producers sharing this sweep-gate pattern owns the delete pass
+      // (the prune itself is family-agnostic: one pass covers all families,
+      // and it is idempotent, so a missed tick is harmless). Rides the same
+      // due-window as the sweep. Best-effort: a prune failure is logged and
+      // NEVER aborts job production — mirror the sweep's swallow discipline.
+      if (opts.family === "d6") {
+        try {
+          const pruned = await queue.pruneAged(nowMs);
+          if (pruned.terminal > 0 || pruned.zombie > 0) {
+            // Spread: `PruneAgedResult` is a closed interface with no index
+            // signature, so it isn't assignable to the logger's
+            // `Record<string, unknown>` context parameter directly.
+            logger.info("fleet.producer.pruned-aged-jobs", { ...pruned });
+          }
+        } catch (pruneErr) {
+          logger.warn("fleet.producer.prune-failed", {
+            err:
+              pruneErr instanceof Error ? pruneErr.message : String(pruneErr),
+          });
+        }
+      }
       // The queue-client's sweep splits out reclaims whose release outcome
       // was indeterminate (`reclaimedIndeterminate`, optional on the shared
       // `SweepResult` contract; the real queue-client always reports it).
