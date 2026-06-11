@@ -263,7 +263,16 @@ export function createFleetHealthMonitor(
     let page: { items: JobView[] };
     try {
       page = await pb.list<JobView>(PROBE_JOBS_COLLECTION, {
-        filter: `(status = "claimed" || status = "running") && claimed_by = "${workerId}"`,
+        // `workerId` is read back from the workers roster row (DB-sourced, not
+        // a compile-time constant). The rest of the codebase deliberately
+        // neutralizes this sink class — orchestrator.ts:3240 already uses
+        // `JSON.stringify(workerId)` for the same field, queue-client uses the
+        // shared `escapeFilterLiteral` helper. A `"`-bearing worker_id (corrupt
+        // row, buggy self-registration) would otherwise break out of the
+        // literal and either throw the list (silently skipping this worker's
+        // reclaim every cycle) or widen the filter to claim OTHER workers'
+        // jobs. Match the sibling escape pattern.
+        filter: `(status = "claimed" || status = "running") && claimed_by = ${JSON.stringify(workerId)}`,
         perPage: RECLAIM_PAGE,
         skipTotal: true,
       });

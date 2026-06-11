@@ -1840,9 +1840,8 @@ export function createFleetQueueClient(
             // counts a CLAIMED/RUNNING row (long-expired lease, stale
             // created-age) deleted by this carve-out — not just stale
             // PENDING rows from the drain phase. The shared contract doc
-            // (`SweepResult.expiredPending`, contracts.ts: "STALE PENDING
-            // jobs ... sat unclaimed") describes only the drain phase and
-            // needs the same clarification.
+            // (`SweepResult.expiredPending` in contracts.ts) documents this
+            // lease-phase carve-out explicitly — the two sides agree.
             expiredPending += 1;
             logger.warn("queue-client.sweep-lease-stale-deleted", {
               jobId: row.id,

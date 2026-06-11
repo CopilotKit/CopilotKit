@@ -766,9 +766,13 @@ export interface SweepResult {
   reclaimed: number;
   /**
    * The `worker-reclaimed-pending` comm errors synthesized by the sweep —
-   * one per reclaimed job AND one per thrown-release indeterminate row
-   * (`commErrors.length === reclaimed + reclaimedIndeterminate`; the
-   * queue-client pairs them 1:1 with the rows those counters document).
+   * one per reclaimed job AND one per thrown-release indeterminate row.
+   * FOR IMPLEMENTATIONS THAT REPORT THE SPLIT (the real queue-client always
+   * does), `commErrors.length === reclaimed + reclaimedIndeterminate` and
+   * the queue-client pairs them 1:1 with the rows those counters document.
+   * A fake that synthesizes comm errors without reporting
+   * `reclaimedIndeterminate` (the field is optional below) is not bound by
+   * the pairing — assert it against the concrete client, not the shared type.
    */
   commErrors: PoolCommError[];
   /**

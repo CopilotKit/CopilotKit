@@ -86,9 +86,12 @@ export type SweepCommErrorSink = (
 /**
  * Pre-dispatch HEALTH WARM-UP config (flap-band #72). Before a run's jobs are
  * enqueued, the producer fires a fire-and-forget `GET <backendUrl>/health`
- * against every enumerated backend so a cold (scaled-to-zero) container starts
- * waking BEFORE a pill actually probes it — removing most `current=0`
- * zero-output timeouts where the first pill paid the cold-start latency.
+ * against each backend WHOSE SPEC IS ACTUALLY ENQUEUED on this tick — the
+ * post-validation, post-backlog-gate `gate.specs` set, not the raw enumerated
+ * set — so a cold (scaled-to-zero) container starts waking BEFORE a pill
+ * actually probes it, removing most `current=0` zero-output timeouts where
+ * the first pill paid the cold-start latency. A fully-backlogged tick whose
+ * gate skipped every spec fires zero warm GETs (no jobs → nothing to warm).
  *
  * This is NOT an LLM call and NOT an agent turn — it is a cheap unauthenticated
  * liveness GET with a short timeout, fully best-effort: a warm failure (cold
@@ -207,10 +210,17 @@ export interface TickResult {
    */
   truncatedByStop: number;
   /**
-   * Number of per-service jobs SKIPPED because their family already had a
-   * non-terminal (pending/claimed/running) batch on the queue (scheduled
-   * ticks only — the backlog dedupe gate; operator-triggered ticks bypass
-   * it).
+   * Number of per-service jobs SKIPPED by `filterBackloggedFamilies`
+   * (scheduled ticks only — operator-triggered ticks bypass the gate). Two
+   * contributors:
+   *   1. The dedupe gate: the family already had a non-terminal
+   *      (pending/claimed/running) batch on the queue (`hasBacklog`).
+   *   2. The fail-CLOSED leg of the poisoned-count guard: when
+   *      `countPendingForFamily` throws a `PoisonedBacklogCountError` the
+   *      family is skipped (an unverifiable count is treated as backlogged,
+   *      preventing a stuck producer from flooding the queue).
+   * The fail-OPEN leg (transient `countPendingForFamily` failure) is
+   * counted SEPARATELY by `backlogGateFailedOpen` — it does NOT fold here.
    */
   skippedForBacklog: number;
   /**
@@ -247,11 +257,15 @@ export interface TickResult {
    */
   reclaimed: number;
   /**
-   * Of `reclaimed`, the reclaims whose release outcome was INDETERMINATE
-   * (transport failure after the CAS — the over-report slice). OPTIONAL,
-   * mirroring the shared `SweepResult.reclaimedIndeterminate` contract
-   * field `maybeSweep` reads directly: absent when the queue does not
-   * report the split (the real queue-client always does).
+   * In ADDITION to `reclaimed`, the reclaims whose release outcome was
+   * INDETERMINATE (transport failure after the CAS — the conservative
+   * over-report slice). DISJOINT from `reclaimed`: a thrown release lands
+   * here EXCLUSIVELY, never in `reclaimed`; summing the two recovers the
+   * at-least-once total (this matches the shared
+   * `SweepResultWithIndeterminate` contract pairing). OPTIONAL, mirroring
+   * the shared `SweepResult.reclaimedIndeterminate` contract field
+   * `maybeSweep` reads directly: absent when the queue does not report the
+   * split (the real queue-client always does).
    */
   reclaimedIndeterminate?: number;
   /**
@@ -300,10 +314,12 @@ export interface JobProducerOptions {
    */
   onSweepCommErrors?: SweepCommErrorSink;
   /**
-   * Pre-dispatch health warm-up (flap-band #72). When supplied, each tick fires
-   * a fire-and-forget `GET <backendUrl>/health` per enumerated spec right after
-   * enumeration and BEFORE enqueueing, so cold containers start waking before
-   * pills probe them. When omitted, no warm-up runs (the legacy behavior).
+   * Pre-dispatch health warm-up (flap-band #72). When supplied, each tick
+   * fires a fire-and-forget `GET <backendUrl>/health` per spec ACTUALLY
+   * ENQUEUED (post-validation, post-backlog-gate — `gate.specs`, not the raw
+   * enumerated set) right before enqueueing, so cold containers start waking
+   * before pills probe them. A fully-backlogged tick warms nothing. When
+   * omitted, no warm-up runs (the legacy behavior).
    */
   warmHealth?: WarmHealthConfig;
 }
