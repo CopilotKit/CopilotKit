@@ -117,6 +117,14 @@ export function ensureHead(html: string): string {
 const ASSEMBLE_OPEN_TAG_END =
   /^<[a-zA-Z][^\s/>]*(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/;
 
+/** Quote-aware head-open matcher: matches `<head>` or `<head` + a whitespace-led
+ * attribute span ending in `>` (excluding `<header …>`). Unquoted runs forbid
+ * `<`/`>` (so the tag can never greedily swallow a following `<tag>`), while
+ * quoted runs (`"…"` / `'…'`) may contain `<`/`>`. Shared by the legacy
+ * mount-normalization branch and the non-legacy prefix-splice path so both
+ * locate the head-open token identically. */
+const HEAD_OPEN_TAG = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
+
 /**
  * Length-preserving mask of the CONTENT of every COMPLETE `<style>`/`<script>`
  * block and `<!-- … -->` comment (and the quoted attribute values inside those
@@ -187,11 +195,33 @@ function maskInertSpans(html: string): string {
  * 4. `<style>` containing `opts.css` — agent-authored CSS, immediately before
  *    `</head>` so it wins over the kit on specificity ties
  *
- * Backward-compat invariant: when no prefix is injected — i.e. `designSystemCss`
- * is falsy AND `importMap` is falsy or an empty object — the output is
- * byte-identical to the legacy `ensureHead(css ? injectCssIntoHtml(html, css)
- * : html)` path for ALL inputs, by construction (the legacy composition is
- * reproduced verbatim, injecting CSS into the raw html *before* ensuring head).
+ * Backward-compat invariant (legacy path): when no prefix is injected — i.e.
+ * `designSystemCss` is falsy AND `importMap` is falsy or an empty object — the
+ * legacy output L is computed verbatim as `ensureHead(css ? injectCssIntoHtml(
+ * html, css) : html)` (the CSS injected into the raw html *before* ensuring
+ * head). The contract is then:
+ * - If L ALREADY contains the literal 6-character lowercase token `<head>`,
+ *   return L UNCHANGED — byte-identical to the historical path. EVERY input that
+ *   previously mounted in `@jetbrains/websandbox` lands here, because mounting
+ *   itself requires that literal token (see the literal-`<head>` note below).
+ * - Otherwise L has only an uppercase/attributed head-open tag (`<HEAD>`,
+ *   `<head lang="en">`, `<head >`) and so contains no literal `<head>`. Such an
+ *   artifact ALWAYS failed to mount before (no previously-working output reaches
+ *   this branch). L is MOUNT-NORMALIZED: the first head-open token (located with
+ *   the same quote-aware matcher the non-legacy path uses) is rewritten to the
+ *   literal `<head>` so websandbox's `includes('<head>')` mount gate passes. If
+ *   no head-open token matches at all (e.g. an unterminated `<head\t` tail), a
+ *   minimal `<head></head>` is prepended (mirroring `ensureHead`'s no-head shape).
+ *   The kit/importmap are intentionally NOT injected here — this is still the
+ *   disabled path; only the head token is made mount-safe.
+ *
+ * Remaining legacy quirks are RETAINED BY DESIGN — they fire only on inputs whose
+ * legacy output already contains the literal `<head>`, so those inputs stay
+ * byte-identical: (a) the stray-`</head>` css splice — agent css spliced at a
+ * `</head>` that precedes the real `<head>` (e.g. `foo</head>bar` + css → the css
+ * lands at that stray close); (b) the duplicate-head emission for an unclosed
+ * `<head>` carrying css (`<head><body>…` + css → `<head><style>…</style></head>`
+ * is prepended ahead of the original unclosed `<head>`).
  *
  * Mask-before-match (NON-LEGACY path only): the head-open match and the agent-css
  * `</head>` close search both run on a length-preserving MASKED copy
@@ -246,12 +276,13 @@ export function assembleDocument(
   // PURE LEGACY PATH — no prefix to inject. Reproduce the legacy composition
   // verbatim: inject the agent CSS into the RAW html first (the legacy
   // injectCssIntoHtml algorithm), THEN ensure a <head> exists (legacy
-  // ensureHead). Applying the two helpers in this order makes the output
-  // byte-identical to the legacy path for ALL inputs by construction —
-  // including degenerate inputs where `</head>` appears before/without an
-  // opening `<head>` (ensuring head first would otherwise inject a spurious
-  // earlier `</head>` and the CSS would land in the wrong place).
+  // ensureHead). Applying the two helpers in this order yields the legacy output
+  // L for ALL inputs by construction — including degenerate inputs where
+  // `</head>` appears before/without an opening `<head>` (ensuring head first
+  // would otherwise inject a spurious earlier `</head>` and the CSS would land in
+  // the wrong place).
   if (!nonLegacy) {
+    let legacy: string;
     if (css) {
       const headCloseIdx = html.indexOf("</head>");
       const injected =
@@ -260,9 +291,34 @@ export function assembleDocument(
             `<style>${css}</style>` +
             html.slice(headCloseIdx)
           : `<head><style>${css}</style></head>${html}`;
-      return ensureHead(injected);
+      legacy = ensureHead(injected);
+    } else {
+      legacy = ensureHead(html);
     }
-    return ensureHead(html);
+
+    // Carve-out (mount safety): if L already contains the exact 6-char literal
+    // `<head>`, return it UNCHANGED — every input that previously mounted lands
+    // here and stays byte-identical. Otherwise L has only an uppercase/attributed
+    // head-open tag and so could never mount in `@jetbrains/websandbox`
+    // (`includes('<head>')` gate, websandbox.js:450); normalize that token to the
+    // literal `<head>` so the artifact mounts. The kit/importmap are NOT injected
+    // — this is still the disabled path; only the head token is made mount-safe.
+    if (legacy.includes("<head>")) return legacy;
+    const headOpen = legacy.match(HEAD_OPEN_TAG);
+    if (headOpen && headOpen.index !== undefined) {
+      // Rewrite ONLY the first head-open token to the literal `<head>`; the css
+      // placement (and everything else) is otherwise unchanged from L.
+      return (
+        legacy.slice(0, headOpen.index) +
+        "<head>" +
+        legacy.slice(headOpen.index + headOpen[0].length)
+      );
+    }
+    // No head-open token matched at all (e.g. an unterminated `<head\t` tail that
+    // `ensureHead` saw via `/<head[\s>]/` and declined to prepend). Prepend a
+    // minimal websandbox-safe head, mirroring ensureHead's no-head shape — still
+    // WITHOUT the kit/importmap.
+    return `<head></head>${legacy}`;
   }
 
   // ASSEMBLED (NON-LEGACY) PATH — a prefix exists. Ensure a <head> first so the
@@ -290,9 +346,7 @@ export function assembleDocument(
   // importmap/kit inert inside that comment). Indices align 1:1, so the prefix is
   // spliced on the ORIGINAL `html` at the masked match index.
   const masked = maskInertSpans(html);
-  const headOpenMatch = masked.match(
-    /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i,
-  );
+  const headOpenMatch = masked.match(HEAD_OPEN_TAG);
   if (headOpenMatch && headOpenMatch.index !== undefined) {
     const matchIdx = headOpenMatch.index;
     const matchedToken = headOpenMatch[0];

@@ -81,7 +81,7 @@ describe("assembleDocument", () => {
     );
   });
 
-  it("matches the legacy path byte-for-byte when designSystemCss and importMap are false", () => {
+  it("matches the legacy path byte-for-byte when designSystemCss and importMap are false (inputs whose legacy output already contains literal <head>)", () => {
     // legacy reference implementations, copied verbatim from OpenGenerativeUIRenderer.tsx
     const legacyEnsureHead = (html: string) =>
       /<head[\s>]/i.test(html) ? html : `<head></head>${html}`;
@@ -91,6 +91,8 @@ describe("assembleDocument", () => {
         ? html.slice(0, i) + `<style>${css}</style>` + html.slice(i)
         : `<head><style>${css}</style></head>${html}`;
     };
+    // These inputs all produce a legacy output containing the literal lowercase
+    // `<head>` token (the new contract returns L unchanged for exactly those).
     for (const html of [
       "<head></head><body>a</body>",
       "<body>b</body>",
@@ -98,6 +100,8 @@ describe("assembleDocument", () => {
     ]) {
       for (const css of [undefined, ".x{}"]) {
         const legacy = legacyEnsureHead(css ? legacyInject(html, css) : html);
+        // Precondition: this fixture is a byte-identity case.
+        expect(legacy).toContain("<head>");
         const next = assembleDocument(html, {
           css,
           designSystemCss: false,
@@ -106,6 +110,70 @@ describe("assembleDocument", () => {
         expect(next).toBe(legacy);
       }
     }
+  });
+
+  // Finding 1 (legacy mount normalization): the LEGACY path
+  // (`designSystemCss: false`, `importMap: false`, reachable via the documented
+  // public config `openGenerativeUI={{ designSystem: false, libraries: false }}`)
+  // was byte-identity-locked to the pre-branch composition, which for an
+  // uppercase / attributed head-open tag produced an output with NO literal
+  // lowercase `<head>` token — so `@jetbrains/websandbox` threw
+  // `'Websandbox: iFrame content must have "<head>" tag.'` and the artifact never
+  // mounted (stuck behind the spinner). The carve-out now mount-normalizes ONLY
+  // those previously-non-mounting outputs: it rewrites the first head-open token
+  // to the literal `<head>`, leaving css placement otherwise identical to the
+  // legacy composition. (Every input that previously mounted stays byte-identical;
+  // see the byte-identity test above and the sweep below.)
+  it("normalizes an uppercase <HEAD> in the legacy path so the artifact can mount", () => {
+    const html = "<HEAD><title>t</title></HEAD><body>x</body>";
+    const out = assembleDocument(html, {
+      css: undefined,
+      designSystemCss: false,
+      importMap: false,
+    });
+    // The literal token websandbox demands is present (RED pre-fix: the legacy
+    // path returned the input verbatim, with only `<HEAD>` — no literal `<head>`).
+    expect(out).toContain("<head>");
+    // Only the FIRST head-open token was rewritten; the rest of the document
+    // (including the uppercase CLOSE tag) is byte-identical to the legacy output.
+    expect(out).toBe("<head><title>t</title></HEAD><body>x</body>");
+  });
+
+  it("normalizes an attributed <head lang> in the legacy path and keeps css placement", () => {
+    const html = '<head lang="en"><title>t</title></head><body>x</body>';
+    // With css: the legacy injector splices the agent css before `</head>`; the
+    // ONLY change from the legacy output is the head-open token rewrite. The
+    // dropped `lang` attribute has negligible runtime semantics and cannot be
+    // preserved (websandbox demands the exact `<head>` token).
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: false,
+      importMap: false,
+    });
+    expect(out).toBe(
+      "<head><title>t</title><style>.a{color:red}</style></head><body>x</body>",
+    );
+    expect(out).toContain("<head>");
+    expect(out).not.toContain('lang="en"');
+  });
+
+  it("prepends a minimal <head></head> for an unterminated <head\\t tail in the legacy path", () => {
+    // `ensureHead` sees `/<head[\s>]/` and declines to prepend, but the quote-
+    // aware matcher finds NO complete head-open token (the tag is never closed),
+    // so neither the byte-identity branch nor the token rewrite applies. Fall
+    // back to a minimal websandbox-safe `<head></head>` — WITHOUT kit/importmap
+    // (still the disabled path). RED pre-fix: the legacy path returned `<head\tfoo`
+    // verbatim (no literal `<head>`, never mounted).
+    const out = assembleDocument("<head\tfoo", {
+      css: undefined,
+      designSystemCss: false,
+      importMap: false,
+    });
+    expect(out).toContain("<head>");
+    expect(out).toBe("<head></head><head\tfoo");
+    // The disabled path injects no kit or importmap.
+    expect(out).not.toContain("data-ck-design-system");
+    expect(out).not.toContain('<script type="importmap">');
   });
 
   // Finding 1: a <header> element preceding a real <head> must not capture the
@@ -404,25 +472,64 @@ describe("assembleDocument", () => {
     // Non-legacy mode must never emit more than one.
     const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
 
-    // (1) LEGACY MODE — byte-identical to the legacy reference for every input ×
-    // css, under BOTH `importMap: false` and `importMap: {}` (an empty importmap
-    // injects no prefix, so it must behave exactly like pure legacy).
+    // Reference normalizer pinning the NEW legacy contract: given the legacy
+    // output L, return what the legacy path must now produce. If L already
+    // contains the literal `<head>`, L is returned UNCHANGED (byte-identical —
+    // every input that previously mounted). Otherwise the FIRST head-open token
+    // is rewritten to the literal `<head>` (css placement otherwise unchanged),
+    // or — if no head-open token matches at all — a minimal `<head></head>` is
+    // prepended. This mirrors the source exactly so the sweep pins byte-for-byte.
+    const normalizeLegacy = (legacy: string): string => {
+      if (legacy.includes("<head>")) return legacy;
+      const m = legacy.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+      if (m && m.index !== undefined) {
+        return (
+          legacy.slice(0, m.index) +
+          "<head>" +
+          legacy.slice(m.index + m[0].length)
+        );
+      }
+      return `<head></head>${legacy}`;
+    };
+
+    // (1) LEGACY MODE — pins the NEW contract for every input × css, under BOTH
+    // `importMap: false` and `importMap: {}` (an empty importmap injects no
+    // prefix, so it must behave exactly like pure legacy). For inputs whose
+    // legacy output already contains the literal `<head>` this is byte-identity;
+    // for the previously-non-mounting remainder it is the legacy output with ONLY
+    // its first head-open token normalized to `<head>` (or a minimal head
+    // prepended). EVERY non-mounting output gains the literal token websandbox
+    // requires; the kit/importmap are never injected on this path.
     for (const importMap of [false, {} as Record<string, string>]) {
       const label = importMap === false ? "importMap:false" : "importMap:{}";
       for (const html of INPUTS) {
         for (const css of CSS) {
-          it(`legacy byte-identity (${label}) — ${JSON.stringify(
+          const legacy = legacyEnsureHead(css ? legacyInject(html, css) : html);
+          const identity = legacy.includes("<head>");
+          const tag = identity ? "byte-identity" : "mount-normalized";
+          it(`legacy ${tag} (${label}) — ${JSON.stringify(
             html,
           )} / css=${JSON.stringify(css)}`, () => {
-            const legacy = legacyEnsureHead(
-              css ? legacyInject(html, css) : html,
-            );
             const next = assembleDocument(html, {
               css,
               designSystemCss: false,
               importMap,
             });
-            expect(next).toBe(legacy);
+            // The new contract, pinned byte-for-byte: identity when the legacy
+            // output already mounts; legacy output with only the head token
+            // normalized otherwise.
+            expect(next).toBe(normalizeLegacy(legacy));
+            // EVERY legacy output now carries the literal token websandbox
+            // requires to mount — including the previously-non-mounting inputs.
+            expect(next).toContain("<head>");
+            // The disabled path never injects kit or importmap.
+            expect(next).not.toContain("data-ck-design-system");
+            expect(next).not.toContain('<script type="importmap">');
+            if (identity) {
+              // Inputs that previously mounted stay BYTE-IDENTICAL to the
+              // historical composition (no token rewrite).
+              expect(next).toBe(legacy);
+            }
           });
         }
       }
