@@ -3,9 +3,10 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all badge dimensions (d6/Parity, d5/CV, e2e/RT, d2/API, health, smoke)
- * with tone, label, and — for red/amber badges — failure metadata presented as
- * readable key-value pairs with the full signal collapsible for debugging.
+ * Renders all badge dimensions (d6/Parity, d5/CV, d4/RT, e2e/E2E, d2/API,
+ * health, smoke) with tone, label, and — for red/amber badges — failure
+ * metadata presented as readable key-value pairs with the full signal
+ * collapsible for debugging.
  */
 import { useEffect, useMemo, useState } from "react";
 import { resolveCell } from "@/lib/live-status";
@@ -29,14 +30,21 @@ export interface CellDrilldownProps {
   onClose: () => void;
 }
 
-/** Dimension metadata for display ordering. */
+/**
+ * Dimension metadata for display ordering (descending depth). Labels follow
+ * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "RT (Round
+ * Trip)" (chat+tools round-trip), D3/e2e = "E2E (Demo)" (the demo page loads
+ * and round-trips in a browser). BadgeRow derives its data-testid from the
+ * label, so labels must stay unique across rows.
+ */
 const DIMENSIONS: Array<{
   key: keyof Omit<CellState, "rollup">;
   label: string;
 }> = [
   { key: "d6", label: "Parity (Reference)" },
   { key: "d5", label: "CV (Conversation)" },
-  { key: "e2e", label: "RT (Round Trip)" },
+  { key: "d4", label: "RT (Round Trip)" },
+  { key: "e2e", label: "E2E (Demo)" },
   { key: "d2", label: "API (Agent)" },
   { key: "health", label: "Health" },
   { key: "smoke", label: "Smoke" },
@@ -584,7 +592,7 @@ export function CellDrilldown({
       {/* Rollup */}
       <div className="px-4 py-2 flex items-center gap-2 border-b border-[var(--border)]">
         <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-          Rollup
+          Service (health + e2e)
         </span>
         <span
           className={`inline-block w-2 h-2 rounded-full ${DOT_BG[cell.rollup]}`}

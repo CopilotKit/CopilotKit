@@ -2,9 +2,20 @@
  * Unit tests for CellDrilldown — per-cell dimension detail panel.
  */
 import { describe, it, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, within } from "@testing-library/react";
 import { CellDrilldown } from "../cell-drilldown";
+import { buildCellModel } from "@/lib/cell-model";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
+
+// The `row()` helper's hardcoded 2026-04-20 timestamps are STALE against the
+// health (45m) / e2e (6h) / d4 (1h) windows, and CellDrilldown calls
+// resolveCell with NO `now` (real Date.now() applies). Tests that need rows
+// to resolve FRESH must override observed_at/transitioned_at with this.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+const FRESH = {
+  observed_at: FRESH_OBSERVED_AT,
+  transitioned_at: FRESH_OBSERVED_AT,
+} as const;
 
 function row(
   key: string,
@@ -33,12 +44,14 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
 }
 
 describe("CellDrilldown", () => {
-  it("renders all 5 badge dimensions", () => {
+  it("renders all 7 badge dimensions", () => {
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("e2e:lgp/agentic-chat", "e2e", "green"),
-      row("smoke:lgp", "smoke", "green"),
-      row("agent:lgp", "agent", "green"),
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("smoke:lgp", "smoke", "green", { ...FRESH }),
+      row("agent:lgp", "agent", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "green", { ...FRESH }),
     ]);
     const { getByTestId, getByText } = render(
       <CellDrilldown
@@ -51,11 +64,136 @@ describe("CellDrilldown", () => {
       />,
     );
     expect(getByTestId("cell-drilldown")).toBeDefined();
+    expect(getByText("Parity (Reference)")).toBeDefined();
+    expect(getByText("CV (Conversation)")).toBeDefined();
+    // `RT (Round Trip)` is now the D4 (chat+tools round-trip) row …
+    expect(getByText("RT (Round Trip)")).toBeDefined();
+    // … and the e2e row carries the de-crossed `E2E (Demo)` label.
+    expect(getByText("E2E (Demo)")).toBeDefined();
     expect(getByText("API (Agent)")).toBeDefined();
     expect(getByText("Health")).toBeDefined();
-    expect(getByText("RT (Round Trip)")).toBeDefined();
     expect(getByText("Smoke")).toBeDefined();
-    expect(getByText("CV (Conversation)")).toBeDefined();
+  });
+
+  it("renders a red RT (Round Trip) row for a red D4 fold while the service line stays green (headline drilldown-parity bug)", () => {
+    // The dimension that turns the pill red (D4: red tools round-trip) must
+    // be VISIBLE in the popup. Pre-fix the popup had no D4 row at all, so a
+    // pill-red cell showed nothing non-green to explain itself.
+    const live = mapOf([
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "red", { ...FRESH }),
+    ]);
+    const { getByTestId, getByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    // The d4 row owns the `RT (Round Trip)` label (and so its derived testid).
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(rtBadge.textContent).toContain("RT (Round Trip)");
+    expect(rtBadge.textContent).toContain("✗");
+    // The service-scoped line (health + e2e) is still green — honest scope.
+    expect(getByText("green")).toBeDefined();
+    // Cross-resolver pin: the SAME map makes the pill red via buildCellModel's
+    // D1-D4 gate — so a pill-red cause now always has a visible non-green row.
+    expect(
+      buildCellModel(live, {
+        slug: "lgp",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: true,
+      }).chipColor,
+    ).toBe("red");
+  });
+
+  it("renders strikethrough n/a on the RT (Round Trip) row when chat/tools rows are absent", () => {
+    const live = mapOf([
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+    ]);
+    const { getByTestId } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(rtBadge.textContent).toContain("RT (Round Trip)");
+    expect(rtBadge.textContent).toContain("n/a");
+    expect(rtBadge.querySelector(".line-through")).not.toBeNull();
+  });
+
+  it("labels the rollup line with its honest scope — Service (health + e2e), not Rollup", () => {
+    const { getByText, queryByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={new Map()}
+        onClose={() => {}}
+      />,
+    );
+    expect(getByText("Service (health + e2e)")).toBeDefined();
+    expect(queryByText("Rollup")).toBeNull();
+  });
+
+  it("de-crosses the e2e label: E2E (Demo) renders and exactly ONE row is labelled RT (Round Trip)", () => {
+    const live = mapOf([
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "green", { ...FRESH }),
+    ]);
+    const { getByText, getAllByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    expect(getByText("E2E (Demo)")).toBeDefined();
+    expect(getAllByText("RT (Round Trip)").length).toBe(1);
+  });
+
+  it("shows fail count and extracted Error field on a red RT (Round Trip) / D4 row", () => {
+    const live = mapOf([
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "red", {
+        ...FRESH,
+        fail_count: 3,
+        first_failure_at: "2026-04-19T10:00:00Z",
+        signal: { error: "boom" },
+      }),
+    ]);
+    const { getByTestId } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(within(rtBadge).getByTestId("fail-count").textContent).toBe("3");
+    expect(within(rtBadge).getByTestId("signal-field-error").textContent).toBe(
+      "boom",
+    );
   });
 
   it("shows integration and feature name in header", () => {
@@ -178,9 +316,11 @@ describe("CellDrilldown", () => {
   });
 
   it("does not show failure details for green badges", () => {
+    // FRESH is required: without it these rows resolve amber-stale (see header
+    // invariant) and the "green badges" premise silently breaks.
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("e2e:lgp/agentic-chat", "e2e", "green"),
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
     ]);
     const { queryAllByTestId } = render(
       <CellDrilldown
