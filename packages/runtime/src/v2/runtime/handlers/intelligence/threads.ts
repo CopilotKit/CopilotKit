@@ -1,8 +1,8 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
-  isIntelligenceRuntime,
 } from "../../core/runtime";
+import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
@@ -274,7 +274,10 @@ export async function handleGetThreadMessages({
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
-      const data = await runtime.intelligence.getThreadMessages({ threadId });
+      const data = await runtime.intelligence.getThreadMessages({
+        threadId,
+        userId: user.id,
+      });
       return Response.json(data);
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread messages");
