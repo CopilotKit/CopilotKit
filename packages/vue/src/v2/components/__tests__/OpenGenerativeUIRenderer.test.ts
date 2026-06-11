@@ -729,5 +729,77 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(agentIdx).toBeGreaterThan(-1);
       expect(authorIdx).toBeLessThan(agentIdx);
     });
+
+    // Case 4 — stray </head> BEFORE the real head, WITH css. A global
+    // `search(/<\/head>/i)` resolves to the FIRST close anywhere — here the
+    // stray one before the real `<head>` — so the agent css splices outside and
+    // before the real head (cascade inversion). React's assembleDocument scopes
+    // the close search to at/after the matched head-open. GREEN post-fix: the
+    // css lands INSIDE the real head, after the author's head content, before
+    // the real `</head>`.
+    it("anchors the css to the real head when a stray </head> precedes it", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["foo</head><head><title>t</title></head><body>x</body>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // The css must sit inside the REAL head: after the head-open, after the
+      // author's <title>, and before the real (last) </head>.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const realHeadCloseIdx = frameContent
+        .toLowerCase()
+        .lastIndexOf("</head>");
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // Inside the real head, after the author content, before the real close.
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeGreaterThan(titleIdx);
+      expect(cssIdx).toBeLessThan(realHeadCloseIdx);
+    });
+
+    // Case 5 — head-open with NO close, WITH css. ensureHead normalizes the open
+    // token; injectCssIntoHtml then finds no `</head>` and (pre-fix) PREPENDS a
+    // fresh `<head><style>…</style></head>`, producing TWO head elements with the
+    // agent css before the author's head content. React's assembleDocument for
+    // the same input yields exactly ONE head with the css right after the
+    // head-open. GREEN post-fix: one `<head` token, css after the open and
+    // before the author's <title>.
+    it("inserts css after the head-open (one head) when no close exists", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["<HEAD><title>t</title><body>x</body>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // Exactly one head-open token — no duplicate head was prepended. Match is
+      // quote-aware, mirroring the renderer's normalization regex.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+      // The css sits after the (normalized) head-open and before the author's
+      // <title>, i.e. immediately after the open rather than in a prepended head.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeLessThan(titleIdx);
+    });
   });
 });

@@ -98,19 +98,49 @@ function ensureHead(html: string): string {
  * first, agent css last; matching react-core). The close lookup is
  * case-insensitive so it pairs with `ensureHead`'s case-insensitive open match:
  * a case-sensitive `indexOf("</head>")` would miss an uppercase `</HEAD>` and
- * PREPEND a second `<head>`, producing two head elements and flipping the
- * cascade so the agent css wins over the author's head styles.
+ * flip the cascade so the agent css wins over the author's head styles.
  *
- * Always called after `ensureHead`, so a real `<head>` exists by construction;
- * the no-close fallback synthesizes a websandbox-safe literal `<head>`.
+ * Always called after `ensureHead`, so a real head-opening tag exists by
+ * construction. Two edge shapes are guarded:
+ *  - A stray `</head>` BEFORE the real head: the close search is anchored
+ *    at/after the matched head-open so the css lands inside the REAL head, not
+ *    at the earlier stray close (which would put it outside and before the real
+ *    head — cascade inversion).
+ *  - A head-open with NO matching close: the css is inserted immediately AFTER
+ *    the (normalized) head-open rather than prepending a fresh `<head>`, which
+ *    would otherwise create two head elements with the agent css before the
+ *    author's head content. Only the no-head-at-all path (which `ensureHead`
+ *    prevents here) would synthesize a brand-new head.
  */
 function injectCssIntoHtml(html: string, css: string): string {
-  const headCloseIdx = html.search(/<\/head>/i);
+  const match = html.match(HEAD_OPEN);
+  // ensureHead runs first, so a real head-opening tag exists by construction.
+  // Anchor the close-tag search at/after the matched head-open so it pairs with
+  // the SAME head: a global first-match `search(/<\/head>/i)` would resolve to a
+  // stray `</head>` that PRECEDES the real head (e.g.
+  // `foo</head><head>…</head>`), splicing the agent css outside and before the
+  // real head and inverting the documented cascade. Mirrors react-core's
+  // assembleDocument, which scopes the close search to after the head-open.
+  const searchFrom =
+    match && match.index !== undefined ? match.index + match[0].length : 0;
+  const closeRel = html.slice(searchFrom).search(/<\/head>/i);
+  const headCloseIdx = closeRel !== -1 ? closeRel + searchFrom : -1;
   if (headCloseIdx !== -1) {
     return (
       html.slice(0, headCloseIdx) +
       `<style>${css}</style>` +
       html.slice(headCloseIdx)
+    );
+  }
+  // No `</head>` at/after the head-open. ensureHead guaranteed a real head-open,
+  // so insert the agent css immediately AFTER that (normalized) head-open rather
+  // than prepending a fresh `<head>` — which would produce two head elements
+  // with the agent css before the author's head content (cascade inversion).
+  // Matches react-core's post-head-open fallback.
+  if (match && match.index !== undefined) {
+    const insertAt = match.index + match[0].length;
+    return (
+      html.slice(0, insertAt) + `<style>${css}</style>` + html.slice(insertAt)
     );
   }
   return `<head><style>${css}</style></head>${html}`;
