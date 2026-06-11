@@ -34,6 +34,16 @@ export interface ProbeRunSummary {
    * smoke-result rows) don't have to flatten down to a closed-enum.
    */
   services?: unknown[];
+  /**
+   * §4.2 run-visibility reds counters, written by the fleet result
+   * aggregator: counts of durable State transitions across the job's
+   * aggregate + cell `WriteOutcome`s (green→red introduced, red→green
+   * cleared; error ticks excluded — a probe that errored neither introduced
+   * nor cleared a red). Absent on pre-P2 rows → the run-visibility API
+   * serializes `null` for them.
+   */
+  redsIntroduced?: number;
+  redsCleared?: number;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   runSummaryForServiceJobResult,
   isWorkerStale,
   heartbeatParseable,
+  deriveHealth,
   workerCapacityFromBudget,
   terminalJobStatus,
   probeKeyFamily,
@@ -392,6 +393,46 @@ describe("worker capacity + staleness", () => {
     expect(heartbeatParseable("2026-06-04T00:00:00.000Z")).toBe(true);
     // The PB space form is parseable AFTER the anchored normalization.
     expect(heartbeatParseable("2026-06-04 00:00:00.000Z")).toBe(true);
+  });
+});
+
+describe("deriveHealth (worker liveness from heartbeat age)", () => {
+  // Injected clock + a non-default window so the 1x/2x boundaries are
+  // explicit: with staleAfterMs = 1000, online ≤ 1000ms old, stale is
+  // (1000, 2000], offline > 2000ms.
+  const STALE_AFTER_MS = 1_000;
+  const nowMs = Date.parse("2026-06-04T00:01:00.000Z");
+  const beatAgedMs = (ageMs: number) => new Date(nowMs - ageMs).toISOString();
+
+  it('deriveHealth returns "online" for heartbeat ≤ staleAfterMs old', () => {
+    expect(deriveHealth(beatAgedMs(0), nowMs, STALE_AFTER_MS)).toBe("online");
+    // exact 1x boundary is NOT stale (isWorkerStale is strictly >)
+    expect(deriveHealth(beatAgedMs(1_000), nowMs, STALE_AFTER_MS)).toBe(
+      "online",
+    );
+  });
+
+  it('deriveHealth returns "stale" for heartbeat > 1x and ≤ 2x staleAfterMs', () => {
+    expect(deriveHealth(beatAgedMs(1_001), nowMs, STALE_AFTER_MS)).toBe(
+      "stale",
+    );
+    // exact 2x boundary is still stale, not offline (strictly >)
+    expect(deriveHealth(beatAgedMs(2_000), nowMs, STALE_AFTER_MS)).toBe(
+      "stale",
+    );
+  });
+
+  it('deriveHealth returns "offline" for heartbeat > 2x staleAfterMs', () => {
+    expect(deriveHealth(beatAgedMs(2_001), nowMs, STALE_AFTER_MS)).toBe(
+      "offline",
+    );
+    expect(deriveHealth(beatAgedMs(60_000), nowMs, STALE_AFTER_MS)).toBe(
+      "offline",
+    );
+  });
+
+  it('deriveHealth returns "online" for an unparseable timestamp (inherited lenient default — display surfaces MUST pre-check parseability, see run-view)', () => {
+    expect(deriveHealth("not-a-date", nowMs, STALE_AFTER_MS)).toBe("online");
   });
 });
 

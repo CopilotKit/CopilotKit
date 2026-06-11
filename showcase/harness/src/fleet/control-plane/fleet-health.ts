@@ -56,8 +56,8 @@ import {
   WORKERS_COLLECTION,
   heartbeatParseable,
   isWorkerStale,
+  deriveHealth,
   type PoolCommError,
-  type WorkerHealthState,
 } from "../contracts.js";
 
 /**
@@ -188,21 +188,6 @@ export interface FleetHealthMonitor {
    * poison worker can't wedge the whole monitor.
    */
   checkOnce(): Promise<FleetHealthResult>;
-}
-
-/** Derive a worker's liveness from its heartbeat age. */
-function deriveHealth(
-  lastHeartbeatAt: string,
-  nowMs: number,
-  staleAfterMs: number,
-): WorkerHealthState {
-  // OFFLINE is a stronger stale: heartbeat older than 2x the window. We don't
-  // act differently on stale vs offline (both reclaim), but the distinction is
-  // surfaced in logs so an operator can tell a briefly-missed-beat worker from
-  // a long-dead one.
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs * 2)) return "offline";
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs)) return "stale";
-  return "online";
 }
 
 export function createFleetHealthMonitor(
