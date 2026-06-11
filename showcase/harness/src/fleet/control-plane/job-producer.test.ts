@@ -482,6 +482,62 @@ describe("job-producer — per-family backlog dedupe", () => {
     expect(result.skippedForBacklog).toBe(0);
   });
 
+  it("reports families KEPT via fail-open in TickResult.backlogGateFailedOpen and the tick-complete log (a failed gate must be distinguishable from a clean one)", async () => {
+    // A family kept because countPendingForFamily FAILED (non-poisoned) was
+    // indistinguishable in the tick outcome from a family whose gate read a
+    // clean zero — the same ambiguity class sweepFailed/enumerateFailed were
+    // added to remove. Surface the fail-open count.
+    const tickCompleteMeta: Array<Record<string, unknown> | undefined> = [];
+    const specs: ServiceJobSpec[] = [
+      ...d6Specs(["a"]),
+      { probeKey: "e2e-demos:a", serviceSlug: "a", driverKind: "e2e_demos" },
+    ];
+    const { producer } = startedProducer({
+      specs,
+      queue: makeFakeQueue({
+        countPendingImpl: async (family) => {
+          if (family === "d6") throw new Error("transient PB count blip");
+          return 0; // e2e-demos reads a clean zero
+        },
+      }),
+      logger: {
+        ...SILENT_LOGGER,
+        info: (msg, meta) => {
+          if (msg === "fleet.producer.tick-complete") tickCompleteMeta.push(meta);
+        },
+      },
+    });
+
+    const result = await producer.tick();
+
+    // Both families produced — but exactly ONE of them via fail-open.
+    expect(result.enqueued).toBe(2);
+    expect(result.backlogGateFailedOpen).toBe(1);
+    expect(tickCompleteMeta).toHaveLength(1);
+    expect(tickCompleteMeta[0]).toMatchObject({ backlogGateFailedOpen: 1 });
+  });
+
+  it("backlogGateFailedOpen is 0 on a clean gate, a triggered (gate-bypassing) tick, and a skipped tick", async () => {
+    const clean = startedProducer({ specs: d6Specs(["a"]) });
+    expect((await clean.producer.tick()).backlogGateFailedOpen).toBe(0);
+
+    const triggered = startedProducer({
+      specs: d6Specs(["a"]),
+      queue: makeFakeQueue({
+        countPendingImpl: async () => {
+          throw new Error("would fail open if consulted");
+        },
+      }),
+    });
+    expect(
+      (await triggered.producer.tick({ triggered: true })).backlogGateFailedOpen,
+    ).toBe(0);
+
+    const stopped = startedProducer({ specs: d6Specs(["a"]) });
+    await stopped.producer.stop();
+    expect((await stopped.producer.tick()).backlogGateFailedOpen).toBe(0);
+  });
+
   it("fails CLOSED when the backlog count is POISONED (the queue-client's fail-closed refusal must not be failed open)", async () => {
     // countPendingForFamily THROWS its documented refusal when PB hands back a
     // non-count totalItems (e.g. -1): returning the poisoned value would

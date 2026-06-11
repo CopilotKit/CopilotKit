@@ -213,6 +213,17 @@ export interface TickResult {
    * it).
    */
   skippedForBacklog: number;
+  /**
+   * Number of FAMILIES the backlog gate kept via its FAIL-OPEN path:
+   * `countPendingForFamily` failed with a non-poisoned (transient) error, so
+   * the family's batch was produced WITHOUT a backlog check (the legacy
+   * un-gated behavior as the safe fallback). Without this count a
+   * failed-open gate was indistinguishable in the tick outcome from a gate
+   * that read a clean zero — the same ambiguity class `sweepFailed` /
+   * `enumerateFailed` exist to remove. 0 when the gate did not run at all
+   * (triggered ticks bypass it; skipped ticks never reach it).
+   */
+  backlogGateFailedOpen: number;
   /** True iff a lease sweep ran during this tick. */
   sweptExpired: boolean;
   /**
@@ -371,6 +382,7 @@ function skippedTickResult(): TickResult {
     enqueued: 0,
     enqueueFailures: 0,
     skippedForBacklog: 0,
+    backlogGateFailedOpen: 0,
     truncatedByStop: 0,
     sweptExpired: false,
     sweepFailed: false,
@@ -673,7 +685,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   async function filterBackloggedFamilies(
     specs: ServiceJobSpec[],
     runId: string,
-  ): Promise<{ specs: ServiceJobSpec[]; skipped: number }> {
+  ): Promise<{ specs: ServiceJobSpec[]; skipped: number; failedOpen: number }> {
     const byFamily = new Map<string, ServiceJobSpec[]>();
     for (const spec of specs) {
       const family = probeKeyFamily(spec.probeKey);
@@ -683,6 +695,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     }
     const kept: ServiceJobSpec[] = [];
     let skipped = 0;
+    let failedOpen = 0;
     for (const [family, group] of byFamily) {
       let pendingCount: number;
       try {
@@ -707,6 +720,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
           continue;
         }
         // FAIL OPEN: a transient read blip must never stop production.
+        // Counted (per FAMILY) into the tick outcome so a failed-open gate
+        // is distinguishable from a clean zero-backlog read.
+        failedOpen += 1;
         logger.error("fleet.producer.backlog-check-failed", {
           runId,
           family,
@@ -727,7 +743,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       }
       kept.push(...group);
     }
-    return { specs: kept, skipped };
+    return { specs: kept, skipped, failedOpen };
   }
 
   /**
@@ -886,6 +902,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         enqueued: 0,
         enqueueFailures: 0,
         skippedForBacklog: 0,
+        backlogGateFailedOpen: 0,
         truncatedByStop: 0,
         sweptExpired: sweep.swept,
         sweepFailed: sweep.sweepFailed,
@@ -954,7 +971,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
     // operator intent wins over backpressure.
     const gate = triggered
-      ? { specs: validSpecs, skipped: 0 }
+      ? { specs: validSpecs, skipped: 0, failedOpen: 0 }
       : await filterBackloggedFamilies(validSpecs, runId);
 
     // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
@@ -1023,6 +1040,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       enqueued,
       enqueueFailures,
       skippedForBacklog: gate.skipped,
+      backlogGateFailedOpen: gate.failedOpen,
       truncatedByStop,
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,
@@ -1037,6 +1055,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       enqueued,
       enqueueFailures,
       skippedForBacklog: gate.skipped,
+      backlogGateFailedOpen: gate.failedOpen,
       truncatedByStop,
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,

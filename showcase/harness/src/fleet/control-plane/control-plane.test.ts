@@ -50,6 +50,7 @@ function makeFakeProducer(): JobProducer & {
         enqueued: 0,
         enqueueFailures: 0,
         skippedForBacklog: 0,
+        backlogGateFailedOpen: 0,
         truncatedByStop: 0,
         sweptExpired: false,
         sweepFailed: false,
