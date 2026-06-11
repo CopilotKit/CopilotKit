@@ -13,28 +13,27 @@
  * after settle assert ALL expected testids for that pill are present
  * AND at least one of them is newly mounted (i.e. wasn't already in
  * the baseline). Different pills exercise different subsets of the
- * catalog (KPI dashboard hits Metric + Card; pie-chart pill hits
- * PieChart; bar-chart pill hits BarChart; status-report hits
- * StatusBadge), so a regression that returns the same canned UI for
- * every pill turns the probe red on the second pill.
+ * catalog (the sales-dashboard hero pill hits Card + Metric +
+ * PieChart + BarChart in one composed surface; team-performance hits
+ * DataTable; at-risk hits StatusBadge; top-account hits InfoRow), so
+ * a regression that returns the same canned UI for every pill turns
+ * the probe red on the second pill.
  *
  * The "newly mounted" signal is essential because A2UI nodes
- * accumulate in the DOM across pills — pill 1 (kpi-dashboard) mounts
- * `declarative-card`, which is then carried into pill 4
- * (status-report) where it would trivially satisfy a card-or-badge
- * disjunction. We require the status-report pill's distinguishing
- * testid (`declarative-status-badge`) explicitly and gate the pass
- * on it being newly mounted.
+ * accumulate in the DOM across pills — pill 1 (sales-dashboard)
+ * mounts `declarative-card`, which is then carried into later pills
+ * where it would trivially satisfy a disjunction. Each later pill's
+ * distinguishing testid (data-table / status-badge / info-row) is a
+ * component the hero dashboard is steered NOT to use (see the
+ * composition rules in `declarative-gen-ui/sales-context.ts`), so it
+ * can only appear by that pill newly mounting it.
  *
  * Pill prompts are read from `declarative-gen-ui/suggestions.ts` so
  * the prompts in this probe stay in sync with the demo's pill set.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { FIRST_SIGNAL_TIMEOUT_MS } from "./_genuine-shared.js";
 
@@ -49,40 +48,41 @@ export function preNavigateRoute(_ft: D5FeatureType): string {
  *  Each pill names the catalog component testids that MUST ALL render
  *  for the pill to pass. The check is conjunctive (`every`) so we
  *  cannot trivially pass on a leftover testid from an earlier pill —
- *  e.g. status-report cannot pass on pill-1's `declarative-card`,
- *  because it now requires `declarative-status-badge` (pill 1 doesn't
- *  mount that). */
+ *  pills 2-4 each require a component the hero dashboard (pill 1) is
+ *  steered not to mount. */
 export const GEN_UI_DECLARATIVE_PILLS = [
   {
-    tag: "kpi-dashboard",
-    prompt:
-      "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-    expectedTestIds: ["declarative-card", "declarative-metric"] as const,
+    tag: "sales-dashboard",
+    prompt: "Show me my sales dashboard for this quarter.",
+    // The hero pill: one composed surface with KPI metrics + both
+    // charts. Conjunctive across all four testids so a single lonely
+    // widget cannot pass as a "dashboard".
+    expectedTestIds: [
+      "declarative-card",
+      "declarative-metric",
+      "declarative-pie-chart",
+      "declarative-bar-chart",
+    ] as const,
   },
   {
-    tag: "pie-chart",
-    prompt: "Show a pie chart of sales by region.",
-    expectedTestIds: ["declarative-pie-chart"] as const,
+    tag: "team-performance",
+    prompt: "How are our sales reps performing against quota?",
+    expectedTestIds: ["declarative-data-table"] as const,
   },
   {
-    tag: "bar-chart",
-    prompt: "Render a bar chart of quarterly revenue.",
-    expectedTestIds: ["declarative-bar-chart"] as const,
-  },
-  {
-    tag: "status-report",
-    prompt:
-      "Give me a status report on system health — API, database, and background workers.",
-    // Distinguishing testid: status-report MUST mount the status
-    // badge. Pill 1 (kpi-dashboard) already mounted `declarative-card`,
-    // so that testid is leftover by the time we get here and was
-    // previously masking the lack of a real status-report render.
+    tag: "at-risk",
+    prompt: "Are any accounts or pipeline deals at risk this quarter?",
     expectedTestIds: ["declarative-status-badge"] as const,
+  },
+  {
+    tag: "top-account",
+    prompt: "Pull up the details on our biggest account.",
+    expectedTestIds: ["declarative-info-row"] as const,
   },
 ] as const;
 
 /** Read whether ANY of a known set of declarative testids is present.
- *  All five testids are inlined as literal selectors so the closure
+ *  All seven testids are inlined as literal selectors so the closure
  *  doesn't need to capture arguments — `_beautiful-chat-shared.ts`
  *  uses the same pattern. */
 async function readDeclarativeTestIds(page: Page): Promise<{
@@ -91,6 +91,8 @@ async function readDeclarativeTestIds(page: Page): Promise<{
   statusBadge: boolean;
   pieChart: boolean;
   barChart: boolean;
+  dataTable: boolean;
+  infoRow: boolean;
 }> {
   return (await page.evaluate(() => {
     const win = globalThis as unknown as {
@@ -110,6 +112,12 @@ async function readDeclarativeTestIds(page: Page): Promise<{
       barChart: !!win.document.querySelector(
         '[data-testid="declarative-bar-chart"]',
       ),
+      dataTable: !!win.document.querySelector(
+        '[data-testid="declarative-data-table"]',
+      ),
+      infoRow: !!win.document.querySelector(
+        '[data-testid="declarative-info-row"]',
+      ),
     };
   })) as {
     card: boolean;
@@ -117,6 +125,8 @@ async function readDeclarativeTestIds(page: Page): Promise<{
     statusBadge: boolean;
     pieChart: boolean;
     barChart: boolean;
+    dataTable: boolean;
+    infoRow: boolean;
   };
 }
 
@@ -129,6 +139,8 @@ const TESTID_TO_KEY: Record<
   "declarative-status-badge": "statusBadge",
   "declarative-pie-chart": "pieChart",
   "declarative-bar-chart": "barChart",
+  "declarative-data-table": "dataTable",
+  "declarative-info-row": "infoRow",
 };
 
 /** Per-pill baseline ref: which declarative testids were already
@@ -187,6 +199,8 @@ export function buildDeclarativeAssertion(
       statusBadge: false,
       pieChart: false,
       barChart: false,
+      dataTable: false,
+      infoRow: false,
     };
     while (Date.now() < deadline) {
       last = await readDeclarativeTestIds(page);
@@ -220,6 +234,8 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         statusBadge: false,
         pieChart: false,
         barChart: false,
+        dataTable: false,
+        infoRow: false,
       },
       captured: false,
     };
