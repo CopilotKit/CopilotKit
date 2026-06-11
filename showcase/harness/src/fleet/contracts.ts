@@ -601,18 +601,53 @@ export interface WorkerDescriptor {
 }
 
 /**
- * Pure staleness check used by fleet-health (S10): a worker is stale when its
- * last heartbeat is older than `staleAfterMs`. Returns false when the
- * timestamp is unparseable (treat unknown as not-yet-stale; the next heartbeat
- * resolves it) so a malformed row can't flap the whole fleet to offline. Pure;
+ * Anchor the PB space→"T" date-separator rewrite to the canonical PB shape
+ * (`YYYY-MM-DD ` then time) so we ONLY convert the date/time boundary, never
+ * an arbitrary first space. LOCAL REPLICA of the queue-client's exported
+ * `PB_DATE_SEP_RE` (queue-client.ts) — replicated rather than imported because
+ * the dependency points the other way (queue-client imports contracts), and
+ * the anchoring contract is the same one the JSVM hook pins: a bare
+ * `String.replace(" ", "T")` would coerce a malformed value into something
+ * that parses instead of letting it fall through to NaN.
+ */
+const PB_DATE_SEP_RE = /^(\d{4}-\d{2}-\d{2}) /;
+
+/** Parse a heartbeat timestamp, normalizing the PB space-separated date form. */
+function parseHeartbeatMs(lastHeartbeatAt: string): number {
+  return Date.parse(String(lastHeartbeatAt).replace(PB_DATE_SEP_RE, "$1T"));
+}
+
+/**
+ * Companion to `isWorkerStale`: is `lastHeartbeatAt` a parseable timestamp
+ * (after the PB space→"T" normalization)? `isWorkerStale` deliberately maps an
+ * unparseable heartbeat to `false` (never flap the fleet offline on one
+ * malformed row), but that alone makes a CORRUPT heartbeat indistinguishable
+ * from a FRESH one — "never stale forever" is silent fleet-health blindness.
+ * fleet-health (S10) uses this to count/warn on unparseable heartbeat rows
+ * while keeping the conservative not-yet-stale staleness answer. Pure;
  * unit-tested.
+ */
+export function heartbeatParseable(lastHeartbeatAt: string): boolean {
+  return !Number.isNaN(parseHeartbeatMs(lastHeartbeatAt));
+}
+
+/**
+ * Pure staleness check used by fleet-health (S10): a worker is stale when its
+ * last heartbeat is older than `staleAfterMs`. The PB date form uses a space
+ * separator; normalize ONLY the canonical date/time boundary to ISO "T"
+ * before parsing (anchored exactly as the queue-client's lease parse) so the
+ * answer doesn't ride on engine-specific `Date.parse` leniency. Returns false
+ * when the timestamp is unparseable (treat unknown as not-yet-stale; the next
+ * heartbeat resolves it) so a malformed row can't flap the whole fleet to
+ * offline — callers that need to SEE the corruption use the
+ * `heartbeatParseable` companion. Pure; unit-tested.
  */
 export function isWorkerStale(
   lastHeartbeatAt: string,
   nowMs: number,
   staleAfterMs: number,
 ): boolean {
-  const beatMs = Date.parse(lastHeartbeatAt);
+  const beatMs = parseHeartbeatMs(lastHeartbeatAt);
   if (Number.isNaN(beatMs)) return false;
   return nowMs - beatMs > staleAfterMs;
 }

@@ -11,6 +11,7 @@ import {
   probeResultsForServiceJobResult,
   runSummaryForServiceJobResult,
   isWorkerStale,
+  heartbeatParseable,
   workerCapacityFromBudget,
   terminalJobStatus,
   probeKeyFamily,
@@ -310,6 +311,36 @@ describe("worker capacity + staleness", () => {
 
   it("isWorkerStale treats an unparseable timestamp as not-yet-stale", () => {
     expect(isWorkerStale("not-a-date", Date.now(), 1_000)).toBe(false);
+  });
+
+  it("isWorkerStale parses the PB space-separated date form (normalized to ISO 'T')", () => {
+    // PB stores datetimes as `YYYY-MM-DD HH:MM:SS.sssZ` (space separator). A
+    // heartbeat read back in that form must be parsed via the SAME anchored
+    // space→'T' normalization the queue-client applies to lease timestamps —
+    // not left to engine-specific Date.parse leniency.
+    const now = Date.parse("2026-06-04T00:01:00.000Z");
+    expect(isWorkerStale("2026-06-04 00:00:00.000Z", now, 30_000)).toBe(true);
+    expect(isWorkerStale("2026-06-04 00:00:45.000Z", now, 30_000)).toBe(false);
+  });
+
+  it("isWorkerStale ISO boundaries: exactly-at-window is NOT stale, one ms past is", () => {
+    const now = Date.parse("2026-06-04T00:01:00.000Z");
+    // age === staleAfterMs → not stale (strict >)
+    expect(isWorkerStale("2026-06-04T00:00:30.000Z", now, 30_000)).toBe(false);
+    // age === staleAfterMs + 1 → stale
+    expect(isWorkerStale("2026-06-04T00:00:29.999Z", now, 30_000)).toBe(true);
+  });
+
+  it("heartbeatParseable distinguishes a corrupt heartbeat from a fresh one (fleet-health observability)", () => {
+    // `isWorkerStale` deliberately returns false for an unparseable timestamp
+    // (never flap the fleet offline on one bad row) — but that makes a corrupt
+    // heartbeat INDISTINGUISHABLE from a fresh one ("never stale forever").
+    // The companion lets fleet-health (S10) count/warn on unparseable rows.
+    expect(heartbeatParseable("not-a-date")).toBe(false);
+    expect(heartbeatParseable("")).toBe(false);
+    expect(heartbeatParseable("2026-06-04T00:00:00.000Z")).toBe(true);
+    // The PB space form is parseable AFTER the anchored normalization.
+    expect(heartbeatParseable("2026-06-04 00:00:00.000Z")).toBe(true);
   });
 });
 
