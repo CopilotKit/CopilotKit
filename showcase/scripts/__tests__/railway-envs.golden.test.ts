@@ -51,11 +51,7 @@ import {
 } from "../railway-envs";
 import type { EnvName } from "../railway-envs";
 
-const GOLDEN_PATH = resolve(
-  __dirname,
-  "fixtures",
-  "railway-envs.golden.json",
-);
+const GOLDEN_PATH = resolve(__dirname, "fixtures", "railway-envs.golden.json");
 
 /**
  * Resolve, for one (service, env) pair, the same projection the rest of
