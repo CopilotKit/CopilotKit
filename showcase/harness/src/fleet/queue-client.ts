@@ -445,17 +445,32 @@ function escapeLikeLiteral(value: string): string {
  * `<family>:<slug>` (the `~` LIKE leg, family wildcard-escaped); a colon-less
  * probe_key IS its own family (the `=` leg) so such rows are still claimable
  * under fairness.
+ *
+ * WHOLE-KEY FAMILIES MATCH BY EQUALITY ONLY (see the invariant pinned on
+ * `probeKeyFamily`): a leading-colon probe_key is its own family — the WHOLE
+ * key — so the family value itself contains colons, and the `<family>:%`
+ * LIKE leg would wrongly fold the DIFFERENT family `":foo:bar"` under
+ * `":foo"`. Such families get the equality leg only. Normal prefix families
+ * cannot contain a colon by construction, so testing for a colon is exact.
  */
 function familyInclusionClause(family: string): string {
+  if (family.includes(":")) {
+    return `probe_key = "${escapeFilterLiteral(family)}"`;
+  }
   return `(probe_key ~ "${escapeLikeLiteral(family)}:%" || probe_key = "${escapeFilterLiteral(family)}")`;
 }
 
 /**
  * PB filter clause EXCLUDING every probe_key in `family` — the complement of
  * `familyInclusionClause`, spelled with `!~`/`!=` because the PB filter
- * grammar has no group negation.
+ * grammar has no group negation. Same whole-key (colon-bearing) family
+ * special case: equality-only, or the `!~ "<family>:%"` leg would hide the
+ * unrelated family `":foo:bar"` from discovery while `":foo"` rows exist.
  */
 function familyExclusionClause(family: string): string {
+  if (family.includes(":")) {
+    return `probe_key != "${escapeFilterLiteral(family)}"`;
+  }
   return `probe_key !~ "${escapeLikeLiteral(family)}:%" && probe_key != "${escapeFilterLiteral(family)}"`;
 }
 

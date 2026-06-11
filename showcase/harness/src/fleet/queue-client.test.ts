@@ -1419,6 +1419,47 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     expect(new Set(claimedFamilies)).toEqual(new Set(["d%", "d6"]));
   });
 
+  it("matches a whole-key (leading-colon) family by EQUALITY only — ':foo' must not fold ':foo:bar' into its clauses", async () => {
+    // probeKeyFamily treats a leading-colon key as its OWN family (the whole
+    // key), so family values can themselves contain colons. Expanding such a
+    // family with the `<family>:%` LIKE leg breaks the partition both ways:
+    // the inclusion/count legs for ":foo" would also match ":foo:bar" (a
+    // DIFFERENT family), and the discovery EXCLUSION leg would hide
+    // ":foo:bar" from rotation while ":foo" rows exist (starvation). See the
+    // equality-only invariant pinned on probeKeyFamily.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const mk = (id: string, probeKey: string, offsetMs: number) => ({
+      ...jobView({ id, probe_key: probeKey }),
+      payload: samplePayload({ probeKey }),
+      created: new Date(t0 + offsetMs).toISOString(),
+    });
+    const { pb, store } = makePagingPb([
+      mk("colon-a", ":foo", 0),
+      mk("colon-b", ":foo:bar", 1000),
+    ]);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    // The count leg must partition exactly like probeKeyFamily: each
+    // whole-key family counts ONLY its own row.
+    expect(await q.countPendingForFamily(":foo")).toBe(1);
+    expect(await q.countPendingForFamily(":foo:bar")).toBe(1);
+
+    // Round-robin across BOTH whole-key families: with the LIKE leg in the
+    // exclusion clause, ":foo:bar" is never discovered while ":foo" rows
+    // exist, and the inclusion leg over-claims it under ":foo".
+    const claimedFamilies: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const c = await q.claimNext("w1", 30);
+      expect(c.claimed).toBe(true);
+      claimedFamilies.push(probeKeyFamily(c.lease!.job.probe_key));
+    }
+    expect(new Set(claimedFamilies)).toEqual(new Set([":foo", ":foo:bar"]));
+  });
+
   it("skips a family containing a backslash from clause building (charset guard, with a warn)", async () => {
     // The equality legs double `\` (quoted-literal escaping) while the LIKE
     // legs' fexpr verification covers only `%`/`_` — the two contracts
