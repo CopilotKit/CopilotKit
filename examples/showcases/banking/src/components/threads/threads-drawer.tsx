@@ -102,12 +102,15 @@ export function ThreadsDrawer({
   >({});
 
   useEffect(() => {
+    const entryTimeouts = entryTimeoutsRef.current;
+    const titleTimeouts = titleTimeoutsRef.current;
+
     return () => {
-      entryTimeoutsRef.current.forEach((timeoutId) => {
+      entryTimeouts.forEach((timeoutId) => {
         window.clearTimeout(timeoutId);
       });
 
-      titleTimeoutsRef.current.forEach((timeoutId) => {
+      titleTimeouts.forEach((timeoutId) => {
         window.clearTimeout(timeoutId);
       });
     };

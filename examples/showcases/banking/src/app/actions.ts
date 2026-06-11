@@ -82,9 +82,9 @@ export default function useCreditCards() {
   };
 
   useEffect(() => {
-    void fetchCards();
-    void fetchPolicies();
-    void fetchTransactions();
+    void (async () => {
+      await Promise.all([fetchCards(), fetchPolicies(), fetchTransactions()]);
+    })();
   }, []);
 
   const addNewCard = async ({ type, color, pin }: NewCardRequest) => {
@@ -197,7 +197,10 @@ export default function useCreditCards() {
         // exceeded") so the agent + UI can learn the failure instead of
         // silently reporting a false success.
         const body = await response.json().catch(() => null);
-        return { ok: false, error: body?.message ?? "Failed to change transaction status" };
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to change transaction status",
+        };
       }
       return { ok: true };
     } catch (error) {
@@ -224,7 +227,10 @@ export default function useCreditCards() {
       const body = await response.json().catch(() => null);
       void fetchTransactions();
       if (!response.ok) {
-        return { ok: false, error: body?.message ?? "Failed to open policy exception" };
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to open policy exception",
+        };
       }
       return { ok: true, data: body as PolicyException };
     } catch (error) {
@@ -251,7 +257,10 @@ export default function useCreditCards() {
       const body = await response.json().catch(() => null);
       void fetchTransactions();
       if (!response.ok) {
-        return { ok: false, error: body?.message ?? "Failed to finalize policy exception" };
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to finalize policy exception",
+        };
       }
       return { ok: true, data: body as PolicyException };
     } catch (error) {
