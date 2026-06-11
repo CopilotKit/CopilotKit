@@ -39,13 +39,27 @@ export type RuntimeLicenseStatus =
   | "invalid"
   | "unknown";
 
+export interface A2UIRuntimeInfo {
+  enabled: boolean;
+  /**
+   * Agent ids the runtime applies A2UI to. When omitted, A2UI applies to
+   * every agent served by the runtime.
+   */
+  agents?: string[];
+}
+
 export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  /**
+   * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
+   * Kept for backward compatibility with older clients.
+   */
   a2uiEnabled?: boolean;
+  a2ui?: A2UIRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
   telemetryDisabled?: boolean;
