@@ -703,6 +703,12 @@ export function createFleetQueueClient(
   // `renewed: false` stops it. Evicted exactly where payloadCache is.
   const leaseCache = new Map<string, JobLease>();
 
+  // CONCURRENT-SWEEP LATCH (see sweepExpired): the in-flight sweep's
+  // promise, or null when none is running. A sweep arriving while one is in
+  // flight piggybacks on this promise instead of racing the in-flight
+  // sweep's per-call grace set.
+  let sweepInFlight: Promise<SweepResultWithIndeterminate> | null = null;
+
   /**
    * Bounded-retry persistence of a per-service result onto an ALREADY
    * TERMINAL probe_jobs row — the SEPARATE record write that follows a
@@ -1613,6 +1619,33 @@ export function createFleetQueueClient(
     },
 
     async sweepExpired(nowMs: number): Promise<SweepResultWithIndeterminate> {
+      // CONCURRENT-SWEEP LATCH: the sweep's grace set (`requeuedThisSweep`)
+      // is per-CALL state — it protects rows this sweep just re-queued from
+      // this sweep's OWN stale phase, but a CONCURRENT sweep on the same
+      // client (runControlPlane wires FOUR family producers over ONE queue
+      // client; a cron overrun or local cron override can overlap their
+      // sweeps) would not see it and could claim-delete a row the first
+      // sweep just re-queued — falsifying its worker-reclaimed-pending comm
+      // error. So overlapping callers PIGGYBACK on the in-flight sweep's
+      // result (the sweep is global per queue, so a redundant concurrent
+      // pass does no additional good). The latch is in-process only: a
+      // second control-plane REPLICA would still race (the fleet deploys
+      // exactly one), where the stale phase's retained-lease heuristic is
+      // the cross-process/cross-call mitigation.
+      if (sweepInFlight !== null) return sweepInFlight;
+      const sweep = runSweepExpired(nowMs).finally(() => {
+        sweepInFlight = null;
+      });
+      sweepInFlight = sweep;
+      return sweep;
+    },
+  };
+
+  // The actual sweep pass `sweepExpired` latches around. A function
+  // DECLARATION (hoisted) so the method above can reference it.
+  async function runSweepExpired(
+    nowMs: number,
+  ): Promise<SweepResultWithIndeterminate> {
       // Scan claimed/running rows for expired leases (crashed/unreachable
       // workers). PB lacks an OR-of-equals shortcut here, so list both running
       // states and filter by lease in-process.
@@ -1681,13 +1714,15 @@ export function createFleetQueueClient(
       // at-least-once duplication. commErrors length (excluding
       // sweeper-held rows) = reclaimed + reclaimedIndeterminate.
       let reclaimedIndeterminate = 0;
-      // SINGLE-SWEEPER ASSUMPTION (load-bearing): this grace set is
-      // per-call, IN-PROCESS state. It protects re-queued rows only from
-      // THIS control-plane's own stale phase — a SECOND concurrent sweeper
-      // (another control-plane replica running sweepExpired) would not see
-      // it and could claim-delete a row this call just re-queued,
-      // falsifying its comm error. The fleet deploys exactly ONE
-      // control-plane instance (the producer/sweeper is a singleton); if
+      // GRACE-SET SCOPE (load-bearing): this set is per-call, IN-PROCESS
+      // state — it protects re-queued rows only from THIS sweep pass's own
+      // stale phase. IN-PROCESS concurrency is real (runControlPlane wires
+      // FOUR family producers over one queue client, and overlapping crons
+      // can call sweepExpired concurrently) and is closed by the
+      // CONCURRENT-SWEEP LATCH in `sweepExpired`: an overlapping caller
+      // piggybacks on the in-flight pass instead of racing this set.
+      // CROSS-PROCESS concurrency (a second control-plane REPLICA) is NOT
+      // covered — the fleet deploys exactly ONE control-plane instance; if
       // that ever changes, the grace must move to ROW state (the retained
       // lease heuristic in the stale phase already covers the cross-call
       // case; a requeued_at column would cover both exactly).
@@ -2126,6 +2161,5 @@ export function createFleetQueueClient(
           if (passAttempted === 0) listPage += 1;
         }
       }
-    },
-  };
+  }
 }

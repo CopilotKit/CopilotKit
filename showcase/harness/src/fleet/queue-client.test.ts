@@ -4614,6 +4614,50 @@ describe("FleetQueueClient.report", () => {
 });
 
 describe("FleetQueueClient.sweepExpired", () => {
+  it("CONCURRENT sweepExpired calls share ONE in-flight sweep (multi-producer wiring over one client)", async () => {
+    // runControlPlane wires FOUR family producers over ONE queue client, so
+    // a cron overrun (or a local cron override) can overlap two producers'
+    // sweep calls. The grace set protecting just-re-queued rows from the
+    // stale phase is PER-CALL in-process state — a concurrent second sweep
+    // cannot see it and could claim-delete a row the first sweep just
+    // re-queued, falsifying its worker-reclaimed-pending comm error. The
+    // client therefore latches: a sweep arriving while one is in flight
+    // PIGGYBACKS on the in-flight sweep's result instead of racing it.
+    const { pb } = makeFakePb([]);
+    const realList = pb.list.bind(pb);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let listCalls = 0;
+    pb.list = vi.fn(async (collection: string, opts?: ListOpts) => {
+      listCalls += 1;
+      await gate;
+      return realList(collection, opts);
+    }) as PbClient["list"];
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeFakeClaim(),
+      logger,
+      // Disable the stale drain so exactly ONE list per sweep (lease phase).
+      stalePending: { expiryPeriods: 0 },
+    });
+
+    const nowMs = Date.parse("2026-06-04T00:05:00.000Z");
+    const first = q.sweepExpired(nowMs);
+    const second = q.sweepExpired(nowMs); // overlaps while first is gated
+    release();
+    const [r1, r2] = await Promise.all([first, second]);
+
+    // ONE underlying sweep ran; the second caller shared its outcome.
+    expect(listCalls).toBe(1);
+    expect(r2).toBe(r1);
+
+    // The latch CLEARS: a later (sequential) sweep runs for real.
+    await q.sweepExpired(nowMs + 1);
+    expect(listCalls).toBe(2);
+  });
+
   it("reclaims expired leases and emits worker-reclaimed-pending comm errors (flap-band #70)", async () => {
     const now = Date.parse("2026-06-04T00:05:00.000Z");
     // One running row with an EXPIRED lease (crashed worker), one with a live
