@@ -723,6 +723,67 @@ export function createFleetQueueClient(
   ): Promise<{ ok: boolean; lastErr?: unknown }> {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= RESULT_WRITE_MAX_ATTEMPTS; attempt++) {
+      // READ-BEFORE-RETRY (intra-call double-count guard, mirroring the
+      // cross-call guard in report()'s refused_terminal_same_holder path):
+      // a COMMITTED-THEN-THROWN attempt N leaves the result on the row, and
+      // the consumer can aggregate + LATCH result_processed: true inside
+      // the retry pause window. A blind attempt N+1 rewrite re-seeds
+      // result_processed: false — un-latching an already-aggregated result,
+      // which the consumer then counts TWICE. So every RETRY (never the
+      // first attempt) reads the row first:
+      //   - result present → the earlier attempt committed; skip the write.
+      //   - no result      → the earlier attempt truly failed; write.
+      //   - read failed / no row → REFUSE the blind rewrite (the un-latch
+      //     risk stands); the attempt is spent and a later retry re-reads.
+      if (attempt > 1) {
+        let existing: ProbeJobRecord | null = null;
+        let readFailed = false;
+        try {
+          existing = await pb.getOne<ProbeJobRecord>(
+            PROBE_JOBS_COLLECTION,
+            jobId,
+          );
+        } catch (readErr) {
+          readFailed = true;
+          lastErr = readErr;
+          logger.warn("queue-client.result-write-retry-read-failed", {
+            jobId,
+            workerId,
+            attempt,
+            err: readErr instanceof Error ? readErr.message : String(readErr),
+          });
+        }
+        if (!readFailed && existing === null) {
+          // Semantically a failed read (missing/unreadable row), not "no
+          // result present" — same refusal as the cross-call guard.
+          readFailed = true;
+          lastErr = new Error(
+            `queue-client: pre-retry read for job ${jobId} returned no row — refusing to blind-write`,
+          );
+        }
+        if (readFailed) {
+          if (attempt < RESULT_WRITE_MAX_ATTEMPTS) {
+            await sleep(RESULT_WRITE_RETRY_DELAY_MS);
+          }
+          continue;
+        }
+        // PB's unset-JSON shape reads back as "" — treat it as ABSENT (the
+        // same triage as the cross-call guard) so a genuinely-failed first
+        // attempt still lands its result.
+        if (
+          existing !== null &&
+          existing.result !== undefined &&
+          existing.result !== null &&
+          existing.result !== ""
+        ) {
+          logger.info("queue-client.result-write-already-landed", {
+            jobId,
+            workerId,
+            attempt,
+          });
+          return { ok: true };
+        }
+      }
       try {
         await pb.update(PROBE_JOBS_COLLECTION, jobId, {
           result,

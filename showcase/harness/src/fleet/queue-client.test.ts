@@ -4232,6 +4232,98 @@ describe("FleetQueueClient.report", () => {
     expect(rows[0].result_processed).toBe(false);
   });
 
+  it("an intra-call write retry NEVER un-latches a committed-then-thrown first attempt (read-before-retry)", async () => {
+    // COMMITTED-THEN-THROWN: write attempt 1 commits server-side, then the
+    // response is lost (a thrown update). During the 250ms retry pause the
+    // consumer can read the row, aggregate the result, and LATCH
+    // result_processed: true. A blind attempt-2 rewrite re-seeds
+    // result_processed: false — un-latching a result the consumer already
+    // aggregated, which the consumer then aggregates a SECOND time. The
+    // CROSS-call retry path guards exactly this with a read-before-write;
+    // the INTRA-call retry loop must apply the same guard.
+    const { pb, rows } = makeFakePb([seededRow()]);
+    const realUpdate = pb.update.bind(pb);
+    let updateAttempts = 0;
+    pb.update = vi.fn(
+      async (
+        collection: string,
+        id: string,
+        record: Record<string, unknown>,
+      ) => {
+        updateAttempts++;
+        if (updateAttempts === 1) {
+          // COMMIT server-side, then lose the response.
+          await realUpdate(collection, id, record);
+          throw new Error("socket reset after commit");
+        }
+        return realUpdate(collection, id, record);
+      },
+    ) as PbClient["update"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+    });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      // The consumer aggregates + latches INSIDE the retry pause window.
+      sleep: async () => {
+        rows[0].result_processed = true;
+      },
+    });
+
+    const result = sampleResult();
+    await q.report({ jobId: "j1", workerId: "worker-7", result });
+
+    // Attempt 2 read the row, saw the committed result, and SKIPPED the
+    // rewrite — exactly one update landed and the consumer's latch survives.
+    expect(updateAttempts).toBe(1);
+    expect(rows[0].result).toEqual(result);
+    expect(rows[0].result_processed).toBe(true);
+  });
+
+  it("a failed pre-retry read refuses the blind rewrite (the retry is consumed, never a blind write)", async () => {
+    // If the read-before-retry guard itself fails, a blind write could still
+    // un-latch a committed first attempt — refuse it. The attempt is spent
+    // (lastErr recorded); on exhaustion report() surfaces the distinct
+    // result-lost error and stays retryable (the cross-call path re-reads).
+    const { pb, rows } = makeFakePb([seededRow()]);
+    const realUpdate = pb.update.bind(pb);
+    let updateAttempts = 0;
+    pb.update = vi.fn(
+      async (
+        collection: string,
+        id: string,
+        record: Record<string, unknown>,
+      ) => {
+        updateAttempts++;
+        // Commit-then-throw on EVERY update call that happens.
+        await realUpdate(collection, id, record);
+        throw new Error("socket reset after commit");
+      },
+    ) as PbClient["update"];
+    pb.getOne = vi.fn(async () => {
+      throw new Error("read blip");
+    }) as PbClient["getOne"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
+
+    await expect(
+      q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
+    ).rejects.toThrow(/result lost/i);
+
+    // Only the FIRST attempt wrote; every retry's failed pre-read refused
+    // the blind rewrite instead of re-seeding result_processed: false.
+    expect(updateAttempts).toBe(1);
+    expect(rows[0].result_processed).toBe(false);
+  });
+
   it("does NOT persist a result when the release CAS is refused", async () => {
     const { pb, rows } = makeFakePb([seededRow()]);
     const claim = makeFakeClaim({
