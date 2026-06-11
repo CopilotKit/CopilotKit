@@ -185,4 +185,48 @@ describe("buildCellModel — comm-error overlay precedence", () => {
     expect(model.commError).toBeUndefined();
     expect(model.surfaceState).not.toBe("unreachable");
   });
+
+  it("CF7-F3 #4: a FUTURE-dated observedAt beyond skew tolerance is treated as stale (cannot pin the overlay)", () => {
+    // Clock skew / a corrupt producer timestamp: with observedAt ahead of
+    // `now`, `now - parsed > staleAfterMs` is NEVER true, so the staleness
+    // gate could never age the comm error out — the unreachable/pending
+    // overlay would be pinned indefinitely. A timestamp more than the skew
+    // tolerance (5min) in the future is as untrustworthy as an unparseable
+    // one and must be skipped the same way.
+    const live: LiveStatusMap = new Map();
+    live.set(
+      keyFor("e2e", SLUG, FEATURE),
+      row(keyFor("e2e", SLUG, FEATURE), "green", {
+        signal: commErrorSignal({
+          kind: "worker-unreachable",
+          // 1h ahead of NOW — far beyond any plausible clock skew.
+          observedAt: "2026-06-04T13:00:00.000Z",
+        }),
+      }),
+    );
+
+    const model = buildCellModel(live, WIRED, NOW);
+
+    expect(model.commError).toBeUndefined();
+    expect(model.surfaceState).not.toBe("unreachable");
+  });
+
+  it("CF7-F3 #4: a slightly-future observedAt WITHIN skew tolerance still surfaces (minor skew is normal)", () => {
+    const live: LiveStatusMap = new Map();
+    live.set(
+      keyFor("e2e", SLUG, FEATURE),
+      row(keyFor("e2e", SLUG, FEATURE), "green", {
+        signal: commErrorSignal({
+          kind: "worker-unreachable",
+          // 1min ahead of NOW — ordinary producer/browser clock skew.
+          observedAt: "2026-06-04T12:01:00.000Z",
+        }),
+      }),
+    );
+
+    const model = buildCellModel(live, WIRED, NOW);
+
+    expect(model.commError?.kind).toBe("worker-unreachable");
+    expect(model.surfaceState).toBe("unreachable");
+  });
 });

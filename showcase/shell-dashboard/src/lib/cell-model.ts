@@ -590,6 +590,19 @@ function chipColorToSurface(color: ChipColor): FleetSurfaceState {
  * can't be reached cannot have produced any per-cell result), not a leak from "a
  * row the cell doesn't show".
  */
+/**
+ * Maximum tolerated FUTURE skew on a comm error's `observedAt` (CF7-F3 #4).
+ * The staleness gate in `decodeCellCommError` compares `now - parsed >
+ * staleAfterMs`, which is NEVER true for a future-dated timestamp — so clock
+ * skew (or a corrupt producer timestamp) would pin the unreachable/pending
+ * overlay indefinitely, exactly the permanent-phantom failure mode the
+ * unparseable-`observedAt` skip (FF7) exists to prevent. A timestamp more
+ * than this far ahead of `now` is as untrustworthy as an unparseable one and
+ * is treated the same way (stale → skipped); skew WITHIN the tolerance is
+ * ordinary clock drift and still surfaces.
+ */
+const COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+
 function decodeCellCommError(
   live: LiveStatusMap,
   slug: string,
@@ -698,8 +711,15 @@ function decodeCellCommError(
     // "unreachable" forever. Mirrors the resolveDx stale-green downgrade. An
     // UNPARSEABLE `observedAt` (NaN) is treated as stale too: it can never be
     // cleared on recovery (its age is undefined), so surfacing it would
-    // strand a permanent phantom overlay.
-    if (Number.isNaN(parsed) || now - parsed > staleAfterMs) {
+    // strand a permanent phantom overlay. A FUTURE-dated `observedAt` beyond
+    // the skew tolerance gets the same treatment (CF7-F3 #4): `now - parsed`
+    // is negative so the age check can never expire it — clock skew would pin
+    // the overlay indefinitely, the same permanent-phantom failure mode.
+    if (
+      Number.isNaN(parsed) ||
+      parsed - now > COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS ||
+      now - parsed > staleAfterMs
+    ) {
       continue;
     }
     // Severity tier: directly-observed crash kinds (everything except the
