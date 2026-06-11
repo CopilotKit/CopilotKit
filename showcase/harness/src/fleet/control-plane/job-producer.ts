@@ -363,9 +363,16 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   /**
    * One-shot latch for the "comm errors swept but no sink configured" warn —
    * see deliverSweepCommErrors. Without it a sink-less deployment would log
-   * the same wiring gap on every reclaiming sweep.
+   * the same wiring gap on every reclaiming sweep. Drops AFTER the first are
+   * still logged — at debug, with the dropped jobIds — never fully silent.
    */
   let warnedNoCommErrorSink = false;
+  /**
+   * Running total of comm errors dropped because no sink is configured.
+   * Carried on every no-sink log line (the one-shot warn and each subsequent
+   * debug) so a single grepped line quantifies the cumulative loss.
+   */
+  let noSinkDroppedTotal = 0;
   /**
    * The currently-executing tick's promise, or null when no tick is in
    * flight. `stop()` awaits it so "stopped" means QUIESCED — an in-flight
@@ -414,16 +421,24 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // No sink wired (legacy logged-only mode): the batch's dashboard
       // signal is dropped HERE, permanently — sweepExpired cannot re-derive
       // it. Surface the wiring gap explicitly, with the dropped jobIds (not
-      // just a count), but only ONCE so a sink-less deployment doesn't bury
-      // its logs on every sweep.
-      if (fresh.length > 0 && !warnedNoCommErrorSink) {
-        warnedNoCommErrorSink = true;
-        logger.warn("fleet.producer.sweep-commerrors-no-sink", {
+      // just a count) and the running dropped-total — the full WARN only
+      // ONCE so a sink-less deployment doesn't bury its logs on every sweep;
+      // every later drop still logs at debug (greppable, never fully silent).
+      if (fresh.length > 0) {
+        noSinkDroppedTotal += fresh.length;
+        const meta = {
           commErrors: fresh.length,
+          droppedTotal: noSinkDroppedTotal,
           jobIds: fresh
             .map((e) => e.jobId)
             .filter((id): id is string => id !== undefined),
-        });
+        };
+        if (!warnedNoCommErrorSink) {
+          warnedNoCommErrorSink = true;
+          logger.warn("fleet.producer.sweep-commerrors-no-sink", meta);
+        } else {
+          logger.debug("fleet.producer.sweep-commerrors-no-sink", meta);
+        }
       }
       return;
     }

@@ -933,6 +933,72 @@ describe("job-producer — sweep cadence", () => {
     expect(noSinkWarns[0]!.meta).toMatchObject({
       commErrors: 1,
       jobIds: ["j1"],
+      droppedTotal: 1,
+    });
+  });
+
+  it("[REQ-B] no-sink drops AFTER the first warn are logged at debug with jobIds + a running dropped-total", async () => {
+    // The one-shot warn keeps a sink-less deployment from burying its logs —
+    // but it made every SUBSEQUENT drop fully silent: reclaims kept being
+    // dropped with no trace at all of which jobs or how many. Later drops are
+    // logged at debug (greppable, not log-burying) with the dropped jobIds
+    // and a running dropped-total; the total also rides the first warn.
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const debugs: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg, meta) => {
+        warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+      debug: (msg, meta) => {
+        debugs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    let sweepN = 0;
+    const queue = makeFakeQueue({
+      sweepImpl: async () => {
+        sweepN += 1;
+        return {
+          reclaimed: 1,
+          commErrors: [
+            {
+              kind: "worker-reclaimed-pending",
+              message: `lease for job j${sweepN} expired; re-queued`,
+              jobId: `j${sweepN}`,
+              observedAt: "2026-06-04T00:00:09.000Z",
+            },
+          ],
+        };
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger,
+      sweepIntervalMs: 0, // sweep (and drop) on every tick
+      // no onSweepCommErrors sink
+    });
+    producer.start();
+    await producer.tick(); // first drop — the one-shot warn
+    await producer.tick(); // second drop — debug
+    await producer.tick(); // third drop — debug
+    const noSinkWarns = warns.filter(
+      (w) => w.msg === "fleet.producer.sweep-commerrors-no-sink",
+    );
+    expect(noSinkWarns).toHaveLength(1);
+    const noSinkDebugs = debugs.filter(
+      (d) => d.msg === "fleet.producer.sweep-commerrors-no-sink",
+    );
+    expect(noSinkDebugs).toHaveLength(2);
+    expect(noSinkDebugs[0]!.meta).toMatchObject({
+      commErrors: 1,
+      jobIds: ["j2"],
+      droppedTotal: 2,
+    });
+    expect(noSinkDebugs[1]!.meta).toMatchObject({
+      commErrors: 1,
+      jobIds: ["j3"],
+      droppedTotal: 3,
     });
   });
 
