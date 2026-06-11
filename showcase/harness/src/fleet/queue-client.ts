@@ -1018,13 +1018,22 @@ export function createFleetQueueClient(
       }
       if (result.renewed && !result.job) {
         // PROTOCOL VIOLATION: a successful renew always carries the row view.
-        // We still fall through to the lost-lease handling below (we cannot
-        // build a lease from nothing), but the breach must be visible — it
-        // means the endpoint contract drifted, not that the lease was lost.
+        // The breach must be visible — it means the endpoint contract
+        // drifted. But the CAS WON: the job is LIVE and this worker still
+        // holds it, so falling into the lost-lease eviction below would stop
+        // the heartbeat on a SUCCESSFUL renew → the sweeper falsely reclaims
+        // a live job. Keep the last-known lease ASSUMED-LIVE (like the
+        // indeterminate path) so the next beat retries; only with nothing
+        // cached (no same-process claim) is null the honest answer.
         logger.warn("queue-client.renew-renewed-without-job", {
           jobId,
           workerId,
         });
+        const known = leaseCache.get(jobId);
+        if (known) return known;
+        payloadCache.delete(jobId);
+        leaseCache.delete(jobId);
+        return null;
       }
       if (!result.renewed || !result.job) {
         // The renew CAS was LOST: the lease is gone for this worker (stolen,
@@ -1086,8 +1095,10 @@ export function createFleetQueueClient(
         // a LOST lease, stop heartbeating, and let the sweeper reclaim a LIVE
         // job → a FALSE `worker-crashed-mid-job`. The heartbeat does not
         // consume the payload, so return a lease with a best-effort EMPTY
-        // payload synthesized from the authoritative CAS row. We ONLY return
-        // null when the CAS itself failed (handled above).
+        // payload synthesized from the authoritative CAS row. null is
+        // reserved for definitive losses: a lost CAS, a deterministic 4xx
+        // rejection, or the renewed-without-job breach with nothing cached
+        // (all handled above).
         logger.warn("queue-client.renew-no-payload", { jobId, workerId });
         const fallback = leaseFromJob(result.job, emptyPayloadForLease(result.job));
         leaseCache.set(jobId, fallback);

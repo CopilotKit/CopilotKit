@@ -2803,7 +2803,7 @@ describe("FleetQueueClient.renewLease", () => {
     );
   });
 
-  it("warns on the protocol violation `renewed && !job` before treating it as a lost lease", async () => {
+  it("renewed-without-job with NO cached lease warns and returns null (nothing to assume-live from)", async () => {
     const { pb } = makeFakePb([{ ...jobView(), payload: samplePayload() }]);
     const claim = makeFakeClaim({
       // renewed:true with NO job violates the endpoint contract.
@@ -2811,6 +2811,7 @@ describe("FleetQueueClient.renewLease", () => {
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
+    // No prior claim in this process → no cached lease to keep alive.
     const lease = await q.renewLease("j1", "worker-7", 30);
 
     expect(lease).toBeNull();
@@ -2818,6 +2819,70 @@ describe("FleetQueueClient.renewLease", () => {
       "queue-client.renew-renewed-without-job",
       expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
     );
+  });
+
+  it("renewed-without-job with a CACHED lease keeps it assumed-live — a SUCCESSFUL renew must not stop the heartbeat (G1b)", async () => {
+    // The renew CAS WON (renewed:true) — the job is LIVE and this worker
+    // still holds it; only the response's job view is missing (a protocol
+    // violation in the endpoint, not a lost lease). Evicting the caches and
+    // returning null here made the heartbeat read a HEALTHY renew as a lost
+    // lease, stop beating, and let the sweeper falsely reclaim a LIVE job.
+    // Like the indeterminate path, the cached lease is returned assumed-live
+    // so the next beat retries; eviction is reserved for definitive losses.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    let renewMode: "withoutJob" | "win" = "withoutJob";
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            status: "claimed",
+            claimed_by: workerId,
+            lease_expires_at: "2026-06-04T00:01:00.000Z",
+            version: 1,
+          }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        if (renewMode === "withoutJob") return { renewed: true };
+        return {
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        };
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    // The breach is warned, but the cached (claim-time) lease comes back —
+    // NOT null — so the heartbeat keeps the live job alive.
+    const kept = await q.renewLease("j1", "worker-7", 30);
+    expect(kept).not.toBeNull();
+    expect(kept?.leaseExpiresAt).toBe("2026-06-04T00:01:00.000Z");
+    expect(kept?.payload).toEqual(payload);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.renew-renewed-without-job",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
+
+    // No eviction happened: the next (well-formed) renew re-hydrates from
+    // the claim-time cache, never the convenience re-read.
+    renewMode = "win";
+    const next = await q.renewLease("j1", "worker-7", 30);
+    expect(next?.leaseExpiresAt).toBe("2026-06-04T00:02:00.000Z");
+    expect(next?.payload).toEqual(payload);
+    expect(getOneSpy).not.toHaveBeenCalled();
   });
 
   it("a THROWN renew (5xx / unreadable-2xx) keeps the CURRENT lease assumed-live instead of killing the heartbeat", async () => {
