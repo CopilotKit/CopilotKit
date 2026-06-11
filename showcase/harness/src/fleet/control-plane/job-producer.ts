@@ -324,6 +324,17 @@ export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
 export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
 
 /**
+ * The queue-client's poisoned-count refusal message marker (see
+ * `countPendingForFamily` in queue-client.ts: it THROWS rather than return a
+ * non-count totalItems that would silently fail the backlog gate open).
+ * Matched on the error MESSAGE substring because the queue-client does not
+ * export a dedicated error class for the refusal — a defensive string match
+ * keyed on the stable, documented phrase. If the queue-client ever exports
+ * the error type, switch the gate's catch to `instanceof`.
+ */
+const POISONED_COUNT_MARKER = "refusing to fail the backlog gate open";
+
+/**
  * The no-op `TickResult` for a tick that never RAN (skipped because a
  * previous tick was still in flight, or arrived outside the producer's
  * lifecycle). `runId` is the empty-string sentinel: no run was minted — a
@@ -547,10 +558,27 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * of a claimed-but-running one would double the family's concurrency.
    * Skipping the batch bounds the per-family backlog to ONE batch — the next
    * tick re-checks and produces again once the workers have finished it. Grouped per family so a (hypothetical)
-   * multi-family tick gates each family independently. Fail-OPEN on a count
-   * blip: a transient PB read failure must never stop job production (the
-   * legacy un-gated behavior is the safe fallback), mirroring maybeSweep's
-   * swallow-and-log discipline.
+   * multi-family tick gates each family independently — note the regroup
+   * means a multi-family tick's KEPT specs come out family-grouped, not in
+   * the enumerator's interleave order (harmless today: production ticks are
+   * single-family). TWO failure classes on the count read:
+   *   - POISONED COUNT (fail CLOSED): `countPendingForFamily` THROWS its
+   *     documented refusal when the backend hands back a non-count
+   *     totalItems — returning it would silently open the gate on top of an
+   *     existing backlog. Failing OPEN here would defeat that fail-closed
+   *     throw, so for this class the family's batch is SKIPPED (accounted
+   *     as skippedForBacklog) and logged at error.
+   *   - TRANSIENT READ BLIP (fail OPEN): any other count failure must never
+   *     stop job production (the legacy un-gated behavior is the safe
+   *     fallback), mirroring maybeSweep's swallow-and-log discipline.
+   *
+   * COUNT-SCOPE NOTE (consumer side): the non-terminal count includes rows
+   * the stale-pending sweeper currently holds mid-deletion (claimed under
+   * its sweeper id) — they are about to be deleted, not real backlog, so
+   * the gate can over-count by the in-flight deletion set for one tick.
+   * The status filter itself lives in the queue-client
+   * (`countPendingForFamily`); excluding sweeper-held rows would be a
+   * queue-client change, noted here only because this gate consumes it.
    */
   async function filterBackloggedFamilies(
     specs: ServiceJobSpec[],
@@ -570,10 +598,26 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       try {
         pendingCount = await queue.countPendingForFamily(family);
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes(POISONED_COUNT_MARKER)) {
+          // FAIL CLOSED: the queue-client refused a poisoned (non-count)
+          // totalItems rather than fail the gate open — honoring that means
+          // SKIPPING this family's batch, not producing on top of an
+          // unknowable backlog. The next tick re-checks.
+          skipped += group.length;
+          logger.error("fleet.producer.backlog-check-poisoned", {
+            runId,
+            family,
+            skippedJobs: group.length,
+            err: message,
+          });
+          continue;
+        }
+        // FAIL OPEN: a transient read blip must never stop production.
         logger.error("fleet.producer.backlog-check-failed", {
           runId,
           family,
-          err: err instanceof Error ? err.message : String(err),
+          err: message,
         });
         kept.push(...group);
         continue;

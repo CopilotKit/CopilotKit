@@ -118,6 +118,7 @@ function startedProducer(overrides?: {
   sweepIntervalMs?: number;
   queue?: ReturnType<typeof makeFakeQueue>;
   runIdFactory?: () => string;
+  logger?: Logger;
 }): {
   producer: JobProducer;
   queue: ReturnType<typeof makeFakeQueue>;
@@ -128,7 +129,7 @@ function startedProducer(overrides?: {
   const producer = createJobProducer({
     queue,
     enumerate: () => specs,
-    logger: SILENT_LOGGER,
+    logger: overrides?.logger ?? SILENT_LOGGER,
     ...(overrides?.now ? { now: overrides.now } : {}),
     ...(overrides?.sweepIntervalMs !== undefined
       ? { sweepIntervalMs: overrides.sweepIntervalMs }
@@ -475,6 +476,68 @@ describe("job-producer — per-family backlog dedupe", () => {
     expect(queue.enqueued).toHaveLength(1);
     expect(result.enqueued).toBe(1);
     expect(result.skippedForBacklog).toBe(0);
+  });
+
+  it("fails CLOSED when the backlog count is POISONED (the queue-client's fail-closed refusal must not be failed open)", async () => {
+    // countPendingForFamily THROWS its documented refusal when PB hands back a
+    // non-count totalItems (e.g. -1): returning the poisoned value would
+    // silently open the gate on top of an existing backlog. The producer's
+    // broad fail-open catch must NOT defeat that — for THIS error class the
+    // family's batch is SKIPPED (fail closed), accounted as skippedForBacklog.
+    const poisonedErrors: unknown[] = [];
+    const { producer, queue } = startedProducer({
+      specs: d6Specs(["a", "b"]),
+      queue: makeFakeQueue({
+        countPendingImpl: async () => {
+          throw new Error(
+            'queue-client: countPendingForFamily("d6") received a non-count totalItems (-1) despite skipTotal:false — refusing to fail the backlog gate open',
+          );
+        },
+      }),
+      logger: {
+        ...SILENT_LOGGER,
+        error: (msg) => {
+          if (msg === "fleet.producer.backlog-check-poisoned")
+            poisonedErrors.push(msg);
+        },
+      },
+    });
+
+    const result = await producer.tick();
+
+    expect(queue.enqueued).toHaveLength(0);
+    expect(result.enqueued).toBe(0);
+    expect(result.skippedForBacklog).toBe(2);
+    expect(poisonedErrors).toHaveLength(1);
+  });
+
+  it("a poisoned count gates ONLY its own family (other families still produce, fail-open class still fails open)", async () => {
+    const specs: ServiceJobSpec[] = [
+      ...d6Specs(["a"]),
+      { probeKey: "e2e-demos:a", serviceSlug: "a", driverKind: "e2e_demos" },
+    ];
+    const { producer, queue } = startedProducer({
+      specs,
+      queue: makeFakeQueue({
+        countPendingImpl: async (family) => {
+          if (family === "d6") {
+            throw new Error(
+              "refusing to fail the backlog gate open (poisoned totalItems)",
+            );
+          }
+          throw new Error("transient PB count blip");
+        },
+      }),
+    });
+
+    const result = await producer.tick();
+
+    // d6 fails CLOSED (skipped); e2e-demos's transient blip fails OPEN (kept).
+    expect(queue.enqueued.map((e) => e.payload.probeKey)).toEqual([
+      "e2e-demos:a",
+    ]);
+    expect(result.enqueued).toBe(1);
+    expect(result.skippedForBacklog).toBe(1);
   });
 });
 
