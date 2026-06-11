@@ -1,11 +1,25 @@
+# Skill eval for copilotkit-setup, run with skillgrade (https://github.com/mgechev/skillgrade).
+#
+# Manual run (requires Docker and ANTHROPIC_API_KEY):
+#   pnpm eval:skill:setup
+# or directly:
+#   cd skills/copilotkit-setup && pnpm exec skillgrade --smoke
+#
+# Graders are kept in sync with SKILL.md: they check for the canonical v2 APIs
+# (CopilotKit from @copilotkit/react-core/v2, createCopilotHonoHandler /
+# createCopilotExpressHandler) and fail on the deprecated aliases
+# (CopilotKitProvider, createCopilotEndpoint*).
+
 version: "1"
 
 defaults:
   agent: claude
   provider: docker
   trials: 3
-  timeout: 300
+  timeout: 600
   threshold: 0.8
+  grader_provider: anthropic
+  grader_model: claude-haiku-4-5-20251001
   docker:
     base: node:20-slim
     setup: |
@@ -13,22 +27,29 @@ defaults:
 
 tasks:
   - name: nextjs-app-router-setup
+    timeout: 900
     instruction: |
-      Create a new Next.js App Router project and add CopilotKit with a basic chat
-      interface using BuiltInAgent. The project should have:
-      - CopilotKit frontend packages (@copilotkit/react, @copilotkit/core)
-      - CopilotKit runtime packages (@copilotkit/runtime, @copilotkit/agent)
-      - A runtime API route at src/app/api/copilotkit/[[...slug]]/route.ts using
-        createCopilotEndpoint with a BuiltInAgent
-      - A page component with the CopilotKit provider wrapping CopilotChat
-      - The @copilotkit/react stylesheet imported
+      Create a new Next.js App Router project and add CopilotKit with a basic
+      chat interface backed by a BuiltInAgent. The finished project should have:
+      - The CopilotKit packages installed (@copilotkit/react-core, @copilotkit/runtime)
+      - A runtime API route under app/api/copilotkit/ exposing a CopilotRuntime
+        with a BuiltInAgent
+      - A page component where the CopilotKit provider wraps a CopilotChat
+      - The CopilotKit stylesheet imported
     graders:
       - type: deterministic
+        weight: 0.7
         run: |
           cd /workspace
-          PROJECT_DIR=$(find . -maxdepth 1 -type d ! -name '.' | head -1)
+          # The agent may scaffold the app in a subdirectory (create-next-app) or in
+          # the workspace root.
+          if [ -f package.json ]; then
+            PROJECT_DIR="."
+          else
+            PROJECT_DIR=$(find . -maxdepth 1 -type d ! -name '.' ! -name '.*' | head -1)
+          fi
           if [ -z "$PROJECT_DIR" ]; then
-            echo '{"score": 0.0, "details": "No project directory found"}'
+            echo '{"score": 0.0, "details": "No project found in workspace"}'
             exit 0
           fi
           cd "$PROJECT_DIR"
@@ -38,85 +59,108 @@ tasks:
             CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
           }
 
-          # Check frontend packages
-          if jq -e '.dependencies["@copilotkit/react"]' package.json > /dev/null 2>&1; then
-            add_check "@copilotkit/react installed" true "Found in dependencies"
+          grep_src() {
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules . > /dev/null 2>&1
+          }
+
+          # Packages (per SKILL.md step 1: @copilotkit/react-core + @copilotkit/runtime)
+          if jq -e '.dependencies["@copilotkit/react-core"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/react-core installed" true "Found in dependencies"
           else
-            add_check "@copilotkit/react installed" false "Not found in package.json dependencies"
+            add_check "@copilotkit/react-core installed" false "Not found in package.json dependencies"
           fi
 
-          if jq -e '.dependencies["@copilotkit/core"]' package.json > /dev/null 2>&1; then
-            add_check "@copilotkit/core installed" true "Found in dependencies"
-          else
-            add_check "@copilotkit/core installed" false "Not found in package.json dependencies"
-          fi
-
-          # Check runtime packages
           if jq -e '.dependencies["@copilotkit/runtime"]' package.json > /dev/null 2>&1; then
             add_check "@copilotkit/runtime installed" true "Found in dependencies"
           else
             add_check "@copilotkit/runtime installed" false "Not found in package.json dependencies"
           fi
 
-          if jq -e '.dependencies["@copilotkit/agent"]' package.json > /dev/null 2>&1; then
-            add_check "@copilotkit/agent installed" true "Found in dependencies"
-          else
-            add_check "@copilotkit/agent installed" false "Not found in package.json dependencies"
-          fi
-
-          # Check runtime route exists
-          ROUTE_FILE=$(find . -path '*/api/copilotkit/*/route.ts' -o -path '*/api/copilotkit/*/route.js' 2>/dev/null | head -1)
+          # Runtime route exists (multi-route [[...slug]] or single-route)
+          ROUTE_FILE=$(find . -path '*api/copilotkit*' \( -name 'route.ts' -o -name 'route.js' \) -not -path '*/node_modules/*' 2>/dev/null | head -1)
           if [ -n "$ROUTE_FILE" ]; then
             add_check "Runtime route file exists" true "Found at $ROUTE_FILE"
           else
-            add_check "Runtime route file exists" false "No copilotkit API route found"
+            add_check "Runtime route file exists" false "No app/api/copilotkit route found"
           fi
 
-          # Check for CopilotKit provider usage (matches <CopilotKit and legacy <CopilotKitProvider)
-          if grep -r "<CopilotKit" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
-            add_check "CopilotKit provider used" true "Found in source files"
+          # Canonical endpoint factory, not the deprecated createCopilotEndpoint aliases
+          if grep_src 'createCopilotHonoHandler'; then
+            add_check "createCopilotHonoHandler used" true "Canonical handler factory found"
           else
-            add_check "CopilotKit provider used" false "CopilotKit provider not found in any source file"
+            add_check "createCopilotHonoHandler used" false "createCopilotHonoHandler not found (deprecated createCopilotEndpoint* does not count)"
           fi
 
-          # Check for CopilotChat usage
-          if grep -r "CopilotChat\|CopilotSidebar\|CopilotPopup" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
-            add_check "Chat component used" true "Found chat component in source files"
+          if grep_src 'BuiltInAgent'; then
+            add_check "BuiltInAgent configured" true "Found in source"
+          else
+            add_check "BuiltInAgent configured" false "BuiltInAgent not found in any source file"
+          fi
+
+          # Canonical provider import path
+          if grep_src '@copilotkit/react-core/v2'; then
+            add_check "v2 import path used" true "Imports from @copilotkit/react-core/v2"
+          else
+            add_check "v2 import path used" false "No import from @copilotkit/react-core/v2 found"
+          fi
+
+          # Provider component is CopilotKit, not the legacy CopilotKitProvider
+          if grep_src '<CopilotKit([^A-Za-z]|$)'; then
+            add_check "CopilotKit provider used" true "Found <CopilotKit> in source"
+          else
+            add_check "CopilotKit provider used" false "<CopilotKit> provider not found (legacy <CopilotKitProvider> does not count)"
+          fi
+
+          if grep_src 'CopilotChat|CopilotSidebar|CopilotPopup'; then
+            add_check "Chat component used" true "Found chat component in source"
           else
             add_check "Chat component used" false "No CopilotChat/CopilotSidebar/CopilotPopup found"
           fi
 
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules . > /dev/null 2>&1; then
+            add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
+          else
+            add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
+          fi
+
           PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
           TOTAL=$(echo "$CHECKS" | jq 'length')
-          SCORE=$(echo "scale=2; $PASSED / $TOTAL" | bc)
+          SCORE=$(awk "BEGIN {printf \"%.2f\", $PASSED/$TOTAL}")
 
           echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
-        weight: 0.7
       - type: llm_rubric
+        weight: 0.3
         rubric: |
           Evaluate whether this project has a complete, working CopilotKit setup:
-          1. Does it have a CopilotKit provider (the `CopilotKit` component from @copilotkit/react-core/v2) wrapping a CopilotChat (or CopilotSidebar/CopilotPopup) component?
-          2. Does the runtime route use createCopilotEndpoint or createCopilotEndpointSingleRoute with a BuiltInAgent?
-          3. Is the @copilotkit/react stylesheet imported (styles.css)?
-          4. Does the provider's runtimeUrl point to the correct API route?
-          5. Is the project structured correctly for Next.js App Router (app/ directory, "use client" directives where needed)?
-        weight: 0.3
+          1. Does it use the `CopilotKit` provider imported from
+             `@copilotkit/react-core/v2` (NOT the legacy `CopilotKitProvider` or the
+             v1 root import) wrapping a CopilotChat (or CopilotSidebar/CopilotPopup)?
+          2. Does the runtime route use `createCopilotHonoHandler` (multi-route, or
+             `mode: "single-route"`) with a `CopilotRuntime` and a `BuiltInAgent`?
+             The deprecated `createCopilotEndpoint` / `createCopilotEndpointSingleRoute`
+             aliases should be penalized.
+          3. Is the `@copilotkit/react-core/v2/styles.css` stylesheet imported?
+          4. Does the provider's `runtimeUrl` point at the route's basePath, and is
+             `useSingleEndpoint` set if (and only if) the route is single-route?
+          5. Is the project structured correctly for Next.js App Router (app/
+             directory, "use client" directives where needed)?
 
   - name: vite-react-setup
     instruction: |
       Add CopilotKit to this existing Vite+React project with a chat sidebar and a
       BuiltInAgent backend. The setup should include:
-      - CopilotKit frontend packages (@copilotkit/react, @copilotkit/core)
-      - CopilotKit runtime packages (@copilotkit/runtime, @copilotkit/agent)
-      - A backend server (Express or Hono) running the CopilotRuntime with a BuiltInAgent
-      - The CopilotKit provider in the React app pointing to the backend URL
+      - The CopilotKit frontend package (@copilotkit/react-core) in the Vite app
+      - A backend server (Express or Hono) running a CopilotRuntime with a
+        BuiltInAgent, using @copilotkit/runtime
+      - The CopilotKit provider in the React app pointing at the backend URL
       - A CopilotSidebar component for the chat UI
-      - The @copilotkit/react stylesheet imported
+      - The CopilotKit stylesheet imported
     workspace:
       - src: workspace/vite-react
         dest: /workspace
     graders:
       - type: deterministic
+        weight: 0.7
         run: |
           cd /workspace
 
@@ -125,67 +169,86 @@ tasks:
             CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
           }
 
-          # Check frontend packages
-          if jq -e '.dependencies["@copilotkit/react"]' package.json > /dev/null 2>&1; then
-            add_check "@copilotkit/react installed" true "Found in dependencies"
+          grep_src() {
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules . > /dev/null 2>&1
+          }
+
+          dep_in_any_pkg() {
+            for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' 2>/dev/null); do
+              if jq -e ".dependencies[\"$1\"]" "$PKG_FILE" > /dev/null 2>&1; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          if dep_in_any_pkg "@copilotkit/react-core"; then
+            add_check "@copilotkit/react-core installed" true "Found in dependencies"
           else
-            add_check "@copilotkit/react installed" false "Not found in package.json dependencies"
+            add_check "@copilotkit/react-core installed" false "Not found in any package.json"
           fi
 
-          # Check runtime packages (may be in a separate server directory)
-          RUNTIME_FOUND=false
-          for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' 2>/dev/null); do
-            if jq -e '.dependencies["@copilotkit/runtime"]' "$PKG_FILE" > /dev/null 2>&1; then
-              RUNTIME_FOUND=true
-              break
-            fi
-          done
-          if [ "$RUNTIME_FOUND" = true ]; then
+          # Runtime may live in a separate server directory
+          if dep_in_any_pkg "@copilotkit/runtime"; then
             add_check "@copilotkit/runtime installed" true "Found in dependencies"
           else
             add_check "@copilotkit/runtime installed" false "Not found in any package.json"
           fi
 
-          # Check for CopilotKit provider (matches <CopilotKit and legacy <CopilotKitProvider)
-          if grep -r "<CopilotKit" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
-            add_check "CopilotKit provider used" true "Found in source files"
+          # Canonical endpoint factory for Express or Hono backends
+          if grep_src 'createCopilotExpressHandler|createCopilotHonoHandler'; then
+            add_check "Canonical handler factory used" true "Found createCopilot*Handler"
           else
-            add_check "CopilotKit provider used" false "CopilotKit provider not found"
+            add_check "Canonical handler factory used" false "No createCopilotExpressHandler/createCopilotHonoHandler found (deprecated createCopilotEndpoint* does not count)"
           fi
 
-          # Check for CopilotSidebar or other chat component
-          if grep -r "CopilotSidebar\|CopilotChat\|CopilotPopup" --include='*.tsx' --include='*.ts' --include='*.jsx' . > /dev/null 2>&1; then
-            add_check "Chat UI component used" true "Found sidebar/chat/popup component"
-          else
-            add_check "Chat UI component used" false "No chat UI component found"
-          fi
-
-          # Check for BuiltInAgent in backend
-          if grep -r "BuiltInAgent" --include='*.ts' --include='*.js' . > /dev/null 2>&1; then
+          if grep_src 'BuiltInAgent'; then
             add_check "BuiltInAgent configured" true "Found in backend source"
           else
             add_check "BuiltInAgent configured" false "BuiltInAgent not found in any source file"
           fi
 
-          # Check for stylesheet import
-          if grep -r "styles\.css\|@copilotkit/react/styles" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.css' . > /dev/null 2>&1; then
-            add_check "Stylesheet imported" true "Found styles.css import"
+          if grep_src '@copilotkit/react-core/v2'; then
+            add_check "v2 import path used" true "Imports from @copilotkit/react-core/v2"
           else
-            add_check "Stylesheet imported" false "No @copilotkit/react/styles.css import found"
+            add_check "v2 import path used" false "No import from @copilotkit/react-core/v2 found"
+          fi
+
+          if grep_src '<CopilotKit([^A-Za-z]|$)'; then
+            add_check "CopilotKit provider used" true "Found <CopilotKit> in source"
+          else
+            add_check "CopilotKit provider used" false "<CopilotKit> provider not found (legacy <CopilotKitProvider> does not count)"
+          fi
+
+          if grep_src 'CopilotSidebar|CopilotChat|CopilotPopup'; then
+            add_check "Chat UI component used" true "Found sidebar/chat/popup component"
+          else
+            add_check "Chat UI component used" false "No chat UI component found"
+          fi
+
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules . > /dev/null 2>&1; then
+            add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
+          else
+            add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
           fi
 
           PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
           TOTAL=$(echo "$CHECKS" | jq 'length')
-          SCORE=$(echo "scale=2; $PASSED / $TOTAL" | bc)
+          SCORE=$(awk "BEGIN {printf \"%.2f\", $PASSED/$TOTAL}")
 
           echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
-        weight: 0.7
       - type: llm_rubric
+        weight: 0.3
         rubric: |
           Evaluate whether CopilotKit is properly integrated into this Vite+React project:
-          1. Is the CopilotKit provider set up with a runtimeUrl pointing to the backend server?
+          1. Is the `CopilotKit` provider (imported from `@copilotkit/react-core/v2`,
+             NOT the legacy `CopilotKitProvider`) set up with a `runtimeUrl` pointing
+             at the backend server?
           2. Is there a CopilotSidebar (or equivalent chat component) rendered in the app?
-          3. Does the backend use CopilotRuntime with a BuiltInAgent and an appropriate endpoint factory?
-          4. Is the @copilotkit/react stylesheet imported?
-          5. If the backend is a separate server, does the frontend URL account for the correct port and CORS is handled?
-        weight: 0.3
+          3. Does the backend create a `CopilotRuntime` with a `BuiltInAgent` and mount
+             it via `createCopilotExpressHandler` (Express) or `createCopilotHonoHandler`
+             (Hono)? The deprecated `createCopilotEndpoint*` aliases should be penalized.
+          4. Is the `@copilotkit/react-core/v2/styles.css` stylesheet imported?
+          5. Since the backend is a separate server: does the frontend `runtimeUrl` use
+             the correct port, is `useSingleEndpoint` set if the backend is single-route,
+             and is CORS handled?
