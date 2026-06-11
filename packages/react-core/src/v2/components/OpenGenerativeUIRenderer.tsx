@@ -27,10 +27,59 @@ export const OpenGenerativeUIContentSchema = z.object({
   html: z.array(z.string()).optional(),
   htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
+  // `jsFunctionsComplete` / `jsExpressionsComplete` are streamed by the Open
+  // Generative UI middleware (open-generative-ui-middleware.ts emits them when
+  // the jsFunctions string / jsExpressions array finish parsing). They are not
+  // needed for execution — jsFunctions/jsExpressions run incrementally as they
+  // arrive — but they ARE the per-segment terminal markers the completion
+  // fallback reads (see isGenerationComplete) to recognize a fully-streamed
+  // payload whose `generating: false` delta never arrived.
   jsFunctionsComplete: z.boolean().optional(),
   jsExpressions: z.array(z.string()).optional(),
   jsExpressionsComplete: z.boolean().optional(),
 });
+
+/**
+ * Whether generation has finished. The Open Generative UI middleware emits the
+ * `generating: false` delta ONLY from its TOOL_CALL_END handler
+ * (open-generative-ui-middleware.ts). On a terminal path where the upstream
+ * agent never emits TOOL_CALL_END for the genui tool call — an abort/stop, an
+ * abrupt stream end, or a transport error after the args fully streamed — the
+ * runner's `finalizeRunEvents` synthesizes a TOOL_CALL_END at the runner level,
+ * AFTER the middleware already processed the stream, so it never flows back
+ * through the middleware and `generating: false` is never emitted. The
+ * fully-streamed payload then arrives with `generating` absent.
+ *
+ * Without a fallback, a renderer keying purely on `generating === false` leaves
+ * such a finished, interactive artifact permanently covered by the
+ * pointer-blocking overlay and never measured. The fallback treats a payload as
+ * terminal when every streamed segment that is PRESENT carries its `*Complete`
+ * flag (`htmlComplete`, plus `cssComplete`/`jsFunctionsComplete`/
+ * `jsExpressionsComplete` for whichever of css/jsFunctions/jsExpressions are
+ * present). Those flags are emitted by the producer as each segment finishes
+ * parsing, so this fires only once the WHOLE payload is terminal — never
+ * mid-stream (e.g. html done but jsExpressions still arriving leaves
+ * `jsExpressionsComplete` absent, so this stays false and the overlay stays up,
+ * matching the pre-fallback behavior on every normal path). `htmlComplete` is
+ * required because an interactive artifact only exists once html is complete.
+ * Mirrors the Vue renderer's identical helper.
+ */
+export function isGenerationComplete(
+  content: OpenGenerativeUIContent,
+): boolean {
+  if (content.generating === false) return true;
+  if (!content.htmlComplete) return false;
+  if (content.css !== undefined && !content.cssComplete) return false;
+  if (content.jsFunctions !== undefined && !content.jsFunctionsComplete)
+    return false;
+  if (
+    content.jsExpressions !== undefined &&
+    content.jsExpressions.length > 0 &&
+    !content.jsExpressionsComplete
+  )
+    return false;
+  return true;
+}
 
 export type OpenGenerativeUIContent = z.infer<
   typeof OpenGenerativeUIContentSchema
@@ -417,7 +466,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       // here too would queue it twice). Push the measurement last (functions →
       // expressions → measure); the still-attached __ck_resize listener resolves
       // sandboxRef lazily, so it matches this new sandbox.
-      if (content.generating === false && finalSandboxBuiltRef.current) {
+      if (isGenerationComplete(content) && finalSandboxBuiltRef.current) {
         pendingQueueRef.current.push(MEASURE_ONCE_SCRIPT);
       }
       finalSandboxBuiltRef.current = true;
@@ -532,7 +581,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [content.jsExpressions?.length]);
 
     // Effect 4 — Height measurement listener (attached once generation completes)
-    const generationDone = content.generating === false;
+    const generationDone = isGenerationComplete(content);
     useEffect(() => {
       if (!generationDone) return;
 
@@ -582,7 +631,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
 
     const height = autoHeight ?? initialHeight;
 
-    const isGenerating = content.generating !== false;
+    const isGenerating = !isGenerationComplete(content);
 
     return (
       <div

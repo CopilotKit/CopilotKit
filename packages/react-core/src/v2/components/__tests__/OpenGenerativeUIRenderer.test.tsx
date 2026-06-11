@@ -1247,6 +1247,85 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     });
   });
 
+  // The Open Generative UI middleware emits `generating: false` ONLY from its
+  // TOOL_CALL_END handler. On a terminal path where the upstream agent never
+  // emits TOOL_CALL_END for the genui tool call — an abort/stop, an abrupt
+  // stream end, or a transport error after the args fully streamed — the
+  // runner's finalizeRunEvents synthesizes a TOOL_CALL_END at the runner level,
+  // AFTER the middleware already processed the stream. So that synthesized end
+  // never flows back through the middleware and `generating: false` is never
+  // emitted. The fully-streamed payload (all *Complete flags true) then arrives
+  // with `generating` absent. A renderer keying purely on `generating === false`
+  // would leave the finished, interactive artifact permanently covered by the
+  // pointer-blocking overlay and (React) never measured. The completion fallback
+  // treats an all-segments-complete payload as terminal, recovering this case.
+  describe("terminal payload with absent generating flag (TOOL_CALL_END never reached the middleware)", () => {
+    const terminalNoFlag: OpenGenerativeUIContent = {
+      initialHeight: 200,
+      html: ["<head></head><body><div>Tall content</div></body>"],
+      htmlComplete: true,
+      css: "body { color: blue; }",
+      cssComplete: true,
+      jsFunctions: "function init(){}",
+      jsFunctionsComplete: true,
+      jsExpressions: ["init()"],
+      jsExpressionsComplete: true,
+      // generating intentionally ABSENT — the synthesized TOOL_CALL_END never
+      // reached the middleware, so no `generating: false` delta was emitted.
+    };
+
+    it("does not cover a fully-streamed artifact with the progress overlay", async () => {
+      const { container } = renderRenderer(terminalNoFlag);
+      await flushImport();
+
+      const outer = container.firstElementChild as HTMLElement;
+      // The pointer-blocking overlay is the absolutely-positioned inset:0 layer
+      // (zIndex 10, pointerEvents all). A finished artifact must not keep it.
+      const overlay = Array.from(outer.children).find(
+        (el) => (el as HTMLElement).style.zIndex === "10",
+      );
+      expect(overlay).toBeUndefined();
+    });
+
+    it("measures height for a fully-streamed artifact", async () => {
+      renderRenderer(terminalNoFlag);
+      await flushUntil(() => createdSandboxes.length === 1, "sandbox created");
+
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushUntil(() => measureRunCount() >= 1, "measurement flushed");
+
+      // The one-shot measurement script ran — Effect 4 armed via the completion
+      // fallback even though `generating` is absent.
+      expect(measureRunCount()).toBeGreaterThanOrEqual(1);
+    });
+
+    it("still covers an in-flight artifact whose js segments are not yet complete (no premature completion)", async () => {
+      // html finished but jsExpressions are still streaming (jsExpressionsComplete
+      // absent) — this is the NORMAL mid-stream shape, NOT a terminal payload. The
+      // overlay must stay up; the fallback must not lift it early.
+      const { container } = renderRenderer({
+        initialHeight: 200,
+        html: ["<head></head><body><div>partial</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        jsExpressions: ["init()"],
+        // jsExpressionsComplete ABSENT — still streaming.
+        // generating ABSENT too (deltas, no snapshot yet).
+      });
+      await flushImport();
+
+      const outer = container.firstElementChild as HTMLElement;
+      const overlay = Array.from(outer.children).find(
+        (el) => (el as HTMLElement).style.zIndex === "10",
+      );
+      expect(overlay).toBeDefined();
+    });
+  });
+
   describe("design-system / importmap injection", () => {
     // Test A — defaults (no provider override): design system kit and importmap
     // are injected before the agent's body content in the final sandbox document.
