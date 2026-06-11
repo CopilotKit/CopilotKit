@@ -677,12 +677,11 @@ export interface ClaimedJob {
  * duplication is deliberate (release and aggregation read different halves
  * of this input) but the values MUST be equal.
  *
- * INTEGRATOR NOTE: the queue-client's `report()` does NOT currently validate
- * this equality — it releases on the top-level `jobId`/`workerId` and
- * persists `result` verbatim, so a mismatched caller would release one row
- * while filing the result under another job's/worker's ids. Callers are the
- * enforcement point today; a queue-client-side validation would belong in
- * `report()` (sibling-owned file — not changed here).
+ * INTEGRATOR NOTE: the queue-client's `report()` ENFORCES this equality — it
+ * rejects (throws) on a mismatched input before touching the queue, so a
+ * mismatched caller can no longer release one row while filing the result
+ * under another job's/worker's ids. Callers should still construct the input
+ * correctly, but the queue-client is the enforcement point.
  */
 export interface ReportJobInput {
   /** The claim row id being terminated (S0 `JobView.id`). Must equal `result.jobId`. */
