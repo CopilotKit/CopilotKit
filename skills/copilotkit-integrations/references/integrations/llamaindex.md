@@ -91,33 +91,37 @@ if __name__ == "__main__":
 
 Note: LlamaIndex defaults to port **9000** (not 8000).
 
-## Next.js Route (src/app/api/copilotkit/route.ts)
+## Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { LlamaIndexAgent } from "@ag-ui/llamaindex";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
-export async function POST(request: NextRequest) {
-  const runtime = new CopilotRuntime({
-    agents: {
-      sample_agent: new LlamaIndexAgent({
-        url: "http://127.0.0.1:9000/run",
-      }),
-    },
-  });
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new LlamaIndexAgent({
+      url:
+        (process.env.AGENT_URL || "http://127.0.0.1:9000").replace(/\/$/, "") +
+        "/run",
+    }),
+  },
+  runner: new InMemoryAgentRunner(),
+});
 
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: `/api/copilotkit`,
-  });
-  return handleRequest(request);
-}
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 LlamaIndex uses `LlamaIndexAgent` from `@ag-ui/llamaindex`. Note the URL path is `/run` (appended to the base URL).
