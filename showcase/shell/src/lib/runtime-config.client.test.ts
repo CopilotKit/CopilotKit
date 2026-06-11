@@ -42,6 +42,44 @@ describe("client getRuntimeConfig (shell)", () => {
     );
   });
 
+  it("throws when the injection ran with empty inputs (incomplete config)", () => {
+    // `!cfg` alone would accept a truthy-but-useless object — the
+    // fail-loud contract covers empty injected fields too.
+    for (const broken of [
+      { baseUrl: "", backendHostPattern: "showcase-{slug}.example.com" },
+      { baseUrl: "https://showcase.example.com", backendHostPattern: "" },
+    ]) {
+      (
+        window as Window & { __SHOWCASE_CONFIG__?: unknown }
+      ).__SHOWCASE_CONFIG__ = {
+        posthogHost: "https://eu.i.posthog.com",
+        docsHost: "https://docs.showcase.copilotkit.ai",
+        ...broken,
+      };
+      expect(() => getRuntimeConfig()).toThrow(
+        /__SHOWCASE_CONFIG__ is incomplete/,
+      );
+    }
+  });
+
+  it("returns a frozen object so consumers cannot mutate the shared config", () => {
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        baseUrl: "https://showcase.example.com",
+        posthogHost: "https://eu.i.posthog.com",
+        backendHostPattern: "showcase-{slug}-production.up.railway.app",
+        docsHost: "https://docs.showcase.copilotkit.ai",
+      };
+    const cfg = getRuntimeConfig();
+    expect(Object.isFrozen(cfg)).toBe(true);
+    // window.__SHOWCASE_CONFIG__ is a process-wide singleton; a strict-
+    // mode write must throw instead of silently changing it for everyone.
+    expect(() => {
+      (cfg as { baseUrl: string }).baseUrl = "https://evil.example.com";
+    }).toThrow(TypeError);
+    expect(getRuntimeConfig().baseUrl).toBe("https://showcase.example.com");
+  });
+
   it("returns SSR sentinel placeholder when window is undefined", () => {
     // Simulate SSR by removing window. "use client" component
     // bodies execute on the server during SSR, so this reader
@@ -61,6 +99,8 @@ describe("client getRuntimeConfig (shell)", () => {
       // placeholder so substitution still yields a syntactically
       // valid (non-resolvable) host during SSR.
       expect(cfg.backendHostPattern).toContain("{slug}");
+      // The placeholder is shared module state — must be frozen too.
+      expect(Object.isFrozen(cfg)).toBe(true);
     } finally {
       (globalThis as { window?: typeof w }).window = w;
     }

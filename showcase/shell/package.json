@@ -15,6 +15,7 @@
     "@copilotkitnext/agent": "next",
     "@copilotkitnext/react": "next",
     "@copilotkitnext/runtime": "next",
+    "client-only": "0.0.1",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "hono": "^4.6.0",

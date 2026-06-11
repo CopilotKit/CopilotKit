@@ -7,6 +7,10 @@ export default defineConfig({
     globals: true,
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
+    // Generates the gitignored registry.json (statically imported by
+    // src/middleware.ts) before any worker transforms a test module —
+    // see vitest.global-setup.ts.
+    globalSetup: "./vitest.global-setup.ts",
   },
   resolve: {
     alias: {

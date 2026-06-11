@@ -3,7 +3,7 @@
 // These permanent (308) redirects used to live in next.config.ts
 // `redirects()` (`permanent: true` emits 308), which bakes
 // the destination host into the build artifact (`DOCS_HOST` was a
-// hardcoded const) — so a staging shell 301'd docs routes to the PROD
+// hardcoded const) — so a staging shell 308'd docs routes to the PROD
 // docs host (cross-origin RSC prefetch → CORS). The table now resolves
 // per-request in middleware against the runtime `docsHost` from
 // RuntimeConfig (env var DOCS_HOST, default = the prod host).
@@ -25,9 +25,10 @@ const KEPT_PREFIXES = ["/ag-ui", "/reference"] as const;
 /**
  * Normalize a destination path: collapse runs of slashes and strip a
  * trailing slash (root "/" survives). Collapsing the LEADING run is
- * security-relevant — a path like `//evil.com` is scheme-relative when
- * handed to `new URL()` and would redirect off-site (see the
- * middleware's SEO wildcard substitution).
+ * defense-in-depth plus cosmetics: at every call site the path is
+ * appended AFTER a fixed `https://<docs-host>` origin, so a leading
+ * `//` can never be parsed as a scheme-relative URL — it would only
+ * produce an ugly double-slash path on a host we own.
  */
 export function normalizeRedirectPath(path: string): string {
   let normalized = path.replace(/\/{2,}/g, "/");

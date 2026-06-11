@@ -9,12 +9,31 @@ function localBackendsEnv(): string {
   if (process.env.SHOWCASE_LOCAL !== "1") return "";
   const portsPath = path.resolve(__dirname, "..", "shared", "local-ports.json");
   if (!fs.existsSync(portsPath)) return "";
-  const ports = JSON.parse(fs.readFileSync(portsPath, "utf-8")) as Record<
-    string,
-    number
-  >;
+  // This runs at build time, so failing the build IS the loud path —
+  // name the offending file instead of surfacing a bare SyntaxError.
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(portsPath, "utf-8"));
+  } catch (err) {
+    throw new Error(`${portsPath} is not valid JSON: ${String(err)}`, {
+      cause: err,
+    });
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(
+      `${portsPath} must be a JSON object mapping slug -> port (got ` +
+        `${Array.isArray(parsed) ? "an array" : typeof parsed}).`,
+    );
+  }
   const map: Record<string, string> = {};
-  for (const [slug, port] of Object.entries(ports)) {
+  for (const [slug, port] of Object.entries(parsed)) {
+    if (typeof port !== "number" || !Number.isFinite(port)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[next.config] ${portsPath}: port for "${slug}" is not a number — skipping it.`,
+      );
+      continue;
+    }
     map[slug] = `http://localhost:${port}`;
   }
   return JSON.stringify(map);

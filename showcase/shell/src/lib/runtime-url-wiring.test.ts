@@ -14,10 +14,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { backendUrlFromPattern } from "./backend-url";
 import { getRuntimeConfig as getClientRuntimeConfig } from "./runtime-config.client";
+import { REGISTRY_FRAMEWORK_SLUGS } from "../middleware";
 
 const SHELL_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -33,31 +33,29 @@ let registry: RegistryShape;
 
 beforeAll(() => {
   // registry.json is a generated, gitignored artifact (see
-  // showcase/.gitignore). On a fresh checkout it doesn't exist yet —
-  // generate it the same way `npm run dev`/`build` do so this suite is
-  // runnable standalone. Generous timeout: the generator validates every
-  // manifest and emits catalogs for all shells.
-  if (!fs.existsSync(REGISTRY_PATH)) {
-    execFileSync("npx", ["tsx", "../scripts/generate-registry.ts"], {
-      cwd: SHELL_ROOT,
-      stdio: "ignore",
-    });
-  }
-  registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) as unknown as RegistryShape;
-}, 120_000);
+  // showcase/.gitignore). The vitest globalSetup (vitest.global-setup.ts)
+  // generates it before any worker starts — if this assert fires, the
+  // setup didn't run (or wrote somewhere unexpected).
+  expect(
+    fs.existsSync(REGISTRY_PATH),
+    `registry.json missing at ${REGISTRY_PATH} — vitest.global-setup.ts should have generated it`,
+  ).toBe(true);
+  registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, "utf8")) as RegistryShape;
+});
 
 describe("registry framework slugs (real registry.json)", () => {
   it("derives a non-empty slug set (middleware docs-301 precondition)", () => {
-    // Same derivation expression as REGISTRY_FRAMEWORK_SLUGS in
-    // src/middleware.ts — keep in sync.
-    const slugs = new Set(
-      (registry.integrations ?? []).map((i) => i.slug),
-    );
-    expect(slugs.size).toBeGreaterThan(0);
-    for (const slug of slugs) {
+    // Assert the PRODUCTION value — the actual Set middleware builds at
+    // module load from registry.json — not a re-implementation of the
+    // derivation that could drift out of sync.
+    expect(REGISTRY_FRAMEWORK_SLUGS.size).toBeGreaterThan(0);
+    for (const slug of REGISTRY_FRAMEWORK_SLUGS) {
       expect(typeof slug).toBe("string");
       expect(slug.length).toBeGreaterThan(0);
     }
+    // And it must reflect the real artifact 1:1.
+    const fromFile = new Set((registry.integrations ?? []).map((i) => i.slug));
+    expect(REGISTRY_FRAMEWORK_SLUGS).toEqual(fromFile);
   });
 });
 
@@ -67,10 +65,10 @@ describe("SSR placeholder composed with backendUrlFromPattern", () => {
     expect(slug).toBeTruthy();
 
     // Simulate the SSR phase: no `window`, so the client reader returns
-    // the placeholder config rather than throwing.
-    const w = globalThis.window;
-    // @ts-expect-error — deliberately removing window for the test
-    delete globalThis.window;
+    // the placeholder config rather than throwing. stubGlobal (not
+    // delete/reassign) so vitest restores the original even if an
+    // assertion throws mid-test.
+    vi.stubGlobal("window", undefined);
     try {
       const cfg = getClientRuntimeConfig();
       const url = backendUrlFromPattern(cfg.backendHostPattern, slug!);
@@ -79,7 +77,7 @@ describe("SSR placeholder composed with backendUrlFromPattern", () => {
       expect(() => new URL(url)).not.toThrow();
       expect(url).toBe(`https://showcase-${slug}.ssr-placeholder.invalid`);
     } finally {
-      (globalThis as { window?: typeof w }).window = w;
+      vi.unstubAllGlobals();
     }
   });
 });

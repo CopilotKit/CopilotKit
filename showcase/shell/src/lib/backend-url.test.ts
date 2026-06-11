@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 import {
   backendUrlFromPattern,
   normalizeBackendHostPattern,
@@ -39,17 +47,32 @@ describe("backendUrlFromPattern", () => {
       backendUrlFromPattern("{slug}.demos.example.com/{slug}", "mastra"),
     ).toBe("https://mastra.demos.example.com/mastra");
   });
+
+  it("inserts the slug literally even when it contains $-substitution patterns", () => {
+    // String replacement treats "$&" as "the matched text" — a slug of
+    // "$&" would re-insert "{slug}" instead of the slug itself.
+    expect(
+      backendUrlFromPattern("showcase-{slug}.example.com", "$&"),
+    ).toBe("https://showcase-$&.example.com");
+  });
 });
 
 describe("normalizeBackendHostPattern", () => {
   let warns: string[];
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: MockInstance<typeof console.warn>;
+  let normalizeFresh: typeof normalizeBackendHostPattern;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // The warn-once guard is module state, which makes warning
+    // assertions non-idempotent under vitest --retry — use a fresh
+    // module instance per test.
+    vi.resetModules();
+    normalizeFresh = (await import("./backend-url"))
+      .normalizeBackendHostPattern;
     warns = [];
     warnSpy = vi
       .spyOn(console, "warn")
-      .mockImplementation((m: string) => warns.push(m));
+      .mockImplementation((m: string) => void warns.push(m));
   });
 
   afterEach(() => {
@@ -58,7 +81,7 @@ describe("normalizeBackendHostPattern", () => {
 
   it("passes a well-formed pattern through untouched, no warning", () => {
     expect(
-      normalizeBackendHostPattern("showcase-{slug}-production.up.railway.app"),
+      normalizeFresh("showcase-{slug}-production.up.railway.app"),
     ).toBe("showcase-{slug}-production.up.railway.app");
     expect(warns).toEqual([]);
   });
@@ -66,46 +89,58 @@ describe("normalizeBackendHostPattern", () => {
   it("strips a leading scheme (consumer prepends https://) and warns", () => {
     // A scheme-bearing env value would otherwise yield `https://https://…`.
     expect(
-      normalizeBackendHostPattern(
-        "https://showcase-{slug}-staging.up.railway.app",
-      ),
+      normalizeFresh("https://showcase-{slug}-staging.up.railway.app"),
     ).toBe("showcase-{slug}-staging.up.railway.app");
     expect(warns.some((m) => m.includes("scheme"))).toBe(true);
   });
 
   it("trims trailing slashes (route concat would yield //route) and warns", () => {
     expect(
-      normalizeBackendHostPattern("showcase-{slug}-staging.up.railway.app/"),
+      normalizeFresh("showcase-{slug}-staging.up.railway.app/"),
     ).toBe("showcase-{slug}-staging.up.railway.app");
     expect(warns.some((m) => m.includes("trailing"))).toBe(true);
   });
 
   it("warns when the pattern lacks {slug} (all integrations → one host)", () => {
-    expect(normalizeBackendHostPattern("showcase-static.example.com")).toBe(
+    expect(normalizeFresh("showcase-static.example.com")).toBe(
       "showcase-static.example.com",
     );
     expect(warns.some((m) => m.includes("{slug}"))).toBe(true);
   });
 
+  it("trims leading/trailing whitespace (paste artifact) and warns", () => {
+    // Previously the ONE misconfig class with zero warning — a pasted
+    // ` host` survives into `https:// host` iframe srcs.
+    expect(
+      normalizeFresh(" showcase-{slug}-staging.up.railway.app\t"),
+    ).toBe("showcase-{slug}-staging.up.railway.app");
+    expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
+  });
+
   it("warns once per distinct pattern value, not per call", () => {
     const pattern = "https://warn-once-{slug}.example.com/";
-    normalizeBackendHostPattern(pattern);
+    normalizeFresh(pattern);
     const after = warns.length;
     expect(after).toBeGreaterThan(0);
-    normalizeBackendHostPattern(pattern);
+    normalizeFresh(pattern);
     expect(warns.length).toBe(after);
   });
 });
 
 describe("parseLocalBackends", () => {
   let warns: string[];
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: MockInstance<typeof console.warn>;
+  let parseFresh: typeof parseLocalBackends;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Warn-once + memo module state: a fresh module instance per test
+    // keeps the warning assertions order-independent and retry-safe.
+    vi.resetModules();
+    parseFresh = (await import("./backend-url")).parseLocalBackends;
     warns = [];
     warnSpy = vi
       .spyOn(console, "warn")
-      .mockImplementation((m: string) => warns.push(m));
+      .mockImplementation((m: string) => void warns.push(m));
   });
 
   afterEach(() => {
@@ -113,20 +148,29 @@ describe("parseLocalBackends", () => {
   });
 
   it("returns {} for undefined / empty / invalid JSON", () => {
-    expect(parseLocalBackends(undefined)).toEqual({});
-    expect(parseLocalBackends("")).toEqual({});
-    expect(parseLocalBackends("not json")).toEqual({});
+    expect(parseFresh(undefined)).toEqual({});
+    expect(parseFresh("")).toEqual({});
+    expect(parseFresh("not json")).toEqual({});
   });
 
   it("names the env var in a warning when the JSON is unparseable", () => {
-    expect(parseLocalBackends("not json")).toEqual({});
+    expect(parseFresh("not json")).toEqual({});
     expect(
       warns.some((m) => m.includes("NEXT_PUBLIC_LOCAL_BACKENDS")),
     ).toBe(true);
   });
 
+  it("ignores non-object JSON top-levels (array / string / null) with a warning", () => {
+    expect(parseFresh("[1,2]")).toEqual({});
+    expect(parseFresh('"str"')).toEqual({});
+    expect(parseFresh("null")).toEqual({});
+    expect(warns.filter((m) => m.includes("not a JSON object")).length).toBe(
+      3,
+    );
+  });
+
   it("parses a slug->url map", () => {
-    expect(parseLocalBackends('{"mastra":"http://localhost:4111"}')).toEqual({
+    expect(parseFresh('{"mastra":"http://localhost:4111"}')).toEqual({
       mastra: "http://localhost:4111",
     });
     expect(warns).toEqual([]);
@@ -134,12 +178,32 @@ describe("parseLocalBackends", () => {
 
   it("skips (and warns about) non-string values instead of passing them through", () => {
     expect(
-      parseLocalBackends(
+      parseFresh(
         '{"mastra":"http://localhost:4111","agno":4111,"crewai":null}',
       ),
     ).toEqual({ mastra: "http://localhost:4111" });
     expect(warns.some((m) => m.includes("agno"))).toBe(true);
     expect(warns.some((m) => m.includes("crewai"))).toBe(true);
+  });
+
+  it("warns once per distinct raw value, not per call", () => {
+    parseFresh("not json");
+    parseFresh("not json");
+    expect(warns.filter((m) => m.includes("not valid JSON")).length).toBe(1);
+  });
+
+  it("memoizes the parse on the raw string (no per-call JSON.parse)", () => {
+    const parseSpy = vi.spyOn(JSON, "parse");
+    try {
+      const raw = '{"mastra":"http://localhost:4111"}';
+      const first = parseFresh(raw);
+      const second = parseFresh(raw);
+      expect(second).toEqual({ mastra: "http://localhost:4111" });
+      expect(second).toBe(first);
+      expect(parseSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      parseSpy.mockRestore();
+    }
   });
 });
 

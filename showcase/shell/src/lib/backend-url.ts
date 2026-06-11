@@ -16,7 +16,9 @@
 // and middleware (pure functions, no next/* imports).
 
 // Matches an explicit URL scheme prefix (e.g. `https://`, `http://`).
-const SCHEME_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
+// Exported as the single source of truth — runtime-config.ts shares it
+// (this module is import-safe everywhere, so the dependency is free).
+export const SCHEME_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
 
 // Warn once per distinct (pattern, issue) — config is re-read every
 // request, and per-request warn spam would drown real signal.
@@ -45,6 +47,16 @@ function warnPatternOnce(key: string, message: string): void {
  */
 export function normalizeBackendHostPattern(pattern: string): string {
   let normalized = pattern;
+  if (/\s/.test(normalized)) {
+    // Whitespace was the ONE misconfig class with zero warning — a
+    // pasted ` host` yields an iframe src like `https:// host`. Trim
+    // the ends (fixable); internal whitespace can only be flagged.
+    warnPatternOnce(
+      `whitespace:${pattern}`,
+      `"${pattern}" contains whitespace — trimming the ends. Internal whitespace cannot be fixed and yields a broken backend host.`,
+    );
+    normalized = normalized.trim();
+  }
   const scheme = SCHEME_RE.exec(normalized);
   if (scheme) {
     warnPatternOnce(
@@ -71,19 +83,49 @@ export function normalizeBackendHostPattern(pattern: string): string {
 
 /** Substitute `{slug}` into the host pattern and prepend `https://`. */
 export function backendUrlFromPattern(pattern: string, slug: string): string {
-  return `https://${pattern.replaceAll("{slug}", slug)}`;
+  // Function replacer: a plain string replacement is subject to `$`
+  // substitution patterns ("$&", "$'", ...), which would corrupt the
+  // host for any slug containing `$`.
+  return `https://${pattern.replaceAll("{slug}", () => slug)}`;
 }
+
+// Warn once per distinct (raw value, issue) — resolveBackendUrl runs on
+// every render, so per-call warns would spam exactly like the pattern
+// warnings the patternWarnings set above exists to prevent.
+const localBackendsWarnings = new Set<string>();
+
+function warnLocalBackendsOnce(key: string, message: string): void {
+  if (localBackendsWarnings.has(key)) return;
+  localBackendsWarnings.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(`[backend-url] NEXT_PUBLIC_LOCAL_BACKENDS ${message}`);
+}
+
+// Memoized on the raw string: the env value is baked at build time and
+// effectively constant, so re-running JSON.parse on every render is
+// pure waste.
+let lastLocalBackendsRaw: string | undefined;
+let lastLocalBackends: Record<string, string> = {};
 
 /**
  * Parse the NEXT_PUBLIC_LOCAL_BACKENDS map (baked at build from
  * shared/local-ports.json — local-dev only, empty in deployed images).
  * Tolerant of unset/empty/corrupt values: local dev convenience must
- * never break rendering.
+ * never break rendering. The parse is memoized on the raw string and
+ * warnings fire once per distinct (value, issue), not per call.
  */
 export function parseLocalBackends(
   raw: string | undefined,
 ): Record<string, string> {
   if (!raw) return {};
+  if (raw !== lastLocalBackendsRaw) {
+    lastLocalBackendsRaw = raw;
+    lastLocalBackends = parseLocalBackendsUncached(raw);
+  }
+  return lastLocalBackends;
+}
+
+function parseLocalBackendsUncached(raw: string): Record<string, string> {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -95,24 +137,24 @@ export function parseLocalBackends(
         if (typeof url === "string") {
           backends[slug] = url;
         } else {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[backend-url] NEXT_PUBLIC_LOCAL_BACKENDS value for "${slug}" is not a string — skipping it.`,
+          warnLocalBackendsOnce(
+            `non-string:${slug}:${raw}`,
+            `value for "${slug}" is not a string — skipping it.`,
           );
         }
       }
       return backends;
     }
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[backend-url] NEXT_PUBLIC_LOCAL_BACKENDS is not a JSON object — ignoring it.",
+    warnLocalBackendsOnce(
+      `non-object:${raw}`,
+      "is not a JSON object — ignoring it.",
     );
   } catch {
     // Treat unparseable as unset (local-dev convenience must never
     // break rendering) — but say so, instead of silently eating it.
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[backend-url] NEXT_PUBLIC_LOCAL_BACKENDS is not valid JSON — ignoring it.",
+    warnLocalBackendsOnce(
+      `invalid-json:${raw}`,
+      "is not valid JSON — ignoring it.",
     );
   }
   return {};

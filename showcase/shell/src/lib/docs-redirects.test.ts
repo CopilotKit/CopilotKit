@@ -73,6 +73,36 @@ describe("resolveDocsHostRedirect", () => {
     ).toBe(`${DOCS_HOST}/quickstart`);
   });
 
+  it("prepends https:// to a scheme-less docs host (SU2-A8)", () => {
+    // normalizeDocsHostOrigin's scheme-less branch: an operator can set
+    // DOCS_HOST host-only (the sibling SHOWCASE_BACKEND_HOST_PATTERN
+    // format) — destinations must still be absolute https URLs.
+    expect(
+      resolveDocsHostRedirect("/docs/quickstart", "docs.example.com", SLUGS),
+    ).toBe("https://docs.example.com/quickstart");
+    expect(resolveDocsHostRedirect("/mastra", "docs.example.com", SLUGS)).toBe(
+      "https://docs.example.com/mastra",
+    );
+    // An explicit scheme is left untouched.
+    expect(
+      resolveDocsHostRedirect("/docs", "http://localhost:3001", SLUGS),
+    ).toBe("http://localhost:3001");
+  });
+
+  it("redirects /docs/ (trailing slash, rest === '/') to the origin (SU2-A8)", () => {
+    expect(resolveDocsHostRedirect("/docs/", DOCS_HOST, SLUGS)).toBe(DOCS_HOST);
+  });
+
+  it("falls through to null for framework paths when the slug set is empty (SU2-A8)", () => {
+    const empty = new Set<string>();
+    expect(resolveDocsHostRedirect("/mastra", DOCS_HOST, empty)).toBeNull();
+    expect(
+      resolveDocsHostRedirect("/mastra/quickstart", DOCS_HOST, empty),
+    ).toBeNull();
+    // Non-framework docs routes are unaffected by the slug set.
+    expect(resolveDocsHostRedirect("/docs", DOCS_HOST, empty)).toBe(DOCS_HOST);
+  });
+
   it("does NOT redirect shell-owned routes", () => {
     expect(resolveDocsHostRedirect("/", DOCS_HOST, SLUGS)).toBeNull();
     expect(

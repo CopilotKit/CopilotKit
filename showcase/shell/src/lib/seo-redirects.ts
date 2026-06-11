@@ -16,6 +16,28 @@
  * to the new canonical homes.
  *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
+ *
+ * STEP-0 SHADOWING (middleware.ts): the docs-host redirect (step 0 in
+ * middleware — /docs, /ag-ui, /reference, /<registry-framework-slug>)
+ * runs BEFORE this table, so several entry classes can never match on
+ * the SHELL host and are effectively docs-host-only / dead here:
+ *
+ *   - every `/docs/*` source (R2, DI-*, DOCS-root, DOCS-wild): step 0
+ *     308s `/docs/:path*` to the docs host with the prefix stripped;
+ *   - every `/reference*` source (FI-reference, P9, P10): step 0 308s
+ *     `/reference/:path*` to the docs host with the prefix kept;
+ *   - sources whose first segment is a CURRENT registry slug —
+ *     today's registry-overlap slugs are `mastra`, `agno`, `ag2`,
+ *     `llamaindex`, `pydantic-ai` (e.g. F3-F6, S1×mastra, P1×agno):
+ *     step 0 forwards `/<slug>/...` verbatim to the docs host.
+ *
+ * Verified double-hop behavior: such a request 308s to the docs host
+ * with the path unchanged, and the DOCS host's own redirect layer then
+ * applies the rename there (e.g. shell /mastra/quickstart/mastra →
+ * docs-host /mastra/quickstart/mastra → docs-host /mastra/quickstart).
+ * The entries stay in this table because validate-redirects.ts and the
+ * decommission report still consume them, and because non-overlapping
+ * legacy slugs (e.g. `langgraph`, `adk`, `aws-strands`) DO match here.
  */
 
 export interface RedirectEntry {
