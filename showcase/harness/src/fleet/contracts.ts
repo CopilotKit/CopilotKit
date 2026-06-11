@@ -697,7 +697,12 @@ export interface ReportJobInput {
 export interface SweepResult {
   /** Number of expired leases reclaimed (jobs re-queued to pending). */
   reclaimed: number;
-  /** The `worker-reclaimed-pending` comm errors synthesized per reclaimed job. */
+  /**
+   * The `worker-reclaimed-pending` comm errors synthesized by the sweep —
+   * one per reclaimed job AND one per thrown-release indeterminate row
+   * (`commErrors.length === reclaimed + reclaimedIndeterminate`; the
+   * queue-client pairs them 1:1 with the rows those counters document).
+   */
   commErrors: PoolCommError[];
   /**
    * Of the sweep's reclaim attempts, the thrown-release conservative maybes
