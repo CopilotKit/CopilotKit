@@ -183,6 +183,51 @@ describe("pool comm-error contract cross-package drift", () => {
     expect(commErrorFromStatusSignal(signal)).toEqual(err);
   });
 
+  it("dashboard decode rejects an ARRAY embedded under the signal key", () => {
+    // Arrays are `typeof "object"`: an array carrying comm-error fields as
+    // EXPANDO properties would pass a bare typeof check and decode as if it
+    // were a well-formed PoolCommError. An array is never a valid wire shape,
+    // so the decoder must reject it explicitly (mirrors the harness copy —
+    // see the byte-identity pin below).
+    const harnessKey = parseHarnessSignalKey();
+    expect(commErrorFromStatusSignal({ [harnessKey]: [] })).toBeUndefined();
+    expect(
+      commErrorFromStatusSignal({
+        [harnessKey]: Object.assign([], {
+          kind: parseHarnessKinds()[0],
+          message: "x",
+          observedAt: "2026-06-04T12:00:00.000Z",
+        }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it("commErrorFromStatusSignal is byte-identical between harness and dashboard", () => {
+    // The two copies must never diverge: the dashboard's reader is a
+    // structural mirror of the harness reader, and a fix landing on one side
+    // only (e.g. the Array.isArray rejection) silently re-opens the gap on
+    // the other. Pin the FULL function source byte-for-byte.
+    const extract = (src: string, file: string): string => {
+      const m = src.match(
+        /export function commErrorFromStatusSignal\([\s\S]*?\n\}/,
+      );
+      if (!m) {
+        throw new Error(
+          `drift parser: could not locate commErrorFromStatusSignal in ${file} ` +
+            "— if the source shape changed, update this regex.",
+        );
+      }
+      return m[0];
+    };
+    const dashboardSource = readFileSync(
+      resolve(__dirname, "./live-status.ts"),
+      "utf8",
+    );
+    expect(extract(dashboardSource, "live-status.ts")).toBe(
+      extract(harnessSource(), "contracts.ts"),
+    );
+  });
+
   it("dashboard decode rejects an unknown kind (fail-safe to normal colour)", () => {
     // A kind the harness never declares must decode to undefined so the cell
     // renders its normal probe colour rather than a half-populated overlay.

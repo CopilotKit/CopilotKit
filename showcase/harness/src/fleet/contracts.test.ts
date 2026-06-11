@@ -113,6 +113,22 @@ describe("comm-error ↔ status-row signal round-trip", () => {
     expect(commErrorFromStatusSignal("nope")).toBeUndefined();
   });
 
+  it("rejects an ARRAY embedded under the signal key (arrays are typeof object)", () => {
+    // A plain array decodes to undefined already (no .kind property), but an
+    // array carrying comm-error fields as EXPANDO properties passes the bare
+    // `typeof raw === "object"` check and would decode as if it were a
+    // well-formed PoolCommError — an array is never a valid wire shape, so
+    // Array.isArray must reject it explicitly.
+    expect(
+      commErrorFromStatusSignal({ [FLEET_COMM_ERROR_SIGNAL_KEY]: [] }),
+    ).toBeUndefined();
+    expect(
+      commErrorFromStatusSignal({
+        [FLEET_COMM_ERROR_SIGNAL_KEY]: Object.assign([], SAMPLE_COMM_ERROR),
+      }),
+    ).toBeUndefined();
+  });
+
   it("rejects a malformed embedded comm error (bad kind / missing fields)", () => {
     expect(
       commErrorFromStatusSignal({

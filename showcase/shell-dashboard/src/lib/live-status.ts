@@ -148,7 +148,12 @@ export function commErrorFromStatusSignal(
 ): PoolCommError | undefined {
   if (signal === null || typeof signal !== "object") return undefined;
   const raw = (signal as Record<string, unknown>)[FLEET_COMM_ERROR_SIGNAL_KEY];
-  if (raw === null || typeof raw !== "object") return undefined;
+  // Array.isArray: arrays are typeof "object", and an array carrying
+  // comm-error fields as expando properties would otherwise decode as a
+  // well-formed PoolCommError — never a valid wire shape.
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
   const candidate = raw as Partial<PoolCommError>;
   if (
     !isPoolCommErrorKind(candidate.kind) ||
