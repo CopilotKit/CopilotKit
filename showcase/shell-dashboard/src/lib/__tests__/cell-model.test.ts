@@ -334,6 +334,44 @@ describe("buildCellModel", () => {
       expect(model.d4!.status).toBe("red");
       expect(model.d4!.row!.dimension).toBe("tools");
     });
+
+    it("missing-chat collapse renders the GRAY no-data chip, not red (unverified ≠ failed)", () => {
+      // The tools-only collapse is documented as the no-data outcome
+      // ("mirroring the D5/D6 missing-mapped-sub-row strictness") — D5/D6's
+      // analogous collapse renders a GRAY chip, so a not-yet-emitted chat row
+      // must read as unverified (gray), NOT as a D1-D4 gate hard-failure (red).
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d4!.status).toBeNull();
+      expect(model.chipColor).toBe("gray");
+      expect(model.surfaceState).toBe("gray");
+      // The D6 claim stays blocked while the ladder below it is unverified.
+      expect(model.d6Effective).toBeNull();
+    });
+
+    it("a present RED chat row still fails the D1-D4 gate (red chip unchanged)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d4!.status).toBe("red");
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("missing-chat no-data does NOT mask a present red D5 (red dominates no-data)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d4!.status).toBeNull();
+      expect(model.chipColor).toBe("red");
+    });
   });
 
   // ── D5 multi-key (CATALOG_TO_D5_KEY has multiple sub-keys) ──────────
@@ -1619,14 +1657,18 @@ describe("buildCellModel", () => {
       expect(model.achievedDepth).toBe(0);
     });
 
-    it("CHARACTERIZATION: an 'error'-state D4 row keeps status null but the gate check still reds the chip", () => {
+    it("an 'error'-state D4 row yields status red and fails the gate (out-of-vocab never reads as no-data)", () => {
+      // D4's `null` now means NO-DATA (the missing-chat collapse renders
+      // gray), so an out-of-vocabulary D4 state maps to "red" via
+      // foldStateToTestStatus — it must fail the gate loudly, never hide
+      // behind the no-data exclusion.
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", OUT_OF_VOCAB),
         row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
-      expect(model.d4!.status).toBeNull();
+      expect(model.d4!.status).toBe("red");
       expect(model.chipColor).toBe("red");
       expect(model.achievedDepth).toBe(3);
     });

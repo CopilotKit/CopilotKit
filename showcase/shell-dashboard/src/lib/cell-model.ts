@@ -183,10 +183,16 @@ function rankOfState(state: string): number {
  * for the same row. Map it to "red" (the failing status) so an unrecognized
  * state can never present as no-data on D5/D6.
  *
- * D3/D4 keep the base `stateToTestStatus` mapping: their `null` is rescued by
- * the chip's D1-D4 gate check (`exists && status !== "green"` → gate fails →
- * red), so an unknown state can never present as healthy there — see the
- * decision table in `buildCellModel`.
+ * D4 ALSO uses this mapping: its missing-chat collapse resolves to `status:
+ * null` (no-data — see `resolveD4`), so the chip's D1-D4 gate treats a null
+ * D4 as UNVERIFIED (gray), not failed. An out-of-vocabulary D4 state must
+ * therefore map to "red" HERE — it can no longer ride the gate's
+ * `!== "green"` catch-all without also painting the no-data collapse red.
+ *
+ * D3 keeps the base `stateToTestStatus` mapping: a present D3 row never
+ * resolves to `null` except for an out-of-vocabulary state, which the chip's
+ * D1-D4 gate check (`exists && status !== "green"` → gate fails → red) still
+ * rescues — see the decision table in `buildCellModel`.
  */
 function foldStateToTestStatus(state: State): TestStatus {
   return stateToTestStatus(state) ?? "red";
@@ -274,7 +280,11 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
 
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    // foldStateToTestStatus (not the base stateToTestStatus): D4's `null` now
+    // means NO-DATA to the chip's gate (the missing-chat collapse above), so
+    // an out-of-vocabulary fold winner must map to "red" here instead of
+    // relying on the gate's `!== "green"` catch-all — mirrors resolveD5/D6.
+    status: foldStateToTestStatus(worstState),
     row: winner,
   };
 }
@@ -810,8 +820,15 @@ export function buildCellModel(
   // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail, so
   // checking d3.status implicitly covers the D1/D2 gate.
   //
-  // Decision table over (d1d4GateFails, d5.exists, d5.status, d6.status):
+  // Decision table over (d1d4GateFails, d4 no-data, d5.exists, d5.status,
+  // d6.status):
   //   gate fails                                  → red  (gate dominates)
+  //   D4 null (unverified family) + D5/D6 red     → red  (red dominates
+  //                                                 no-data)
+  //   D4 null (unverified family) otherwise       → gray (no-data — the
+  //                                                 missing-chat collapse,
+  //                                                 mirroring D5/D6's
+  //                                                 anyMissing gray)
   //   D5 unmapped (!d5.exists)                    → gray (ceiling is D4; D6
   //                                                 shares CATALOG_TO_D5_KEY,
   //                                                 so it is unmapped too)
@@ -820,14 +837,29 @@ export function buildCellModel(
   //   D5 red/amber + (any D6)                     → red  (broken ladder)
   //   D5 null  + D6 red                           → red
   //   D5 null  + D6 green/amber/missing           → gray (unverified ladder)
+  //
+  // The D4 leg of the gate excludes `null`: a present-but-null D4 is the
+  // missing-chat NO-DATA collapse (resolveD4), which is unverified, not
+  // failed. An out-of-vocabulary D4 fold winner cannot hide behind that
+  // exclusion — resolveD4 maps it to "red" via foldStateToTestStatus. D3 has
+  // no no-data collapse, so its leg keeps the `!== "green"` catch-all (which
+  // also rescues an out-of-vocabulary D3 state mapped to null).
   const d1d4GateFails =
     (d3.exists && d3.status !== "green") ||
-    (d4.exists && d4.status !== "green");
+    (d4.exists && d4.status !== "green" && d4.status !== null);
+  // Present-but-null D4: the unconditional chat row is missing, so the
+  // real-time family is UNVERIFIED — the documented no-data outcome.
+  const d4NoData = d4.exists && d4.status === null;
 
   let chipColor: ChipColor;
   if (d1d4GateFails) {
     // A failing/stale D1-D4 gate dominates everything below it.
     chipColor = "red";
+  } else if (d4NoData) {
+    // Unverified D4 family → no-data gray, exactly like the D5/D6 anyMissing
+    // collapse. A present red ABOVE it (D5/D6) still surfaces — red dominates
+    // no-data, mirroring the `D5 null + D6 red → red` row below.
+    chipColor = d5.status === "red" || d6.status === "red" ? "red" : "gray";
   } else if (!d5.exists) {
     // D5 is not mapped for this feature → ceiling is D4. resolveD5 and
     // resolveD6 derive `exists` from the SAME `CATALOG_TO_D5_KEY` entry, so
@@ -857,6 +889,9 @@ export function buildCellModel(
   // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
   // badge/stat never contradict the chip:
   //   gate fails              → null (blocked; API/RT badge shows the failure)
+  //   D4 no-data (status null)→ null (ladder UNVERIFIED at D4 — the
+  //                             missing-chat collapse; same blocked outcome
+  //                             as a failing gate, but the chip shows gray)
   //   D5 not mapped (!exists) → raw d6.status (no D5 rung to gate against;
   //                             D6 shares CATALOG_TO_D5_KEY so it is unmapped
   //                             too and the raw status is null today — the
@@ -868,7 +903,7 @@ export function buildCellModel(
   //                             green and never a false red — the CV badge
   //                             already shows the real lower-rung failure)
   let d6Effective: TestStatus;
-  if (d1d4GateFails) {
+  if (d1d4GateFails || d4NoData) {
     d6Effective = null;
   } else if (!d5.exists) {
     d6Effective = d6.status;
