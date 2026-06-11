@@ -2,7 +2,7 @@
 // Standalone Express server with CopilotKit runtime (single-route)
 //
 // Prerequisites:
-//   npm install @copilotkit/runtime @copilotkit/agent express dotenv zod
+//   npm install @copilotkit/runtime express dotenv zod
 //   npm install -D @types/express tsx typescript
 //
 // Environment variables (store secrets in env, never hardcode them):
@@ -15,10 +15,13 @@
 import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent, defineTool } from "@copilotkit/agent";
-import type { ToolDefinition } from "@copilotkit/agent";
+import {
+  CopilotRuntime,
+  BuiltInAgent,
+  defineTool,
+} from "@copilotkit/runtime/v2";
+import type { ToolDefinition } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 dotenv.config();
 
@@ -51,9 +54,10 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({
+  createCopilotExpressHandler({
     runtime,
     basePath: "/",
+    mode: "single-route",
   }),
 );
 

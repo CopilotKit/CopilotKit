@@ -42,10 +42,10 @@ const runtime = new CopilotRuntime({
 
 ### Agents
 
-Agents implement the `AbstractAgent` interface from `@ag-ui/client`. CopilotKit provides `BuiltInAgent` (from `@copilotkit/agent`) as a ready-to-use implementation backed by the Vercel AI SDK.
+Agents implement the `AbstractAgent` interface from `@ag-ui/client`. CopilotKit provides `BuiltInAgent` (from `@copilotkit/runtime/v2`) as a ready-to-use implementation backed by the Vercel AI SDK.
 
 ```typescript
-import { BuiltInAgent, defineTool } from "@copilotkit/agent";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
 import { z } from "zod";
 
 const agent = new BuiltInAgent({
@@ -109,7 +109,9 @@ abstract class AgentRunner {
 
 ## Endpoint Factories
 
-Endpoint factories create HTTP handlers that expose the runtime's functionality. There are four variants across two HTTP frameworks (Hono, Express) and two routing styles (multi-route, single-route).
+Endpoint factories create HTTP handlers that expose the runtime's functionality. There are two factories -- `createCopilotHonoHandler` (from `@copilotkit/runtime/v2`) and `createCopilotExpressHandler` (from `@copilotkit/runtime/v2/express`) -- each supporting two routing styles via the `mode` option: `"multi-route"` (default) and `"single-route"`.
+
+> The `createCopilotEndpoint`, `createCopilotEndpointSingleRoute`, `createCopilotEndpointExpress`, and `createCopilotEndpointSingleRouteExpress` names are deprecated aliases of these two factories. Prefer the handler factories with the `mode` option.
 
 ### Multi-Route Endpoints
 
@@ -128,12 +130,15 @@ Each operation gets its own HTTP path under the base path:
 | POST   | `/threads/:threadId/archive`     | Archive a thread                         |
 | DELETE | `/threads/:threadId`             | Delete a thread                          |
 
-**Hono (`createCopilotEndpoint`):**
+**Hono (`createCopilotHonoHandler`):**
 
 ```typescript
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+} from "@copilotkit/runtime/v2";
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -144,12 +149,12 @@ const app = createCopilotEndpoint({
 });
 ```
 
-**Express (`createCopilotEndpointExpress`):**
+**Express (`createCopilotExpressHandler`):**
 
 ```typescript
-import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
-const router = createCopilotEndpointExpress({
+const router = createCopilotExpressHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -160,41 +165,43 @@ app.use(router);
 
 All operations go through a single POST endpoint. The operation is identified by a `method` field in the JSON body. This is simpler to deploy (one route, no catch-all needed).
 
-**Hono (`createCopilotEndpointSingleRoute`):**
+**Hono (`createCopilotHonoHandler` with `mode: "single-route"`):**
 
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpointSingleRoute,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+} from "@copilotkit/runtime/v2";
 
-const app = createCopilotEndpointSingleRoute({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 ```
 
-**Express (`createCopilotEndpointSingleRouteExpress`):**
+**Express (`createCopilotExpressHandler` with `mode: "single-route"`):**
 
 ```typescript
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
-const router = createCopilotEndpointSingleRouteExpress({
+const router = createCopilotExpressHandler({
   runtime,
   basePath: "/", // relative to where it's mounted
+  mode: "single-route",
 });
 app.use("/api/copilotkit", router);
 ```
 
 ### When to Use Which
 
-| Scenario                                   | Recommended                                                            |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| Next.js App Router                         | Multi-route Hono (`createCopilotEndpoint`) via `[[...slug]]` catch-all |
-| Next.js App Router (no catch-all desired)  | Single-route Hono (`createCopilotEndpointSingleRoute`)                 |
-| Standalone Express server                  | Single-route Express (`createCopilotEndpointSingleRouteExpress`)       |
-| Standalone Hono/Node server                | Multi-route Hono (`createCopilotEndpoint`)                             |
-| Need thread management (Intelligence mode) | Multi-route only (thread endpoints not available in single-route)      |
+| Scenario                                   | Recommended                                                                      |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| Next.js App Router                         | Multi-route Hono (`createCopilotHonoHandler`) via `[[...slug]]` catch-all        |
+| Next.js App Router (no catch-all desired)  | Single-route Hono (`createCopilotHonoHandler` with `mode: "single-route"`)       |
+| Standalone Express server                  | Single-route Express (`createCopilotExpressHandler` with `mode: "single-route"`) |
+| Standalone Hono/Node server                | Multi-route Hono (`createCopilotHonoHandler`)                                    |
+| Need thread management (Intelligence mode) | Multi-route only (thread endpoints not available in single-route)                |
 
 ## Middleware
 
@@ -229,7 +236,7 @@ All endpoint factories enable CORS by default with `origin: "*"`. For production
 **Hono endpoints:**
 
 ```typescript
-createCopilotEndpoint({
+createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
