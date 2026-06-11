@@ -136,6 +136,24 @@ function parseHarnessSurfaceDerivation(): string {
   return m[0];
 }
 
+/**
+ * Extract the full `commErrorFromStatusSignal` function source from a file's
+ * contents (used to pin the harness and dashboard copies byte-identical).
+ * Throws if the function can't be located so a rename is loud.
+ */
+function parseCommErrorDecoder(src: string, file: string): string {
+  const m = src.match(
+    /export function commErrorFromStatusSignal\([\s\S]*?\n\}/,
+  );
+  if (!m) {
+    throw new Error(
+      `drift parser: could not locate commErrorFromStatusSignal in ${file} ` +
+        "— if the source shape changed, update this regex.",
+    );
+  }
+  return m[0];
+}
+
 describe("pool comm-error contract cross-package drift", () => {
   it("dashboard POOL_COMM_ERROR_KINDS exactly equals the harness kind set", () => {
     const harnessKinds = new Set(parseHarnessKinds());
@@ -207,24 +225,12 @@ describe("pool comm-error contract cross-package drift", () => {
     // structural mirror of the harness reader, and a fix landing on one side
     // only (e.g. the Array.isArray rejection) silently re-opens the gap on
     // the other. Pin the FULL function source byte-for-byte.
-    const extract = (src: string, file: string): string => {
-      const m = src.match(
-        /export function commErrorFromStatusSignal\([\s\S]*?\n\}/,
-      );
-      if (!m) {
-        throw new Error(
-          `drift parser: could not locate commErrorFromStatusSignal in ${file} ` +
-            "— if the source shape changed, update this regex.",
-        );
-      }
-      return m[0];
-    };
     const dashboardSource = readFileSync(
       resolve(__dirname, "./live-status.ts"),
       "utf8",
     );
-    expect(extract(dashboardSource, "live-status.ts")).toBe(
-      extract(harnessSource(), "contracts.ts"),
+    expect(parseCommErrorDecoder(dashboardSource, "live-status.ts")).toBe(
+      parseCommErrorDecoder(harnessSource(), "contracts.ts"),
     );
   });
 
