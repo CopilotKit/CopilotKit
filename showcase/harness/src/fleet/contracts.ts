@@ -783,7 +783,12 @@ export interface SweepResult {
   /**
    * Number of STALE PENDING jobs expired (claimed-then-deleted) because they
    * sat unclaimed longer than their family's expiry window — the structural
-   * backlog drain (see queue-client `stalePending`). Optional so the many
+   * backlog drain (see queue-client `stalePending`). Despite the name, the
+   * LEASE phase's long-expired carve-out ALSO counts here: a CLAIMED/RUNNING
+   * row whose created-age exceeds the same family stale window and whose
+   * lease is long-expired (or unparseable) is claim-DELETED — not re-queued,
+   * no comm error, no `reclaimed` increment — into this count. See the
+   * queue-client's sweep-lease-stale-deleted path. Optional so the many
    * sweep fakes keyed on the reclamation contract stay valid; the real
    * queue-client always reports it.
    */
