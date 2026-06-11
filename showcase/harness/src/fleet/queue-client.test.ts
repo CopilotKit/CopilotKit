@@ -2555,6 +2555,32 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     expect(occurrences).toBeGreaterThanOrEqual(3);
   });
 
+  it("every routerAdd endpoint carries the superuser auth middleware (requireAdminAuth)", () => {
+    // SECURITY: the header contract says "superuser/worker auth required",
+    // and the client (job-claim.ts) already authenticates as superuser with
+    // a 401-reauth retry — but middleware-less routerAdd handlers are
+    // PUBLIC in PB 0.22. Every endpoint must append
+    // `$apis.requireAdminAuth()` (the PB 0.22 JSVM superuser-auth echo
+    // middleware) or any unauthenticated caller can claim/renew/release
+    // arbitrary jobs.
+    const routes = hookSource.match(/routerAdd\(/g) ?? [];
+    expect(routes.length).toBe(3);
+    // Match the MIDDLEWARE POSITION (the handler-closing `}, $apis...);`),
+    // not bare mentions — the header comment also names the middleware.
+    const guarded =
+      hookSource.match(/\},\s*\$apis\.requireAdminAuth\(\)\);/g) ?? [];
+    expect(guarded.length).toBe(3);
+  });
+
+  it("claim + renew clamp leaseSeconds (numeric, ceiling 3600, default 30 on garbage)", () => {
+    // A malformed/hostile leaseSeconds must not wedge a row behind a
+    // multi-day lease (ceiling) nor produce NaN expiries (numeric check →
+    // 30s default). Pinned at the source level for both lease-setting
+    // handlers (claim + renew; release sets no lease).
+    const clamps = hookSource.match(/Math\.min\(\s*n,\s*3600\s*\)/g) ?? [];
+    expect(clamps.length).toBe(2);
+  });
+
   it("the release handler re-checks lease expiry for a pending-target (sweeper) release — TOCTOU close", () => {
     // The sweeper decides "expired" from a LISTED SNAPSHOT, then releases on
     // behalf of the holder; the release CAS authorizes on `claimed_by`, which

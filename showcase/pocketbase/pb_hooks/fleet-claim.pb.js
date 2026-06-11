@@ -18,7 +18,11 @@
 // needs is defined INSIDE that handler's closure. (Verified against
 // PB 0.22.21 — the "leaseExpiryIso is not defined" failure mode.)
 //
-// Endpoints (all POST, JSON body, superuser/worker auth required):
+// Endpoints (all POST, JSON body, superuser auth ENFORCED server-side via the
+// `$apis.requireAdminAuth()` middleware on each routerAdd — PB 0.22's JSVM
+// superuser-auth echo middleware; a middleware-less routerAdd handler is
+// PUBLIC. The harness client (job-claim.ts) authenticates as superuser and
+// retries once on 401, so enforcement is compat-safe):
 //   /api/fleet/claim    { jobId, workerId, leaseSeconds }
 //                       → { claimed: bool, job? }   exactly-one-winner CAS
 //   /api/fleet/renew    { jobId, workerId, leaseSeconds }
@@ -28,8 +32,14 @@
 
 routerAdd("POST", "/api/fleet/claim", (c) => {
   const RUNNING_STATES = ["claimed", "running"];
+  // CLAMP leaseSeconds: the body is caller-supplied JSON, so a non-numeric /
+  // non-positive value (string, null, NaN) falls to the 30s default, and a
+  // huge value is capped at 3600s (1h) so a malformed caller can never wedge
+  // a row behind a multi-day lease the sweeper would wait out. NaN > 0 is
+  // false, so garbage routes to the default without an isFinite dependency.
   const leaseExpiryIso = (leaseSeconds) => {
-    const secs = leaseSeconds && leaseSeconds > 0 ? leaseSeconds : 30;
+    const n = typeof leaseSeconds === "number" ? leaseSeconds : NaN;
+    const secs = n > 0 ? Math.min(n, 3600) : 30;
     return new Date(Date.now() + secs * 1000).toISOString();
   };
   // A claimed/running row is reclaimable once its lease has elapsed. Empty
@@ -105,12 +115,18 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
     200,
     claimed ? { claimed: true, job: view } : { claimed: false },
   );
-});
+}, $apis.requireAdminAuth());
 
 routerAdd("POST", "/api/fleet/renew", (c) => {
   const RUNNING_STATES = ["claimed", "running"];
+  // CLAMP leaseSeconds: the body is caller-supplied JSON, so a non-numeric /
+  // non-positive value (string, null, NaN) falls to the 30s default, and a
+  // huge value is capped at 3600s (1h) so a malformed caller can never wedge
+  // a row behind a multi-day lease the sweeper would wait out. NaN > 0 is
+  // false, so garbage routes to the default without an isFinite dependency.
   const leaseExpiryIso = (leaseSeconds) => {
-    const secs = leaseSeconds && leaseSeconds > 0 ? leaseSeconds : 30;
+    const n = typeof leaseSeconds === "number" ? leaseSeconds : NaN;
+    const secs = n > 0 ? Math.min(n, 3600) : 30;
     return new Date(Date.now() + secs * 1000).toISOString();
   };
   const leaseExpired = (rec) => {
@@ -184,7 +200,7 @@ routerAdd("POST", "/api/fleet/renew", (c) => {
     200,
     renewed ? { renewed: true, job: view } : { renewed: false },
   );
-});
+}, $apis.requireAdminAuth());
 
 routerAdd("POST", "/api/fleet/release", (c) => {
   const RUNNING_STATES = ["claimed", "running"];
@@ -288,4 +304,4 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     200,
     released ? { released: true, job: view } : { released: false },
   );
-});
+}, $apis.requireAdminAuth());
