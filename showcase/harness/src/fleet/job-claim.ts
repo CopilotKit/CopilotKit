@@ -196,10 +196,20 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
     authToken = body.token;
   }
 
+  function postFleet(
+    path: string,
+    payload: Record<string, unknown>,
+  ): Promise<ClaimEndpointBody>;
+  function postFleet(
+    path: string,
+    payload: Record<string, unknown>,
+    opts: { nullOn5xx: boolean },
+  ): Promise<ClaimEndpointBody | null>;
   async function postFleet(
     path: string,
     payload: Record<string, unknown>,
-  ): Promise<ClaimEndpointBody> {
+    opts?: { nullOn5xx: boolean },
+  ): Promise<ClaimEndpointBody | null> {
     await ensureAuth();
     const doPost = async (): Promise<Response> =>
       fetchImpl(`${baseUrl}${path}`, {
@@ -224,6 +234,9 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
         status: res.status,
         body: text,
       });
+      // Opt-in 5xx containment (the claim CAS): a server error is returned
+      // as null for the caller to map; 4xx (caller bugs) ALWAYS throw loud.
+      if (opts?.nullOn5xx && res.status >= 500) return null;
       throw new Error(`job-claim ${path} failed: ${res.status} ${text}`);
     }
     return text ? (JSON.parse(text) as ClaimEndpointBody) : {};
@@ -231,11 +244,25 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
 
   return {
     async claimJob(jobId, workerId, leaseSeconds): Promise<ClaimResult> {
-      const body = await postFleet("/api/fleet/claim", {
-        jobId,
-        workerId,
-        leaseSeconds,
-      });
+      const body = await postFleet(
+        "/api/fleet/claim",
+        {
+          jobId,
+          workerId,
+          leaseSeconds,
+        },
+        { nullOn5xx: true },
+      );
+      if (body === null) {
+        // A 5xx from the claim CAS is treated as a LOST CAS, not an error: a
+        // WAL serialization/busy error escaping runInTransaction surfaces as
+        // a 500, and the contested row either was or will be won by a peer —
+        // exactly the lost-race shape. Throwing here aborted the caller's
+        // whole candidate rotation for one contested row; won:false lets
+        // claimNext fall through to the next candidate. (Already warned by
+        // postFleet's endpoint-error log.)
+        return { won: false };
+      }
       return { won: body.claimed === true, job: body.job };
     },
 

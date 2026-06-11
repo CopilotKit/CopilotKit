@@ -295,7 +295,7 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     // rows on behalf of a crashed worker). That path operates on expired leases
     // BY DESIGN, so it must be allowed to proceed even when leaseExpired is
     // true — gating it here makes REQ-B crash reclamation inert (the sweeper
-    // reclaims 0, no worker-crashed-mid-job comm error is ever synthesized). The
+    // reclaims 0, no worker-reclaimed-pending comm error is ever synthesized). The
     // claimed_by match above still authorizes it, and re-queue to pending is
     // always safe: it just resets the row to claimable.
     if (target !== "pending" && leaseExpired(rec)) {

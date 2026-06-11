@@ -239,7 +239,7 @@ describe("job-claim client", () => {
     expect(claimCalls).toBe(2);
   });
 
-  it("throws a descriptive error on a non-401 failure status", async () => {
+  it("throws a descriptive error on a non-401 failure status (renew/release)", async () => {
     const fetchImpl = authedFetch(() => new Response("boom", { status: 500 }));
     const client = createJobClaimClient({
       url: "http://pb",
@@ -248,8 +248,48 @@ describe("job-claim client", () => {
       logger,
       fetchImpl,
     });
+    await expect(client.renewLease("j1", "worker-7", 30)).rejects.toThrow(
+      /\/api\/fleet\/renew failed: 500/,
+    );
+    await expect(client.releaseJob("j1", "worker-7", "done")).rejects.toThrow(
+      /\/api\/fleet\/release failed: 500/,
+    );
+  });
+
+  it("claimJob maps a 5xx to a LOST CAS (won: false) instead of throwing", async () => {
+    // A WAL serialization/busy error escaping runInTransaction surfaces as a
+    // 500 — indistinguishable from losing the race (the row either was or
+    // will be won by a peer). Throwing aborted the caller's whole candidate
+    // rotation; mapping to won:false lets claimNext fall through to the next
+    // candidate. (4xx — caller bugs — still throw loud below.)
+    const fetchImpl = authedFetch(
+      () => new Response("wal busy", { status: 500 }),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    const r = await client.claimJob("j1", "worker-7", 30);
+    expect(r.won).toBe(false);
+    expect(r.job).toBeUndefined();
+  });
+
+  it("claimJob still throws on a 4xx (caller bug, fail loud)", async () => {
+    const fetchImpl = authedFetch(
+      () => new Response("bad body", { status: 400 }),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
     await expect(client.claimJob("j1", "worker-7", 30)).rejects.toThrow(
-      /\/api\/fleet\/claim failed: 500/,
+      /\/api\/fleet\/claim failed: 400/,
     );
   });
 

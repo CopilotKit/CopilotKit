@@ -669,6 +669,118 @@ describe("FleetQueueClient.claimNext", () => {
     expect(releaseJob).toHaveBeenCalledWith("j2", "worker-7", "failed");
   });
 
+  it("a claimJob THROW on one candidate does not abort the rotation (warn + continue)", async () => {
+    // A transport blip on the claim CAS is indistinguishable from losing the
+    // race — a thrown claim used to escape raceCandidates and abort the
+    // WHOLE rotation (every remaining candidate and every remaining family
+    // unclaimed for this poll). Contain it per candidate: warn + continue.
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+      { ...jobView({ id: "j2" }), payload: samplePayload() },
+    ]);
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(async (jobId, workerId): Promise<ClaimResult> => {
+        if (jobId === "j1") throw new Error("claim transport blip");
+        return {
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        };
+      }),
+    });
+    // Identity-order rng: j1 (the thrower) before j2.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.lease?.job.id).toBe("j2");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-cas-threw",
+      expect.objectContaining({ jobId: "j1", err: "claim transport blip" }),
+    );
+  });
+
+  it("uses the injected clock for the decode-failure synthetic result's timestamps", async () => {
+    // The synthetic worker-protocol-violation result used `new Date()`
+    // directly while the rest of the queue layer takes injected time —
+    // making the observedAt/finishedAt unpinnable in tests and inconsistent
+    // under clock control. The client's `now` config (default Date.now) is
+    // the clock source.
+    const FIXED = Date.parse("2026-06-05T01:02:03.000Z");
+    const { pb, rows } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      now: () => FIXED,
+    });
+
+    await q.claimNext("worker-7", 30);
+
+    const written = rows[0].result as ServiceJobResult;
+    expect(written.commError?.observedAt).toBe("2026-06-05T01:02:03.000Z");
+    expect(written.finishedAt).toBe("2026-06-05T01:02:03.000Z");
+  });
+
+  it("warns before the defensive duplicate-family break (a backend ignoring exclusions must be observable)", async () => {
+    // Family discovery relies on the exclusion clause shrinking each query's
+    // result. A backend that ignores it would re-yield the same family
+    // forever; the defensive break stops the spin but used to be SILENT —
+    // hiding both the backend defect and every undiscovered family.
+    const sameHead = { ...jobView({ id: "h1" }), payload: samplePayload() };
+    const pb = {
+      ...makeFakePb([sameHead]).pb,
+      // Ignore ALL filters: every list returns the same head row.
+      async list<T>(): Promise<ListResult<T>> {
+        return {
+          page: 1,
+          perPage: 1,
+          totalPages: 1,
+          totalItems: 1,
+          items: [sameHead] as unknown as T[],
+        };
+      },
+    } as PbClient;
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-discovery-duplicate",
+      expect.objectContaining({ family: "d6" }),
+    );
+  });
+
   it("falls through to the next candidate when it loses the CAS on the first", async () => {
     const { pb } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },
@@ -1156,6 +1268,47 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       claimedFamilies.push(probeKeyFamily(c.lease!.job.probe_key));
     }
     expect(new Set(claimedFamilies)).toEqual(new Set(["d%", "d6"]));
+  });
+
+  it("skips a family containing a backslash from clause building (charset guard, with a warn)", async () => {
+    // The equality legs double `\` (quoted-literal escaping) while the LIKE
+    // legs' fexpr verification covers only `%`/`_` — the two contracts
+    // cannot both hold for a backslash, so rather than emit a filter with
+    // unverified semantics, clause builders refuse backslash families:
+    // probe keys are slugs in practice, so such a family is garbage input.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      // Normal family first (oldest) so discovery still yields it.
+      {
+        ...jobView({ id: "ok-0", probe_key: "d6:y" }),
+        payload: samplePayload({ probeKey: "d6:y" }),
+        created: new Date(t0).toISOString(),
+      },
+      {
+        ...jobView({ id: "weird-0", probe_key: "d\\:a" }),
+        payload: samplePayload({ probeKey: "d\\:a" }),
+        created: new Date(t0 + 1000).toISOString(),
+      },
+    ]);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    // The count leg refuses the unsafe family outright (0 + warn) instead
+    // of emitting an unverified filter.
+    expect(await q.countPendingForFamily("d\\")).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-clause-unsafe",
+      expect.objectContaining({ family: "d\\" }),
+    );
+
+    // Discovery still rotates the families found BEFORE the unsafe one; the
+    // claim drains the safe family and reports the unsafe one via the warn.
+    const c = await q.claimNext("w1", 30);
+    expect(c.claimed).toBe(true);
+    expect(c.lease?.job.id).toBe("ok-0");
   });
 
   it("countPendingForFamily explicitly requests totals (skipTotal: false) — the backlog gate must not fail open", async () => {
@@ -2138,6 +2291,49 @@ describe("FleetQueueClient.renewLease", () => {
     const lease = await q.renewLease("j1", "worker-7", 30);
     expect(lease).not.toBeNull();
     expect(getOneSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs a renew re-read DECODE failure as a protocol violation, not a read blip", async () => {
+    // The re-read catch used to swallow decodePayload throws under the
+    // "queue-client.renew-reread-failed" READ-BLIP warn — but a row whose
+    // persisted payload no longer decodes is a PROTOCOL problem (a poison
+    // row), not a transient PB read failure, and triaging it as a blip
+    // hides it from anyone grepping for protocol violations. The renew
+    // itself still succeeds (heartbeat-only empty payload).
+    const { pb } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: "garbage" as unknown as ServiceJobPayload,
+      },
+    ]);
+    const claim = makeFakeClaim({
+      renewLease: vi.fn(
+        async (): Promise<RenewResult> => ({
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    // No prior claim → cache miss → re-read returns the poison row.
+    const lease = await q.renewLease("j1", "worker-7", 30);
+
+    expect(lease).not.toBeNull();
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.renew-reread-protocol-violation",
+      expect.objectContaining({ jobId: "j1" }),
+    );
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      "queue-client.renew-reread-failed",
+      expect.anything(),
+    );
   });
 
   it("returns a lease on a SUCCESSFUL CAS even when cache miss AND reread fail", async () => {

@@ -46,7 +46,12 @@
 
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
-import type { JobClaimClient, JobView, ReleaseResult } from "./job-claim.js";
+import type {
+  ClaimResult,
+  JobClaimClient,
+  JobView,
+  ReleaseResult,
+} from "./job-claim.js";
 import { RELEASE_REFUSED_TERMINAL_SAME_HOLDER } from "./job-claim.js";
 import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
 import type {
@@ -192,6 +197,13 @@ export interface FleetQueueClientConfig {
    * deterministic.
    */
   rng?: () => number;
+  /**
+   * Injectable clock (epoch ms) for SYNTHETIC timestamps minted by this
+   * client (the decode-failure protocol-violation result's
+   * observedAt/finishedAt). Defaults to `Date.now`. `sweepExpired` keeps its
+   * explicit `nowMs` parameter — the sweep's caller owns that clock.
+   */
+  now?: () => number;
 }
 
 /** The persisted `probe_jobs` row shape as the PB records API returns it. */
@@ -377,10 +389,27 @@ export function leaseExpired(
 }
 
 /**
+ * CHARSET GUARD for family values destined for filter clauses. The two
+ * escape helpers below carry CONTRADICTORY backslash contracts: the quoted
+ * equality legs double `\` (PB quoted-literal escaping), while the LIKE
+ * legs' verified behavior has fexpr passing non-quote backslashes through
+ * VERBATIM — both cannot hold for one input, and only the `%`/`_` handling
+ * has actually been verified against PB source. Probe keys are slugs in
+ * practice, so rather than ship an unverifiable dual contract, callers SKIP
+ * families containing a backslash (with a warn): discovery stops at one
+ * (no safe exclusion clause exists), and the count gate refuses it.
+ */
+function familyClauseSafe(family: string): boolean {
+  return !family.includes("\\");
+}
+
+/**
  * Escape a value for embedding in a double-quoted PB filter literal:
  * neutralizes the quote/backslash chars that could break out of the literal.
  * Sufficient on its own ONLY for the equality (`=`/`!=`) legs — the LIKE
  * (`~`/`!~`) legs must ALSO escape SQL wildcards via `escapeLikeLiteral`.
+ * The backslash doubling is the quoted-literal contract; backslash-bearing
+ * families never reach this function (see `familyClauseSafe`).
  */
 function escapeFilterLiteral(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -388,12 +417,13 @@ function escapeFilterLiteral(value: string): string {
 
 /**
  * Escape a value for a `~`/`!~` LIKE leg. VERIFIED against PocketBase
- * 0.22.21 (tools/search/filter.go): `~` builds SQL `LIKE ... ESCAPE '\'`,
- * and its auto-`%`-wrap is skipped when the operand contains an unescaped
- * `%` (ours always does — the trailing `:%` wildcard), so a
- * backslash-escaped `%`/`_` reaches SQLite as a LITERAL character. fexpr
- * (the filter tokenizer) passes non-quote backslashes through verbatim, so
- * the single backslash emitted here survives filter parsing intact.
+ * 0.22.21 (tools/search/filter.go) FOR `%`/`_` ONLY: `~` builds SQL
+ * `LIKE ... ESCAPE '\'`, and its auto-`%`-wrap is skipped when the operand
+ * contains an unescaped `%` (ours always does — the trailing `:%`
+ * wildcard), so a backslash-escaped `%`/`_` reaches SQLite as a LITERAL
+ * character. The BACKSLASH leg is deliberately NOT part of that
+ * verification (fexpr's quoted-literal and LIKE handling of `\` differ);
+ * backslash-bearing inputs are excluded upstream by `familyClauseSafe`.
  *
  * Without this, a family containing `%`/`_` over-matches in BOTH directions:
  * family `d%`'s discovery EXCLUSION leg `probe_key !~ "d%:%"` also excludes
@@ -446,6 +476,7 @@ export function createFleetQueueClient(
 ): FleetQueueClient {
   const { pb, claim, logger } = config;
   const rng = config.rng ?? Math.random;
+  const now = config.now ?? Date.now;
   const stalePolicy = config.stalePending ?? {};
   const staleExpiryPeriods =
     stalePolicy.expiryPeriods ?? DEFAULT_STALE_PENDING_EXPIRY_PERIODS;
@@ -546,8 +577,29 @@ export function createFleetQueueClient(
       }
       const family = probeKeyFamily(head.probe_key);
       // Defensive: a backend that didn't honor the exclusion clause would
-      // re-yield a seen family forever — break instead of spinning.
-      if (families.includes(family)) break;
+      // re-yield a seen family forever — break instead of spinning. Warn
+      // first: a silent break hides BOTH the backend defect and every
+      // family the truncated discovery never reached.
+      if (families.includes(family)) {
+        logger.warn("queue-client.family-discovery-duplicate", {
+          family,
+          probeKey: head.probe_key,
+        });
+        break;
+      }
+      // CHARSET GUARD: a family containing a backslash cannot be embedded
+      // in a filter with verified semantics (see familyClauseSafe). Without
+      // a safe EXCLUSION clause the loop cannot see past this family's rows
+      // either — warn and stop discovery here; families already discovered
+      // still rotate, and the unsafe family's rows are skipped from
+      // claiming entirely (probe keys are slugs, so this is garbage input).
+      if (!familyClauseSafe(family)) {
+        logger.warn("queue-client.family-clause-unsafe", {
+          family,
+          probeKey: head.probe_key,
+        });
+        break;
+      }
       families.push(family);
       exclusions.push(familyExclusionClause(family));
     }
@@ -662,11 +714,28 @@ export function createFleetQueueClient(
         raceLeaseSeconds: number,
       ): Promise<ClaimedJob | null> {
         for (const candidate of candidates) {
-          const result = await claim.claimJob(
-            candidate.id,
-            raceWorkerId,
-            raceLeaseSeconds,
-          );
+          // PER-CANDIDATE containment: the claim CAS can THROW (transport
+          // blip) as well as lose. An escaped throw aborts the WHOLE
+          // rotation — every remaining candidate AND every remaining family
+          // goes unclaimed this poll — for one contested row. Warn and try
+          // the next candidate instead; the row is retried naturally on the
+          // next poll. (job-claim additionally maps a 5xx claim response to
+          // won:false, so this catch covers genuine transport throws.)
+          let result: ClaimResult;
+          try {
+            result = await claim.claimJob(
+              candidate.id,
+              raceWorkerId,
+              raceLeaseSeconds,
+            );
+          } catch (err) {
+            logger.warn("queue-client.claim-cas-threw", {
+              jobId: candidate.id,
+              workerId: raceWorkerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
           if (!result.won || !result.job) continue;
           // The CAS already WON — this worker now OWNS the row. Decoding the
           // payload from the (pre-claim) candidate row can still throw on a
@@ -706,7 +775,9 @@ export function createFleetQueueClient(
                 // honest signal. Best-effort: if the write itself is lost the
                 // consumer's crash synthesis remains the fallback — log and
                 // move on, never throw out of claimNext.
-                const observedAt = new Date().toISOString();
+                // Injected clock (config.now) — not a bare `new Date()` — so
+                // the synthetic timestamps are pinnable under test clocks.
+                const observedAt = new Date(now()).toISOString();
                 const message = `job ${result.job.id} payload failed to decode at claim time: ${
                   err instanceof Error ? err.message : String(err)
                 }`;
@@ -805,15 +876,18 @@ export function createFleetQueueClient(
       // the re-read below is a non-fatal convenience used only on a cache miss.
       let payload = payloadCache.get(jobId);
       if (!payload) {
+        // SPLIT the failure triage: a thrown pb.getOne is a transient READ
+        // BLIP (warn), but a row that reads back fine and then fails
+        // decodePayload is a PROTOCOL VIOLATION — a poison payload persisted
+        // on a live row — and triaging it under the read-blip warn hides it
+        // from protocol-violation greps. Both are non-fatal here (the CAS
+        // renew already won; the heartbeat-only empty payload covers it).
+        let record: ProbeJobRecord | null = null;
         try {
-          const record = await pb.getOne<ProbeJobRecord>(
+          record = await pb.getOne<ProbeJobRecord>(
             PROBE_JOBS_COLLECTION,
             jobId,
           );
-          if (record) {
-            payload = decodePayload(jobId, record.payload);
-            payloadCache.set(jobId, payload);
-          }
         } catch (err) {
           // Read blip — log and fall through to the cache-miss handling below.
           logger.warn("queue-client.renew-reread-failed", {
@@ -821,6 +895,18 @@ export function createFleetQueueClient(
             workerId,
             err: err instanceof Error ? err.message : String(err),
           });
+        }
+        if (record) {
+          try {
+            payload = decodePayload(jobId, record.payload);
+            payloadCache.set(jobId, payload);
+          } catch (err) {
+            logger.error("queue-client.renew-reread-protocol-violation", {
+              jobId,
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
         }
       }
       if (!payload) {
@@ -934,6 +1020,15 @@ export function createFleetQueueClient(
     },
 
     async countPendingForFamily(family: string): Promise<number> {
+      // CHARSET GUARD (see familyClauseSafe): refuse to embed a backslash
+      // family in a filter with unverified semantics. Returning 0 means the
+      // producer's backlog gate opens for such a family — acceptable: the
+      // slug-based producers can never mint one, so this only fires on
+      // garbage input, and the warn makes it observable.
+      if (!familyClauseSafe(family)) {
+        logger.warn("queue-client.family-clause-unsafe", { family });
+        return 0;
+      }
       // Producer backlog gate: a totals-bearing perPage=1 list — PB computes
       // the COUNT server-side (totalItems); we never page rows back.
       // skipTotal MUST be explicitly false: if totals are skipped PB returns
@@ -1003,6 +1098,16 @@ export function createFleetQueueClient(
       }
       const commErrors: PoolCommError[] = [];
       let reclaimed = 0;
+      // SINGLE-SWEEPER ASSUMPTION (load-bearing): this grace set is
+      // per-call, IN-PROCESS state. It protects re-queued rows only from
+      // THIS control-plane's own stale phase — a SECOND concurrent sweeper
+      // (another control-plane replica running sweepExpired) would not see
+      // it and could claim-delete a row this call just re-queued,
+      // falsifying its comm error. The fleet deploys exactly ONE
+      // control-plane instance (the producer/sweeper is a singleton); if
+      // that ever changes, the grace must move to ROW state (the retained
+      // lease heuristic in the stale phase already covers the cross-call
+      // case; a requeued_at column would cover both exactly).
       const requeuedThisSweep = new Set<string>();
       const observedAt = new Date(nowMs).toISOString();
       for (const row of page.items) {
