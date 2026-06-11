@@ -90,6 +90,15 @@ export const FLEET_FAMILIES = [
 /** One FLEET_FAMILIES member. */
 export type FleetFamily = (typeof FLEET_FAMILIES)[number];
 
+/**
+ * Single-owner family id for §4.2 retention pruning. Four producers share the
+ * sweep-gate pattern; exactly one of them owns the family-agnostic delete
+ * pass. This is sourced from the §5.1 registry (NOT a hardcoded string
+ * literal) so a registry rename of the D6 entry can't silently disable
+ * retention pruning. See `job-producer.ts` `sweepIfDue()` for the gate.
+ */
+export const PRUNE_OWNER_FAMILY = FLEET_FAMILIES[0].family;
+
 // ───────────────────────────────────────────────────────────────────────
 // Row shapes (snake_case, as the PB records API returns them)
 // ───────────────────────────────────────────────────────────────────────

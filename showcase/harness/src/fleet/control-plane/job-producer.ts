@@ -50,6 +50,7 @@ import type {
 import { probeKeyFamily } from "../contracts.js";
 import { PoisonedBacklogCountError } from "../queue-client.js";
 import { deriveHealthUrl } from "../../probes/liveness.js";
+import { PRUNE_OWNER_FAMILY } from "./run-view.js";
 
 /**
  * Sink the producer hands its lease-sweep comm errors to (REQ-B). `sweepExpired`
@@ -290,7 +291,8 @@ export interface JobProducerOptions {
    * onto every `EnqueueJobInput` this producer builds (the queue-client
    * denormalizes it into the `probe_jobs.family` column), and ALSO the
    * prune-ownership key: the §4.2 retention prune runs only when
-   * `family === "d6"` so four producers sharing the sweep-gate pattern never
+   * `family === PRUNE_OWNER_FAMILY` (the §5.1 registry's D6 family id, NOT a
+   * hardcoded literal) so four producers sharing the sweep-gate pattern never
    * run four concurrent delete passes (single-owner by configuration).
    * A constructor option rather than scheduleId-derived because the producer
    * deliberately has no knowledge of its schedule id (bound later, in
@@ -667,13 +669,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // deliverSweepCommErrors — it runs on every sweep attempt, even a failed
       // one). The buffer is capped at MAX_BUFFERED_SWEEP_COMM_ERRORS.
       await deliverSweepCommErrors(result.commErrors);
-      // §4.2 RETENTION PRUNE — gated on the d6 family so exactly ONE of the
-      // four producers sharing this sweep-gate pattern owns the delete pass
+      // §4.2 RETENTION PRUNE — gated on PRUNE_OWNER_FAMILY (the §5.1 registry's
+      // D6 family id) so exactly ONE of the four producers sharing this
+      // sweep-gate pattern owns the delete pass
       // (the prune itself is family-agnostic: one pass covers all families,
       // and it is idempotent, so a missed tick is harmless). Rides the same
       // due-window as the sweep. Best-effort: a prune failure is logged and
       // NEVER aborts job production — mirror the sweep's swallow discipline.
-      if (opts.family === "d6") {
+      if (opts.family === PRUNE_OWNER_FAMILY) {
         try {
           const pruned = await queue.pruneAged(nowMs);
           if (pruned.terminal > 0 || pruned.zombie > 0) {
