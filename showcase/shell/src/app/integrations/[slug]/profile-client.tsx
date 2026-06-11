@@ -267,7 +267,7 @@ export function ProfileClient({
                           fontSize: "13px",
                           lineHeight: "1.6",
                           padding: "16px 20px",
-                          maxHeight: showAllFiles ? "none" : "none",
+                          maxHeight: showAllFiles ? "none" : "600px",
                         }}
                         showLineNumbers
                         lineNumberStyle={{
