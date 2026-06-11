@@ -318,20 +318,57 @@ describe("fleet surface-state contract cross-package drift", () => {
    * cell-model.ts. Match to the END OF THE STATEMENT (a `;` at end-of-line
    * followed by a blank line) — a bare non-greedy `;` would stop at a
    * semicolon inside the derivation's own comments. Throws if the statement
-   * can't be located so a refactor is loud.
+   * can't be located so a refactor is loud. Accepts an injectable `src` for
+   * the parser-robustness test; production callers read the real file.
    */
-  function parseDashboardSurfaceDerivation(): string {
-    const m = dashboardCellModelSource().match(
-      /const surfaceState: FleetSurfaceState =[\s\S]*?;\n\n/,
-    );
+  function parseDashboardSurfaceDerivation(
+    src: string = dashboardCellModelSource(),
+  ): string {
+    const m = src.match(/const surfaceState: FleetSurfaceState =[\s\S]*?;\n\n/);
     if (!m) {
       throw new Error(
         "drift parser: could not locate the `surfaceState` derivation in " +
           "cell-model.ts — if the source shape changed, update this regex.",
       );
     }
+    // STRUCTURAL END GUARD: the non-greedy `;\n\n` anchor stops at the FIRST
+    // semicolon-before-blank-line, so an internal one would silently TRUNCATE
+    // the parsed body and make the negative assertions over it vacuous. The
+    // derivation's real end is the `chipColorToSurface(chipColor)` fallback —
+    // reject any match that does not terminate there (a refactor that renames
+    // the fallback must update this guard, loudly).
+    if (!m[0].endsWith("chipColorToSurface(chipColor);\n\n")) {
+      throw new Error(
+        "drift parser: the `surfaceState` derivation parse was TRUNCATED — it " +
+          "did not end at the `chipColorToSurface(chipColor)` terminal " +
+          "fallback. An internal `;` + blank line shortened the match; " +
+          "harden the anchor or update this guard.",
+      );
+    }
     return m[0];
   }
+
+  it("the surface-derivation parser rejects a TRUNCATED parse (internal `;` + blank line)", () => {
+    // The non-greedy `;\n\n` anchor stops at the FIRST semicolon followed by
+    // a blank line. A future edit introducing one INSIDE the derivation would
+    // silently shorten the parsed body — making the NEGATIVE assertions over
+    // it (e.g. `not.toContain('chipColor === "green"')`) pass vacuously. The
+    // parser must refuse any match that does not terminate at the
+    // derivation's structural end (the chipColorToSurface fallback).
+    const truncating = [
+      "const surfaceState: FleetSurfaceState = commError",
+      "  ? overlayFor(commError);",
+      "",
+      '  : chipColor === "green"',
+      "    ? hiddenFromNegativeAssertions",
+      "    : chipColorToSurface(chipColor);",
+      "",
+      "return surfaceState;",
+    ].join("\n");
+    expect(() => parseDashboardSurfaceDerivation(truncating)).toThrow(
+      /truncated/i,
+    );
+  });
 
   it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with failure passthrough", () => {
     // Same pin on the dashboard side (behaviorally covered by the flap-band
