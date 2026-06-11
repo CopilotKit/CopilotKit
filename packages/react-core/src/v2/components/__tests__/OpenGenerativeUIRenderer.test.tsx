@@ -12,6 +12,10 @@ import {
 import { assembleDocument } from "../../lib/assembleDocument";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
+// The renderer's outer wrapper throttles non-immediate content changes with
+// setTimeout(THROTTLE_MS). Keep this in lockstep with THROTTLE_MS in the source.
+const THROTTLE_MS = 1000;
+
 // Mock @jetbrains/websandbox
 const mockRun = vi.fn().mockResolvedValue(undefined);
 const mockDestroy = vi.fn();
@@ -41,11 +45,54 @@ vi.mock("@jetbrains/websandbox", () => ({
   },
 }));
 
-/** Flush the dynamic import() microtask so the sandbox gets created */
+/**
+ * Drain the multi-stage async chain the renderer kicks off when it decides to
+ * build a sandbox: the dynamic `import("@jetbrains/websandbox")` resolves, its
+ * `.then` runs `Websandbox.create` (so `mockCreate` fires) and registers the
+ * `sandbox.promise.then` callback. Each stage is a microtask hop, and a React
+ * commit can interleave another effect between them.
+ *
+ * The previous single `await setTimeout(0)` inside `act` drained "usually
+ * enough" — but a single macrotask tick is margin-based: under CPU load the
+ * commit -> effect -> import-microtask sequence could still be in flight when
+ * assertions ran (the documented `re-measures …` flake). Instead, loop
+ * microtask flushes until the chain settles, detected as `mockCreate`'s call
+ * count going quiet across an iteration (or a hard cap). This is deterministic
+ * rather than time-bounded and uses NO real timer, so it is also safe under
+ * `vi.useFakeTimers()` (a `setTimeout(0)` would otherwise hang there).
+ */
 async function flushImport() {
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
+    let lastCreateCalls = -1;
+    // Cap iterations so a genuinely stuck chain fails loudly instead of hanging.
+    for (let i = 0; i < 50; i++) {
+      const createCalls = mockCreate.mock.calls.length;
+      // Settled: a full iteration passed with no new sandbox created and the
+      // microtask queue drained. Two consecutive quiet reads guard against
+      // stopping in the one-tick gap between import resolve and create.
+      if (createCalls === lastCreateCalls && i > 0) break;
+      lastCreateCalls = createCalls;
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
   });
+}
+
+/**
+ * Advance the renderer's throttle window deterministically. The outer wrapper
+ * schedules `setTimeout(flush, THROTTLE_MS)` for non-immediate content changes;
+ * under `vi.useFakeTimers()` we step exactly THROTTLE_MS so `flush` fires (no
+ * wall-clock margin a loaded worker can blow through), then drain the microtasks
+ * the resulting re-render queues. Requires `vi.useFakeTimers()` to be active.
+ */
+async function flushThrottle() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(THROTTLE_MS);
+  });
+  // Drain the import/promise microtask chain the re-render may have kicked off.
+  await flushImport();
 }
 
 function renderRenderer(content: OpenGenerativeUIContent) {
@@ -67,6 +114,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
   afterEach(() => {
     cleanup();
+    // Defensive: any test that opted into fake timers must not leak that state
+    // into a sibling running in the same worker (the parallel-load scenario the
+    // flake was reproduced under). A no-op when real timers are already active.
+    vi.useRealTimers();
   });
 
   it("renders placeholder when no html", async () => {
@@ -546,6 +597,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     });
 
     it("updates preview on re-render with more chunks (after throttle)", async () => {
+      // Deterministic throttle: step exactly THROTTLE_MS with fake timers
+      // instead of racing a real 1100ms wall-clock wait against the renderer's
+      // 1000ms throttle (the ~100ms margin a loaded worker could blow through).
+      vi.useFakeTimers();
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -592,11 +647,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         />,
       );
 
-      // Wait for the 1s throttle window to pass
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 1100));
-      });
-      await flushImport();
+      // Advance exactly the throttle window so the deferred flush fires.
+      await flushThrottle();
 
       // Should have updated innerHTML with new content after throttle
       const updateCalls = mockRun.mock.calls.filter(
@@ -620,6 +672,11 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // RED pre-fix: Effect 0's promise.then closed over previewBody/previewStyles
       // captured when the effect ran, so the FIRST applied frame was "OLD" only.
       // GREEN post-fix: it reads the latest frame via a ref, so "NEW" is applied.
+      //
+      // Deterministic throttle (fake timers) so the newer chunk is guaranteed to
+      // have been applied to the inner component before the sandbox resolves —
+      // not racing a real wall-clock wait against the 1000ms throttle.
+      vi.useFakeTimers();
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -640,8 +697,8 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(mockCreate).toHaveBeenCalledTimes(1);
 
       // A newer chunk streams in before the sandbox is ready. Going 1->2 chunks
-      // (htmlComplete:false) is throttled by the outer wrapper, so wait out the
-      // 1s window to let the inner component re-render with the newer body.
+      // (htmlComplete:false) is throttled by the outer wrapper, so step the
+      // throttle window to let the inner component re-render with the newer body.
       // Effect 0 does not re-fire (the sandbox ref is set); Effect 0b fires but
       // early-returns because previewReadyRef is still false.
       rerender(
@@ -657,10 +714,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           agent={{}}
         />,
       );
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 1100));
-      });
-      await flushImport();
+      await flushThrottle();
 
       // Now the sandbox becomes ready. Its resolve callback applies the preview
       // frame — which must be the latest one, not the creation-time snapshot.
@@ -740,6 +794,10 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // RED pre-fix: only Effect 1 (fullHtml truthy) and unmount destroy the
       // preview sandbox, so an empty mid-stream body leaves it mounted —
       // mockDestroy is never called and no second sandbox is created.
+      //
+      // Fake timers so the two throttled re-renders below step the throttle
+      // window deterministically instead of racing a real wall-clock wait.
+      vi.useFakeTimers();
       const { rerender } = render(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -766,7 +824,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       // A chunk arrives whose only complete markup is a <head> element;
       // processPartialHtml strips it, so previewBody is empty and hasPreview
       // flips false. This is a throttled change (htmlComplete stays false, no
-      // immediate-flush trigger), so wait out the 1s throttle window.
+      // immediate-flush trigger), so step the throttle window.
       rerender(
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
@@ -780,10 +838,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           agent={{}}
         />,
       );
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 1100));
-      });
-      await flushImport();
+      await flushThrottle();
 
       // The orphaned preview sandbox must be destroyed and the container emptied.
       expect(mockDestroy).toHaveBeenCalledTimes(1);
@@ -805,10 +860,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           agent={{}}
         />,
       );
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 1100));
-      });
-      await flushImport();
+      await flushThrottle();
 
       // Second preview sandbox created.
       expect(mockCreate).toHaveBeenCalledTimes(2);
