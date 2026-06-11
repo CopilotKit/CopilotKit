@@ -656,17 +656,38 @@ export function classifyInflight(
 }
 
 /**
+ * Determine a worker's health state from its raw row, matching the EXACT
+ * behavior `fleet-health.ts`'s reclaim cycle uses on its `deriveHealth` call
+ * site so the fleet-runs `/api/runs` strip and the fleet-health monitor
+ * never disagree on a worker's state for the SAME row. The canonical
+ * derivation lives in `contracts.ts` (`deriveHealth` — exported, shared);
+ * this helper is the per-call-site wrapper that both surfaces should route
+ * through. We deliberately do NOT pre-check parseability and force "offline":
+ * fleet-health's call site (in this branch) does not do that, and forcing it
+ * on this display surface re-introduces the surface-disagreement bug this
+ * fix is closing. (When fleet-health.ts is updated to use this helper in a
+ * follow-up — fleet-health.ts canonical lives on `fix/cf8-m1` and is out of
+ * scope here — the parse-check policy can be revisited in ONE place.)
+ */
+function determineWorkerHealth(
+  row: WorkerRow,
+  nowMs: number,
+  workerStaleAfterMs: number,
+): WorkerHealthState {
+  // Mirror fleet-health.ts:399 verbatim: pass the raw column straight through
+  // to `deriveHealth`. `deriveHealth` -> `isWorkerStale`'s unparseable-default
+  // (treat-unknown-as-not-yet-stale) is what the reclaim machinery sees, so
+  // this surface sees the same thing.
+  return deriveHealth(row.last_heartbeat_at ?? "", nowMs, workerStaleAfterMs);
+}
+
+/**
  * Project one `workers` row into the §5.2.1 strip entry, deriving `health`
- * through the SAME `deriveHealth` fleet-health uses (hoisted to contracts) so
- * the two surfaces can never disagree — with one explicit carve-out: an
- * unparseable `last_heartbeat_at` maps to "offline". `deriveHealth` inherits
- * `isWorkerStale`'s treat-unknown-as-not-yet-stale default (correct for the
- * reclaim machinery, exactly wrong for a display surface where unknown
- * rendering healthy is the lie), so we pre-check parseability first —
- * mirroring fleet-health's own unparseable-heartbeat warn path. The
- * `endpoint` column (a routable internal URL) is deliberately NEVER
- * serialized; worker ids and heartbeat timestamps are non-secret (§5.2.1
- * identifier-exposure carve-out).
+ * through `determineWorkerHealth` (the shared per-call-site wrapper around
+ * `contracts.deriveHealth`) so this surface and `fleet-health.ts`'s cycle
+ * report the SAME health for the SAME row. The `endpoint` column (a routable
+ * internal URL) is deliberately NEVER serialized; worker ids and heartbeat
+ * timestamps are non-secret (§5.2.1 identifier-exposure carve-out).
  */
 export function projectWorker(
   row: WorkerRow,
@@ -674,11 +695,7 @@ export function projectWorker(
   nowMs: number,
 ): WorkerView {
   const heartbeat = row.last_heartbeat_at ?? "";
-  // Same parser as isWorkerStale (raw Date.parse) so the parse-check and the
-  // delegated derivation can never disagree on what "unparseable" means.
-  const health: WorkerHealthState = Number.isNaN(Date.parse(heartbeat))
-    ? "offline"
-    : deriveHealth(heartbeat, nowMs, workerStaleAfterMs);
+  const health = determineWorkerHealth(row, nowMs, workerStaleAfterMs);
   return {
     workerId: row.worker_id,
     health,

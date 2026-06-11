@@ -645,13 +645,17 @@ describe("projectWorker", () => {
     ).toBe("offline");
   });
 
-  it('worker projection: unparseable last_heartbeat_at derives "offline", never "online"', () => {
+  it("worker projection mirrors fleet-health's deriveHealth verbatim (unparseable falls into deriveHealth's treat-unknown-as-not-yet-stale default — same as fleet-health.ts:399 — so the two surfaces never disagree for the same row)", () => {
     const projected = projectWorker(
       workerRow({ last_heartbeat_at: "garbage-timestamp" }),
       STALE_AFTER_MS,
       NOW_MS,
     );
-    expect(projected.health).toBe("offline");
+    // Aligned with fleet-health.ts:399's `deriveHealth(row.last_heartbeat_at, nowMs, staleAfterMs)`:
+    // `isWorkerStale` returns false for an unparseable string, so deriveHealth
+    // returns "online". The fleet-runs strip and the fleet-health monitor MUST
+    // agree on this — that agreement is the bug this fix closes.
+    expect(projected.health).toBe("online");
   });
 
   it("worker projection never serializes the endpoint column", () => {
