@@ -311,6 +311,10 @@ function assertServiceJobPayload(
   // aggregator groups by `meta.runId`). Assert the FULL required meta shape —
   // `triggered`/`enqueuedAt` are consumed downstream just like `runId`, so a
   // half-validated meta would only defer the failure past this boundary.
+  // `enqueuedAt` must be NON-EMPTY like the other strings: the empty string
+  // is exactly `emptyPayloadForLease`'s never-aggregate sentinel — minted
+  // ONLY for heartbeat-only renew fallbacks that never cross this boundary —
+  // so a caller-supplied "" is the same forbidden class as an empty runId.
   const meta = candidate.meta as Partial<ServiceJobMeta> | null;
   if (
     meta === null ||
@@ -319,10 +323,11 @@ function assertServiceJobPayload(
     typeof meta.runId !== "string" ||
     meta.runId === "" ||
     typeof meta.triggered !== "boolean" ||
-    typeof meta.enqueuedAt !== "string"
+    typeof meta.enqueuedAt !== "string" ||
+    meta.enqueuedAt === ""
   ) {
     throw new Error(
-      `queue-client: ${label} payload.meta must be a non-null object with a non-empty string runId, boolean triggered and string enqueuedAt`,
+      `queue-client: ${label} payload.meta must be a non-null object with a non-empty string runId, boolean triggered and non-empty string enqueuedAt`,
     );
   }
   // Optional fields still have REQUIRED shapes when present: cellIds is a
@@ -416,6 +421,29 @@ function probeKeySlug(probeKey: string): string {
   // is the caller's problem (the synthesis call site substitutes a
   // jobId-derived placeholder).
   return slug === "" ? probeKey : slug;
+}
+
+/**
+ * TRUE for a thrown endpoint error in the DETERMINISTIC rejection class: the
+ * hook (or PB auth) rejected the request BEFORE any transaction ran, and the
+ * same request will be rejected identically on every retry — the renew and
+ * sweep carve-outs key on this to escape their conservative containments.
+ * 408 (timeout) and 429 (rate limit) are 4xx by STATUS but TRANSIENT by
+ * meaning — a retry can succeed — so they stay on the callers'
+ * indeterminate/conservative paths (evicting a lease or skipping a comm
+ * error on a momentary rate-limit blip would manufacture the exact false
+ * signals the containments exist to prevent).
+ */
+function deterministicEndpointRejection(
+  err: unknown,
+): err is JobClaimEndpointError {
+  return (
+    err instanceof JobClaimEndpointError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 408 &&
+    err.status !== 429
+  );
 }
 
 /**
@@ -736,9 +764,16 @@ export function createFleetQueueClient(
         // the starvation class fairness exists to prevent — so mirror the
         // sweep's truncation warn. The hidden family is still claimable on
         // later polls once the families ahead of it drain out of pending.
+        // The head at the bound can itself be clause-unsafe garbage (it
+        // would never have been DISCOVERED, only excluded by row id) —
+        // thread its clause-safety so the warn doesn't overclaim a hidden
+        // CLAIMABLE family for unclaimable junk.
         logger.warn("queue-client.family-discovery-truncated", {
           maxFamilies: MAX_PENDING_FAMILIES,
           nextProbeKey: head.probe_key,
+          nextFamilyClauseSafe: familyClauseSafe(
+            probeKeyFamily(head.probe_key),
+          ),
         });
         break;
       }
@@ -1132,12 +1167,10 @@ export function createFleetQueueClient(
         // worker — UNBOUNDED double-run, falsifying the one-lease-duration
         // risk bound documented below. Treat it like a definitively lost
         // CAS: error log (an operator must look — the rejection recurs),
-        // evict both caches, return null so the heartbeat stops.
-        if (
-          err instanceof JobClaimEndpointError &&
-          err.status >= 400 &&
-          err.status < 500
-        ) {
+        // evict both caches, return null so the heartbeat stops. 408/429
+        // are excluded (transient by meaning — see
+        // deterministicEndpointRejection).
+        if (deterministicEndpointRejection(err)) {
           logger.error("queue-client.renew-rejected", {
             jobId,
             workerId,
@@ -1695,13 +1728,10 @@ export function createFleetQueueClient(
           // per-sweep false worker-reclaimed-pending overlay for a row that
           // never moves. Log loud (error — the row IS wedged and needs an
           // operator) and synthesize nothing: no grace, no comm error, no
-          // reclaimed++. Only 5xx/transport/2xx-unreadable throws — the
-          // genuinely indeterminate class — stay conservative.
-          if (
-            err instanceof JobClaimEndpointError &&
-            err.status >= 400 &&
-            err.status < 500
-          ) {
+          // reclaimed++. Only 5xx/transport/2xx-unreadable throws — plus
+          // the transient-by-meaning 408/429 (see
+          // deterministicEndpointRejection) — stay conservative.
+          if (deterministicEndpointRejection(err)) {
             logger.error("queue-client.sweep-release-rejected", {
               jobId: row.id,
               workerId: holder,

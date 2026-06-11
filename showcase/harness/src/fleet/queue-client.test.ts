@@ -618,6 +618,11 @@ describe("FleetQueueClient.enqueue", () => {
       { serviceSlug: "" },
       { driverKind: "" },
       { meta: { ...samplePayload().meta, runId: "" } },
+      // enqueuedAt: "" is `emptyPayloadForLease`'s never-aggregate sentinel
+      // — minted ONLY for heartbeat-only renew fallbacks, never decoded
+      // through this boundary. A caller-supplied empty enqueuedAt is the
+      // same forbidden class as the other empties: reject it.
+      { meta: { ...samplePayload().meta, enqueuedAt: "" } },
     ];
     for (const overrides of empties) {
       await expect(
@@ -1999,6 +2004,50 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         maxFamilies: 16,
         // The 17th-oldest family is the first one the bound hid.
         nextProbeKey: "f16:svc",
+        // ...and it is a genuinely claimable (clause-safe) family.
+        nextFamilyClauseSafe: true,
+      }),
+    );
+  });
+
+  it("the truncation warn does not overclaim a hidden family when the head at the bound is clause-unsafe garbage", async () => {
+    // The head row AT the truncation index can itself be clause-unsafe
+    // garbage (an empty/backslash family) — discovery would never have
+    // CLAIMED it, only excluded it by row id. A warn that flatly announces
+    // a hidden family for it overclaims; thread the head's clause-safety so
+    // the operator can tell a starved REAL family from unclaimable junk.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const rows = Array.from({ length: 16 }, (_, i) => {
+      const probeKey = `f${String(i).padStart(2, "0")}:svc`;
+      return {
+        ...jobView({ id: `r${i}`, probe_key: probeKey }),
+        payload: samplePayload({ probeKey }),
+        created: new Date(t0 + i * 1000).toISOString(),
+      };
+    });
+    // The 17th (youngest) pending row carries an empty probe_key — the
+    // clause-unsafe empty family.
+    rows.push({
+      ...jobView({ id: "garbage", probe_key: "" }),
+      payload: samplePayload(),
+      created: new Date(t0 + 17_000).toISOString(),
+    });
+    const { pb, store } = makePagingPb(rows);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    const claimed = await q.claimNext("w1", 30);
+
+    expect(claimed.claimed).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-discovery-truncated",
+      expect.objectContaining({
+        maxFamilies: 16,
+        nextProbeKey: "",
+        nextFamilyClauseSafe: false,
       }),
     );
   });
@@ -2793,7 +2842,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         "pending",
       );
 
-      // CONTROl: once the retained lease itself is OLDER than the family
+      // CONTROL: once the retained lease itself is OLDER than the family
       // window (no re-claim for a whole window — genuinely abandoned), the
       // stale phase expires the row normally.
       const muchLater = T + 4 * HOUR;
@@ -3734,6 +3783,48 @@ describe("FleetQueueClient.renewLease", () => {
     );
   });
 
+  it("a thrown renew carrying 408/429 KEEPS the assumed-live containment — transient by meaning, not deterministic", async () => {
+    // 408 (timeout) and 429 (rate limit) are 4xx by status but TRANSIENT by
+    // meaning: a retry can succeed, so evicting the lease (heartbeat stops,
+    // sweeper reclaims a possibly-LIVE job) on a momentary rate-limit blip
+    // would manufacture the exact false worker-crashed class the
+    // assumed-live containment exists to prevent.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            status: "claimed",
+            claimed_by: workerId,
+            lease_expires_at: "2026-06-04T00:01:00.000Z",
+            version: 1,
+          }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        throw new JobClaimEndpointError("/api/fleet/renew", 429, "rate limited");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    const kept = await q.renewLease("j1", "worker-7", 30);
+    expect(kept).not.toBeNull();
+    expect(kept?.leaseExpiresAt).toBe("2026-06-04T00:01:00.000Z");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.renew-indeterminate",
+      expect.objectContaining({ jobId: "j1" }),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      "queue-client.renew-rejected",
+      expect.anything(),
+    );
+  });
+
   it("renew under PERSISTENT auth-400 (rotated creds) stops the heartbeat — end-to-end through the REAL job-claim client", async () => {
     // Integration pin for the rotated-credentials path: the session token is
     // invalidated, the renew 401s, postFleet re-auths, and the re-auth 400s.
@@ -4640,6 +4731,45 @@ describe("FleetQueueClient.sweepExpired", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.sweep-release-threw",
       expect.objectContaining({ jobId: "j1" }),
+    );
+  });
+
+  it("a thrown release carrying 408/429 KEEPS the conservative may-have-committed handling — transient, not deterministic", async () => {
+    // 408/429 are 4xx by status but transient by meaning — the SAME request
+    // can succeed on retry, so the request was not deterministically
+    // rejected and the at-least-once contract must hold (a missing gray
+    // overlay is lost forever; a duplicate is harmless).
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    const expired: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "worker-dead",
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+      }),
+      payload: samplePayload(),
+    };
+    const { pb } = makeFakePb([expired]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(async (): Promise<ReleaseResult> => {
+        throw new JobClaimEndpointError("/api/fleet/release", 408, "timeout");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    expect(sweep.reclaimed).toBe(0);
+    expect(sweep.reclaimedIndeterminate).toBe(1);
+    expect(sweep.commErrors).toHaveLength(1);
+    expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.sweep-release-threw",
+      expect.objectContaining({ jobId: "j1" }),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      "queue-client.sweep-release-rejected",
+      expect.anything(),
     );
   });
 
