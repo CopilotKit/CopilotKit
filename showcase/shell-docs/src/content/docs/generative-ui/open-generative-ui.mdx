@@ -33,7 +33,9 @@ Key benefits:
   `@copilotkit/react-core` only. The Vue package supports the secure sandbox,
   live streaming preview, `sandboxFunctions`, and `designSkill`, but injects no
   design-system kit and no importmap — generated documents in Vue are not
-  augmented with either.
+  augmented with either. Vue also has no height auto-measurement: the artifact
+  iframe stays at `initialHeight` (200px by default), so taller content is
+  clipped — have the agent pass a generous `initialHeight` for tall UIs.
 </Callout>
 
 ## Minimal setup
