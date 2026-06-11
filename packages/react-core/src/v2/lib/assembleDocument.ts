@@ -103,6 +103,41 @@ export function buildImportMapScript(libs: Record<string, string>): string {
 }
 
 /**
+ * Neutralizes any `</style` close-tag sequence inside CSS that is about to be
+ * spliced RAW into a `<style>…</style>` element, so agent-supplied CSS (the
+ * `css` tool parameter, and the custom design-system kit css from
+ * `designSystem: { css }`) cannot break out of the style element and inject live
+ * markup. A css value of `a{}</style><script>alert(1)</script>` would otherwise
+ * produce `…<style>a{}</style><script>alert(1)</script></style>…` — the literal
+ * `</style>` closes the element early and the `<script>` becomes LIVE in the
+ * sandbox. This mirrors the `<`-escape {@link buildImportMapScript} already
+ * applies to the importmap script sink, making the protection consistent across
+ * sinks.
+ *
+ * The escape inserts a CSS backslash into the `/` of every `</style` (matched
+ * case-insensitively): `</style` -> `<\/style` (the original case of `/style` is
+ * preserved via `$1`). It is LOSSLESS by construction:
+ * - Inside a CSS string (`content: "</style>"`), `\/` unescapes to `/`, so the
+ *   computed value is IDENTICAL to the un-escaped form — only the bytes that
+ *   reach the HTML tokenizer change, never the CSS semantics.
+ * - Outside a string the sequence `</style` is invalid CSS either way (a `<` is
+ *   not a valid token start in a stylesheet), so escaping it changes nothing
+ *   that ever parsed as meaningful CSS — but the escaped form can no longer
+ *   terminate the enclosing `<style>` element.
+ *
+ * Defined once and reused at every `<style>` injection sink (the splices in
+ * {@link assembleDocument} and the preview's `buildPreviewHeadHtml` in
+ * OpenGenerativeUIRenderer.tsx) so preview and final escape IDENTICALLY and
+ * their byte/cascade parity holds. The Vue-side agent MUST mirror these exact
+ * semantics byte-for-byte.
+ *
+ * Pure string function — no DOM, no React.
+ */
+export function escapeStyleClose(css: string): string {
+  return css.replace(/<(\/style)/gi, "<\\$1");
+}
+
+/**
  * Ensures the HTML string contains a `<head>` element.
  * If no `<head>` tag is found, prepends `<head></head>` to the string.
  * Ported byte-equivalently from `OpenGenerativeUIRenderer.tsx`.
@@ -201,12 +236,19 @@ function maskInertSpans(html: string): string {
  * Backward-compat invariant (legacy path): when no prefix is injected — i.e.
  * `designSystemCss` is falsy AND `importMap` is falsy or an empty object — the
  * legacy output L is computed verbatim as `ensureHead(css ? injectCssIntoHtml(
- * html, css) : html)` (the CSS injected into the raw html *before* ensuring
- * head). The contract is then:
+ * html, {@link escapeStyleClose}(css)) : html)` (the agent css, `</style`-escaped,
+ * injected into the raw html *before* ensuring head). The contract is then
+ * byte-identical to the historical path EXCEPT for two carve-outs — (a) the
+ * head-token mount normalization described next, and (b) `</style` sequences in
+ * the agent css are escaped (see the `</style`-escape note below; previously they
+ * broke out of the style element — a correctness/security defect, never a working
+ * behavior). With those carve-outs:
  * - If L ALREADY contains the literal 6-character lowercase token `<head>`,
- *   return L UNCHANGED — byte-identical to the historical path. EVERY input that
- *   previously mounted in `@jetbrains/websandbox` lands here, because mounting
- *   itself requires that literal token (see the literal-`<head>` note below).
+ *   return L UNCHANGED (modulo the `</style`-escape, which only ever differs by
+ *   inserted backslashes) — byte-identical to the historical path. EVERY input
+ *   that previously mounted in `@jetbrains/websandbox` lands here, because
+ *   mounting itself requires that literal token (see the literal-`<head>` note
+ *   below).
  * - Otherwise L has only an uppercase/attributed head-open tag (`<HEAD>`,
  *   `<head lang="en">`, `<head >`) and so contains no literal `<head>`. Such an
  *   artifact ALWAYS failed to mount before (no previously-working output reaches
@@ -252,6 +294,22 @@ function maskInertSpans(html: string): string {
  * branch is byte-identity-locked and is NOT touched (this failure pre-existed
  * there).
  *
+ * `</style`-escape (ALL paths — non-legacy AND legacy): the agent css
+ * (`opts.css`) and the design-system kit css (`opts.designSystemCss`) are spliced
+ * RAW into `<style>…</style>` elements. A css value containing `</style` would
+ * otherwise close the element early and turn whatever follows into LIVE markup in
+ * the sandbox (`css: "a{}</style><script>…</script>"`). So BOTH css values pass
+ * through {@link escapeStyleClose} at EVERY `<style>` sink before splicing —
+ * `</style` -> `<\/style`, lossless inside CSS strings, inert outside them. This
+ * mirrors the `<`-escape {@link buildImportMapScript} applies to the importmap
+ * sink, making the breakout protection consistent across every sink. The escape
+ * is the legacy path's SECOND byte-identity carve-out (alongside head-token mount
+ * normalization): legacy outputs whose css lacks `</style` stay byte-identical;
+ * css containing `</style` differs ONLY by the inserted backslashes. The same
+ * helper is reused by the preview's `buildPreviewHeadHtml`
+ * (OpenGenerativeUIRenderer.tsx) so preview and final escape IDENTICALLY and
+ * their cascade/byte parity holds.
+ *
  * Pure string function — no DOM, no React.
  */
 export function assembleDocument(
@@ -265,8 +323,11 @@ export function assembleDocument(
   // otherwise emit an inert `<script type="importmap">{"imports":{}}</script>`.
   const hasImports = !!importMap && Object.keys(importMap).length > 0;
   const importMapPart = hasImports ? buildImportMapScript(importMap) : "";
+  // Escape `</style` in the kit css so it cannot break out of the style element
+  // (lossless — see escapeStyleClose). The importmap sink is already guarded by
+  // buildImportMapScript's `<`-escape.
   const designSystemPart = designSystemCss
-    ? `<style data-ck-design-system>${designSystemCss}</style>`
+    ? `<style data-ck-design-system>${escapeStyleClose(designSystemCss)}</style>`
     : "";
   const prefix = importMapPart + designSystemPart;
 
@@ -287,13 +348,21 @@ export function assembleDocument(
   if (!nonLegacy) {
     let legacy: string;
     if (css) {
+      // Escape `</style` in the agent css before splicing it RAW into a `<style>`
+      // element (lossless — see escapeStyleClose). This is the legacy path's
+      // SECOND byte-identity carve-out (alongside head-token mount
+      // normalization): css lacking `</style` stays byte-identical to the
+      // historical composition; css containing `</style` differs ONLY by the
+      // inserted backslashes (previously it broke out of the style element — a
+      // security defect, never a working behavior).
+      const safeCss = escapeStyleClose(css);
       const headCloseIdx = html.indexOf("</head>");
       const injected =
         headCloseIdx !== -1
           ? html.slice(0, headCloseIdx) +
-            `<style>${css}</style>` +
+            `<style>${safeCss}</style>` +
             html.slice(headCloseIdx)
-          : `<head><style>${css}</style></head>${html}`;
+          : `<head><style>${safeCss}</style></head>${html}`;
       legacy = ensureHead(injected);
     } else {
       legacy = ensureHead(html);
@@ -379,7 +448,12 @@ export function assembleDocument(
     // position 0 carrying the prefix — and, in cascade order, the agent css —
     // so the prefix is NEVER dropped. We return immediately: the css here is
     // already injected, so the css branch below must not run for this path.
-    return `<head>${prefix}${css ? `<style>${css}</style>` : ""}</head>` + html;
+    // Escape `</style` in the agent css so it cannot break out of the style
+    // element (lossless — see escapeStyleClose).
+    return (
+      `<head>${prefix}${css ? `<style>${escapeStyleClose(css)}</style>` : ""}</head>` +
+      html
+    );
   }
 
   // Inject agent CSS immediately before </head> (legacy algorithm), but match
@@ -407,13 +481,18 @@ export function assembleDocument(
   // inert region. The injected prefix's own `<script type="importmap">`/`<style>`
   // content is masked too (it carries no `</head>`), so this is safe.
   if (css) {
+    // Escape `</style` in the agent css before splicing it RAW into a `<style>`
+    // element at any of the sinks below (lossless — see escapeStyleClose). This
+    // mirrors the kit-css escape on the prefix above, so the preview and final
+    // documents escape IDENTICALLY.
+    const safeCss = escapeStyleClose(css);
     const maskedAfter = maskInertSpans(html);
     const closeRel = maskedAfter.slice(prefixInsertAt).search(/<\/head>/i);
     const headCloseIdx = closeRel !== -1 ? closeRel + prefixInsertAt : -1;
     if (headCloseIdx !== -1) {
       return (
         html.slice(0, headCloseIdx) +
-        `<style>${css}</style>` +
+        `<style>${safeCss}</style>` +
         html.slice(headCloseIdx)
       );
     }
@@ -436,7 +515,7 @@ export function assembleDocument(
       const bodyOpenIdx = bodyRel + prefixInsertAt;
       return (
         html.slice(0, bodyOpenIdx) +
-        `<style>${css}</style>` +
+        `<style>${safeCss}</style>` +
         html.slice(bodyOpenIdx)
       );
     }
@@ -448,11 +527,11 @@ export function assembleDocument(
     if (prefixInsertAt !== undefined) {
       return (
         html.slice(0, prefixInsertAt) +
-        `<style>${css}</style>` +
+        `<style>${safeCss}</style>` +
         html.slice(prefixInsertAt)
       );
     }
-    return `<head><style>${css}</style></head>${html}`;
+    return `<head><style>${safeCss}</style></head>${html}`;
   }
 
   return html;

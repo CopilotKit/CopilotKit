@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   assembleDocument,
   buildImportMapScript,
+  escapeStyleClose,
   DEFAULT_OPEN_GEN_UI_LIBRARIES,
   mergeLibraries,
 } from "../assembleDocument";
@@ -9,13 +10,20 @@ import {
 // Legacy reference implementations, copied verbatim from
 // OpenGenerativeUIRenderer.tsx. Hoisted to module scope so the invariant sweep
 // can reuse them without re-declaring on every test invocation.
+//
+// `legacyInjectRef` models the NEW legacy contract: the agent css is
+// `</style`-escaped (escapeStyleClose) before splicing — the second byte-identity
+// carve-out alongside head-token mount normalization. For css WITHOUT `</style`
+// this is byte-identical to the historical injector (the escape is a no-op); for
+// css WITH `</style` it differs ONLY by the inserted backslashes.
 const legacyEnsureHeadRef = (html: string) =>
   /<head[\s>]/i.test(html) ? html : `<head></head>${html}`;
 const legacyInjectRef = (html: string, css: string) => {
+  const safe = escapeStyleClose(css);
   const i = html.indexOf("</head>");
   return i !== -1
-    ? html.slice(0, i) + `<style>${css}</style>` + html.slice(i)
-    : `<head><style>${css}</style></head>${html}`;
+    ? html.slice(0, i) + `<style>${safe}</style>` + html.slice(i)
+    : `<head><style>${safe}</style></head>${html}`;
 };
 
 describe("assembleDocument", () => {
@@ -81,15 +89,151 @@ describe("assembleDocument", () => {
     );
   });
 
+  // -------------------------------------------------------------------------
+  // `</style`-escape — agent css (`css` param) and kit css (`designSystemCss`)
+  // are spliced RAW into `<style>…</style>` elements. A css value containing
+  // `</style` would close the element early and turn whatever follows into LIVE
+  // markup in the sandbox. escapeStyleClose neutralizes it losslessly at every
+  // sink — the analog of the `<`-escape buildImportMapScript applies to the
+  // importmap sink.
+  // -------------------------------------------------------------------------
+
+  // Helper-level semantics the Vue side must mirror byte-for-byte.
+  describe("escapeStyleClose", () => {
+    it("inserts a backslash into the `/` of every </style (case-insensitive, case-preserving)", () => {
+      expect(escapeStyleClose("a{}</style>b")).toBe("a{}<\\/style>b");
+      // Case of `/style` is preserved via $1.
+      expect(escapeStyleClose("</STYLE>")).toBe("<\\/STYLE>");
+      expect(escapeStyleClose("</StYlE >")).toBe("<\\/StYlE >");
+      // Every occurrence is escaped (global flag).
+      expect(escapeStyleClose("</style></style>")).toBe("<\\/style><\\/style>");
+    });
+
+    it("is a no-op for css that does not contain </style", () => {
+      const css = "body { color: red } .a::before { content: '/style' }";
+      // No `</style` sequence anywhere, so the string is returned unchanged.
+      expect(escapeStyleClose(css)).toBe(css);
+    });
+
+    it("does not touch a `</ style>` with whitespace after the slash (the HTML parser would not close on it either)", () => {
+      // The raw-text end-tag scan does not permit whitespace between `/` and the
+      // tag name, so `</ style>` never closes a real <style> element — and the
+      // regex (which matches the parser's close exactly) leaves it untouched.
+      expect(escapeStyleClose("</ style>")).toBe("</ style>");
+    });
+  });
+
+  // Live-script breakout repro at the agent-css sink (non-legacy path). RED
+  // pre-fix: the agent's `</style>` closed the injected style element early and
+  // the trailing `<script>` became LIVE markup in the sandbox. GREEN post-fix:
+  // the close is escaped (`<\/style>`), so the `<script>` stays inert CSS text
+  // inside the style element.
+  it("neutralizes a </style><script> breakout in the agent css (non-legacy)", () => {
+    const css = "a{}</style><script>alert(1)</script>";
+    const out = assembleDocument("<head></head><body></body>", {
+      css,
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // The live-breakout signature — a REAL `</style>` immediately followed by a
+    // `<script` open — must be ABSENT (pre-fix it was present).
+    expect(out).not.toContain("</style><script");
+    // No live `<script>alert` survives: every `<script` in the output is
+    // preceded by an ESCAPED close (`<\/style>`), so it is inert style text.
+    // (There is no other real script in this input.)
+    expect(out).not.toMatch(/<\/style>\s*<script/i);
+    // The escaped form is present (the `/` carries a CSS backslash).
+    expect(out).toContain("a{}<\\/style><script>alert(1)</script>");
+    // Style tags stay perfectly balanced (the only real closes are the kit's and
+    // the agent style's own template close — the agent's literal `</style>` no
+    // longer counts as a close).
+    const opens = (out.match(/<style\b/gi) ?? []).length;
+    const closes = (out.match(/<\/style>/gi) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+
+  // Same breakout via the kit css (designSystemCss). The kit string is
+  // operator/designer-supplied via `designSystem: { css }`; escaping it keeps
+  // the breakout protection consistent with the agent-css sink.
+  it("neutralizes a </style><script> breakout in the design-system kit css", () => {
+    const evilKit = "body{}</style><script>alert(2)</script>";
+    const out = assembleDocument("<head></head><body></body>", {
+      designSystemCss: evilKit,
+      importMap: false,
+    });
+    expect(out).not.toContain("</style><script");
+    expect(out).not.toMatch(/<\/style>\s*<script/i);
+    // The kit style element carries the escaped close.
+    expect(out).toContain(
+      "data-ck-design-system>body{}<\\/style><script>alert(2)</script>",
+    );
+    const opens = (out.match(/<style\b/gi) ?? []).length;
+    const closes = (out.match(/<\/style>/gi) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+
+  // Lossless case: a legitimate `content: "</style>"` keeps IDENTICAL computed
+  // CSS semantics — inside a CSS string `\/` unescapes to `/`. Only the bytes
+  // that reach the HTML tokenizer change (the `/` gains a backslash), never the
+  // value the CSS parser sees.
+  it('escapes a legitimate content: "</style>" losslessly (non-legacy)', () => {
+    const css = '.a::before { content: "</style>" }';
+    const out = assembleDocument("<head></head><body></body>", {
+      css,
+      designSystemCss: KIT,
+      importMap: false,
+    });
+    // The escaped form is emitted (the `/` is backslash-escaped inside the
+    // string), so the style element is never terminated early…
+    expect(out).toContain('.a::before { content: "<\\/style>" }');
+    // …and the raw, breakout-capable form (the agent's `</style>` as a REAL
+    // close) is gone. (Note: a kit-close immediately followed by the agent
+    // style-open — `</style><style>` — is a NORMAL, valid sequence and is not
+    // what we guard against; we guard against the agent's content closing the
+    // element.)
+    expect(out).not.toContain('content: "</style>"');
+    // Style tags stay balanced — the escaped `<\/style>` inside the string does
+    // not count as a real close.
+    const opens = (out.match(/<style\b/gi) ?? []).length;
+    const closes = (out.match(/<\/style>/gi) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+
+  // Legacy path (designSystemCss: false, importMap: false): the agent css is
+  // escaped before the legacy injector splices it. RED pre-fix: the legacy path
+  // spliced the css RAW, so a `</style` broke out of the style element.
+  it("escapes </style in the agent css on the legacy path", () => {
+    const css = "a{}</style><script>alert(3)</script>";
+    const out = assembleDocument("<head></head><body>x</body>", {
+      css,
+      designSystemCss: false,
+      importMap: false,
+    });
+    // No prefix on the legacy path…
+    expect(out).not.toContain("data-ck-design-system");
+    expect(out).not.toContain('<script type="importmap">');
+    // …but the agent css is still `</style`-escaped (the breakout is gone).
+    expect(out).not.toContain("</style><script");
+    expect(out).toContain(
+      "<style>a{}<\\/style><script>alert(3)</script></style>",
+    );
+    // And it equals the NEW legacy reference exactly (byte-for-byte, modulo the
+    // escape that the reference now models).
+    expect(out).toBe(legacyInjectRef("<head></head><body>x</body>", css));
+  });
+
   it("matches the legacy path byte-for-byte when designSystemCss and importMap are false (inputs whose legacy output already contains literal <head>)", () => {
-    // legacy reference implementations, copied verbatim from OpenGenerativeUIRenderer.tsx
+    // legacy reference implementations, copied verbatim from OpenGenerativeUIRenderer.tsx.
+    // The injector applies the NEW `</style`-escape carve-out (a no-op for css
+    // without `</style`, so byte-identity holds for these fixtures).
     const legacyEnsureHead = (html: string) =>
       /<head[\s>]/i.test(html) ? html : `<head></head>${html}`;
     const legacyInject = (html: string, css: string) => {
+      const safe = escapeStyleClose(css);
       const i = html.indexOf("</head>");
       return i !== -1
-        ? html.slice(0, i) + `<style>${css}</style>` + html.slice(i)
-        : `<head><style>${css}</style></head>${html}`;
+        ? html.slice(0, i) + `<style>${safe}</style>` + html.slice(i)
+        : `<head><style>${safe}</style></head>${html}`;
     };
     // These inputs all produce a legacy output containing the literal lowercase
     // `<head>` token (the new contract returns L unchanged for exactly those).
@@ -681,7 +825,11 @@ describe("assembleDocument", () => {
       "foo</head><head><title>t</title></head><body>x</body>", // stray close before the real head — agent css must anchor to the real head's close, not the earlier stray
       "</head><head></head><body>z</body>", // leading stray close before the real head — same close-anchor hazard
     ];
-    const CSS = [undefined, ".x{}"];
+    // The third fixture carries a `</style` breakout sequence: every sink must
+    // `</style`-escape it (legacy AND non-legacy). The legacy reference models
+    // the escape via legacyInject; the non-legacy assertion below matches the
+    // ESCAPED marker.
+    const CSS = [undefined, ".x{}", "a{}</style><script>alert(1)</script>"];
     // A real head-opening tag: `<head>` or `<head ...attrs>`, excluding
     // `<header ...>`. The quote-aware attribute span (matching the production
     // insertion regex) bounds the tag so it can never swallow a following
@@ -796,12 +944,18 @@ describe("assembleDocument", () => {
           // separately in the "retains a second authored head" tests below.
           expect(out.match(HEAD_OPEN) ?? []).toHaveLength(1);
           if (css) {
-            const cssMarker = ".x{}";
+            // The css is spliced through escapeStyleClose, so the marker we
+            // search for is the ESCAPED form (a no-op for `.x{}`; for the
+            // `</style`-bearing fixture the `/` gains a backslash).
+            const cssMarker = escapeStyleClose(css);
             const cssIdx = out.indexOf(cssMarker);
             // Agent css follows the kit…
             expect(kitIdx).toBeLessThan(cssIdx);
             // …and appears exactly once.
             expect(out.split(cssMarker)).toHaveLength(2);
+            // The breakout signature is never present — the escape holds for
+            // EVERY input shape in the matrix, not just the well-formed ones.
+            expect(out).not.toContain("</style><script");
           }
         });
       }

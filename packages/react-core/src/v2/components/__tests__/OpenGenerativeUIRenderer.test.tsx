@@ -9,7 +9,7 @@ import {
   OpenGenerativeUIOptionsProvider,
   DEFAULT_OPEN_GEN_UI_OPTIONS,
 } from "../../providers/OpenGenerativeUIOptionsContext";
-import { assembleDocument } from "../../lib/assembleDocument";
+import { assembleDocument, escapeStyleClose } from "../../lib/assembleDocument";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
 // The renderer's outer wrapper throttles non-immediate content changes with
@@ -1434,6 +1434,83 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       const kitIdx = headPayload.indexOf("data-ck-design-system");
       const agentCssIdx = headPayload.indexOf(agentCss);
       expect(kitIdx).toBeLessThan(agentCssIdx);
+    });
+
+    // Test C2 — `</style`-escape parity. The preview's buildPreviewHeadHtml
+    // splices the agent css RAW into a `<style>` element, so it must
+    // `</style`-escape it IDENTICALLY to assembleDocument's final sinks (reusing
+    // the SAME exported escapeStyleClose helper). RED pre-fix: the agent's
+    // `</style>` closed the preview style element early and the trailing
+    // `<script>` became LIVE in the preview iframe. GREEN post-fix: the close is
+    // escaped, so the preview and the final document escape byte-for-byte the
+    // same way (their cascade/byte parity is the whole point of sharing the
+    // helper).
+    it("escapes </style in the agent css in the preview head (same helper as the final document)", async () => {
+      const agentCss = "a{}</style><script>alert(1)</script>";
+
+      render(
+        <OpenGenerativeUIActivityRenderer
+          activityType="open-generative-ui"
+          content={{
+            css: agentCss,
+            cssComplete: true,
+            html: ["<body><div>Preview body</div>"],
+            htmlComplete: false,
+            generating: true,
+          }}
+          message={{}}
+          agent={{}}
+        />,
+      );
+      await flushImport();
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        mockPromiseResolve();
+        await mockPromise;
+      });
+      await flushImport();
+
+      const headCalls = mockRun.mock.calls.filter(
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      expect(headCalls.length).toBeGreaterThanOrEqual(1);
+      const headPayload: string = headCalls[headCalls.length - 1][0] as string;
+
+      // The payload is a `document.head.innerHTML = ${JSON.stringify(headHtml)}`
+      // run call, so the head html is JSON-encoded inside it. Decode it back to
+      // the raw head markup the preview iframe will receive.
+      const headHtml: string = JSON.parse(
+        headPayload.replace(/^document\.head\.innerHTML = /, ""),
+      );
+
+      // The preview escapes via the SAME exported helper as the final document.
+      expect(headHtml).toContain(
+        `<style>${escapeStyleClose(agentCss)}</style>`,
+      );
+      // The live-breakout signature is gone (the agent's `</style>` is now an
+      // escaped `<\/style>`, so the `<script>` is inert style text).
+      expect(headHtml).not.toContain("</style><script");
+      expect(headHtml).not.toMatch(/<\/style>\s*<script/i);
+
+      // Parity: assembleDocument escapes the SAME agent css the SAME way for the
+      // final document — the preview style and the final style carry byte-for-byte
+      // identical escaped css.
+      const finalDoc = assembleDocument(
+        "<head></head><body><div>Preview body</div></body>",
+        {
+          css: agentCss,
+          designSystemCss: DEFAULT_OPEN_GEN_UI_OPTIONS.designSystemCss,
+          importMap: DEFAULT_OPEN_GEN_UI_OPTIONS.importMap,
+        },
+      );
+      expect(finalDoc).toContain(
+        `<style>${escapeStyleClose(agentCss)}</style>`,
+      );
+      expect(finalDoc).not.toContain("</style><script");
     });
 
     // Test D — the overflow-hidden guard style must survive the head assignment.

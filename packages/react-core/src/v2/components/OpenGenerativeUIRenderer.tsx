@@ -11,7 +11,7 @@ import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 import { useOpenGenerativeUIOptions } from "../providers/OpenGenerativeUIOptionsContext";
-import { assembleDocument } from "../lib/assembleDocument";
+import { assembleDocument, escapeStyleClose } from "../lib/assembleDocument";
 import {
   processPartialHtml,
   extractCompleteStyles,
@@ -165,6 +165,17 @@ function shouldFlushImmediately(
  * content (not a separate append) so it survives the `head.innerHTML` assignment.
  * Order: overflow guard → kit → extracted preview styles → agent css (css last,
  * matching the final document's cascade).
+ *
+ * The kit css and the agent css are spliced RAW into `<style>` elements, so both
+ * pass through {@link escapeStyleClose} — IDENTICALLY to assembleDocument's final
+ * sinks — so a `</style` in either cannot break out of the preview style element
+ * and inject live markup (the preview and final must escape the same way so their
+ * cascade/byte parity holds). `previewStyles` is NOT escaped: it is hoisted by
+ * `extractCompleteStyles` from COMPLETE `<style>…</style>` elements in the agent's
+ * own markup, so by construction it cannot contain a live `</style>` — the
+ * extractor's regex stops AT the first `</style>`, so any earlier close already
+ * terminated the element it came from and nothing after it is carried here. The
+ * overflow guard is a fixed literal with no agent input, so it needs no escaping.
  */
 function buildPreviewHeadHtml(
   designSystemCss: string | false | undefined,
@@ -175,9 +186,11 @@ function buildPreviewHeadHtml(
     "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>",
   ];
   if (designSystemCss)
-    headParts.push(`<style data-ck-design-system>${designSystemCss}</style>`);
+    headParts.push(
+      `<style data-ck-design-system>${escapeStyleClose(designSystemCss)}</style>`,
+    );
   if (previewStyles) headParts.push(previewStyles);
-  if (css) headParts.push(`<style>${css}</style>`);
+  if (css) headParts.push(`<style>${escapeStyleClose(css)}</style>`);
   return headParts.join("");
 }
 
