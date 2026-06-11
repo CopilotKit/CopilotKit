@@ -92,6 +92,13 @@ describe("keyFor", () => {
     expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
     expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
   });
+  it("throws when dimension contains ':' or '/' (G3e — same guard as the other segments)", () => {
+    // `:` is the dimension/slug delimiter; a colon-bearing dimension would
+    // silently parse as a DIFFERENT dimension + slug suffix, and a
+    // slash-bearing one would fabricate a phantom feature segment.
+    expect(() => keyFor("bad:dim", "agno")).toThrow(/must not contain/);
+    expect(() => keyFor("bad/dim", "agno")).toThrow(/must not contain/);
+  });
   it("throws on an empty-string featureId instead of fabricating the aggregate key", () => {
     // An empty featureId is falsy, so a truthiness guard would skip the
     // delimiter validation AND the per-feature branch, silently producing the

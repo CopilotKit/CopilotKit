@@ -19,7 +19,12 @@ import {
   CATALOG_TO_D5_KEY,
   commErrorFromStatusSignal,
 } from "./live-status";
-import { E2E_STALE_AFTER_MS, D4_STALE_AFTER_MS, isStale } from "./staleness";
+import {
+  E2E_STALE_AFTER_MS,
+  D4_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  isStale,
+} from "./staleness";
 
 // Re-export the staleness windows so existing consumers that import them from
 // this module (e.g. `cell-model.test.ts`) keep resolving — the canonical
@@ -62,9 +67,11 @@ export interface CellModel {
    *
    * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
    * there is no D5 rung to gate against, so the raw `d6.status` passes through
-   * unchanged (a present failing D6 still surfaces — this mirrors the chip's
-   * `!d5.exists` branch, which goes red on a non-green D6). Only a PRESENT but
-   * non-green / no-data D5 collapses D6 to `null`.
+   * unchanged. Because D5 and D6 share the same `CATALOG_TO_D5_KEY` mapping,
+   * `!d5.exists` implies `!d6.exists` and the raw status is always `null`
+   * today — the passthrough only becomes observable if the two dimensions
+   * ever split onto separate maps. Only a PRESENT but non-green / no-data D5
+   * collapses D6 to `null`.
    *
    * Derived from the SAME contiguous-ladder algorithm as `chipColor` so the
    * badge, the stat, and the chip never disagree. When the ladder is intact
@@ -521,12 +528,16 @@ function chipColorToSurface(color: ChipColor): FleetSurfaceState {
  * control-plane mirrors a `PoolCommError` onto the `d6:<slug>` aggregate row but
  * NOTHING clears that blob on recovery — recovery just writes fresh green
  * per-cell rows. Without an age cap a single comm error would pin every cell of
- * the service to "unreachable" forever, even after the pool recovers. So a
- * decoded comm error whose `observedAt` is older than `E2E_STALE_AFTER_MS` (the
- * same window resolveD3/D5/D6 apply to stale-green rows; the comm error rides the
- * e2e-cadence d6 aggregate) is treated as recovered and skipped — exactly mirror-
- * ing the resolveDx stale-green downgrade. `now` is threaded in the same way
- * buildCellModel passes it to the resolveDx resolvers.
+ * the service to "unreachable" forever, even after the pool recovers. The
+ * window is scoped PER ROW FAMILY, mirroring the window each family's own
+ * resolver applies to stale-green rows: e2e-cadence rows (`d6`/`d5`/`e2e` and
+ * the fleet-family aggregates) use `E2E_STALE_AFTER_MS`, the D4 real-time rows
+ * (`chat`/`tools`) use `D4_STALE_AFTER_MS`, and the liveness row (`health`)
+ * uses `LIVENESS_STALE_AFTER_MS` — a liveness-cadence row must not carry a
+ * comm error for 6h when its own colour would have gone stale after 45m. A
+ * comm error older than its row's window is treated as recovered and skipped,
+ * exactly mirroring the resolveDx stale-green downgrade. `now` is threaded in
+ * the same way buildCellModel passes it to the resolveDx resolvers.
  *
  * SCOPE NOTE: this intentionally scans the integration-scoped aggregate
  * (`d6:<slug>`) and the chat/tools/health rows in addition to the cell's own
@@ -543,13 +554,22 @@ function decodeCellCommError(
   featureId: string,
   now: number,
 ): PoolCommError | undefined {
-  // Per-cell D6/D5 rows fan out over the mapped featureType family.
+  // Per-cell D6/D5 rows fan out over the mapped featureType family. Each
+  // candidate carries the staleness window of ITS row family (see the
+  // STALENESS WINDOW doc above) so a liveness-cadence row's comm error ages
+  // out on the liveness window, not the 6h e2e window.
   const familyKeys = CATALOG_TO_D5_KEY[featureId];
-  const candidateKeys: string[] = [];
+  const candidates: Array<{ key: string; staleAfterMs: number }> = [];
   if (familyKeys) {
     for (const ft of familyKeys) {
-      candidateKeys.push(keyFor("d6", slug, ft));
-      candidateKeys.push(keyFor("d5", slug, ft));
+      candidates.push({
+        key: keyFor("d6", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
+      candidates.push({
+        key: keyFor("d5", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
     }
   }
   // The d6 AGGREGATE row (`d6:<slug>`, no featureId) is where BOTH harness
@@ -560,11 +580,26 @@ function decodeCellCommError(
   // dashboard never surfaces the "unreachable" overlay even though the signal
   // is persisted. Checked alongside the per-cell rows so a worker-death comm
   // error lights up every cell of the affected service.
-  candidateKeys.push(keyFor("d6", slug));
-  candidateKeys.push(keyFor("e2e", slug, featureId));
-  candidateKeys.push(keyFor("chat", slug));
-  candidateKeys.push(keyFor("tools", slug));
-  candidateKeys.push(keyFor("health", slug));
+  candidates.push({
+    key: keyFor("d6", slug),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("e2e", slug, featureId),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("chat", slug),
+    staleAfterMs: D4_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("tools", slug),
+    staleAfterMs: D4_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("health", slug),
+    staleAfterMs: LIVENESS_STALE_AFTER_MS,
+  });
 
   // Decode every candidate and keep the WORST comm error, ranking by KIND
   // SEVERITY first and using recency only as a same-severity tie-break. A
@@ -580,7 +615,7 @@ function decodeCellCommError(
   let winner: PoolCommError | undefined;
   let winnerSeverity = Number.NEGATIVE_INFINITY;
   let winnerTs = Number.NEGATIVE_INFINITY;
-  for (const key of candidateKeys) {
+  for (const { key, staleAfterMs } of candidates) {
     const row = live.get(key);
     if (!row) continue;
     const commError = commErrorFromStatusSignal(row.signal);
@@ -588,13 +623,14 @@ function decodeCellCommError(
     // `observedAt` is an ISO string; `Date.parse` yields NaN for a malformed
     // value.
     const parsed = Date.parse(commError.observedAt);
-    // STALENESS GATE: a comm error older than the staleness window is treated
-    // as recovered and skipped — nothing clears the mirrored blob on recovery,
-    // so without this the cell would render "unreachable" forever. Mirrors the
-    // resolveDx stale-green downgrade. An UNPARSEABLE `observedAt` (NaN) is
-    // treated as stale too: it can never be cleared on recovery (its age is
-    // undefined), so surfacing it would strand a permanent phantom overlay.
-    if (Number.isNaN(parsed) || now - parsed > E2E_STALE_AFTER_MS) {
+    // STALENESS GATE: a comm error older than its row family's staleness
+    // window is treated as recovered and skipped — nothing clears the
+    // mirrored blob on recovery, so without this the cell would render
+    // "unreachable" forever. Mirrors the resolveDx stale-green downgrade. An
+    // UNPARSEABLE `observedAt` (NaN) is treated as stale too: it can never be
+    // cleared on recovery (its age is undefined), so surfacing it would
+    // strand a permanent phantom overlay.
+    if (Number.isNaN(parsed) || now - parsed > staleAfterMs) {
       continue;
     }
     // Severity tier: directly-observed crash kinds (everything except the
@@ -617,9 +653,16 @@ function decodeCellCommError(
 // Public API
 // ---------------------------------------------------------------------------
 
-const NOT_WIRED_LEVEL: TestLevel = { exists: false, status: null, row: null };
+// Module-level singletons returned BY REFERENCE to every caller — frozen so
+// one consumer mutating its "own" cell model cannot corrupt every other
+// unsupported/not-wired cell sharing the reference.
+const NOT_WIRED_LEVEL: TestLevel = Object.freeze({
+  exists: false,
+  status: null,
+  row: null,
+});
 
-const UNSUPPORTED: CellModel = {
+const UNSUPPORTED: CellModel = Object.freeze({
   supported: false,
   d3: null,
   d4: null,
@@ -631,7 +674,7 @@ const UNSUPPORTED: CellModel = {
   chipColor: "gray",
   isRegression: false,
   surfaceState: "gray",
-};
+});
 
 /**
  * Build the complete cell model for a single (integration, feature) pair.
@@ -715,7 +758,9 @@ export function buildCellModel(
   //
   // Decision table over (d1d4GateFails, d5.exists, d5.status, d6.status):
   //   gate fails                                  → red  (gate dominates)
-  //   D5 unmapped (!d5.exists), no D6             → gray (ceiling is D4)
+  //   D5 unmapped (!d5.exists)                    → gray (ceiling is D4; D6
+  //                                                 shares CATALOG_TO_D5_KEY,
+  //                                                 so it is unmapped too)
   //   D5 green + D6 green                         → green
   //   D5 green + D6 red/amber/missing             → amber
   //   D5 red/amber + (any D6)                     → red  (broken ladder)
@@ -730,12 +775,14 @@ export function buildCellModel(
     // A failing/stale D1-D4 gate dominates everything below it.
     chipColor = "red";
   } else if (!d5.exists) {
-    // D5 is not mapped for this feature → ceiling is D4 and D6 is not its
-    // gate. Green requires a contiguous D5, so an unmapped D5 never paints
-    // green. With the gate passing this resolves to gray (cell sits at its
-    // D4 ceiling with no further verification), unless a present D6 row is
-    // explicitly failing — which still surfaces as red.
-    chipColor = d6.exists && d6.status !== "green" ? "red" : "gray";
+    // D5 is not mapped for this feature → ceiling is D4. resolveD5 and
+    // resolveD6 derive `exists` from the SAME `CATALOG_TO_D5_KEY` entry, so
+    // `!d5.exists` IMPLIES `!d6.exists` — there is no "unmapped D5 but
+    // present D6" combination to consider. Green requires a contiguous D5,
+    // so the cell sits at its D4 ceiling with no further verification: gray.
+    // (Should the two dimensions ever split onto separate maps, a present
+    // failing D6 here would need to surface — re-introduce a D6 check then.)
+    chipColor = "gray";
   } else if (d5.status === "green") {
     // Mapped D5 is green → ladder intact up to D5. D6 decides green vs amber.
     chipColor = d6.status === "green" ? "green" : "amber";
@@ -756,10 +803,10 @@ export function buildCellModel(
   // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
   // badge/stat never contradict the chip:
   //   gate fails              → null (blocked; API/RT badge shows the failure)
-  //   D5 not mapped (!exists) → raw d6.status (D6 is not D5's gate here; a
-  //                             present failing D6 still surfaces — matches the
-  //                             chip's `!d5.exists` branch which goes red on a
-  //                             non-green D6)
+  //   D5 not mapped (!exists) → raw d6.status (no D5 rung to gate against;
+  //                             D6 shares CATALOG_TO_D5_KEY so it is unmapped
+  //                             too and the raw status is null today — the
+  //                             passthrough matters only if the maps split)
   //   D5 green                → raw d6.status (ladder intact through D5; a
   //                             genuine D6 red/amber/green passes through)
   //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the

@@ -272,6 +272,14 @@ export function keyFor(
   // collide in the lookup map (e.g. `smoke:a/b` vs `smoke:a` + `/b`).
   // Throw loudly so the bug surfaces at the call site instead of via
   // a phantom missing/duplicate badge downstream.
+  if (dimension.includes(":") || dimension.includes("/")) {
+    // Same guard as slug/featureId: a colon-bearing dimension would silently
+    // parse as a DIFFERENT dimension + slug suffix, and a slash-bearing one
+    // would fabricate a phantom feature segment.
+    throw new Error(
+      `keyFor: dimension must not contain ':' or '/' (got ${JSON.stringify(dimension)})`,
+    );
+  }
   if (slug.includes(":") || slug.includes("/")) {
     throw new Error(
       `keyFor: slug must not contain ':' or '/' (got ${JSON.stringify(slug)})`,
@@ -1084,11 +1092,13 @@ function rowsAreNoop(prev: unknown, next: unknown): boolean {
  * first_failure_at unchanged AND signal presence unchanged) so React's
  * reference-equality short-circuit can skip re-rendering downstream
  * memoised components.
+ *
+ * `T` is constrained to `StatusRow` (not a bare `{ key: string }`): the no-op
+ * decision compares StatusRow's discriminating fields, so a looser bound
+ * would let `rowsAreNoop` vacuously match a non-StatusRow type whose fields
+ * are all `undefined` — silently swallowing every update for that type.
  */
-export function upsertByKey<T extends { key: string }>(
-  rows: T[],
-  next: T,
-): T[] {
+export function upsertByKey<T extends StatusRow>(rows: T[], next: T): T[] {
   const idx = rows.findIndex((r) => r.key === next.key);
   if (idx === -1) return [...rows, next];
   const existing = rows[idx];

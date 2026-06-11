@@ -3,6 +3,7 @@ import {
   buildCellModel,
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
 } from "../cell-model";
 import type { CellModelInput } from "../cell-model";
 import type { LiveStatusMap, StatusRow, State } from "../live-status";
@@ -97,6 +98,33 @@ describe("buildCellModel", () => {
       });
       expect(model.supported).toBe(false);
       expect(model.chipColor).toBe("gray");
+    });
+  });
+
+  // ── G3e(i): shared singletons must be frozen ────────────────────────
+  // `UNSUPPORTED` and `NOT_WIRED_LEVEL` are module-level singletons returned
+  // by reference to every caller — one consumer mutating its "own" cell model
+  // would corrupt every other unsupported/not-wired cell. Freeze them.
+  describe("shared singleton immutability (G3e)", () => {
+    it("the unsupported CellModel singleton is frozen", () => {
+      const model = buildCellModel(mapOf([]), {
+        slug: "agno",
+        featureId: "agentic-chat",
+        isSupported: false,
+        isWired: false,
+      });
+      expect(Object.isFrozen(model)).toBe(true);
+    });
+
+    it("the shared NOT_WIRED_LEVEL TestLevel is frozen", () => {
+      const model = buildCellModel(mapOf([]), {
+        slug: "agno",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: false,
+      });
+      expect(Object.isFrozen(model.d3)).toBe(true);
+      expect(Object.isFrozen(model.d6)).toBe(true);
     });
   });
 
@@ -2039,6 +2067,62 @@ describe("buildCellModel", () => {
         );
         expect(model.surfaceState).toBe("unreachable");
         expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+      });
+
+      it("scopes the window PER ROW FAMILY: a health-row comm error older than the liveness window is skipped (G3e)", () => {
+        // The candidate scan must not apply the 6h E2E window to
+        // liveness-cadence rows: a health row's comm error ages out on the
+        // SAME window its row family's resolvers use (45m liveness), while
+        // the identical-age comm error on the e2e-cadence d6 aggregate is
+        // still fresh under the 6h window.
+        const AGE = LIVENESS_STALE_AFTER_MS + 5 * 60 * 1000; // 50m
+        expect(AGE).toBeLessThan(E2E_STALE_AFTER_MS);
+        const staleHealthOnly = mapOf([
+          row(keyFor("health", "agno"), "health", "green", {
+            signal: { __fleetCommError: commErrorAtAge(AGE) },
+          }),
+        ]);
+        const healthModel = buildCellModel(
+          staleHealthOnly,
+          wiredInput("agno", "agentic-chat"),
+          NOW,
+        );
+        // Aged out for the liveness family → treated as recovered.
+        expect(healthModel.surfaceState).not.toBe("unreachable");
+        expect(healthModel.commError).toBeUndefined();
+
+        const freshAggregate = mapOf([
+          row(keyFor("d6", "agno"), "d6", "green", {
+            signal: { __fleetCommError: commErrorAtAge(AGE) },
+          }),
+        ]);
+        const aggModel = buildCellModel(
+          freshAggregate,
+          wiredInput("agno", "agentic-chat"),
+          NOW,
+        );
+        // The same age on the e2e-cadence aggregate is still fresh.
+        expect(aggModel.surfaceState).toBe("unreachable");
+      });
+
+      it("scopes the window PER ROW FAMILY: a chat/tools-row comm error uses the D4 window (G3e)", () => {
+        const AGE = D4_STALE_AFTER_MS + 60 * 1000; // 61m — stale for D4, fresh for e2e
+        expect(AGE).toBeLessThan(E2E_STALE_AFTER_MS);
+        const staleChatOnly = mapOf([
+          row(keyFor("chat", "agno"), "chat", "green", {
+            signal: { __fleetCommError: commErrorAtAge(AGE) },
+          }),
+          row(keyFor("tools", "agno"), "tools", "green", {
+            signal: { __fleetCommError: commErrorAtAge(AGE) },
+          }),
+        ]);
+        const model = buildCellModel(
+          staleChatOnly,
+          wiredInput("agno", "agentic-chat"),
+          NOW,
+        );
+        expect(model.surfaceState).not.toBe("unreachable");
+        expect(model.commError).toBeUndefined();
       });
 
       it("the SAME comm error aged past the staleness window → NOT unreachable (recovered)", () => {
