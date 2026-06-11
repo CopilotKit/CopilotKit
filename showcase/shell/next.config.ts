@@ -20,7 +20,7 @@ function localBackendsEnv(): string {
   return JSON.stringify(map);
 }
 
-// NOTE: the docs-host 301s (/docs, /ag-ui, /reference and the
+// NOTE: the docs-host 308s (/docs, /ag-ui, /reference and the
 // /<framework-slug> routes) intentionally do NOT live here. A
 // next.config `redirects()` table is baked into the build artifact, so
 // the destination host would freeze to whatever was current at Docker

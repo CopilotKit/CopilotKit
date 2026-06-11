@@ -57,6 +57,22 @@ describe("resolveDocsHostRedirect", () => {
     );
   });
 
+  it("collapses duplicate slashes in destinations (SU-13)", () => {
+    expect(resolveDocsHostRedirect("/docs//mastra", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/mastra`,
+    );
+    expect(resolveDocsHostRedirect("//mastra", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/mastra`,
+    );
+    expect(resolveDocsHostRedirect("/ag-ui//events", DOCS_HOST, SLUGS)).toBe(
+      `${DOCS_HOST}/ag-ui/events`,
+    );
+    // A trailing slash on the docs host must not double up either.
+    expect(
+      resolveDocsHostRedirect("/docs/quickstart", `${DOCS_HOST}/`, SLUGS),
+    ).toBe(`${DOCS_HOST}/quickstart`);
+  });
+
   it("does NOT redirect shell-owned routes", () => {
     expect(resolveDocsHostRedirect("/", DOCS_HOST, SLUGS)).toBeNull();
     expect(

@@ -1,6 +1,7 @@
 // Docs-host redirect resolution — shared by middleware.
 //
-// These 301s used to live in next.config.ts `redirects()`, which bakes
+// These permanent (308) redirects used to live in next.config.ts
+// `redirects()` (`permanent: true` emits 308), which bakes
 // the destination host into the build artifact (`DOCS_HOST` was a
 // hardcoded const) — so a staging shell 301'd docs routes to the PROD
 // docs host (cross-origin RSC prefetch → CORS). The table now resolves
@@ -22,6 +23,45 @@
 const KEPT_PREFIXES = ["/ag-ui", "/reference"] as const;
 
 /**
+ * Normalize a destination path: collapse runs of slashes and strip a
+ * trailing slash (root "/" survives). Collapsing the LEADING run is
+ * security-relevant — a path like `//evil.com` is scheme-relative when
+ * handed to `new URL()` and would redirect off-site (see the
+ * middleware's SEO wildcard substitution).
+ */
+export function normalizeRedirectPath(path: string): string {
+  let normalized = path.replace(/\/{2,}/g, "/");
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+/**
+ * Defensive docs-host normalization: strip trailing slashes and ensure
+ * a scheme so `new URL(...)` consumers never throw or emit
+ * scheme-relative URLs if the runtime config hands us a bare host.
+ */
+function normalizeDocsHostOrigin(docsHost: string): string {
+  const trimmed = docsHost.replace(/\/+$/, "");
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+}
+
+/**
+ * Resolve an SEO-table destination path (which targets the DOCS routing
+ * surface) to an absolute URL on the docs host.
+ */
+export function resolveSeoDestination(
+  destinationPath: string,
+  docsHost: string,
+): URL {
+  const origin = normalizeDocsHostOrigin(docsHost);
+  return new URL(`${origin}${normalizeRedirectPath(destinationPath)}`);
+}
+
+/**
  * Returns the absolute destination URL (without query string) when
  * `pathname` belongs to the docs shell, or `null` when the path is
  * shell-owned and must fall through to normal handling.
@@ -31,16 +71,19 @@ export function resolveDocsHostRedirect(
   docsHost: string,
   frameworkSlugs: ReadonlySet<string>,
 ): string | null {
+  const origin = normalizeDocsHostOrigin(docsHost);
+
   // /docs → docs-host root; /docs/x → docs-host /x (prefix stripped).
-  if (pathname === "/docs") return docsHost;
+  if (pathname === "/docs") return origin;
   if (pathname.startsWith("/docs/")) {
-    return `${docsHost}${pathname.slice("/docs".length)}`;
+    const rest = normalizeRedirectPath(pathname.slice("/docs".length));
+    return rest === "/" ? origin : `${origin}${rest}`;
   }
 
   // /ag-ui and /reference keep their prefix on the docs host.
   for (const prefix of KEPT_PREFIXES) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
-      return `${docsHost}${pathname}`;
+      return `${origin}${normalizeRedirectPath(pathname)}`;
     }
   }
 
@@ -48,7 +91,7 @@ export function resolveDocsHostRedirect(
   // must exactly match a registry slug.
   const first = pathname.split("/").filter(Boolean)[0];
   if (first && frameworkSlugs.has(first)) {
-    return `${docsHost}${pathname}`;
+    return `${origin}${normalizeRedirectPath(pathname)}`;
   }
 
   return null;
