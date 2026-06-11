@@ -2109,3 +2109,121 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
     expect(reportSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("job-producer — throwing-logger hardening", () => {
+  // The documented invariant at `inFlightTick` — "a tick promise never
+  // rejects" — must hold even when the injected logger's TRANSPORT throws:
+  // the warm chain already hardens for this failure mode (its terminal
+  // .catch), but an unguarded logger.* call in the tick body rejected the
+  // tick promise, and one inside stop()'s completion permanently POISONED
+  // stopPromise (re-thrown to every later stop() caller). Logging is
+  // observability, never a correctness gate.
+
+  /** Every method throws — models a logger whose transport is down. */
+  function makeThrowingLogger(): Logger {
+    const boom = () => {
+      throw new Error("logger transport down");
+    };
+    return { info: boom, warn: boom, error: boom, debug: boom };
+  }
+
+  it("a throwing logger never rejects the tick promise (happy path)", async () => {
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: makeThrowingLogger(),
+    });
+    producer.start();
+    const result = await producer.tick(); // must resolve, not reject
+    expect(result.enqueued).toBe(1);
+    expect(queue.enqueued).toHaveLength(1);
+  });
+
+  it("a throwing logger never rejects the tick promise on the enumerate-failed path", async () => {
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => {
+        throw new Error("discovery down");
+      },
+      logger: makeThrowingLogger(),
+    });
+    producer.start();
+    const result = await producer.tick(); // logger.error in the catch throws
+    expect(result.enumerateFailed).toBe(true);
+    expect(result.enqueued).toBe(0);
+  });
+
+  it("a throwing logger never rejects the tick promise on the enqueue-failed path", async () => {
+    const queue = makeFakeQueue({
+      enqueueImpl: async () => {
+        throw new Error("PB down");
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: makeThrowingLogger(),
+    });
+    producer.start();
+    const result = await producer.tick();
+    expect(result.enqueueFailures).toBe(1);
+  });
+
+  it("a throwing logger never rejects a tick that arrives outside the lifecycle", async () => {
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => d6Specs(["alpha"]),
+      logger: makeThrowingLogger(),
+    });
+    // Never started — the tick-while-stopped warn throws.
+    const result = await producer.tick();
+    expect(result.runId).toBe("");
+  });
+
+  it("a throwing logger in stop() does not poison stopPromise (every stop() caller resolves)", async () => {
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => d6Specs(["alpha"]),
+      logger: makeThrowingLogger(),
+    });
+    producer.start();
+    await producer.tick();
+    // The primary stop()'s trailing logger.info throws inside the shared
+    // completion — without hardening that rejects stopPromise FOREVER.
+    await expect(producer.stop()).resolves.toBeUndefined();
+    // A later stop() shares stopPromise: it must not re-throw.
+    await expect(producer.stop()).resolves.toBeUndefined();
+  });
+
+  it("a throwing logger in the final-drain catch does not poison stopPromise", async () => {
+    // Buffered comm errors whose final-drain delivery ALSO fails route
+    // through the dropped-loudly logger.error — a throw there must not
+    // reject stop().
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: 1,
+        commErrors: [
+          {
+            kind: "worker-reclaimed-pending",
+            message: "lease for job j1 expired; re-queued",
+            jobId: "j1",
+            observedAt: "2026-06-04T00:00:09.000Z",
+          },
+        ],
+      }),
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: makeThrowingLogger(),
+      onSweepCommErrors: () => {
+        throw new Error("aggregator down for good");
+      },
+    });
+    producer.start();
+    await producer.tick(); // sink fails — j1 buffered
+    await expect(producer.stop()).resolves.toBeUndefined();
+    await expect(producer.stop()).resolves.toBeUndefined();
+  });
+});

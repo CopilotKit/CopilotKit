@@ -385,8 +385,42 @@ function skippedTickResult(): TickResult {
   };
 }
 
+/**
+ * Wrap the injected logger so a THROWING transport can never break the
+ * producer's control flow. The documented invariant at `inFlightTick` — "a
+ * tick promise never rejects; every failure path inside the tick is caught"
+ * — was violated by any unguarded logger.* call in the tick body, and a
+ * throw inside stop()'s shared completion permanently POISONED
+ * `stopPromise`: every later stop() caller awaited the same rejected
+ * promise and re-threw. The warm chain already hardens for this exact
+ * failure mode (its terminal `.catch` backstop, kept as defense in depth);
+ * wrapping the logger ONCE at construction extends the same discipline to
+ * every call site in this module. Logging is observability, never a
+ * correctness gate — a throwing transport is swallowed.
+ */
+function safeLogger(logger: Logger): Logger {
+  const guard =
+    (level: "info" | "warn" | "error" | "debug") =>
+    (msg: string, meta?: Record<string, unknown>): void => {
+      try {
+        logger[level](msg, meta);
+      } catch {
+        // A broken log transport must never break production or shutdown.
+      }
+    };
+  return {
+    info: guard("info"),
+    warn: guard("warn"),
+    error: guard("error"),
+    debug: guard("debug"),
+  };
+}
+
 export function createJobProducer(opts: JobProducerOptions): JobProducer {
-  const { queue, enumerate, logger } = opts;
+  const { queue, enumerate } = opts;
+  // Hardened once here so EVERY logger.* call in this module upholds the
+  // "a tick promise never rejects" invariant — see safeLogger.
+  const logger = safeLogger(opts.logger);
   const now = opts.now ?? (() => Date.now());
   const sweepIntervalMs = opts.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS;
   const runIdFactory = opts.runIdFactory ?? defaultRunIdFactory(now);
