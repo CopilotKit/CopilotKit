@@ -368,6 +368,26 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(resolveCell(liveE2eOnly, "agno", "ac").rollup).toBe("gray");
   });
 
+  it("an out-of-vocabulary contributor state (e.g. 'error') rolls up red-severity, never gray (A2)", () => {
+    // `StatusRow.state` is typed State (green|red|degraded), but the harness
+    // CAN persist an out-of-vocabulary value at runtime — notably "error"
+    // (the no-data representation; see harness result-aggregator). The rollup
+    // fold must route contributor states through the A2 rank machinery
+    // (worstStateRank ranks an unknown state ABOVE red), not literal
+    // includes() checks: a literal fold rolls the cell up GRAY (benign
+    // no-data) while the contributor's own badge renders the loud "error"
+    // tone — swallowing exactly the state the rank machinery exists to
+    // surface.
+    const outOfVocab = "error" as unknown as StatusRow["state"];
+    const live = mapOf([
+      row("health:agno", "health", outOfVocab),
+      row("e2e:agno/ac", "e2e", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "ac");
+    expect(c.rollup).not.toBe("gray");
+    expect(c.rollup).toBe("red");
+  });
+
   it("rolls up to gray when no rows at all", () => {
     const live = mapOf([]);
     const c = resolveCell(live, "agno", "ac");

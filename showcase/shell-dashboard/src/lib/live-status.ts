@@ -944,8 +944,24 @@ export function resolveCell(
     ? effectiveState(e2eRow, now, E2E_STALE_AFTER_MS)
     : null;
   const contributorStates: Array<State | null> = [healthEff, e2eEff];
-  const hasAnyRed = contributorStates.includes("red");
-  const hasAnyAmber = contributorStates.includes("degraded");
+  // Fold contributor states through the A2 rank machinery (worstStateRank),
+  // NOT literal includes() checks: a `State`-typed value can hold an
+  // out-of-vocabulary runtime state (e.g. "error" — see worstStateRank),
+  // which a literal fold matches against neither "red" nor "degraded", so
+  // the cell rolls up GRAY (benign no-data) while the contributor's own
+  // badge renders the loud "error" tone. The rank machinery deliberately
+  // ranks an unknown state ABOVE red, so it rolls up at least red-severity
+  // instead of being silently swallowed (the documented precedence
+  // red > degraded > green > error > unknown never demotes a present
+  // failure below red).
+  let worstContributorRank = 0;
+  for (const s of contributorStates) {
+    if (s === null) continue;
+    const rank = worstStateRank(s);
+    if (rank > worstContributorRank) worstContributorRank = rank;
+  }
+  const hasAnyRed = worstContributorRank >= WORST_STATE_RANK.red;
+  const hasAnyAmber = worstContributorRank === WORST_STATE_RANK.degraded;
   // `allGreen` is gated on `connection !== "error"` to avoid the stale-green
   // lie (spec §5.3): when the SSE stream has gone dark, any cached green
   // rows are by definition stale and must NOT be presented as authoritative
