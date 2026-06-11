@@ -87,7 +87,7 @@ function makeFakeAggregator(): ResultAggregator & {
     },
     async aggregateCommError(input) {
       commErrorCalls.push(input);
-      return { statusOutcomes: [] };
+      return { statusOutcomes: [], overlayOutcomes: [] };
     },
   };
 }
