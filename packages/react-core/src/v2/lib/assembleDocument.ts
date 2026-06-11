@@ -193,7 +193,10 @@ function maskInertSpans(html: string): string {
  * 2. `<style data-ck-design-system>` — the design-system token/SVG/form kit
  * 3. …whatever `<head>` content the agent authored…
  * 4. `<style>` containing `opts.css` — agent-authored CSS, immediately before
- *    `</head>` so it wins over the kit on specificity ties
+ *    the head close so it wins over the kit on specificity ties. The close is
+ *    `</head>` when one exists; for an UNCLOSED `<head>` it is the IMPLICIT close
+ *    at the first `<body>` (the body start tag ends the head), so the agent css
+ *    still lands AFTER the author's in-head content rather than ahead of it.
  *
  * Backward-compat invariant (legacy path): when no prefix is injected — i.e.
  * `designSystemCss` is falsy AND `importMap` is falsy or an empty object — the
@@ -414,10 +417,34 @@ export function assembleDocument(
         html.slice(headCloseIdx)
       );
     }
-    // No </head> exists. ensureHead guarantees a real head-opening tag is
-    // present, so inject the agent css right after the kit/importmap prefix —
-    // keeping the documented cascade (kit first, agent css after) and avoiding
-    // a duplicate <head>.
+    // No explicit `</head>` at/after the anchor. The head is implicitly closed
+    // by the first `<body>` (HTML parsing: the body's start tag ends the head).
+    // Anchor the agent css JUST BEFORE that implicit close so it lands AFTER the
+    // author's in-head content — preserving the everywhere-else cascade (author
+    // head content first, agent css last) and keeping the streaming-preview→final
+    // swap stable (the preview hoists the author styles before the css). Without
+    // this, the css would splice right after the prefix, ahead of the author's
+    // in-head styles, inverting the cascade for an unclosed `<head>`.
+    //
+    // Search the SAME masked copy so a `<body>` token inside a comment or
+    // style/script content cannot be mistaken for the structural body-open. The
+    // token must be word-bounded (`<body` then whitespace or `>`) so `<bodyfoo>`
+    // does not match. Scope to the slice at/after `prefixInsertAt` so it pairs
+    // with the head the prefix anchored to.
+    const bodyRel = maskedAfter.slice(prefixInsertAt).search(/<body[\s>]/i);
+    if (bodyRel !== -1) {
+      const bodyOpenIdx = bodyRel + prefixInsertAt;
+      return (
+        html.slice(0, bodyOpenIdx) +
+        `<style>${css}</style>` +
+        html.slice(bodyOpenIdx)
+      );
+    }
+    // Neither a `</head>` nor a `<body>` follows the anchor (e.g. an unclosed
+    // `<head>` with no body at all). ensureHead guarantees a real head-opening
+    // tag is present, so inject the agent css right after the kit/importmap
+    // prefix — keeping the documented cascade (kit first, agent css after) and
+    // avoiding a duplicate <head>.
     if (prefixInsertAt !== undefined) {
       return (
         html.slice(0, prefixInsertAt) +

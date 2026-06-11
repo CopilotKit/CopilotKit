@@ -222,6 +222,62 @@ describe("assembleDocument", () => {
     expect(kitIdx).toBeLessThan(cssIdx);
   });
 
+  // Close-anchor finding (unclosed head, implicit body close): when an UNCLOSED
+  // `<head>` carries author in-head content and is implicitly closed by the
+  // first `<body>`, the agent css must land JUST BEFORE that `<body>` — i.e.
+  // AFTER the author's in-head styles — preserving the everywhere-else cascade
+  // (author head content first, agent css last). RED pre-fix: the css spliced
+  // right after the kit/importmap prefix, ahead of the author's in-head styles,
+  // inverting the cascade for an unclosed head (and flipping order at the
+  // streaming-preview→final swap, which hoists author styles before the css).
+  it("anchors agent css to the implicit head close (before <body>) for an unclosed head", () => {
+    const out = assembleDocument("<head><style>.a{}</style><body>x</body>", {
+      css: ".agent{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // Exactly one head-open tag — no duplicate head was prepended.
+    const headOpenings =
+      out.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+    expect(headOpenings).toHaveLength(1);
+    const importmapIdx = out.indexOf('<script type="importmap">');
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const authorIdx = out.indexOf(".a{}");
+    const agentIdx = out.indexOf(".agent{color:red}");
+    const bodyIdx = out.search(/<body[\s>]/);
+    expect(importmapIdx).toBeGreaterThan(-1);
+    expect(authorIdx).toBeGreaterThan(-1);
+    expect(agentIdx).toBeGreaterThan(-1);
+    expect(bodyIdx).toBeGreaterThan(-1);
+    // Full cascade: importmap -> kit -> author in-head style -> agent css ->
+    // <body>. The agent css is the LAST thing in the head (just before <body>).
+    expect(importmapIdx).toBeLessThan(kitIdx);
+    expect(kitIdx).toBeLessThan(authorIdx);
+    expect(authorIdx).toBeLessThan(agentIdx);
+    expect(agentIdx).toBeLessThan(bodyIdx);
+  });
+
+  // Close-anchor finding (unclosed head, NO body): with neither a `</head>` nor
+  // a `<body>` to anchor to, the css must fall back to landing right after the
+  // kit/importmap prefix (no duplicate head). This pins the current fallback.
+  it("places agent css right after the prefix for an unclosed head with no body", () => {
+    const out = assembleDocument("<head><p>x</p>", {
+      css: ".agent{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    const headOpenings =
+      out.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+    expect(headOpenings).toHaveLength(1);
+    const kitIdx = out.indexOf("data-ck-design-system");
+    const agentIdx = out.indexOf(".agent{color:red}");
+    const pIdx = out.indexOf("<p>");
+    // Cascade: kit then agent css, and the css sits right after the prefix —
+    // before the author's `<p>` content (the post-prefix fallback).
+    expect(kitIdx).toBeLessThan(agentIdx);
+    expect(agentIdx).toBeLessThan(pIdx);
+  });
+
   // Finding 2 (constraint): in PURE LEGACY mode the unclosed-<head> quirk must
   // remain byte-identical to the legacy algorithm (prepend a second head).
   it("preserves the legacy prepend-second-head quirk for unclosed <head> in pure legacy mode", () => {
