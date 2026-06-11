@@ -169,9 +169,11 @@ export function ControlRoomSuggestions() {
 }
 
 export function CenterWorkstream() {
+  const { localState } = useControlRoomLocal();
   return (
     <div className="h-full min-h-0 overflow-hidden">
       <CopilotChat
+        key={localState.chatSessionKey}
         agentId={CONTROL_ROOM_AGENT_NAME}
         className="h-full w-full"
         input={{ showDisclaimer: false }}

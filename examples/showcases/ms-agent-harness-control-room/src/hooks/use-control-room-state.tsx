@@ -69,6 +69,15 @@ export interface ControlRoomLocalState {
   connectionStatus: ConnectionStatus;
   lastError?: string;
   reconnectAttempts: number;
+  /** Active Intelligence thread (undefined = fresh conversation). */
+  activeThreadId: string | undefined;
+  /**
+   * React key for the CopilotChat mount — one mount per conversation.
+   * Changes on every thread switch and on "New thread", deterministically
+   * tearing down the previous mount's connect stream and bringing the
+   * welcome screen back for fresh (non-explicit) conversations.
+   */
+  chatSessionKey: string;
 }
 
 export interface ControlRoomLocalContextValue {
@@ -85,6 +94,10 @@ export interface ControlRoomLocalContextValue {
   recordConnection: (status: ConnectionStatus, error?: string) => void;
   /** Increment the reconnect counter (children watch this to refetch). */
   bumpReconnect: () => void;
+  /** Switch the active Intelligence thread (undefined = fresh conversation). */
+  setActiveThreadId: (threadId: string | undefined) => void;
+  /** Start a brand-new conversation (clears the thread and remounts the chat). */
+  startFreshThread: () => void;
 }
 
 const ControlRoomLocalContext =
@@ -98,6 +111,10 @@ interface ControlRoomProviderProps {
   setA2UIEnabled: (enabled: boolean) => void;
   openGenerativeUIEnabled: boolean;
   setOpenGenerativeUIEnabled: (enabled: boolean) => void;
+  activeThreadId: string | undefined;
+  setActiveThreadId: (threadId: string | undefined) => void;
+  chatSessionKey: string;
+  startFreshThread: () => void;
 }
 
 export function ControlRoomProvider({
@@ -108,6 +125,10 @@ export function ControlRoomProvider({
   setA2UIEnabled,
   openGenerativeUIEnabled,
   setOpenGenerativeUIEnabled,
+  activeThreadId,
+  setActiveThreadId,
+  chatSessionKey,
+  startFreshThread,
 }: ControlRoomProviderProps) {
   const [featureSupport, setFeatureSupportState] =
     useState<ControlRoomFeatureSupport | null>(null);
@@ -155,6 +176,8 @@ export function ControlRoomProvider({
         connectionStatus,
         lastError,
         reconnectAttempts,
+        activeThreadId,
+        chatSessionKey,
       },
       setEndpoint,
       setA2UIEnabled,
@@ -162,6 +185,8 @@ export function ControlRoomProvider({
       setFeatureSupport,
       recordConnection,
       bumpReconnect,
+      setActiveThreadId,
+      startFreshThread,
     }),
     [
       currentEndpoint,
@@ -171,12 +196,16 @@ export function ControlRoomProvider({
       connectionStatus,
       lastError,
       reconnectAttempts,
+      activeThreadId,
+      chatSessionKey,
       setEndpoint,
       setA2UIEnabled,
       setOpenGenerativeUIEnabled,
       setFeatureSupport,
       recordConnection,
       bumpReconnect,
+      setActiveThreadId,
+      startFreshThread,
     ],
   );
 

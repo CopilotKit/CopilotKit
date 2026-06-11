@@ -44,6 +44,26 @@ Open http://localhost:3000 and you should see the Agent Harness showcase.
 
 App-owned wrappers that exist because the underlying Harness + AG-UI primitive isn't yet native are labeled with a small amber badge reading **"Live wrapper: pending native Harness AG-UI support"**. Native Harness primitives are still shown honestly; until `STATE_SNAPSHOT` / `STATE_DELTA` ships upstream, the UI derives mode, todos, memory, approvals, skills, and observers from AG-UI messages.
 
+## CopilotKit Intelligence
+
+The control room can run on [CopilotKit Intelligence](https://docs.copilotkit.ai) for durable threads, realtime sync, and platform observability. Set all three variables to enable it:
+
+```bash
+INTELLIGENCE_API_URL=…        # Intelligence API base URL
+INTELLIGENCE_GATEWAY_WS_URL=… # Gateway WebSocket URL — must be reachable from
+                              # visitors' browsers (wss://…), not a private address
+INTELLIGENCE_API_KEY=…        # Intelligence API key
+```
+
+With the variables set, the sidebar gains a **Threads** tab: conversations persist server-side and can be resumed, renamed, archived, and deleted; thread names are auto-generated after the first message. With them unset (the local default), the demo runs exactly as before on the in-memory runner and the tab stays hidden. Setting only some of the three is treated as a misconfiguration and fails at startup.
+
+Presenter notes:
+
+- Threads are keyed by the agent name, not the endpoint, so a conversation survives switching Harness endpoints mid-thread.
+- The deployment identifies every visitor as one shared demo user, so all browsers see the same thread list — open the demo in a second window and watch new threads and renames appear in realtime.
+- The shared identity must be a user that already exists in the Intelligence organization; the platform does not auto-provision users and fails thread creation for unknown ids.
+- Without a `COPILOTKIT_LICENSE_TOKEN`, Intelligence mode shows a "Powered by CopilotKit" banner; set the token to remove it.
+
 ## Suggested demo paths
 
 Use the CopilotChat starter suggestions instead of presenter step buttons:

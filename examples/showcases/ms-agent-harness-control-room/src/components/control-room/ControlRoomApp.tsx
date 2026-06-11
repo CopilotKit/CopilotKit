@@ -11,7 +11,10 @@
 import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+} from "@copilotkit/react-core/v2";
 import { PanelLeft } from "lucide-react";
 
 import {
@@ -43,6 +46,7 @@ import {
 } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ControlRoomProvider } from "@/hooks/use-control-room-state";
+import { CONTROL_ROOM_AGENT_NAME } from "@/lib/control-room-agent";
 import { CONTROL_ROOM_ENDPOINT_HEADER, DEFAULT_ENDPOINT } from "@/lib/endpoint";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +55,23 @@ export function ControlRoomApp() {
     useState<string>(DEFAULT_ENDPOINT);
   const [a2uiEnabled, setA2UIEnabled] = useState(true);
   const [openGenerativeUIEnabled, setOpenGenerativeUIEnabled] = useState(true);
+  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
+    undefined,
+  );
+  // Bumped on every "New thread" so the chat remounts into a fresh,
+  // non-explicit conversation (which is what shows the welcome screen)
+  // even when activeThreadId is already undefined.
+  const [freshThreadNonce, setFreshThreadNonce] = useState(0);
+
+  const startFreshThread = useCallback(() => {
+    setActiveThreadId(undefined);
+    setFreshThreadNonce((nonce) => nonce + 1);
+  }, []);
+
+  // One chat mount per conversation: every thread switch (and every fresh
+  // conversation) remounts CopilotChat, so the previous mount's connect
+  // stream and run subscriptions are deterministically torn down.
+  const chatSessionKey = activeThreadId ?? `fresh-${freshThreadNonce}`;
 
   const runtimeHeaders = useCallback(
     () => ({
@@ -72,23 +93,37 @@ export function ControlRoomApp() {
       }
       openGenerativeUI={openGenerativeUIEnabled ? {} : undefined}
     >
-      <ControlRoomProvider
-        currentEndpoint={currentEndpoint}
-        setCurrentEndpoint={setCurrentEndpoint}
-        a2uiEnabled={a2uiEnabled}
-        setA2UIEnabled={setA2UIEnabled}
-        openGenerativeUIEnabled={openGenerativeUIEnabled}
-        setOpenGenerativeUIEnabled={setOpenGenerativeUIEnabled}
+      {/*
+        Broadcasts the active Intelligence thread to the whole cockpit:
+        CopilotChat resolves it as its threadId and every useAgent-based
+        evidence panel follows the same per-thread agent clone.
+      */}
+      <CopilotChatConfigurationProvider
+        agentId={CONTROL_ROOM_AGENT_NAME}
+        threadId={activeThreadId}
       >
-        <GenerativeUICatalogProvider>
-          <ToolRendererRegistry />
-          <GenerativeUIRegistry />
-          <TooltipProvider>
-            <ControlRoomSuggestions />
-            <ThreePaneLayout />
-          </TooltipProvider>
-        </GenerativeUICatalogProvider>
-      </ControlRoomProvider>
+        <ControlRoomProvider
+          currentEndpoint={currentEndpoint}
+          setCurrentEndpoint={setCurrentEndpoint}
+          a2uiEnabled={a2uiEnabled}
+          setA2UIEnabled={setA2UIEnabled}
+          openGenerativeUIEnabled={openGenerativeUIEnabled}
+          setOpenGenerativeUIEnabled={setOpenGenerativeUIEnabled}
+          activeThreadId={activeThreadId}
+          setActiveThreadId={setActiveThreadId}
+          chatSessionKey={chatSessionKey}
+          startFreshThread={startFreshThread}
+        >
+          <GenerativeUICatalogProvider>
+            <ToolRendererRegistry />
+            <GenerativeUIRegistry />
+            <TooltipProvider>
+              <ControlRoomSuggestions />
+              <ThreePaneLayout />
+            </TooltipProvider>
+          </GenerativeUICatalogProvider>
+        </ControlRoomProvider>
+      </CopilotChatConfigurationProvider>
     </CopilotKitProvider>
   );
 }

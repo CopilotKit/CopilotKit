@@ -1,6 +1,11 @@
 "use client";
 
-import { RotateCcw, SettingsIcon } from "lucide-react";
+import {
+  LayoutGrid,
+  MessagesSquare,
+  RotateCcw,
+  SettingsIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { CommandControls } from "@/components/control-room/CommandControls";
@@ -13,6 +18,10 @@ import { StructuredDiagnosisPanel } from "@/components/control-room/inspectors/S
 import { ModeControls } from "@/components/control-room/ModeControls";
 import { RightInspectorPanel } from "@/components/control-room/RightInspectorPanel";
 import { StructuredOutputControl } from "@/components/control-room/StructuredOutputControl";
+import {
+  ThreadsPanel,
+  useIntelligenceEnabled,
+} from "@/components/control-room/ThreadsPanel";
 import {
   Accordion,
   AccordionContent,
@@ -36,6 +45,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useControlRoomLocal } from "@/hooks/use-control-room-state";
 import type { FixtureResetResult } from "@/lib/control-room-types";
 import { CONTROL_ROOM_ENDPOINT_HEADER } from "@/lib/endpoint";
@@ -51,8 +62,49 @@ export function ShowcaseSidebar({ className }: { className?: string }) {
     >
       <ConnectionStatus />
       <ShowcaseHeader />
-      <GenerativeUICatalogPanel className="min-h-0 flex-1" />
+      <ShowcaseSidebarBody />
     </div>
+  );
+}
+
+function ShowcaseSidebarBody() {
+  const intelligenceEnabled = useIntelligenceEnabled();
+
+  if (!intelligenceEnabled) {
+    return <GenerativeUICatalogPanel className="min-h-0 flex-1" />;
+  }
+
+  return (
+    <Tabs defaultValue="threads" className="flex min-h-0 flex-1 flex-col gap-0">
+      <div className="cr-catalog-controls shrink-0 px-4">
+        <TabsList
+          variant="line"
+          className="w-full justify-center gap-6 p-0 group-data-horizontal/tabs:h-10"
+        >
+          <TabsTrigger
+            value="threads"
+            className="h-full flex-none px-0.5 after:bg-primary data-active:text-primary group-data-horizontal/tabs:after:bottom-[-2px]"
+          >
+            <MessagesSquare className="size-3.5" />
+            Threads
+          </TabsTrigger>
+          <TabsTrigger
+            value="catalog"
+            className="h-full flex-none px-0.5 after:bg-primary data-active:text-primary group-data-horizontal/tabs:after:bottom-[-2px]"
+          >
+            <LayoutGrid className="size-3.5" />
+            Generative UI
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <Separator className="cr-catalog-rule shrink-0" />
+      <TabsContent value="catalog" className="min-h-0 flex-1">
+        <GenerativeUICatalogPanel className="h-full min-h-0" />
+      </TabsContent>
+      <TabsContent value="threads" className="min-h-0 flex-1">
+        <ThreadsPanel className="h-full min-h-0" />
+      </TabsContent>
+    </Tabs>
   );
 }
 
