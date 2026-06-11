@@ -1256,6 +1256,102 @@ describe("job-producer — sweep cadence", () => {
     expect(received[0]![received[0]!.length - 1]!.jobId).toBe("fresh0");
   });
 
+  it("[REQ-B] the buffer-overflow warn identifies the dropped jobs (capped jobIds sample), like its sibling drop paths", async () => {
+    // The overflow drop is one of THREE paths that permanently lose a comm
+    // error's dashboard signal. The other two (no-sink drop, stop()-drain
+    // drop) log the dropped jobIds; the overflow warn carried only a count —
+    // an operator could see THAT signals were lost but never WHICH jobs.
+    const errs = (n: number, prefix: string): PoolCommError[] =>
+      Array.from({ length: n }, (_, i) => ({
+        kind: "worker-reclaimed-pending" as const,
+        message: "lease expired",
+        jobId: `${prefix}${i}`,
+        observedAt: "2026-06-04T00:00:09.000Z",
+      }));
+    const OVERFLOW = 5;
+    const seeded = MAX_BUFFERED_SWEEP_COMM_ERRORS + OVERFLOW;
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: seeded,
+        commErrors: errs(seeded, "old"),
+      }),
+    });
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: {
+        ...SILENT_LOGGER,
+        warn: (msg, meta) => {
+          warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+        },
+      },
+      sweepIntervalMs: 0,
+      onSweepCommErrors: () => {
+        throw new Error("aggregator down");
+      },
+    });
+    producer.start();
+    await producer.tick();
+
+    const overflow = warns.find(
+      (w) => w.msg === "fleet.producer.sweep-commerror-buffer-overflow",
+    );
+    expect(overflow).toBeDefined();
+    expect(overflow!.meta).toMatchObject({ dropped: OVERFLOW });
+    // The DROPPED (oldest) entries' jobIds, not the survivors'.
+    expect(overflow!.meta!.jobIds).toEqual([
+      "old0",
+      "old1",
+      "old2",
+      "old3",
+      "old4",
+    ]);
+  });
+
+  it("[REQ-B] the buffer-overflow warn caps its jobIds sample (a mass drop must not flood one log line)", async () => {
+    const errs = (n: number): PoolCommError[] =>
+      Array.from({ length: n }, (_, i) => ({
+        kind: "worker-reclaimed-pending" as const,
+        message: "lease expired",
+        jobId: `old${i}`,
+        observedAt: "2026-06-04T00:00:09.000Z",
+      }));
+    const OVERFLOW = 50; // more than the sample cap
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: MAX_BUFFERED_SWEEP_COMM_ERRORS + OVERFLOW,
+        commErrors: errs(MAX_BUFFERED_SWEEP_COMM_ERRORS + OVERFLOW),
+      }),
+    });
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: {
+        ...SILENT_LOGGER,
+        warn: (msg, meta) => {
+          warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+        },
+      },
+      sweepIntervalMs: 0,
+      onSweepCommErrors: () => {
+        throw new Error("aggregator down");
+      },
+    });
+    producer.start();
+    await producer.tick();
+
+    const overflow = warns.find(
+      (w) => w.msg === "fleet.producer.sweep-commerror-buffer-overflow",
+    );
+    expect(overflow).toBeDefined();
+    expect(overflow!.meta).toMatchObject({ dropped: OVERFLOW });
+    const jobIds = overflow!.meta!.jobIds as string[];
+    expect(jobIds.length).toBeLessThan(OVERFLOW);
+    expect(jobIds[0]).toBe("old0");
+  });
+
   it("[REQ-B] warns ONCE (with jobIds) when swept comm errors exist but no sink is configured", async () => {
     // Legacy logged-only mode drops the batch's dashboard signal with only a
     // count in the sweep-reclaimed warn. Surface the wiring gap explicitly —

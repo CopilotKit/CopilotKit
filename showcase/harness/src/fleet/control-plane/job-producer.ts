@@ -370,6 +370,15 @@ export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
 export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
 
 /**
+ * Cap on the jobIds SAMPLE the buffer-overflow warn carries. The sibling
+ * drop paths (no-sink, stop()-drain) log every dropped jobId, but those
+ * batches are bounded by a single sweep; an overflow drop is bounded only
+ * by the inflow rate, so the warn samples the OLDEST (dropped-first) ids
+ * rather than flood one log line with thousands.
+ */
+export const OVERFLOW_DROP_JOBID_SAMPLE = 20;
+
+/**
  * The no-op `TickResult` for a tick that never RAN (skipped because a
  * previous tick was still in flight, or arrived outside the producer's
  * lifecycle). `runId` is the empty-string sentinel: no run was minted — a
@@ -564,10 +573,20 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       if (undeliveredCommErrors.length > MAX_BUFFERED_SWEEP_COMM_ERRORS) {
         const dropped =
           undeliveredCommErrors.length - MAX_BUFFERED_SWEEP_COMM_ERRORS;
+        const droppedEntries = undeliveredCommErrors.slice(0, dropped);
         undeliveredCommErrors = undeliveredCommErrors.slice(dropped);
+        // Identify the dropped jobs like the sibling drop paths (no-sink
+        // drop, stop()-drain drop) — a count alone says THAT signals were
+        // lost, never WHICH. SAMPLED (capped) unlike the siblings: an
+        // overflow drop is unbounded, and a mass drop must not flood one
+        // log line with thousands of ids.
         logger.warn("fleet.producer.sweep-commerror-buffer-overflow", {
           dropped,
           buffered: MAX_BUFFERED_SWEEP_COMM_ERRORS,
+          jobIds: droppedEntries
+            .slice(0, OVERFLOW_DROP_JOBID_SAMPLE)
+            .map((e) => e.jobId)
+            .filter((id): id is string => id !== undefined),
         });
       }
     }
