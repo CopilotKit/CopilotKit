@@ -824,6 +824,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     async stop() {
       if (!running) {
         stopped = true;
+        // A SECOND concurrent stop() lands here (the first flipped `running`
+        // synchronously) — it must STILL quiesce: returning while the first
+        // stop()'s tick is mid-enqueue made "stopped" a lie to this caller
+        // (a shutdown racing two stop()s could tear the queue down under a
+        // still-writing tick). Await the in-flight tick AND any queued
+        // trigger, same as the primary path below.
+        while (inFlightTick !== null || queuedTrigger !== null) {
+          await (inFlightTick ?? queuedTrigger)!.catch(() => {});
+        }
         return;
       }
       running = false;
@@ -831,9 +840,12 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // QUIESCE: an in-flight tick observed `running === true` at entry and
       // may still be enumerating/sweeping/enqueueing. "Stopped" must mean the
       // tick is DONE — its enqueue loop truncates on the flag flipped above,
-      // and stop() resolves only once the tick has fully unwound.
-      if (inFlightTick !== null) {
-        await inFlightTick.catch(() => {});
+      // and stop() resolves only once the tick has fully unwound. A LOOP, not
+      // a single await: a queued trigger (see the re-entrancy guard) takes
+      // the in-flight slot after the current tick resolves — its (skipped,
+      // `running` is false) run must also unwind before stop() resolves.
+      while (inFlightTick !== null || queuedTrigger !== null) {
+        await (inFlightTick ?? queuedTrigger)!.catch(() => {});
       }
       // FINAL DRAIN: buffered undelivered comm errors would otherwise die
       // with the process — `sweepExpired` cannot re-derive a missed batch.

@@ -1445,6 +1445,86 @@ describe("job-producer — stop() quiesce", () => {
     expect(stopResolved).toBe(true);
   });
 
+  it("a SECOND concurrent stop() also awaits the in-flight tick (no early-return without quiescing)", async () => {
+    // The first stop() flips `running` synchronously, so a second concurrent
+    // stop() used to hit the !running early-return and resolve IMMEDIATELY —
+    // while the tick the first stop() was quiescing on kept enqueueing. For
+    // that second caller, "stopped" was a lie: a shutdown sequence racing two
+    // stop() calls could tear down the queue under a still-writing tick.
+    let releaseEnqueue!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnqueue = resolve));
+    const queue = makeFakeQueue({
+      enqueueImpl: async (input) => {
+        await gate;
+        return jobView(input);
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    const tickP = producer.tick();
+    await vi.waitFor(() => {
+      expect(queue.enqueued).toHaveLength(1); // tick reached the gated enqueue
+    });
+    const stop1 = producer.stop(); // flips running=false, quiesces
+    let stop2Resolved = false;
+    const stop2 = producer.stop().then(() => {
+      stop2Resolved = true;
+    });
+    // Give the second stop() every chance to (incorrectly) resolve early.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(stop2Resolved).toBe(false);
+    releaseEnqueue();
+    await tickP;
+    await stop1;
+    await stop2;
+    expect(stop2Resolved).toBe(true);
+  });
+
+  it("a concurrent stop() awaits the QUEUED trigger too (the queued trigger cannot outlive stop())", async () => {
+    // A triggered tick queued behind the in-flight one (see the re-entrancy
+    // guard) is part of the producer's outstanding work: stop() resolving
+    // while the queued trigger is still waiting would let it observe the
+    // stopped producer only via its own skipped runTick — fine — but a stop()
+    // that doesn't await it at all cannot guarantee even that ordering.
+    let releaseEnumerate!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnumerate = resolve));
+    let enumerateCalls = 0;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: async () => {
+        enumerateCalls += 1;
+        if (enumerateCalls === 1) await gate;
+        return d6Specs(["a"]);
+      },
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    const firstP = producer.tick(); // blocked inside enumerate
+    await vi.waitFor(() => expect(enumerateCalls).toBe(1));
+    const queuedP = producer.tick({ triggered: true }); // queued behind
+    let queuedResolved = false;
+    void queuedP.then(() => {
+      queuedResolved = true;
+    });
+    const stopP = producer.stop();
+    releaseEnumerate();
+    await firstP;
+    await stopP;
+    // stop() resolved only AFTER the queued trigger fully unwound.
+    expect(queuedResolved).toBe(true);
+    const queued = await queuedP;
+    // The queued trigger observed the stop and produced nothing — and the
+    // first tick, released after stop flipped `running`, truncated before
+    // its first enqueue.
+    expect(queued.enqueued).toBe(0);
+    expect(queue.enqueued).toHaveLength(0);
+  });
+
   it("a tick stopped mid-batch truncates the remaining enqueues (and logs the truncation)", async () => {
     let releaseEnqueue!: () => void;
     const gate = new Promise<void>((resolve) => (releaseEnqueue = resolve));
