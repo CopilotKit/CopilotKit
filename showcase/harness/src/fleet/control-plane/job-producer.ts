@@ -374,6 +374,14 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * tick is caught — but stop() guards with .catch anyway.)
    */
   let inFlightTick: Promise<TickResult> | null = null;
+  /**
+   * The ONE operator-triggered tick queued behind an overlapping in-flight
+   * tick, or null. A TRIGGERED tick that hits the re-entrancy guard is not
+   * dropped (operator intent wins — see tick()); it waits for the in-flight
+   * tick and then runs. Capped at one: a second concurrent trigger gets the
+   * skip — the already-queued trigger covers "run after the in-flight tick".
+   */
+  let queuedTrigger: Promise<TickResult> | null = null;
 
   /** Build a `ServiceJobPayload` from a spec + the run's shared meta. */
   function toEnqueueInput(
@@ -857,13 +865,41 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // RE-ENTRANCY GUARD: a slow tick (sluggish enumerate/PB) overlapping
       // the next cron tick double-enqueued the same family — both ticks read
       // the backlog gate's pending count BEFORE either had enqueued (gate
-      // TOCTOU), so both saw "no backlog" and both produced a batch. Skip
-      // the overlapping tick instead; the cron's NEXT tick will produce.
+      // TOCTOU), so both saw "no backlog" and both produced a batch. A
+      // SCHEDULED overlapping tick is skipped — the cron's NEXT tick will
+      // produce. A TRIGGERED overlapping tick is NOT dropped (an explicit
+      // operator "run it NOW" must win — the same rationale that lets a
+      // trigger bypass the backlog gate): it QUEUES BEHIND the in-flight
+      // tick and runs once that tick completes. Capped at ONE queued
+      // trigger — a second concurrent trigger gets the skip, since the
+      // already-queued trigger covers "run after the in-flight tick".
+      const triggered = tickOpts?.triggered === true;
       if (inFlightTick !== null) {
-        logger.warn("fleet.producer.tick-overlap-skipped", {
-          triggered: tickOpts?.triggered === true,
-        });
-        return skippedTickResult();
+        if (!triggered || queuedTrigger !== null) {
+          logger.warn("fleet.producer.tick-overlap-skipped", {
+            triggered,
+            ...(triggered ? { reason: "trigger-already-queued" } : {}),
+          });
+          return skippedTickResult();
+        }
+        logger.warn("fleet.producer.trigger-queued-behind-overlap", {});
+        const queued = (async (): Promise<TickResult> => {
+          // Loop (not a single await): by the time the awaited tick's
+          // continuations run, another tick may already occupy the slot.
+          while (inFlightTick !== null) {
+            await inFlightTick.catch(() => {});
+          }
+          queuedTrigger = null;
+          const ticking = runTick(tickOpts);
+          inFlightTick = ticking;
+          try {
+            return await ticking;
+          } finally {
+            inFlightTick = null;
+          }
+        })();
+        queuedTrigger = queued;
+        return queued;
       }
       const ticking = runTick(tickOpts);
       inFlightTick = ticking;

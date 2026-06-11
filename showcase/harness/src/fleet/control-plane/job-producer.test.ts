@@ -1311,6 +1311,90 @@ describe("job-producer — tick re-entrancy guard", () => {
     expect(third.enqueued).toBe(1);
     expect(queue.enqueued).toHaveLength(2);
   });
+
+  it("queues an operator-TRIGGERED tick behind the in-flight tick instead of dropping it (operator intent wins)", async () => {
+    // The guard's rationale is backpressure on SCHEDULED ticks — but it used
+    // to skip TRIGGERED ticks too, silently losing an explicit operator "run
+    // it NOW" (the CLI even treats 0 enqueued as a failure) whenever a slow
+    // scheduled tick happened to be in flight. A triggered tick that hits the
+    // guard must QUEUE BEHIND the in-flight tick and run once it completes.
+    let releaseEnumerate!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnumerate = resolve));
+    let enumerateCalls = 0;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: async () => {
+        enumerateCalls += 1;
+        if (enumerateCalls === 1) await gate; // only the FIRST tick is slow
+        return d6Specs(["a"]);
+      },
+      logger: SILENT_LOGGER,
+    });
+    producer.start();
+    const firstP = producer.tick(); // scheduled, blocked inside enumerate
+    await vi.waitFor(() => expect(enumerateCalls).toBe(1));
+    const triggeredP = producer.tick({ triggered: true });
+    // The triggered tick is QUEUED, not skipped: it must not resolve while
+    // the in-flight tick is still blocked.
+    let triggeredResolved = false;
+    void triggeredP.then(() => {
+      triggeredResolved = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(triggeredResolved).toBe(false);
+    releaseEnumerate();
+    const first = await firstP;
+    const triggered = await triggeredP;
+    // BOTH ticks produced — the operator's batch ran after the in-flight one.
+    expect(first.enqueued).toBe(1);
+    expect(triggered.enqueued).toBe(1);
+    expect(triggered.runId).not.toBe("");
+    expect(queue.enqueued).toHaveLength(2);
+    expect(queue.enqueued[0]!.payload.meta.triggered).toBe(false);
+    expect(queue.enqueued[1]!.payload.meta.triggered).toBe(true);
+  });
+
+  it("caps the queue-behind at ONE trigger: a second concurrent trigger gets the skip + warn", async () => {
+    // Unbounded trigger queuing would let a trigger-happy operator stack an
+    // arbitrary backlog of "run NOW" batches behind one slow tick. One queued
+    // trigger preserves the intent; a second concurrent one is dropped (the
+    // queued trigger already covers "run after the in-flight tick").
+    let releaseEnumerate!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnumerate = resolve));
+    let enumerateCalls = 0;
+    const warns: string[] = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg) => {
+        warns.push(msg);
+      },
+    };
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: async () => {
+        enumerateCalls += 1;
+        if (enumerateCalls === 1) await gate;
+        return d6Specs(["a"]);
+      },
+      logger,
+    });
+    producer.start();
+    const firstP = producer.tick(); // blocked inside enumerate
+    await vi.waitFor(() => expect(enumerateCalls).toBe(1));
+    const queuedP = producer.tick({ triggered: true }); // queued behind
+    const second = await producer.tick({ triggered: true }); // dropped
+    expect(second.runId).toBe("");
+    expect(second.enqueued).toBe(0);
+    expect(warns).toContain("fleet.producer.tick-overlap-skipped");
+    releaseEnumerate();
+    await firstP;
+    const queued = await queuedP;
+    expect(queued.enqueued).toBe(1);
+    // Exactly TWO batches: the in-flight tick's and the ONE queued trigger's.
+    expect(queue.enqueued).toHaveLength(2);
+  });
 });
 
 describe("job-producer — stop() quiesce", () => {
