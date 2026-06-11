@@ -43,6 +43,11 @@ export INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401    # Phoenix runner/clien
 export INTELLIGENCE_API_KEY=cpk_...                       # platform API key
 # Optional — read automatically by the runtime if present:
 export COPILOTKIT_LICENSE_TOKEN=...
+# Optional — pin the asserted end-user identity. Use when the backend enforces
+# org membership on the user id (e.g. a local Intelligence stack with seeded
+# fixture users); otherwise a stable per-role id is derived automatically:
+export INTELLIGENCE_USER_ID=morgan-fluxx
+export INTELLIGENCE_USER_NAME="David Garcia"
 # Model keys the external Intelligence stack needs to run its writer/reader agents:
 export OPENAI_API_KEY=...
 export ANTHROPIC_API_KEY=...

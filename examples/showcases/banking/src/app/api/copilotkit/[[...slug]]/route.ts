@@ -88,8 +88,21 @@ const intelligenceEnabled = Boolean(
  * consistently across runs. If the role can't be read, fall back to a single
  * stable demo identity rather than minting a random id (random ids would
  * fragment thread history).
+ *
+ * Some backends verify that the asserted user is a live member of the org
+ * (e.g. a local Intelligence stack with seeded fixture users). For those, pin
+ * the identity with INTELLIGENCE_USER_ID / INTELLIGENCE_USER_NAME instead of
+ * the derived per-role id.
  */
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
+  const pinnedId = process.env.INTELLIGENCE_USER_ID;
+  if (pinnedId) {
+    return {
+      id: pinnedId,
+      name: process.env.INTELLIGENCE_USER_NAME ?? pinnedId,
+    };
+  }
+
   let role: string | undefined;
   try {
     const cloned = request.clone();

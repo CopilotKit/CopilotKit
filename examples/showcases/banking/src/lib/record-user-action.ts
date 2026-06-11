@@ -1,26 +1,22 @@
+"use client";
+
 /**
- * No-op recorder shim.
+ * Self-learning recorder seam — the single import the teaching call sites use.
  *
- * The self-learning loop needs demonstrated officer actions streamed to the
- * Intelligence "writer" agent so they can be distilled into `/knowledge`. The
- * intended client API for that is a `useRecordUserActionInCurrentThread` hook
- * exported from `@copilotkit/react-core/v2`.
+ * Adapts the demo's call-site shape (`{ title, description, previousData,
+ * newData, metadata }`) to the runtime hook
+ * `useLearnFromUserActionInCurrentThread`, whose input is
+ * `{ title?, description?, data?, occurredAt? }` (the hook the
+ * `useRecordUserActionInCurrentThread` name was renamed to in PRs #4839/#5073).
  *
- * VERIFIED GAP (Phase C, 2026-06-03): that hook does NOT exist in this OSS
- * `@copilotkit/react-core/v2` build, and is also absent from the local
- * Intelligence repo at /Users/jerel-cpk/Projects/cpk-intelligence (searched by
- * name across both). The OSS react-core/v2 hooks index exports only
- * useFrontendTool / useHumanInTheLoop / useAgent / useThreads / etc. — there is
- * no client-side "record user action" mechanism to call, even when the runtime
- * is wired to a `CopilotKitIntelligence` backend (server route.ts, Phase C).
- *
- * This shim keeps the teaching-surface call sites identical to what the real
- * recording API would look like (they call `recordUserAction({...}).catch(...)`
- * exactly the same way) while recording nothing. When a real
- * `useRecordUserActionInCurrentThread` (or equivalent client method) ships in a
- * react-core build the demo can depend on, swap this import for it — the call
- * sites in policy-exception-modal.tsx and transactions-list.tsx need no change.
+ * The before/after snapshots are nested under `data: { previous, next }` — the
+ * shape the Intelligence "writer" agent distills into `/knowledge` — with any
+ * extra `metadata` carried alongside. The hook sources `threadId` from the
+ * surrounding `<CopilotChatConfigurationProvider>` (the chat panel), so call
+ * sites only pass the semantic action and `.catch()` the returned promise.
  */
+import { useCallback } from "react";
+import { useLearnFromUserActionInCurrentThread } from "@copilotkit/react-core/v2";
 
 export type UserActionRecord = {
   title: string;
@@ -30,11 +26,20 @@ export type UserActionRecord = {
   metadata?: Record<string, unknown>;
 };
 
-export const useRecordUserActionInCurrentThread =
-  () =>
-  (record: UserActionRecord): Promise<void> => {
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[sl:record]", record.title, record);
-    }
-    return Promise.resolve();
-  };
+export function useRecordUserActionInCurrentThread() {
+  const learnFromUserAction = useLearnFromUserActionInCurrentThread();
+
+  return useCallback(
+    (record: UserActionRecord) =>
+      learnFromUserAction({
+        title: record.title,
+        description: record.description,
+        data: {
+          previous: record.previousData ?? null,
+          next: record.newData ?? null,
+          ...(record.metadata ? { metadata: record.metadata } : {}),
+        },
+      }),
+    [learnFromUserAction],
+  );
+}
