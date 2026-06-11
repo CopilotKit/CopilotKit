@@ -427,6 +427,37 @@ describe("processPartialHtml — tolerant <html> wrapper strip", () => {
       '<style>.a{content:"<html>"}</style><div>x</div>',
     );
   });
+
+  // Close-tag analogs of N''' — the trailing </html> strip must also run on a
+  // MASKED string (like every other structural op in the module), so a </html>
+  // token inside SURVIVING body content is never deleted.
+  //
+  // RED pre-fix: the final `result.replace(/<\/html>/gi, "")` ran on the UNMASKED
+  // result, so a </html> token inside CSS content was deleted, emptying it.
+  it("N'''': </html> token inside CSS content cannot fake the wrapper strip", () => {
+    const input =
+      '<div>x</div><style>.a::before{content:"</html>"}</style><div>y</div>';
+    expect(processPartialHtml(input)).toBe(
+      '<div>x</div><style>.a::before{content:"</html>"}</style><div>y</div>',
+    );
+  });
+
+  // RED pre-fix: a </html> token inside a complete comment's text was deleted.
+  it("N''''': </html> token inside a complete comment is preserved", () => {
+    const input = "<div>x</div><!-- ex </html> --><div>y</div>";
+    expect(processPartialHtml(input)).toBe(
+      "<div>x</div><!-- ex </html> --><div>y</div>",
+    );
+  });
+
+  // RED pre-fix: a </html> token inside a <style> open-tag attribute value was
+  // deleted (the attribute is blanked in the mask, so masked search skips it).
+  it("N'''''': </html> token in a <style> attribute value is preserved", () => {
+    const input = '<style data-note="</html>">.a{}</style>';
+    expect(processPartialHtml(input)).toBe(
+      '<style data-note="</html>">.a{}</style>',
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -482,5 +513,23 @@ describe("processPartialHtml / extractCompleteStyles — quote-aware style open 
     expect(processPartialHtml(input)).toBe(
       '<style data-y="</body>">.foo{}</style><p>p</p>',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Trailing-entity strip — BY DESIGN, not a bug. At a chunk boundary, a literal
+// `&D` is indistinguishable from a developing entity (`&Dagger;`, `&Delta;`, …),
+// so the conservative choice is to drop the dangling `&…` run. This is GREEN
+// against current source (it pins existing behavior, no source change). It
+// self-corrects: the next chunk re-renders with the full text, and the final
+// document never runs processPartialHtml at all (the renderer renders the
+// completed HTML directly), so `R&D` is whole in the delivered result.
+// ---------------------------------------------------------------------------
+describe("processPartialHtml — trailing-entity strip (intended tradeoff)", () => {
+  it("Q: a chunk ending in literal `&D` drops the dangling run mid-stream", () => {
+    // `<p>R&D` → `<p>R`: `&D` could be the start of `&Dagger;`, so the strip is
+    // conservative. Pinned as intended — corrected on the next chunk and at
+    // completion (the final document does not run processPartialHtml).
+    expect(processPartialHtml("<p>R&D")).toBe("<p>R");
   });
 });

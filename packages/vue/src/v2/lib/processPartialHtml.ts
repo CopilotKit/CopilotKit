@@ -320,7 +320,12 @@ export function extractCompleteStyles(html: string): string {
  *    construct — raw CSS/JS text must never leak into the preview body, and an
  *    unterminated comment must vanish (the final document's `-->` would swallow
  *    the remainder, so the preview shows nothing for it).
- * 4. Strip an incomplete HTML entity at the end — e.g. `&amp` without `;`.
+ * 4. Strip an incomplete HTML entity at the end — e.g. `&amp` without `;`. BY
+ *    DESIGN this also drops a trailing run of LITERAL text that merely looks
+ *    like a developing entity (a chunk ending `<p>R&D` renders as `<p>R`, since
+ *    `&D` is indistinguishable from a forming `&Dagger;` at the boundary); the
+ *    conservative strip self-corrects on the next chunk and at completion (the
+ *    FINAL document never runs processPartialHtml).
  * 5. Reduce to the body region: drop the `<body…>` open tag and the matching
  *    `</body>` (and everything after it), and drop the `<html…>`/`</html>`
  *    structural wrappers — keeping the body's inner content AND any surviving
@@ -414,8 +419,25 @@ export function processPartialHtml(html: string): string {
       ? htmlOpen.index + openTag[0].length
       : htmlOpen.index + masked.slice(htmlOpen.index).search(/>/) + 1;
     result = result.slice(0, htmlOpen.index) + result.slice(openTagEnd);
+    masked = maskBlockContent(result);
   }
-  result = result.replace(/<\/html>/gi, "");
+  // Drop the `</html…>` close tag wherever it appears, mask-aware like every
+  // other structural op here. Locate each `</html>` on the MASKED copy (so a
+  // `</html>` token inside a SURVIVING complete style/comment block or a quoted
+  // attribute value is never seen as the wrapper close) and slice those spans
+  // out of the ORIGINAL by index. A plain `result.replace(/<\/html>/gi, "")`
+  // would run on the UNMASKED string and wrongly delete such a token from
+  // content the final document keeps (e.g. `content:"</html>"`).
+  const htmlCloseSpans: Array<[number, number]> = [];
+  const htmlCloseRe = /<\/html>/gi;
+  let htmlClose: RegExpExecArray | null;
+  while ((htmlClose = htmlCloseRe.exec(masked)) !== null) {
+    htmlCloseSpans.push([
+      htmlClose.index,
+      htmlClose.index + htmlClose[0].length,
+    ]);
+  }
+  result = removeSpans(result, htmlCloseSpans);
 
   return result;
 }
