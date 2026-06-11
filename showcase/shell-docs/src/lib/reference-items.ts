@@ -13,7 +13,7 @@ import matter from "gray-matter";
 import { Slack } from "lucide-react";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
-import { safeExistsSync, safeReadFileSync } from "@/lib/safe-fs";
+import { resolveWithinDir, safeExistsSync } from "@/lib/safe-fs";
 
 export const REFERENCE_CONTENT_DIR = path.join(
   process.cwd(),
@@ -86,6 +86,7 @@ export type ResolvedReferencePage = {
   version: ReferenceVersion;
   pageSlug: string;
   contentSlug: string;
+  filePath: string;
   raw: string;
 };
 
@@ -397,15 +398,25 @@ export function resolveReferencePage(
   const slugPath = slug.join("/");
   const { version, pageSlug } = splitVersionedSlug(slugPath);
   const contentSlug = contentSlugForPage(version, pageSlug);
-  const raw =
-    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ??
-    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`);
+  const filePath = [`${contentSlug}.mdx`, `${contentSlug}/index.mdx`]
+    .map((candidate) => resolveWithinDir(REFERENCE_CONTENT_DIR, candidate))
+    .find((candidate) => candidate !== null && fs.existsSync(candidate));
 
-  if (raw === null) return null;
+  if (!filePath) return null;
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[reference-items] Failed to read ${filePath}:`, err);
+    return null;
+  }
+
   return {
     version,
     pageSlug,
     contentSlug,
+    filePath,
     raw,
   };
 }

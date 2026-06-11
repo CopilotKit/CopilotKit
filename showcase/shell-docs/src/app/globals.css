@@ -577,19 +577,21 @@ figure.shiki > div:first-child[class*="border-b"] {
  *
  * On tablet/mobile (< xl), BrandNav is hidden and the fixed-positioned
  * MobileTopNav lives INSIDE DocsLayout — `pt-(--fd-nav-height)` (56px)
- * is exactly the space the fixed nav needs.
+ * is exactly the space the fixed nav needs. The course banner still
+ * sits in normal body flow above `<main>`, so Fumadocs's in-grid
+ * banner row must stay zero here too.
  *
  * The article-level padding (LayoutBody's `md:[&_#nd-page_article]:pt-12`
  * plus PageArticle's own `pt-8`) is unwanted on both — we always zero
  * those at the #nd-page / article wrappers. */
-/* Tablet/mobile (< xl): MobileTopNav is `position: fixed` at top:0 of the
- * viewport (56px tall, see --fd-nav-height). Push the docs grid down
- * by that amount so the page title isn't clipped behind it. Fumadocs
- * v16 no longer ships this `pt-(--fd-nav-height)` default on the
- * grid root the way v15 did. */
+/* Mobile: MobileTopNav is fixed at the top of the viewport. Push the docs
+ * grid down by the nav height plus a small breathing gap so the first page
+ * content does not feel pinned to the chrome. Fumadocs v16 no longer ships
+ * this `pt-(--fd-nav-height)` default on the grid root the way v15 did. */
 @media (max-width: 767px) {
   #nd-docs-layout {
-    padding-top: var(--fd-nav-height) !important;
+    --fd-docs-row-1: 0px !important;
+    padding-top: calc(var(--fd-nav-height) + 1rem) !important;
     grid-template-columns: minmax(0, 1fr) !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -610,6 +612,7 @@ figure.shiki > div:first-child[class*="border-b"] {
 
 @media (min-width: 768px) and (max-width: 1279px) {
   #nd-docs-layout {
+    --fd-docs-row-1: 0px !important;
     padding-top: var(--fd-nav-height) !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -694,6 +697,15 @@ figure.shiki > div:first-child[class*="border-b"] {
    * a 375px screen isn't eating 98px of side padding. */
   padding-left: 16px !important;
   padding-right: 16px !important;
+}
+
+/* Tablet/sidebar-visible layouts can put the content column directly
+ * against the sidebar edge. Add a small extra left inset there without
+ * spending precious horizontal space on phone-sized screens. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .docs-inner-content {
+    padding-left: 24px !important;
+  }
 }
 
 /* Desktop (xl+): mirror the sidebar's 0.75rem left/right viewport
@@ -1143,6 +1155,57 @@ samp {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
+}
+
+/* Reference prop rows are authored as individual <PropertyReference> MDX
+ * blocks, but rendered with Fumadocs' TypeTable. Join adjacent entries so
+ * each prop section reads as one table rather than a stack of separate cards. */
+.reference-content .shell-docs-property-reference {
+  margin-block: 0;
+  border-color: var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: var(--shell-docs-radius-surface);
+}
+
+.reference-content
+  :not(.shell-docs-property-reference)
+  + .shell-docs-property-reference {
+  margin-top: 1rem;
+}
+
+.reference-content
+  .shell-docs-property-reference:has(+ .shell-docs-property-reference) {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.reference-content
+  .shell-docs-property-reference
+  + .shell-docs-property-reference {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.reference-content
+  .shell-docs-property-reference
+  + .shell-docs-property-reference
+  > div:first-child {
+  display: none;
+}
+
+.reference-content
+  .shell-docs-property-reference:not(:has(+ .shell-docs-property-reference)) {
+  margin-bottom: 1.5rem;
+}
+
+.reference-content .shell-docs-property-reference button > code {
+  background: transparent;
+  border-radius: 0;
+  color: var(--accent);
+  font-size: inherit;
+  padding: 0;
 }
 
 /* Heading anchors — H2/H3 surface a hover-only `#` link aligned to the
