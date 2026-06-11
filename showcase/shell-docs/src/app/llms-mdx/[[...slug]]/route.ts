@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import path from "path";
-import {
-  AG_UI_CONTENT_DIR,
-  REFERENCE_CONTENT_DIR,
-} from "@/lib/sitemap-helpers";
+import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
+import { resolveReferencePage } from "@/lib/reference-items";
 import fs from "fs";
+import matter from "gray-matter";
 
 // Per-page raw-Markdown endpoint. The `next.config.ts` rewrites map
 // `<path>.md` and `<path>.mdx` requests onto this route so external
@@ -77,15 +76,21 @@ function resolvePage(slug: string[]): ResolvedPage | null {
 
   // /reference/<slug>.md → src/content/reference/<slug>.mdx
   if (first === "reference") {
-    const refSlug = rest || "index";
-    const filePath = findExistingMdx(REFERENCE_CONTENT_DIR, refSlug);
-    if (!filePath) return null;
+    const referenceSlug = rest ? rest.split("/") : [];
+    const resolved = resolveReferencePage(referenceSlug);
+    if (!resolved) return null;
+    const { data } = matter(resolved.raw);
     return {
       page: {
         url,
-        title: refSlug,
-        filePath,
-        loadSlug: `__reference__/${refSlug}`,
+        title:
+          typeof data.title === "string"
+            ? data.title
+            : resolved.pageSlug || "Reference",
+        description:
+          typeof data.description === "string" ? data.description : undefined,
+        filePath: resolved.filePath,
+        loadSlug: `__reference__/${resolved.contentSlug}`,
       },
     };
   }

@@ -54,7 +54,7 @@ export function HeroQuickstartDropdown({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent-light)] px-4 text-sm font-semibold text-[var(--accent)] transition-colors duration-150 hover:bg-[var(--accent-dim)] sm:w-fit"
+        className="shell-docs-radius-control inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] shadow-[var(--shadow-control)] transition-colors duration-150 hover:bg-[var(--accent-strong)] sm:w-fit"
         onClick={() => setOpen((value) => !value)}
       >
         Quickstart
