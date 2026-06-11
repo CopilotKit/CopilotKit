@@ -1605,6 +1605,65 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(store.find((r) => r.id === "untouched-old")).toBeUndefined();
     });
 
+    it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {
+      // TIMEOUT-AFTER-COMMIT: the release CAS can COMMIT server-side and the
+      // response then be lost in transit (the client sees a throw). The row
+      // IS pending now, but a plain `continue` on the throw leaves it (a)
+      // absent from the grace set — the SAME call's stale phase can
+      // claim-and-delete it — and (b) without its worker-reclaimed-pending
+      // comm error, which no later sweep re-emits (the row is pending, so
+      // the lease phase never sees it again): the gray "re-queued" surface
+      // is lost FOREVER. The fix is conservative at-least-once handling: on
+      // a thrown release, grace the row and synthesize the comm error
+      // anyway. If the release did NOT commit, the next sweep retries and a
+      // duplicate gray overlay may render — harmless; a missing one is not.
+      const longClaimed: CreatedJobRow = {
+        ...jobView({
+          id: "throw-commit",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 4 * HOUR).toISOString(), // stale (> 3 × 60min)
+      };
+      const { pb, store } = makePagingPb([longClaimed]);
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        // COMMIT, then throw — the server applied the re-queue but the
+        // response never reached the client.
+        async releaseJob(jobId, workerId): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          r.status = "pending";
+          r.claimed_by = "";
+          r.version += 1;
+          throw new Error("socket timeout after commit");
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // The comm error was synthesized despite the throw (at-least-once)...
+      expect(sweep.commErrors).toHaveLength(1);
+      expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
+      expect(sweep.commErrors[0].jobId).toBe("throw-commit");
+      expect(sweep.reclaimed).toBe(1);
+      // ...and the grace set protected the (committed-pending, stale) row
+      // from the SAME sweep's stale phase — it survives to be re-claimed.
+      expect(sweep.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "throw-commit")?.status).toBe(
+        "pending",
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        "queue-client.sweep-release-threw",
+        expect.objectContaining({ jobId: "throw-commit" }),
+      );
+    });
+
     it("applies the grace set on EVERY page of the multi-page stale drain (pagination must not out-run the grace)", async () => {
       // COMPOSITION: the one-sweep grace × the multi-page drain. A re-queued
       // row whose `created` sorts AFTER a full page of older stale rows only
@@ -2378,9 +2437,13 @@ describe("FleetQueueClient.sweepExpired", () => {
 
     const sweep = await q.sweepExpired(now);
 
-    // j1 (released BEFORE the throw) and j3 (after) both survive the blip.
-    expect(sweep.reclaimed).toBe(2);
-    expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["j1", "j3"]);
+    // j1 (released BEFORE the throw) and j3 (after) both survive the blip,
+    // and j2's throw is handled CONSERVATIVELY (timeout-after-commit): the
+    // release may have committed server-side, so its comm error is
+    // synthesized anyway (at-least-once — a duplicate gray overlay is
+    // harmless, a missing one is lost forever).
+    expect(sweep.reclaimed).toBe(3);
+    expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["j1", "j2", "j3"]);
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.sweep-release-threw",
       expect.objectContaining({ jobId: "j2", workerId: "w2" }),

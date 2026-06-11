@@ -976,8 +976,22 @@ export function createFleetQueueClient(
         // discard the commErrors ALREADY synthesized for rows ALREADY released
         // to pending in this pass — their gray "re-queued" surfaces would
         // never reach the dashboard and are never regenerated (those rows are
-        // pending now; no later sweep re-emits them). This row's lease is
-        // still expired, so the next sweep simply retries it.
+        // pending now; no later sweep re-emits them).
+        //
+        // TIMEOUT-AFTER-COMMIT (at-least-once): a thrown release may have
+        // COMMITTED server-side before the response was lost — the row IS
+        // pending then, so (a) the SAME call's stale phase could
+        // claim-and-delete it unless it is in the grace set, and (b) its
+        // worker-reclaimed-pending comm error would be lost FOREVER (the row
+        // is pending; no later sweep re-emits it — the file's own contract
+        // above). So treat a thrown release CONSERVATIVELY as if it
+        // committed: grace the row and synthesize the comm error anyway. If
+        // the release did NOT commit, the next sweep retries the
+        // still-expired lease and a DUPLICATE gray "re-queued" overlay may
+        // render — harmless; a MISSING one is not. Sweeper-held rows stay
+        // silent (mirroring the committed path below). The known-refused CAS
+        // (`released: false`) stays a clean skip — only the indeterminate
+        // throw gets the conservative treatment.
         let released: ReleaseResult;
         try {
           released = await claim.releaseJob(row.id, holder, "pending");
@@ -987,6 +1001,17 @@ export function createFleetQueueClient(
             workerId: holder,
             err: err instanceof Error ? err.message : String(err),
           });
+          requeuedThisSweep.add(row.id);
+          if (holder !== STALE_PENDING_SWEEPER_ID) {
+            reclaimed += 1;
+            commErrors.push({
+              kind: "worker-reclaimed-pending",
+              message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queue release threw mid-flight — conservatively reported as re-queued (at-least-once)`,
+              workerId: holder || undefined,
+              jobId: row.id,
+              observedAt,
+            });
+          }
           continue;
         }
         if (!released.released) {
