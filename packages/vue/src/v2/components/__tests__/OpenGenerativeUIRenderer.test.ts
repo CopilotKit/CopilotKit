@@ -621,6 +621,51 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(headPayload).toBeDefined();
       expect(headPayload!).toContain(agentCss);
     });
+
+    // Case C — the overflow guard must survive every `document.head.innerHTML`
+    // assignment. The preview sandbox shows scrollbars unless `html, body {
+    // overflow: hidden }` is part of the assigned head content: a one-time
+    // appendChild on ready is clobbered by the first head reassignment built
+    // from headParts (extracted styles + agent css). Mirroring react-core's
+    // buildPreviewHeadHtml, the guard must be the FIRST part of the head payload
+    // on EVERY assignment.
+    //
+    // RED pre-fix: the head payload contained only the extracted styles + agent
+    // css, no guard. GREEN post-fix: the guard leads the payload, then extracted
+    // styles, then agent css.
+    it("keeps the overflow guard first in the head assignment, then extracted styles, then agent css", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const inlineStyleContent = ".inline-block { color: seagreen; }";
+      const previewHtml = `<head><style>${inlineStyleContent}</style></head><body><div class="inline-block">Preview body</div>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      const guardIdx = headPayload!.indexOf(
+        "html, body { overflow: hidden !important; }",
+      );
+      const inlineStyleIdx = headPayload!.indexOf(inlineStyleContent);
+      const agentCssIdx = headPayload!.indexOf(agentCss);
+      expect(guardIdx).toBeGreaterThan(-1);
+      expect(inlineStyleIdx).toBeGreaterThan(-1);
+      expect(agentCssIdx).toBeGreaterThan(-1);
+      // Guard FIRST, then extracted styles, then agent css.
+      expect(guardIdx).toBeLessThan(inlineStyleIdx);
+      expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+    });
   });
 
   // -------------------------------------------------------------------------

@@ -146,6 +146,30 @@ function injectCssIntoHtml(html: string, css: string): string {
   return `<head><style>${css}</style></head>${html}`;
 }
 
+/**
+ * Overflow guard for the preview iframe: `html, body { overflow: hidden }`. It
+ * must be baked into the head innerHTML so it survives every
+ * `document.head.innerHTML = …` reassignment built from head parts — a one-time
+ * `head.appendChild` on ready would be clobbered by the first reassignment and
+ * the preview iframe could then show scrollbars. Mirrors react-core's
+ * `buildPreviewHeadHtml` (overflow guard first, then preview styles, then agent
+ * css last so the cascade matches the final document). Vue has no
+ * kit/design-system injection, so the only head parts are: guard → extracted
+ * styles → agent css.
+ */
+const PREVIEW_OVERFLOW_GUARD =
+  "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>";
+
+function buildPreviewHeadHtml(
+  previewStyles: string,
+  css: string | undefined,
+): string {
+  const headParts: string[] = [PREVIEW_OVERFLOW_GUARD];
+  if (previewStyles) headParts.push(previewStyles);
+  if (css) headParts.push(`<style>${css}</style>`);
+  return headParts.join("");
+}
+
 type SandboxInstance = {
   iframe: HTMLIFrameElement;
   promise: Promise<unknown>;
@@ -320,10 +344,12 @@ export const OpenGenerativeUIRenderer = defineComponent({
 
           sandbox.promise.then(() => {
             if (cancelled || !previewSandboxRef.value) return;
+            // Flip ready — the content-update watcher (which lists previewReady
+            // in its source) then assigns the head/body. The overflow guard is
+            // baked into that head payload (buildPreviewHeadHtml), so it survives
+            // every reassignment; a separate appendChild here would be clobbered
+            // by the first head.innerHTML assignment. Mirrors react-core.
             previewReady.value = true;
-            void sandbox.run(
-              "var s=document.createElement('style');s.textContent='html, body { overflow: hidden !important; }';document.head.appendChild(s);",
-            );
           });
         } catch (error) {
           console.error(
@@ -343,21 +369,19 @@ export const OpenGenerativeUIRenderer = defineComponent({
       [previewBody, previewStyles, css, previewReady],
       ([body, styles, cssText, ready]) => {
         if (!previewSandboxRef.value || !ready) return;
-        // Cascade parity: extracted head styles first, agent css LAST — mirroring
-        // the final document, where injectCssIntoHtml inserts the agent css
-        // immediately before </head> (after the existing head content). Ordering
-        // the agent css first would flip its cascade position at the preview→final
-        // swap, visibly restyling artifacts that collide with it at equal
-        // specificity. Vue has no kit/design-system injection, so the only two
-        // head payloads are: extracted styles → agent css.
-        const headParts: string[] = [];
-        if (styles) headParts.push(styles);
-        if (cssText) headParts.push(`<style>${cssText}</style>`);
-        if (headParts.length) {
-          void previewSandboxRef.value.run(
-            `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-          );
-        }
+        // Cascade parity: overflow guard first, then extracted head styles, then
+        // agent css LAST — mirroring the final document, where injectCssIntoHtml
+        // inserts the agent css immediately before </head> (after the existing
+        // head content). Ordering the agent css first would flip its cascade
+        // position at the preview→final swap, visibly restyling artifacts that
+        // collide with it at equal specificity. The guard is ALWAYS present (so
+        // the head is assigned even with no styles/css), which also keeps the
+        // overflow guard from being lost when css/head styles arrive — the head
+        // payload is fully rebuilt on every assignment. Mirrors react-core's
+        // buildPreviewHeadHtml.
+        void previewSandboxRef.value.run(
+          `document.head.innerHTML = ${JSON.stringify(buildPreviewHeadHtml(styles, cssText))}`,
+        );
         if (body) {
           void previewSandboxRef.value.run(
             `document.body.innerHTML = ${JSON.stringify(body)}`,
