@@ -172,7 +172,12 @@ export interface TickOptions {
 
 /** Outcome of one production cycle, returned to the wiring/scheduler layer. */
 export interface TickResult {
-  /** The run batch id every enqueued job in this tick shares. */
+  /**
+   * The run batch id every enqueued job in this tick shares. Empty string
+   * (`""`) when the tick never RAN — skipped because a previous tick was
+   * still in flight: a tick that produces nothing by construction does not
+   * mint a runId.
+   */
   runId: string;
   /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures and backlog-gate skips). */
   enqueued: number;
@@ -298,6 +303,25 @@ export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
  * the fresher dashboard signal.
  */
 export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
+
+/**
+ * The no-op `TickResult` for a tick that never RAN (e.g. skipped because a
+ * previous tick was still in flight). `runId` is the empty-string sentinel:
+ * no run was minted — a tick that produces nothing by construction must not
+ * burn the run-id counter or log phantom runIds.
+ */
+function skippedTickResult(): TickResult {
+  return {
+    runId: "",
+    enqueued: 0,
+    enqueueFailures: 0,
+    skippedForBacklog: 0,
+    sweptExpired: false,
+    sweepFailed: false,
+    reclaimed: 0,
+    enumerateFailed: false,
+  };
+}
 
 export function createJobProducer(opts: JobProducerOptions): JobProducer {
   const { queue, enumerate, logger } = opts;
@@ -783,6 +807,17 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     },
 
     async tick(tickOpts?: TickOptions): Promise<TickResult> {
+      // RE-ENTRANCY GUARD: a slow tick (sluggish enumerate/PB) overlapping
+      // the next cron tick double-enqueued the same family — both ticks read
+      // the backlog gate's pending count BEFORE either had enqueued (gate
+      // TOCTOU), so both saw "no backlog" and both produced a batch. Skip
+      // the overlapping tick instead; the cron's NEXT tick will produce.
+      if (inFlightTick !== null) {
+        logger.warn("fleet.producer.tick-overlap-skipped", {
+          triggered: tickOpts?.triggered === true,
+        });
+        return skippedTickResult();
+      }
       const ticking = runTick(tickOpts);
       inFlightTick = ticking;
       try {

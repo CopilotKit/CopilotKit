@@ -1107,6 +1107,49 @@ describe("job-producer — default run-id factory", () => {
   });
 });
 
+describe("job-producer — tick re-entrancy guard", () => {
+  it("skips a tick that arrives while a previous tick is still in flight (gate-TOCTOU double-enqueue)", async () => {
+    // A slow tick (sluggish enumerate/PB) overlapping the next cron tick
+    // double-enqueued the same family: both ticks read the backlog gate's
+    // pending count BEFORE either had enqueued (classic TOCTOU), so both
+    // saw "no backlog" and both produced a batch — the exact concurrent
+    // same-service overlap the gate exists to prevent.
+    let releaseEnumerate!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnumerate = resolve));
+    const warns: string[] = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg) => {
+        warns.push(msg);
+      },
+    };
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: async () => {
+        await gate;
+        return d6Specs(["a"]);
+      },
+      logger,
+    });
+    producer.start();
+    const firstP = producer.tick(); // blocked inside enumerate
+    const second = await producer.tick(); // the overlapping cron tick
+    // The overlapping tick is SKIPPED — no second batch, no phantom runId.
+    expect(second.enqueued).toBe(0);
+    expect(second.runId).toBe("");
+    expect(warns).toContain("fleet.producer.tick-overlap-skipped");
+    releaseEnumerate();
+    const first = await firstP;
+    expect(first.enqueued).toBe(1);
+    expect(queue.enqueued).toHaveLength(1); // exactly ONE batch was produced
+    // The guard releases once the slow tick completes.
+    const third = await producer.tick();
+    expect(third.enqueued).toBe(1);
+    expect(queue.enqueued).toHaveLength(2);
+  });
+});
+
 describe("job-producer — stop() quiesce", () => {
   /** A JobView for the fake enqueueImpl gates below. */
   function jobView(input: EnqueueJobInput): JobView {
