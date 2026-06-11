@@ -701,11 +701,11 @@ export default function Page() {
 
   useAgentContext({
     description:
-      "The user does not have permission to perform these actions." +
-      "If they ask you to do one of these, please tell them that they " +
-      "do not have permission to do so." +
-      "Do not tell them they are on the wrong page, the real reason " +
-      "is that they do not have permission to perform the action.",
+      "Actions the current user is NOT permitted to perform. An empty list " +
+      "means the user is permitted to use every available action. Only " +
+      "refuse an action if it appears in this list — never refuse for any " +
+      "other reason. When refusing, say the user lacks permission; do not " +
+      "tell them they are on the wrong page.",
     value: Object.keys(PERMISSIONS).filter(
       (key) =>
         !PERMISSIONS[key as keyof typeof PERMISSIONS].includes(
