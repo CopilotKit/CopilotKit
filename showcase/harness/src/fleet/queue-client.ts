@@ -217,6 +217,10 @@ interface ProbeJobRecord extends JobView {
   /** PB system timestamp (space-separated date form) — the stale-pending
    * sweep's age anchor. */
   created?: string;
+  /** Result-flow columns (migration 1779989700) — read by report()'s
+   * retry-idempotency guard before any rewrite. */
+  result?: unknown;
+  result_processed?: boolean;
 }
 
 /**
@@ -1022,6 +1026,48 @@ export function createFleetQueueClient(
               workerId: input.workerId,
               status,
             });
+            // RETRY IDEMPOTENCY (double-count guard): this refusal means an
+            // EARLIER report() attempt already released the row — and may
+            // ALSO have already written the result. writeResult always seeds
+            // `result_processed: false`, so a blind rewrite here would
+            // UN-LATCH a result the consumer already aggregated (it latches
+            // result_processed true after aggregating exactly once) and the
+            // same result would be counted TWICE. Read the row first:
+            //   - result present + processed   → fully done; skip the write.
+            //   - result present + unprocessed → awaiting aggregation; the
+            //     rewrite is at best a no-op and at worst races the
+            //     consumer's read→aggregate→latch mid-flight; skip it.
+            //   - no result                    → the first attempt's write
+            //     never landed; fall through to writeResult (the original
+            //     retryability contract).
+            // A failed read must NOT fall through to a blind write — throw
+            // loud; report() stays retryable and the next retry re-reads.
+            let existing: ProbeJobRecord | null;
+            try {
+              existing = await pb.getOne<ProbeJobRecord>(
+                PROBE_JOBS_COLLECTION,
+                input.jobId,
+              );
+            } catch (err) {
+              throw new Error(
+                `queue-client: cannot verify existing result for job ${input.jobId} (worker ${input.workerId}) before retry rewrite — refusing to blind-write (a rewrite could un-latch result_processed and double-count): ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+            }
+            if (
+              existing &&
+              existing.result !== undefined &&
+              existing.result !== null
+            ) {
+              logger.info(
+                existing.result_processed === true
+                  ? "queue-client.result-already-aggregated"
+                  : "queue-client.result-already-written",
+                { jobId: input.jobId, workerId: input.workerId, status },
+              );
+              return;
+            }
           } else {
             // The CAS refused the release — not the (effective) lease holder,
             // or the row was swept/stolen. The JOB is not lost (the sweeper's

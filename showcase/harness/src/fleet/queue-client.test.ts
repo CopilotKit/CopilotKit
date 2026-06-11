@@ -2869,6 +2869,111 @@ describe("FleetQueueClient.report", () => {
       expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
     );
   });
+
+  it("a report() retry must NOT rewrite a result the consumer already AGGREGATED (no un-latch double-count)", async () => {
+    // DOUBLE-COUNT GUARD (G1c): writeResult always writes
+    // `result_processed: false`. On the refused_terminal_same_holder retry
+    // path, the first attempt's result may ALREADY be on the row and already
+    // aggregated (result_processed latched true by the consumer) — a blind
+    // rewrite UN-LATCHES it and the consumer aggregates the same result a
+    // second time. The retry must READ the row first and skip the write
+    // entirely when a processed result is present.
+    const aggregated = sampleResult();
+    const row: JobRow = {
+      ...jobView({ id: "j1", status: "done", claimed_by: "worker-7" }),
+      payload: samplePayload(),
+      result: aggregated,
+      result_processed: true,
+    };
+    const { pb, rows } = makeFakePb([row]);
+    const updateSpy = vi.fn(pb.update.bind(pb));
+    pb.update = updateSpy as PbClient["update"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(rows[0].result).toEqual(aggregated);
+    expect(rows[0].result_processed).toBe(true);
+    expect(logger.info).toHaveBeenCalledWith(
+      "queue-client.result-already-aggregated",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
+  });
+
+  it("a report() retry skips the rewrite when a result is present but UNPROCESSED (idempotent)", async () => {
+    // The first attempt's writeResult landed but its response (or the
+    // release response before it) was lost. The result is already sitting
+    // on the row awaiting aggregation — rewriting it is at best a no-op and
+    // at worst races the consumer's latch (read result → aggregate → latch)
+    // mid-flight. Skip it.
+    const written = sampleResult();
+    const row: JobRow = {
+      ...jobView({ id: "j1", status: "done", claimed_by: "worker-7" }),
+      payload: samplePayload(),
+      result: written,
+      result_processed: false,
+    };
+    const { pb, rows } = makeFakePb([row]);
+    const updateSpy = vi.fn(pb.update.bind(pb));
+    pb.update = updateSpy as PbClient["update"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(rows[0].result).toEqual(written);
+    expect(rows[0].result_processed).toBe(false);
+    expect(logger.info).toHaveBeenCalledWith(
+      "queue-client.result-already-written",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
+  });
+
+  it("a report() retry that cannot READ the row refuses to blind-write (throws, retryable)", async () => {
+    // If the pre-write read blips, falling through to writeResult would be
+    // exactly the blind rewrite the guard exists to prevent. Fail the retry
+    // loud instead — report() stays retryable and the NEXT retry re-reads.
+    const { pb, rows } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    pb.getOne = vi.fn(async () => {
+      throw new Error("pb read 502");
+    }) as PbClient["getOne"];
+    const updateSpy = vi.fn(pb.update.bind(pb));
+    pb.update = updateSpy as PbClient["update"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await expect(
+      q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
+    ).rejects.toThrow(/cannot verify existing result/i);
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(rows[0].result).toBeUndefined();
+  });
 });
 
 describe("FleetQueueClient.sweepExpired", () => {
