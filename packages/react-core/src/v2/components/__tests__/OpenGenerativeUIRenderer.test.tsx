@@ -29,14 +29,55 @@ function resetMockPromise() {
   });
 }
 
+/**
+ * Handle for one sandbox the mock has handed back to the renderer. The renderer
+ * stores this exact object in `sandboxRef.current` (final) or
+ * `previewSandboxRef.current` (preview), so its `contentWindow` sentinel is
+ * precisely what the height listener's
+ * `e.source === sandboxRef.current?.iframe?.contentWindow` guard compares
+ * against. Tests read the sentinel from here rather than re-stubbing the
+ * module-level `mockIframe` after the fact — that decouples the dispatched
+ * MessageEvent source from any timing assumption about which iframe the shared
+ * `mockIframe` variable currently points at.
+ */
+interface CreatedSandbox {
+  iframe: HTMLIFrameElement;
+  /** Stable sentinel installed as iframe.contentWindow at creation time. */
+  contentWindow: Window;
+  run: typeof mockRun;
+  destroy: typeof mockDestroy;
+  promise: Promise<unknown>;
+}
+
+/**
+ * Every sandbox the mock has created, in creation order. `createdSandboxes.at(-1)`
+ * is the object the renderer most recently assigned to its sandbox ref, so the
+ * tests can address "the current sandbox" by identity instead of inferring it
+ * from microtask timing. Reset in beforeEach.
+ */
+let createdSandboxes: CreatedSandbox[] = [];
+
 const mockCreate = vi.fn(() => {
   mockIframe = document.createElement("iframe");
-  return {
+  // Install a stable, known contentWindow sentinel at creation time. A detached
+  // iframe's contentWindow is null in jsdom, so without this the height
+  // listener's source guard could never match; pinning it here (and recording it
+  // on the handle) makes the listener-visible source deterministic and lets
+  // tests dispatch the exact window object the guard will compare against.
+  const contentWindow = {} as Window;
+  Object.defineProperty(mockIframe, "contentWindow", {
+    configurable: true,
+    value: contentWindow,
+  });
+  const sandbox: CreatedSandbox = {
     iframe: mockIframe,
-    promise: mockPromise,
+    contentWindow,
     run: mockRun,
     destroy: mockDestroy,
+    promise: mockPromise,
   };
+  createdSandboxes.push(sandbox);
+  return sandbox;
 });
 
 vi.mock("@jetbrains/websandbox", () => ({
@@ -45,39 +86,81 @@ vi.mock("@jetbrains/websandbox", () => ({
   },
 }));
 
+// How many microtask hops to flush inside a single `act` to drain the renderer's
+// sandbox-build chain. The chain is a fixed, short sequence of microtask hops:
+// the dynamic `import("@jetbrains/websandbox")` resolves -> its `.then` runs
+// `Websandbox.create` (so `mockCreate` fires) and registers the
+// `sandbox.promise.then` callback -> on resolve, that callback runs and flushes
+// the pending queue. React's `act` interleaves a bounded number of effect/commit
+// hops between them. 100 yields is comfortably deeper than any of those chains
+// and — crucially — performs the SAME work on every run regardless of CPU load
+// (microtasks run to completion between awaits; contention delays wall-clock, not
+// ordering). That makes the drain deterministic, not margin-based.
+const MICROTASK_FLUSH_COUNT = 100;
+
 /**
- * Drain the multi-stage async chain the renderer kicks off when it decides to
- * build a sandbox: the dynamic `import("@jetbrains/websandbox")` resolves, its
- * `.then` runs `Websandbox.create` (so `mockCreate` fires) and registers the
- * `sandbox.promise.then` callback. Each stage is a microtask hop, and a React
- * commit can interleave another effect between them.
+ * Flush the renderer's sandbox-build microtask chain deterministically.
  *
- * The previous single `await setTimeout(0)` inside `act` drained "usually
- * enough" — but a single macrotask tick is margin-based: under CPU load the
- * commit -> effect -> import-microtask sequence could still be in flight when
- * assertions ran (the documented `re-measures …` flake). Instead, loop
- * microtask flushes until the chain settles, detected as `mockCreate`'s call
- * count going quiet across an iteration (or a hard cap). This is deterministic
- * rather than time-bounded and uses NO real timer, so it is also safe under
+ * The previous implementation broke when `mockCreate`'s call count went "quiet"
+ * for one iteration — a heuristic proxy for "settled" with a hard cap. Under CPU
+ * contention that proxy could read quiet in the one-tick gap *before* the host's
+ * `sandbox.promise.then` callback had armed `sandboxRef`-visible state, so the
+ * subsequent height MessageEvent was rejected (the documented `re-measures …`
+ * flake). This version drops the heuristic: it flushes a fixed number of
+ * microtask hops, which fully drains the (short, fixed-depth) chain and does
+ * identical work on every run. It uses NO real timer, so it stays safe under
  * `vi.useFakeTimers()` (a `setTimeout(0)` would otherwise hang there).
+ *
+ * For assertions that depend on a *specific* downstream signal (a rebuilt
+ * sandbox having been created, or its measurement having replayed), prefer
+ * {@link flushUntil}, which gates on that concrete condition and fails loud if it
+ * never holds.
  */
 async function flushImport() {
   await act(async () => {
-    let lastCreateCalls = -1;
-    // Cap iterations so a genuinely stuck chain fails loudly instead of hanging.
-    for (let i = 0; i < 50; i++) {
-      const createCalls = mockCreate.mock.calls.length;
-      // Settled: a full iteration passed with no new sandbox created and the
-      // microtask queue drained. Two consecutive quiet reads guard against
-      // stopping in the one-tick gap between import resolve and create.
-      if (createCalls === lastCreateCalls && i > 0) break;
-      lastCreateCalls = createCalls;
-      // eslint-disable-next-line no-await-in-loop
-      await Promise.resolve();
+    for (let i = 0; i < MICROTASK_FLUSH_COUNT; i++) {
       // eslint-disable-next-line no-await-in-loop
       await Promise.resolve();
     }
   });
+}
+
+/**
+ * Flush microtasks inside `act` until `cond()` holds, then stop. Unlike a
+ * fixed-count or call-count-quiet drain, this waits for the EXACT causal signal
+ * the next assertion needs — e.g. "the rebuilt sandbox has been created"
+ * (`createdSandboxes.length === 2`) or "the rebuilt sandbox's measurement has
+ * replayed". If the condition never becomes true within a generous microtask
+ * budget it throws, so a genuinely stuck chain fails loudly instead of letting a
+ * later assertion fail with a misleading value. No wall-clock, no real timer —
+ * safe under fake timers.
+ */
+async function flushUntil(cond: () => boolean, label = "condition") {
+  let settled = false;
+  await act(async () => {
+    for (let i = 0; i < MICROTASK_FLUSH_COUNT; i++) {
+      if (cond()) {
+        settled = true;
+        break;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.resolve();
+    }
+    if (cond()) settled = true;
+  });
+  if (!settled) {
+    throw new Error(
+      `flushUntil: ${label} never became true within ${MICROTASK_FLUSH_COUNT} microtask flushes`,
+    );
+  }
+}
+
+/** Count of sandbox.run calls carrying the one-shot height measurement script. */
+function measureRunCount(): number {
+  return mockRun.mock.calls.filter(
+    (c: unknown[]) =>
+      typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
+  ).length;
 }
 
 /**
@@ -110,6 +193,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetMockPromise();
+    createdSandboxes = [];
   });
 
   afterEach(() => {
@@ -993,21 +1077,21 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         cssComplete: true,
         generating: false,
       });
-      await flushImport();
+      // Concrete signal: wait until the sandbox has actually been created rather
+      // than guessing the import chain has settled.
+      await flushUntil(() => createdSandboxes.length === 1, "sandbox created");
 
-      // Resolve the sandbox ready promise so the pending queue is flushed
+      // Resolve the sandbox ready promise, then wait on the concrete downstream
+      // signal — the host's sandbox.promise.then callback having flushed the
+      // queued one-shot measurement — instead of a heuristic drain.
       await act(async () => {
         mockPromiseResolve();
         await mockPromise;
       });
-      await flushImport();
+      await flushUntil(() => measureRunCount() >= 1, "measurement flushed");
 
       // The one-shot measurement script must have executed via the flushed queue
-      const measureCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
-      );
-      expect(measureCalls.length).toBeGreaterThanOrEqual(1);
+      expect(measureRunCount()).toBeGreaterThanOrEqual(1);
     });
 
     it("re-measures height when the final sandbox is rebuilt after completion", async () => {
@@ -1048,42 +1132,38 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           />
         </SandboxFunctionsContext.Provider>,
       );
-      await flushImport();
+      // Concrete signal: the first sandbox has actually been created.
+      await flushUntil(() => createdSandboxes.length === 1, "first sandbox");
 
-      // First sandbox ready — flush its queued measurement
+      // First sandbox ready — wait on the concrete signal that its host
+      // sandbox.promise.then callback has RUN and flushed the queued measurement,
+      // not a heuristic that the chain "looks" settled.
       await act(async () => {
         mockPromiseResolve();
         await mockPromise;
       });
-      await flushImport();
+      await flushUntil(() => measureRunCount() >= 1, "first measurement");
 
       // The first sandbox ran the one-shot measurement
-      const measureCallsFirst = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
-      );
-      expect(measureCallsFirst.length).toBeGreaterThanOrEqual(1);
+      expect(measureRunCount()).toBeGreaterThanOrEqual(1);
 
       const outer = container.firstElementChild as HTMLElement;
       // Still at initialHeight until the iframe posts back its measurement.
       expect(outer.style.height).toBe("200px");
 
-      // The mock creates a fresh, DETACHED iframe per sandbox; a detached
-      // iframe's contentWindow is null in jsdom, so stub it with a sentinel
-      // window object and use that same object as the MessageEvent source the
-      // armed listener compares against (sandboxRef.current.iframe.contentWindow).
-      const firstWindow = {} as Window;
-      Object.defineProperty(mockIframe, "contentWindow", {
-        configurable: true,
-        value: firstWindow,
-      });
-
-      // The first sandbox posts its measured height — the listener applies it.
+      // Dispatch the first sandbox's measured height. The source is read from the
+      // recorded sandbox handle — the SAME object the renderer stored in
+      // sandboxRef.current — so its stable contentWindow sentinel is exactly what
+      // the listener's `e.source === sandboxRef.current?.iframe?.contentWindow`
+      // guard compares against. No after-the-fact stub on the shared mockIframe,
+      // so there is no window where the dispatched source and the listener-visible
+      // sandbox can disagree.
+      const firstSandbox = createdSandboxes.at(-1)!;
       await act(async () => {
         window.dispatchEvent(
           new MessageEvent("message", {
             data: { type: "__ck_resize", height: 500 },
-            source: firstWindow,
+            source: firstSandbox.contentWindow,
           }),
         );
       });
@@ -1113,7 +1193,11 @@ describe("OpenGenerativeUIActivityRenderer", () => {
           />
         </SandboxFunctionsContext.Provider>,
       );
-      await flushImport();
+      // Concrete signal: the rebuilt sandbox has actually been created (the
+      // rebuild's dynamic import resolved and Websandbox.create ran). flushUntil
+      // throws if it never does, so a stuck rebuild fails loud here instead of
+      // surfacing as a misleading height assertion later.
+      await flushUntil(() => createdSandboxes.length === 2, "rebuilt sandbox");
 
       // Old sandbox destroyed, new one created
       expect(mockDestroy).toHaveBeenCalledTimes(1);
@@ -1123,33 +1207,29 @@ describe("OpenGenerativeUIActivityRenderer", () => {
       expect(outer.style.height).toBe("200px");
 
       // New sandbox not ready yet — measurement still queued, nothing flushed
-      const measureBeforeReady = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
-      );
-      expect(measureBeforeReady.length).toBe(0);
+      expect(measureRunCount()).toBe(0);
 
-      // Resolve the second sandbox — the re-queued measurement must replay
+      // Resolve the second sandbox, then wait on the concrete signal that the
+      // re-queued measurement has replayed — i.e. the rebuilt sandbox's host
+      // sandbox.promise.then callback has RUN. This is the precise hop the old
+      // call-count heuristic could not observe, so it could let the dispatch below
+      // race a still-pending callback and reject the height MessageEvent.
       await act(async () => {
         mockPromiseResolve();
         await mockPromise;
       });
-      await flushImport();
+      await flushUntil(() => measureRunCount() >= 1, "rebuilt measurement");
 
       // The second sandbox re-ran the one-shot measurement script.
-      const measureCallsSecond = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" && (c[0] as string).includes("__ck_resize"),
-      );
-      expect(measureCallsSecond.length).toBeGreaterThanOrEqual(1);
+      expect(measureRunCount()).toBeGreaterThanOrEqual(1);
 
-      // Stub the SECOND (now current) iframe's contentWindow with a distinct
-      // sentinel — mockCreate reassigned the module-level mockIframe on rebuild.
-      const secondWindow = {} as Window;
-      Object.defineProperty(mockIframe, "contentWindow", {
-        configurable: true,
-        value: secondWindow,
-      });
+      // Dispatch the rebuilt sandbox's measured height. Again the source is read
+      // from the recorded handle (now createdSandboxes.at(-1), the object in
+      // sandboxRef.current after the rebuild), so it is guaranteed to match the
+      // listener's current-sandbox guard — the height-700 event can no longer be
+      // rejected for pointing at a stale or not-yet-armed contentWindow.
+      const secondSandbox = createdSandboxes.at(-1)!;
+      expect(secondSandbox).not.toBe(firstSandbox);
 
       // RED pre-fix: the listener was a one-shot that removed itself after the
       // first (500px) measurement, so this second post is never received and the
@@ -1159,7 +1239,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         window.dispatchEvent(
           new MessageEvent("message", {
             data: { type: "__ck_resize", height: 700 },
-            source: secondWindow,
+            source: secondSandbox.contentWindow,
           }),
         );
       });
