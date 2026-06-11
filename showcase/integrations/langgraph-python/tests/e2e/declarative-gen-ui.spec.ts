@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // QA reference: qa/declarative-gen-ui.md
 // Demo source: src/app/demos/declarative-gen-ui/{page.tsx, a2ui/*}
@@ -20,6 +21,25 @@ import { test, expect } from "@playwright/test";
 // W8-7 (resolved): aimock fixtures must split content and toolCalls into
 // separate responses — a combined response closes the assistant turn before
 // the A2UI tool call renders (see 2436adba6).
+
+/** Click a suggestion pill and confirm the message actually dispatched
+ *  (the user bubble with the pill's full message text appears). On slow
+ *  dev-server hydration the first click can land before the chat send
+ *  pipeline is wired and is silently swallowed — retry until the bubble
+ *  shows up. */
+async function clickPill(page: Page, title: string, message: string) {
+  const pill = page
+    .locator('[data-testid="copilot-suggestion"]')
+    .filter({ hasText: title })
+    .first();
+  await expect(pill).toBeVisible({ timeout: 15_000 });
+  await expect(async () => {
+    await pill.click();
+    await expect(page.getByText(message).first()).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 30_000 });
+}
 
 test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   test.setTimeout(120_000);
@@ -57,11 +77,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   test("sales dashboard pill renders a composed surface: card + metrics + pie + bar", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Show my sales dashboard" })
-      .first()
-      .click();
+    await clickPill(
+      page,
+      "Show my sales dashboard",
+      "Show me my sales dashboard for this quarter.",
+    );
 
     // The hero surface must contain a titled Card with a KPI Metric row
     // AND both charts — a single lonely widget is the regression OSS-136
@@ -112,8 +132,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   test("team performance pill renders a DataTable with rep rows", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Team performance" }).first().click();
+    await clickPill(
+      page,
+      "Team performance",
+      "How are our sales reps performing against quota?",
+    );
 
     const table = page.locator('[data-testid="declarative-data-table"]');
     await expect(table.first()).toBeVisible({ timeout: 90_000 });
@@ -127,8 +150,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   });
 
   test("at-risk pill renders StatusBadge pills", async ({ page }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Anything at risk?" }).first().click();
+    await clickPill(
+      page,
+      "Anything at risk?",
+      "Are any accounts or pipeline deals at risk this quarter?",
+    );
 
     const badges = page.locator('[data-testid="declarative-status-badge"]');
     await expect
@@ -137,11 +163,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   });
 
   test("top account pill renders InfoRow facts", async ({ page }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Top account details" })
-      .first()
-      .click();
+    await clickPill(
+      page,
+      "Top account details",
+      "Pull up the details on our biggest account.",
+    );
 
     // The account card stacks label/value facts (owner, region, ARR,
     // renewal, last contact) — require at least 3 InfoRows.
