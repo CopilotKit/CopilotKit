@@ -825,8 +825,8 @@ export function buildCellModel(
   // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail, so
   // checking d3.status implicitly covers the D1/D2 gate.
   //
-  // Decision table over (d1d4GateFails, d4 no-data, d5.exists, d5.status,
-  // d6.status):
+  // Decision table over (d1d4GateFails, d4 no-data, D3/D4 absent, d5.exists,
+  // d5.status, d6.status):
   //   gate fails                                  → red  (gate dominates)
   //   D4 null (unverified family) + D5/D6 red     → red  (red dominates
   //                                                 no-data)
@@ -834,6 +834,15 @@ export function buildCellModel(
   //                                                 missing-chat collapse,
   //                                                 mirroring D5/D6's
   //                                                 anyMissing gray)
+  //   D3+D4 BOTH absent + D5/D6 red               → red  (red dominates
+  //                                                 no-data)
+  //   D3+D4 BOTH absent otherwise                 → gray (unverified — green
+  //                                                 is the strict reward for
+  //                                                 an INTACT ladder, and an
+  //                                                 ABSENT lower ladder can
+  //                                                 never be weaker evidence
+  //                                                 than a present-but-null
+  //                                                 one; see CF7-F3 #2)
   //   D5 unmapped (!d5.exists)                    → gray (ceiling is D4; D6
   //                                                 shares CATALOG_TO_D5_KEY,
   //                                                 so it is unmapped too)
@@ -855,15 +864,23 @@ export function buildCellModel(
   // Present-but-null D4: the unconditional chat row is missing, so the
   // real-time family is UNVERIFIED — the documented no-data outcome.
   const d4NoData = d4.exists && d4.status === null;
+  // ABSENT D1-D4 family (CF7-F3 #2): neither the D3 (e2e) row nor ANY D4
+  // (chat/tools) row exists, so the ladder below D5 is wholly unverified. The
+  // gate above can't catch this — it fires only on `exists` — so without this
+  // predicate a cell with ONLY green D5/D6 rows rendered a green chip (and a
+  // green d6Effective) at achievedDepth=0, a false top-of-ladder claim. Same
+  // strictness family as `d4NoData`: absence is no-data, never credit.
+  const d1d4Absent = !d3.exists && !d4.exists;
 
   let chipColor: ChipColor;
   if (d1d4GateFails) {
     // A failing/stale D1-D4 gate dominates everything below it.
     chipColor = "red";
-  } else if (d4NoData) {
-    // Unverified D4 family → no-data gray, exactly like the D5/D6 anyMissing
-    // collapse. A present red ABOVE it (D5/D6) still surfaces — red dominates
-    // no-data, mirroring the `D5 null + D6 red → red` row below.
+  } else if (d4NoData || d1d4Absent) {
+    // Unverified D4 family (missing-chat collapse) OR a wholly ABSENT D3/D4
+    // family → no-data gray, exactly like the D5/D6 anyMissing collapse. A
+    // present red ABOVE it (D5/D6) still surfaces — red dominates no-data,
+    // mirroring the `D5 null + D6 red → red` row below.
     chipColor = d5.status === "red" || d6.status === "red" ? "red" : "gray";
   } else if (!d5.exists) {
     // D5 is not mapped for this feature → ceiling is D4. resolveD5 and
@@ -897,6 +914,9 @@ export function buildCellModel(
   //   D4 no-data (status null)→ null (ladder UNVERIFIED at D4 — the
   //                             missing-chat collapse; same blocked outcome
   //                             as a failing gate, but the chip shows gray)
+  //   D3+D4 BOTH absent       → null (ladder UNVERIFIED below D5 by ABSENCE —
+  //                             the CF7-F3 #2 collapse; same blocked outcome
+  //                             as the D4 no-data collapse)
   //   D5 not mapped (!exists) → raw d6.status (no D5 rung to gate against;
   //                             D6 shares CATALOG_TO_D5_KEY so it is unmapped
   //                             too and the raw status is null today — the
@@ -908,7 +928,7 @@ export function buildCellModel(
   //                             green and never a false red — the CV badge
   //                             already shows the real lower-rung failure)
   let d6Effective: TestStatus;
-  if (d1d4GateFails || d4NoData) {
+  if (d1d4GateFails || d4NoData || d1d4Absent) {
     d6Effective = null;
   } else if (!d5.exists) {
     d6Effective = d6.status;

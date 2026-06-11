@@ -241,6 +241,65 @@ describe("buildCellModel", () => {
     });
   });
 
+  // ── Absent D3/D4 family → unverified gray, never green (CF7-F3 #2) ──
+  describe("absent D3/D4 family collapses to unverified gray (CF7-F3 #2)", () => {
+    it("only-D5/D6-green (no e2e/chat/tools rows at all) renders GRAY, not green", () => {
+      // The D1-D4 gate fires only on d3.exists/d4.exists, so a cell with ONLY
+      // green D5/D6 rows used to slip past it and render a green chip + green
+      // d6Effective with achievedDepth=0/ceilingDepth=0 — contradicting the
+      // strictness doctrine (a PRESENT-but-null D4 grays; D5-no-data grays the
+      // ladder; an ABSENT lower ladder must not be weaker than a present
+      // unverified one).
+      const live = mapOf([
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d3!.exists).toBe(false);
+      expect(model.d4!.exists).toBe(false);
+      expect(model.achievedDepth).toBe(0);
+      expect(model.ceilingDepth).toBe(0);
+      // Unverified ladder below D5 → gray, same shape as the other no-data
+      // collapses; the D6 claim stays blocked.
+      expect(model.chipColor).toBe("gray");
+      expect(model.d6Effective).toBeNull();
+      expect(model.surfaceState).toBe("gray");
+    });
+
+    it("with D3/D4 green the full-green ladder stays GREEN (unchanged)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("green");
+      expect(model.d6Effective).toBe("green");
+    });
+
+    it("absent D3/D4 + red D6 stays RED (red dominates the absent collapse)", () => {
+      const live = mapOf([
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+      // The blocked D6 claim still never reads green through an unverified
+      // ladder — the chip carries the red.
+      expect(model.d6Effective).toBeNull();
+    });
+
+    it("absent D3/D4 + red D5 stays RED (red dominates the absent collapse)", () => {
+      const live = mapOf([
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+      expect(model.d6Effective).toBeNull();
+    });
+  });
+
   // ── D3 fails → D0 achieved, red chip ───────────────────────────────
   describe("D3 fails", () => {
     it("returns achievedDepth=0 and red chip when D3 fails (tests exist but none pass)", () => {
@@ -1912,13 +1971,17 @@ describe("buildCellModel", () => {
       });
 
       it("a reclaimed-pending comm error must NOT mask an AMBER (partial-failure) chip — amber passes through", () => {
-        // D5 green + D6 red → chipColor amber (partial failure / degraded
-        // ladder). Amber is a GENUINE failure colour, not no-data: the
+        // Intact D1-D4 ladder + D5 green + D6 red → chipColor amber (partial
+        // failure / degraded ladder; the green e2e/chat rows keep the ladder
+        // verified so the CF7-F3 #2 absent-D3/D4 collapse doesn't turn this
+        // red). Amber is a GENUINE failure colour, not no-data: the
         // neutral "pending" overlay masking it would hide a real partial
         // regression behind a benign gray surface (the same never-mask rule
         // the red passthrough enforces — mirrors the harness
         // fleetSurfaceState, where only green becomes "pending").
         const live = mapOf([
+          row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+          row(keyFor("chat", "agno"), "chat", "green"),
           row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
           row(keyFor("d6", "agno", "agentic-chat"), "d6", "red", {
             signal: reclaimSignal,
