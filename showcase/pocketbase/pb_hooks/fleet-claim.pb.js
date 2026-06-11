@@ -243,17 +243,44 @@ routerAdd("POST", "/api/fleet/release", (c) => {
 
   let released = false;
   let view = null;
+  // REFUSAL REASON (threaded to the client on released:false). The caller's
+  // retry truthfulness depends on one distinction: a row that is TERMINAL
+  // UNDER THE CALLER'S OWN workerId can only mean the caller's earlier
+  // release COMMITTED and the response was lost (timeout-after-commit) — a
+  // terminal release retains claimed_by, and no other worker can set it.
+  // The client (queue-client report()) uses that to proceed to its result
+  // write instead of falsely declaring the result discarded.
+  //   refused_terminal_same_holder — row done|failed with claimed_by ===
+  //     workerId (the caller's own committed release; result still writable)
+  //   refused_lease_live           — pending-target (sweeper) release on a
+  //     still-live lease (the TOCTOU close below; holder is alive)
+  //   refused_not_holder           — everything else (unknown row, another
+  //     holder, or a terminal-target release on an already-expired lease —
+  //     the caller is no longer the EFFECTIVE holder)
+  let reason = null;
   $app.dao().runInTransaction((txDao) => {
     let rec;
     try {
       rec = txDao.findRecordById("probe_jobs", jobId);
     } catch (e) {
+      reason = "refused_not_holder";
       return;
     }
     // Only the current lease holder may release, and only while the row is in a
     // running state.
-    if (RUNNING_STATES.indexOf(rec.get("status")) === -1) return;
-    if (rec.get("claimed_by") !== workerId) return;
+    const status = rec.get("status");
+    if (RUNNING_STATES.indexOf(status) === -1) {
+      reason =
+        (status === "done" || status === "failed") &&
+        rec.get("claimed_by") === workerId
+          ? "refused_terminal_same_holder"
+          : "refused_not_holder";
+      return;
+    }
+    if (rec.get("claimed_by") !== workerId) {
+      reason = "refused_not_holder";
+      return;
+    }
     // The lease-expiry gate applies ONLY to TERMINAL targets (done|failed). If
     // the lease already expired the holder LOST it (the sweeper may have
     // re-queued it, or another worker may have stolen the claim) — letting a
@@ -271,7 +298,13 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     // reclaims 0, no worker-crashed-mid-job comm error is ever synthesized). The
     // claimed_by match above still authorizes it, and re-queue to pending is
     // always safe: it just resets the row to claimable.
-    if (target !== "pending" && leaseExpired(rec)) return;
+    if (target !== "pending" && leaseExpired(rec)) {
+      // Expired lease on a terminal-target release: the caller is no longer
+      // the EFFECTIVE holder (the claim is stealable/swept), so this is the
+      // not-holder class, not the committed-terminal class.
+      reason = "refused_not_holder";
+      return;
+    }
     // TOCTOU close (the sweepers' list→release race): a "pending" release is
     // a SWEEPER re-queueing an EXPIRED lease on behalf of its lapsed holder —
     // but the sweeper decided "expired" from a LISTED SNAPSHOT. If the holder
@@ -286,7 +319,10 @@ routerAdd("POST", "/api/fleet/release", (c) => {
     // still renewing: a renewing worker is alive, so refusal is correct
     // there too. leaseExpired stays byte-equivalent to the client's anchored
     // parse, so both sides agree on what "expired" means.
-    if (target === "pending" && !leaseExpired(rec)) return;
+    if (target === "pending" && !leaseExpired(rec)) {
+      reason = "refused_lease_live";
+      return;
+    }
 
     rec.set("status", target);
     if (target === "pending") {
@@ -307,6 +343,8 @@ routerAdd("POST", "/api/fleet/release", (c) => {
 
   return c.json(
     200,
-    released ? { released: true, job: view } : { released: false },
+    released
+      ? { released: true, job: view }
+      : { released: false, reason: reason },
   );
 }, $apis.requireAdminAuth());

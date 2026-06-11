@@ -2329,20 +2329,75 @@ describe("FleetQueueClient.report", () => {
     const { pb, rows } = makeFakePb([seededRow()]);
     const claim = makeFakeClaim({
       releaseJob: vi.fn(
-        async (): Promise<ReleaseResult> => ({ released: false }),
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_not_holder",
+        }),
       ),
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
     // The error must say what actually happened: the computed result IS
-    // discarded and the job re-runs — NOT the old "nothing was lost" framing
-    // (the ROW isn't lost, but this worker's work product is).
+    // discarded, and the job re-runs ONLY if the sweeper reclaims it to
+    // pending — a terminal row never re-runs (the old wording claimed an
+    // unconditional re-run).
     await expect(
       q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
-    ).rejects.toThrow(/release refused .* result is DISCARDED/i);
+    ).rejects.toThrow(
+      /release refused .* result is DISCARDED.*re-runs only if .* reclaimed to pending/i,
+    );
     // A refused release must never leave a result on a row this worker no
     // longer owns — the consumer would otherwise aggregate a stale result.
     expect(rows[0].result).toBeUndefined();
+  });
+
+  it("a refusal WITHOUT a reason (legacy hook) still throws (fail closed, not fail open)", async () => {
+    const { pb, rows } = makeFakePb([seededRow()]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: false }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await expect(
+      q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
+    ).rejects.toThrow(/release refused/i);
+    expect(rows[0].result).toBeUndefined();
+  });
+
+  it("skips to the result write when the refusal is refused_terminal_same_holder (report() is retryable)", async () => {
+    // TIMEOUT-AFTER-COMMIT retry truthfulness: report()'s first attempt can
+    // succeed the release CAS and then exhaust the result write (throwing
+    // "result lost"). A NATURAL RETRY of report() then gets the release
+    // REFUSED — the row is already terminal — and used to emit the
+    // "result is DISCARDED and the job re-runs" error: both halves false
+    // (the result is still writable by this holder; terminal rows never
+    // re-run). With the hook's reason field, a refusal that is
+    // refused_terminal_same_holder (terminal UNDER MY workerId — only this
+    // worker's own committed release can produce that) skips straight to
+    // writeResult, making report() retryable end-to-end.
+    const { pb, rows } = makeFakePb([seededRow()]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const result = sampleResult();
+    await q.report({ jobId: "j1", workerId: "worker-7", result });
+
+    // The result landed for the consumer despite the refused (re-)release.
+    expect(rows[0].result).toEqual(result);
+    expect(rows[0].result_processed).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.release-refused-terminal-same-holder",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
   });
 });
 
@@ -2723,6 +2778,17 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     expect(clamps.length).toBe(2);
   });
 
+  it("the release handler reports a refusal reason (terminal-same-holder vs not-holder vs live-lease)", () => {
+    // report()'s retryability depends on distinguishing "the row is terminal
+    // under MY workerId" (my own earlier release committed → the result is
+    // still mine to write) from every other refusal. The hook must emit the
+    // reason on the released:false response.
+    expect(hookSource).toContain('"refused_terminal_same_holder"');
+    expect(hookSource).toContain('"refused_not_holder"');
+    expect(hookSource).toContain('"refused_lease_live"');
+    expect(hookSource).toContain("{ released: false, reason:");
+  });
+
   it("the release handler RETAINS lease_expires_at on a pending re-queue (last-in-flight marker)", () => {
     // The stale-pending sweep's recent-lease heuristic depends on the
     // re-queue keeping the expired lease around: nulling it would let the
@@ -2741,7 +2807,7 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     // comm error. The hook must refuse a pending-target release while the
     // row's CURRENT lease is still live, inside the same transaction.
     expect(hookSource).toContain(
-      'if (target === "pending" && !leaseExpired(rec)) return;',
+      'if (target === "pending" && !leaseExpired(rec)) {',
     );
   });
 });

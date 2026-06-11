@@ -65,9 +65,35 @@ export interface RenewResult {
   job?: JobView;
 }
 
+/**
+ * The release endpoint's refusal reason for `released: false` (threaded from
+ * the hook so callers can be truthful about WHY). The load-bearing value is
+ * `refused_terminal_same_holder`: the row is already terminal UNDER THE
+ * CALLER'S OWN workerId, which can only mean the caller's earlier release
+ * COMMITTED and its response was lost (timeout-after-commit) — the caller's
+ * result write is still authorized, so a report() retry must proceed to it
+ * rather than declare the result discarded. `refused_lease_live` is the
+ * TOCTOU-close refusal of a sweeper re-queue on a still-live lease;
+ * `refused_not_holder` covers everything else (unknown row, another holder,
+ * or a terminal-target release on an already-expired lease).
+ */
+export type ReleaseRefusalReason =
+  | "refused_terminal_same_holder"
+  | "refused_lease_live"
+  | "refused_not_holder";
+
+/** The committed-terminal-under-my-id refusal — see `ReleaseRefusalReason`. */
+export const RELEASE_REFUSED_TERMINAL_SAME_HOLDER =
+  "refused_terminal_same_holder" satisfies ReleaseRefusalReason;
+
 export interface ReleaseResult {
   released: boolean;
   job?: JobView;
+  /** Present (string) only when `released` is false AND the hook supplied a
+   * reason. Typed loose (`string`) because the wire value is untrusted —
+   * callers compare against the known `ReleaseRefusalReason` values and
+   * treat anything else as a generic refusal. */
+  reason?: string;
 }
 
 export interface JobClaimClient {
@@ -117,6 +143,8 @@ interface ClaimEndpointBody {
   released?: boolean;
   job?: JobView;
   error?: string;
+  /** Release refusal reason (released: false only) — see `ReleaseRefusalReason`. */
+  reason?: string;
 }
 
 export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
@@ -226,7 +254,11 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
         workerId,
         status,
       });
-      return { released: body.released === true, job: body.job };
+      return {
+        released: body.released === true,
+        job: body.job,
+        ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
+      };
     },
   };
 }

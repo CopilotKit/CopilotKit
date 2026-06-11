@@ -47,6 +47,7 @@
 import type { Logger } from "../types/index.js";
 import type { PbClient } from "../storage/pb-client.js";
 import type { JobClaimClient, JobView, ReleaseResult } from "./job-claim.js";
+import { RELEASE_REFUSED_TERMINAL_SAME_HOLDER } from "./job-claim.js";
 import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
 import type {
   ClaimedJob,
@@ -850,16 +851,33 @@ export function createFleetQueueClient(
           status,
         );
         if (!result.released) {
-          // The CAS refused the release — not the lease holder, or the row is
-          // no longer running (likely already swept/reclaimed). The JOB is not
-          // lost (the sweeper's reclaim path, REQ-B, keeps it in flight), but
-          // this worker's COMPUTED RESULT is: it is never persisted, and the
-          // re-queued job re-runs from scratch on another claim. Say exactly
-          // that — the old "nothing was lost" framing hid a full job's worth
-          // of discarded work from the operator reading the log.
-          throw new Error(
-            `queue-client: release refused for job ${input.jobId} (worker ${input.workerId}, status ${status}) — not the lease holder or row not running; this worker's computed result is DISCARDED and the job re-runs after reclamation`,
-          );
+          if (result.reason === RELEASE_REFUSED_TERMINAL_SAME_HOLDER) {
+            // TIMEOUT-AFTER-COMMIT retry: the row is already terminal UNDER
+            // THIS workerId — only this worker's OWN earlier release can
+            // have committed that (a terminal release retains claimed_by).
+            // So the refusal is the second leg of a report() retry whose
+            // first attempt released and then lost the response (or
+            // exhausted the result write). The result is still THIS holder's
+            // to write — proceed to writeResult instead of falsely declaring
+            // it discarded; this is what makes report() retryable.
+            logger.warn("queue-client.release-refused-terminal-same-holder", {
+              jobId: input.jobId,
+              workerId: input.workerId,
+              status,
+            });
+          } else {
+            // The CAS refused the release — not the (effective) lease holder,
+            // or the row was swept/stolen. The JOB is not lost (the sweeper's
+            // reclaim path, REQ-B, keeps a reclaimable row in flight), but
+            // this worker's COMPUTED RESULT is: it is never persisted. The
+            // job RE-RUNS ONLY IF it is (or gets) reclaimed to pending — a
+            // row another worker drove to terminal never re-runs. Say
+            // exactly that — the old wording promised an unconditional
+            // re-run the queue does not guarantee.
+            throw new Error(
+              `queue-client: release refused for job ${input.jobId} (worker ${input.workerId}, status ${status}, reason ${result.reason ?? "unknown"}) — not the lease holder or row not running; this worker's computed result is DISCARDED, and the job re-runs only if it is reclaimed to pending (terminal rows never re-run)`,
+            );
+          }
         }
         // PERSIST the per-service result onto the now-terminal row so the
         // control-plane's result-consumer (a DIFFERENT process) can aggregate

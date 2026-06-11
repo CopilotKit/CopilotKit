@@ -166,6 +166,49 @@ describe("job-claim client", () => {
     });
   });
 
+  it("releaseJob threads the hook's refusal reason on released:false", async () => {
+    // report()'s retry truthfulness depends on this field reaching the
+    // caller: refused_terminal_same_holder means the caller's own earlier
+    // release committed (timeout-after-commit) and its result write is still
+    // authorized.
+    const fetchImpl = authedFetch(
+      () =>
+        new Response(
+          JSON.stringify({
+            released: false,
+            reason: "refused_terminal_same_holder",
+          }),
+          { status: 200 },
+        ),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    const r = await client.releaseJob("j1", "worker-7", "done");
+    expect(r.released).toBe(false);
+    expect(r.reason).toBe("refused_terminal_same_holder");
+  });
+
+  it("releaseJob omits reason when the endpoint sends none (legacy body shape)", async () => {
+    const fetchImpl = authedFetch(
+      () => new Response(JSON.stringify({ released: false }), { status: 200 }),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    const r = await client.releaseJob("j1", "worker-7", "done");
+    expect(r.released).toBe(false);
+    expect(r.reason).toBeUndefined();
+  });
+
   it("re-authenticates once on a 401 then retries the request", async () => {
     let claimCalls = 0;
     let authCalls = 0;
