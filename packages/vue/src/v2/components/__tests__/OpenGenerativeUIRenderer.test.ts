@@ -1297,9 +1297,14 @@ describe("OpenGenerativeUIRenderer", () => {
 // While the call is in progress and placeholderMessages exist, a 5s interval
 // cycles the visible message. When the call completes the renderer returns
 // null, but the interval keeps firing until unmount unless it is cleared on
-// completion. React's equivalent keys its effect on props.status and clears
-// the interval when status === Complete. The Vue watcher must do the same:
-// include status in the watch source and clear the interval on completion.
+// completion. React's equivalent keys its effect on `[messages?.length,
+// props.status]`: it clears the interval when status === Complete, jumps the
+// index to the newest message only when the COUNT changes, and re-arms only on
+// a count/status change. The Vue watcher must do the same — its sources are the
+// stable scalars `[() => placeholderMessages?.length, () => props.status]`, NOT
+// a fresh `[messages, status]` array literal (which Vue compares by reference,
+// firing every tick: forcing the index to length-1 and re-arming the interval
+// on every placeholderMessages identity change during streaming).
 // ---------------------------------------------------------------------------
 describe("OpenGenerativeUIToolRenderer placeholder timer", () => {
   function renderTool(props: {
@@ -1379,6 +1384,80 @@ describe("OpenGenerativeUIToolRenderer placeholder timer", () => {
     const ticksAtCompletion = ticks;
     vi.advanceTimersByTime(20000);
     expect(ticks).toBe(ticksAtCompletion);
+
+    mounted.unmount();
+  });
+
+  // Pin (Finding 2b): a NEW placeholderMessages array with the SAME length must
+  // NOT reset visibleMessageIndex and must NOT tear down / re-arm the interval.
+  // A fresh-array-literal watch source (or jumping the index on every re-run)
+  // would, on each streaming tick that re-creates the array at the same length,
+  // snap the visible message back to the newest and restart the 5s timer. With
+  // the scalar `[length, status]` sources and the count-keyed jump, an identity
+  // change at constant length is a no-op: the watcher does not even re-run.
+  //
+  // RED (fresh-array-literal source): the same-length rerender re-runs the
+  // watcher, clears+re-arms the interval, and resets the index to length-1.
+  // GREEN (scalar sources): no re-run, so no clear, no re-arm, and the cycled
+  // index is preserved.
+  it("does not reset the index or restart the interval on a same-length placeholderMessages change", async () => {
+    vi.useFakeTimers();
+    const setSpy = vi.spyOn(window, "setInterval");
+    const clearSpy = vi.spyOn(window, "clearInterval");
+
+    // Distinct strings per array so the rendered text reveals the exact index:
+    // index 0 → "A0"/"B0", index 2 (length-1) → "A2"/"B2".
+    const first = ["A0", "A1", "A2"];
+    const mounted = renderTool({
+      status: ToolCallStatus.Executing,
+      placeholderMessages: first,
+    });
+
+    // Armed once; index jumped to the newest (length-1 = 2) → shows "A2".
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("A2");
+
+    // One 5s tick cycles the index to (2 + 1) % 3 = 0 → shows "A0". The interval
+    // callback mutates a ref; flush the Vue scheduler (microtask-based, so it
+    // runs under fake timers) so the DOM reflects the new index.
+    vi.advanceTimersByTime(5000);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("A0");
+
+    setSpy.mockClear();
+    clearSpy.mockClear();
+
+    // A NEW array of the SAME length (3) streams in — identity changed, count
+    // and status unchanged.
+    const second = ["B0", "B1", "B2"];
+    await mounted.rerender({
+      name: "generateSandboxedUi",
+      args: { placeholderMessages: second },
+      status: ToolCallStatus.Executing,
+      result: undefined,
+    });
+
+    // The interval was neither cleared nor re-armed (the watcher did not re-run).
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
+    // The index was NOT reset to length-1: it stayed at 0, now showing the new
+    // array's first element "B0" (a reset would show "B2").
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("B0");
+
+    // The original interval is still live: a further 5s tick advances 0 → 1.
+    vi.advanceTimersByTime(5000);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("B1");
 
     mounted.unmount();
   });

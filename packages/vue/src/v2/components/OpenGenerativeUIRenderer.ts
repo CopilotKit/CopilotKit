@@ -772,23 +772,41 @@ export const OpenGenerativeUIToolRenderer = defineComponent({
   },
   setup(props) {
     const visibleMessageIndex = ref(0);
+    const prevMessageCount = ref(0);
 
-    // Watch status alongside placeholderMessages so a transition to Complete
-    // re-runs this watcher: the onCleanup below clears the in-flight interval
-    // and the Complete guard prevents re-arming. Without status in the source,
-    // a stable placeholderMessages reference would leave the 5s interval firing
-    // until unmount even after the call completes (the render returns null, so
-    // it would be an invisible lingering timer). Mirrors react-core, which keys
-    // its placeholder effect on props.status.
+    // Key the placeholder cycle on the message COUNT and the status — both as
+    // stable SCALAR sources. A `() => [placeholderMessages, status]` getter
+    // returns a FRESH array literal each tick, which Vue compares by reference,
+    // so the watcher would fire on essentially every reactive tick (every
+    // placeholderMessages identity change during streaming): the index would be
+    // forced to length-1 and the 5s interval torn down/re-armed each time. Vue
+    // compares the elements of a MULTI-SOURCE array by value for scalars, so
+    // `[() => length, () => status]` fires only when the count or the status
+    // actually changes. Mirrors react-core's placeholder effect, whose deps are
+    // `[messages?.length, props.status]`.
     watch(
-      () => [props.args.placeholderMessages, props.status] as const,
-      ([messages], _, onCleanup) => {
-        if (!messages?.length || props.status === ToolCallStatus.Complete)
-          return;
-        visibleMessageIndex.value = Math.max(messages.length - 1, 0);
+      [
+        () => props.args.placeholderMessages?.length,
+        () => props.status,
+      ] as const,
+      ([count, status], _previous, onCleanup) => {
+        if (!count) return;
+        // Jump to the newest message ONLY when the count changes (a new message
+        // streamed in) — never on a status-only re-run. Tracked against a
+        // previous-count ref, mirroring react-core's prevMessageCountRef.
+        if (count !== prevMessageCount.value) {
+          prevMessageCount.value = count;
+          visibleMessageIndex.value = count - 1;
+        }
+        // Auto-cycle only while in progress. The interval is cleared (onCleanup)
+        // and re-armed only when this watcher re-runs, i.e. only on a count or
+        // status change — not on every tick. On Complete it is cleared and NOT
+        // re-armed (the render returns null, so a lingering timer would be an
+        // invisible leak firing until unmount). Mirrors react-core's
+        // clear-on-complete + status-keyed re-arm.
+        if (status === ToolCallStatus.Complete) return;
         const timer = window.setInterval(() => {
-          visibleMessageIndex.value =
-            (visibleMessageIndex.value + 1) % Math.max(messages.length, 1);
+          visibleMessageIndex.value = (visibleMessageIndex.value + 1) % count;
         }, 5000);
         onCleanup(() => window.clearInterval(timer));
       },
