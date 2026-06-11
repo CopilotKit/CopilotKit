@@ -429,6 +429,22 @@ export function commErrorToStatusSignal(
  * status-row signal blob, or `undefined` when none is present / the embedded
  * value is malformed. Pure; unit-tested. The dashboard slot (REQ-B) uses this
  * to decide whether to render the "unreachable" overlay.
+ *
+ * VERSION-SKEW HAZARD: `undefined` conflates "no comm error was written" with
+ * "the key IS present but the embedded value did not decode" — e.g. a NEW
+ * `PoolCommErrorKind` rolled out write-side first, or a renamed required
+ * field. A reader on the older vocabulary silently DROPS that REQ-B overlay
+ * and renders the row's last-known probe colour as if the fleet were healthy.
+ * The decode return type deliberately stays `PoolCommError | undefined`
+ * (every render path branches on presence); consumers that need to SEE the
+ * drop pair this with the `statusSignalHasCommErrorKey` companion below and
+ * count/log when the key is present but the decode returned `undefined`.
+ *
+ * NOTE: the function source below is pinned BYTE-IDENTICAL against the
+ * dashboard's structural copy (`shell-dashboard`'s `live-status.ts`) by
+ * `commError-contract-drift.test.ts` — any edit to the function body must
+ * land on both sides; this doc comment and the companion live OUTSIDE the
+ * mirrored region.
  */
 export function commErrorFromStatusSignal(
   signal: unknown,
@@ -460,6 +476,23 @@ export function commErrorFromStatusSignal(
   if (typeof candidate.workerId === "string") out.workerId = candidate.workerId;
   if (typeof candidate.jobId === "string") out.jobId = candidate.jobId;
   return out;
+}
+
+/**
+ * Companion to `commErrorFromStatusSignal`: does the signal blob CARRY the
+ * well-known comm-error key at all, regardless of whether the embedded value
+ * decodes? Lets consumers distinguish "key present but undecodable" (the
+ * version-skew drop documented on the decode above — count/log it) from
+ * "genuinely absent" (nothing to report) without changing the decode's return
+ * contract. Mirrors the decoder's wire-shape guards: a null / non-object /
+ * array blob is never a valid signal, so the key cannot be "present" on one.
+ * Pure; unit-tested.
+ */
+export function statusSignalHasCommErrorKey(signal: unknown): boolean {
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal)) {
+    return false;
+  }
+  return FLEET_COMM_ERROR_SIGNAL_KEY in signal;
 }
 
 // ───────────────────────────────────────────────────────────────────────

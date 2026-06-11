@@ -7,6 +7,7 @@ import {
   isPoolCommErrorKind,
   commErrorToStatusSignal,
   commErrorFromStatusSignal,
+  statusSignalHasCommErrorKey,
   fleetSurfaceState,
   probeResultsForServiceJobResult,
   runSummaryForServiceJobResult,
@@ -159,6 +160,56 @@ describe("comm-error ↔ status-row signal round-trip", () => {
         [FLEET_COMM_ERROR_SIGNAL_KEY]: { kind: "worker-unreachable" },
       }),
     ).toBeUndefined();
+  });
+
+  it("statusSignalHasCommErrorKey distinguishes 'key present but undecodable' from 'absent' (version-skew hazard)", () => {
+    // The decode returns undefined for BOTH a signal that carries no comm
+    // error AND one whose embedded value is malformed/unknown — so a REQ-B
+    // overlay written by a NEWER producer (e.g. a new kind rolled out
+    // write-side first) silently drops on an older reader. The companion lets
+    // consumers count/log those drops without changing the decode contract.
+    //
+    // Key present, kind unknown to this reader (the version-skew case):
+    const unknownKind = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "some-future-kind",
+        message: "x",
+        observedAt: "2026-06-04T00:00:00.000Z",
+      },
+    };
+    expect(commErrorFromStatusSignal(unknownKind)).toBeUndefined();
+    expect(statusSignalHasCommErrorKey(unknownKind)).toBe(true);
+    //
+    // Key present, required field RENAMED (message -> msg):
+    const renamedField = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "worker-unreachable",
+        msg: "connect ECONNREFUSED",
+        observedAt: "2026-06-04T00:00:00.000Z",
+      },
+    };
+    expect(commErrorFromStatusSignal(renamedField)).toBeUndefined();
+    expect(statusSignalHasCommErrorKey(renamedField)).toBe(true);
+    //
+    // Key present and well-formed: both sides agree.
+    const wellFormed = commErrorToStatusSignal(SAMPLE_COMM_ERROR);
+    expect(commErrorFromStatusSignal(wellFormed)).toEqual(SAMPLE_COMM_ERROR);
+    expect(statusSignalHasCommErrorKey(wellFormed)).toBe(true);
+  });
+
+  it("statusSignalHasCommErrorKey is false when the key is genuinely absent (or the blob is no wire shape)", () => {
+    expect(statusSignalHasCommErrorKey({ failedCount: 0 })).toBe(false);
+    expect(statusSignalHasCommErrorKey(null)).toBe(false);
+    expect(statusSignalHasCommErrorKey(undefined)).toBe(false);
+    expect(statusSignalHasCommErrorKey("nope")).toBe(false);
+    // Arrays are never a valid wire shape — even with the key as an expando
+    // property (mirrors the decoder's top-level Array.isArray rejection).
+    expect(statusSignalHasCommErrorKey([])).toBe(false);
+    expect(
+      statusSignalHasCommErrorKey(
+        Object.assign([], { [FLEET_COMM_ERROR_SIGNAL_KEY]: SAMPLE_COMM_ERROR }),
+      ),
+    ).toBe(false);
   });
 });
 
