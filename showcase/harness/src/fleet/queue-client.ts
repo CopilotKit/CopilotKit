@@ -1388,12 +1388,21 @@ export function createFleetQueueClient(
     },
 
     async report(input: ReportJobInput): Promise<void> {
-      // The worker is DONE with this job either way (release refused, result
-      // write exhausted, or malformed input), so always evict the cached
-      // payload before returning — a leak here would slowly grow the
-      // per-client cache across reports. EVERYTHING that can throw runs
-      // INSIDE the try (including the invariant check and the status
-      // mapping below) so the finally's eviction can never be skipped.
+      // The worker is DONE with this job on every path that REACHED the
+      // release boundary (released, release refused, result write
+      // exhausted, malformed result) — evict the cached payload + lease
+      // before returning so those paths never leak entries. ONE carve-out:
+      // the EQUALITY-INVARIANT rejection below is a malformed-INPUT refusal
+      // thrown BEFORE the release CAS — nothing was released, the worker
+      // still legitimately holds the job, and its heartbeat keeps renewing.
+      // Evicting there dropped the assumed-live lease an INDETERMINATE
+      // renew depends on, killing the heartbeat of a live job (the false
+      // worker-crashed-mid-job class the caches exist to prevent).
+      // EVERYTHING that can throw runs INSIDE the try (including the
+      // invariant check and the status mapping below) so the finally's
+      // eviction can never be ACCIDENTALLY skipped — only the flagged
+      // invariant path opts out deliberately.
+      let workerStillHoldsJob = false;
       try {
         // EQUALITY INVARIANT (contracts.ts ReportJobInput): the release CAS
         // keys on the TOP-LEVEL ids while the persisted result echoes its
@@ -1404,6 +1413,12 @@ export function createFleetQueueClient(
           input.jobId !== input.result.jobId ||
           input.workerId !== input.result.workerId
         ) {
+          // No release happened (and none will): the worker still holds the
+          // job — skip the finally's eviction. NOTE the flag flips only on
+          // THIS check passing/failing cleanly: a result so malformed the
+          // comparison itself throws (null result) still evicts, matching
+          // the malformed-result eviction contract pinned by tests.
+          workerStillHoldsJob = true;
           throw new Error(
             `queue-client: report() input violates the ReportJobInput equality invariant (jobId "${input.jobId}" vs result.jobId "${input.result.jobId}"; workerId "${input.workerId}" vs result.workerId "${input.result.workerId}") — refusing to release one row while filing the result under another`,
           );
@@ -1548,11 +1563,16 @@ export function createFleetQueueClient(
           }`,
         );
       } finally {
-        // Terminal for this worker no matter the outcome — drop the cached
-        // payload + lease here so neither a refused release nor an exhausted
-        // result write leaks the entries.
-        payloadCache.delete(input.jobId);
-        leaseCache.delete(input.jobId);
+        // Terminal for this worker on every path that reached the release
+        // boundary — drop the cached payload + lease here so neither a
+        // refused release nor an exhausted result write leaks the entries.
+        // The equality-invariant rejection is the one deliberate exception
+        // (see the header note): nothing was released, the worker still
+        // holds the job, and the heartbeat needs the caches.
+        if (!workerStillHoldsJob) {
+          payloadCache.delete(input.jobId);
+          leaseCache.delete(input.jobId);
+        }
       }
     },
 

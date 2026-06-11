@@ -4060,6 +4060,54 @@ describe("FleetQueueClient.report", () => {
     expect(rows[0].result).toBeUndefined();
   });
 
+  it("does NOT evict the cached lease/payload on an equality-invariant rejection (the worker still holds the job)", async () => {
+    // The invariant rejection is a MALFORMED-INPUT refusal thrown BEFORE the
+    // release CAS — nothing was released, so the worker still legitimately
+    // holds the job and its heartbeat keeps renewing. The finally's
+    // unconditional eviction dropped the claim-time caches anyway, so the
+    // very next INDETERMINATE renew (thrown claim.renewLease) found no
+    // assumed-live lease to return and re-threw — killing the heartbeat and
+    // letting the sweeper reclaim a LIVE job (the false
+    // worker-crashed-mid-job class the caches exist to prevent).
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        throw new Error("transport blip — indeterminate renew");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+    expect(claimed.claimed).toBe(true);
+
+    await expect(
+      q.report({
+        jobId: "j1",
+        workerId: "worker-7",
+        result: sampleResult({ jobId: "j2" }),
+      }),
+    ).rejects.toThrow(/equality invariant/i);
+    expect(releaseJob).not.toHaveBeenCalled();
+
+    // The caches survived: the indeterminate renew returns the claim-time
+    // lease ASSUMED-LIVE instead of re-throwing (heartbeat stays alive).
+    const lease = await q.renewLease("j1", "worker-7", 30);
+    expect(lease).not.toBeNull();
+    expect(lease!.job.id).toBe("j1");
+    expect(lease!.payload).toEqual(payload);
+  });
+
   it("evicts the cached payload even when the result is MALFORMED (status computed inside the try)", async () => {
     // terminalJobStatus(input.result) used to run BEFORE the try/finally —
     // a malformed result threw past the finally and the claim-time cache
