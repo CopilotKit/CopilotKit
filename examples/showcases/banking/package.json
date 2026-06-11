@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:self-learning": "node scripts/self-learning-smoke.mjs"
   },
   "dependencies": {
     "@copilotkit/core": "workspace:*",

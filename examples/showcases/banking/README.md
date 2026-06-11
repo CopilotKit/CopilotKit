@@ -75,6 +75,21 @@ repo's `./scripts/local-dev.sh`, or a hosted Intelligence deployment). The demo
 can only **connect** to it via the env vars above; it cannot run the loop on its
 own.
 
+### Smoke-testing the loop
+
+With the demo running in Intelligence mode and the backend reachable,
+`scripts/self-learning-smoke.mjs` proves record → distill → recall end-to-end:
+it posts four teaching actions through the demo's `/api/copilotkit/annotate`
+route (exactly like the in-app call sites), optionally runs one `sl-worker`
+sweep, and asserts the distilled vendor policy is readable back via the
+platform's `/mcp` knowledge tool.
+
+```bash
+pnpm --filter demo-saas-copilot test:self-learning
+# include the distill phase (needs a built sl-worker in the Intelligence repo):
+INTELLIGENCE_REPO=~/Projects/intelligence pnpm --filter demo-saas-copilot test:self-learning
+```
+
 ### The 4-step payoff walkthrough
 
 1. **Agent fails.** A fresh agent is asked to approve an over-limit transaction
