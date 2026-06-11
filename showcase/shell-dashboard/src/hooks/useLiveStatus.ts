@@ -98,6 +98,51 @@ const RECONNECT_BACKOFF_MAX_MS = 8000;
 const SUBSCRIBE_FLUSH_INTERVAL_MS = 16;
 
 /**
+ * `true` when the supplemental comm-aggregate row (`full`) is STRICTLY older
+ * than its projected bulk twin (`bulkRow`) — the freshness guard for the
+ * cold-load merge in `fetchInitial` (CF8 F3).
+ *
+ * The supplemental fetch runs CONCURRENTLY with the bulk pages, so the bulk
+ * copy of an aggregate row can be NEWER (the row's state changed between the
+ * two reads). Replacing it with the supplemental snapshot would regress
+ * `state`/`observed_at` to stale values until the row's next SSE delta —
+ * which for slow-cadence aggregate rows can be a long time. "Fresher wins" is
+ * judged on `observed_at`, the row's last-SEEN marker (it moves on every
+ * producer tick, while `transitioned_at` only moves on state change — so it is
+ * the strictly-later of the two and the right recency key; the staleness fold
+ * in cell-model.ts keys off the same field).
+ *
+ * Tie/parse semantics, both deliberate:
+ *   - EQUAL timestamps → NOT older → the supplemental row wins. It is the
+ *     field-complete twin of the same snapshot (it carries `signal`, which the
+ *     bulk projection drops), so preferring it is what makes the cold-load
+ *     comm-error overlay visible at all (CF7-F3 #1).
+ *   - UNPARSEABLE timestamp on either side → NOT older → supplemental wins.
+ *     We only suppress the replace when the supplemental row is POSITIVELY
+ *     known to be stale; an undecidable comparison falls back to the
+ *     signal-bearing row, the same eventual-consistency posture as before
+ *     (the SSE subscription reconciles either way).
+ *
+ * When the bulk row IS newer we keep it INTACT — we do NOT graft the older
+ * supplemental `signal` onto it. A chimera row (newer core fields + stale
+ * signal) is worse than a signal-less one: the reducer's no-op check
+ * (`rowsAreNoop`, live-status.ts) compares signal PRESENCE only, so the next
+ * SSE delta carrying the same core fields but the REAL current signal would be
+ * swallowed as a no-op and the stale signal would persist indefinitely. A
+ * signal-less bulk row instead makes that delta's `undefined → defined`
+ * presence flip observable, so the live subscription restores `signal` safely.
+ */
+function supplementalRowIsOlder(full: StatusRow, bulkRow: StatusRow): boolean {
+  // `Date.parse` yields NaN for a malformed value; NaN comparisons are false,
+  // but we gate explicitly so the fallback direction is documented, not an
+  // accident of IEEE semantics.
+  const fullTs = Date.parse(full.observed_at);
+  const bulkTs = Date.parse(bulkRow.observed_at);
+  if (Number.isNaN(fullTs) || Number.isNaN(bulkTs)) return false;
+  return fullTs < bulkTs;
+}
+
+/**
  * Subscribes to the `status` collection, scoped by `dimension`. Exposes
  * (rows, connection-status). Does NOT fall back to any cached bundle —
  * stale-green lies are worse than an offline banner (§5.3).
@@ -595,7 +640,13 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       // Merge the supplemental signal-bearing aggregate rows over their
       // projected bulk twins, BY KEY (CF7-F3 #1). A supplemental row replaces
       // the projected row in place (preserving the bulk's deterministic page
-      // order); an aggregate row the bulk snapshot didn't carry (created
+      // order) — UNLESS the bulk twin is strictly fresher (CF8 F3): the two
+      // fetches run concurrently, so the bulk copy can carry a newer state
+      // than the supplemental snapshot, and "fresher wins" must hold in both
+      // directions (see `supplementalRowIsOlder` for the recency key, the
+      // equal-timestamp preference for the signal-bearing row, and why the
+      // newer bulk row is kept intact rather than grafted with the older
+      // signal). An aggregate row the bulk snapshot didn't carry (created
       // between the two reads) is appended — the same eventual-consistency
       // posture as the SSE reconciliation. A supplemental FAILURE intentionally
       // propagates: a cold load that silently misses active comm-error
@@ -609,6 +660,13 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         const full = fullByKey.get(r.key);
         if (full === undefined) return r;
         fullByKey.delete(r.key);
+        // Freshness guard (CF8 F3): if the supplemental snapshot is STRICTLY
+        // older than its bulk twin, the bulk row's core fields are newer —
+        // keep it intact (signal-less) rather than regressing state/observed_at
+        // or grafting a stale signal onto a newer row. See
+        // `supplementalRowIsOlder` for tie/parse semantics and the chimera
+        // rationale.
+        if (supplementalRowIsOlder(full, r)) return r;
         return full;
       });
       for (const leftover of fullByKey.values()) {

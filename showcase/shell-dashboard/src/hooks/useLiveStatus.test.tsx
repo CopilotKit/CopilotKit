@@ -901,6 +901,45 @@ describe("useLiveStatus", () => {
       expect(opts.fields).toBeUndefined();
     });
 
+    it("a supplemental row OLDER than its bulk twin does NOT regress the newer bulk row (CF8 F3)", async () => {
+      // The supplemental fetch is kicked off CONCURRENTLY with the bulk
+      // pages, so the bulk copy of an aggregate row can be NEWER (the row's
+      // state changed between the two reads). The merge must not replace the
+      // newer bulk core fields with the supplemental response's older
+      // snapshot — and must not graft the older signal onto the newer row
+      // either: the reducer's no-op check compares signal PRESENCE only, so
+      // a chimera row (newer core + stale signal) could swallow the next SSE
+      // delta carrying the real current signal. The newer bulk row survives
+      // intact (signal-less); the live SSE subscription restores `signal`.
+      const NEWER_OBSERVED_AT = new Date(Date.now() - 30_000).toISOString();
+      const newerBulkRow = {
+        ...aggregateRow,
+        state: "red",
+        observed_at: NEWER_OBSERVED_AT,
+        transitioned_at: NEWER_OBSERVED_AT,
+        fail_count: 1,
+        first_failure_at: NEWER_OBSERVED_AT,
+      };
+      // Bulk snapshot carries the NEWER row (mock strips `signal` via the
+      // fields projection, like real PB); the supplemental response carries
+      // the OLDER signal-bearing snapshot.
+      mockState.initial = [newerBulkRow];
+      mockState.commAggregateRows = [aggregateRow];
+
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg).toBeDefined();
+      // The newer bulk core fields survive the merge...
+      expect(agg?.state).toBe("red");
+      expect(agg?.observed_at).toBe(NEWER_OBSERVED_AT);
+      expect(agg?.fail_count).toBe(1);
+      // ...and the OLDER supplemental signal is NOT backfilled (unsafe — see
+      // the chimera rationale above).
+      expect(agg?.signal).toBeUndefined();
+    });
+
     it("a dimension scope OUTSIDE the aggregate set skips the supplemental fetch entirely", async () => {
       const { result } = renderHook(() => useLiveStatus("smoke"));
       await waitFor(() => expect(result.current.status).toBe("live"));
