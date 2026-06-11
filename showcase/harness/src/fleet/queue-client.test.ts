@@ -149,6 +149,7 @@ function likeToRegExp(pattern: string): RegExp {
 
 /** The row shape the shared filter matcher evaluates. */
 interface FilterableRow {
+  id: string;
   status: JobStatus;
   probe_key: string;
 }
@@ -172,9 +173,9 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
   for (const [, field, op] of filter.matchAll(
     /([A-Za-z_][\w.]*)\s*(\?~|\?=|!~|!=|<=|>=|<|>|~|=)/g,
   )) {
-    if (field !== "status" && field !== "probe_key") {
+    if (field !== "status" && field !== "probe_key" && field !== "id") {
       throw new Error(
-        `fake-pb: filter clause on unsupported field "${field}" — only status/probe_key are honored (filter: ${filter})`,
+        `fake-pb: filter clause on unsupported field "${field}" — only status/probe_key/id are honored (filter: ${filter})`,
       );
     }
     if (field === "status" && op !== "=") {
@@ -185,6 +186,14 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
     if (field === "probe_key" && !["=", "!=", "~", "!~"].includes(op)) {
       throw new Error(
         `fake-pb: probe_key clause with unsupported operator "${op}" (filter: ${filter})`,
+      );
+    }
+    // `id` is honored for the NEGATIVE equality only (the discovery
+    // by-row-id exclusion for clause-unsafe families); anything else throws
+    // per the fakes' philosophy.
+    if (field === "id" && op !== "!=") {
+      throw new Error(
+        `fake-pb: id clause with unsupported operator "${op}" — only \`!=\` is honored (filter: ${filter})`,
       );
     }
   }
@@ -214,6 +223,10 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
     (m) => m[1],
   );
   if (statuses.length > 0 && !statuses.includes(row.status)) return false;
+  // id exclusions (ANDed negatives, like the probe_key negatives below).
+  for (const m of filter.matchAll(/(?<![\w.])id\s*!=\s*"([^"]*)"/g)) {
+    if (row.id === m[1]) return false;
+  }
   // KNOWN LIMITATION (value extraction): `"([^"]*)"` stops at the FIRST
   // quote, so a literal containing an ESCAPED quote (`\"`) would be
   // truncated at the escape and the remainder misparsed as filter text.
@@ -1824,6 +1837,87 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     const c = await q.claimNext("w1", 30);
     expect(c.claimed).toBe(true);
     expect(c.lease?.job.id).toBe("ok-0");
+  });
+
+  it("an unsafe-family row must not starve YOUNGER families — excluded BY ID, discovery continues (G1f)", async () => {
+    // Discovery used to BREAK at the first clause-unsafe family (no safe
+    // family-exclusion clause exists for it), which starved EVERY younger
+    // family behind the offending row for as long as it sat in pending — up
+    // to its 3h stale window. The row itself needs no family-charset
+    // semantics to exclude: `id != "<rowId>"` (PB system ids are
+    // generated alphanumerics) lets discovery CONTINUE past it.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      // The unsafe row is the OLDEST — under the old break it occluded
+      // everything younger.
+      {
+        ...jobView({ id: "weird-0", probe_key: "d\\:a" }),
+        payload: samplePayload({ probeKey: "d\\:a" }),
+        created: new Date(t0).toISOString(),
+      },
+      {
+        ...jobView({ id: "ok-0", probe_key: "d6:y" }),
+        payload: samplePayload({ probeKey: "d6:y" }),
+        created: new Date(t0 + 1000).toISOString(),
+      },
+    ]);
+    const claim = makeStoreClaim(store);
+    const claimJobSpy = vi.spyOn(claim, "claimJob");
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const c = await q.claimNext("w1", 30);
+
+    // The younger family is still discovered and claimed…
+    expect(c.claimed).toBe(true);
+    expect(c.lease?.job.id).toBe("ok-0");
+    // …the unsafe row is skipped from claiming entirely (warned, not tried).
+    expect(claimJobSpy).not.toHaveBeenCalledWith(
+      "weird-0",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-clause-unsafe",
+      expect.objectContaining({ family: "d\\", probeKey: "d\\:a" }),
+    );
+  });
+
+  it("the EMPTY family's row is skipped by id while leading-colon families stay discoverable (G1c × G1f)", async () => {
+    // COMPOSITION: the empty family (G1c) is clause-unsafe AND its
+    // would-have-been exclusion clause is the one that hid all leading-colon
+    // families. With the by-id exclusion (G1f) the ":foo" whole-key family
+    // behind an empty-probe_key row is still discovered and claimed under
+    // its OWN family — never folded under "".
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      {
+        ...jobView({ id: "empty-0", probe_key: "" }),
+        payload: samplePayload(),
+        created: new Date(t0).toISOString(),
+      },
+      {
+        ...jobView({ id: "colon-0", probe_key: ":foo" }),
+        payload: samplePayload({ probeKey: ":foo" }),
+        created: new Date(t0 + 1000).toISOString(),
+      },
+    ]);
+    const claim = makeStoreClaim(store);
+    const claimJobSpy = vi.spyOn(claim, "claimJob");
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const c = await q.claimNext("w1", 30);
+
+    expect(c.claimed).toBe(true);
+    expect(c.lease?.job.id).toBe("colon-0");
+    expect(claimJobSpy).not.toHaveBeenCalledWith(
+      "empty-0",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-clause-unsafe",
+      expect.objectContaining({ family: "" }),
+    );
   });
 
   it("refuses the EMPTY family from clause building (G1c) — its clauses would match every leading-colon key", async () => {

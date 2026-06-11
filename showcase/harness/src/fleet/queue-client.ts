@@ -681,18 +681,24 @@ export function createFleetQueueClient(
         });
         break;
       }
-      // CHARSET GUARD: a family containing a backslash cannot be embedded
-      // in a filter with verified semantics (see familyClauseSafe). Without
-      // a safe EXCLUSION clause the loop cannot see past this family's rows
-      // either — warn and stop discovery here; families already discovered
-      // still rotate, and the unsafe family's rows are skipped from
-      // claiming entirely (probe keys are slugs, so this is garbage input).
+      // CHARSET GUARD: a clause-unsafe family (backslash, or the empty
+      // family) cannot be embedded in a filter with verified semantics (see
+      // familyClauseSafe), so its rows are skipped from claiming entirely
+      // (probe keys are slugs, so this is garbage input). Discovery used to
+      // BREAK here — starving every YOUNGER family behind the offending row
+      // for up to its 3h stale window. No FAMILY exclusion clause is needed
+      // to see past it: exclude the offending ROW by id (PB system ids are
+      // generated alphanumerics — no charset semantics in play) and
+      // CONTINUE. Each unsafe row burns one discovery iteration, so a page
+      // of them is still bounded by MAX_PENDING_FAMILIES (+ its warn).
       if (!familyClauseSafe(family)) {
         logger.warn("queue-client.family-clause-unsafe", {
           family,
           probeKey: head.probe_key,
+          rowId: head.id,
         });
-        break;
+        exclusions.push(`id != "${head.id}"`);
+        continue;
       }
       families.push(family);
       exclusions.push(familyExclusionClause(family));
