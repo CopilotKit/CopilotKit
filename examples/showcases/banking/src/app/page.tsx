@@ -465,19 +465,21 @@ export default function Page() {
       This operation is per department.
       An executive department admin is allowed to approve/deny from other departments as well.
       Show the unapproved transactions and allow the admin per department to approve them.
-      Transactions will be presented to the admin one by one.
+      Call this tool EXACTLY ONCE per user request, passing ALL the relevant
+      pending transaction ids in a single call — never make multiple parallel
+      calls to this tool.
       Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.
     `,
     available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
     parameters: z.object({
-      transactionId: z
+      transactionIds: z
         .string()
         .describe(
-          "The id of pending transaction to present to the given department admin (provided by copilot)",
+          'Comma-separated ids of ALL pending transactions to present to the given department admin in this single call (provided by copilot), e.g. "t-1,t-2"',
         ),
     }),
     render: ({ args, respond, status }) => {
-      const { transactionId } = args;
+      const transactionId = args.transactionIds ?? "";
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
@@ -486,7 +488,7 @@ export default function Page() {
         );
       }
 
-      if (!transactionId) {
+      if (transactionId.length === 0) {
         respond?.(
           "A transaction ID was not given, could be that there arent any pending approval or there was an error",
         );
