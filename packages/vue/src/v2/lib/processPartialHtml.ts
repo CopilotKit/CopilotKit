@@ -331,18 +331,22 @@ export function extractCompleteStyles(html: string): string {
  *    `&D` is indistinguishable from a forming `&Dagger;` at the boundary); the
  *    conservative strip self-corrects on the next chunk and at completion (the
  *    FINAL document never runs processPartialHtml).
- * 5. Reduce to the body region: drop the `<body…>` open tag and the matching
- *    `</body>` (and everything after it), and drop the `<html…>`/`</html>`
- *    structural wrappers — keeping the body's inner content AND any surviving
- *    top-level pre-`<body>` content (e.g. a body-region `<style>`). This mirrors
- *    how a browser renders the FINAL document's body region: `<html>`/`<head>`
- *    are wrappers the parser drops, while a pre-`<body>` style is real
- *    cascade-bearing content that stays with the body. The `<body[\s>]`/`</body>`
- *    /`<html[\s>]` matches are word-bounded (never `<bodyguard …>`/`<htmlfoo>`)
- *    and run on a freshly masked string so a token inside a surviving style block
- *    or comment cannot fake the boundary. The `<html…>` open tag is stripped
- *    wherever it appears (not only when leading), so a prefixed wrapper —
- *    `text<html>…` — does not leak the tag into the preview body.
+ * 5. Reduce to the body region: drop the `<body…>` open tag and the `</body…>`
+ *    CLOSE TOKEN (but KEEP everything after it), and drop the `<html…>`/`</html>`
+ *    structural wrappers — keeping the body's inner content, any surviving
+ *    top-level pre-`<body>` content (e.g. a body-region `<style>`), AND any
+ *    content after `</body>`. This mirrors how a browser renders the FINAL
+ *    document's body region: `<html>`/`<head>`/`<body>`/`</body>`/`</html>` are
+ *    tags the parser consumes as structure, while a pre-`<body>` style and any
+ *    post-`</body>` markup are real content the browser REPARENTS into the body
+ *    (the final document is mounted whole, so the preview must keep them too — a
+ *    truncate-at-`</body>` drops content that pops in at the preview→final swap).
+ *    The `<body[\s>]`/`</body>`/`<html[\s>]` matches are word-bounded (never
+ *    `<bodyguard …>`/`<htmlfoo>`) and run on a freshly masked string so a token
+ *    inside a surviving style block or comment cannot fake the boundary. The
+ *    `</body>` and `<html…>` tokens are stripped wherever they appear (not only
+ *    when leading/trailing), so a prefixed wrapper — `text<html>…` — does not
+ *    leak the tag into the preview body, and post-`</body>` content is retained.
  */
 export function processPartialHtml(html: string): string {
   const { scriptOrHeadSpans } = analyzeRegions(html);
@@ -387,12 +391,30 @@ export function processPartialHtml(html: string): string {
 
   // 5. Reduce to the body region. Mask first so a <body>/</body>/<html> token
   // inside a surviving complete style block or comment cannot be mistaken for the
-  // real boundary. Strip </body> (+ everything after) BEFORE the open tag so the
-  // open-tag index stays valid for the original string.
+  // real boundary. Remove the </body> CLOSE TOKEN(S) but KEEP the content after
+  // them — a browser reparents any markup that appears after </body> back INTO
+  // the body when it renders the final (whole-document) mount, so truncating at
+  // </body> would drop content the final document still shows (a preview↔final
+  // divergence where post-</body> content pops in at the swap). A complete
+  // <style> after </body> is body-region too (it sits in no <head> element), so
+  // analyzeRegions does not hoist it and it stays here in the body — preserving
+  // the hoist-XOR-keep invariant. Locate each </body> on the MASKED copy (so a
+  // </body> token inside a surviving style/comment is never taken as the
+  // structural close) and splice those spans out of the ORIGINAL by index — the
+  // same mask-aware shape as the </html> strip below. Done before the <body>
+  // open-tag step so its offsets stay valid for the post-removal string.
   let masked = maskBlockContent(result);
-  const closeIdx = masked.search(/<\/body>/i);
-  if (closeIdx !== -1) {
-    result = result.slice(0, closeIdx);
+  const bodyCloseSpans: Array<[number, number]> = [];
+  const bodyCloseRe = /<\/body>/gi;
+  let bodyClose: RegExpExecArray | null;
+  while ((bodyClose = bodyCloseRe.exec(masked)) !== null) {
+    bodyCloseSpans.push([
+      bodyClose.index,
+      bodyClose.index + bodyClose[0].length,
+    ]);
+  }
+  if (bodyCloseSpans.length > 0) {
+    result = removeSpans(result, bodyCloseSpans);
     masked = maskBlockContent(result);
   }
   const openMatch = masked.match(/<body[\s>]/i);

@@ -533,3 +533,88 @@ describe("processPartialHtml — trailing-entity strip (intended tradeoff)", () 
     expect(processPartialHtml("<p>R&D")).toBe("<p>R");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Content after </body> must be RETAINED in the body (final-document parity).
+// The final document is mounted whole; a browser reparents anything that
+// appears after </body> INTO the body (it is body content, not a wrapper).
+// jsdom (the browser-equivalent parser) confirms:
+//   new JSDOM("<body><p>x</p></body><div>after</div>").window.document
+//     .body.innerHTML === "<p>x</p><div>after</div>"
+//   new JSDOM("<body><p>x</p></body><style>.z{color:green}</style>")…
+//     .body.innerHTML === "<p>x</p><style>.z{color:green}</style>"
+// So the preview must NOT truncate at </body>; it removes the </body> token
+// (mask-located, like the </html> strip) and keeps processing what follows.
+// A complete <style> after </body> is body-region: it must NOT be hoisted and
+// MUST stay in the body (hoist-XOR-keep, never both, never neither).
+// ---------------------------------------------------------------------------
+describe("processPartialHtml / extractCompleteStyles — content after </body> retained", () => {
+  // RED pre-fix: step 5 sliced off everything from </body>, so <div>after</div>
+  // vanished from the preview while the final document reparents it into the body.
+  it("R: content after </body> is kept (browser reparents it into the body)", () => {
+    const input = "<body><p>x</p></body><div>after</div>";
+    expect(processPartialHtml(input)).toBe("<p>x</p><div>after</div>");
+  });
+
+  // The </body> token itself is removed (it is not visible content); the body's
+  // inner content and the reparented trailing content are concatenated, exactly
+  // as the browser flattens them in the final document.
+  it("R': the </body> token is removed, not rendered", () => {
+    const body = processPartialHtml("<body><p>x</p></body><div>after</div>");
+    expect(body).not.toContain("</body>");
+  });
+
+  // A complete <style> after </body> is body-region per browser reparenting:
+  // NOT hoisted, KEPT in the body (the hoist-XOR-keep invariant must hold).
+  it("R'': a complete <style> after </body> stays in the body, not hoisted", () => {
+    const input = "<body><p>x</p></body><style>.z{color:green}</style>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe(""); // body-region after </body> → never hoisted
+    expect(body).toBe("<p>x</p><style>.z{color:green}</style>"); // kept in body
+  });
+
+  // Full document: head hoists, body content + post-</body> content both land in
+  // the body; the </html> wrapper is still stripped. Matches jsdom body.innerHTML
+  // ("<p>x</p><div>after</div>") for the same input.
+  it("R''': full document with content after </body></html> keeps the trailing content", () => {
+    const input =
+      "<html><head><title>t</title></head><body><p>x</p></body><div>after</div></html>";
+    expect(processPartialHtml(input)).toBe("<p>x</p><div>after</div>");
+  });
+
+  // A </body> token inside a surviving complete <style> must NOT be treated as
+  // the structural close (masking guards it), so the style — and the content
+  // after it — stay intact.
+  it("R'''': </body> token inside CSS content is not the structural close", () => {
+    const input =
+      '<body><style>.a::after{content:"</body>"}</style><p>p</p></body><div>after</div>';
+    expect(processPartialHtml(input)).toBe(
+      '<style>.a::after{content:"</body>"}</style><p>p</p><div>after</div>',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// REFUTED reviewer finding (pinned, no source change): a reviewer claimed that
+// rejecting a self-closing `<script src="x.js"/>` makes the preview "more
+// aggressive than the final document" by dropping the trailing `<p>b</p>`.
+// In HTML5 a `<script>` start tag is NOT self-closing — the `/` before `>` is
+// ignored, the element stays OPEN, and everything up to a real `</script>` is
+// consumed as script content (and never rendered). jsdom confirms:
+//   new JSDOM('<div>a</div><script src="x.js"/><p>b</p>').window.document
+//     .body.innerHTML === '<div>a</div><script src="x.js"><p>b</p></script>'
+//   → script.textContent === "<p>b</p>", 0 rendered <p> elements.
+// So the final document does NOT render <p>b</p> either; the preview's stripping
+// of everything from `<script` onward yields the SAME visible output. Parity
+// holds — the finding is refuted and no source changes.
+// ---------------------------------------------------------------------------
+describe("processPartialHtml — script-with-trailing-slash parity (refuted finding, pinned)", () => {
+  it('S: <script src="x.js"/> swallows the following <p> in both preview and final document', () => {
+    // The trailing `<p>b</p>` is script content in HTML5 (not self-closing), so
+    // it is invisible in the final document. The preview likewise drops it — the
+    // visible result is identical (`<div>a</div>`), so there is no divergence.
+    const input = '<div>a</div><script src="x.js"/><p>b</p>';
+    expect(processPartialHtml(input)).toBe("<div>a</div>");
+  });
+});
