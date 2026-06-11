@@ -616,9 +616,16 @@ export const OpenGenerativeUIToolRenderer = defineComponent({
   setup(props) {
     const visibleMessageIndex = ref(0);
 
+    // Watch status alongside placeholderMessages so a transition to Complete
+    // re-runs this watcher: the onCleanup below clears the in-flight interval
+    // and the Complete guard prevents re-arming. Without status in the source,
+    // a stable placeholderMessages reference would leave the 5s interval firing
+    // until unmount even after the call completes (the render returns null, so
+    // it would be an invisible lingering timer). Mirrors react-core, which keys
+    // its placeholder effect on props.status.
     watch(
-      () => props.args.placeholderMessages,
-      (messages, _, onCleanup) => {
+      () => [props.args.placeholderMessages, props.status] as const,
+      ([messages], _, onCleanup) => {
         if (!messages?.length || props.status === ToolCallStatus.Complete)
           return;
         visibleMessageIndex.value = Math.max(messages.length - 1, 0);

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/vue";
 import { ref } from "vue";
 import type { Ref } from "vue";
-import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
+import { ToolCallStatus } from "@copilotkit/core";
+import {
+  OpenGenerativeUIActivityRenderer,
+  OpenGenerativeUIToolRenderer,
+} from "../OpenGenerativeUIRenderer";
 import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsKey } from "../../providers/keys";
 import type { SandboxFunction } from "../../types";
@@ -846,5 +850,98 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(cssIdx).toBeGreaterThan(headOpenIdx);
       expect(cssIdx).toBeLessThan(titleIdx);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool renderer placeholder-message timer lifecycle.
+//
+// While the call is in progress and placeholderMessages exist, a 5s interval
+// cycles the visible message. When the call completes the renderer returns
+// null, but the interval keeps firing until unmount unless it is cleared on
+// completion. React's equivalent keys its effect on props.status and clears
+// the interval when status === Complete. The Vue watcher must do the same:
+// include status in the watch source and clear the interval on completion.
+// ---------------------------------------------------------------------------
+describe("OpenGenerativeUIToolRenderer placeholder timer", () => {
+  function renderTool(props: {
+    status: ToolCallStatus;
+    placeholderMessages?: string[];
+    result?: string;
+  }) {
+    return render(OpenGenerativeUIToolRenderer, {
+      props: {
+        name: "generateSandboxedUi",
+        args: { placeholderMessages: props.placeholderMessages },
+        status: props.status,
+        result: props.result,
+      },
+    });
+  }
+
+  // The placeholderMessages array is referentially STABLE across rerenders, so
+  // the only thing that changes between in-progress and complete is `status`.
+  // Pre-fix the watch source is `() => props.args.placeholderMessages` only, so
+  // flipping status (same array ref) does NOT re-run the watcher and the
+  // interval is never cleared — it keeps ticking until unmount. Post-fix the
+  // watch source includes status, so completion re-runs the watcher, clears the
+  // interval, and (being complete) does not re-arm.
+  //
+  // RED pre-fix: the captured interval callback still fires after completion
+  // (the timer was never cleared). GREEN post-fix: it is cleared, so it never
+  // fires again.
+  it("clears the placeholder interval when the call completes", async () => {
+    vi.useFakeTimers();
+    let ticks = 0;
+    const realSetInterval = window.setInterval.bind(window);
+    const setSpy = vi.spyOn(window, "setInterval").mockImplementation(((
+      cb: TimerHandler,
+      ms?: number,
+    ) => {
+      // Wrap the renderer's callback so we can count actual ticks while still
+      // arming a real fake-timers interval that advanceTimersByTime drives.
+      const wrapped = () => {
+        ticks += 1;
+        if (typeof cb === "function") (cb as () => void)();
+      };
+      return realSetInterval(wrapped, ms);
+    }) as typeof window.setInterval);
+
+    const messages = ["First", "Second", "Third"];
+    const mounted = renderTool({
+      status: ToolCallStatus.Executing,
+      placeholderMessages: messages,
+    });
+
+    // A 5s interval is armed while in progress.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+
+    // While in progress, the interval fires on each 5s tick.
+    vi.advanceTimersByTime(5000);
+    expect(ticks).toBe(1);
+    vi.advanceTimersByTime(5000);
+    expect(ticks).toBe(2);
+
+    // The call completes — SAME placeholderMessages reference, only status
+    // changes. The renderer returns null AND the interval must be cleared.
+    const clearSpy = vi.spyOn(window, "clearInterval");
+    await mounted.rerender({
+      name: "generateSandboxedUi",
+      args: { placeholderMessages: messages },
+      status: ToolCallStatus.Complete,
+      result: "done",
+    });
+    // The interval was cleared on completion (without unmounting).
+    expect(clearSpy).toHaveBeenCalled();
+    // No new interval was armed for the completed call.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+
+    // Advancing well past several tick windows must produce NO further ticks —
+    // proving the timer is gone rather than merely producing no visible output.
+    const ticksAtCompletion = ticks;
+    vi.advanceTimersByTime(20000);
+    expect(ticks).toBe(ticksAtCompletion);
+
+    mounted.unmount();
   });
 });
