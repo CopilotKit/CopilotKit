@@ -199,10 +199,10 @@ export interface StalePendingPolicy {
  * reclaim counts should treat the indeterminate share as "at least zero, at
  * most this many" extra re-queues.
  *
- * The contracts-level `SweepResult`/`TickResult` are sibling-owned: once
- * `TickResult` gains the field, the producer threads it with a one-liner
- * (`reclaimedIndeterminate: sweep.reclaimedIndeterminate`) where it copies
- * `sweep.reclaimed` today.
+ * The shared `SweepResult` contract carries the split as an OPTIONAL
+ * `reclaimedIndeterminate` (this implementation narrows it to required), and
+ * the producer threads it onto `TickResult` wherever it copies
+ * `sweep.reclaimed`.
  */
 export interface SweepResultWithIndeterminate extends SweepResult {
   /** Thrown-release conservative maybes (at-least-once; see above). */

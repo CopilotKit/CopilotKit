@@ -46,7 +46,6 @@ import type {
   PoolCommError,
   ServiceJobMeta,
   ServiceJobPayload,
-  SweepResult,
 } from "../contracts.js";
 import { probeKeyFamily } from "../contracts.js";
 import { deriveHealthUrl } from "../../probes/liveness.js";
@@ -233,12 +232,10 @@ export interface TickResult {
   reclaimed: number;
   /**
    * Of `reclaimed`, the reclaims whose release outcome was INDETERMINATE
-   * (transport failure after the CAS — the over-report slice). OPTIONAL and
-   * read off the queue's sweep result via optional access: the split is
-   * provided by the queue-client's `SweepResult` extension (sibling branch);
-   * absent when the queue does not report it. INTEGRATOR NOTE: once the
-   * queue-client's `reclaimedIndeterminate` lands on the shared `SweepResult`
-   * contract, the optional access in `maybeSweep` can read it directly.
+   * (transport failure after the CAS — the over-report slice). OPTIONAL,
+   * mirroring the shared `SweepResult.reclaimedIndeterminate` contract
+   * field `maybeSweep` reads directly: absent when the queue does not
+   * report the split (the real queue-client always does).
    */
   reclaimedIndeterminate?: number;
   /**
@@ -579,14 +576,11 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // deliverSweepCommErrors — it runs on every sweep attempt, even a failed
       // one). The buffer is capped at MAX_BUFFERED_SWEEP_COMM_ERRORS.
       await deliverSweepCommErrors(result.commErrors);
-      // OPTIONAL ACCESS (integrator coupling): the queue-client's sweep
-      // splits out reclaims whose release outcome was indeterminate
-      // (`reclaimedIndeterminate`, sibling branch) — read defensively so
-      // this module compiles against a SweepResult without the split, and
-      // surface it on the TickResult only when reported as a number.
-      const indeterminate = (
-        result as SweepResult & { reclaimedIndeterminate?: unknown }
-      ).reclaimedIndeterminate;
+      // The queue-client's sweep splits out reclaims whose release outcome
+      // was indeterminate (`reclaimedIndeterminate`, optional on the shared
+      // `SweepResult` contract; the real queue-client always reports it).
+      // Surface it on the TickResult only when reported.
+      const indeterminate = result.reclaimedIndeterminate;
       return {
         swept: true,
         sweepFailed: false,

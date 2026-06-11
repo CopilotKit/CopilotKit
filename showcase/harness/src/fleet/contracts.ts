@@ -697,6 +697,15 @@ export interface SweepResult {
   /** The `worker-reclaimed-pending` comm errors synthesized per reclaimed job. */
   commErrors: PoolCommError[];
   /**
+   * Of the sweep's reclaim attempts, the thrown-release conservative maybes
+   * (release transport failed AFTER the CAS may have committed — the
+   * at-least-once over-report slice; see queue-client
+   * `SweepResultWithIndeterminate`). Optional so sweep fakes keyed on the
+   * reclamation contract stay valid; the real queue-client always reports it
+   * (required there).
+   */
+  reclaimedIndeterminate?: number;
+  /**
    * Number of STALE PENDING jobs expired (claimed-then-deleted) because they
    * sat unclaimed longer than their family's expiry window — the structural
    * backlog drain (see queue-client `stalePending`). Optional so the many
