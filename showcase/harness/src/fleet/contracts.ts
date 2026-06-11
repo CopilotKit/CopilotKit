@@ -731,6 +731,19 @@ export function terminalJobStatus(
  * low-frequency family's jobs out of the candidate page, and the producer's
  * backlog dedupe gates each tick on its own family's pending count. Pure;
  * unit-tested via the queue-client + producer suites.
+ *
+ * INVARIANT — WHOLE-KEY FAMILIES MATCH BY EQUALITY ONLY. A leading-colon key
+ * (`":foo:bar"`, the `idx <= 0` branch below) is its OWN family: the WHOLE
+ * key. Such a family value itself contains colons, so expanding it with a
+ * prefix-LIKE pattern of the shape `<family>:%` is WRONG: family `":foo"`
+ * (from key `":foo"`) would prefix-match the unrelated key `":foo:bar"`,
+ * whose own family is the whole `":foo:bar"` — the inclusion/exclusion and
+ * pending-count legs would then disagree with this function's partition.
+ * Consumers that build key-matching filters from a family (the queue-client's
+ * `familyInclusionClause` / `familyExclusionClause`) MUST special-case any
+ * family containing a colon (equivalently: starting with `:`) to the equality
+ * leg only — never the `<family>:%` LIKE leg, which is reserved for normal
+ * prefix families that cannot contain a colon by construction.
  */
 export function probeKeyFamily(probeKey: string): string {
   const idx = probeKey.indexOf(":");

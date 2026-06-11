@@ -320,6 +320,17 @@ describe("probeKeyFamily", () => {
     expect(probeKeyFamily(":weird")).toBe(":weird");
     expect(probeKeyFamily(":")).toBe(":");
   });
+
+  it("a leading-colon key with FURTHER colons is still its own whole-key family", () => {
+    // Pins the equality-only invariant documented on probeKeyFamily: the
+    // family of ':foo:bar' is the whole ':foo:bar', NOT ':foo' — so a
+    // consumer expanding family ':foo' with a prefix-LIKE '<family>:%'
+    // pattern (queue-client familyInclusionClause/familyExclusionClause)
+    // would wrongly fold ':foo:bar' under ':foo'. Whole-key (colon-bearing)
+    // families must be matched by equality only.
+    expect(probeKeyFamily(":foo:bar")).toBe(":foo:bar");
+    expect(probeKeyFamily(probeKeyFamily(":foo:bar"))).toBe(":foo:bar");
+  });
 });
 
 describe("type-level: contract assignability", () => {
