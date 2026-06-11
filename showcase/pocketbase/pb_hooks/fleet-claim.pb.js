@@ -24,11 +24,15 @@
 // PUBLIC. The harness client (job-claim.ts) authenticates as superuser and
 // retries once on 401, so enforcement is compat-safe):
 //   /api/fleet/claim    { jobId, workerId, leaseSeconds }
-//                       → { claimed: bool, job? }   exactly-one-winner CAS
+//                       → { claimed: bool, job?, alreadyHeld? }
+//                         exactly-one-winner CAS; alreadyHeld:true marks a
+//                         re-claim by the CURRENT holder on a live lease
+//                         (timeout-after-commit retry idempotency)
 //   /api/fleet/renew    { jobId, workerId, leaseSeconds }
 //                       → { renewed: bool, job? }   only the lease holder
 //   /api/fleet/release  { jobId, workerId, status }  status: done|failed|pending
-//                       → { released: bool, job? }   only the lease holder
+//                       (status REQUIRED — no default)
+//                       → { released: bool, job?, reason? }  only the holder
 
 routerAdd("POST", "/api/fleet/claim", (c) => {
   const RUNNING_STATES = ["claimed", "running"];
@@ -37,9 +41,12 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
   // huge value is capped at 3600s (1h) so a malformed caller can never wedge
   // a row behind a multi-day lease the sweeper would wait out. NaN > 0 is
   // false, so garbage routes to the default without an isFinite dependency.
+  // FLOOR at 1s too: n > 0 admits e.g. 0.001 — a 1ms lease that is expired
+  // before the response lands, making every claim instantly stealable and
+  // every renew a thrash loop.
   const leaseExpiryIso = (leaseSeconds) => {
     const n = typeof leaseSeconds === "number" ? leaseSeconds : NaN;
-    const secs = n > 0 ? Math.min(n, 3600) : 30;
+    const secs = n > 0 ? Math.max(1, Math.min(n, 3600)) : 30;
     return new Date(Date.now() + secs * 1000).toISOString();
   };
   // A claimed/running row is reclaimable once its lease has elapsed. Empty
@@ -84,8 +91,16 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
   if (!jobId || !workerId) {
     return c.json(400, { error: "jobId and workerId are required" });
   }
+  // A non-string workerId (a JSON number) would COERCE into the text
+  // claimed_by column on write — but the holder renews/releases with the
+  // string form, so `claimed_by !== workerId` never matches again and the
+  // row wedges until lease expiry. Reject the type up front.
+  if (typeof workerId !== "string") {
+    return c.json(400, { error: "workerId must be a string" });
+  }
 
   let claimed = false;
+  let alreadyHeld = false;
   let view = null;
   $app.dao().runInTransaction((txDao) => {
     let rec;
@@ -100,7 +115,27 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
     const reclaimable =
       status === "pending" ||
       (RUNNING_STATES.indexOf(status) !== -1 && leaseExpired(rec));
-    if (!reclaimable) return;
+    if (!reclaimable) {
+      // TIMEOUT-AFTER-COMMIT IDEMPOTENCY: a claim that COMMITTED whose
+      // response was lost is retried by the SAME worker — the row is now
+      // claimed by THIS workerId with a live lease, which is not
+      // reclaimable, so a plain refusal would make the retry abandon a row
+      // it actually holds (claimed-but-orphaned until lease expiry). Answer
+      // the truth instead: the caller holds it. claimed:true so the client
+      // treats it as a win; alreadyHeld marks the re-claim (informational —
+      // the existing lease/expiry is RETAINED, not extended; the holder's
+      // heartbeat renews it on its normal cadence).
+      if (
+        RUNNING_STATES.indexOf(status) !== -1 &&
+        rec.get("claimed_by") === workerId &&
+        !leaseExpired(rec)
+      ) {
+        claimed = true;
+        alreadyHeld = true;
+        view = jobView(rec);
+      }
+      return;
+    }
 
     rec.set("status", "claimed");
     rec.set("claimed_by", workerId);
@@ -111,10 +146,10 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
     view = jobView(rec);
   });
 
-  return c.json(
-    200,
-    claimed ? { claimed: true, job: view } : { claimed: false },
-  );
+  // No object-spread (goja compat caution): build the body imperatively.
+  const body = claimed ? { claimed: true, job: view } : { claimed: false };
+  if (alreadyHeld) body.alreadyHeld = true;
+  return c.json(200, body);
 }, $apis.requireAdminAuth());
 
 routerAdd("POST", "/api/fleet/renew", (c) => {
@@ -124,9 +159,12 @@ routerAdd("POST", "/api/fleet/renew", (c) => {
   // huge value is capped at 3600s (1h) so a malformed caller can never wedge
   // a row behind a multi-day lease the sweeper would wait out. NaN > 0 is
   // false, so garbage routes to the default without an isFinite dependency.
+  // FLOOR at 1s too: n > 0 admits e.g. 0.001 — a 1ms lease that is expired
+  // before the response lands, making every claim instantly stealable and
+  // every renew a thrash loop.
   const leaseExpiryIso = (leaseSeconds) => {
     const n = typeof leaseSeconds === "number" ? leaseSeconds : NaN;
-    const secs = n > 0 ? Math.min(n, 3600) : 30;
+    const secs = n > 0 ? Math.max(1, Math.min(n, 3600)) : 30;
     return new Date(Date.now() + secs * 1000).toISOString();
   };
   const leaseExpired = (rec) => {
@@ -167,6 +205,13 @@ routerAdd("POST", "/api/fleet/renew", (c) => {
   const leaseSeconds = data.leaseSeconds;
   if (!jobId || !workerId) {
     return c.json(400, { error: "jobId and workerId are required" });
+  }
+  // A non-string workerId (a JSON number) would COERCE into the text
+  // claimed_by column on write — but the holder renews/releases with the
+  // string form, so `claimed_by !== workerId` never matches again and the
+  // row wedges until lease expiry. Reject the type up front.
+  if (typeof workerId !== "string") {
+    return c.json(400, { error: "workerId must be a string" });
   }
 
   let renewed = false;
@@ -233,9 +278,24 @@ routerAdd("POST", "/api/fleet/release", (c) => {
   const data = $apis.requestInfo(c).data || {};
   const jobId = data.jobId;
   const workerId = data.workerId;
-  const target = data.status || "done";
+  // status is REQUIRED — the old `|| "done"` fallback silently FINISHED a
+  // job whose caller omitted (or sent an empty) status, masking a protocol
+  // bug as success. Validate it exactly like jobId/workerId.
+  const target = data.status;
   if (!jobId || !workerId) {
     return c.json(400, { error: "jobId and workerId are required" });
+  }
+  // A non-string workerId (a JSON number) would COERCE into the text
+  // claimed_by column on write — but the holder renews/releases with the
+  // string form, so `claimed_by !== workerId` never matches again and the
+  // row wedges until lease expiry. Reject the type up front.
+  if (typeof workerId !== "string") {
+    return c.json(400, { error: "workerId must be a string" });
+  }
+  if (!target) {
+    return c.json(400, {
+      error: "status is required (done|failed|pending)",
+    });
   }
   if (["done", "failed", "pending"].indexOf(target) === -1) {
     return c.json(400, { error: "status must be done|failed|pending" });

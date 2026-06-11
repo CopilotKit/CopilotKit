@@ -178,6 +178,15 @@ interface ClaimEndpointBody {
   error?: string;
   /** Release refusal reason (released: false only) — see `ReleaseRefusalReason`. */
   reason?: string;
+  /**
+   * Claim idempotency marker (claimed: true only): the row was ALREADY held
+   * by this workerId with a live lease — a timeout-after-commit retry of the
+   * caller's own committed claim. Deliberately NOT threaded onto
+   * `ClaimResult`: the caller treats it as a plain win (the existing lease
+   * is retained, and the heartbeat renews on its normal cadence), so the
+   * marker is informational wire detail only.
+   */
+  alreadyHeld?: boolean;
 }
 
 export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {

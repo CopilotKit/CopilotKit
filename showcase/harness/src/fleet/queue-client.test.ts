@@ -3643,6 +3643,45 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     expect(clamps.length).toBe(2);
   });
 
+  it("claim + renew clamp leaseSeconds on the LOW side too (floor 1s — no 1ms thrash leases)", () => {
+    // n > 0 admits 0.001 → a 1ms lease: instantly expired, every claim
+    // immediately stealable, renew thrash. Both lease-setting handlers must
+    // floor the clamped value at 1 second.
+    const floors =
+      hookSource.match(/Math\.max\(\s*1,\s*Math\.min\(\s*n,\s*3600\s*\)\s*\)/g) ??
+      [];
+    expect(floors.length).toBe(2);
+  });
+
+  it("the release handler REQUIRES an explicit status (no silent default to done)", () => {
+    // `data.status || "done"` silently finished a job whose caller omitted
+    // (or sent an empty) status — a protocol bug masked as success. Status
+    // must be validated like jobId/workerId: explicit 400 when absent.
+    expect(hookSource).not.toContain('data.status || "done"');
+    expect(hookSource).toMatch(/status is required/);
+  });
+
+  it("every handler rejects a non-string workerId (a JSON number would coerce into the text column)", () => {
+    // PB coerces a numeric workerId into the text claimed_by column, but the
+    // holder then renews/releases with the STRING form — `claimed_by !==
+    // workerId` never matches and the row is wedged until lease expiry.
+    const guards =
+      hookSource.match(/typeof workerId !== "string"/g) ?? [];
+    expect(guards.length).toBe(3);
+  });
+
+  it("the claim handler returns an alreadyHeld marker for a same-holder live-lease re-claim (timeout-after-commit idempotency)", () => {
+    // A claim that COMMITTED whose response was lost is retried by the same
+    // worker; without idempotency the retry sees claimed:false (its own
+    // live claim is not reclaimable) and abandons a row it actually holds.
+    // The hook must answer claimed:true + alreadyHeld:true for a re-claim
+    // by the CURRENT holder while the lease is live.
+    expect(hookSource).toContain("alreadyHeld");
+    expect(hookSource).toMatch(
+      /rec\.get\("claimed_by"\) === workerId\s*&&\s*\n?\s*!leaseExpired\(rec\)/,
+    );
+  });
+
   it("the release handler reports a refusal reason (terminal-same-holder vs not-holder vs live-lease)", () => {
     // report()'s retryability depends on distinguishing "the row is terminal
     // under MY workerId" (my own earlier release committed → the result is
