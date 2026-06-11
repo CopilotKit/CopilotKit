@@ -47,6 +47,7 @@
     "---Deploy---",
     "...deploy",
     "---Platforms---",
+    "slack",
     "react-native",
     "---Other---",
     "...(other)",

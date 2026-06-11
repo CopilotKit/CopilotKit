@@ -225,12 +225,12 @@ export function FrameworkOverview({
           </p>
 
           {/* Action cluster — the same <HeroStartActions> block as the home
-              hero (two command cards + quickstart CTA) so the landing layouts
-              are unified; the quickstart slot is a direct link here because a
+              hero, with Quickstart primary and the agent CLI setup menu
+              secondary. The quickstart slot is a direct link here because a
               framework is already selected. Frameworks with bespoke setup
-              (e.g. a2a's `git clone`, ms-agent-dotnet) keep the pre-cards
-              layout: quickstart button + their own copy-command chip — those
-              commands aren't interchangeable with the CLI. */}
+              (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
+              copy-command chip because those commands aren't interchangeable
+              with the CLI. */}
           <div className="mt-7">
             {isGenericInit ? (
               <HeroStartActions

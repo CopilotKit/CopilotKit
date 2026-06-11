@@ -5,6 +5,8 @@ import Link from "next/link";
 // to `components/sidebar/base` — keep the v16 path here.
 import { SidebarTrigger } from "fumadocs-ui/components/sidebar/base";
 import { Menu } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
+import { INTELLIGENCE_CTA_HREF } from "./brand-nav";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import { ThemeSwitch } from "./theme-switch";
@@ -23,6 +25,14 @@ import { PrimaryDocsTabs } from "./primary-docs-tabs";
 // fixed positioning, the nav swallows the left half of the viewport.
 //
 export function MobileTopNav() {
+  const posthog = usePostHog();
+
+  const handleFreeDeveloperAccessClick = () => {
+    posthog?.capture("try_for_free_clicked", {
+      location: "docs_mobile_nav_right",
+    });
+  };
+
   return (
     <header
       id="nd-subnav"
@@ -47,6 +57,17 @@ export function MobileTopNav() {
         </Link>
         <PrimaryDocsTabs className="shell-docs-mobile-tabs" />
         <div className="shell-docs-mobile-actions">
+          <Link
+            href={INTELLIGENCE_CTA_HREF}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleFreeDeveloperAccessClick}
+            className="shell-docs-radius-control hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] md:flex"
+            aria-label="Get Intelligence free"
+            title="Get Intelligence free"
+          >
+            <CopilotKitMark className="h-5 w-5" />
+          </Link>
           <div className="shell-docs-mobile-search">
             <SearchTrigger iconOnly />
           </div>
