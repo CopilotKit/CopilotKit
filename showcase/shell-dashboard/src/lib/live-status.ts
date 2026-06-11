@@ -204,6 +204,28 @@ export function commErrorFromStatusSignal(
   return out;
 }
 
+/**
+ * Companion to `commErrorFromStatusSignal`: does the signal blob CARRY the
+ * well-known comm-error key at all, regardless of whether the embedded value
+ * decodes? Lets consumers distinguish "key present but undecodable" (a REQ-B
+ * overlay written by a NEWER producer — e.g. a new `PoolCommErrorKind` rolled
+ * out write-side first — that this reader silently drops; count/log it) from
+ * "genuinely absent" (nothing to report) without changing the decode's return
+ * contract. Mirrors the decoder's wire-shape guards: a null / non-object /
+ * array blob is never a valid signal, so the key cannot be "present" on one.
+ * Sibling of the harness contract's `statusSignalHasCommErrorKey`
+ * (`showcase/harness/src/fleet/contracts.ts`) — both live OUTSIDE the
+ * byte-identity region pinned by `commError-contract-drift.test.ts` (only the
+ * `commErrorFromStatusSignal` function source is mirrored). Pure;
+ * unit-tested.
+ */
+export function statusSignalHasCommErrorKey(signal: unknown): boolean {
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal)) {
+    return false;
+  }
+  return FLEET_COMM_ERROR_SIGNAL_KEY in signal;
+}
+
 export interface StatusRow {
   id: string;
   key: string;

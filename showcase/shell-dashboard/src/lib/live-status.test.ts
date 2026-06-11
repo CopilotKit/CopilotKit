@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   CATALOG_TO_D5_KEY,
+  FLEET_COMM_ERROR_SIGNAL_KEY,
   STARTER_COLUMNS,
   STARTER_LEVELS,
   STATUS_LIST_FIELDS,
   buildStarterBadge,
+  commErrorFromStatusSignal,
   keyFor,
   mergeRowsToMap,
   resolveCell,
@@ -12,6 +14,7 @@ import {
   resolveD6Row,
   resolveStarterRow,
   starterIsSupported,
+  statusSignalHasCommErrorKey,
   upsertByKey,
 } from "./live-status";
 import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
@@ -52,6 +55,45 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
   for (const r of rows) m.set(r.key, r);
   return m;
 }
+
+describe("statusSignalHasCommErrorKey (sibling of the harness contract companion)", () => {
+  it("distinguishes 'key present but undecodable' from 'genuinely absent' without changing the decode contract", () => {
+    // Key present, kind unknown to this reader (the version-skew case): the
+    // decode fail-safes to undefined but the companion still sees the key.
+    const unknownKind = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "some-future-kind",
+        message: "x",
+        observedAt: FRESH_OBSERVED_AT,
+      },
+    };
+    expect(commErrorFromStatusSignal(unknownKind)).toBeUndefined();
+    expect(statusSignalHasCommErrorKey(unknownKind)).toBe(true);
+
+    // Key present and well-formed: both sides agree.
+    const wellFormed = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "worker-unreachable",
+        message: "connect ECONNREFUSED",
+        observedAt: FRESH_OBSERVED_AT,
+      },
+    };
+    expect(commErrorFromStatusSignal(wellFormed)).toBeDefined();
+    expect(statusSignalHasCommErrorKey(wellFormed)).toBe(true);
+
+    // Genuinely absent / never a valid wire shape (mirrors the decoder's
+    // null / non-object / array guards — including the key as an array
+    // expando property).
+    expect(statusSignalHasCommErrorKey({ failedCount: 0 })).toBe(false);
+    expect(statusSignalHasCommErrorKey(null)).toBe(false);
+    expect(statusSignalHasCommErrorKey("nope")).toBe(false);
+    expect(
+      statusSignalHasCommErrorKey(
+        Object.assign([], { [FLEET_COMM_ERROR_SIGNAL_KEY]: {} }),
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("keyFor", () => {
   it("integration-level dimensions have no feature segment", () => {
