@@ -14,6 +14,9 @@ import type { Integration, Feature } from "@/lib/registry";
 import type { CellContext } from "./feature-grid";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 import { __clearLastTransitionCache } from "@/hooks/useLastTransition";
+import { WorkerRunsProvider } from "@/lib/worker-runs-context";
+import type { WorkerRunsStatus } from "@/hooks/use-worker-runs";
+import type { WorkerFamilySummary, WorkerRunBatch } from "@/lib/ops-api";
 
 // Mock pb so the lazy fetch in useLastTransition is observable.
 const mockState = {
@@ -400,5 +403,184 @@ describe("docs-only kind hides ALL badges", () => {
     expect(text).not.toContain("API");
     expect(text).not.toContain("E2E");
     expect(text).not.toContain("CV");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  §7.3 clock glyph — stale-degraded badge + 2-period family silence  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A STALE-green e2e row: `observed_at` is 7 h old (past the 6 h
+ * `E2E_STALE_AFTER_MS` window), so `buildBadge` downgrades it to the
+ * amber `degraded` badge with `fail_count === 0` — the exact
+ * stale-degraded shape the §7.3 glyph decorates.
+ */
+function staleGreenE2eRow(): StatusRow {
+  const old = new Date(Date.now() - 7 * 3_600_000).toISOString();
+  return {
+    id: "sg1",
+    key: "e2e:test/agentic-chat",
+    dimension: "e2e",
+    state: "green",
+    signal: null,
+    observed_at: old,
+    transitioned_at: old,
+    fail_count: 0,
+    first_failure_at: null,
+  };
+}
+
+function makeBatch(overrides: Partial<WorkerRunBatch> = {}): WorkerRunBatch {
+  return {
+    runId: "r1",
+    triggered: false,
+    enqueuedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    finishedAt: null,
+    durationMs: null,
+    outcome: "failed",
+    jobs: { total: 1, done: 0, failed: 1, reclaimed: 0 },
+    cells: null,
+    redsIntroduced: null,
+    redsCleared: null,
+    errorSummary: null,
+    commErrorKinds: [],
+    ...overrides,
+  };
+}
+
+function makeFamily(
+  overrides: Partial<WorkerFamilySummary> = {},
+): WorkerFamilySummary {
+  return {
+    family: "e2e-demos",
+    label: "E2E demos",
+    probeKeyPrefix: "e2e",
+    schedule: "10 * * * *",
+    periodMs: 3_600_000,
+    nextRunAt: null,
+    lastRun: makeBatch(),
+    inflight: null,
+    lastSuccessAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    ...overrides,
+  };
+}
+
+function okWorkerRuns(families: WorkerFamilySummary[]): WorkerRunsStatus {
+  return {
+    status: "ok",
+    data: { families, workers: [] },
+    fetchedAt: Date.now(),
+  };
+}
+
+function renderWithWorkerRuns(
+  ctx: CellContext,
+  families: WorkerFamilySummary[],
+) {
+  return render(
+    <WorkerRunsProvider value={okWorkerRuns(families)}>
+      <CellStatus ctx={ctx} />
+    </WorkerRunsProvider>,
+  );
+}
+
+describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
+  it("degraded badge gains the clock-glyph suffix when the cell's family has no success within 2x periodMs", () => {
+    const row = staleGreenE2eRow();
+    const ctx = makeCtx({
+      liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
+    });
+    // lastSuccessAt 3 h ago > 2 × 1 h period → family silent → glyph.
+    const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
+    const rt = findBadgeByName(container, "RT");
+    expect(rt.textContent).toContain("⏱");
+    // The badge keeps its degraded label — the glyph is a SUFFIX, not a
+    // replacement (spec §7.3 "minimal: suffix only").
+    expect(rt.textContent).toContain("~");
+  });
+
+  it("glyph never decorates a non-stale-degraded cell (fresh red keeps red rendering)", () => {
+    // Fresh red: family silent, but the badge is red (a real failure) —
+    // the glyph only ever decorates an ALREADY stale-degraded badge.
+    const red = redE2eRow();
+    const ctx = makeCtx({
+      liveStatus: new Map([[red.key, red]]) as LiveStatusMap,
+    });
+    const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
+    const rt = findBadgeByName(container, "RT");
+    expect(rt.textContent).toContain("✗");
+    expect(rt.textContent).not.toContain("⏱");
+  });
+
+  it("glyph never decorates a producer-degraded badge (fail_count > 0 is a failure, not staleness)", () => {
+    const nowIso = new Date().toISOString();
+    const producerDegraded: StatusRow = {
+      ...staleGreenE2eRow(),
+      state: "degraded",
+      observed_at: nowIso,
+      transitioned_at: nowIso,
+      fail_count: 2,
+      first_failure_at: nowIso,
+    };
+    const ctx = makeCtx({
+      liveStatus: new Map([
+        [producerDegraded.key, producerDegraded],
+      ]) as LiveStatusMap,
+    });
+    const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
+    const rt = findBadgeByName(container, "RT");
+    expect(rt.textContent).not.toContain("⏱");
+  });
+
+  it("glyph uses server periodMs — a non-default periodMs in the payload shifts the threshold (no client cron parsing)", () => {
+    const row = staleGreenE2eRow();
+    const ctx = makeCtx({
+      liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
+    });
+    const lastSuccessAt = new Date(Date.now() - 40 * 60_000).toISOString();
+    // 40 min silence vs 15 min period: 40 > 2×15 → silent → glyph.
+    const fast = renderWithWorkerRuns(ctx, [
+      makeFamily({ periodMs: 900_000, lastSuccessAt }),
+    ]);
+    expect(findBadgeByName(fast.container, "RT").textContent).toContain("⏱");
+    // Same payload but a 30 min period: 40 < 2×30 → not silent → no glyph.
+    const slow = renderWithWorkerRuns(ctx, [
+      makeFamily({ periodMs: 1_800_000, lastSuccessAt }),
+    ]);
+    expect(findBadgeByName(slow.container, "RT").textContent).not.toContain(
+      "⏱",
+    );
+  });
+
+  it("null lastSuccessAt falls back to oldest batch enqueuedAt; zero batches → no glyph", () => {
+    const row = staleGreenE2eRow();
+    const ctx = makeCtx({
+      liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
+    });
+    // Never-succeeded family: oldest batch enqueued 3 h ago, 1 h period →
+    // silent via the §5.2.1 null-fallback rule → glyph.
+    const neverSucceeded = renderWithWorkerRuns(ctx, [
+      makeFamily({ lastSuccessAt: null }),
+    ]);
+    expect(
+      findBadgeByName(neverSucceeded.container, "RT").textContent,
+    ).toContain("⏱");
+    // Zero batches: nothing to reference → never silent → no glyph.
+    const zeroBatches = renderWithWorkerRuns(ctx, [
+      makeFamily({ lastSuccessAt: null, lastRun: null, inflight: null }),
+    ]);
+    expect(
+      findBadgeByName(zeroBatches.container, "RT").textContent,
+    ).not.toContain("⏱");
+  });
+
+  it("renders no glyph when no WorkerRunsProvider is mounted (no-data default)", () => {
+    const row = staleGreenE2eRow();
+    const ctx = makeCtx({
+      liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
+    });
+    const { container } = render(<CellStatus ctx={ctx} />);
+    expect(findBadgeByName(container, "RT").textContent).not.toContain("⏱");
   });
 });
