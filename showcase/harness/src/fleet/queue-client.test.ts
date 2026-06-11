@@ -7,6 +7,7 @@ import {
   PB_DATE_SEP_RE,
   RESULT_WRITE_MAX_ATTEMPTS,
 } from "./queue-client.js";
+import { JobClaimEndpointError } from "./job-claim.js";
 import type {
   JobClaimClient,
   ClaimResult,
@@ -3156,6 +3157,84 @@ describe("FleetQueueClient.sweepExpired", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.sweep-release-threw",
       expect.objectContaining({ jobId: "j2", workerId: "w2" }),
+    );
+  });
+
+  it("a thrown release carrying a DETERMINISTIC 4xx is NOT treated as may-have-committed (no false reclaim loop)", async () => {
+    // G1d: the conservative thrown-release path assumed every throw might
+    // have committed server-side. But a 4xx is the hook REJECTING the
+    // request — deterministically NOTHING committed. The concrete trigger: a
+    // wedge row with an EMPTY claimed_by — the sweep releases on behalf of
+    // holder "" and the hook 400s (workerId required) — produced a PERMANENT
+    // per-sweep false worker-reclaimed-pending overlay for a row that never
+    // moved. A 4xx must log at error level and synthesize NOTHING: no grace,
+    // no comm error, no reclaimed++.
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    const wedge: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "", // the wedge: no holder to authorize the re-queue
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+      }),
+      payload: samplePayload(),
+    };
+    const { pb } = makeFakePb([wedge]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(async (): Promise<ReleaseResult> => {
+        throw new JobClaimEndpointError(
+          "/api/fleet/release",
+          400,
+          "jobId and workerId are required",
+        );
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    expect(sweep.reclaimed).toBe(0);
+    expect(sweep.commErrors).toHaveLength(0);
+    expect(logger.error).toHaveBeenCalledWith(
+      "queue-client.sweep-release-rejected",
+      expect.objectContaining({ jobId: "j1", status: 400 }),
+    );
+    // The conservative (may-have-committed) warn must NOT fire for a 4xx.
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      "queue-client.sweep-release-threw",
+      expect.anything(),
+    );
+  });
+
+  it("a thrown release carrying a 5xx status KEEPS the conservative may-have-committed handling", async () => {
+    const now = Date.parse("2026-06-04T00:05:00.000Z");
+    const expired: JobRow = {
+      ...jobView({
+        id: "j1",
+        status: "running",
+        claimed_by: "worker-dead",
+        lease_expires_at: "2026-06-04T00:04:00.000Z",
+      }),
+      payload: samplePayload(),
+    };
+    const { pb } = makeFakePb([expired]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(async (): Promise<ReleaseResult> => {
+        throw new JobClaimEndpointError("/api/fleet/release", 502, "bad gateway");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const sweep = await q.sweepExpired(now);
+
+    // 5xx is indeterminate — the release may have committed server-side, so
+    // the comm error is synthesized anyway (at-least-once).
+    expect(sweep.reclaimed).toBe(1);
+    expect(sweep.commErrors).toHaveLength(1);
+    expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.sweep-release-threw",
+      expect.objectContaining({ jobId: "j1" }),
     );
   });
 

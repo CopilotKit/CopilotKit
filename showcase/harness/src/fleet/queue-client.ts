@@ -53,7 +53,10 @@ import type {
   ReleaseResult,
   RenewResult,
 } from "./job-claim.js";
-import { RELEASE_REFUSED_TERMINAL_SAME_HOLDER } from "./job-claim.js";
+import {
+  JobClaimEndpointError,
+  RELEASE_REFUSED_TERMINAL_SAME_HOLDER,
+} from "./job-claim.js";
 import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
 import type {
   ClaimedJob,
@@ -1262,12 +1265,37 @@ export function createFleetQueueClient(
         // still-expired lease and a DUPLICATE gray "re-queued" overlay may
         // render — harmless; a MISSING one is not. Sweeper-held rows stay
         // silent (mirroring the committed path below). The known-refused CAS
-        // (`released: false`) stays a clean skip — only the indeterminate
-        // throw gets the conservative treatment.
+        // (`released: false`) stays a clean skip, and a DETERMINISTIC 4xx
+        // (the hook rejected the request — nothing committed) is carved out
+        // below — only the genuinely indeterminate throw (5xx / transport /
+        // 2xx-unreadable) gets the conservative treatment.
         let released: ReleaseResult;
         try {
           released = await claim.releaseJob(row.id, holder, "pending");
         } catch (err) {
+          // DETERMINISTIC 4xx (G1d): the hook REJECTED the request before
+          // its transaction ran — definitively NOTHING committed, so the
+          // conservative at-least-once treatment below would be a LIE told
+          // EVERY sweep: a wedge row (concrete trigger: empty claimed_by →
+          // the hook 400s on the missing workerId) would paint a permanent
+          // per-sweep false worker-reclaimed-pending overlay for a row that
+          // never moves. Log loud (error — the row IS wedged and needs an
+          // operator) and synthesize nothing: no grace, no comm error, no
+          // reclaimed++. Only 5xx/transport/2xx-unreadable throws — the
+          // genuinely indeterminate class — stay conservative.
+          if (
+            err instanceof JobClaimEndpointError &&
+            err.status >= 400 &&
+            err.status < 500
+          ) {
+            logger.error("queue-client.sweep-release-rejected", {
+              jobId: row.id,
+              workerId: holder,
+              status: err.status,
+              err: err.message,
+            });
+            continue;
+          }
           logger.warn("queue-client.sweep-release-threw", {
             jobId: row.id,
             workerId: holder,

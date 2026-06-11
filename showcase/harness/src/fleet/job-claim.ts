@@ -137,6 +137,34 @@ export interface JobClaimClient {
   ): Promise<ReleaseResult>;
 }
 
+/**
+ * A non-2xx response from a fleet claim endpoint, with the HTTP status
+ * threaded as a FIELD (not just message text) so callers can discriminate
+ * DETERMINISTIC refusals from indeterminate failures:
+ *
+ *   - 4xx → the hook REJECTED the request before its transaction ran;
+ *     definitively NOTHING committed (the sweep uses this to avoid
+ *     synthesizing a false worker-reclaimed-pending for a wedge row it
+ *     can never actually release).
+ *   - 5xx → indeterminate; the transition may have committed before the
+ *     error surfaced — callers must stay conservative.
+ *
+ * The 2xx-unreadable indeterminate throw is deliberately NOT this class:
+ * it has no refusal semantics (the CAS committed; only the outcome is
+ * unknown), so it must take callers' conservative paths.
+ */
+export class JobClaimEndpointError extends Error {
+  readonly path: string;
+  readonly status: number;
+
+  constructor(path: string, status: number, body: string) {
+    super(`job-claim ${path} failed: ${status} ${body}`);
+    this.name = "JobClaimEndpointError";
+    this.path = path;
+    this.status = status;
+  }
+}
+
 interface ClaimEndpointBody {
   claimed?: boolean;
   renewed?: boolean;
@@ -238,7 +266,7 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       // Opt-in 5xx containment (the claim CAS): a server error is returned
       // as null for the caller to map; 4xx (caller bugs) ALWAYS throw loud.
       if (opts?.nullOn5xx && res.status >= 500) return null;
-      throw new Error(`job-claim ${path} failed: ${res.status} ${text}`);
+      throw new JobClaimEndpointError(path, res.status, text);
     }
     // 2xx: the endpoint COMMITTED the transition server-side. A body we
     // cannot read/parse — or an empty one — means the OUTCOME of a committed

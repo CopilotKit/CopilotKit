@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { createJobClaimClient, type JobView } from "./job-claim.js";
+import {
+  createJobClaimClient,
+  JobClaimEndpointError,
+  type JobView,
+} from "./job-claim.js";
 import { logger } from "../logger.js";
 
 function makeFetch(
@@ -254,6 +258,32 @@ describe("job-claim client", () => {
     await expect(client.releaseJob("j1", "worker-7", "done")).rejects.toThrow(
       /\/api\/fleet\/release failed: 500/,
     );
+  });
+
+  it("threads the HTTP status onto thrown endpoint errors (JobClaimEndpointError)", async () => {
+    // The sweep's thrown-release handling discriminates DETERMINISTIC 4xx
+    // refusals (the hook rejected the request — nothing committed) from
+    // indeterminate 5xx/transport throws (may have committed). That
+    // discrimination needs the status ON the error, not in its message.
+    const fetchImpl = authedFetch(
+      () => new Response("bad body", { status: 400 }),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    let thrown: unknown;
+    try {
+      await client.releaseJob("j1", "", "pending");
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(JobClaimEndpointError);
+    expect((thrown as JobClaimEndpointError).status).toBe(400);
+    expect((thrown as JobClaimEndpointError).path).toBe("/api/fleet/release");
   });
 
   it("claimJob maps a 5xx to a LOST CAS (won: false) instead of throwing", async () => {
