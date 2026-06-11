@@ -541,6 +541,86 @@ describe("job-producer — per-family backlog dedupe", () => {
   });
 });
 
+describe("job-producer — phantom probeKey guard", () => {
+  // probeKeyFamily("") returns "" (contracts.ts), so an enumerator-supplied
+  // EMPTY probeKey flowed into countPendingForFamily("") (a phantom ""
+  // family gating nothing real) and, worse, into an enqueued claim row no
+  // dashboard status row can ever join. The producer must drop the spec at
+  // the boundary — loudly, and accounted in the tick's failure partition.
+
+  const GHOST_SPEC: ServiceJobSpec = {
+    probeKey: "",
+    serviceSlug: "ghost",
+    driverKind: "e2e_d6",
+  };
+
+  it("drops an empty-probeKey spec on a SCHEDULED tick (no phantom '' family count, no unjoinable row)", async () => {
+    const errors: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const { producer, queue } = startedProducer({
+      specs: [GHOST_SPEC, ...d6Specs(["alpha"])],
+      logger: {
+        ...SILENT_LOGGER,
+        error: (msg, meta) => {
+          errors.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+        },
+      },
+    });
+
+    const result = await producer.tick();
+
+    // The backlog gate never saw the phantom "" family…
+    expect(queue.countCalls).toEqual(["d6"]);
+    // …and no unjoinable claim row was enqueued.
+    expect(queue.enqueued.map((e) => e.payload.probeKey)).toEqual(["d6:alpha"]);
+    // Accounted honestly: the dropped spec is a failure, and the partition
+    // invariant (services == enqueued + enqueueFailures + skippedForBacklog
+    // + truncatedByStop) still holds for the 2 enumerated specs.
+    expect(result.enqueued).toBe(1);
+    expect(result.enqueueFailures).toBe(1);
+    expect(result.skippedForBacklog).toBe(0);
+    expect(result.truncatedByStop).toBe(0);
+    // Logged loudly, with the offending spec identified.
+    const dropped = errors.find(
+      (e) => e.msg === "fleet.producer.spec-invalid-probekey",
+    );
+    expect(dropped).toBeDefined();
+    expect(dropped!.meta).toMatchObject({ serviceSlug: "ghost" });
+  });
+
+  it("drops an empty-probeKey spec on a TRIGGERED tick too (gate bypass does not bypass the guard)", async () => {
+    const { producer, queue } = startedProducer({
+      specs: [GHOST_SPEC, ...d6Specs(["alpha"])],
+    });
+
+    const result = await producer.tick({ triggered: true });
+
+    expect(queue.enqueued.map((e) => e.payload.probeKey)).toEqual(["d6:alpha"]);
+    expect(result.enqueued).toBe(1);
+    expect(result.enqueueFailures).toBe(1);
+  });
+
+  it("an empty-probeKey spec is never health-warmed (the warm loop only sees validated specs)", async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (input: string | URL | Request) => {
+      calls.push(String(input));
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => [
+        { ...GHOST_SPEC, driverInputs: { backendUrl: "https://ghost.example.com" } },
+        ...d6Specs(["alpha"]),
+      ],
+      logger: SILENT_LOGGER,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    expect(calls).toEqual(["https://alpha.example.com/health"]);
+  });
+});
+
 describe("job-producer — failure isolation", () => {
   it("isolates a per-service enqueue failure (other services still enqueue)", async () => {
     const queue = makeFakeQueue({

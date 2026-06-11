@@ -190,7 +190,11 @@ export interface TickResult {
   runId: string;
   /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures, backlog-gate skips, AND stop truncation). */
   enqueued: number;
-  /** Number of enqueue attempts that threw (a service that failed to enqueue). */
+  /**
+   * Number of per-service specs that FAILED to become a queued job: enqueue
+   * attempts that threw, plus specs dropped at the boundary for an invalid
+   * (empty) probeKey — see the phantom-family guard in the tick body.
+   */
   enqueueFailures: number;
   /**
    * Number of per-service jobs NOT enqueued because `stop()` truncated the
@@ -900,6 +904,31 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       };
     }
 
+    // PHANTOM-FAMILY GUARD: the enumerator is injected, so a misbehaving
+    // upstream can hand back a spec with an EMPTY probeKey. Downstream that
+    // is poison twice over: `probeKeyFamily("")` returns "" (contracts.ts),
+    // so the backlog gate would count a phantom "" family that gates
+    // nothing real, and the enqueued claim row's empty probe_key can never
+    // join a dashboard status row. Dropped HERE — before the gate, the
+    // warm-up, and the enqueue loop, on scheduled AND triggered ticks —
+    // logged at error per spec, and counted into `enqueueFailures` (after
+    // the enqueue loop, see below) so the tick's partition invariant stays
+    // honest: the spec failed to become a job.
+    let invalidSpecs = 0;
+    const validSpecs: ServiceJobSpec[] = [];
+    for (const spec of specs) {
+      if (typeof spec.probeKey !== "string" || spec.probeKey.length === 0) {
+        invalidSpecs += 1;
+        logger.error("fleet.producer.spec-invalid-probekey", {
+          runId,
+          serviceSlug: spec.serviceSlug,
+          probeKey: String(spec.probeKey),
+        });
+        continue;
+      }
+      validSpecs.push(spec);
+    }
+
     // SWEEP FIRST: the sweep's stale-pending drain can clear a family's
     // entire backlog (a backlog of only-stale rows). Running it BEFORE the
     // backlog gate means the very tick that drains a family also resumes
@@ -918,8 +947,8 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     // "run it NOW" (the CLI even treats 0 enqueued as a failure), so
     // operator intent wins over backpressure.
     const gate = triggered
-      ? { specs, skipped: 0 }
-      : await filterBackloggedFamilies(specs, runId);
+      ? { specs: validSpecs, skipped: 0 }
+      : await filterBackloggedFamilies(validSpecs, runId);
 
     // #72 PRE-DISPATCH WARM-UP: fire fire-and-forget health GETs at every
     // backend that will actually be enqueued (post-gate) BEFORE enqueueing,
@@ -971,6 +1000,12 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         });
       }
     }
+
+    // Fold the phantom-probeKey drops into the failure count AFTER the
+    // enqueue loop: the loop's truncation arithmetic is relative to
+    // `gate.specs` (already invalid-free), so folding earlier would
+    // double-subtract them from `truncatedByStop`.
+    enqueueFailures += invalidSpecs;
 
     // `services` partitions exactly: services == enqueued + enqueueFailures
     // + skippedForBacklog + truncatedByStop (see TickResult.truncatedByStop).
