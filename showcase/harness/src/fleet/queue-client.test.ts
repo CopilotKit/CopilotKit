@@ -381,7 +381,7 @@ function sampleResult(
 
 describe("test-fake honesty (the fakes must throw, not vacuously match)", () => {
   it("rowMatchesFilter throws on operators it cannot honor", () => {
-    const row: FilterableRow = { status: "pending", probe_key: "d6:a" };
+    const row: FilterableRow = { id: "r1", status: "pending", probe_key: "d6:a" };
     // Comparison operators are not modeled at all.
     expect(() => rowMatchesFilter(row, 'created < "2026-01-01"')).toThrow(
       /unsupported field/,
@@ -417,7 +417,7 @@ describe("test-fake honesty (the fakes must throw, not vacuously match)", () => 
     // negatives. Multiple positive clauses for ONE field joined by `&&`
     // therefore evaluate WRONG (the model would OR what the filter ANDs) —
     // a test exercising that shape must fail loudly, not pass vacuously.
-    const row: FilterableRow = { status: "pending", probe_key: "d6:a" };
+    const row: FilterableRow = { id: "r1", status: "pending", probe_key: "d6:a" };
     expect(() =>
       rowMatchesFilter(row, 'probe_key ~ "d6:%" && probe_key ~ "d4:%"'),
     ).toThrow(/positive probe_key clauses ANDed/);
@@ -2514,6 +2514,93 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       const third = await q.sweepExpired(muchLater);
       expect(third.expiredPending).toBe(1);
       expect(store.find((r) => r.id === "long-runner")).toBeUndefined();
+    });
+
+    it("a LONG-expired lease on a stale-aged row is claim-DELETED in the lease phase — never re-queued with a 'back in flight' signal the next sweep falsifies (G1d)", async () => {
+      // CROSS-SWEEP FALSIFICATION: a row whose lease expired BEYOND the
+      // family's stale window is past every protection the re-queue path
+      // offers — the per-call grace evaporates with the call, and the stale
+      // phase's recent-lease heuristic only covers leases expired WITHIN the
+      // window. Re-queueing it emits worker-reclaimed-pending ("back in
+      // flight"), and the NEXT sweep claim-deletes the very row that signal
+      // promised was re-running — the dashboard permanently shows
+      // "re-queued" for silently-discarded work. If the row is ALREADY
+      // stale-expirable (created-age past the window AND lease expired
+      // longer than the window), delete it claim-first like the stale phase
+      // — no comm error (the work is being discarded, not re-run).
+      const longDead: CreatedJobRow = {
+        ...jobView({
+          id: "long-dead",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          // Lease expired 4h ago — LONGER than the 3h (3 × 60min) window.
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(), // stale-aged
+      };
+      // CONTRAST: a recently-expired lease (1min ago) on an equally
+      // stale-aged row keeps today's re-queue + comm-error path — the
+      // recent-lease heuristic protects it across sweeps.
+      const recentDead: CreatedJobRow = {
+        ...jobView({
+          id: "recent-dead",
+          probe_key: "d6:b",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:b" }),
+        created: new Date(T - 4 * HOUR).toISOString(),
+      };
+      const { pb, store } = makePagingPb([longDead, recentDead]);
+      const releasedPending: string[] = [];
+      const claim: JobClaimClient = {
+        // CAS-faithful claim: admits pending rows AND claimed/running rows
+        // whose lease has expired (the hook's reclaim safety net — the
+        // lease-phase delete claims a long-dead claimed/running row).
+        async claimJob(jobId, workerId): Promise<ClaimResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r) return { won: false };
+          const reclaimable =
+            r.status === "pending" ||
+            (["claimed", "running"].includes(r.status) &&
+              leaseExpired(r.lease_expires_at, T));
+          if (!reclaimable) return { won: false };
+          r.status = "claimed";
+          r.claimed_by = workerId;
+          r.version += 1;
+          return { won: true, job: { ...r } };
+        },
+        renewLease: vi.fn(
+          async (): Promise<RenewResult> => ({ renewed: false }),
+        ),
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          if (status === "pending") releasedPending.push(jobId);
+          r.status = status;
+          r.claimed_by = "";
+          r.version += 1;
+          return { released: true, job: { ...r } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // The long-dead row was DELETED (no re-queue, no comm error, not
+      // counted as reclaimed) and counted with the stale expiries.
+      expect(store.find((r) => r.id === "long-dead")).toBeUndefined();
+      expect(releasedPending).not.toContain("long-dead");
+      expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["recent-dead"]);
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(1);
+      // The recently-expired row took today's path: re-queued to pending.
+      expect(store.find((r) => r.id === "recent-dead")?.status).toBe(
+        "pending",
+      );
     });
 
     it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {
