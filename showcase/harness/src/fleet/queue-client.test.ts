@@ -491,6 +491,35 @@ describe("FleetQueueClient.enqueue", () => {
     expect(createSpy).not.toHaveBeenCalled();
     expect(rows).toHaveLength(0);
   });
+
+  it("rejects the documented forbidden EMPTY sentinels (probeKey/serviceSlug/driverKind/runId) before creating the row (G1c)", async () => {
+    // emptyPayloadForLease documents empty serviceSlug/runId (and the rest)
+    // as FORBIDDEN aggregation inputs: an empty runId groups into nothing in
+    // the aggregator, an empty serviceSlug corrupts the per-service rollup,
+    // and an empty probeKey yields the empty FAMILY whose filter clauses
+    // match every leading-colon key (the partition gap familyClauseSafe now
+    // refuses). The typeof checks alone admitted all four — the boundary
+    // must require non-empty strings.
+    const { pb, rows } = makeFakePb();
+    const createSpy = vi.fn(pb.create.bind(pb));
+    pb.create = createSpy as PbClient["create"];
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const empties: Array<Partial<ServiceJobPayload>> = [
+      { probeKey: "" },
+      { serviceSlug: "" },
+      { driverKind: "" },
+      { meta: { ...samplePayload().meta, runId: "" } },
+    ];
+    for (const overrides of empties) {
+      await expect(
+        q.enqueue({ payload: samplePayload(overrides) }),
+      ).rejects.toThrow(/non-empty/i);
+    }
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(0);
+  });
 });
 
 describe("FleetQueueClient.claimNext", () => {
@@ -699,6 +728,52 @@ describe("FleetQueueClient.claimNext", () => {
     expect(claimed.lease?.job.id).toBe("j5");
   });
 
+  it("treats the forbidden empty sentinels in a CLAIMED row's payload as decode failures (releases + skips) — G1c decode boundary", async () => {
+    // The encode and decode boundaries share assertServiceJobPayload, so the
+    // non-empty requirement must fail loud at BOTH ends: a row persisted by
+    // an older writer (or hand-edited) with an empty probeKey/serviceSlug/
+    // driverKind/runId is released as failed and skipped, never handed to
+    // the worker (where the empty sentinels corrupt aggregation).
+    const bad = (id: string, overrides: Partial<ServiceJobPayload>): JobRow => ({
+      ...jobView({ id }),
+      payload: samplePayload(overrides),
+    });
+    const { pb } = makeFakePb([
+      bad("j1", { probeKey: "" }),
+      bad("j2", { serviceSlug: "" }),
+      bad("j3", { driverKind: "" }),
+      bad("j4", { meta: { ...samplePayload().meta, runId: "" } }),
+      { ...jobView({ id: "j5" }), payload: samplePayload() },
+    ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    // Identity order: poison rows j1–j4 are tried before the good j5.
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      rng: IDENTITY_ORDER_RNG,
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    for (const id of ["j1", "j2", "j3", "j4"]) {
+      expect(releaseJob).toHaveBeenCalledWith(id, "worker-7", "failed");
+    }
+    expect(claimed.claimed).toBe(true);
+    expect(claimed.lease?.job.id).toBe("j5");
+  });
+
   it("attributes a decode-failed row as worker-protocol-violation via a synthetic result (not a crash)", async () => {
     // After the decode-fail release the row is terminal-but-RESULTLESS; the
     // result consumer's contract synthesizes worker-crashed-mid-job (a RED
@@ -862,7 +937,14 @@ describe("FleetQueueClient.claimNext", () => {
     expect(written.serviceSlug).not.toBe("");
   });
 
-  it("falls back to a jobId-derived serviceSlug when the probe_key itself is empty", async () => {
+  it("skips an empty-probe_key row at discovery (its family is the clause-unsafe empty family) — never claimed (G1c)", async () => {
+    // probeKeyFamily("") === "" is the clause-unsafe EMPTY family (its
+    // prefix-LIKE clauses would match every leading-colon key), so an
+    // empty-probe_key row is excluded from discovery/claiming entirely with
+    // the charset-guard warn — it can no longer reach the decode-failure
+    // synthesis at all. (The synthesis call site keeps its jobId-derived
+    // `unknown-<jobId>` serviceSlug fallback as defense-in-depth for any
+    // future claim path that hands it an empty probe_key.)
     const { pb, rows } = makeFakePb([
       {
         ...jobView({ id: "j1", probe_key: "" }),
@@ -887,10 +969,15 @@ describe("FleetQueueClient.claimNext", () => {
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
-    await q.claimNext("worker-7", 30);
+    const claimed = await q.claimNext("worker-7", 30);
 
-    const written = rows[0].result as ServiceJobResult;
-    expect(written.serviceSlug).toBe("unknown-j1");
+    expect(claimed.claimed).toBe(false);
+    expect(claim.claimJob).not.toHaveBeenCalled();
+    expect(rows[0].result).toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-clause-unsafe",
+      expect.objectContaining({ family: "" }),
+    );
   });
 
   it("warns on the protocol violation `won && !job` before falling through (CAS contract breach must be visible)", async () => {
@@ -1737,6 +1824,38 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     const c = await q.claimNext("w1", 30);
     expect(c.claimed).toBe(true);
     expect(c.lease?.job.id).toBe("ok-0");
+  });
+
+  it("refuses the EMPTY family from clause building (G1c) — its clauses would match every leading-colon key", async () => {
+    // probeKeyFamily("") === "" takes the prefix-LIKE leg of the clause
+    // builders: familyInclusionClause("") is `(probe_key ~ ":%" ||
+    // probe_key = "")` — matching EVERY leading-colon key (cross-family
+    // over-claim/over-count) — and familyExclusionClause("") hides ALL
+    // leading-colon families from discovery. The empty family must be
+    // clause-unsafe exactly like the backslash class: count refuses with 0 +
+    // warn instead of emitting the over-matching filter.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      {
+        ...jobView({ id: "colon-0", probe_key: ":foo" }),
+        payload: samplePayload({ probeKey: ":foo" }),
+        created: new Date(t0).toISOString(),
+      },
+    ]);
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    // The over-matching clause would count the ":foo" row under family "".
+    expect(await q.countPendingForFamily("")).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.family-clause-unsafe",
+      expect.objectContaining({ family: "" }),
+    );
+    // The ":foo" row still counts under its OWN (whole-key) family.
+    expect(await q.countPendingForFamily(":foo")).toBe(1);
   });
 
   it("countPendingForFamily THROWS on a non-count totalItems instead of returning the poisoned value", async () => {

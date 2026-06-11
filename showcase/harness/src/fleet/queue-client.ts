@@ -256,14 +256,25 @@ function assertServiceJobPayload(
     throw new Error(`queue-client: ${label} has no decodable payload`);
   }
   const candidate = raw as Partial<ServiceJobPayload>;
+  // NON-EMPTY required (G1c): the empty string satisfies a bare typeof
+  // check but is exactly the forbidden sentinel `emptyPayloadForLease`
+  // documents — an empty runId silently groups into nothing in the
+  // aggregator, an empty serviceSlug corrupts the per-service rollup, and an
+  // empty probeKey yields the empty FAMILY whose prefix-LIKE clauses match
+  // every leading-colon key (see `familyClauseSafe`). Fail loud at BOTH
+  // boundaries (enqueue + claim decode) so the sentinels never persist or
+  // reach the worker.
   if (
     typeof candidate.probeKey !== "string" ||
+    candidate.probeKey === "" ||
     typeof candidate.serviceSlug !== "string" ||
+    candidate.serviceSlug === "" ||
     typeof candidate.driverKind !== "string" ||
+    candidate.driverKind === "" ||
     candidate.meta === undefined
   ) {
     throw new Error(
-      `queue-client: ${label} payload is missing required fields (probeKey/serviceSlug/driverKind/meta)`,
+      `queue-client: ${label} payload is missing required fields (probeKey/serviceSlug/driverKind/meta must be present and non-empty)`,
     );
   }
   // `meta` is typed `ServiceJobMeta`, but the JSON column is untrusted: a
@@ -278,11 +289,12 @@ function assertServiceJobPayload(
     typeof meta !== "object" ||
     Array.isArray(meta) ||
     typeof meta.runId !== "string" ||
+    meta.runId === "" ||
     typeof meta.triggered !== "boolean" ||
     typeof meta.enqueuedAt !== "string"
   ) {
     throw new Error(
-      `queue-client: ${label} payload.meta must be a non-null object with a string runId, boolean triggered and string enqueuedAt`,
+      `queue-client: ${label} payload.meta must be a non-null object with a non-empty string runId, boolean triggered and string enqueuedAt`,
     );
   }
   // Optional fields still have REQUIRED shapes when present: cellIds is a
@@ -427,11 +439,20 @@ export function leaseExpired(
  * VERBATIM — both cannot hold for one input, and only the `%`/`_` handling
  * has actually been verified against PB source. Probe keys are slugs in
  * practice, so rather than ship an unverifiable dual contract, callers SKIP
- * families containing a backslash (with a warn): discovery stops at one
- * (no safe exclusion clause exists), and the count gate refuses it.
+ * families containing a backslash (with a warn), and the count gate refuses
+ * them.
+ *
+ * The EMPTY family ("" — from `probeKeyFamily("")`, i.e. an empty
+ * probe_key) is ALSO clause-unsafe (G1c): it takes the prefix-LIKE leg of
+ * the builders, so `familyInclusionClause("")` is `(probe_key ~ ":%" ||
+ * probe_key = "")` — matching EVERY leading-colon key (cross-family
+ * over-claim/over-count) — and `familyExclusionClause("")` symmetrically
+ * hides ALL leading-colon families from discovery. `assertServiceJobPayload`
+ * forbids an empty probeKey at both row boundaries, so this only fires on
+ * garbage rows written outside the queue client.
  */
 function familyClauseSafe(family: string): boolean {
-  return !family.includes("\\");
+  return family !== "" && !family.includes("\\");
 }
 
 /**
