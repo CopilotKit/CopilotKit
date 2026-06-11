@@ -767,12 +767,20 @@ export type LiveDimension =
   | "d6"
   | "starter";
 
-function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
+function formatLabel(
+  dim: LiveDimension,
+  row: StatusRow | null,
+  stale: boolean,
+): string {
   if (!row) return "?";
   if (dim === "health") {
     if (row.state === "green") return "up";
     if (row.state === "red") return "down";
-    if (row.state === "degraded") return "stale";
+    // Honor the SAME staleness split as formatTooltip: an age-downgraded
+    // green (or a degraded row that itself stopped updating) reads "stale",
+    // while a FRESH producer-emitted degraded reads "degraded" — hardcoding
+    // "stale" here contradicted the "degraded since …" tooltip.
+    if (row.state === "degraded") return stale ? "stale" : "degraded";
     // Exhaustiveness check for `health` dim — see rowTone() comment.
     const _exhaustive: never = row.state;
     void _exhaustive;
@@ -937,7 +945,7 @@ function buildBadge(
       : row;
   return {
     tone: rowTone(effRow),
-    label: formatLabel(dim, effRow),
+    label: formatLabel(dim, effRow, stale),
     tooltip: formatTooltip(dim, effRow, connection, stale),
     row: effRow,
   };

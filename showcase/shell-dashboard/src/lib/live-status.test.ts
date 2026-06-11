@@ -1027,6 +1027,52 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
     expect(c.e2e.tooltip).toContain(`stale — last seen @ ${formatTs(oldTs)}`);
   });
 
+  // The health LABEL must honor the same staleness split as the tooltip —
+  // formatLabel hardcoding "stale" for every degraded health row contradicted
+  // the "degraded since …" tooltip on a fresh producer-emitted degradation.
+  it("a FRESH producer-emitted degraded health row labels 'degraded', not 'stale'", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const freshTs = new Date(NOW - 60 * 1000).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "degraded", {
+        observed_at: freshTs,
+        transitioned_at: freshTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.label).toBe("degraded");
+    expect(c.health.tooltip).toContain("degraded since");
+  });
+
+  it("a degraded health row that stopped updating keeps the 'stale' label", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(
+      NOW - LIVENESS_STALE_AFTER_MS - 60 * 1000,
+    ).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "degraded", {
+        observed_at: oldTs,
+        transitioned_at: oldTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.label).toBe("stale");
+    expect(c.health.tooltip).toContain("stale — last seen");
+  });
+
+  it("an age-downgraded green health row labels 'stale' (the row froze while green)", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(
+      NOW - LIVENESS_STALE_AFTER_MS - 60 * 1000,
+    ).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "green", { observed_at: oldTs }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.tone).toBe("amber");
+    expect(c.health.label).toBe("stale");
+  });
+
   it("red tooltip surfaces non-empty signal summary (LS8)", () => {
     const live = mapOf([
       row("e2e:a/b", "e2e", "red", {
