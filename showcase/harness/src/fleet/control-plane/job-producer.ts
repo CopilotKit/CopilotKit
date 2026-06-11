@@ -780,11 +780,31 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     const { fetchImpl } = warmHealth;
     const timeoutMs = warmHealth.timeoutMs ?? DEFAULT_WARM_TIMEOUT_MS;
     let fired = 0;
+    // Specs skipped before any warm dispatch (no/garbage backendUrl). Each
+    // skip is debug-logged with its reason so a per-spec coverage gap is
+    // greppable; when EVERY spec of a non-empty tick is skipped the #72
+    // mitigation is silently inert — that wiring regression gets one WARN
+    // per tick (see below).
+    let skipped = 0;
     for (const spec of specs) {
       const backendUrl = backendUrlFromSpec(spec);
-      if (backendUrl === undefined) continue;
+      if (backendUrl === undefined) {
+        skipped += 1;
+        logger.debug("fleet.producer.warm-skipped", {
+          serviceSlug: spec.serviceSlug,
+          reason: "missing-backendUrl",
+        });
+        continue;
+      }
       const healthUrl = deriveHealthUrl(backendUrl);
-      if (healthUrl === "") continue;
+      if (healthUrl === "") {
+        skipped += 1;
+        logger.debug("fleet.producer.warm-skipped", {
+          serviceSlug: spec.serviceSlug,
+          reason: "malformed-backendUrl",
+        });
+        continue;
+      }
       // Fire-and-forget: an AbortController bounds each GET so a hung cold
       // container can't leak a pending request across ticks. The whole chain is
       // swallowed — warm-up is a latency optimization, never a correctness gate.
@@ -855,6 +875,18 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     }
     if (fired > 0) {
       logger.info("fleet.producer.warmed", { warmed: fired });
+    }
+    // ZERO-WARMABLE WARN: warm-up is configured but NO spec of a non-empty
+    // tick could even be dispatched — the enumerator stopped threading
+    // backendUrl (or threads garbage), so the cold-start mitigation is
+    // silently inert fleet-wide. One warn per tick (the per-spec debug
+    // skips above carry the detail). Keyed on `skipped`, not `fired`: a
+    // sync-throwing fetchImpl still ATTEMPTED a warm — that is a dispatch
+    // failure (already logged), not a coverage gap.
+    if (specs.length > 0 && skipped === specs.length) {
+      logger.warn("fleet.producer.warm-none-warmable", {
+        services: specs.length,
+      });
     }
     return fired;
   }

@@ -1808,6 +1808,120 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
     await producer.tick();
     expect(calls).toHaveLength(0);
   });
+
+  it("logs a per-spec warm-skipped debug naming the slug and the skip reason (missing vs malformed backendUrl)", async () => {
+    // A warm-configured deployment whose enumerator stopped threading
+    // backendUrl (or threads a garbage one) silently lost ALL warm coverage
+    // — the skips left no trace at any level. Each skip names its spec and
+    // why, so the gap is greppable.
+    const debugs: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const { fetchImpl, calls } = makeFetchSpy();
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => [
+        {
+          probeKey: "d6:nourl",
+          serviceSlug: "nourl",
+          driverKind: "e2e_d6",
+          // no driverInputs.backendUrl → "missing"
+        },
+        {
+          probeKey: "d6:badurl",
+          serviceSlug: "badurl",
+          driverKind: "e2e_d6",
+          // unparseable URL → deriveHealthUrl("") → "malformed"
+          driverInputs: { backendUrl: "::::not-a-url" },
+        },
+        ...d6Specs(["alpha"]), // still warmable — no zero-warmable warn
+      ],
+      logger: {
+        ...SILENT_LOGGER,
+        debug: (msg, meta) => {
+          if (msg === "fleet.producer.warm-skipped")
+            debugs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+        },
+      },
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+
+    expect(calls).toHaveLength(1); // alpha still warmed
+    expect(debugs).toHaveLength(2);
+    expect(debugs[0]!.meta).toMatchObject({
+      serviceSlug: "nourl",
+      reason: "missing-backendUrl",
+    });
+    expect(debugs[1]!.meta).toMatchObject({
+      serviceSlug: "badurl",
+      reason: "malformed-backendUrl",
+    });
+  });
+
+  it("warns ONCE per tick when warmHealth is configured but ZERO of N specs are warmable", async () => {
+    // The per-spec skips are debug-level; a tick where NOTHING could be
+    // warmed despite warm-up being configured is a wiring regression worth
+    // a warn (the #72 cold-start mitigation is silently inert).
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const { fetchImpl, calls } = makeFetchSpy();
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => [
+        { probeKey: "d6:a", serviceSlug: "a", driverKind: "e2e_d6" },
+        { probeKey: "d6:b", serviceSlug: "b", driverKind: "e2e_d6" },
+      ],
+      logger: {
+        ...SILENT_LOGGER,
+        warn: (msg, meta) => {
+          if (msg === "fleet.producer.warm-none-warmable")
+            warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+        },
+      },
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+
+    expect(calls).toHaveLength(0);
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.meta).toMatchObject({ services: 2 });
+  });
+
+  it("does NOT warn zero-warmable on an empty tick or when at least one spec warms", async () => {
+    const warns: string[] = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg) => {
+        warns.push(msg);
+      },
+    };
+    const { fetchImpl } = makeFetchSpy();
+
+    // Empty enumeration: nothing to warm is not a warm-coverage gap.
+    const empty = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => [],
+      logger,
+      warmHealth: { fetchImpl },
+    });
+    empty.start();
+    await empty.tick();
+
+    // Mixed: one warmable spec means coverage is not zero.
+    const mixed = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => [
+        { probeKey: "d6:nourl", serviceSlug: "nourl", driverKind: "e2e_d6" },
+        ...d6Specs(["alpha"]),
+      ],
+      logger,
+      warmHealth: { fetchImpl },
+    });
+    mixed.start();
+    await mixed.tick();
+
+    expect(warns).not.toContain("fleet.producer.warm-none-warmable");
+  });
 });
 
 describe("job-producer — default run-id factory", () => {
