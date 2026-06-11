@@ -321,6 +321,33 @@ describe("job-producer — per-service enqueue", () => {
     expect(result.enqueued).toBe(0);
     expect(queue.enqueued).toHaveLength(0);
   });
+
+  it("logs tick-start BEFORE the enumerator runs (a hung discovery still leaves a tick trace)", async () => {
+    // tick-start used to be logged AFTER the enumerate await — a discovery
+    // upstream that hung or threw left no trace that the tick had begun.
+    const events: string[] = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      info: (msg) => {
+        events.push(msg);
+      },
+    };
+    const producer = createJobProducer({
+      queue: makeFakeQueue(),
+      enumerate: () => {
+        events.push("enumerate-invoked");
+        return d6Specs(["a"]);
+      },
+      logger,
+    });
+    producer.start();
+    await producer.tick();
+    const startIdx = events.indexOf("fleet.producer.tick-start");
+    const enumIdx = events.indexOf("enumerate-invoked");
+    expect(startIdx).toBeGreaterThanOrEqual(0);
+    expect(enumIdx).toBeGreaterThanOrEqual(0);
+    expect(startIdx).toBeLessThan(enumIdx);
+  });
 });
 
 describe("job-producer — per-family backlog dedupe", () => {
@@ -485,6 +512,28 @@ describe("job-producer — failure isolation", () => {
     // First tick always sweeps (lastSweepAt seeded null) — reclamation must
     // not be starved by a flaky enumerator.
     expect(result.sweptExpired).toBe(true);
+    expect(queue.sweepCalls).toEqual([1_000]);
+  });
+
+  it("routes an enumerator that resolves to a NON-ARRAY through the enumerate-failure handling", async () => {
+    // A misbehaving enumerator (bad wiring, a mock resolving undefined) used
+    // to bypass the enumerateFailed path entirely and blow up further down
+    // the tick. A non-array resolution is a FAILED enumeration, not an empty
+    // catalog.
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () =>
+        Promise.resolve(null) as unknown as Promise<ServiceJobSpec[]>,
+      logger: SILENT_LOGGER,
+      now: () => 1_000,
+    });
+    producer.start();
+    const result = await producer.tick();
+    expect(result.enumerateFailed).toBe(true);
+    expect(result.enqueued).toBe(0);
+    expect(queue.enqueued).toHaveLength(0);
+    // The sweep is still attempted, same as the throwing-enumerator path.
     expect(queue.sweepCalls).toEqual([1_000]);
   });
 
@@ -843,6 +892,50 @@ describe("job-producer — sweep cadence", () => {
     expect(received[0]![received[0]!.length - 1]!.jobId).toBe("fresh0");
   });
 
+  it("[REQ-B] warns ONCE (with jobIds) when swept comm errors exist but no sink is configured", async () => {
+    // Legacy logged-only mode drops the batch's dashboard signal with only a
+    // count in the sweep-reclaimed warn. Surface the wiring gap explicitly —
+    // once, with the dropped jobIds — without burying logs on every sweep.
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      warn: (msg, meta) => {
+        warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const queue = makeFakeQueue({
+      sweepImpl: async () => ({
+        reclaimed: 1,
+        commErrors: [
+          {
+            kind: "worker-reclaimed-pending",
+            message: "lease for job j1 expired; re-queued",
+            jobId: "j1",
+            observedAt: "2026-06-04T00:00:09.000Z",
+          },
+        ],
+      }),
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger,
+      sweepIntervalMs: 0, // sweep (and drop) on every tick
+      // no onSweepCommErrors sink
+    });
+    producer.start();
+    await producer.tick();
+    await producer.tick();
+    const noSinkWarns = warns.filter(
+      (w) => w.msg === "fleet.producer.sweep-commerrors-no-sink",
+    );
+    expect(noSinkWarns).toHaveLength(1);
+    expect(noSinkWarns[0]!.meta).toMatchObject({
+      commErrors: 1,
+      jobIds: ["j1"],
+    });
+  });
+
   it("defaults the sweep cadence to DEFAULT_SWEEP_INTERVAL_MS", async () => {
     let t = 0;
     const queue = makeFakeQueue();
@@ -1048,6 +1141,65 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
     expect(cancelled).toBe(1);
   });
 
+  it("counts a warm GET as fired only when the dispatch succeeded (sync-throwing fetch is not 'warmed')", async () => {
+    // `fired` used to be incremented BEFORE the dispatch try — a fetchImpl
+    // that threw synchronously still counted, so the `warmed` log overstated
+    // how many backends were actually poked.
+    const infos: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      info: (msg, meta) => {
+        infos.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const fetchImpl = ((input: string | URL | Request): Promise<Response> => {
+      if (String(input).includes("alpha")) {
+        throw new Error("sync EINVAL from fetch impl");
+      }
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha", "beta"]),
+      logger,
+      warmHealth: { fetchImpl },
+    });
+    producer.start();
+    await producer.tick();
+    const warmed = infos.find((e) => e.msg === "fleet.producer.warmed");
+    expect(warmed).toBeDefined();
+    expect(warmed!.meta).toMatchObject({ warmed: 1 }); // beta only
+  });
+
+  it("a throwing logger inside the warm chain never raises an unhandled rejection", async () => {
+    // The fire-and-forget chain's own handlers can throw (an injected logger
+    // whose transport is down). Without a terminal catch that surfaces as an
+    // unhandled rejection from a chain nobody awaits.
+    const throwingDebugLogger: Logger = {
+      ...SILENT_LOGGER,
+      debug: () => {
+        throw new Error("logger transport down");
+      },
+    };
+    const failingFetch = (async (): Promise<Response> => {
+      throw new Error("ECONNREFUSED (cold container still booting)");
+    }) as typeof fetch;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["alpha"]),
+      logger: throwingDebugLogger,
+      warmHealth: { fetchImpl: failingFetch },
+    });
+    producer.start();
+    const result = await producer.tick();
+    expect(result.enqueued).toBe(1);
+    // Let the fire-and-forget chain settle: an unhandled rejection from the
+    // throwing logger fails the test run.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
   it("skips specs with no backendUrl (no bogus warm GET)", async () => {
     const { fetchImpl, calls } = makeFetchSpy();
     const queue = makeFakeQueue();
@@ -1076,15 +1228,23 @@ describe("job-producer — default run-id factory", () => {
   });
 
   it("two producers created back-to-back never collide for equal (timestamp, counter)", async () => {
-    // Four producers each get an INDEPENDENT default factory with its counter
+    // Two producers each get an INDEPENDENT default factory with its counter
     // starting at 0 — same-ms ticks with equal counts used to produce the SAME
     // id, and the aggregator groups by meta.runId. Pin the clock so both
     // producers see an identical (ts, counter) pair; the per-factory random
     // discriminator must still keep the ids distinct.
     vi.spyOn(Date, "now").mockReturnValue(1_765_000_000_000);
-    vi.spyOn(Math, "random")
-      .mockReturnValueOnce(0.1234567)
-      .mockReturnValueOnce(0.7654321);
+    // Derandomize with a never-exhausting deterministic sequence (distinct
+    // value per call). The previous two-shot mockReturnValueOnce form was
+    // fragile: a third Math.random call anywhere in the factory would fall
+    // through to the spy's undefined default and silently break the test's
+    // premise. The call-count guard below pins the one-draw-per-factory
+    // assumption instead.
+    let randomCalls = 0;
+    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
+      randomCalls += 1;
+      return randomCalls / 10;
+    });
     const make = () => {
       const producer = createJobProducer({
         queue: makeFakeQueue(),
@@ -1097,6 +1257,9 @@ describe("job-producer — default run-id factory", () => {
     };
     const p1 = make();
     const p2 = make();
+    // Length guard: the default factory draws its discriminator exactly ONCE
+    // per producer — if this count changes, revisit the derandomization.
+    expect(randomSpy).toHaveBeenCalledTimes(2);
     const r1 = await p1.tick();
     const r2 = await p2.tick();
     expect(r1.runId).not.toBe(r2.runId);
@@ -1335,6 +1498,24 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
     const result = await producer.tick();
     expect(result.enqueued).toBe(0);
     expect(queue.enqueued).toHaveLength(0);
+  });
+
+  it("a stopped tick does not mint a runId (no counter burn, no phantom runIds in logs)", async () => {
+    // The runId used to be minted BEFORE the running check — every tick that
+    // arrived outside the lifecycle burned the factory counter and logged a
+    // phantom runId no job would ever carry.
+    const runIdFactory = vi.fn(() => "run-phantom");
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      runIdFactory,
+    });
+    // Never started.
+    const result = await producer.tick();
+    expect(result.runId).toBe("");
+    expect(runIdFactory).not.toHaveBeenCalled();
   });
 
   it("a tick after stop() enqueues nothing (no jobs leak past lifecycle)", async () => {

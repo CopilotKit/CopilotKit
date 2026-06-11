@@ -69,6 +69,14 @@ import { deriveHealthUrl } from "../../probes/liveness.js";
  * persistently-failing sweep never starves a healthy sink of the buffer.
  * Injected so the producer stays dependency-free and unit-testable with a
  * fake sink.
+ *
+ * AT-LEAST-ONCE DELIVERY — the sink MUST be idempotent. A sink failure
+ * re-buffers and later re-delivers the WHOLE batch, including entries the
+ * receiver may already have processed before the failure surfaced (the
+ * producer cannot distinguish a partial sink failure from a total one).
+ * The aggregator behind this sink must therefore treat each comm error as
+ * idempotent per (jobId, observedAt): re-delivery of an already-aggregated
+ * entry must not duplicate its dashboard surface.
  */
 export type SweepCommErrorSink = (
   commErrors: PoolCommError[],
@@ -175,8 +183,9 @@ export interface TickResult {
   /**
    * The run batch id every enqueued job in this tick shares. Empty string
    * (`""`) when the tick never RAN — skipped because a previous tick was
-   * still in flight: a tick that produces nothing by construction does not
-   * mint a runId.
+   * still in flight, or because it arrived outside the producer's lifecycle
+   * (before start() / after stop()): a tick that produces nothing by
+   * construction does not mint a runId.
    */
   runId: string;
   /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures and backlog-gate skips). */
@@ -305,10 +314,11 @@ export const DEFAULT_SWEEP_INTERVAL_MS = 30_000;
 export const MAX_BUFFERED_SWEEP_COMM_ERRORS = 500;
 
 /**
- * The no-op `TickResult` for a tick that never RAN (e.g. skipped because a
- * previous tick was still in flight). `runId` is the empty-string sentinel:
- * no run was minted — a tick that produces nothing by construction must not
- * burn the run-id counter or log phantom runIds.
+ * The no-op `TickResult` for a tick that never RAN (skipped because a
+ * previous tick was still in flight, or arrived outside the producer's
+ * lifecycle). `runId` is the empty-string sentinel: no run was minted — a
+ * tick that produces nothing by construction must not burn the run-id
+ * counter or log phantom runIds.
  */
 function skippedTickResult(): TickResult {
   return {
@@ -350,6 +360,12 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    */
   let undeliveredCommErrors: PoolCommError[] = [];
   /**
+   * One-shot latch for the "comm errors swept but no sink configured" warn —
+   * see deliverSweepCommErrors. Without it a sink-less deployment would log
+   * the same wiring gap on every reclaiming sweep.
+   */
+  let warnedNoCommErrorSink = false;
+  /**
    * The currently-executing tick's promise, or null when no tick is in
    * flight. `stop()` awaits it so "stopped" means QUIESCED — an in-flight
    * tick can no longer keep enumerating/sweeping/enqueueing after stop()
@@ -385,7 +401,23 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * oldest dropped, warned) and never aborts job production.
    */
   async function deliverSweepCommErrors(fresh: PoolCommError[]): Promise<void> {
-    if (!onSweepCommErrors) return;
+    if (!onSweepCommErrors) {
+      // No sink wired (legacy logged-only mode): the batch's dashboard
+      // signal is dropped HERE, permanently — sweepExpired cannot re-derive
+      // it. Surface the wiring gap explicitly, with the dropped jobIds (not
+      // just a count), but only ONCE so a sink-less deployment doesn't bury
+      // its logs on every sweep.
+      if (fresh.length > 0 && !warnedNoCommErrorSink) {
+        warnedNoCommErrorSink = true;
+        logger.warn("fleet.producer.sweep-commerrors-no-sink", {
+          commErrors: fresh.length,
+          jobIds: fresh
+            .map((e) => e.jobId)
+            .filter((id): id is string => id !== undefined),
+        });
+      }
+      return;
+    }
     const batch = [...undeliveredCommErrors, ...fresh];
     undeliveredCommErrors = [];
     if (batch.length === 0) return;
@@ -544,7 +576,6 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       if (backendUrl === undefined) continue;
       const healthUrl = deriveHealthUrl(backendUrl);
       if (healthUrl === "") continue;
-      fired += 1;
       // Fire-and-forget: an AbortController bounds each GET so a hung cold
       // container can't leak a pending request across ticks. The whole chain is
       // swallowed — warm-up is a latency optimization, never a correctness gate.
@@ -582,7 +613,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
               });
             },
           )
-          .finally(() => clearTimeout(timer));
+          .finally(() => clearTimeout(timer))
+          // Terminal backstop: the handlers above can THEMSELVES throw (an
+          // injected logger whose transport is down) — without this catch
+          // that surfaces as an unhandled rejection from a fire-and-forget
+          // chain nobody awaits.
+          .catch(() => {});
+        // Counted AFTER the dispatch: a fetchImpl that throws synchronously
+        // lands in the catch below and must not be reported as "warmed".
+        fired += 1;
       } catch (err) {
         logger.debug("fleet.producer.warm-failed", {
           serviceSlug: spec.serviceSlug,
@@ -599,25 +638,23 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
 
   /** One production cycle — the body `tick()` runs and `stop()` quiesces on. */
   async function runTick(tickOpts?: TickOptions): Promise<TickResult> {
-    const runId = runIdFactory();
     if (!running) {
       // Defensive: a tick that arrives after stop() (or before start())
       // produces nothing. Mirrors the scheduler's drain-after-stop
-      // discipline — no jobs leak past the producer's lifecycle.
-      logger.warn("fleet.producer.tick-while-stopped", { runId });
-      return {
-        runId,
-        enqueued: 0,
-        enqueueFailures: 0,
-        skippedForBacklog: 0,
-        sweptExpired: false,
-        sweepFailed: false,
-        reclaimed: 0,
-        enumerateFailed: false,
-      };
+      // discipline — no jobs leak past the producer's lifecycle. No runId
+      // is minted: a stopped tick must not burn the factory counter or log
+      // a phantom runId no job will ever carry.
+      logger.warn("fleet.producer.tick-while-stopped", {
+        triggered: tickOpts?.triggered === true,
+      });
+      return skippedTickResult();
     }
-
+    const runId = runIdFactory();
     const triggered = tickOpts?.triggered === true;
+
+    // Logged BEFORE the enumerate await: a discovery upstream that hangs or
+    // throws must still leave a trace that this tick (and its runId) began.
+    logger.info("fleet.producer.tick-start", { runId, triggered });
 
     const enumerateCtx: EnumerateContext = { triggered, runId };
     // The filter is TRIGGER-ONLY: a scheduled (cron) tick must never be
@@ -633,7 +670,17 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
 
     let specs: ServiceJobSpec[];
     try {
-      specs = await enumerate(enumerateCtx);
+      const enumerated = await enumerate(enumerateCtx);
+      if (!Array.isArray(enumerated)) {
+        // A misbehaving enumerator (bad wiring, a mock resolving undefined)
+        // is a FAILED enumeration, not an empty catalog — route it through
+        // the same failure handling as a throw instead of letting the
+        // non-array value blow up further down the tick.
+        throw new Error(
+          `enumerator resolved to a non-array value (${typeof enumerated})`,
+        );
+      }
+      specs = enumerated;
     } catch (err) {
       // Enumeration failure short-circuits production (no services →
       // nothing to enqueue). Still attempt the sweep so dead-worker
@@ -657,12 +704,6 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         enumerateFailed: true,
       };
     }
-
-    logger.info("fleet.producer.tick-start", {
-      runId,
-      triggered,
-      services: specs.length,
-    });
 
     // SWEEP FIRST: the sweep's stale-pending drain can clear a family's
     // entire backlog (a backlog of only-stale rows). Running it BEFORE the
@@ -735,6 +776,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     logger.info("fleet.producer.tick-complete", {
       runId,
       triggered,
+      services: specs.length,
       enqueued,
       enqueueFailures,
       skippedForBacklog: gate.skipped,
