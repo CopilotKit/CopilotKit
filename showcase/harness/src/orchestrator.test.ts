@@ -17,6 +17,7 @@ import {
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
   buildProducerSchedules,
+  buildSweepCommErrorSink,
   FLEET_FAMILY_PERIODS_MS,
   FLEET_PRODUCER_SMOKE_CRON,
   FLEET_PRODUCER_DEMOS_CRON,
@@ -5246,6 +5247,57 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
       "5,20,35,50 * * * *",
     );
+  });
+});
+
+/**
+ * REQ-B late-bind at-least-once guard: `buildSweepCommErrorSink` must THROW
+ * while the control-plane ref is still unbound. The job-producer's
+ * `deliverSweepCommErrors` clears its undelivered buffer whenever the sink
+ * RESOLVES, so an unbound sink that resolved would mark a never-delivered
+ * batch as delivered — silently dropping the worker-crashed overlay
+ * (`sweepExpired` cannot re-derive a missed batch). A rejection makes the
+ * producer re-buffer and redeliver on a later sweep, after the bind.
+ */
+describe("buildSweepCommErrorSink (REQ-B late-bind at-least-once guard)", () => {
+  const commError: PoolCommError = {
+    kind: "worker-crashed-mid-job",
+    message: "lease expired; worker presumed crashed",
+    workerId: "worker-dead",
+    jobId: "job-unbound-1",
+    observedAt: "2026-06-10T00:00:00.000Z",
+  };
+
+  it("rejects while the control-plane is unbound (producer must re-buffer, not clear)", async () => {
+    const sink = buildSweepCommErrorSink(() => undefined);
+    await expect(sink([commError])).rejects.toThrow(
+      /control-plane.*not.*bound|before the control-plane/i,
+    );
+  });
+
+  it("forwards the batch to surfaceSweepCommErrors once bound, and resolves", async () => {
+    const seen: PoolCommError[][] = [];
+    let ref:
+      | { surfaceSweepCommErrors(errs: PoolCommError[]): Promise<void> }
+      | undefined;
+    // Built UNBOUND (mirroring runControlPlane's assembly order), bound after.
+    const sink = buildSweepCommErrorSink(() => ref);
+    ref = {
+      surfaceSweepCommErrors: async (errs) => {
+        seen.push(errs);
+      },
+    };
+    await expect(sink([commError])).resolves.toBeUndefined();
+    expect(seen).toEqual([[commError]]);
+  });
+
+  it("propagates a bound sink's rejection (the producer's re-buffer trigger)", async () => {
+    const sink = buildSweepCommErrorSink(() => ({
+      surfaceSweepCommErrors: async () => {
+        throw new Error("aggregator write failed");
+      },
+    }));
+    await expect(sink([commError])).rejects.toThrow("aggregator write failed");
   });
 });
 

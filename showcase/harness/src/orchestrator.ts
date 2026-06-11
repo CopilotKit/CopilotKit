@@ -2234,6 +2234,44 @@ export function createRailwayAdapter(
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the late-bound REQ-B sweep sink `runControlPlane` shares across all
+ * four family producers. The control-plane is assembled AFTER the producers
+ * (each needs the other — the cycle is broken with a late bind), so the sink
+ * dereferences the control-plane through `getControlPlane` on every delivery
+ * rather than capturing it at build time.
+ *
+ * AT-LEAST-ONCE GUARD: the job-producer's `deliverSweepCommErrors` treats a
+ * RESOLVED sink call as "delivered" and clears its undelivered-comm-error
+ * buffer — `sweepExpired` cannot re-derive a missed batch. If this sink
+ * resolved while the control-plane was still unbound (a sweep racing the
+ * assembly window, or the bind-failure teardown's final drain), the producer
+ * would clear a batch that never reached the aggregator — silently dropping
+ * the worker-crashed overlay. Throw instead: the producer logs, re-buffers
+ * the batch, and redelivers on a later sweep once the bind has happened.
+ *
+ * Exported for tests.
+ */
+export function buildSweepCommErrorSink(
+  getControlPlane: () =>
+    | Pick<ControlPlane, "surfaceSweepCommErrors">
+    | undefined,
+): (commErrors: PoolCommError[]) => Promise<void> {
+  return async (commErrors) => {
+    const controlPlane = getControlPlane();
+    if (controlPlane === undefined) {
+      // Resolving here would violate the producer's at-least-once contract
+      // (a resolved sink call clears the batch). Reject so the producer
+      // re-buffers and redelivers once the control-plane is bound.
+      throw new Error(
+        "sweep comm-error sink called before the control-plane was bound; " +
+          `re-buffering ${commErrors.length} comm error(s) for redelivery`,
+      );
+    }
+    await controlPlane.surfaceSweepCommErrors(commErrors);
+  };
+}
+
+/**
  * Control-plane role entrypoint: scheduler / queue / aggregator. Runs NO
  * Chromium / BrowserPool.
  *
@@ -2482,11 +2520,10 @@ export async function runControlPlane(
   // so the worker-reclaimed overlay was lost ~11 of 12 sweeps. Sharing the sink
   // is safe: the CAS guarantees exactly ONE producer reclaims (and forwards)
   // each expired job, and `surfaceSweepCommErrors` is best-effort per error.
-  const onSweepCommErrors = async (
-    commErrors: PoolCommError[],
-  ): Promise<void> => {
-    await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
-  };
+  // While `controlPlaneRef` is still unbound the sink THROWS (see
+  // `buildSweepCommErrorSink`) so the producer re-buffers instead of clearing
+  // an undelivered batch.
+  const onSweepCommErrors = buildSweepCommErrorSink(() => controlPlaneRef);
   const producer = buildJobProducer({
     queue,
     enumerate,
