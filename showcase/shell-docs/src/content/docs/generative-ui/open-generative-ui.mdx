@@ -21,11 +21,20 @@ progressively, and finally JavaScript expressions execute one by one.
 Key benefits:
 
 - **No predefined components** — the agent creates any UI it needs, on demand
-- **Design system built in** — a token-based CSS kit (light/dark, styled form controls, SVG helpers) is pre-injected into every generated document
-- **Pre-wired libraries** — Three.js, GSAP, D3, and Chart.js are import-ready via a pinned importmap; other CDN libraries can still be loaded via `<script>`/`<link>` tags
+- **Design system built in** (React) — a token-based CSS kit (light/dark, styled form controls, SVG helpers) is pre-injected into every generated document
+- **Pre-wired libraries** (React) — Three.js, GSAP, D3, and Chart.js are import-ready via a pinned importmap; other CDN libraries can still be loaded via `<script>`/`<link>` tags
 - **Live streaming** — HTML streams into a preview as it's generated
 - **Secure sandboxing** — content runs in an isolated iframe without same-origin access
 - **Sandbox functions** — optionally expose host functions to the generated UI for two-way communication
+
+<Callout type="info" title="React-only features">
+  The built-in design system, the pre-wired libraries importmap, and the
+  `designSystem` / `libraries` provider options are currently available in
+  `@copilotkit/react-core` only. The Vue package supports the secure sandbox,
+  live streaming preview, `sandboxFunctions`, and `designSkill`, but injects no
+  design-system kit and no importmap — generated documents in Vue are not
+  augmented with either.
+</Callout>
 
 ## Minimal setup
 
@@ -114,8 +123,15 @@ progressively.
 
 ## Using libraries
 
-Three.js, GSAP, D3, and Chart.js are **pre-wired**: every generated document
-ships with a pinned importmap, so the agent imports them as bare module
+<Callout type="info" title="React only">
+  The pre-wired importmap and the `libraries` provider option below are
+  available in `@copilotkit/react-core` only. In Vue, no importmap is injected,
+  so the agent must load every library — including Three.js, GSAP, D3, and
+  Chart.js — via classic CDN `<script>`/`<link>` tags.
+</Callout>
+
+In React, Three.js, GSAP, D3, and Chart.js are **pre-wired**: every generated
+document ships with a pinned importmap, so the agent imports them as bare module
 specifiers inside `<script type="module">` — no CDN `<script src>` tags needed
 for these four (the built-in tool description steers the agent accordingly).
 
@@ -133,7 +149,7 @@ for these four (the built-in tool description steers the agent accordingly).
 Any **other** CDN-hosted library still works the classic way — include its
 `<script>` or `<link>` tag in the generated HTML `<head>`.
 
-Override or disable the importmap via the provider:
+Override or disable the importmap via the React provider:
 
 ```tsx
 <CopilotKit
@@ -150,8 +166,15 @@ Override or disable the importmap via the provider:
 
 ## The built-in design system
 
-Every generated document is assembled with a default design system: CSS
-design tokens with automatic light/dark (`--color-*`, `--font-*`,
+<Callout type="info" title="React only">
+  The built-in design system and the `designSystem` provider option are
+  available in `@copilotkit/react-core` only. Vue injects no design-system kit;
+  generated documents carry only the styles the agent writes (optionally guided
+  by a custom `designSkill`).
+</Callout>
+
+In React, every generated document is assembled with a default design system:
+CSS design tokens with automatic light/dark (`--color-*`, `--font-*`,
 `--border-radius-*`), pre-styled form controls, and SVG helper classes
 (`.c-purple`…`.c-red`, `.box`, `.arr`). The agent is instructed to build on
 these tokens instead of hand-rolling palettes, so generated UIs stay
