@@ -244,17 +244,25 @@ describe("processPartialHtml / extractCompleteStyles — shared boundary parity"
     );
   });
 
-  // Case D — RED pre-fix: a <body> token nested inside a complete <head> block
-  // made the two functions classify the trailing top-level `.s{}` differently →
-  // dropped from BOTH. NEW rule: the head element is stripped wholesale (its
-  // nested <body> token cannot fake the real boundary via masking), and the
-  // top-level `.s{}` is body-region — kept in the body, not hoisted.
-  it("D: <body> token nested in a <head> block → top-level style kept in body", () => {
+  // Case D — UPDATED to browser parity (the old pin asserted buggy behavior).
+  // Input: `<head>x<body>y</head><style>.s{}</style><body>real</body>`. The old
+  // pin expected `<style>.s{}</style>real` (the whole `<head>x<body>y</head>` was
+  // treated as one head element and dropped, taking `x` and `y` with it — the
+  // very Finding-1 over-greedy `</head>` pairing). jsdom (the oracle) shows the
+  // head closes at the FIRST boundary, the flow TEXT `x`, so `x` (and the later
+  // `y`) are body content and `.s{}` is body-region:
+  //   new JSDOM("<head>x<body>y</head><style>.s{}</style><body>real</body>")
+  //     .window.document.head.innerHTML === ""
+  //     .window.document.body.innerHTML === "xy<style>.s{}</style>real"
+  // The `<body>`/`</body>`/`</head>` tags are consumed as structure; `.s{}` is
+  // never hoisted (no head element survives). The masking intent is unchanged —
+  // a `<body>` inside CSS/a comment still cannot fake a boundary (see C/C'/M').
+  it("D: text + nested body in the head region → head closes at the text, .s{} kept in body", () => {
     const input = "<head>x<body>y</head><style>.s{}</style><body>real</body>";
     const hoisted = extractCompleteStyles(input);
     const body = processPartialHtml(input);
-    expect(hoisted).toBe(""); // .s{} is top-level, not in a head element
-    expect(body).toBe("<style>.s{}</style>real"); // kept in body, not dropped
+    expect(hoisted).toBe(""); // no head element survives ⇒ .s{} is body-region
+    expect(body).toBe("xy<style>.s{}</style>real"); // browser parity (jsdom)
   });
 
   // Case E — RED pre-fix: step 5's `/<body[^>]*>/i` (no word boundary) matched
@@ -349,13 +357,18 @@ describe("processPartialHtml / extractCompleteStyles — HTML comment masking", 
 });
 
 // ---------------------------------------------------------------------------
-// Unclosed <head> with body markup: the preview must agree with the final
-// document's effective rendering (ensureHead + injectCssIntoHtml leave the
-// in-head css in the head and the body content in the body when no </head> is
-// emitted —
-// browsers implicitly close <head> at <body>). Content must never vanish.
+// Unclosed <head> implicit close: the preview must agree with the final
+// document's effective rendering. A browser closes <head> at the FIRST of a
+// <body> token, a flow (non-head-permitted) start tag, or non-whitespace text —
+// leaving the in-head css in the head and everything from the boundary onward in
+// the body. Content must never vanish. jsdom (the browser-equivalent parser) is
+// the oracle for every expectation here:
+//   new JSDOM("<head><style>.a{}</style><body><p>hi</p></body>")…
+//     head.innerHTML === "<style>.a{}</style>", body.innerHTML === "<p>hi</p>"
+//   new JSDOM("<head><style>.a{}</style><p>x</p>")…
+//     head.innerHTML === "<style>.a{}</style>", body.innerHTML === "<p>x</p>"
 // ---------------------------------------------------------------------------
-describe("processPartialHtml / extractCompleteStyles — unclosed <head> implicit body close", () => {
+describe("processPartialHtml / extractCompleteStyles — unclosed <head> implicit close", () => {
   // RED pre-fix: extractCompleteStyles hoisted nothing (no complete head
   // element) AND step 3 stripped the unclosed <head> to end-of-string →
   // preview rendered empty while the final document renders the content.
@@ -369,7 +382,9 @@ describe("processPartialHtml / extractCompleteStyles — unclosed <head> implici
   });
 
   // The implicit close also strips the head region's non-style markup from the
-  // body, keeping only the body content (parity with the final document).
+  // body, keeping only the body content (parity with the final document). Title
+  // text content does NOT trigger the flow/text close — title is head-permitted
+  // RCDATA, so the scan skips its inner text to </title>.
   it("L': unclosed <head> with title + style before <body> → only body content remains", () => {
     const input =
       "<head><title>t</title><style>.a{}</style><body><p>x</p></body>";
@@ -377,21 +392,224 @@ describe("processPartialHtml / extractCompleteStyles — unclosed <head> implici
     expect(extractCompleteStyles(input)).toBe("<style>.a{}</style>");
   });
 
-  // Pin: an unclosed <head> with content but NO <body> token is still stripped
-  // (a head genuinely still streaming its own content). Current behavior — kept
-  // stable by the implicit-close rule firing ONLY on a <body> token.
-  it("M: unclosed <head> + content, NO <body> → stripped (pinned)", () => {
-    const input = "<head><style>.a{}</style><p>x</p>";
+  // Pin (re-scoped): an unclosed <head> whose region so far contains ONLY
+  // head-permitted content and has NO body/flow/text boundary is genuinely still
+  // streaming its own head — it is stripped (preview empty until more streams in,
+  // self-correcting). NOTE: a browser would already hoist `.a` (jsdom body ""),
+  // but mid-stream we defer to "" rather than flash a partial head. This pin is
+  // kept stable by the streaming guard in findHeadContentEnd (no boundary ⇒ null
+  // ⇒ no span ⇒ unterminated-head strip).
+  it("M: unclosed <head>, head-permitted content only, NO body/flow/text → stripped (pinned)", () => {
+    const input = "<head><style>.a{}</style>";
     expect(processPartialHtml(input)).toBe("");
     expect(extractCompleteStyles(input)).toBe("");
   });
 
-  // A <body> token inside a style/comment within the unclosed head must NOT be
-  // taken as the implicit close (masking guards it).
-  it("M': <body> token inside CSS in an unclosed head is not the implicit close", () => {
-    const input = '<head><style>.a{content:"<body>"}</style><p>x</p>';
-    // No REAL <body> token ⇒ unclosed head with no body ⇒ stripped (pinned).
+  // Pin (re-scoped): a <body> token inside a style/comment within an unclosed
+  // head must NOT be taken as the implicit close (masking guards it). With only
+  // head-permitted content and NO real body/flow/text boundary, the head is still
+  // streaming ⇒ stripped. jsdom agrees the body is "" here.
+  it("M': <body> token inside CSS in an unclosed head is not the implicit close (still streaming → stripped)", () => {
+    const input = '<head><style>.a{content:"<body>"}</style>';
+    // No REAL boundary ⇒ unclosed head still streaming ⇒ stripped (pinned).
     expect(processPartialHtml(input)).toBe("");
+    expect(extractCompleteStyles(input)).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FINDING 1 — the </head> pairing must not cross a <body> boundary. The old
+// scan paired a <head> open with the FIRST </head> ANYWHERE after it, even past
+// a <body> token, so body content was swallowed into the "head element" and the
+// preview went BLANK. A browser closes the head at the implicit <body> boundary
+// FIRST; a </head> after <body> is a stray close. jsdom is the oracle:
+//   "<head><style>.a{}</style><body><p>hi</p></head>" → body "<p>hi</p>"
+//   "<head><body><style>.b{}</style></head>"          → body "<style>.b{}</style>"
+//   "<head><style>.a{}</style><body>x</body><head><style>.b{}</style></head>"
+//                              → hoist ".a" only, body "x<style>.b{}</style>"
+// ---------------------------------------------------------------------------
+describe("processPartialHtml / extractCompleteStyles — FINDING 1: </head> pairing bounded by <body>", () => {
+  // RED pre-fix: body "" (everything through the trailing </head> read as one
+  // head element). jsdom: head "<style>.a{}</style>", body "<p>hi</p>".
+  it("F1.a: <head>…</head> spanning past <body> → in-head style hoisted, body content kept", () => {
+    const input = "<head><style>.a{}</style><body><p>hi</p></head>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // implicit close at <body>
+    expect(body).toBe("<p>hi</p>"); // not swallowed into the head element
+    expect(body).not.toContain("<style"); // hoisted XOR kept
+    expect(body).not.toContain("</head>"); // stray close not leaked
+  });
+
+  // RED pre-fix: the style after the implicit <body> close was hoisted (head
+  // span crossed <body>). jsdom keeps it in the body: head "", body
+  // "<style>.b{}</style>".
+  it("F1.b: <head><body><style> → style is body-region (not hoisted), kept in body", () => {
+    const input = "<head><body><style>.b{}</style></head>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe(""); // .b is after the implicit <body> close
+    expect(body).toBe("<style>.b{}</style>"); // kept in body, stray head tags dropped
+  });
+
+  // RED pre-fix: BOTH styles hoisted (head span ran to the trailing </head>).
+  // jsdom hoists only .a; .b (in the body-region second head) stays in the body.
+  it("F1.c: head, body, then a second head → only the first in-head style hoisted", () => {
+    const input =
+      "<head><style>.a{}</style><body>x</body><head><style>.b{}</style></head>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // only the pre-<body> head
+    expect(body).toBe("x<style>.b{}</style>"); // body keeps x + the late style; stray head tags dropped
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FINDING 2 — a <head> nested inside the body region is body content, never a
+// head element; its style must NOT be hoisted (a cascade flip at the swap), and
+// the stray <head>/</head> tags are dropped while the content is kept. jsdom:
+//   "<head><style>.h{}</style></head><body><head><style>.b{}</style></head><p>x</p></body>"
+//     → head "<style>.h{}</style>", body "<style>.b{}</style><p>x</p>"
+// ---------------------------------------------------------------------------
+describe("processPartialHtml / extractCompleteStyles — FINDING 2: nested <head> in body is body content", () => {
+  // RED pre-fix: both .h and .b hoisted. jsdom hoists only .h; .b stays in body.
+  it("F2.a: <head> inside <body> → only the real head's style hoisted, nested kept in body", () => {
+    const input =
+      "<head><style>.h{}</style></head><body><head><style>.b{}</style></head><p>x</p></body>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.h{}</style>"); // only the pre-<body> head element
+    expect(body).toBe("<style>.b{}</style><p>x</p>"); // nested head tags dropped, content kept
+    expect(body).not.toContain("<head>"); // stray nested head open dropped
+    expect(body).not.toContain("</head>"); // stray nested head close dropped
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FINDING 3 — a stray standalone </head> (unmatched by a counted head element)
+// must be stripped mask-aware, never leaked into the preview body as literal
+// text. jsdom:
+//   "<head>z</head><body><div>real</div></body></head>" → body "z<div>real</div>"
+//   "<head><style>.a{}</style></head><body><div>real</div></body></head>"
+//     → head "<style>.a{}</style>", body "<div>real</div>"
+// ---------------------------------------------------------------------------
+describe("processPartialHtml / extractCompleteStyles — FINDING 3: stray </head> stripped, not leaked", () => {
+  // RED pre-fix: body "<div>real</div></head>" (the trailing </head> leaked).
+  // jsdom: body "z<div>real</div>" (z is flow text → head closes before it).
+  it("F3.a: trailing stray </head> after the body is stripped (text in head is body content)", () => {
+    const input = "<head>z</head><body><div>real</div></body></head>";
+    const body = processPartialHtml(input);
+    expect(body).toBe("z<div>real</div>");
+    expect(body).not.toContain("</head>"); // no literal close-tag leak
+  });
+
+  // RED pre-fix: body "<div>real</div></head>". jsdom: head "<style>.a{}</style>",
+  // body "<div>real</div>".
+  it("F3.b: in-head style hoisted, trailing stray </head> stripped from the body", () => {
+    const input =
+      "<head><style>.a{}</style></head><body><div>real</div></body></head>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>");
+    expect(body).toBe("<div>real</div>");
+    expect(body).not.toContain("</head>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FINDING 4 — a browser opens the body once; a SECOND <body> open token is
+// dropped and its following markup stays in the one body. Step 5 must remove
+// EVERY <body> open, not just the first. jsdom:
+//   "<body><p>a</p><body><p>b</p>" → body "<p>a</p><p>b</p>"
+// ---------------------------------------------------------------------------
+describe("processPartialHtml — FINDING 4: every <body> open removed (duplicate not leaked)", () => {
+  // RED pre-fix: body "<p>a</p><body><p>b</p>" (the second <body> leaked as text).
+  it("F4.a: duplicate <body> open is removed, both contents kept in the body", () => {
+    const input = "<body><p>a</p><body><p>b</p>";
+    const body = processPartialHtml(input);
+    expect(body).toBe("<p>a</p><p>b</p>");
+    expect(body).not.toContain("<body"); // no duplicate open-tag leak
+  });
+
+  // A duplicate <body> with attributes is also dropped (quote-aware open scan).
+  it("F4.b: duplicate <body> with attributes is removed, no attribute fragments leak", () => {
+    const input = '<body class="x"><p>a</p><body data-y="b>c"><p>b</p>';
+    const body = processPartialHtml(input);
+    expect(body).toBe("<p>a</p><p>b</p>");
+    expect(body).not.toContain("<body");
+    expect(body).not.toContain('c">'); // quoted > did not truncate the open tag
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FINDING 5 — the implicit head close fires at the first NON-HEAD content, not
+// only at a <body> token: a flow (non-head-permitted) start tag, or the first
+// non-whitespace text character. Otherwise an unclosed head with flow content
+// and no <body> would strip to end-of-string and render BLANK while the browser
+// renders the flow content. jsdom is the oracle:
+//   "<head><style>.a{}</style><p>x</p>"     → head "<style>.a{}</style>", body "<p>x</p>"
+//   "<head><style>.a{}</style>plaintext"    → head "<style>.a{}</style>", body "plaintext"
+//   "<head><style>.a{}</style><div>flow</div><style>.b{}</style>"
+//                            → head "<style>.a{}</style>", body "<div>flow</div><style>.b{}</style>"
+// The streaming guard (head-permitted-only content with no boundary, or a
+// trailing incomplete tag) is pinned by case M / M' above.
+// ---------------------------------------------------------------------------
+describe("processPartialHtml / extractCompleteStyles — FINDING 5: implicit close at flow / text", () => {
+  // RED pre-fix: hoist "" AND body "" (unclosed head stripped to end-of-string).
+  // jsdom hoists .a and renders <p>x</p>.
+  it("F5.a: unclosed <head> + style + flow tag (no <body>) → style hoisted, flow kept", () => {
+    const input = "<head><style>.a{}</style><p>x</p>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // implicit close at <p>
+    expect(body).toBe("<p>x</p>"); // flow content kept, not stripped
+    expect(body).not.toContain("<style");
+  });
+
+  // RED pre-fix: hoist "" AND body "". jsdom: head ".a", body "plaintext"
+  // (non-whitespace text closes the head).
+  it("F5.b: unclosed <head> + style + bare text (no <body>) → style hoisted, text kept", () => {
+    const input = "<head><style>.a{}</style>plaintext";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // implicit close at the text
+    expect(body).toBe("plaintext");
+  });
+
+  // RED pre-fix: hoist "" AND body "". jsdom hoists only the pre-flow .a; the
+  // post-flow .b is body-region.
+  it("F5.c: flow tag splits head/body → only the pre-flow style hoisted, rest in body", () => {
+    const input = "<head><style>.a{}</style><div>flow</div><style>.b{}</style>";
+    const body = processPartialHtml(input);
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // pre-flow, in head
+    expect(body).toBe("<div>flow</div><style>.b{}</style>"); // post-flow, in body
+  });
+
+  // Leading whitespace inside the head does NOT close it; the style after the
+  // whitespace is still in-head. jsdom: head "...<style>.a{}</style>...", body "<p>x</p>".
+  it("F5.d: whitespace in head is not flow content; style stays in head", () => {
+    const input = "<head>   <style>.a{}</style>   <p>x</p>";
+    const hoisted = extractCompleteStyles(input);
+    expect(hoisted).toBe("<style>.a{}</style>"); // whitespace did not close the head
+    expect(processPartialHtml(input)).toBe("<p>x</p>");
+  });
+
+  // A trailing INCOMPLETE tag prefix (`<ti`) is indeterminate mid-stream — the
+  // head must NOT close on it. With only head-permitted content + an incomplete
+  // tail, the head is still streaming ⇒ stripped (self-corrects next chunk).
+  it("F5.e: trailing incomplete tag does not trigger the implicit close (still streaming → stripped)", () => {
+    const input = "<head><style>.a{}</style><ti";
+    expect(processPartialHtml(input)).toBe("");
+    expect(extractCompleteStyles(input)).toBe("");
+  });
+
+  // A meta (head-permitted void) followed by flow closes the head at the flow
+  // tag. jsdom: head "<meta charset=...>", body "<h1>title</h1>".
+  it("F5.f: head-permitted void tag then flow → flow content kept in body", () => {
+    const input = "<head><meta charset='utf-8'><h1>title</h1>";
+    expect(processPartialHtml(input)).toBe("<h1>title</h1>");
+    expect(extractCompleteStyles(input)).toBe(""); // no styles
   });
 });
 

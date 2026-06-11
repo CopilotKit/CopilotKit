@@ -52,14 +52,42 @@
  * swallow the rest of the document once `-->` arrives, so the preview drops it
  * to match the final document's effective rendering).
  *
- * An UNCLOSED `<head>` whose region reaches a `<body[\s>]` token (with no
- * `</head>` first) is treated as if the head closed at that implicit `<body>`
- * boundary — exactly how a browser renders the final document (`ensureHead` +
- * `injectCssIntoHtml` leave the in-head css in the head and the body content in
- * the body when no `</head>` is emitted). So an in-head style there is hoisted
- * and the body content is kept — content never vanishes. An unclosed `<head>`
- * with content but NO `<body>` token is still stripped (a head that is genuinely
- * still streaming its own content).
+ * 3. HEAD/BODY GEOMETRY MATCHES THE BROWSER. The head-element detection in
+ *    `analyzeRegions` partitions the bytes into head vs body exactly where a
+ *    browser does when rendering the final document — never crossing the body
+ *    boundary, never hoisting body-region content:
+ *      • The FIRST masked word-bounded `<body[\s>]` token is the body boundary. A
+ *        `<head>` whose open token starts AT OR AFTER it is body content (a stray
+ *        `<head>` nested in the body), NOT a head element: its tag tokens are
+ *        dropped (step 5) and its content stays in the body, never hoisted.
+ *      • A counted head element's CONTENT ends at the FIRST of an explicit
+ *        `</head>`, the body boundary, a flow (non-head-permitted) START tag, or
+ *        the first non-whitespace TEXT character — the same boundary a browser
+ *        uses (see {@link findHeadContentEnd}). The `</head>` pairing therefore
+ *        NEVER reaches past a `<body>` token: `<head><style>.a{}</style><body>…`
+ *        closes the head at `<body>` (style hoisted, body content kept), it does
+ *        not swallow the body up to a trailing `</head>`. An in-head style before
+ *        the boundary is hoisted; anything from the boundary on stays in the body.
+ *      • A head-permitted element with a text body (`<title>`/`<noscript>`/
+ *        `<template>`, plus the masked `<style>`/`<script>`) is skipped to its
+ *        close so its inner text (`<title>a < b</title>`) is never read as flow.
+ *      • The implicit head close fires at FLOW CONTENT, not only at `<body>`:
+ *        `<head><style>.a{}</style><p>x</p>` (no `<body>` ever) renders `<p>x</p>`
+ *        with `.a` hoisted, NOT a blank preview. Streaming guard: a head whose
+ *        region so far is ONLY head-permitted content with no boundary yet, or a
+ *        trailing incomplete tag (`<ti`, a bare `<`), is genuinely still streaming
+ *        — it yields NO span (stripped, self-correcting next chunk), so the head
+ *        is never closed on an indeterminate tail.
+ *      • STRAY head/body tokens are dropped, not leaked: step 5 removes EVERY
+ *        `<body[\s>]` open (a browser opens the body once — a duplicate `<body>`
+ *        is dropped and its markup stays in the one body), and every stray
+ *        `<head[\s>]`/`</head>` token left in the body (a browser drops the stray
+ *        tag but KEEPS its content) — all mask-aware and quote-aware, the same
+ *        shape as the `</html>` strip.
+ *    All four consumers (style hoist containment, the head-element strip, the
+ *    duplicate-body strip, the stray-head strip) derive from this ONE geometry, so
+ *    the preview body and the hoisted head agree with the final document — a style
+ *    is hoisted XOR kept (never both, never neither) and content never vanishes.
  *
  * Pure functions — no DOM, no Vue.
  */
@@ -158,6 +186,151 @@ export function maskBlockContent(html: string): string {
   return out;
 }
 
+/**
+ * Element names a browser keeps INSIDE `<head>` (HTML "metadata content" plus the
+ * elements the head parser tolerates). Encountering a START tag whose name is NOT
+ * in this set — word-bounded — is flow content and implicitly CLOSES the head, the
+ * same boundary a browser uses when no `</head>` is emitted. Lower-cased; callers
+ * compare against a lower-cased tag name.
+ */
+const HEAD_PERMITTED = new Set([
+  "title",
+  "meta",
+  "link",
+  "style",
+  "script",
+  "base",
+  "noscript",
+  "template",
+]);
+
+/** Head-permitted elements that have NO end tag (void) — their open tag is the
+ * whole element, so the head scan skips just the tag, never hunts a close. */
+const HEAD_VOID = new Set(["meta", "link", "base"]);
+
+/**
+ * Finds where an open `<head>` region's CONTENT ends, scanning the MASKED string
+ * from just after the head open tag (`openEnd`). Mirrors how a browser partitions
+ * the bytes into head vs body when rendering the final document: the head ends at
+ * the FIRST of —
+ *   • an explicit `</head>` close token,
+ *   • a masked word-bounded `<body[\s>]` open token (the implicit body boundary),
+ *   • a START tag whose name is NOT head-permitted (flow content — `<div>`, `<p>`,
+ *     a stray `<html>`, …), or
+ *   • the first non-whitespace TEXT character outside any tag token.
+ * A head-permitted element with a text body (`<title>`, `<noscript>`, `<template>`,
+ * and the already-masked `<style>`/`<script>`) is SKIPPED to its matching close so
+ * its inner text — `<title>a < b</title>` — is never mistaken for flow content
+ * (RCDATA/raw-text parity with the browser). Head-permitted VOID tags
+ * (`<meta>`/`<link>`/`<base>`) skip just the tag.
+ *
+ * Returns the index in the original/masked string where head content ends (the
+ * span is `[openStart, end)`; an explicit `</head>` is NOT included — the stray
+ * `</head>` strip removes it, the same shape as the `</html>` strip). Returns
+ * `null` when the head is GENUINELY STILL STREAMING its own content — content so
+ * far is only head-permitted and the scan runs off the end of the string, OR a
+ * head-permitted text element is unterminated, OR the tail is an incomplete tag
+ * prefix (`<ti`, a bare `<`). A `null` yields NO head span, so the unterminated-
+ * block strip removes the head region (preview empty until more streams in), which
+ * self-corrects on the next chunk — never closing the head on an indeterminate
+ * trailing tag.
+ */
+function findHeadContentEnd(masked: string, openEnd: number): number | null {
+  let i = openEnd;
+  const len = masked.length;
+  while (i < len) {
+    const ch = masked[i]!;
+    if (ch !== "<") {
+      // Whitespace stays in the head; the first non-whitespace text char is flow
+      // content and closes the head. (Masked spans are all spaces, so style/script/
+      // comment content never reads as flow text here.)
+      if (/\s/.test(ch)) {
+        i++;
+        continue;
+      }
+      return i;
+    }
+    // ch === "<": a tag-ish token. Distinguish close tags, comments, the body
+    // boundary, head-permitted elements, and flow start tags.
+    const rest = masked.slice(i);
+    // Explicit </head> close ends the head here.
+    if (/^<\/head[\s>]/i.test(rest) || /^<\/head>/i.test(rest)) {
+      return i;
+    }
+    // The implicit body boundary.
+    if (/^<body[\s>]/i.test(rest)) {
+      return i;
+    }
+    // A complete HTML comment stays in the head (metadata-adjacent); skip it.
+    // (Comment INSIDES are masked to spaces, but the `<!--`/`-->` delimiters are
+    // intact, so we can locate the close.)
+    if (rest.startsWith("<!--")) {
+      const close = masked.indexOf("-->", i + 4);
+      if (close === -1) return null; // unterminated trailing comment → still streaming
+      i = close + 3;
+      continue;
+    }
+    // An incomplete trailing close tag (`</hea`, `</di` with no `>` at end of
+    // string) is indeterminate mid-stream — defer rather than guess.
+    if (/^<\/[a-zA-Z][^>]*$/.test(rest)) {
+      return null;
+    }
+    // Any other COMPLETE close tag (e.g. a stray </p>, </div>) is tolerated inside
+    // the head by the parser without opening the body; skip it.
+    const closeMatch = rest.match(/^<\/([a-zA-Z][^\s/>]*)\s*>/);
+    if (closeMatch) {
+      i += closeMatch[0].length;
+      continue;
+    }
+    // A START tag: read its name (word-bounded). An INCOMPLETE trailing tag prefix
+    // (`<ti`, `<style` / `<div` with no `>`) is indeterminate mid-stream — defer,
+    // never closing the head on it (the trailing-tag handling self-corrects next
+    // chunk). A COMPLETE start tag that is NOT head-permitted is flow content.
+    // A lone trailing `<` (last char) could still grow into a tag next chunk —
+    // indeterminate, defer (the spec's `<` "at end" guard). A `<` followed by a
+    // non-tag-name char (`< b`, `<=x`) can NEVER become a tag, so it is text and
+    // closes the head (browser parity: such a `<` renders as literal text).
+    if (i === len - 1) {
+      return null;
+    }
+    const startMatch = rest.match(/^<([a-zA-Z][^\s/>]*)/);
+    if (!startMatch) {
+      // `<` followed by a non-tag-name char (e.g. `< b`, `<=x`). The browser treats
+      // it as literal text, which closes the head here.
+      return i;
+    }
+    const openTagMatch = rest.match(OPEN_TAG_END);
+    if (!openTagMatch) {
+      // The start tag has no closing `>` yet — incomplete trailing tag → defer.
+      return null;
+    }
+    const name = startMatch[1]!.toLowerCase();
+    if (!HEAD_PERMITTED.has(name)) {
+      // Complete flow start tag → implicit head close at this token.
+      return i;
+    }
+    // Head-permitted start tag, already known to be complete (openTagMatch).
+    const tagEnd = i + openTagMatch[0].length;
+    if (HEAD_VOID.has(name)) {
+      // Void head element (meta/link/base) — no end tag; skip just the open tag.
+      i = tagEnd;
+      continue;
+    }
+    // Non-void head-permitted element (title/noscript/template/style/script): skip
+    // to its matching close so its inner text isn't read as flow. style/script
+    // content is already masked, but title/noscript/template content is not — the
+    // skip-to-close handles all of them uniformly. Unterminated ⇒ still streaming.
+    const closeRe = new RegExp(`</${name}\\s*>`, "i");
+    const closeRel = masked.slice(tagEnd).search(closeRe);
+    if (closeRel === -1) return null;
+    const closeMatchInner = masked.slice(tagEnd + closeRel).match(closeRe)!;
+    i = tagEnd + closeRel + closeMatchInner[0].length;
+  }
+  // Ran off the end with only head-permitted content and no boundary → the head is
+  // still streaming its own content; yield no span (stripped, self-corrects).
+  return null;
+}
+
 interface StyleSpan {
   /** Start index of the complete `<style>` block in the ORIGINAL string. */
   start: number;
@@ -182,40 +355,51 @@ interface Regions {
 function analyzeRegions(html: string): Regions {
   const masked = maskBlockContent(html);
 
+  // The FIRST masked word-bounded `<body[\s>]` open token is the body boundary —
+  // the geometric line a browser draws between head and body. A `<head>` whose
+  // open token starts AT OR AFTER this line is body content (a stray `<head>`
+  // inside the body), not a head element: its tag tokens are dropped from the body
+  // (step 5) and its inner content is kept where it sits, never hoisted. Located
+  // on the masked string so a `<body>` inside CSS/JS or a comment cannot fake it.
+  const firstBodyOpenMatch = masked.match(/<body[\s>]/i);
+  const firstBodyOpen =
+    firstBodyOpenMatch && firstBodyOpenMatch.index !== undefined
+      ? firstBodyOpenMatch.index
+      : Infinity;
+
   // Head ELEMENT spans, `[start, end)`. `<head\b` is word-bounded so it never
   // matches `<header>`; masking ensures a `<head`/`</head>`/`<body>` token inside
   // CSS/JS or a comment cannot open or close a phantom element here.
   //
-  // A head element ends at its `</head>` when one exists. When an opened head has
-  // NO `</head>` but its region reaches a `<body[\s>]` token, the head is treated
-  // as IMPLICITLY closed at that body boundary (span ends just before `<body>`,
-  // which the browser does when rendering the final document) so an in-head style
-  // is still hoisted and the body content is preserved. A head opened with no
-  // `</head>` and no following `<body>` is genuinely still streaming and yields
-  // NO span (the unterminated-block strip step removes it).
+  // GEOMETRY (browser-parity with the final document): a head element counts only
+  // when its OPEN token starts BEFORE the body boundary (`firstBodyOpen`). Its
+  // CONTENT ends — via {@link findHeadContentEnd} — at the FIRST of an explicit
+  // `</head>`, the body boundary, a flow (non-head-permitted) start tag, or
+  // non-whitespace text — exactly where the browser closes the head. The span is
+  // `[openStart, contentEnd)` and EXCLUDES any explicit `</head>` token (the stray
+  // `</head>` strip in step 5 removes it, the same mask-aware shape as `</html>`).
+  // A `null` content end means the head is genuinely still streaming its own
+  // head-permitted content with no boundary yet — NO span (the unterminated-block
+  // strip removes it; the preview self-corrects on the next chunk).
   const headElementSpans: Array<[number, number]> = [];
   // Quote-aware open-tag match (same family as the final document's head matcher)
   // so a quoted `>` in a head attribute does not truncate the tag early and a
   // `<body>` inside the head's own attribute (before openEnd) is not seen by the
-  // implicit-close search below.
+  // content-end search below.
   const headOpenRe = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
   let headOpen: RegExpExecArray | null;
   while ((headOpen = headOpenRe.exec(masked)) !== null) {
     const openStart = headOpen.index;
+    // A `<head>` at or past the body boundary is body content, not a head element.
+    if (openStart >= firstBodyOpen) break;
     const openEnd = openStart + headOpen[0].length;
-    const closeRel = masked.slice(openEnd).search(/<\/head>/i);
-    if (closeRel !== -1) {
-      const end = openEnd + closeRel + "</head>".length;
-      headElementSpans.push([openStart, end]);
-      headOpenRe.lastIndex = end;
+    const contentEnd = findHeadContentEnd(masked, openEnd);
+    if (contentEnd !== null) {
+      headElementSpans.push([openStart, contentEnd]);
+      headOpenRe.lastIndex = contentEnd;
       continue;
     }
-    // No close — fall back to an implicit `<body>` close.
-    const bodyRel = masked.slice(openEnd).search(/<body[\s>]/i);
-    if (bodyRel !== -1) {
-      headElementSpans.push([openStart, openEnd + bodyRel]);
-    }
-    // Either way there is no further `</head>` to find — stop scanning heads.
+    // Still-streaming head (no boundary yet) — no span; stop scanning heads.
     break;
   }
 
@@ -331,16 +515,19 @@ export function extractCompleteStyles(html: string): string {
  *    `&D` is indistinguishable from a forming `&Dagger;` at the boundary); the
  *    conservative strip self-corrects on the next chunk and at completion (the
  *    FINAL document never runs processPartialHtml).
- * 5. Reduce to the body region: drop the `<body…>` open tag and the `</body…>`
- *    CLOSE TOKEN (but KEEP everything after it), and drop the `<html…>`/`</html>`
+ * 5. Reduce to the body region: drop EVERY `<body…>` open tag and EVERY `</body…>`
+ *    CLOSE TOKEN (but KEEP everything around/after them), drop every stray
+ *    `<head…>`/`</head>` token left in the body, and drop the `<html…>`/`</html>`
  *    structural wrappers — keeping the body's inner content, any surviving
- *    top-level pre-`<body>` content (e.g. a body-region `<style>`), AND any
+ *    top-level pre-`<body>` content (e.g. a body-region `<style>`), the content of
+ *    a stray body-region `<head>` (its tags dropped, content kept), AND any
  *    content after `</body>`. This mirrors how a browser renders the FINAL
  *    document's body region: `<html>`/`<head>`/`<body>`/`</body>`/`</html>` are
- *    tags the parser consumes as structure, while a pre-`<body>` style and any
- *    post-`</body>` markup are real content the browser REPARENTS into the body
- *    (the final document is mounted whole, so the preview must keep them too — a
- *    truncate-at-`</body>` drops content that pops in at the preview→final swap).
+ *    tags the parser consumes as structure (a DUPLICATE `<body>` and a stray
+ *    `<head>`/`</head>` are dropped tags, not visible text), while a pre-`<body>`
+ *    style and any post-`</body>` markup are real content the browser REPARENTS
+ *    into the body (the final document is mounted whole, so the preview must keep
+ *    them too — a truncate-at-`</body>` drops content that pops in at the swap).
  *    The `<body[\s>]`/`</body>`/`<html[\s>]` matches are word-bounded (never
  *    `<bodyguard …>`/`<htmlfoo>`) and run on a freshly masked string so a token
  *    inside a surviving style block or comment cannot fake the boundary. The
@@ -417,19 +604,68 @@ export function processPartialHtml(html: string): string {
     result = removeSpans(result, bodyCloseSpans);
     masked = maskBlockContent(result);
   }
-  const openMatch = masked.match(/<body[\s>]/i);
-  if (openMatch && openMatch.index !== undefined) {
-    // Remove just the `<body…>` open tag, keeping content before and after it.
-    // Quote-aware end-of-tag scan (same shape as the final document's head
-    // matcher) so a quoted `>` in an attribute — `<body data-x="a>b">` — can't
-    // truncate the tag early and leak attribute fragments as visible content.
+  // Remove EVERY `<body…>` open tag, keeping content before and after each. A
+  // browser opens the body only once; a SECOND `<body>` open token is ignored
+  // (its attributes merge, the tag itself is dropped) and the following markup
+  // stays in the one body — `<body><p>a</p><body><p>b</p>` renders `<p>a</p><p>b</p>`.
+  // Removing only the first open would leak the duplicate `<body>` as literal
+  // text, so we loop, locating each open on a freshly masked copy (a `<body>`
+  // inside a surviving style/comment never counts) with the same quote-aware
+  // end-of-tag scan (so a quoted `>` — `<body data-x="a>b">` — can't truncate the
+  // tag early and leak attribute fragments).
+  const bodyOpenSpans: Array<[number, number]> = [];
+  const bodyOpenRe = /<body[\s>]/gi;
+  let bodyOpen: RegExpExecArray | null;
+  while ((bodyOpen = bodyOpenRe.exec(masked)) !== null) {
+    const start = bodyOpen.index;
     const openTag = masked
-      .slice(openMatch.index)
+      .slice(start)
       .match(/^<body(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
-    const openTagEnd = openTag
-      ? openMatch.index + openTag[0].length
-      : openMatch.index + masked.slice(openMatch.index).search(/>/) + 1;
-    result = result.slice(0, openMatch.index) + result.slice(openTagEnd);
+    const end = openTag
+      ? start + openTag[0].length
+      : start + masked.slice(start).search(/>/) + 1;
+    bodyOpenSpans.push([start, end]);
+    bodyOpenRe.lastIndex = end;
+  }
+  if (bodyOpenSpans.length > 0) {
+    result = removeSpans(result, bodyOpenSpans);
+    masked = maskBlockContent(result);
+  }
+  // Drop EVERY stray `<head…>` open token and `</head>` close token left in the
+  // body. analyzeRegions already stripped the head ELEMENTS it counted (those
+  // whose open token is before the body boundary), so any `<head>`/`</head>` token
+  // surviving here is body content: a `<head>` nested inside `<body>`, or the
+  // explicit `</head>` of a counted head (whose tag the head span deliberately
+  // excluded). A browser drops these stray tags but KEEPS their inner content —
+  // `<body><head><style>.b{}</style></head><p>x</p>` renders
+  // `<style>.b{}</style><p>x</p>`; a trailing standalone `</head>` after the body
+  // (`<div>real</div></head>`) is dropped, not shown as literal text. Mask-aware +
+  // quote-aware, the same shape as the `</html>` strip. (Done before the `<html>`
+  // strips for symmetry; order is immaterial since all are span-based.)
+  const headTokenSpans: Array<[number, number]> = [];
+  const headOpenStrayRe = /<head[\s>]/gi;
+  let headOpenStray: RegExpExecArray | null;
+  while ((headOpenStray = headOpenStrayRe.exec(masked)) !== null) {
+    const start = headOpenStray.index;
+    const openTag = masked
+      .slice(start)
+      .match(/^<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i);
+    const end = openTag
+      ? start + openTag[0].length
+      : start + masked.slice(start).search(/>/) + 1;
+    headTokenSpans.push([start, end]);
+    headOpenStrayRe.lastIndex = end;
+  }
+  const headCloseStrayRe = /<\/head\s*>/gi;
+  let headCloseStray: RegExpExecArray | null;
+  while ((headCloseStray = headCloseStrayRe.exec(masked)) !== null) {
+    headTokenSpans.push([
+      headCloseStray.index,
+      headCloseStray.index + headCloseStray[0].length,
+    ]);
+  }
+  if (headTokenSpans.length > 0) {
+    result = removeSpans(result, headTokenSpans);
     masked = maskBlockContent(result);
   }
   // Drop the `<html…>` open tag wherever it appears (the browser drops the
