@@ -103,8 +103,11 @@ const MAX_PENDING_FAMILIES = 16;
  * We still retry a few times here before surfacing a distinct "result lost"
  * error, so the loss is unmistakable in logs and the common transient blip is
  * absorbed without dropping the result.
+ *
+ * Exported so the retry-bound test pins THIS constant rather than a magic
+ * number that could drift from the implementation.
  */
-const RESULT_WRITE_MAX_ATTEMPTS = 3;
+export const RESULT_WRITE_MAX_ATTEMPTS = 3;
 
 /**
  * Default multiple of a family's production period after which an unclaimed

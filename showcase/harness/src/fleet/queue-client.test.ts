@@ -5,6 +5,7 @@ import {
   createFleetQueueClient,
   leaseExpired,
   PB_DATE_SEP_RE,
+  RESULT_WRITE_MAX_ATTEMPTS,
 } from "./queue-client.js";
 import type {
   JobClaimClient,
@@ -134,19 +135,36 @@ interface FilterableRow {
 
 /**
  * Shared `status`/`probe_key` filter evaluation for BOTH fake PB clients
- * (`makeFakePb` + `makePagingPb`). A clause on a field the fakes can't honor
- * THROWS loudly — matching the fakes' own unsupported-method philosophy — so
- * a future test exercising an unmodeled filter shape can never pass
- * vacuously by silently matching every row.
+ * (`makeFakePb` + `makePagingPb`). A clause on a field OR OPERATOR the fakes
+ * can't honor THROWS loudly — matching the fakes' own unsupported-method
+ * philosophy — so a future test exercising an unmodeled filter shape can
+ * never pass vacuously by silently matching every row (the original matcher
+ * silently match-all'ed e.g. `status != "done"` or any `<`/`>` clause).
+ *
+ * KNOWN LIMITATION: the operator scan is regex-based over the RAW filter
+ * string, so an operator-looking sequence INSIDE a quoted literal would
+ * false-positive as a clause (and could throw spuriously). Acceptable here:
+ * probe keys are slugs and statuses are bare words, so no quoted literal in
+ * these filters legitimately carries operator characters.
  */
 function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
   if (!filter) return true;
-  for (const [, field] of filter.matchAll(
-    /([A-Za-z_][\w.]*)\s*(?:!~|!=|~|=)/g,
+  for (const [, field, op] of filter.matchAll(
+    /([A-Za-z_][\w.]*)\s*(\?~|\?=|!~|!=|<=|>=|<|>|~|=)/g,
   )) {
     if (field !== "status" && field !== "probe_key") {
       throw new Error(
         `fake-pb: filter clause on unsupported field "${field}" — only status/probe_key are honored (filter: ${filter})`,
+      );
+    }
+    if (field === "status" && op !== "=") {
+      throw new Error(
+        `fake-pb: status clause with unsupported operator "${op}" — only \`=\` is honored (filter: ${filter})`,
+      );
+    }
+    if (field === "probe_key" && !["=", "!=", "~", "!~"].includes(op)) {
+      throw new Error(
+        `fake-pb: probe_key clause with unsupported operator "${op}" (filter: ${filter})`,
       );
     }
   }
@@ -219,7 +237,12 @@ function makeFakePb(rows: JobRow[] = []): {
         page: 1,
         perPage: opts.perPage ?? items.length,
         totalPages: 1,
-        totalItems: items.length,
+        // Faithful to PB: a skipTotal list returns totalItems -1, NOT the
+        // real count. A fake that returned real counts under skipTotal
+        // would green-light code reading totals it never requested (the
+        // fail-open class countPendingForFamily's skipTotal:false pin
+        // exists to prevent).
+        totalItems: opts.skipTotal === true ? -1 : items.length,
         items: items as unknown as T[],
       };
     },
@@ -293,6 +316,55 @@ function sampleResult(
     ...overrides,
   };
 }
+
+describe("test-fake honesty (the fakes must throw, not vacuously match)", () => {
+  it("rowMatchesFilter throws on operators it cannot honor", () => {
+    const row: FilterableRow = { status: "pending", probe_key: "d6:a" };
+    // Comparison operators are not modeled at all.
+    expect(() => rowMatchesFilter(row, 'created < "2026-01-01"')).toThrow(
+      /unsupported field/,
+    );
+    expect(() => rowMatchesFilter(row, 'probe_key > "a"')).toThrow(
+      /unsupported operator/,
+    );
+    expect(() => rowMatchesFilter(row, 'probe_key ?~ "d6:%"')).toThrow(
+      /unsupported operator/,
+    );
+    expect(() => rowMatchesFilter(row, 'probe_key ?= "d6:a"')).toThrow(
+      /unsupported operator/,
+    );
+    // status is only modeled for `=` — negation/LIKE forms used to silently
+    // match ALL rows (a vacuous-pass hole for any test that exercised them).
+    expect(() => rowMatchesFilter(row, 'status != "done"')).toThrow(
+      /status clause with unsupported operator/,
+    );
+    expect(() => rowMatchesFilter(row, 'status ~ "pend%"')).toThrow(
+      /status clause with unsupported operator/,
+    );
+    expect(() => rowMatchesFilter(row, 'status !~ "done%"')).toThrow(
+      /status clause with unsupported operator/,
+    );
+    // The supported shapes still evaluate.
+    expect(rowMatchesFilter(row, 'status = "pending"')).toBe(true);
+    expect(rowMatchesFilter(row, 'probe_key !~ "d4:%"')).toBe(true);
+  });
+
+  it("the fakes return totalItems -1 under skipTotal (faithful to PB, no fail-open counts)", async () => {
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    const skipped = await pb.list("probe_jobs", {
+      filter: 'status = "pending"',
+      skipTotal: true,
+    });
+    expect(skipped.totalItems).toBe(-1);
+    const counted = await pb.list("probe_jobs", {
+      filter: 'status = "pending"',
+      skipTotal: false,
+    });
+    expect(counted.totalItems).toBe(1);
+  });
+});
 
 describe("FleetQueueClient.enqueue", () => {
   it("writes a pending probe_jobs row carrying the serialized payload", async () => {
@@ -840,7 +912,17 @@ describe("FleetQueueClient.claimNext — CLAIM FAIRNESS (Part B contention)", ()
   }
 
   /** A pb that lists a FIXED ordered pending page (the shared snapshot all
-   *  workers see). Only `list` is exercised — claimNext never mutates here. */
+   *  workers see). Only `list` is exercised — claimNext never mutates here.
+   *
+   *  DELIBERATE FILTER BLINDNESS: this fake ignores ALL filters — including
+   *  the family-discovery EXCLUSION clauses — so every discovery iteration
+   *  re-yields the same head family and claimNext proceeds via the
+   *  duplicate-family defensive break (with its warn). That coupling is the
+   *  point: these fairness tests pin the per-poll ATTEMPT ORDER over one
+   *  fixed page, not the multi-family rotation (covered by the
+   *  filter-honoring `makeFakePb`/`makePagingPb` suites). Throwing on
+   *  exclusion clauses here would break discovery before any attempt
+   *  histogram could be collected. */
   function makeOrderedPb(orderedIds: string[]): PbClient {
     const unsupported = (name: string) => () => {
       throw new Error(`ordered-pb: ${name} not implemented`);
@@ -1015,7 +1097,12 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         opts: ListOpts = {},
       ): Promise<ListResult<T>> {
         let items = store.filter((r) => rowMatchesFilter(r, opts.filter));
-        if (opts.sort && opts.sort.includes("lease_expires_at")) {
+        // Honor the sort DIRECTION too (PB's `-` prefix = descending): a
+        // fake that silently sorted ascending under a `-created` sort would
+        // vacuously pass any newest-first expectation.
+        const desc = opts.sort?.startsWith("-") ?? false;
+        const sortKey = desc ? opts.sort!.slice(1) : opts.sort;
+        if (sortKey && sortKey.includes("lease_expires_at")) {
           // PB ascending date sort; empty/null dates sort first (and a
           // null/empty lease counts as expired — leaseExpired(null) === true —
           // so "nulls first" is exactly the expired-first semantics).
@@ -1024,9 +1111,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
               String(b.lease_expires_at ?? ""),
             ),
           );
-        } else if (opts.sort && opts.sort.includes("created")) {
+        } else if (sortKey && sortKey.includes("created")) {
           items = [...items].sort((a, b) => a.created.localeCompare(b.created));
         }
+        if (desc) items.reverse();
         const totalItems = items.length;
         if (opts.perPage !== undefined) {
           // Honor `page` (1-based) the way PB does — the stale drain advances
@@ -1037,8 +1125,17 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         return {
           page: opts.page ?? 1,
           perPage: opts.perPage ?? items.length,
-          totalPages: 1,
-          totalItems,
+          // Honest totalPages (PB computes it from the REAL total), -1 under
+          // skipTotal like totalItems.
+          totalPages:
+            opts.skipTotal === true
+              ? -1
+              : opts.perPage !== undefined
+                ? Math.max(1, Math.ceil(totalItems / opts.perPage))
+                : 1,
+          // Faithful to PB: skipTotal returns -1, never a real count the
+          // production code did not ask for (fail-open hole).
+          totalItems: opts.skipTotal === true ? -1 : totalItems,
           items: items as unknown as T[],
         };
       },
@@ -2487,8 +2584,9 @@ describe("FleetQueueClient.report", () => {
     ).rejects.toThrow(/result lost/i);
     // The release was attempted (and won) before the result write.
     expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "done");
-    // The write was RETRIED, not attempted once.
-    expect(updateAttempts).toBeGreaterThan(1);
+    // The write was retried up to EXACTLY the production bound — pinned via
+    // the imported constant so the test can't drift from the implementation.
+    expect(updateAttempts).toBe(RESULT_WRITE_MAX_ATTEMPTS);
   });
 
   it("succeeds when the result write fails once then recovers (bounded retry)", async () => {
