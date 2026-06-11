@@ -1566,8 +1566,17 @@ export function createFleetQueueClient(
         // CAS admits an expired-lease claimed/running row — its reclaim
         // safety net — so the delete stays race-free). No comm error and no
         // reclaimed++: the work is discarded, not re-run. The carve-out
-        // requires a PARSEABLE created AND lease — anything unparseable
-        // stays on the conservative re-queue path below. Sweeper-held rows
+        // requires a PARSEABLE created — an unparseable created stays on
+        // the conservative re-queue path below, and that COMPOSES honestly:
+        // the stale phase skips unparseable-created rows too, so the
+        // re-queued row stays claimable and "back in flight" stays true. An
+        // UNPARSEABLE (or empty) lease is the opposite: it carries no
+        // recent-flight evidence EITHER phase can honor — the stale phase's
+        // recent-lease protection needs a finite lease — so re-queueing
+        // would emit a "back in flight" signal the next sweep falsifies by
+        // claim-deleting the row off its stale created age. Treat it as
+        // long-expired and delete it HERE, so the emitted signal (none)
+        // matches the eventual outcome (discard). Sweeper-held rows
         // (stale garbage mid-deletion, 60s lease) are always RECENTLY
         // expired, so they keep their silent re-queue retry contract.
         if (staleExpiryPeriods > 0 && holder !== STALE_PENDING_SWEEPER_ID) {
@@ -1582,8 +1591,7 @@ export function createFleetQueueClient(
           const staleExpirable =
             !Number.isNaN(createdMs) &&
             nowMs - createdMs > maxAgeMs &&
-            Number.isFinite(leaseMs) &&
-            leaseMs <= nowMs - maxAgeMs;
+            (!Number.isFinite(leaseMs) || leaseMs <= nowMs - maxAgeMs);
           if (staleExpirable) {
             // PER-ROW containment mirrors the stale phase: a thrown claim is
             // indeterminate (skip this sweep; the row is unchanged for the

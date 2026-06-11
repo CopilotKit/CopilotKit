@@ -2802,6 +2802,82 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(store.find((r) => r.id === "long-runner")).toBeUndefined();
     });
 
+    it("an UNPARSEABLE lease on a stale-aged expired row is claim-DELETED in the lease phase — two sweeps compose honestly (no falsified 'back in flight')", async () => {
+      // COMPOSE HOLE: the long-expired carve-out used to require a FINITE
+      // parsed lease, so an expired claimed/running row with an
+      // unparseable lease_expires_at fell to the conservative re-queue —
+      // emitting worker-reclaimed-pending ("back in flight"). But the NEXT
+      // sweep's recent-lease protection ALSO requires a finite lease, so
+      // the re-queued row was claim-DELETED off its stale created age —
+      // the dashboard permanently showed "re-queued" for silently
+      // discarded work. An unparseable lease carries NO recent-flight
+      // evidence either phase can honor, so the lease phase must treat it
+      // as long-expired and delete directly: the emitted signal (none)
+      // matches the eventual outcome (discard).
+      const junkLease: CreatedJobRow = {
+        ...jobView({
+          id: "junk-lease",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          // Unparseable: leaseExpired(NaN) → expired (never wedge), but
+          // neither the carve-out's finite-lease check nor the stale
+          // phase's recent-lease protection could read it.
+          lease_expires_at: "not-a-date",
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 4 * HOUR).toISOString(), // > 3 × 60min window
+      };
+      const { pb, store } = makePagingPb([junkLease]);
+      const releasedPending: string[] = [];
+      const claim: JobClaimClient = {
+        // CAS-faithful claim: admits pending rows AND claimed/running rows
+        // whose lease has expired (the hook's reclaim safety net).
+        async claimJob(jobId, workerId): Promise<ClaimResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r) return { won: false };
+          const reclaimable =
+            r.status === "pending" ||
+            (["claimed", "running"].includes(r.status) &&
+              leaseExpired(r.lease_expires_at, T));
+          if (!reclaimable) return { won: false };
+          r.status = "claimed";
+          r.claimed_by = workerId;
+          r.version += 1;
+          return { won: true, job: { ...r } };
+        },
+        renewLease: vi.fn(
+          async (): Promise<RenewResult> => ({ renewed: false }),
+        ),
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          if (status === "pending") releasedPending.push(jobId);
+          r.status = status;
+          r.claimed_by = "";
+          r.version += 1;
+          return { released: true, job: { ...r } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      // Sweep 1: deleted directly — no re-queue, no "back in flight" comm
+      // error to falsify, counted with the stale expiries.
+      const first = await q.sweepExpired(T);
+      expect(store.find((r) => r.id === "junk-lease")).toBeUndefined();
+      expect(releasedPending).toEqual([]);
+      expect(first.commErrors).toHaveLength(0);
+      expect(first.reclaimed).toBe(0);
+      expect(first.expiredPending).toBe(1);
+
+      // Sweep 2: nothing left to act on — the phases composed in ONE sweep
+      // instead of sweep 1 promising a re-run sweep 2 silently revokes.
+      const second = await q.sweepExpired(T);
+      expect(second.commErrors).toHaveLength(0);
+      expect(second.expiredPending).toBe(0);
+      expect(second.reclaimed).toBe(0);
+    });
+
     it("a LONG-expired lease on a stale-aged row is claim-DELETED in the lease phase — never re-queued with a 'back in flight' signal the next sweep falsifies (G1d)", async () => {
       // CROSS-SWEEP FALSIFICATION: a row whose lease expired BEYOND the
       // family's stale window is past every protection the re-queue path
