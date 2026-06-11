@@ -237,13 +237,13 @@ export interface TickResult {
   /**
    * Expired leases reclaimed by the sweep, when one ran (else 0).
    *
-   * AT-LEAST-ONCE / MAY OVER-REPORT: a reclaim whose release transport call
-   * fails AFTER the queue committed the re-queue is still counted here (the
-   * producer cannot tell a failed release from a lost response), so under
-   * release transport failures this count can exceed the number of jobs
-   * actually returned to pending. When the queue client reports the
-   * indeterminate slice separately, it is surfaced via
-   * `reclaimedIndeterminate` below.
+   * Against the REAL queue-client this counts CAS-CONFIRMED re-queues ONLY:
+   * a release that THREW mid-flight (it may or may not have committed) lands
+   * exclusively in `reclaimedIndeterminate` below, never here — summing the
+   * two recovers the conservative at-least-once total. Only a queue
+   * implementation that does NOT report the split (the shared `SweepResult`
+   * contract keeps `reclaimedIndeterminate` optional) could fold
+   * indeterminate maybes into this count.
    */
   reclaimed: number;
   /**

@@ -882,7 +882,10 @@ export function createFleetQueueClient(
       // familyClauseSafe), so its rows are skipped from claiming entirely
       // (probe keys are slugs, so this is garbage input). Discovery used to
       // BREAK here — starving every YOUNGER family behind the offending row
-      // for up to its 3h stale window. No FAMILY exclusion clause is needed
+      // for up to its FAMILY-CONFIGURED stale window (expiryPeriods × the
+      // family's production period; the wiring slot derives the periods
+      // from FLEET_FAMILY_PERIODS_MS in orchestrator.ts — there is no fixed
+      // 3h window). No FAMILY exclusion clause is needed
       // to see past it: exclude the offending ROW by id (PB system ids are
       // generated alphanumerics — no charset semantics in play) and
       // CONTINUE. Each unsafe row burns one discovery iteration, so a page
@@ -1810,6 +1813,13 @@ export function createFleetQueueClient(
               });
               continue;
             }
+            // COUNT-NAME CAVEAT: despite the name, `expiredPending` here
+            // counts a CLAIMED/RUNNING row (long-expired lease, stale
+            // created-age) deleted by this carve-out — not just stale
+            // PENDING rows from the drain phase. The shared contract doc
+            // (`SweepResult.expiredPending`, contracts.ts: "STALE PENDING
+            // jobs ... sat unclaimed") describes only the drain phase and
+            // needs the same clarification.
             expiredPending += 1;
             logger.warn("queue-client.sweep-lease-stale-deleted", {
               jobId: row.id,
