@@ -36,17 +36,16 @@ import {
 import { Badge } from "../_components/badge";
 import { Button } from "../_components/button";
 
-// ─── ShadCN-friendly chart palette ─────────────────────────────────────────
-// Neutral, slightly muted hues that pair with `bg-card` / `--border`
-// (zinc/slate-leaning, akin to ShadCN's chart-{1..5} palette).
+// ─── Chart palette ──────────────────────────────────────────────────────────
+// Matches the beautiful-chat sales-dashboard palette so the two demos read
+// as the same product family.
 const CHART_COLORS = [
-  "#3F3F46", // zinc-700
-  "#71717A", // zinc-500
-  "#A1A1AA", // zinc-400
-  "#18181B", // zinc-900
-  "#52525B", // zinc-600
-  "#D4D4D8", // zinc-300
-  "#27272A", // zinc-800
+  "#3b82f6", // blue-500
+  "#8b5cf6", // violet-500
+  "#ec4899", // pink-500
+  "#f59e0b", // amber-500
+  "#10b981", // emerald-500
+  "#6366f1", // indigo-500
 ] as const;
 
 const CHART_TOOLTIP_STYLE: React.CSSProperties = {
@@ -161,6 +160,53 @@ function AnimatedBar(props: any) {
 
 // @region[renderers-react]
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
+  Row: ({ props, children }) => {
+    const justifyMap: Record<string, string> = {
+      start: "flex-start",
+      center: "center",
+      end: "flex-end",
+      spaceBetween: "space-between",
+    };
+    const items = Array.isArray(props.children) ? props.children : [];
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: `${props.gap ?? 16}px`,
+          alignItems: props.align ?? "stretch",
+          justifyContent: justifyMap[props.justify ?? "start"] ?? "flex-start",
+          flexWrap: "wrap",
+          width: "100%",
+        }}
+      >
+        {items.map((id, i) => (
+          <div key={`${id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>
+            {children(id)}
+          </div>
+        ))}
+      </div>
+    );
+  },
+
+  Column: ({ props, children }) => {
+    const items = Array.isArray(props.children) ? props.children : [];
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${props.gap ?? 12}px`,
+          width: "100%",
+        }}
+      >
+        {items.map((id, i) => (
+          <React.Fragment key={`${id}-${i}`}>{children(id)}</React.Fragment>
+        ))}
+      </div>
+    );
+  },
+
   Card: ({ props, children }) => (
     <Card
       className="w-full min-w-0 overflow-hidden"
@@ -207,11 +253,16 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
         <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
           {props.label}
         </div>
-        <div
-          className={`flex items-baseline gap-1.5 text-2xl font-semibold tabular-nums ${trendClass}`}
-        >
-          <span>{props.value}</span>
-          {arrow && <span className="text-base">{arrow}</span>}
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+            {props.value}
+          </span>
+          {arrow && (
+            <span className={`text-sm font-medium tabular-nums ${trendClass}`}>
+              {arrow}
+              {props.trendValue ? ` ${props.trendValue}` : ""}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -221,7 +272,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     // Divider via `border-b last:border-b-0` so the final row doesn't dangle
     // a trailing line, regardless of whether the agent wraps these in a
     // Column or drops them directly into a Card's child slot.
-    <div className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0">
+    <div
+      data-testid="declarative-info-row"
+      className="flex items-baseline justify-between gap-4 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0"
+    >
       <span className="text-sm text-[var(--muted-foreground)]">
         {props.label}
       </span>
@@ -230,6 +284,49 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
       </span>
     </div>
   ),
+
+  DataTable: ({ props }) => {
+    const cols = Array.isArray(props.columns) ? props.columns : [];
+    const rows = Array.isArray(props.rows) ? props.rows : [];
+    return (
+      <div
+        data-testid="declarative-data-table"
+        className="w-full overflow-x-auto"
+      >
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th
+                  key={col.key}
+                  className="border-b-2 border-[var(--border)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr
+                key={i}
+                className="border-b border-[var(--border)] last:border-b-0"
+              >
+                {cols.map((col) => (
+                  <td
+                    key={col.key}
+                    className="px-3 py-2 tabular-nums text-[var(--foreground)]"
+                  >
+                    {String(row[col.key] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  },
 
   PrimaryButton: ({ props, dispatch }) => (
     <Button
