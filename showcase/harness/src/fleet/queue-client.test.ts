@@ -1611,6 +1611,78 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(store.find((r) => r.id === "untouched-old")).toBeUndefined();
     });
 
+    it("a re-queued long-runner survives the NEXT sweep (recent lease = stale-age evidence is stale)", async () => {
+      // Stale-pending age is anchored on PB `created` and re-queue does NOT
+      // re-anchor it. A job that legitimately ran LONGER than its family's
+      // expiry window therefore comes back from the lease sweep already
+      // "stale": sweep N re-queues it ("back in flight" comm error), the
+      // one-sweep grace protects it within sweep N, but sweep N+1's stale
+      // phase ages it off the ORIGINAL `created` and claim-deletes it before
+      // any plausible re-run — the dashboard permanently shows "re-queued"
+      // for silently-discarded work. The fix (no schema change): the hook
+      // RETAINS lease_expires_at on a pending re-queue, and the stale phase
+      // SKIPS rows whose retained lease is recent (parseable and within
+      // now - familyExpiryWindow) — the row was in flight recently, so its
+      // pending-age is stale evidence, not abandonment.
+      const longRunner: CreatedJobRow = {
+        ...jobView({
+          id: "long-runner",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 4 * HOUR).toISOString(), // > 3 × 60min default
+      };
+      const { pb, store } = makePagingPb([longRunner]);
+      const base = makeStoreClaim(store);
+      const claim: JobClaimClient = {
+        ...base,
+        // Hook-faithful pending release: drops ownership but RETAINS the
+        // (expired) lease as the row's last-in-flight marker — the hook no
+        // longer nulls lease_expires_at on re-queue (parity-pinned below).
+        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
+          const r = store.find((x) => x.id === jobId);
+          if (!r || r.claimed_by !== workerId) return { released: false };
+          r.status = status;
+          r.claimed_by = "";
+          r.version += 1;
+          return { released: true, job: { ...r } };
+        },
+      };
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      // Sweep 1: lease phase re-queues + emits the comm error; the grace set
+      // protects the row within THIS sweep.
+      const first = await q.sweepExpired(T);
+      expect(first.reclaimed).toBe(1);
+      expect(first.commErrors[0]?.jobId).toBe("long-runner");
+      expect(first.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "long-runner")?.status).toBe(
+        "pending",
+      );
+
+      // Sweep 2: the grace set is per-call, so only the recent-lease
+      // heuristic stands between the re-queued row and a claim-delete. The
+      // row's retained lease (expired 1min ago) is WELL within the 3h family
+      // window — it was in flight a minute ago, so it must survive to be
+      // re-claimed and actually re-run.
+      const second = await q.sweepExpired(T);
+      expect(second.expiredPending).toBe(0);
+      expect(store.find((r) => r.id === "long-runner")?.status).toBe(
+        "pending",
+      );
+
+      // CONTROl: once the retained lease itself is OLDER than the family
+      // window (no re-claim for a whole window — genuinely abandoned), the
+      // stale phase expires the row normally.
+      const muchLater = T + 4 * HOUR;
+      const third = await q.sweepExpired(muchLater);
+      expect(third.expiredPending).toBe(1);
+      expect(store.find((r) => r.id === "long-runner")).toBeUndefined();
+    });
+
     it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {
       // TIMEOUT-AFTER-COMMIT: the release CAS can COMMIT server-side and the
       // response then be lost in transit (the client sees a throw). The row
@@ -1754,7 +1826,9 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       };
     }
 
-    /** A store-mutating releaseJob: CAS on claimed_by, re-queues to pending. */
+    /** A store-mutating releaseJob: CAS on claimed_by, re-queues to pending.
+     * Hook-faithful: lease_expires_at is RETAINED on re-queue (the hook keeps
+     * it as the row's last-in-flight marker — parity-pinned below). */
     function makeStoreReleaseClaim(store: CreatedJobRow[]): JobClaimClient {
       return {
         ...makeStoreClaim(store),
@@ -1763,7 +1837,6 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
           if (!row || row.claimed_by !== workerId) return { released: false };
           row.status = status as JobStatus;
           row.claimed_by = "";
-          row.lease_expires_at = null;
           row.version += 1;
           return { released: true, job: { ...row } };
         },
@@ -2389,7 +2462,7 @@ describe("FleetQueueClient.sweepExpired", () => {
         }
         row.status = status;
         row.claimed_by = "";
-        row.lease_expires_at = null;
+        // Hook-faithful: lease_expires_at is RETAINED on re-queue.
         return { released: true, job: { ...row } };
       },
     );
@@ -2648,6 +2721,15 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     // handlers (claim + renew; release sets no lease).
     const clamps = hookSource.match(/Math\.min\(\s*n,\s*3600\s*\)/g) ?? [];
     expect(clamps.length).toBe(2);
+  });
+
+  it("the release handler RETAINS lease_expires_at on a pending re-queue (last-in-flight marker)", () => {
+    // The stale-pending sweep's recent-lease heuristic depends on the
+    // re-queue keeping the expired lease around: nulling it would let the
+    // NEXT sweep claim-delete a re-queued long-runner off its original
+    // `created` age. Claim admits pending rows regardless of lease, so
+    // retention is safe.
+    expect(hookSource).not.toContain('rec.set("lease_expires_at", null)');
   });
 
   it("the release handler re-checks lease expiry for a pending-target (sweeper) release — TOCTOU close", () => {

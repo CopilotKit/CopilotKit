@@ -290,9 +290,14 @@ routerAdd("POST", "/api/fleet/release", (c) => {
 
     rec.set("status", target);
     if (target === "pending") {
-      // Re-queue: drop ownership so it's claimable again.
+      // Re-queue: drop ownership so it's claimable again. The (expired)
+      // lease_expires_at is RETAINED — claim admits pending rows regardless
+      // of lease, and the stale value now serves as the row's
+      // "last in flight" marker: the queue-client's stale-pending sweep
+      // skips re-queued rows whose lease is recent, so a long-running job
+      // that out-lived its family's expiry window gets an actual re-run
+      // instead of being claim-deleted off its original `created` age.
       rec.set("claimed_by", "");
-      rec.set("lease_expires_at", null);
     }
     rec.set("version", (rec.get("version") || 0) + 1);
     txDao.saveRecord(rec);

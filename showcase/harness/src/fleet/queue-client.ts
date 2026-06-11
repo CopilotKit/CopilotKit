@@ -942,9 +942,12 @@ export function createFleetQueueClient(
       // ("back in flight" per the worker-reclaimed-pending comm error) and
       // then immediately claimed-and-deleted by the SAME call — falsifying the
       // comm error and nulling downstream aggregate-key resolution on the
-      // deleted row. If the job is truly stale it ages out on the NEXT sweep.
-      // (Re-anchoring the age to the re-queue time would need a column; the
-      // `created` anchor is kept otherwise.)
+      // deleted row. ACROSS calls the stale phase's RECENT-LEASE heuristic
+      // (see drainStalePending) protects the same row: the release hook
+      // retains the expired lease on re-queue, so a recently-in-flight row
+      // is not expired off its original `created` age by the NEXT sweep
+      // either. (Re-anchoring the age to the re-queue time would need a
+      // column; the retained lease is the schema-free approximation.)
       //
       // MASS-CRASH PAGING: with >CLAIM_CANDIDATE_PAGE claimed/running rows
       // (mass worker crash), an UNSORTED single page left the contents to PB's
@@ -1196,6 +1199,33 @@ export function createFleetQueueClient(
             const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
             const ageMs = nowMs - createdMs;
             if (ageMs <= maxAgeMs) continue;
+            // RECENT-LEASE HEURISTIC (no schema change): the age above is
+            // anchored on PB `created`, which a re-queue does NOT touch — so
+            // a job that legitimately ran LONGER than its family window
+            // comes back from the lease sweep already "stale" and would be
+            // claim-deleted by the NEXT sweep before any plausible re-run
+            // (the dashboard then permanently shows "re-queued" for
+            // silently-discarded work). The release hook RETAINS the expired
+            // lease_expires_at on a pending re-queue, so a PARSEABLE lease
+            // within the family window means the row was IN FLIGHT recently
+            // and its `created`-based age is stale evidence — skip it; it
+            // expires normally once a full window passes with no re-claim.
+            // (A `requeued_at` column would be exact; the retained lease is
+            // the schema-free approximation.) Tradeoff: a sweeper-claimed
+            // row whose delete failed also carries a recent (60s) lease
+            // after its silent re-queue, so stale GARBAGE can linger up to
+            // one extra family window before the retry delete — harmless,
+            // and the self-healing contract still holds.
+            const leaseMs = Date.parse(
+              String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+            );
+            if (Number.isFinite(leaseMs) && leaseMs > nowMs - maxAgeMs) {
+              logger.debug("queue-client.sweep-stale-recent-lease-skip", {
+                jobId: row.id,
+                leaseExpiresAt: row.lease_expires_at,
+              });
+              continue;
+            }
             passAttempted += 1;
             const won = await claim.claimJob(
               row.id,
