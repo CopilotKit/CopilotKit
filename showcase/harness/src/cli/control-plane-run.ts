@@ -38,6 +38,7 @@ import { createE2eDeepServiceEnumerator } from "../fleet/control-plane/catalog-e
 import { createServiceEnumerator } from "../fleet/control-plane/catalog-enumerator.js";
 import { D6_DRIVER_KIND } from "../fleet/control-plane/catalog-enumerator.js";
 import { createJobProducer } from "../fleet/control-plane/job-producer.js";
+import { FLEET_FAMILIES } from "../fleet/control-plane/run-view.js";
 import type { ServiceEnumerator } from "../fleet/control-plane/job-producer.js";
 import { createFleetQueueClient } from "../fleet/queue-client.js";
 import { createPbClient } from "../storage/pb-client.js";
@@ -52,6 +53,24 @@ import { demosForSlug } from "./targets.js";
 
 /** The two fleet levels this runner can drive. */
 export type ControlPlaneLevel = "d5" | "d6";
+
+/**
+ * Map a runner level onto its §5.1 registry family id. The two levels happen
+ * to share their family's name today, but the lookup goes through
+ * `FLEET_FAMILIES` deliberately: a registry rename/removal fails loudly here
+ * instead of letting a triggered tick stamp a family the /api/runs projection
+ * no longer knows (the job would aggregate into nothing — invisible).
+ */
+function familyForLevel(level: ControlPlaneLevel): string {
+  const entry = FLEET_FAMILIES.find((f) => f.family === level);
+  if (!entry) {
+    throw new Error(
+      `no FLEET_FAMILIES entry for control-plane level "${level}" — ` +
+        "triggered ticks must stamp a §5.1 registry family",
+    );
+  }
+  return entry.family;
+}
 
 /** Tunables for the control-plane run (polling cadence + ceiling). */
 export interface ControlPlaneRunOptions {
@@ -346,7 +365,16 @@ export async function runViaControlPlane(
   });
   const queue = createFleetQueueClient({ pb, claim, logger });
   const enumerate = buildEnumerator(level, slugs, env, logger);
-  const producer = createJobProducer({ queue, enumerate, logger });
+  // §4.2: a triggered tick must stamp the SAME family id the scheduled
+  // producer for this level would, so the run aggregates into the correct
+  // family on the /api/runs projection. Resolve it through the §5.1 registry
+  // (never a hardcoded literal) so a registry rename breaks loudly here.
+  const producer = createJobProducer({
+    queue,
+    enumerate,
+    logger,
+    family: familyForLevel(level),
+  });
 
   // -- Mark when we triggered so polling only reads THIS run's cells --------
   const sinceIso = new Date().toISOString();

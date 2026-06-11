@@ -19,6 +19,7 @@ import {
   buildProducerSchedules,
   buildSweepCommErrorSink,
   FLEET_FAMILY_PERIODS_MS,
+  PRODUCER_FAMILY_WIRING,
   FLEET_PRODUCER_SMOKE_CRON,
   FLEET_PRODUCER_DEMOS_CRON,
   FLEET_PRODUCER_DEEP_CRON,
@@ -47,6 +48,7 @@ import {
   DEFAULT_PRODUCER_CRON,
   FLEET_PRODUCER_SCHEDULE_ID,
 } from "./fleet/control-plane/control-plane.js";
+import { FLEET_FAMILIES } from "./fleet/control-plane/run-view.js";
 import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
 import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
@@ -2928,6 +2930,9 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
       async countPendingForFamily(): Promise<number> {
         throw new Error("countPendingForFamily not used by worker");
       },
+      async pruneAged() {
+        return { terminal: 0, zombie: 0 };
+      },
     };
   }
 
@@ -5373,6 +5378,22 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
     expect([...families].sort()).toEqual(
       Object.keys(FLEET_FAMILY_PERIODS_MS).sort(),
     );
+  });
+});
+
+/**
+ * §4.2 drift-lock extension: the family ids `runControlPlane` stamps onto its
+ * four producers (via `PRODUCER_FAMILY_WIRING`, the single const all four
+ * `buildJobProducer` call sites read) must be set-equal to the §5.1
+ * `FLEET_FAMILIES` registry — a producer wired with a family the registry
+ * doesn't know would enqueue jobs INVISIBLE to the /api/runs projection, and
+ * a registry family no producer stamps would project as eternally silent.
+ */
+describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
+  it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
+    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const registry = FLEET_FAMILIES.map((f) => f.family).sort();
+    expect(wired).toEqual(registry);
   });
 });
 
