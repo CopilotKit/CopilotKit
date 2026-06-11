@@ -48,10 +48,10 @@ function dashboardCellModelSource(): string {
 /**
  * Parse the string-literal members of the harness `POOL_COMM_ERROR_KINDS`
  * array. Throws if the block can't be located so a shape change is loud, not a
- * silent pass.
+ * silent pass. Accepts an injectable `src` for the parser-robustness tests;
+ * production callers read the real harness file.
  */
-function parseHarnessKinds(): string[] {
-  const src = harnessSource();
+function parseHarnessKinds(src: string = harnessSource()): string[] {
   const block = src.match(
     /POOL_COMM_ERROR_KINDS\s*=\s*\[([\s\S]+?)\]\s*as const;/,
   );
@@ -61,10 +61,15 @@ function parseHarnessKinds(): string[] {
         "harness contracts.ts — if the source shape changed, update this regex.",
     );
   }
-  // Each member is a double-quoted kind on its own line (comment lines skipped
-  // because they have no quoted token matched by this pattern at line position).
+  // Strip comment lines BEFORE matching: the quoted-token pattern below is
+  // NOT line-anchored, so a `//` or `/** … */` doc comment quoting a kind
+  // (e.g. referencing a retired `"dead-kind"`) would otherwise parse as a
+  // live member. Each remaining member is a double-quoted kind.
+  const body = block[1]
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
   const kinds = Array.from(
-    block[1].matchAll(/"([a-z-]+)"/g),
+    body.matchAll(/"([a-z-]+)"/g),
     (m) => m[1] as string,
   );
   if (kinds.length === 0) {
@@ -153,6 +158,24 @@ function parseCommErrorDecoder(src: string, file: string): string {
   }
   return m[0];
 }
+
+describe("drift parser robustness", () => {
+  it("parseHarnessKinds ignores kinds quoted inside comments (line and block)", () => {
+    // The quoted-token pattern is not line-anchored, so without the comment
+    // strip a doc comment referencing a retired kind would parse as a live
+    // member and silently widen the pinned kind set.
+    const synthetic = [
+      "export const POOL_COMM_ERROR_KINDS = [",
+      '  // retired: "dead-line-kind" must not parse as a member',
+      "  /**",
+      '   * docs that mention "dead-block-kind" are not members either',
+      "   */",
+      '  "real-kind",',
+      "] as const;",
+    ].join("\n");
+    expect(parseHarnessKinds(synthetic)).toEqual(["real-kind"]);
+  });
+});
 
 describe("pool comm-error contract cross-package drift", () => {
   it("dashboard POOL_COMM_ERROR_KINDS exactly equals the harness kind set", () => {
