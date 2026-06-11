@@ -8,6 +8,19 @@ wired into the same UI: it reads app context, calls typed tools to render
 generative UI, and asks the user to approve sensitive actions via
 human-in-the-loop.
 
+## Screenshots
+
+|                                                             |                                                |
+| ----------------------------------------------------------- | ---------------------------------------------- |
+| ![Northwind Finance dashboard](assets/aurora-dashboard.png) | ![Copilot chat panel](assets/copilot-chat.png) |
+
+![Learning mode — the recording vignette pulses while the copilot records a demonstrated officer action](assets/learning-mode-vignette.png)
+
+While the officer demonstrates an action the copilot should learn from
+(approving a transaction, filing a policy exception), a soft violet vignette
+pulses around the canvas — the visible signal that the action is being
+recorded for the self-learning loop.
+
 ## Running locally
 
 ```bash
