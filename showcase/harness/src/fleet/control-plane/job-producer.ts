@@ -298,9 +298,21 @@ function backendUrlFromSpec(spec: ServiceJobSpec): string | undefined {
  * shutdown.
  */
 export interface JobProducer {
-  /** Begin producing. Idempotent; after `stop()` it stays stopped. */
+  /**
+   * LIFECYCLE: created → start() → stop(), one-way. start() is idempotent
+   * while running; once a STARTED producer has been stop()ped it stays
+   * stopped (start-after-stop is a warned no-op — producers are not
+   * restartable). stop() BEFORE start() is a debug-logged NO-OP that does
+   * NOT latch the stopped state: a teardown that races ahead of boot wiring
+   * must not permanently brick a producer that never ran.
+   */
+  /** Begin producing. Idempotent; after a started producer's `stop()` it stays stopped. */
   start(): void;
-  /** Stop producing. After this, `tick()` is a no-op (returns 0 enqueued). */
+  /**
+   * Stop producing. After this, `tick()` is a no-op (returns 0 enqueued).
+   * Idempotent for a STARTED producer; a no-op before start() (see the
+   * lifecycle note above).
+   */
   stop(): Promise<void>;
   /**
    * Run one production cycle: enumerate per-service units, enqueue one job
@@ -364,6 +376,13 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   const warmHealth = opts.warmHealth;
 
   let running = false;
+  /**
+   * True once start() has EVER run. Distinguishes "stopped after running"
+   * (one-way latch via `stopped`) from "never started": stop() before
+   * start() must be a no-op, not a brick — see the JobProducer lifecycle
+   * doc.
+   */
+  let started = false;
   let stopped = false;
   /**
    * ms-since-epoch of the last sweep, or null if none has run. Gates the
@@ -895,11 +914,21 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       }
       if (running) return;
       running = true;
+      started = true;
       logger.info("fleet.producer.start", { sweepIntervalMs });
     },
 
     async stop() {
       if (!running) {
+        if (!started) {
+          // stop() BEFORE start(): nothing ever ran, so there is nothing to
+          // quiesce or drain — and latching `stopped` here (the old
+          // behavior) permanently bricked the producer: every later start()
+          // hit the start-after-stop latch. A teardown racing ahead of boot
+          // wiring is a benign ordering, not a lifecycle end — no-op.
+          logger.debug("fleet.producer.stop-before-start");
+          return;
+        }
         stopped = true;
         // A SECOND concurrent stop() lands here (the first flipped `running`
         // synchronously) — it must STILL quiesce: returning while the first

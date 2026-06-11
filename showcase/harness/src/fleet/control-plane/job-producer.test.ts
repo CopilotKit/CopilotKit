@@ -1924,6 +1924,35 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
     expect(queue.enqueued).toHaveLength(0);
   });
 
+  it("stop() BEFORE start() is a no-op: the producer can still start afterwards (no permanent brick)", async () => {
+    // The old !running early path latched `stopped` UNCONDITIONALLY, so a
+    // stop() that raced ahead of start() (e.g. a teardown registered before
+    // boot finished wiring) permanently bricked the producer: every later
+    // start() hit the start-after-stop latch. Stop-before-start must be a
+    // no-op (debug-logged), not a one-way latch.
+    const debugEvents: string[] = [];
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: {
+        ...SILENT_LOGGER,
+        debug: (msg) => debugEvents.push(msg),
+      },
+    });
+
+    await producer.stop(); // never started — must NOT latch `stopped`
+    expect(debugEvents).toContain("fleet.producer.stop-before-start");
+
+    producer.start();
+    expect(producer.isRunning()).toBe(true);
+    const result = await producer.tick();
+    expect(result.enqueued).toBe(1);
+
+    await producer.stop();
+    expect(producer.isRunning()).toBe(false);
+  });
+
   it("does not restart after stop() (start-after-stop is a no-op)", async () => {
     const { producer } = startedProducer({ specs: d6Specs(["a"]) });
     await producer.stop();
