@@ -400,6 +400,167 @@ describe("assembleDocument", () => {
     expect(cssIdx).toBeLessThan(realHeadCloseIdx);
   });
 
+  // Multi-authored-head retention (NON-LEGACY path). When the author's markup
+  // already contains TWO complete `<head>` elements, `assembleDocument` does not
+  // try to repair it: the prefix (importmap + kit) is spliced into the FIRST
+  // head exactly once, the agent css anchors to the FIRST head's close, and the
+  // SECOND authored head is retained VERBATIM. This is correct behavior — the
+  // final document mounts the author's markup, browsers ignore a duplicate head,
+  // and websandbox only needs the literal `<head>` token to mount. The function
+  // never CREATES a duplicate head (the sweep above pins that for ≤1-head
+  // inputs); it simply doesn't synthesize a second authored head away. These
+  // tests pin the retention so it can't silently regress into a "repair" that
+  // would rewrite author markup.
+  //
+  // GREEN from the start: these pin EXISTING behavior, not a fix.
+  it("retains a second authored head verbatim and injects the prefix into the first (non-legacy)", () => {
+    const html = "<head></head><head></head><body>x</body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // Exact shape: prefix + agent css land inside the FIRST head; the second
+    // authored head (`<head></head>`) survives untouched after the first close.
+    expect(out).toBe(
+      '<head><script type="importmap">{"imports":{"three":"https://esm.sh/three@0.180.0"}}</script>' +
+        "<style data-ck-design-system>body{--x:1}</style>" +
+        "<style>.a{color:red}</style></head>" +
+        "<head></head><body>x</body>",
+    );
+    // Exactly ONE prefix instance (importmap + kit) in the whole output — the
+    // second head did NOT get its own copy.
+    expect(out.split('<script type="importmap">')).toHaveLength(2);
+    expect(out.split("data-ck-design-system")).toHaveLength(2);
+    // The agent css also appears exactly once (anchored to the first head only).
+    expect(out.split(".a{color:red}")).toHaveLength(2);
+    // BOTH authored heads are retained — the function did not collapse them.
+    const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
+    expect(out.match(HEAD_OPEN) ?? []).toHaveLength(2);
+    // The literal token websandbox demands is present.
+    expect(out).toContain("<head>");
+    // The prefix/css anchor to the FIRST head: every prefix/css marker precedes
+    // the FIRST `</head>` (the first head's close).
+    const firstHeadClose = out.indexOf("</head>");
+    expect(out.indexOf('<script type="importmap">')).toBeLessThan(
+      firstHeadClose,
+    );
+    expect(out.indexOf("data-ck-design-system")).toBeLessThan(firstHeadClose);
+    expect(out.indexOf(".a{color:red}")).toBeLessThan(firstHeadClose);
+    // The second authored head opens AFTER the first head's close (retained as
+    // a distinct, empty head — not merged into the first).
+    expect(out.indexOf("<head>", firstHeadClose)).toBeGreaterThan(
+      firstHeadClose,
+    );
+  });
+
+  it("retains the second authored head with content (non-legacy, two heads each carrying content)", () => {
+    const html =
+      "<head><title>one</title></head><head><meta></head><body>x</body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // Cascade INSIDE the first head: importmap -> kit -> author content
+    // (`<title>`) -> agent css -> first close. The SECOND head (`<head><meta>
+    // </head>`) is retained verbatim after the first close.
+    expect(out).toBe(
+      '<head><script type="importmap">{"imports":{"three":"https://esm.sh/three@0.180.0"}}</script>' +
+        "<style data-ck-design-system>body{--x:1}</style>" +
+        "<title>one</title>" +
+        "<style>.a{color:red}</style></head>" +
+        "<head><meta></head><body>x</body>",
+    );
+    // Exactly one prefix/kit/css instance; the second head got none.
+    expect(out.split('<script type="importmap">')).toHaveLength(2);
+    expect(out.split("data-ck-design-system")).toHaveLength(2);
+    expect(out.split(".a{color:red}")).toHaveLength(2);
+    // The second head's content (`<meta>`) is preserved verbatim.
+    expect(out).toContain("<head><meta></head>");
+  });
+
+  it("retains a second lowercase head after normalizing an uppercase <HEAD> first head (non-legacy)", () => {
+    const html = "<HEAD></HEAD><head></head><body>x</body>";
+    const out = assembleDocument(html, {
+      css: ".a{color:red}",
+      designSystemCss: KIT,
+      importMap: { three: "https://esm.sh/three@0.180.0" },
+    });
+    // The FIRST head's uppercase OPEN tag (`<HEAD>`) is normalized to the
+    // literal `<head>` while the prefix is spliced; the agent css anchors to the
+    // first head's (uppercase) close `</HEAD>` (the close lookup is
+    // case-insensitive). The SECOND authored head (`<head></head>`) is retained
+    // verbatim. The first head's uppercase CLOSE tag is NOT rewritten (only the
+    // open token websandbox gates on is normalized).
+    expect(out).toBe(
+      '<head><script type="importmap">{"imports":{"three":"https://esm.sh/three@0.180.0"}}</script>' +
+        "<style data-ck-design-system>body{--x:1}</style>" +
+        "<style>.a{color:red}</style></HEAD>" +
+        "<head></head><body>x</body>",
+    );
+    // Exactly one prefix/kit/css instance.
+    expect(out.split('<script type="importmap">')).toHaveLength(2);
+    expect(out.split("data-ck-design-system")).toHaveLength(2);
+    expect(out.split(".a{color:red}")).toHaveLength(2);
+    // websandbox's literal lowercase token is present (the first open tag was
+    // normalized from `<HEAD>`).
+    expect(out).toContain("<head>");
+    // The second authored head is retained verbatim.
+    expect(out).toContain("<head></head>");
+  });
+
+  // Multi-authored-head retention (LEGACY path). When no prefix is injected and
+  // the legacy output already contains the literal `<head>`, a multi-head input
+  // stays BYTE-IDENTICAL to the historical `injectCssIntoHtml`/`ensureHead`
+  // composition: the legacy css injector splices at the FIRST `</head>` (via
+  // `indexOf("</head>")`), and BOTH authored heads are retained. This mirrors
+  // the byte-identity guarantee the sweep pins for ≤1-head inputs.
+  //
+  // GREEN from the start: pins existing legacy byte-identity.
+  it("keeps a multi-head input byte-identical in the legacy path (no css)", () => {
+    const html = "<head></head><head></head><body>x</body>";
+    // Legacy reference: ensureHead is a no-op (a `<head` exists), no css to
+    // inject — the input is returned verbatim, and it already contains the
+    // literal `<head>`, so the carve-out returns it UNCHANGED.
+    const legacy = legacyEnsureHeadRef(html);
+    const out = assembleDocument(html, {
+      designSystemCss: false,
+      importMap: false,
+    });
+    expect(out).toBe(legacy);
+    expect(out).toBe(html);
+    const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
+    expect(out.match(HEAD_OPEN) ?? []).toHaveLength(2);
+    // No kit/importmap on the disabled path.
+    expect(out).not.toContain("data-ck-design-system");
+    expect(out).not.toContain('<script type="importmap">');
+  });
+
+  it("keeps a multi-head input byte-identical in the legacy path (css splices at the first close)", () => {
+    const html = "<head></head><head></head><body>x</body>";
+    const css = ".a{color:red}";
+    // Legacy reference: injectCssIntoHtml finds the FIRST `</head>` and splices
+    // the css there; ensureHead is then a no-op. The result already contains the
+    // literal `<head>`, so the carve-out returns it UNCHANGED.
+    const legacy = legacyEnsureHeadRef(legacyInjectRef(html, css));
+    const out = assembleDocument(html, {
+      css,
+      designSystemCss: false,
+      importMap: false,
+    });
+    expect(out).toBe(legacy);
+    expect(out).toBe(
+      "<head><style>.a{color:red}</style></head><head></head><body>x</body>",
+    );
+    // Both authored heads retained; css appears exactly once at the first close.
+    const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi;
+    expect(out.match(HEAD_OPEN) ?? []).toHaveLength(2);
+    expect(out.split(css)).toHaveLength(2);
+    expect(out).not.toContain("data-ck-design-system");
+    expect(out).not.toContain('<script type="importmap">');
+  });
+
   // Finding 3: an empty importMap object must not emit an inert importmap script.
   it("emits no importmap script when importMap is an empty object", () => {
     const out = assembleDocument("<head></head><body></body>", {
@@ -592,8 +753,11 @@ describe("assembleDocument", () => {
     }
 
     // (2) NON-LEGACY MODE — kit string + one pinned library. Assert the cascade
-    // order invariants and that exactly one head-opening tag exists. Bytes are
-    // not pinned here because the prefix legitimately changes the output.
+    // order invariants and that exactly one head-opening tag exists FOR THIS
+    // MATRIX (every INPUT carries at most one authored head, and the non-legacy
+    // path never CREATES a head it did not author — see the per-assertion note
+    // below; multi-authored-head retention is pinned separately). Bytes are not
+    // pinned here because the prefix legitimately changes the output.
     const PINNED = { three: "https://esm.sh/three@0.180.0" };
     for (const html of INPUTS) {
       for (const css of CSS) {
@@ -618,8 +782,18 @@ describe("assembleDocument", () => {
           // uppercase/attributed inputs (`<HEAD >…`, `<head data-x="a>b">…`,
           // `<head data-config=…>`) whose open tags are normalized to `<head>`.
           expect(out).toContain("<head>");
-          // Exactly one head-opening tag — non-legacy mode never duplicates the
-          // head, even for the legacy-quirk inputs (stray close, unclosed head).
+          // Exactly one head-opening tag for THIS matrix. Every INPUT above
+          // carries AT MOST ONE authored head, and the non-legacy path never
+          // CREATES a head it did not author: it splices the prefix into the
+          // single head (`ensureHead` synthesizes one only when none exists) and
+          // anchors the agent css to that same head's close, so no duplicate is
+          // ever emitted for these inputs — including the legacy-quirk ones
+          // (stray close, unclosed head). It does NOT, however, REPAIR an input
+          // that ALREADY contains two authored heads: that markup is retained
+          // as-authored (prefix into the FIRST head, the second kept verbatim;
+          // browsers ignore a duplicate head and websandbox only needs the
+          // literal `<head>`). That multi-authored-head retention is pinned
+          // separately in the "retains a second authored head" tests below.
           expect(out.match(HEAD_OPEN) ?? []).toHaveLength(1);
           if (css) {
             const cssMarker = ".x{}";
