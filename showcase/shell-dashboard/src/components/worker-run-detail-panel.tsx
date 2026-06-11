@@ -23,7 +23,7 @@
  * Cursor paging is strictly §5.2.2: `nextBefore`/`nextBeforeId` echoed
  * back verbatim as a composite pair — never `before` alone.
  */
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import { formatDuration, formatRelative } from "./status-table";
 import { OutcomeChip } from "./worker-runs-table";
@@ -177,16 +177,27 @@ export function WorkerRunDetailPanel({
   // Bumping this re-runs the load effect from scratch — the manual retry
   // affordance for the throttled/error states.
   const [reloadKey, setReloadKey] = useState(0);
+  // Shared abort controller covering BOTH the first-page effect and any
+  // in-flight `loadMore` page-N fetch: cancelled together on cleanup
+  // (panel close / family change / unmount) so stale rows never append.
+  const loadAbortRef = useRef<AbortController | null>(null);
+  // Dedupe drill-down fetches without doing async work inside a setState
+  // updater. Under React StrictMode the updater is invoked twice; gating
+  // on a ref (not on the state snapshot the updater receives) means the
+  // network call fires exactly once regardless.
+  const jobsRequestedRef = useRef<Set<string>>(new Set());
 
   // First page load (and full reset) whenever the family changes.
   useEffect(() => {
     if (family === null) return;
     let cancelled = false;
     const controller = new AbortController();
+    loadAbortRef.current = controller;
     setBatches([]);
     setCursor(null);
     setExpanded(new Set());
     setJobsByRun({});
+    jobsRequestedRef.current = new Set();
     setHistory({ state: "loading" });
     (async () => {
       try {
@@ -224,13 +235,24 @@ export function WorkerRunDetailPanel({
     return () => {
       cancelled = true;
       controller.abort();
+      if (loadAbortRef.current === controller) {
+        loadAbortRef.current = null;
+      }
     };
   }, [family, reloadKey]);
 
   const loadMore = useCallback(async () => {
     if (family === null || cursor === null) return;
+    // Share the cleanup-triggered AbortController with the first-page
+    // effect so a pending page-2 fetch is cancelled on panel close or
+    // family change — preventing stale rows from appending.
+    const controller = loadAbortRef.current ?? new AbortController();
+    if (loadAbortRef.current === null) loadAbortRef.current = controller;
     try {
-      const res = await fetchWorkerRunHistory(family, cursor);
+      const res = await fetchWorkerRunHistory(family, cursor, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       if (res.error === "history_unavailable") {
         setHistory({
           state: "error",
@@ -245,6 +267,7 @@ export function WorkerRunDetailPanel({
           : null,
       );
     } catch (err) {
+      if (controller.signal.aborted) return;
       if ((err as { name?: string })?.name === "AbortError") return;
       if (err instanceof ThrottledError) {
         setHistory({ state: "throttled" });
@@ -269,42 +292,47 @@ export function WorkerRunDetailPanel({
         next.add(runId);
         return next;
       });
-      // Lazy-load the drill-down once per batch.
-      setJobsByRun((prev) => {
-        if (prev[runId]) return prev;
-        void (async () => {
-          try {
-            const res = await fetchWorkerRunDetail(family, runId);
-            if (res.error === "history_unavailable") {
-              setJobsByRun((p) => ({
-                ...p,
-                [runId]: {
-                  state: "error",
-                  message: "run history backend unreachable",
-                },
-              }));
-              return;
-            }
+      // Lazy-load the drill-down once per batch. The dedupe gate is a ref
+      // (not the setState snapshot) so StrictMode's double-invoke of any
+      // updater can never double-fire the network request. The side-effect
+      // happens OUTSIDE setJobsByRun for the same reason: updaters must be
+      // pure.
+      if (jobsRequestedRef.current.has(runId)) return;
+      jobsRequestedRef.current.add(runId);
+      setJobsByRun((prev) =>
+        prev[runId] ? prev : { ...prev, [runId]: { state: "loading" } },
+      );
+      void (async () => {
+        try {
+          const res = await fetchWorkerRunDetail(family, runId);
+          if (res.error === "history_unavailable") {
             setJobsByRun((p) => ({
               ...p,
-              [runId]: { state: "ok", jobs: res.jobs },
+              [runId]: {
+                state: "error",
+                message: "run history backend unreachable",
+              },
             }));
-          } catch (err) {
-            if ((err as { name?: string })?.name === "AbortError") return;
-            setJobsByRun((p) => ({
-              ...p,
-              [runId]:
-                err instanceof ThrottledError
-                  ? { state: "throttled" }
-                  : {
-                      state: "error",
-                      message: (err as Error)?.message ?? "unknown error",
-                    },
-            }));
+            return;
           }
-        })();
-        return { ...prev, [runId]: { state: "loading" } };
-      });
+          setJobsByRun((p) => ({
+            ...p,
+            [runId]: { state: "ok", jobs: res.jobs },
+          }));
+        } catch (err) {
+          if ((err as { name?: string })?.name === "AbortError") return;
+          setJobsByRun((p) => ({
+            ...p,
+            [runId]:
+              err instanceof ThrottledError
+                ? { state: "throttled" }
+                : {
+                    state: "error",
+                    message: (err as Error)?.message ?? "unknown error",
+                  },
+          }));
+        }
+      })();
     },
     [family],
   );
