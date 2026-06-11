@@ -669,6 +669,45 @@ describe("job-producer — phantom probeKey guard", () => {
     expect(dropped!.meta).toMatchObject({ serviceSlug: "ghost" });
   });
 
+  it("a NON-OBJECT enumerator element (null/undefined/number) never rejects the tick promise and is counted as a failure", async () => {
+    // The phantom-probeKey guard dereferenced `spec.probeKey` without
+    // checking the ELEMENT itself is a non-null object — `[null]` from a
+    // misbehaving enumerator threw a TypeError out of the tick body,
+    // REJECTING the tick promise and violating the documented "a tick
+    // promise never rejects" invariant (a throw inside stop()'s shared
+    // completion would poison stopPromise for every later caller).
+    for (const ghost of [null, undefined, 42]) {
+      const errors: string[] = [];
+      const { producer, queue } = startedProducer({
+        specs: [
+          ghost as unknown as ServiceJobSpec,
+          ...d6Specs(["alpha"]),
+        ],
+        logger: {
+          ...SILENT_LOGGER,
+          error: (msg) => {
+            errors.push(msg);
+          },
+        },
+      });
+
+      // MUST resolve — never reject.
+      const result = await producer.tick();
+
+      // The valid spec still produced; the ghost is an honest failure in the
+      // existing invalid-spec accounting (partition invariant holds).
+      expect(queue.enqueued.map((e) => e.payload.probeKey)).toEqual([
+        "d6:alpha",
+      ]);
+      expect(result.enqueued).toBe(1);
+      expect(result.enqueueFailures).toBe(1);
+      expect(result.skippedForBacklog).toBe(0);
+      expect(result.truncatedByStop).toBe(0);
+      // Logged loudly like the empty-probeKey drop.
+      expect(errors).toContain("fleet.producer.spec-invalid-probekey");
+    }
+  });
+
   it("drops an empty-probeKey spec on a TRIGGERED tick too (gate bypass does not bypass the guard)", async () => {
     const { producer, queue } = startedProducer({
       specs: [GHOST_SPEC, ...d6Specs(["alpha"])],

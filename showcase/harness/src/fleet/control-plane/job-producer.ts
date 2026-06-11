@@ -910,6 +910,20 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
     let invalidSpecs = 0;
     const validSpecs: ServiceJobSpec[] = [];
     for (const spec of specs) {
+      // ELEMENT-SHAPE GUARD first: the enumerator is injected, so an element
+      // can be null/undefined/a primitive — dereferencing `.probeKey` on
+      // those THREW a TypeError out of the tick body, rejecting the tick
+      // promise (violating the "a tick promise never rejects" invariant; a
+      // rejection inside stop()'s quiesce would poison stopPromise). Same
+      // honest accounting as the empty-probeKey drop below.
+      if (spec === null || typeof spec !== "object") {
+        invalidSpecs += 1;
+        logger.error("fleet.producer.spec-invalid-probekey", {
+          runId,
+          spec: String(spec),
+        });
+        continue;
+      }
       if (typeof spec.probeKey !== "string" || spec.probeKey.length === 0) {
         invalidSpecs += 1;
         logger.error("fleet.producer.spec-invalid-probekey", {
