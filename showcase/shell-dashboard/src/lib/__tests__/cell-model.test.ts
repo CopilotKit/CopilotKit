@@ -1459,6 +1459,21 @@ describe("buildCellModel", () => {
       expect(model.d6!.row?.key).toBe("d6:agno/beautiful-chat-pie-chart");
     });
 
+    it("d5: missing sub-row + out-of-vocab sub-row yields a FAILING status, not no-data (G3b)", () => {
+      // Follow-through of the rank fold: the surfaced out-of-vocab winner must
+      // also MAP to a failing status — otherwise the collapse fix is undone
+      // one step later by stateToTestStatus mapping the unknown state to null.
+      const live = mapOf([
+        row(
+          keyFor("d5", "agno", "beautiful-chat-toggle-theme"),
+          "d5",
+          OUT_OF_VOCAB,
+        ),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "beautiful-chat"));
+      expect(model.d5!.status).toBe("red");
+    });
+
     it("d5: missing sub-row + green fold still collapses to no-data (strict handling preserved)", () => {
       // The rank guard must NOT weaken the strict missing-sub-row rule: a
       // present green fold with a missing sibling stays no-data.
@@ -1469,6 +1484,73 @@ describe("buildCellModel", () => {
       expect(model.d5!.exists).toBe(true);
       expect(model.d5!.status).toBeNull();
       expect(model.d5!.row).toBeNull();
+    });
+  });
+
+  // ── G3b: out-of-vocab states map to a FAILING status for D5/D6 ──────
+  // `stateToTestStatus` mapped unknown runtime states (e.g. "error" — the
+  // harness no-data representation) to `null`, swallowing the A2 rank-fold
+  // winner one step AFTER the fold surfaced it: the D5/D6 chip/badge rendered
+  // benign gray no-data while live-status's badge path renders the loud
+  // "error" tone for the same row. D5/D6 must map an out-of-vocab state to a
+  // failing ("red") status. D3/D4 keep the base mapping — their `null` is
+  // rescued by the chip's D1-D4 gate check (exists && status !== "green" →
+  // gate fails → red), pinned below.
+  describe("out-of-vocab state → failing D5/D6 status (G3b)", () => {
+    const OUT_OF_VOCAB = "error" as unknown as State;
+
+    it("an 'error'-state D5 row yields status red and a red (not gray) chip", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", OUT_OF_VOCAB),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d5!.status).toBe("red");
+      // Broken ladder at D5 → red chip; pre-fix this rendered gray (no-data).
+      expect(model.chipColor).toBe("red");
+      expect(model.achievedDepth).toBe(4);
+    });
+
+    it("an 'error'-state D6 row yields status red (passes through d6Effective on an intact ladder)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", OUT_OF_VOCAB),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d6!.status).toBe("red");
+      // Ladder intact through D5 → the failing D6 surfaces on the badge/stat.
+      expect(model.d6Effective).toBe("red");
+      // D5 green + non-green D6 → amber chip (per the decision table).
+      expect(model.chipColor).toBe("amber");
+    });
+
+    it("CHARACTERIZATION: an 'error'-state D3 row keeps status null but the gate check still reds the chip", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", OUT_OF_VOCAB),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      // D3/D4 keep the base mapping (null for out-of-vocab)…
+      expect(model.d3!.status).toBeNull();
+      // …because the D1-D4 gate check rescues them: exists && !== "green".
+      expect(model.chipColor).toBe("red");
+      expect(model.achievedDepth).toBe(0);
+    });
+
+    it("CHARACTERIZATION: an 'error'-state D4 row keeps status null but the gate check still reds the chip", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", OUT_OF_VOCAB),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d4!.status).toBeNull();
+      expect(model.chipColor).toBe("red");
+      expect(model.achievedDepth).toBe(3);
     });
   });
 

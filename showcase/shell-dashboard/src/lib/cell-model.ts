@@ -167,6 +167,25 @@ function rankOfState(state: string): number {
 }
 
 /**
+ * Map State → TestStatus for the D5/D6 rank-fold resolvers. Differs from
+ * `stateToTestStatus` ONLY for an out-of-vocabulary runtime state (e.g.
+ * "error" — see `rankOfState`): the A2 rank fold deliberately surfaces such a
+ * state as the WORST in the family, so mapping it to `null` here would swallow
+ * the fold winner one step later — the D5/D6 chip/badge would render benign
+ * gray no-data while live-status's badge path renders the loud "error" tone
+ * for the same row. Map it to "red" (the failing status) so an unrecognized
+ * state can never present as no-data on D5/D6.
+ *
+ * D3/D4 keep the base `stateToTestStatus` mapping: their `null` is rescued by
+ * the chip's D1-D4 gate check (`exists && status !== "green"` → gate fails →
+ * red), so an unknown state can never present as healthy there — see the
+ * decision table in `buildCellModel`.
+ */
+function foldStateToTestStatus(state: State): TestStatus {
+  return stateToTestStatus(state) ?? "red";
+}
+
+/**
  * Resolve the D4 (real-time) test level for `slug`.
  *
  * D4 checks both `chat:<slug>` and `tools:<slug>`. When both exist the
@@ -318,7 +337,7 @@ function resolveD5(
 
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    status: foldStateToTestStatus(worstState),
     row: worstRow,
   };
 }
@@ -451,7 +470,7 @@ function resolveD6(
 
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    status: foldStateToTestStatus(worstState),
     row: worstRow,
   };
 }
