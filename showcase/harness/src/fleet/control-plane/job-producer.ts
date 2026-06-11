@@ -64,8 +64,11 @@ import { deriveHealthUrl } from "../../probes/liveness.js";
  * synthesizes comm errors for rows reclaimed in THAT call, so a later sweep
  * cannot re-derive a missed batch; the producer instead BUFFERS undelivered
  * errors (capped at `MAX_BUFFERED_SWEEP_COMM_ERRORS`, oldest dropped) and
- * prepends them to the next sweep's sink delivery. Injected so the producer
- * stays dependency-free and unit-testable with a fake sink.
+ * prepends them to the next delivery attempt — which happens on EVERY sweep
+ * attempt, including one whose `sweepExpired` call throws, so a
+ * persistently-failing sweep never starves a healthy sink of the buffer.
+ * Injected so the producer stays dependency-free and unit-testable with a
+ * fake sink.
  */
 export type SweepCommErrorSink = (
   commErrors: PoolCommError[],
@@ -341,6 +344,40 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
   }
 
   /**
+   * REQ-B delivery: hand the buffered undelivered comm errors plus `fresh`
+   * (this sweep's batch, possibly empty) to the injected sink. Called on
+   * EVERY sweep attempt — success or failure — so a persistently-throwing
+   * `sweepExpired` (the exact failure mode the buffer rides out) can never
+   * starve a healthy sink of the buffered batch. Best-effort: a sink failure
+   * re-buffers the whole batch (capped at `MAX_BUFFERED_SWEEP_COMM_ERRORS`,
+   * oldest dropped, warned) and never aborts job production.
+   */
+  async function deliverSweepCommErrors(fresh: PoolCommError[]): Promise<void> {
+    if (!onSweepCommErrors) return;
+    const batch = [...undeliveredCommErrors, ...fresh];
+    undeliveredCommErrors = [];
+    if (batch.length === 0) return;
+    try {
+      await onSweepCommErrors(batch);
+    } catch (sinkErr) {
+      logger.error("fleet.producer.sweep-commerror-sink-failed", {
+        commErrors: batch.length,
+        err: sinkErr instanceof Error ? sinkErr.message : String(sinkErr),
+      });
+      undeliveredCommErrors = batch;
+      if (undeliveredCommErrors.length > MAX_BUFFERED_SWEEP_COMM_ERRORS) {
+        const dropped =
+          undeliveredCommErrors.length - MAX_BUFFERED_SWEEP_COMM_ERRORS;
+        undeliveredCommErrors = undeliveredCommErrors.slice(dropped);
+        logger.warn("fleet.producer.sweep-commerror-buffer-overflow", {
+          dropped,
+          buffered: MAX_BUFFERED_SWEEP_COMM_ERRORS,
+        });
+      }
+    }
+  }
+
+  /**
    * Run the lease sweep if the cadence window has elapsed. Returns the
    * sweep outcome (or a no-sweep sentinel). Sweep failures are logged and
    * swallowed — a transient PB blip on the reclamation path must NEVER
@@ -376,37 +413,21 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // production. But `sweepExpired` only synthesizes comm errors for rows
       // reclaimed in THIS call — a later sweep canNOT re-derive a missed batch —
       // so a failed delivery is BUFFERED (not dropped) and the buffer is drained,
-      // prepended to the fresh batch, on the next sweep's delivery. The buffer is
-      // capped at MAX_BUFFERED_SWEEP_COMM_ERRORS (oldest dropped, warned).
-      if (onSweepCommErrors) {
-        const batch = [...undeliveredCommErrors, ...result.commErrors];
-        undeliveredCommErrors = [];
-        if (batch.length > 0) {
-          try {
-            await onSweepCommErrors(batch);
-          } catch (sinkErr) {
-            logger.error("fleet.producer.sweep-commerror-sink-failed", {
-              commErrors: batch.length,
-              err: sinkErr instanceof Error ? sinkErr.message : String(sinkErr),
-            });
-            undeliveredCommErrors = batch;
-            if (undeliveredCommErrors.length > MAX_BUFFERED_SWEEP_COMM_ERRORS) {
-              const dropped =
-                undeliveredCommErrors.length - MAX_BUFFERED_SWEEP_COMM_ERRORS;
-              undeliveredCommErrors = undeliveredCommErrors.slice(dropped);
-              logger.warn("fleet.producer.sweep-commerror-buffer-overflow", {
-                dropped,
-                buffered: MAX_BUFFERED_SWEEP_COMM_ERRORS,
-              });
-            }
-          }
-        }
-      }
+      // prepended to the fresh batch, on the next delivery attempt (see
+      // deliverSweepCommErrors — it runs on every sweep attempt, even a failed
+      // one). The buffer is capped at MAX_BUFFERED_SWEEP_COMM_ERRORS.
+      await deliverSweepCommErrors(result.commErrors);
       return { swept: true, sweepFailed: false, reclaimed: result.reclaimed };
     } catch (err) {
       logger.error("fleet.producer.sweep-failed", {
         err: err instanceof Error ? err.message : String(err),
       });
+      // Even though THIS sweep produced no comm errors, a PREVIOUS sweep's
+      // batch may be sitting in the buffer — drain it now. The drain must not
+      // depend on the current sweep call's success: a persistently-throwing
+      // sweepExpired is the exact failure mode the buffer exists to ride out,
+      // and gating the drain on sweep success starved a healthy sink forever.
+      await deliverSweepCommErrors([]);
       // A failed sweep still counts as "swept" for cadence purposes — we
       // don't want a persistently-failing sweep to fire on every tick and
       // bury the logs; the window already advanced via lastSweepAt. But it

@@ -762,6 +762,48 @@ describe("job-producer — sweep cadence", () => {
     expect(received[0]!.map((e) => e.jobId)).toEqual(["j1", "j2"]);
   });
 
+  it("[REQ-B] drains the buffered batch even when the CURRENT sweep throws (a failing sweep must not starve a healthy sink)", async () => {
+    // The buffer exists precisely to ride out transient failures — but the
+    // drain used to live inside maybeSweep's try SUCCESS path, so a
+    // persistently-throwing sweepExpired (the exact failure mode the buffer
+    // rides out) never handed the buffered batch to a now-healthy sink.
+    // Tick 1: sweep succeeds, sink throws → j1 buffered. Tick 2: sweep
+    // THROWS, sink healthy → j1 must still be delivered.
+    const err = (jobId: string): PoolCommError => ({
+      kind: "worker-reclaimed-pending",
+      message: `lease for job ${jobId} expired; re-queued`,
+      jobId,
+      observedAt: "2026-06-04T00:00:09.000Z",
+    });
+    let sweepN = 0;
+    const queue = makeFakeQueue({
+      sweepImpl: async () => {
+        sweepN += 1;
+        if (sweepN === 1) return { reclaimed: 1, commErrors: [err("j1")] };
+        throw new Error("sweep endpoint 500");
+      },
+    });
+    const received: PoolCommError[][] = [];
+    let sinkCalls = 0;
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a"]),
+      logger: SILENT_LOGGER,
+      sweepIntervalMs: 0, // sweep every tick
+      onSweepCommErrors: (errs) => {
+        sinkCalls += 1;
+        if (sinkCalls === 1) throw new Error("aggregator down");
+        received.push(errs);
+      },
+    });
+    producer.start();
+    await producer.tick(); // sweep ok, sink fails — j1 buffered
+    const second = await producer.tick(); // sweep throws, sink healthy
+    expect(second.sweepFailed).toBe(true);
+    expect(received).toHaveLength(1);
+    expect(received[0]!.map((e) => e.jobId)).toEqual(["j1"]);
+  });
+
   it("[REQ-B] caps the undelivered buffer at MAX_BUFFERED_SWEEP_COMM_ERRORS, dropping oldest", async () => {
     const errs = (n: number, prefix: string): PoolCommError[] =>
       Array.from({ length: n }, (_, i) => ({
