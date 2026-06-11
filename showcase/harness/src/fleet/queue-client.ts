@@ -114,6 +114,14 @@ const MAX_PENDING_FAMILIES = 16;
 export const RESULT_WRITE_MAX_ATTEMPTS = 3;
 
 /**
+ * Pause between consecutive result-write attempts. Back-to-back retries land
+ * inside the same transient blip window (a PB restart/WAL hiccup spans more
+ * than a tick), so the bounded retry was burning all its attempts in
+ * microseconds. Exported so the pacing test pins this constant.
+ */
+export const RESULT_WRITE_RETRY_DELAY_MS = 250;
+
+/**
  * Default multiple of a family's production period after which an unclaimed
  * pending job is STALE (its family has enqueued ~3 fresher batches since; the
  * job's eventual result would be ancient data). Tunable via
@@ -211,6 +219,12 @@ export interface FleetQueueClientConfig {
    * explicit `nowMs` parameter — the sweep's caller owns that clock.
    */
   now?: () => number;
+  /**
+   * Injectable async pause used between result-write retry attempts
+   * (defaults to a real `setTimeout`). Injected so retry-pacing tests are
+   * instant and exact.
+   */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /** The persisted `probe_jobs` row shape as the PB records API returns it. */
@@ -355,7 +369,13 @@ function emptyPayloadForLease(job: JobView): ServiceJobPayload {
  */
 function probeKeySlug(probeKey: string): string {
   const idx = probeKey.indexOf(":");
-  return idx <= 0 ? probeKey : probeKey.slice(idx + 1);
+  const slug = idx <= 0 ? probeKey : probeKey.slice(idx + 1);
+  // A trailing-colon key ("d6:") slices to "" — the exact forbidden empty
+  // sentinel this helper exists to avoid (an empty serviceSlug corrupts the
+  // per-service rollup). Fall back to the WHOLE key; a fully-empty probe_key
+  // is the caller's problem (the synthesis call site substitutes a
+  // jobId-derived placeholder).
+  return slug === "" ? probeKey : slug;
 }
 
 /**
@@ -460,6 +480,14 @@ function escapeLikeLiteral(value: string): string {
  * LIKE leg would wrongly fold the DIFFERENT family `":foo:bar"` under
  * `":foo"`. Such families get the equality leg only. Normal prefix families
  * cannot contain a colon by construction, so testing for a colon is exact.
+ *
+ * KNOWN DIVERGENCE (documented, not fixed): SQLite `LIKE` is
+ * case-INSENSITIVE for ASCII while `=` is case-SENSITIVE, so for a
+ * MIXED-CASE family the two legs disagree — `probe_key ~ "D6:%"` would also
+ * match `d6:foo` rows while `probe_key = "D6"` would not match `d6` (and the
+ * exclusion clause diverges symmetrically). Unreachable in practice: probe
+ * keys are lowercase slugs by construction (the producers mint them from
+ * service slugs), so no mixed-case family ever reaches these builders.
  */
 function familyInclusionClause(family: string): string {
   if (family.includes(":")) {
@@ -503,6 +531,9 @@ export function createFleetQueueClient(
   const { pb, claim, logger } = config;
   const rng = config.rng ?? Math.random;
   const now = config.now ?? Date.now;
+  const sleep =
+    config.sleep ??
+    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const stalePolicy = config.stalePending ?? {};
   const staleExpiryPeriods =
     stalePolicy.expiryPeriods ?? DEFAULT_STALE_PENDING_EXPIRY_PERIODS;
@@ -564,6 +595,11 @@ export function createFleetQueueClient(
           maxAttempts: RESULT_WRITE_MAX_ATTEMPTS,
           err: err instanceof Error ? err.message : String(err),
         });
+        // Pace the retries: back-to-back attempts land inside the same
+        // transient blip window. Never sleep after the LAST attempt.
+        if (attempt < RESULT_WRITE_MAX_ATTEMPTS) {
+          await sleep(RESULT_WRITE_RETRY_DELAY_MS);
+        }
       }
     }
     return { ok: false, lastErr };
@@ -773,6 +809,16 @@ export function createFleetQueueClient(
             });
             continue;
           }
+          if (result.won && !result.job) {
+            // PROTOCOL VIOLATION: a win always carries the row view (the
+            // hook builds them together inside the transaction). Falling
+            // through silently abandons a row this worker may now OWN —
+            // make the contract breach visible before moving on.
+            logger.warn("queue-client.claim-won-without-job", {
+              jobId: candidate.id,
+              workerId: raceWorkerId,
+            });
+          }
           if (!result.won || !result.job) continue;
           // The CAS already WON — this worker now OWNS the row. Decoding the
           // payload from the (pre-claim) candidate row can still throw on a
@@ -801,6 +847,17 @@ export function createFleetQueueClient(
                 raceWorkerId,
                 "failed",
               );
+              if (!released.released) {
+                // A REFUSED release (vs a thrown one, logged in the catch
+                // below) was silent — the poison row stays claimed with no
+                // breadcrumb tying the refusal to the decode failure. The
+                // hook's reason says why (swept/stolen/already terminal).
+                logger.warn("queue-client.claim-decode-release-refused", {
+                  jobId: result.job.id,
+                  workerId: raceWorkerId,
+                  reason: released.reason ?? "unknown",
+                });
+              }
               if (released.released) {
                 // The row is now TERMINAL but RESULTLESS — per the result
                 // consumer's contract a terminal resultless row past its grace
@@ -831,7 +888,9 @@ export function createFleetQueueClient(
                   // aggregate key falls back to the row's probe_key (the
                   // `d6:<slug>` aggregate row key), mirroring the worker's
                   // comm-error result builder.
-                  serviceSlug: probeKeySlug(candidate.probe_key),
+                  serviceSlug:
+                    probeKeySlug(candidate.probe_key) ||
+                    `unknown-${result.job.id}`,
                   runId: `pviol_${result.job.id}`,
                   workerId: raceWorkerId,
                   aggregateState: "error",
@@ -930,6 +989,16 @@ export function createFleetQueueClient(
         // — outside the worker flow): nothing to assume-live from, so stay
         // loud rather than fabricate a lease.
         throw err;
+      }
+      if (result.renewed && !result.job) {
+        // PROTOCOL VIOLATION: a successful renew always carries the row view.
+        // We still fall through to the lost-lease handling below (we cannot
+        // build a lease from nothing), but the breach must be visible — it
+        // means the endpoint contract drifted, not that the lease was lost.
+        logger.warn("queue-client.renew-renewed-without-job", {
+          jobId,
+          workerId,
+        });
       }
       if (!result.renewed || !result.job) {
         // The renew CAS was LOST: the lease is gone for this worker (stolen,
@@ -1165,7 +1234,19 @@ export function createFleetQueueClient(
         perPage: 1,
         skipTotal: false,
       });
-      return page.totalItems;
+      // RUNTIME GUARD: even with skipTotal:false requested, a backend/client
+      // drift could still hand back -1 (or garbage) — and -1 is never above
+      // the producer's threshold, so returning it would silently FAIL OPEN
+      // the backlog gate. Refuse the poisoned value loudly.
+      const totalItems: unknown = page.totalItems;
+      if (typeof totalItems !== "number" || totalItems < 0) {
+        throw new Error(
+          `queue-client: countPendingForFamily("${family}") received a non-count totalItems (${String(
+            totalItems,
+          )}) despite skipTotal:false — refusing to fail the backlog gate open`,
+        );
+      }
+      return totalItems;
     },
 
     async sweepExpired(nowMs: number): Promise<SweepResult> {
@@ -1499,16 +1580,40 @@ export function createFleetQueueClient(
               });
               continue;
             }
+            // PER-ROW containment: the claim CAS can THROW (a deterministic
+            // 4xx from the hook, or a transport blip the 5xx mapping doesn't
+            // cover). Letting it escape to the phase wrapper aborts the
+            // WHOLE drain for one sick row — every later stale row goes
+            // unprocessed this sweep. Warn + continue; the row is NOT
+            // counted as attempted (indeterminate whether it left pending).
+            let won: ClaimResult;
+            try {
+              won = await claim.claimJob(
+                row.id,
+                STALE_PENDING_SWEEPER_ID,
+                STALE_PENDING_SWEEPER_LEASE_SECONDS,
+              );
+            } catch (err) {
+              logger.warn("queue-client.sweep-stale-claim-threw", {
+                jobId: row.id,
+                err: err instanceof Error ? err.message : String(err),
+              });
+              continue;
+            }
             passAttempted += 1;
-            const won = await claim.claimJob(
-              row.id,
-              STALE_PENDING_SWEEPER_ID,
-              STALE_PENDING_SWEEPER_LEASE_SECONDS,
-            );
             if (!won.won) {
               // A worker won the race — the job is in flight after all; not
               // ours to expire. (The row left "pending", so it also drops out
               // of the next pass's listing — no re-processing.)
+              //
+              // CAVEAT on the "left pending" assumption feeding passAttempted:
+              // job-claim maps a claim 5xx to won:false WITHOUT the row
+              // necessarily leaving pending. Such a row re-appears when the
+              // same page index is re-listed, so a page of persistently-5xx
+              // rows is retried pass after pass — bounded by the
+              // STALE_PENDING_MAX_PAGES_PER_SWEEP cap, after which the sweep
+              // ends and the NEXT sweep retries. A bounded stall on a sick
+              // backend, never an infinite loop.
               logger.debug("queue-client.sweep-stale-claim-lost", {
                 jobId: row.id,
               });

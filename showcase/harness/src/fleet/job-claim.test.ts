@@ -441,6 +441,75 @@ describe("job-claim client", () => {
     });
   });
 
+  it("memoizes the in-flight auth promise — a concurrent stampede authenticates ONCE", async () => {
+    let authCalls = 0;
+    const fetchImpl = makeFetch(async (url) => {
+      if (url.includes("auth-with-password")) {
+        authCalls += 1;
+        // Slow auth so the concurrent callers all arrive while it's in flight.
+        await new Promise((r) => setTimeout(r, 20));
+        return new Response(JSON.stringify({ token: "tok" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ claimed: false }), { status: 200 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    await Promise.all([
+      client.claimJob("j1", "w1", 30),
+      client.claimJob("j2", "w2", 30),
+      client.claimJob("j3", "w3", 30),
+    ]);
+    expect(authCalls).toBe(1);
+  });
+
+  it("wraps an unparseable auth body with context instead of a bare SyntaxError", async () => {
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response("<html>proxy intercept</html>", { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    await expect(client.claimJob("j1", "worker-7", 30)).rejects.toThrow(
+      /job-claim auth: unparseable response body \(status 200\)/,
+    );
+  });
+
+  it("treats a claimed:true response carrying an alreadyHeld marker as a plain win (no-op extra field)", async () => {
+    // The hook's claim idempotency for timeout-after-commit returns
+    // { claimed: true, alreadyHeld: true, job } when the SAME worker
+    // re-claims a row it already holds with a live lease. The client treats
+    // it as a win; the marker is informational.
+    const fetchImpl = authedFetch(
+      () =>
+        new Response(
+          JSON.stringify({ claimed: true, alreadyHeld: true, job: SAMPLE_JOB }),
+          { status: 200 },
+        ),
+    );
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+    const r = await client.claimJob("j1", "worker-7", 30);
+    expect(r.won).toBe(true);
+    expect(r.job?.id).toBe("j1");
+  });
+
   it("throws when the auth endpoint itself fails", async () => {
     const fetchImpl = makeFetch((url) => {
       if (url.includes("auth-with-password")) {

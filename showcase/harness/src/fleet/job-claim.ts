@@ -128,7 +128,12 @@ export interface JobClaimClient {
    * Record a terminal result for a job the caller holds. `status` is
    * `done` | `failed` to finish, or `pending` to re-queue. Fails
    * (`released: false`) if the caller is not the lease holder or the job
-   * is not in a running state.
+   * is no longer in a claimed/running state. NOTE the hook admits BOTH
+   * `claimed` and `running` rows (its RUNNING_STATES) — a row can be
+   * released terminal straight from `claimed`, which the queue-client's
+   * decode-failure cleanup depends on (it releases a just-won, never-renewed
+   * row as `failed`). This doc previously said "running state" only; the
+   * hook was always the broader (correct) side.
    */
   releaseJob(
     jobId: string,
@@ -180,9 +185,9 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
   const baseUrl = config.url.replace(/\/$/, "");
   const logger = config.logger;
   let authToken: string | null = null;
+  let authInFlight: Promise<void> | null = null;
 
-  async function ensureAuth(): Promise<void> {
-    if (authToken) return;
+  async function authenticate(): Promise<void> {
     if (!config.email || !config.password) {
       // No creds → the endpoints require auth; surface the gap loudly
       // rather than silently producing 401s the caller can't diagnose.
@@ -215,13 +220,38 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       throw new Error(`job-claim auth failed: ${res.status} ${text}`);
     }
     const text = await res.text();
-    const body: { token?: unknown } = text
-      ? (JSON.parse(text) as { token?: unknown })
-      : {};
+    let body: { token?: unknown };
+    try {
+      body = text ? (JSON.parse(text) as { token?: unknown }) : {};
+    } catch (err) {
+      // A bare SyntaxError ("Unexpected token <...") gives the operator no
+      // idea WHICH request choked — wrap with the boundary + status.
+      throw new Error(
+        `job-claim auth: unparseable response body (status ${res.status}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     if (typeof body.token !== "string" || body.token.length === 0) {
       throw new Error("job-claim auth returned empty or non-string token");
     }
     authToken = body.token;
+  }
+
+  function ensureAuth(): Promise<void> {
+    if (authToken) return Promise.resolve();
+    // MEMOIZE the in-flight auth: concurrent callers (claimNext racing a
+    // heartbeat racing a report) used to each fire their own
+    // auth-with-password — a needless stampede on PB, and N redundant
+    // credential round-trips per token expiry. Share one promise; clear it
+    // in finally so a FAILED auth is retried by the next caller instead of
+    // caching the rejection forever.
+    if (!authInFlight) {
+      authInFlight = authenticate().finally(() => {
+        authInFlight = null;
+      });
+    }
+    return authInFlight;
   }
 
   function postFleet(

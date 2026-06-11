@@ -6,6 +6,7 @@ import {
   leaseExpired,
   PB_DATE_SEP_RE,
   RESULT_WRITE_MAX_ATTEMPTS,
+  RESULT_WRITE_RETRY_DELAY_MS,
 } from "./queue-client.js";
 import { JobClaimEndpointError } from "./job-claim.js";
 import type {
@@ -705,6 +706,125 @@ describe("FleetQueueClient.claimNext", () => {
         jobId: "j1",
         err: "release transport blip",
       }),
+    );
+  });
+
+  it("warns (with the hook's reason) when the decode-failure release is REFUSED", async () => {
+    // The decode-fail cleanup logged thrown releases but a REFUSED release
+    // (released:false) was silent — the poison row stays claimed with no
+    // breadcrumb tying the refusal to the decode failure. Warn with the
+    // hook's refusal reason.
+    const { pb } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_not_holder",
+        }),
+      ),
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-decode-release-refused",
+      expect.objectContaining({ jobId: "j1", reason: "refused_not_holder" }),
+    );
+  });
+
+  it("recovers a non-empty serviceSlug for the synthetic result when the probe_key's slug segment is EMPTY", async () => {
+    // probeKeySlug("d6:") sliced to "" — the exact empty sentinel the
+    // synthetic worker-protocol-violation result is forbidden to carry
+    // (an empty serviceSlug corrupts the per-service rollup). An empty slug
+    // segment falls back to the WHOLE probe_key; a fully-empty probe_key
+    // falls back to a jobId-derived placeholder.
+    const { pb, rows } = makeFakePb([
+      {
+        ...jobView({ id: "j1", probe_key: "d6:" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    const written = rows[0].result as ServiceJobResult;
+    expect(written.serviceSlug).toBe("d6:");
+    expect(written.serviceSlug).not.toBe("");
+  });
+
+  it("falls back to a jobId-derived serviceSlug when the probe_key itself is empty", async () => {
+    const { pb, rows } = makeFakePb([
+      {
+        ...jobView({ id: "j1", probe_key: "" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            probe_key: "",
+            status: "claimed",
+            claimed_by: workerId,
+          }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    const written = rows[0].result as ServiceJobResult;
+    expect(written.serviceSlug).toBe("unknown-j1");
+  });
+
+  it("warns on the protocol violation `won && !job` before falling through (CAS contract breach must be visible)", async () => {
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    const claim = makeFakeClaim({
+      // won:true with NO job violates the endpoint contract (a win always
+      // carries the row view).
+      claimJob: vi.fn(async (): Promise<ClaimResult> => ({ won: true })),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-won-without-job",
+      expect.objectContaining({ jobId: "j1" }),
     );
   });
 
@@ -1502,6 +1622,35 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
     expect(c.lease?.job.id).toBe("ok-0");
   });
 
+  it("countPendingForFamily THROWS on a non-count totalItems instead of returning the poisoned value", async () => {
+    // skipTotal:false is requested, but a backend/client drift that still
+    // returns -1 (or garbage) must not reach the producer's backlog gate —
+    // -1 is never above the threshold, so the gate would silently fail
+    // open. Fail loud at the boundary.
+    const t0 = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, store } = makePagingPb([
+      {
+        ...jobView({ id: "d4-0", probe_key: "d4:x" }),
+        payload: samplePayload({ probeKey: "d4:x" }),
+        created: new Date(t0).toISOString(),
+      },
+    ]);
+    const realList = pb.list.bind(pb);
+    pb.list = vi.fn(async (collection: string, opts?: ListOpts) => {
+      const page = await realList(collection, opts);
+      return { ...page, totalItems: -1 };
+    }) as PbClient["list"];
+    const q = createFleetQueueClient({
+      pb,
+      claim: makeStoreClaim(store),
+      logger,
+    });
+
+    await expect(q.countPendingForFamily("d4")).rejects.toThrow(
+      /non-count totalItems/i,
+    );
+  });
+
   it("countPendingForFamily explicitly requests totals (skipTotal: false) — the backlog gate must not fail open", async () => {
     // The gate reads totalItems off a perPage=1 list. If totals are skipped
     // (PB client default elsewhere in this file is skipTotal: true) PB
@@ -1747,19 +1896,22 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       debugSpy.mockRestore();
     });
 
-    it("a claimJob THROW mid stale-drain keeps the rows already expired in the partial result (REQ-B)", async () => {
+    it("a claimJob THROW on one row does NOT abort the drain — later rows still expire (per-row containment)", async () => {
       // The first (oldest) stale row claims-and-deletes cleanly; the second
-      // row's claim CAS THROWS (transport blip). The phase must contain the
-      // throw and still report the work it DID do — letting it escape would
-      // also discard the lease phase's commErrors at the producer.
+      // row's claim CAS THROWS (e.g. a deterministic 4xx, which job-claim
+      // throws loud). The drain used to let it escape to the PHASE wrapper —
+      // aborting the WHOLE drain for one sick row (every later stale row
+      // unprocessed this sweep). Contain it PER ROW: warn + continue; the
+      // third row must still expire in the SAME sweep.
       const ok = pendingRow("old-ok", "d6:a", T - 5 * HOUR);
       const boom = pendingRow("old-boom", "d6:b", T - 4 * HOUR);
-      const { pb, store } = makePagingPb([ok, boom]);
+      const after = pendingRow("old-after", "d6:c", T - 3.5 * HOUR);
+      const { pb, store } = makePagingPb([ok, boom, after]);
       const base = makeStoreClaim(store);
       const claim: JobClaimClient = {
         ...base,
         async claimJob(jobId, workerId, leaseSeconds) {
-          if (jobId === "old-boom") throw new Error("cas 502");
+          if (jobId === "old-boom") throw new Error("cas 400 bad request");
           return base.claimJob(jobId, workerId, leaseSeconds);
         },
       };
@@ -1767,12 +1919,19 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
 
       const sweep = await q.sweepExpired(T);
 
-      expect(sweep.expiredPending).toBe(1);
+      // BOTH healthy rows expired — the throw did not abort the drain.
+      expect(sweep.expiredPending).toBe(2);
       expect(store.find((r) => r.id === "old-ok")).toBeUndefined();
+      expect(store.find((r) => r.id === "old-after")).toBeUndefined();
       expect(store.find((r) => r.id === "old-boom")?.status).toBe("pending");
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(logger.warn).toHaveBeenCalledWith(
+        "queue-client.sweep-stale-claim-threw",
+        expect.objectContaining({ jobId: "old-boom", err: "cas 400 bad request" }),
+      );
+      // Contained per row — the phase wrapper never saw it.
+      expect(logger.error).not.toHaveBeenCalledWith(
         "queue-client.sweep-stale-phase-threw",
-        expect.objectContaining({ err: "cas 502" }),
+        expect.anything(),
       );
     });
 
@@ -2527,6 +2686,23 @@ describe("FleetQueueClient.renewLease", () => {
     );
   });
 
+  it("warns on the protocol violation `renewed && !job` before treating it as a lost lease", async () => {
+    const { pb } = makeFakePb([{ ...jobView(), payload: samplePayload() }]);
+    const claim = makeFakeClaim({
+      // renewed:true with NO job violates the endpoint contract.
+      renewLease: vi.fn(async (): Promise<RenewResult> => ({ renewed: true })),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const lease = await q.renewLease("j1", "worker-7", 30);
+
+    expect(lease).toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.renew-renewed-without-job",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
+  });
+
   it("a THROWN renew (5xx / unreadable-2xx) keeps the CURRENT lease assumed-live instead of killing the heartbeat", async () => {
     // INDETERMINACY CONTAINMENT (G1b): a renew that THROWS (transport blip,
     // 5xx, or job-claim's 2xx-unreadable indeterminate) may or may not have
@@ -2754,7 +2930,9 @@ describe("FleetQueueClient.report", () => {
       async (): Promise<ReleaseResult> => ({ released: true }),
     );
     const claim = makeFakeClaim({ releaseJob });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    // No-op sleep: this test pins the retry COUNT, not the pacing (pinned
+    // separately below) — keep it instant.
+    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
 
     await expect(
       q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
@@ -2764,6 +2942,39 @@ describe("FleetQueueClient.report", () => {
     // The write was retried up to EXACTLY the production bound — pinned via
     // the imported constant so the test can't drift from the implementation.
     expect(updateAttempts).toBe(RESULT_WRITE_MAX_ATTEMPTS);
+  });
+
+  it("pauses between result-write retries (no hot-loop hammering a blipping PB)", async () => {
+    // Back-to-back retries land inside the same transient blip window —
+    // a small delay between attempts gives the blip time to clear. Pinned
+    // via an injected sleep so the test is instant and exact: one pause
+    // between each consecutive attempt pair (never after the last).
+    const { pb } = makeFakePb([seededRow()]);
+    pb.update = vi.fn(async () => {
+      throw new Error("transient PB write blip");
+    }) as PbClient["update"];
+    const sleeps: number[] = [];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+    });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+
+    await expect(
+      q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
+    ).rejects.toThrow(/result lost/i);
+
+    expect(sleeps).toEqual(
+      Array(RESULT_WRITE_MAX_ATTEMPTS - 1).fill(RESULT_WRITE_RETRY_DELAY_MS),
+    );
   });
 
   it("succeeds when the result write fails once then recovers (bounded retry)", async () => {
@@ -2786,7 +2997,7 @@ describe("FleetQueueClient.report", () => {
         async (): Promise<ReleaseResult> => ({ released: true }),
       ),
     });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
 
     const result = sampleResult();
     await q.report({ jobId: "j1", workerId: "worker-7", result });
