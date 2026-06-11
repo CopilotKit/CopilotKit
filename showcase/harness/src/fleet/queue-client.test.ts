@@ -3930,6 +3930,89 @@ describe("FleetQueueClient.report", () => {
     expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
   });
 
+  it("throws on a ReportJobInput equality-invariant violation BEFORE releasing anything", async () => {
+    // contracts.ts documents jobId === result.jobId and workerId ===
+    // result.workerId as the input invariant: release keys on the top-level
+    // ids while the persisted result echoes its own, so a mismatched caller
+    // would release ONE row while filing the result under ANOTHER
+    // job's/worker's ids. report() must fail loud before the release CAS.
+    const { pb, rows } = makeFakePb([seededRow()]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({ releaseJob });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await expect(
+      q.report({
+        jobId: "j1",
+        workerId: "worker-7",
+        result: sampleResult({ jobId: "j2" }),
+      }),
+    ).rejects.toThrow(/equality invariant/i);
+    await expect(
+      q.report({
+        jobId: "j1",
+        workerId: "worker-7",
+        result: sampleResult({ workerId: "worker-8" }),
+      }),
+    ).rejects.toThrow(/equality invariant/i);
+    expect(releaseJob).not.toHaveBeenCalled();
+    expect(rows[0].result).toBeUndefined();
+  });
+
+  it("evicts the cached payload even when the result is MALFORMED (status computed inside the try)", async () => {
+    // terminalJobStatus(input.result) used to run BEFORE the try/finally —
+    // a malformed result threw past the finally and the claim-time cache
+    // entry leaked (the same strand the finally exists to prevent: the
+    // worker is done with the job either way). Proof of eviction: a later
+    // successful renew must take the convenience RE-READ path (cache miss →
+    // pb.getOne); a leaked entry would skip it.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({ released: true }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+      renewLease: vi.fn(
+        async (): Promise<RenewResult> => ({
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+    await expect(
+      q.report({
+        jobId: "j1",
+        workerId: "worker-7",
+        result: null as unknown as ServiceJobResult,
+      }),
+    ).rejects.toThrow();
+    expect(releaseJob).not.toHaveBeenCalled();
+
+    const lease = await q.renewLease("j1", "worker-7", 30);
+    expect(lease).not.toBeNull();
+    expect(getOneSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("persists the ServiceJobResult onto the row, unprocessed, after the release", async () => {
     const { pb, rows } = makeFakePb([seededRow()]);
     // ORDERING (non-vacuous): capture the row's result AT RELEASE TIME —

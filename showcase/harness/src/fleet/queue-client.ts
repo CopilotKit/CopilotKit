@@ -1273,11 +1273,27 @@ export function createFleetQueueClient(
     },
 
     async report(input: ReportJobInput): Promise<void> {
-      const status = terminalJobStatus(input.result);
-      // The worker is DONE with this job either way (release refused or result
-      // write exhausted), so always evict the cached payload before returning —
-      // a leak here would slowly grow the per-client cache across reports.
+      // The worker is DONE with this job either way (release refused, result
+      // write exhausted, or malformed input), so always evict the cached
+      // payload before returning — a leak here would slowly grow the
+      // per-client cache across reports. EVERYTHING that can throw runs
+      // INSIDE the try (including the invariant check and the status
+      // mapping below) so the finally's eviction can never be skipped.
       try {
+        // EQUALITY INVARIANT (contracts.ts ReportJobInput): the release CAS
+        // keys on the TOP-LEVEL ids while the persisted result echoes its
+        // own — a mismatched caller would release one row while filing the
+        // result under another job's/worker's ids. Fail loud BEFORE the
+        // release so neither half happens.
+        if (
+          input.jobId !== input.result.jobId ||
+          input.workerId !== input.result.workerId
+        ) {
+          throw new Error(
+            `queue-client: report() input violates the ReportJobInput equality invariant (jobId "${input.jobId}" vs result.jobId "${input.result.jobId}"; workerId "${input.workerId}" vs result.workerId "${input.result.workerId}") — refusing to release one row while filing the result under another`,
+          );
+        }
+        const status = terminalJobStatus(input.result);
         const result = await claim.releaseJob(
           input.jobId,
           input.workerId,
