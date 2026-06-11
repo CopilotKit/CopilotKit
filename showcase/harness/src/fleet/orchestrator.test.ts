@@ -63,7 +63,8 @@ const headroomPidsReader: CgroupPidsReader = () => ({ current: 10, max: 1000 });
 function makeJobView(overrides: Partial<JobView> = {}): JobView {
   return {
     id: "job-1",
-    probe_key: "d6:langgraph-python",
+    // Joins the payload's probeKey (the tracer) — see makePayload below.
+    probe_key: "d6:tracer-slug",
     status: "claimed",
     claimed_by: "worker-test",
     lease_expires_at: "2026-06-04T00:05:00.000Z",
@@ -76,13 +77,21 @@ function makePayload(
   overrides: Partial<ServiceJobPayload> = {},
 ): ServiceJobPayload {
   return {
-    probeKey: "d6:langgraph-python",
-    serviceSlug: "langgraph-python",
+    probeKey: "d6:tracer-slug",
+    serviceSlug: "tracer-slug",
     driverKind: "e2e_d6",
     // A runnable d6 input with NO declared features → the d6 driver returns its
     // green "no D5 features declared" aggregate without acquiring a browser.
+    // `key` is a contract-conformant `d6:<slug>` TRACER (the fleet contract
+    // forbids `e2e_d6:<slug>` row keys on the fleet path — see
+    // ServiceJobResult.aggregateKey): a slug no production default ships,
+    // kept ALIGNED across probeKey/serviceSlug/driverInputs.key because the
+    // d6 driver derives its aggregate side-row slug from `input.key`
+    // (`deriveSlug`) while the worker loop filters that side row by
+    // `d6:<serviceSlug>` — a mismatched tracer slug would surface the side
+    // row as a phantom cell.
     driverInputs: {
-      key: "e2e_d6:langgraph-python",
+      key: "d6:tracer-slug",
       backendUrl: "https://lg.example.com",
     },
     meta: {
@@ -169,9 +178,15 @@ describe("runWorker default (self-contained) boot", () => {
     const result = queue.reports[0]!;
     // The e2e_d6 job was routed to the REAL d6 driver (not a protocol
     // violation): the d6 driver's green "no D5 features declared" aggregate.
+    // The aggregateKey is the TRACER `driverInputs.key` echoed back through
+    // the real driver (pass-through proof), and the signal note pins that
+    // the d6 driver itself produced the result.
     expect(result.commError).toBeUndefined();
     expect(result.aggregateState).toBe("green");
-    expect(result.aggregateKey).toBe("e2e_d6:langgraph-python");
+    expect(result.aggregateKey).toBe("d6:tracer-slug");
+    expect(result.aggregateSignal).toMatchObject({
+      note: "no D5 features declared",
+    });
   });
 });
 

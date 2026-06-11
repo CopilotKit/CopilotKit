@@ -39,12 +39,12 @@ function makeResult(
 ): ServiceJobResult {
   return {
     jobId: "j1",
-    probeKey: "e2e_d6:langgraph-python",
+    probeKey: "d6:langgraph-python",
     serviceSlug: "langgraph-python",
     runId: "run-1",
     workerId: "worker-7",
     aggregateState: "green",
-    aggregateKey: "e2e_d6:langgraph-python",
+    aggregateKey: "d6:langgraph-python",
     aggregateSignal: { failedCount: 0 },
     cells: [
       {
@@ -215,8 +215,8 @@ describe("comm-error ↔ status-row signal round-trip", () => {
 
 describe("fleetSurfaceState", () => {
   const row: FleetStatusRow = {
-    key: "e2e_d6:langgraph-python",
-    dimension: "e2e_d6",
+    key: "d6:langgraph-python",
+    dimension: "d6",
     state: "green",
     signal: {},
     observedAt: "2026-06-04T00:00:00.000Z",
@@ -303,7 +303,7 @@ describe("result ↔ storage mappers (preserve dashboard row shape)", () => {
     const results = probeResultsForServiceJobResult(makeResult());
     expect(results).toHaveLength(2);
     expect(results[0]).toEqual({
-      key: "e2e_d6:langgraph-python",
+      key: "d6:langgraph-python",
       state: "green",
       signal: { failedCount: 0 },
       observedAt: "2026-06-04T00:00:02.000Z",
