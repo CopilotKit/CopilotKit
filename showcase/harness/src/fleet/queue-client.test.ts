@@ -5264,8 +5264,13 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     expect(routes.length).toBe(3);
     // Match the MIDDLEWARE POSITION (the handler-closing `}, $apis...);`),
     // not bare mentions — the header comment also names the middleware.
+    // Tolerant of formatter line-wrapping: the formatter may render the
+    // closing as `}, $apis.requireAdminAuth());` (single-line) or as
+    // `},\n  $apis.requireAdminAuth(),\n);` (split across lines). Both are
+    // the same routerAdd-with-middleware closer.
     const guarded =
-      hookSource.match(/\},\s*\$apis\.requireAdminAuth\(\)\);/g) ?? [];
+      hookSource.match(/\},\s*\$apis\.requireAdminAuth\(\)\s*[,)]\s*\)?;?/g) ??
+      [];
     expect(guarded.length).toBe(3);
   });
 
