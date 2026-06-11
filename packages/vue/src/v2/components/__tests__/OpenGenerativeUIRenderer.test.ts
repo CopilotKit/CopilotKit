@@ -850,6 +850,115 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(cssIdx).toBeGreaterThan(headOpenIdx);
       expect(cssIdx).toBeLessThan(titleIdx);
     });
+
+    // ---------------------------------------------------------------------
+    // Mask-before-match (Finding 1): the head helpers run their head-open
+    // match and `</head>` close search on a length-preserving MASKED copy
+    // (complete comments + style/script content blanked) and splice on the
+    // ORIGINAL at the masked indices — mirroring react-core's assembleDocument
+    // non-legacy anchoring. A `<head>`/`</head>` token inside a comment or
+    // style/script content therefore can never capture the splice or
+    // short-circuit normalization, and comments are preserved byte-for-byte.
+    // ---------------------------------------------------------------------
+
+    // Finding 1a — a `</head>` lookalike inside a comment BEFORE the real
+    // close. RED pre-fix: injectCssIntoHtml searched the RAW html, so the
+    // comment's `</head>` captured the close search and the agent css spliced
+    // INSIDE the comment (inert — never applied). GREEN post-fix: the masked
+    // search skips the comment's lookalike and the css lands inside the REAL
+    // head, after the comment, before the real `</head>`.
+    it("anchors css to the real </head>, not a </head> inside a comment (masked)", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["<head><title>t</title><!-- </head> --></head><body>x</body>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const commentIdx = frameContent.indexOf("<!-- </head> -->");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const realCloseIdx = frameContent.toLowerCase().lastIndexOf("</head>");
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(commentIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // The css lands AFTER the author content and AFTER the inert comment, and
+      // BEFORE the real (last) </head> — i.e. inside the real head, not in the
+      // comment.
+      expect(cssIdx).toBeGreaterThan(titleIdx);
+      expect(cssIdx).toBeGreaterThan(commentIdx);
+      expect(cssIdx).toBeLessThan(realCloseIdx);
+      // The comment (with its </head> lookalike) is preserved byte-for-byte.
+      expect(frameContent).toContain("<!-- </head> -->");
+    });
+
+    // Finding 1b — a literal `<head>` inside a comment BEFORE the real
+    // attributed head. RED pre-fix: ensureHead's RAW match found the comment's
+    // `<head>` first and (token === "<head>") short-circuited, leaving the real
+    // `<head lang="en">` un-normalized — so the only normalization websandbox's
+    // `.replace('<head>', bootstrap)` could anchor on was the inert comment
+    // token, and the real head never received the bootstrap (permanent spinner).
+    // GREEN post-fix: the masked match skips the comment and normalizes the REAL
+    // head to the literal `<head>`; the comment is preserved byte-for-byte.
+    it("normalizes the real head, not a <head> inside a comment, keeping the comment intact (masked)", async () => {
+      renderRenderer({
+        html: [
+          '<!-- <head> --><head lang="en"><title>t</title></head><body>x</body>',
+        ],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The comment is preserved byte-for-byte (its inner <head> lookalike was
+      // never rewritten).
+      expect(frameContent).toContain("<!-- <head> -->");
+      // The REAL head (past the comment close) was normalized: no attributed
+      // head-open token survives there. Scoped past the comment so the
+      // comment's own literal `<head>` is not counted, and this input has no
+      // `<header>` to false-positive the broad attributed-head match.
+      const commentClose = frameContent.indexOf("-->");
+      expect(commentClose).toBeGreaterThan(-1);
+      expect(frameContent.slice(commentClose)).not.toMatch(/<head[^>]+>/);
+      expect(frameContent).not.toContain('lang="en"');
+      // The author's head content survives.
+      expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Finding 1c — a comment containing an attributed head lookalike BEFORE the
+    // real attributed head. RED pre-fix: ensureHead's RAW match landed on the
+    // comment's `<head lang="en">` and REWROTE that token to `<head>` (corrupting
+    // the comment), while the real `<head lang="fr">` was left untouched. GREEN
+    // post-fix: the masked match skips the comment (preserved byte-for-byte) and
+    // normalizes the REAL head.
+    it("rewrites the real head, not an attributed <head> inside a comment (masked)", async () => {
+      renderRenderer({
+        html: [
+          '<!-- example: <head lang="en"> --><head lang="fr"><title>t</title></head><body>x</body>',
+        ],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // The comment is preserved byte-for-byte (its attributed head lookalike was
+      // never rewritten).
+      expect(frameContent).toContain('<!-- example: <head lang="en"> -->');
+      // websandbox's literal token is present and the real head was normalized:
+      // neither attribute string survives.
+      expect(frameContent).toContain("<head>");
+      expect(frameContent).not.toContain('lang="fr"');
+      // The author's head content survives.
+      expect(frameContent).toContain("<title>t</title>");
+    });
   });
 });
 

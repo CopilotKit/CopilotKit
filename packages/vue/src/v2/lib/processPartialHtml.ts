@@ -100,8 +100,13 @@ function blankQuotedRuns(tag: string): string {
  * position, so the three constructs never interfere: a `<style>` mentioned inside
  * a comment is masked as comment content (not treated as a real style), and a
  * `-->` inside CSS is masked as style content (not treated as a comment close).
+ *
+ * Exported so the final-document head helpers in `OpenGenerativeUIRenderer` can
+ * mask-before-matching on the SAME length-preserving algorithm (rather than
+ * duplicating it), mirroring react-core's assembleDocument, which masks inert
+ * spans before its head-open/`</head>` searches.
  */
-function maskBlockContent(html: string): string {
+export function maskBlockContent(html: string): string {
   const blockRe = /<style\b|<script\b|<!--/gi;
   let out = "";
   let last = 0;

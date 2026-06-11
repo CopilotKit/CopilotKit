@@ -5,6 +5,7 @@ import { ToolCallStatus } from "@copilotkit/core";
 import {
   processPartialHtml,
   extractCompleteStyles,
+  maskBlockContent,
 } from "../lib/processPartialHtml";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 
@@ -66,6 +67,23 @@ function shouldFlushImmediately(
 const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
 
 /**
+ * Locates the real head-opening tag on a length-preserving MASKED copy of the
+ * raw html — the content of complete `<style>`/`<script>` blocks and `<!-- … -->`
+ * comments is blanked (and quoted attribute runs inside style/script open tags),
+ * so a `<head>` token inside a comment or inside style/script content can never
+ * be mistaken for the real head-open. Indices map 1:1 to the original, so callers
+ * splice on the ORIGINAL string at the returned index. Mirrors react-core's
+ * assembleDocument, which masks inert spans before its head-open match.
+ */
+function matchHeadOpen(
+  masked: string,
+): { index: number; token: string } | null {
+  const match = masked.match(HEAD_OPEN);
+  if (!match || match.index === undefined) return null;
+  return { index: match.index, token: match[0] };
+}
+
+/**
  * Ensures the final frameContent contains the EXACT literal lowercase token
  * `<head>`. @jetbrains/websandbox hard-requires it: validateOptions throws
  * `'Websandbox: iFrame content must have "<head>" tag.'` when
@@ -77,55 +95,75 @@ const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
  * If a real head-opening tag exists, its token is NORMALIZED to `<head>` (head
  * attributes have negligible runtime semantics inside the sandbox iframe and
  * cannot be preserved given websandbox's exact-token demand). If none exists,
- * `<head></head>` is prepended. Mirrors react-core's normalization.
+ * `<head></head>` is prepended.
+ *
+ * The head-open is matched on a MASKED copy (complete comments + style/script
+ * content blanked) and the token is replaced on the ORIGINAL at the masked
+ * index, so a `<head>` token inside a comment is never matched (it would
+ * short-circuit on the comment's literal `<head>`, leaving the real attributed
+ * head un-normalized — websandbox would then `.replace('<head>', …)` its
+ * bootstrap INTO THE COMMENT and never initialize) and a comment containing a
+ * head token is preserved byte-for-byte.
+ *
+ * Mirrors the masked-matching + literal-`<head>` normalization of react-core's
+ * assembleDocument NON-legacy path (which masks inert spans before its head-open
+ * match). Two intentional differences: Vue injects no kit/importmap, so the head
+ * is only normalized, never prefixed; and react-core's LEGACY path deliberately
+ * diverges — it matches on the raw html (a `<head>` inside a comment is a pinned
+ * byte-identity quirk there).
  */
 function ensureHead(html: string): string {
-  const match = html.match(HEAD_OPEN);
-  if (match && match.index !== undefined) {
-    if (match[0] === "<head>") return html;
+  const head = matchHeadOpen(maskBlockContent(html));
+  if (head) {
+    if (head.token === "<head>") return html;
     return (
-      html.slice(0, match.index) +
+      html.slice(0, head.index) +
       "<head>" +
-      html.slice(match.index + match[0].length)
+      html.slice(head.index + head.token.length)
     );
   }
   return `<head></head>${html}`;
 }
 
 /**
- * Injects the agent css immediately before `</head>` — i.e. AFTER the author's
- * existing head content — so the documented cascade holds (author head styles
- * first, agent css last; matching react-core). The close lookup is
- * case-insensitive so it pairs with `ensureHead`'s case-insensitive open match:
- * a case-sensitive `indexOf("</head>")` would miss an uppercase `</HEAD>` and
- * flip the cascade so the agent css wins over the author's head styles.
+ * Injects the agent css into the real head so the documented cascade holds
+ * (author head content first, agent css last). Every structural search runs on a
+ * length-preserving MASKED copy (complete comments + style/script content
+ * blanked) and the css is spliced on the ORIGINAL at the masked index, so a
+ * `</head>`/`<body>` token inside a comment or style/script content cannot
+ * capture the splice (it would otherwise land the css inside that inert region)
+ * and comments are preserved byte-for-byte.
  *
  * Always called after `ensureHead`, so a real head-opening tag exists by
- * construction. Two edge shapes are guarded:
+ * construction. Two edge shapes are guarded on the masked copy:
  *  - A stray `</head>` BEFORE the real head: the close search is anchored
- *    at/after the matched head-open so the css lands inside the REAL head, not
- *    at the earlier stray close (which would put it outside and before the real
- *    head — cascade inversion).
+ *    at/after the matched head-open so the css lands inside the REAL head (e.g.
+ *    `foo</head><head>…</head>`), not at the earlier stray close (which would
+ *    put it outside and before the real head — cascade inversion).
  *  - A head-open with NO matching close: the css is inserted immediately AFTER
  *    the (normalized) head-open rather than prepending a fresh `<head>`, which
  *    would otherwise create two head elements with the agent css before the
- *    author's head content. Only the no-head-at-all path (which `ensureHead`
- *    prevents here) would synthesize a brand-new head.
+ *    author's head content.
+ *
+ * Mirrors the masked-matching + real-head/stray-`</head>` anchoring of
+ * react-core's assembleDocument NON-legacy path (Vue injects no kit/importmap, so
+ * only the agent css is anchored; the no-`</head>` fallback inserts right after
+ * the head-open, as react-core's non-legacy path does). react-core's LEGACY path
+ * deliberately diverges — raw, unmasked `indexOf("</head>")`, a pinned
+ * byte-identity quirk.
  */
 function injectCssIntoHtml(html: string, css: string): string {
-  const match = html.match(HEAD_OPEN);
+  const masked = maskBlockContent(html);
+  const head = matchHeadOpen(masked);
   // ensureHead runs first, so a real head-opening tag exists by construction.
   // Anchor the close-tag search at/after the matched head-open so it pairs with
-  // the SAME head: a global first-match `search(/<\/head>/i)` would resolve to a
-  // stray `</head>` that PRECEDES the real head (e.g.
-  // `foo</head><head>…</head>`), splicing the agent css outside and before the
-  // real head and inverting the documented cascade. Mirrors react-core's
-  // assembleDocument, which scopes the close search to after the head-open.
-  const searchFrom =
-    match && match.index !== undefined ? match.index + match[0].length : 0;
-  const closeRel = html.slice(searchFrom).search(/<\/head>/i);
-  const headCloseIdx = closeRel !== -1 ? closeRel + searchFrom : -1;
-  if (headCloseIdx !== -1) {
+  // the SAME head: a global first-match would resolve to a stray `</head>` that
+  // PRECEDES the real head, splicing the agent css outside and before the real
+  // head and inverting the documented cascade.
+  const searchFrom = head ? head.index + head.token.length : 0;
+  const closeRel = masked.slice(searchFrom).search(/<\/head>/i);
+  if (closeRel !== -1) {
+    const headCloseIdx = closeRel + searchFrom;
     return (
       html.slice(0, headCloseIdx) +
       `<style>${css}</style>` +
@@ -136,9 +174,8 @@ function injectCssIntoHtml(html: string, css: string): string {
   // so insert the agent css immediately AFTER that (normalized) head-open rather
   // than prepending a fresh `<head>` — which would produce two head elements
   // with the agent css before the author's head content (cascade inversion).
-  // Matches react-core's post-head-open fallback.
-  if (match && match.index !== undefined) {
-    const insertAt = match.index + match[0].length;
+  if (head) {
+    const insertAt = head.index + head.token.length;
     return (
       html.slice(0, insertAt) + `<style>${css}</style>` + html.slice(insertAt)
     );
