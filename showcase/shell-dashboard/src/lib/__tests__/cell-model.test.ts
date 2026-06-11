@@ -1341,6 +1341,40 @@ describe("buildCellModel", () => {
     const D4_STALE = D4_STALE_AFTER_MS + 60 * 1000;
     const FRESH = 60 * 1000;
 
+    it("D3: stale-green downgrade returns the EFFECTIVE row and .row.state matches .status (G3c)", () => {
+      // resolveD3's stale-green branch returned the RAW row (`status: "amber",
+      // row` with row.state still "green"), violating the `.row.state` ↔
+      // `.status` invariant resolveD4/D5/D6 maintain.
+      const live = mapOf([
+        rowAtAge(
+          keyFor("e2e", "agno", "agentic-chat"),
+          "e2e",
+          E2E_STALE,
+          "green",
+        ),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("amber");
+      expect(model.d3?.row?.state).toBe("degraded");
+    });
+
+    it("D3: fresh-green keeps the raw row (no spurious downgrade)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.d3?.status).toBe("green");
+      expect(model.d3?.row?.state).toBe("green");
+    });
+
     it("D4: stale-green folds to amber and .row.state matches .status", () => {
       const live = mapOf([
         rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "green"),

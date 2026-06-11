@@ -367,7 +367,14 @@ function resolveD3(
     return { exists: false, status: null, row: null };
   }
   if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
-    return { exists: true, status: "amber", row };
+    // Return the EFFECTIVE (downgraded) row so `.row.state` agrees with
+    // `.status` — the same invariant resolveD4/D5/D6 maintain (mirrors
+    // `buildBadge` in live-status.ts).
+    return {
+      exists: true,
+      status: "amber",
+      row: { ...row, state: "degraded" },
+    };
   }
   return {
     exists: true,
