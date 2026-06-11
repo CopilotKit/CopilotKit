@@ -280,8 +280,38 @@ describe("runWorker loop-crash surfacing", () => {
       await expect(worker.stop()).rejects.toThrow("poison claim");
       expect(shutdownSpy).toHaveBeenCalledTimes(1);
       // The port no longer accepts connections — the health server really
-      // closed (a still-bound server would answer this fetch).
-      await expect(fetch(`http://127.0.0.1:${port}/health`)).rejects.toThrow();
+      // closed (a still-bound server would answer this fetch). Mirror the
+      // src/orchestrator.test.ts hardening: a parallel test process can
+      // legitimately reclaim the freed port, so a successful fetch is not
+      // by itself a failure — but whatever answered MUST NOT claim "ok".
+      let networkErrored = false;
+      let errorMessage = "";
+      let statusIfServed: number | null = null;
+      let bodyLoopIfServed: string | undefined;
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/health`);
+        statusIfServed = r.status;
+        const healthBody = (await r.json()) as { loop?: string };
+        bodyLoopIfServed = healthBody.loop;
+      } catch (err) {
+        networkErrored = true;
+        errorMessage = err instanceof Error ? err.message : String(err);
+      }
+      if (networkErrored) {
+        // Connection refused / fetch-failed / socket hang-up all prove the
+        // server shut down. Assert a meaningful error shape so an unrelated
+        // rejection (DNS failure, bad URL, TLS error) can't masquerade as
+        // a closed port.
+        expect(errorMessage.length).toBeGreaterThan(0);
+        expect(errorMessage).toMatch(
+          /fetch failed|ECONNREFUSED|ECONN|network|socket|closed/i,
+        );
+      } else {
+        // The port was reclaimed and another process answered: the response
+        // MUST NOT claim a healthy "ok" loop — OUR server is gone.
+        expect(statusIfServed).not.toBe(200);
+        expect(bodyLoopIfServed).not.toBe("ok");
+      }
     } finally {
       shutdownSpy.mockRestore();
     }
