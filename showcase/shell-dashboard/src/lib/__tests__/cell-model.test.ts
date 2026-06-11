@@ -2013,6 +2013,64 @@ describe("buildCellModel", () => {
       expect(model.commError?.workerId).toBe("worker-PERCELL");
     });
 
+    // ── G3f: non-d6 fleet-family sweep aggregates ─────────────────────
+    // The global lease sweep reclaims jobs of ALL four fleet families and
+    // mirrors each comm error onto the status row keyed by the reclaimed
+    // job's `probe_key` (harness resolveSweepAggregateKey →
+    // aggregateCommError). For the non-d6 families those keys are
+    // `d4:<slug>` (smoke), `e2e-demos:<slug>` (demos), and
+    // `d5-single-pill-e2e:<slug>` (deep) — rows the dashboard reads NOWHERE
+    // else, so the candidate scan must include them or a reclaim/crash
+    // overlay on those families is invisible.
+    describe("non-d6 fleet-family sweep aggregate keys (G3f)", () => {
+      const FAMILY_KEYS = [
+        keyFor("d4", "agno"),
+        keyFor("e2e-demos", "agno"),
+        keyFor("d5-single-pill-e2e", "agno"),
+      ];
+
+      it.each(FAMILY_KEYS)(
+        "a crash comm error on the %s aggregate row surfaces 'unreachable'",
+        (key) => {
+          const live = mapOf([
+            row(key, key.split(":")[0]!, "green", {
+              signal: {
+                __fleetCommError: {
+                  kind: "worker-crashed-mid-job",
+                  message: "lease expired with no terminal report",
+                  workerId: "fleet-worker-2",
+                  observedAt: FRESH_OBSERVED_AT,
+                },
+              },
+            }),
+          ]);
+          const model = buildCellModel(
+            live,
+            wiredInput("agno", "agentic-chat"),
+          );
+          expect(model.surfaceState).toBe("unreachable");
+          expect(model.commError?.kind).toBe("worker-crashed-mid-job");
+        },
+      );
+
+      it("a reclaim comm error on the d4:<slug> aggregate row surfaces 'pending' on a no-data cell", () => {
+        const live = mapOf([
+          row(keyFor("d4", "agno"), "d4", "green", {
+            signal: {
+              __fleetCommError: {
+                kind: "worker-reclaimed-pending",
+                message: "lease for job j-3 expired; re-queued to pending",
+                observedAt: FRESH_OBSERVED_AT,
+              },
+            },
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        expect(model.surfaceState).toBe("pending");
+        expect(model.commError?.kind).toBe("worker-reclaimed-pending");
+      });
+    });
+
     // ── Comm-error staleness window ───────────────────────────────────
     // A PoolCommError mirrored onto the `d6:<slug>` aggregate row is NOT
     // overwritten when the pool recovers (recovery writes fresh per-cell

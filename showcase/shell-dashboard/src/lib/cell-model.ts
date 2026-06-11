@@ -504,8 +504,11 @@ function chipColorToSurface(color: ChipColor): FleetSurfaceState {
 /**
  * Decode a pool comm-error (REQ-B) for this cell by scanning the status rows
  * the cell's overlay depends on: the per-cell D6 (parity) row family, D5
- * (conversation), the D3/e2e row, the D4 (chat/tools) rows, health, AND the
- * integration-level d6 AGGREGATE row (`d6:<slug>`). The control-plane mirrors a
+ * (conversation), the D3/e2e row, the D4 (chat/tools) rows, health, the
+ * integration-level d6 AGGREGATE row (`d6:<slug>`), AND the non-d6
+ * fleet-family sweep aggregates (`d4:<slug>`, `e2e-demos:<slug>`,
+ * `d5-single-pill-e2e:<slug>` — where the global lease sweep lands comm
+ * errors for the smoke/demos/deep families). The control-plane mirrors a
  * `PoolCommError` into the row signal under `FLEET_COMM_ERROR_SIGNAL_KEY` (see
  * `commErrorFromStatusSignal`).
  *
@@ -599,6 +602,28 @@ function decodeCellCommError(
   candidates.push({
     key: keyFor("health", slug),
     staleAfterMs: LIVENESS_STALE_AFTER_MS,
+  });
+  // NON-d6 FLEET-FAMILY AGGREGATES (G3f): the global lease sweep reclaims
+  // jobs of ALL four fleet families and mirrors each comm error onto the
+  // status row keyed by the reclaimed job's `probe_key` (harness
+  // resolveSweepAggregateKey → aggregateCommError — the same path that lands
+  // on `d6:<slug>` for the d6 family). For the non-d6 families those keys are
+  // `d4:<slug>` (smoke), `e2e-demos:<slug>` (demos), and
+  // `d5-single-pill-e2e:<slug>` (deep) — see the catalog-enumerator probeKey
+  // prefixes. The dashboard reads those rows NOWHERE else, so without
+  // scanning them here a reclaim/crash overlay on those families is
+  // invisible. They ride the job-queue (e2e) cadence → e2e window.
+  candidates.push({
+    key: keyFor("d4", slug),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("e2e-demos", slug),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("d5-single-pill-e2e", slug),
+    staleAfterMs: E2E_STALE_AFTER_MS,
   });
 
   // Decode every candidate and keep the WORST comm error, ranking by KIND
