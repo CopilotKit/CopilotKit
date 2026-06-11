@@ -203,6 +203,16 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
   // ANDs negatives. Two positive clauses for ONE field joined WITHOUT a
   // `||` between them are ANDed in the real grammar — a shape this OR-model
   // would evaluate wrong, so it must throw rather than pass vacuously.
+  //
+  // KNOWN LIMITATION (interleaved `||`, G1h): the guard only checks that the
+  // RAW TEXT between two same-field positives contains a `||` — it is blind
+  // to grouping/precedence. A filter like
+  // `probe_key = "a" || status = "x" && probe_key = "b"` interleaves a
+  // different field between the two probe_key positives; the separator
+  // contains `||`, so the guard passes, yet the OR-model flattens what the
+  // real grammar binds as `a || (x && b)`. No production builder emits such
+  // a shape (inclusion groups are homogeneous parenthesized ORs); a future
+  // test that does must extend the matcher, not trust it.
   const assertPositivesOrJoined = (field: string, re: RegExp): void => {
     const ms = [...filter.matchAll(re)];
     for (let i = 1; i < ms.length; i++) {
@@ -294,17 +304,56 @@ function makeFakePb(rows: JobRow[] = []): {
       // sweepExpired scans are exercised the way real PB would serve them. A
       // clause on any OTHER field THROWS (see rowMatchesFilter) instead of
       // silently matching everything.
-      const items = store.filter((r) => rowMatchesFilter(r, opts.filter));
+      let items = store.filter((r) => rowMatchesFilter(r, opts.filter));
+      // SORT honesty (G1h): this fake used to IGNORE `sort` entirely — any
+      // test depending on an order the production query requested passed
+      // vacuously on insertion order. Model the two production sort keys
+      // (rows here usually lack `created`, where the STABLE sort preserves
+      // insertion order — PB's tie behavior for identical values) and THROW
+      // on anything else, matching the fakes' unsupported philosophy.
+      const desc = opts.sort?.startsWith("-") ?? false;
+      const sortKey = desc ? opts.sort!.slice(1) : opts.sort;
+      if (sortKey === "created") {
+        items = [...items].sort((a, b) =>
+          String((a as { created?: string }).created ?? "").localeCompare(
+            String((b as { created?: string }).created ?? ""),
+          ),
+        );
+      } else if (sortKey === "lease_expires_at") {
+        items = [...items].sort((a, b) =>
+          String(a.lease_expires_at ?? "").localeCompare(
+            String(b.lease_expires_at ?? ""),
+          ),
+        );
+      } else if (sortKey) {
+        throw new Error(
+          `fake-pb: unmodeled sort key "${sortKey}" — only created/lease_expires_at are honored`,
+        );
+      }
+      if (desc) items.reverse();
+      const totalItems = items.length;
+      // PAGING honesty (G1h): perPage used to be ignored — a matched set
+      // LARGER than the requested page came back whole, hiding truncation
+      // behavior the production pagination depends on. Slice like PB.
+      if (opts.perPage !== undefined) {
+        const page = opts.page ?? 1;
+        items = items.slice((page - 1) * opts.perPage, page * opts.perPage);
+      }
       return {
-        page: 1,
+        page: opts.page ?? 1,
         perPage: opts.perPage ?? items.length,
-        totalPages: 1,
+        totalPages:
+          opts.skipTotal === true
+            ? -1
+            : opts.perPage !== undefined
+              ? Math.max(1, Math.ceil(totalItems / opts.perPage))
+              : 1,
         // Faithful to PB: a skipTotal list returns totalItems -1, NOT the
         // real count. A fake that returned real counts under skipTotal
         // would green-light code reading totals it never requested (the
         // fail-open class countPendingForFamily's skipTotal:false pin
         // exists to prevent).
-        totalItems: opts.skipTotal === true ? -1 : items.length,
+        totalItems: opts.skipTotal === true ? -1 : totalItems,
         items: items as unknown as T[],
       };
     },
@@ -447,6 +496,27 @@ describe("test-fake honesty (the fakes must throw, not vacuously match)", () => 
         'status = "pending" && probe_key !~ "d4:%" && probe_key != "d4"',
       ),
     ).toBe(true);
+  });
+
+  it("makeFakePb throws on an unmodeled sort key and honors perPage truncation (no vacuous ordering/paging)", async () => {
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+      { ...jobView({ id: "j2" }), payload: samplePayload() },
+      { ...jobView({ id: "j3" }), payload: samplePayload() },
+    ]);
+    // Unmodeled sort key → throw (the fake used to silently not sort).
+    await expect(
+      pb.list("probe_jobs", { filter: 'status = "pending"', sort: "version" }),
+    ).rejects.toThrow(/unmodeled sort key "version"/);
+    // perPage smaller than the matched set → truncated like PB (the fake
+    // used to return the whole matched set regardless).
+    const page = await pb.list("probe_jobs", {
+      filter: 'status = "pending"',
+      sort: "created",
+      perPage: 2,
+      skipTotal: true,
+    });
+    expect(page.items).toHaveLength(2);
   });
 
   it("the fakes return totalItems -1 under skipTotal (faithful to PB, no fail-open counts)", async () => {
@@ -937,7 +1007,15 @@ describe("FleetQueueClient.claimNext", () => {
       claimJob: vi.fn(
         async (jobId, workerId): Promise<ClaimResult> => ({
           won: true,
-          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+          // Carry the SAME probe_key on the CAS view as the listed row: the
+          // fixture must not pin which internal source (candidate row vs
+          // returned view) the synthesis reads the key from.
+          job: jobView({
+            id: jobId,
+            probe_key: "d6:",
+            status: "claimed",
+            claimed_by: workerId,
+          }),
         }),
       ),
     });
@@ -3019,13 +3097,14 @@ describe("FleetQueueClient.renewLease", () => {
     expect(lease).toBeNull();
   });
 
-  it("still renews when the convenience re-read returns null (CAS won)", async () => {
-    // The CAS renewed and returned the lifecycle columns; a momentary PB read
-    // blip makes the convenience getOne return null. The heartbeat must NOT
-    // throw on that blip (throwing permanently stops heartbeating → the sweeper
-    // later reclaims a LIVE job and synthesizes a FALSE worker-crashed comm
-    // error). The payload is re-hydrated from the claim-time cache, so the
-    // re-read is unnecessary and its failure is non-fatal.
+  it("renews from the claim-time payload CACHE — the convenience re-read is never consulted on a cache hit", async () => {
+    // CACHE-HIT path (explicitly pinned): the CAS renewed and returned the
+    // lifecycle columns, and the payload comes from the claim-time cache —
+    // pb.getOne must NOT be called at all. (The stubbed null getOne below
+    // would be a failed re-read IF it were consulted; the not-called pin
+    // keeps this test honest about WHICH path it covers. The cache-MISS +
+    // failed-re-read path is pinned separately by the "cache miss AND
+    // reread fail" test below.)
     const payload = samplePayload();
     // Seed the store so claimNext can populate the payload cache, then the
     // renew re-read still works against this same row.
@@ -3057,8 +3136,8 @@ describe("FleetQueueClient.renewLease", () => {
       ),
       // getOne is never required for a successful renew.
     });
-    // Make the convenience re-read fail outright (null) to prove non-fatality.
-    pb.getOne = vi.fn(async () => null) as PbClient["getOne"];
+    const getOneSpy = vi.fn(async () => null);
+    pb.getOne = getOneSpy as PbClient["getOne"];
     const q = createFleetQueueClient({ pb, claim, logger });
 
     // Claim first so the payload cache is populated for this jobId.
@@ -3070,6 +3149,8 @@ describe("FleetQueueClient.renewLease", () => {
     expect(lease?.job.status).toBe("running");
     expect(lease?.leaseExpiresAt).toBe("2026-06-04T00:02:00.000Z");
     expect(lease?.payload).toEqual(payload);
+    // The cache HIT means the convenience re-read was never consulted.
+    expect(getOneSpy).not.toHaveBeenCalled();
   });
 
   it("EVICTS the cached payload when the renew CAS is lost (no payloadCache leak)", async () => {
@@ -3593,10 +3674,13 @@ describe("FleetQueueClient.report", () => {
 
   it("persists the ServiceJobResult onto the row, unprocessed, after the release", async () => {
     const { pb, rows } = makeFakePb([seededRow()]);
-    // Assert ordering: the result is only written AFTER the CAS release wins.
-    let releasedFirst = false;
+    // ORDERING (non-vacuous): capture the row's result AT RELEASE TIME —
+    // inside the releaseJob fake — and assert it was still unwritten. A
+    // released-first boolean checked after the fact is vacuously true
+    // whenever the release ran at all, regardless of write order.
+    let resultAtRelease: unknown = "sentinel-not-read";
     const releaseJob = vi.fn(async (): Promise<ReleaseResult> => {
-      releasedFirst = true;
+      resultAtRelease = rows[0].result;
       return { released: true };
     });
     const claim = makeFakeClaim({ releaseJob });
@@ -3605,8 +3689,11 @@ describe("FleetQueueClient.report", () => {
     const result = sampleResult();
     await q.report({ jobId: "j1", workerId: "worker-7", result });
 
-    expect(releasedFirst).toBe(true);
-    // The control-plane consumer reads this back to aggregate exactly once.
+    // Nothing was written before (or during) the release CAS…
+    expect(releaseJob).toHaveBeenCalledTimes(1);
+    expect(resultAtRelease).toBeUndefined();
+    // …and the control-plane consumer reads this back to aggregate exactly
+    // once afterwards.
     expect(rows[0].result).toEqual(result);
     expect(rows[0].result_processed).toBe(false);
   });

@@ -1,10 +1,33 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   createJobClaimClient,
   JobClaimEndpointError,
   type JobView,
 } from "./job-claim.js";
-import { logger } from "../logger.js";
+import type { Logger } from "../types/index.js";
+
+/**
+ * Per-FILE SILENT logger (G1h) — deliberately NOT the shared `../logger.js`
+ * module object: the shared logger writes real output for every contained
+ * endpoint-error in these tests, and any spy a test (or a future test) puts
+ * on the SHARED object leaks into every other file under fork-reuse when an
+ * assertion failure skips its restore (the repo's known spy-leak class).
+ * Mirrors queue-client.test.ts: fresh vi.fn()s per test.
+ */
+const logger: Logger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  logger.debug = vi.fn();
+  logger.info = vi.fn();
+  logger.warn = vi.fn();
+  logger.error = vi.fn();
+});
 
 function makeFetch(
   handler: (
@@ -40,10 +63,19 @@ function authedFetch(
 }
 
 describe("job-claim client", () => {
-  it("authenticates as superuser before calling the claim endpoint", async () => {
+  it("authenticates as superuser BEFORE calling the claim endpoint (order pinned in one call log)", async () => {
+    // ORDER honesty (G1h): the auth and claim requests are recorded in the
+    // SAME array so the before/after relationship is asserted by INDEX —
+    // the old fixture filtered auth out of the log and only checked that
+    // the claim happened, which could not fail on a claim-before-auth bug.
     const calls: string[] = [];
-    const fetchImpl = authedFetch((url) => {
+    const fetchImpl = makeFetch((url) => {
       calls.push(url);
+      if (url.includes("auth-with-password")) {
+        return new Response(JSON.stringify({ token: "tok", record: {} }), {
+          status: 200,
+        });
+      }
       return new Response(JSON.stringify({ claimed: true, job: SAMPLE_JOB }), {
         status: 200,
       });
@@ -58,20 +90,26 @@ describe("job-claim client", () => {
     const r = await client.claimJob("j1", "worker-7", 30);
     expect(r.won).toBe(true);
     expect(r.job?.id).toBe("j1");
-    expect(calls[0]).toContain("/api/fleet/claim");
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toContain(
+      "/api/collections/_superusers/auth-with-password",
+    );
+    expect(calls[1]).toContain("/api/fleet/claim");
   });
 
-  it("falls back to /api/admins on a 404 from /_superusers", async () => {
-    const authPaths: string[] = [];
-    const fetchImpl = makeFetch((url) => {
+  it("falls back to /api/admins on a 404 from /_superusers (tried in that order) and carries the token to the endpoint", async () => {
+    const calls: string[] = [];
+    let claimAuthHeader: string | undefined;
+    const fetchImpl = makeFetch((url, init) => {
+      calls.push(url);
       if (url.includes("/_superusers/auth-with-password")) {
-        authPaths.push(url);
         return new Response("not found", { status: 404 });
       }
       if (url.includes("/api/admins/auth-with-password")) {
-        authPaths.push(url);
         return new Response(JSON.stringify({ token: "tok" }), { status: 200 });
       }
+      claimAuthHeader = (init?.headers as Record<string, string>)
+        .authorization;
       return new Response(JSON.stringify({ claimed: false }), { status: 200 });
     });
     const client = createJobClaimClient({
@@ -82,7 +120,16 @@ describe("job-claim client", () => {
       fetchImpl,
     });
     await client.claimJob("j1", "worker-7", 30);
-    expect(authPaths.some((p) => p.includes("/api/admins"))).toBe(true);
+    // _superusers FIRST (PB v0.23+ path), the v0.22 fallback second, then
+    // the claim — order pinned by index in the shared call log (G1h).
+    expect(calls).toHaveLength(3);
+    expect(calls[0]).toContain(
+      "/api/collections/_superusers/auth-with-password",
+    );
+    expect(calls[1]).toContain("/api/admins/auth-with-password");
+    expect(calls[2]).toContain("/api/fleet/claim");
+    // The fallback-acquired token is carried on the endpoint request.
+    expect(claimAuthHeader).toBe("tok");
   });
 
   it("reports won=false when the endpoint says the row was already taken", async () => {
