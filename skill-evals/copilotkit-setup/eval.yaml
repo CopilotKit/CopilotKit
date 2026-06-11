@@ -1,9 +1,14 @@
 # Skill eval for copilotkit-setup, run with skillgrade (https://github.com/mgechev/skillgrade).
 #
+# Lives under skill-evals/ (not inside the skill) because `npx copilotkit skills
+# install` copies the entire skills/<name>/ directory into user projects -- eval
+# config and fixtures must not ship to users. The `skill:` field below points
+# skillgrade back at the skill under test.
+#
 # Manual run (requires Docker and ANTHROPIC_API_KEY):
 #   pnpm eval:skill:setup
 # or directly:
-#   cd skills/copilotkit-setup && pnpm exec skillgrade --smoke
+#   cd skill-evals/copilotkit-setup && pnpm exec skillgrade --smoke
 #
 # Graders are kept in sync with SKILL.md: they check for the canonical v2 APIs
 # (CopilotKit from @copilotkit/react-core/v2, createCopilotHonoHandler /
@@ -11,6 +16,8 @@
 # (CopilotKitProvider, createCopilotEndpoint*).
 
 version: "1"
+
+skill: ../../skills/copilotkit-setup
 
 defaults:
   # To eval with Codex instead of Claude Code, change `agent` to codex here and
@@ -49,6 +56,8 @@ tasks:
         with a BuiltInAgent
       - A page component where the CopilotKit provider wraps a CopilotChat
       - The CopilotKit stylesheet imported
+      Write the code only. Do NOT start dev servers or leave any long-running
+      processes; the work is graded from the files on disk.
     graders:
       - type: deterministic
         weight: 0.7
@@ -175,6 +184,8 @@ tasks:
       - The CopilotKit provider in the React app pointing at the backend URL
       - A CopilotSidebar component for the chat UI
       - The CopilotKit stylesheet imported
+      Write the code only. Do NOT start dev servers or leave any long-running
+      processes; the work is graded from the files on disk.
     workspace:
       - src: workspace/vite-react
         dest: /workspace

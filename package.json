@@ -21,7 +21,7 @@
     "storybook:vue": "nx run @copilotkit-storybook/vue:dev",
     "storybook": "pnpm storybook:react",
     "docs": "pnpm -C examples/v2/docs dev",
-    "eval:skill:setup": "cd skills/copilotkit-setup && skillgrade --smoke",
+    "eval:skill:setup": "cd skill-evals/copilotkit-setup && skillgrade --smoke",
     "demo:angular": "nx run-many -t dev --projects=examples/v2/angular/demo,examples/v2/angular/demo-server",
     "demo:react": "pnpm -C examples/v2/react/demo dev",
     "demo:vue": "nx run @copilotkit/vue-demo:dev",
