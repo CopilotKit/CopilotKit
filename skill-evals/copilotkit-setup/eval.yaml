@@ -1,0 +1,307 @@
+# Skill eval for copilotkit-setup, run with skillgrade (https://github.com/mgechev/skillgrade).
+#
+# Lives under skill-evals/ (not inside the skill) because `npx copilotkit skills
+# install` copies the entire skills/<name>/ directory into user projects -- eval
+# config and fixtures must not ship to users. The `skill:` field below points
+# skillgrade back at the skill under test.
+#
+# Manual run (requires Docker and ANTHROPIC_API_KEY):
+#   pnpm eval:skill:setup
+# or directly:
+#   cd skill-evals/copilotkit-setup && pnpm exec skillgrade --smoke
+#
+# Local run with ONLY an OpenAI key (no ANTHROPIC_API_KEY): the image installs
+# the codex CLI too, so the --agent flag works without editing this file. The
+# --grader filter skips the anthropic rubric (reward renormalizes over the
+# graders that run, so deterministic-only still scores 0..1):
+#   echo "OPENAI_API_KEY=sk-..." > .env   # gitignored via *.env
+#   pnpm exec skillgrade --trials=1 --agent=codex --grader=deterministic
+#
+# Graders are kept in sync with SKILL.md: they check for the canonical v2 APIs
+# (CopilotKit from @copilotkit/react-core/v2, createCopilotHonoHandler /
+# createCopilotExpressHandler) and fail on the deprecated aliases
+# (CopilotKitProvider, createCopilotEndpoint*).
+
+version: "1"
+
+skill: ../../skills/copilotkit-setup
+
+defaults:
+  # To eval with Codex instead of Claude Code, change `agent` to codex here and
+  # point grader_provider/grader_model at a provider with an available key (e.g.
+  # openai / gpt-4.1-mini). The skillgrade --agent CLI flag is NOT sufficient:
+  # skillgrade 0.1.5 generates the Dockerfile that installs the agent CLI from
+  # this field and ignores the CLI override there.
+  agent: claude
+  provider: docker
+  trials: 3
+  timeout: 600
+  threshold: 0.8
+  grader_provider: anthropic
+  grader_model: claude-haiku-4-5-20251001
+  docker:
+    # ca-certificates is required: codex is a Rust binary that uses the system CA
+    # store (absent from node:20-slim), and without it every API request fails with
+    # "stream disconnected". The codex CLI is installed here (not just when
+    # `agent: codex`) because skillgrade 0.1.5 only bakes the YAML-default agent
+    # into the image, which breaks the --agent CLI override; with both CLIs
+    # present, --agent=codex works without editing this file. The codex wrapper
+    # fixes two things skillgrade's CodexAgent gets wrong in containers: codex
+    # 0.1xx+ ignores the OPENAI_API_KEY env var until `codex login --with-api-key`
+    # has run, and its --full-auto Landlock sandbox cannot initialize inside
+    # Docker (the container already provides isolation), so the wrapper swaps in
+    # the sandbox bypass flag.
+    # The claude wrapper sets IS_SANDBOX=1: skillgrade containers run as root and
+    # Claude Code refuses --dangerously-skip-permissions as root unless it knows
+    # it is inside a sandbox. Auth comes from the forwarded env: ANTHROPIC_API_KEY
+    # (Console billing) or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`
+    # (subscription billing) -- put either in a .env next to this file.
+    base: node:20-slim
+    setup: |
+      apt-get update && apt-get install -y git jq ca-certificates && if [ ! -f /usr/local/bin/codex ]; then npm install -g @openai/codex; fi && mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex && if [ -f /usr/local/bin/claude ]; then mv /usr/local/bin/claude /usr/local/bin/claude-real && printf '#!/bin/bash\nexport IS_SANDBOX=1\nexec /usr/local/bin/claude-real "$@"\n' > /usr/local/bin/claude && chmod +x /usr/local/bin/claude; fi
+
+tasks:
+  - name: nextjs-app-router-setup
+    timeout: 900
+    instruction: |
+      Create a new Next.js App Router project and add CopilotKit with a basic
+      chat interface backed by a BuiltInAgent. The finished project should have:
+      - The CopilotKit packages installed (@copilotkit/react-core, @copilotkit/runtime)
+      - A runtime API route under app/api/copilotkit/ exposing a CopilotRuntime
+        with a BuiltInAgent
+      - A page component where the CopilotKit provider wraps a CopilotChat
+      - The CopilotKit stylesheet imported
+      Write the code only. Do NOT start dev servers or leave any long-running
+      processes; the work is graded from the files on disk.
+    graders:
+      - type: deterministic
+        weight: 0.7
+        run: |
+          cd /workspace
+          # The agent may scaffold the app in a subdirectory (create-next-app) or in
+          # the workspace root.
+          if [ -f package.json ]; then
+            PROJECT_DIR="."
+          else
+            PROJECT_DIR=$(find . -maxdepth 1 -type d ! -name '.' ! -name '.*' | head -1)
+          fi
+          if [ -z "$PROJECT_DIR" ]; then
+            echo '{"score": 0.0, "details": "No project found in workspace"}'
+            exit 0
+          fi
+          cd "$PROJECT_DIR"
+
+          CHECKS='[]'
+          add_check() {
+            CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
+          }
+
+          # Exclude .agents/.claude: skillgrade bakes the skill itself (including its
+          # code examples) into /workspace/.agents/skills and /workspace/.claude/skills,
+          # which would otherwise satisfy the source greps without the agent doing anything.
+          grep_src() {
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1
+          }
+
+          # Packages (per SKILL.md step 1: @copilotkit/react-core + @copilotkit/runtime)
+          if jq -e '.dependencies["@copilotkit/react-core"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/react-core installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/react-core installed" false "Not found in package.json dependencies"
+          fi
+
+          if jq -e '.dependencies["@copilotkit/runtime"]' package.json > /dev/null 2>&1; then
+            add_check "@copilotkit/runtime installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/runtime installed" false "Not found in package.json dependencies"
+          fi
+
+          # Runtime route exists (multi-route [[...slug]] or single-route)
+          ROUTE_FILE=$(find . -path '*api/copilotkit*' \( -name 'route.ts' -o -name 'route.js' \) -not -path '*/node_modules/*' -not -path '*/.agents/*' -not -path '*/.claude/*' 2>/dev/null | head -1)
+          if [ -n "$ROUTE_FILE" ]; then
+            add_check "Runtime route file exists" true "Found at $ROUTE_FILE"
+          else
+            add_check "Runtime route file exists" false "No app/api/copilotkit route found"
+          fi
+
+          # Canonical endpoint factory, not the deprecated createCopilotEndpoint aliases
+          if grep_src 'createCopilotHonoHandler'; then
+            add_check "createCopilotHonoHandler used" true "Canonical handler factory found"
+          else
+            add_check "createCopilotHonoHandler used" false "createCopilotHonoHandler not found (deprecated createCopilotEndpoint* does not count)"
+          fi
+
+          if grep_src 'BuiltInAgent'; then
+            add_check "BuiltInAgent configured" true "Found in source"
+          else
+            add_check "BuiltInAgent configured" false "BuiltInAgent not found in any source file"
+          fi
+
+          # Canonical provider import path
+          if grep_src '@copilotkit/react-core/v2'; then
+            add_check "v2 import path used" true "Imports from @copilotkit/react-core/v2"
+          else
+            add_check "v2 import path used" false "No import from @copilotkit/react-core/v2 found"
+          fi
+
+          # Provider component is CopilotKit, not the legacy CopilotKitProvider
+          if grep_src '<CopilotKit([^A-Za-z]|$)'; then
+            add_check "CopilotKit provider used" true "Found <CopilotKit> in source"
+          else
+            add_check "CopilotKit provider used" false "<CopilotKit> provider not found (legacy <CopilotKitProvider> does not count)"
+          fi
+
+          if grep_src 'CopilotChat|CopilotSidebar|CopilotPopup'; then
+            add_check "Chat component used" true "Found chat component in source"
+          else
+            add_check "Chat component used" false "No CopilotChat/CopilotSidebar/CopilotPopup found"
+          fi
+
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1; then
+            add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
+          else
+            add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
+          fi
+
+          PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
+          TOTAL=$(echo "$CHECKS" | jq 'length')
+          SCORE=$(awk "BEGIN {printf \"%.2f\", $PASSED/$TOTAL}")
+
+          echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
+      - type: llm_rubric
+        weight: 0.3
+        rubric: |
+          Ignore anything under .agents/, .claude/, tests/, and prompts/ — those are
+          eval-harness files and the mounted skill, not the agent's work. Grade only
+          the application project itself.
+
+          Evaluate whether this project has a complete, working CopilotKit setup:
+          1. Does it use the `CopilotKit` provider imported from
+             `@copilotkit/react-core/v2` (NOT the legacy `CopilotKitProvider` or the
+             v1 root import) wrapping a CopilotChat (or CopilotSidebar/CopilotPopup)?
+          2. Does the runtime route use `createCopilotHonoHandler` (multi-route, or
+             `mode: "single-route"`) with a `CopilotRuntime` and a `BuiltInAgent`?
+             The deprecated `createCopilotEndpoint` / `createCopilotEndpointSingleRoute`
+             aliases should be penalized.
+          3. Is the `@copilotkit/react-core/v2/styles.css` stylesheet imported?
+          4. Does the provider's `runtimeUrl` point at the route's basePath, and is
+             `useSingleEndpoint` set if (and only if) the route is single-route?
+          5. Is the project structured correctly for Next.js App Router (app/
+             directory, "use client" directives where needed)?
+
+  - name: vite-react-setup
+    instruction: |
+      Add CopilotKit to this existing Vite+React project with a chat sidebar and a
+      BuiltInAgent backend. The setup should include:
+      - The CopilotKit frontend package (@copilotkit/react-core) in the Vite app
+      - A backend server (Express or Hono) running a CopilotRuntime with a
+        BuiltInAgent, using @copilotkit/runtime
+      - The CopilotKit provider in the React app pointing at the backend URL
+      - A CopilotSidebar component for the chat UI
+      - The CopilotKit stylesheet imported
+      Write the code only. Do NOT start dev servers or leave any long-running
+      processes; the work is graded from the files on disk.
+    workspace:
+      - src: workspace/vite-react
+        dest: /workspace
+    graders:
+      - type: deterministic
+        weight: 0.7
+        run: |
+          cd /workspace
+
+          CHECKS='[]'
+          add_check() {
+            CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
+          }
+
+          # Exclude .agents/.claude: skillgrade bakes the skill itself (including its
+          # code examples) into /workspace/.agents/skills and /workspace/.claude/skills,
+          # which would otherwise satisfy the source greps without the agent doing anything.
+          grep_src() {
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1
+          }
+
+          dep_in_any_pkg() {
+            for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' -not -path '*/.agents/*' -not -path '*/.claude/*' 2>/dev/null); do
+              if jq -e ".dependencies[\"$1\"]" "$PKG_FILE" > /dev/null 2>&1; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          if dep_in_any_pkg "@copilotkit/react-core"; then
+            add_check "@copilotkit/react-core installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/react-core installed" false "Not found in any package.json"
+          fi
+
+          # Runtime may live in a separate server directory
+          if dep_in_any_pkg "@copilotkit/runtime"; then
+            add_check "@copilotkit/runtime installed" true "Found in dependencies"
+          else
+            add_check "@copilotkit/runtime installed" false "Not found in any package.json"
+          fi
+
+          # Canonical endpoint factory for Express or Hono backends
+          if grep_src 'createCopilotExpressHandler|createCopilotHonoHandler'; then
+            add_check "Canonical handler factory used" true "Found createCopilot*Handler"
+          else
+            add_check "Canonical handler factory used" false "No createCopilotExpressHandler/createCopilotHonoHandler found (deprecated createCopilotEndpoint* does not count)"
+          fi
+
+          if grep_src 'BuiltInAgent'; then
+            add_check "BuiltInAgent configured" true "Found in backend source"
+          else
+            add_check "BuiltInAgent configured" false "BuiltInAgent not found in any source file"
+          fi
+
+          if grep_src '@copilotkit/react-core/v2'; then
+            add_check "v2 import path used" true "Imports from @copilotkit/react-core/v2"
+          else
+            add_check "v2 import path used" false "No import from @copilotkit/react-core/v2 found"
+          fi
+
+          if grep_src '<CopilotKit([^A-Za-z]|$)'; then
+            add_check "CopilotKit provider used" true "Found <CopilotKit> in source"
+          else
+            add_check "CopilotKit provider used" false "<CopilotKit> provider not found (legacy <CopilotKitProvider> does not count)"
+          fi
+
+          if grep_src 'CopilotSidebar|CopilotChat|CopilotPopup'; then
+            add_check "Chat UI component used" true "Found sidebar/chat/popup component"
+          else
+            add_check "Chat UI component used" false "No chat UI component found"
+          fi
+
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1; then
+            add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
+          else
+            add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
+          fi
+
+          PASSED=$(echo "$CHECKS" | jq '[.[] | select(.passed == true)] | length')
+          TOTAL=$(echo "$CHECKS" | jq 'length')
+          SCORE=$(awk "BEGIN {printf \"%.2f\", $PASSED/$TOTAL}")
+
+          echo "{\"score\": $SCORE, \"details\": \"$PASSED/$TOTAL checks passed\", \"checks\": $CHECKS}"
+      - type: llm_rubric
+        weight: 0.3
+        rubric: |
+          Ignore anything under .agents/, .claude/, tests/, and prompts/ — those are
+          eval-harness files and the mounted skill, not the agent's work. Grade only
+          the application project itself.
+
+          Evaluate whether CopilotKit is properly integrated into this Vite+React project:
+          1. Is the `CopilotKit` provider (imported from `@copilotkit/react-core/v2`,
+             NOT the legacy `CopilotKitProvider`) set up with a `runtimeUrl` pointing
+             at the backend server?
+          2. Is there a CopilotSidebar (or equivalent chat component) rendered in the app?
+          3. Does the backend create a `CopilotRuntime` with a `BuiltInAgent` and mount
+             it via `createCopilotExpressHandler` (Express) or `createCopilotHonoHandler`
+             (Hono)? The deprecated `createCopilotEndpoint*` aliases should be penalized.
+          4. Is the `@copilotkit/react-core/v2/styles.css` stylesheet imported?
+          5. Since the backend is a separate server: does the frontend `runtimeUrl` use
+             the correct port, is `useSingleEndpoint` set if the backend is single-route,
+             and is CORS handled?
