@@ -68,10 +68,20 @@ afterEach(() => {
 function samplePayload(
   overrides: Partial<ServiceJobPayload> = {},
 ): ServiceJobPayload {
+  const probeKey = overrides.probeKey ?? "d6:langgraph-python";
+  // Keep driverKind CONSISTENT with the probeKey's family: the many fixtures
+  // here that override probeKey to another family (d4:, e2e-demos:, fNN:)
+  // used to inherit the d6 default driverKind ("e2e_d6"), so a future
+  // cross-validation of payload coherence (probeKey family ↔ driverKind)
+  // would mass-fail these tests. Derivation mirrors the real pairs: `d6` ↔
+  // `e2e_d6`, `e2e-demos` ↔ `e2e_demos` — underscore the family and prefix
+  // `e2e_` unless it already leads with it. Explicit overrides still win.
+  const family = probeKeyFamily(probeKey).replace(/[^a-zA-Z0-9]+/g, "_");
+  const driverKind = family.startsWith("e2e") ? family : `e2e_${family}`;
   return {
-    probeKey: "d6:langgraph-python",
+    probeKey,
     serviceSlug: "langgraph-python",
-    driverKind: "e2e_d6",
+    driverKind,
     meta: {
       runId: "run-1",
       triggered: false,

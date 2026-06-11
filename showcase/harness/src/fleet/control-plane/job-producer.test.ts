@@ -4,7 +4,11 @@ import {
   DEFAULT_SWEEP_INTERVAL_MS,
   MAX_BUFFERED_SWEEP_COMM_ERRORS,
 } from "./job-producer.js";
-import type { JobProducer, ServiceJobSpec } from "./job-producer.js";
+import type {
+  JobProducer,
+  ServiceJobSpec,
+  TickResult,
+} from "./job-producer.js";
 import type {
   EnqueueJobInput,
   FleetQueueClient,
@@ -46,6 +50,11 @@ function makeFakeQueue(opts?: {
   /** Pending-count per family for the backlog dedupe gate; default 0 (clear). */
   countPendingImpl?: (family: string) => Promise<number>;
 }): FleetQueueClient & {
+  /**
+   * Every enqueue ATTEMPT, recorded BEFORE a throwing `enqueueImpl` gets to
+   * reject — so for failure-injection tests this is attempts, not successful
+   * enqueues (`queue.enqueued.length` can exceed `result.enqueued`).
+   */
   enqueued: EnqueueJobInput[];
   sweepCalls: number[];
   countCalls: string[];
@@ -859,13 +868,17 @@ describe("job-producer — sweep cadence", () => {
         jobId: `${prefix}${i}`,
         observedAt: "2026-06-04T00:00:09.000Z",
       }));
+    // Derived from the cap so a retuned MAX_BUFFERED_SWEEP_COMM_ERRORS can't
+    // silently turn this into a no-overflow (vacuously green) test.
+    const OVERFLOW = 100;
+    const seeded = MAX_BUFFERED_SWEEP_COMM_ERRORS + OVERFLOW;
     let sweepN = 0;
     const queue = makeFakeQueue({
       sweepImpl: async () => {
         sweepN += 1;
         // Tick 1 reclaims more than the cap; tick 2 reclaims one more.
         return sweepN === 1
-          ? { reclaimed: 600, commErrors: errs(600, "old") }
+          ? { reclaimed: seeded, commErrors: errs(seeded, "old") }
           : { reclaimed: 1, commErrors: errs(1, "fresh") };
       },
     });
@@ -883,12 +896,13 @@ describe("job-producer — sweep cadence", () => {
       },
     });
     producer.start();
-    await producer.tick(); // 600 buffered → trimmed to newest 500
-    await producer.tick(); // delivers 500 buffered + 1 fresh
+    await producer.tick(); // `seeded` buffered → trimmed to the newest cap-ful
+    await producer.tick(); // delivers the capped buffer + 1 fresh
     expect(received).toHaveLength(1);
     expect(received[0]).toHaveLength(MAX_BUFFERED_SWEEP_COMM_ERRORS + 1);
-    // Oldest 100 dropped: the buffer starts at old100, ends with the fresh one.
-    expect(received[0]![0]!.jobId).toBe("old100");
+    // The OVERFLOW oldest entries were dropped: the buffer starts at the
+    // first surviving entry, ends with the fresh one.
+    expect(received[0]![0]!.jobId).toBe(`old${OVERFLOW}`);
     expect(received[0]![received[0]!.length - 1]!.jobId).toBe("fresh0");
   });
 
@@ -1151,6 +1165,11 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
   });
 
   it("aborts a hanging warm GET once the timeout elapses (AbortController path)", async () => {
+    // COUPLING PIN: this test (and the implementation) depend on the warm
+    // timeout being an AbortController + setTimeout pair. Do NOT "simplify"
+    // the implementation to AbortSignal.timeout() — its timer lives outside
+    // vitest's fake-timer patching, so advanceTimersByTime below would never
+    // fire the abort and this test would hang/fail for the wrong reason.
     vi.useFakeTimers();
     let abortedCount = 0;
     // A fetch that never settles until its signal aborts — models a hung cold
@@ -1363,7 +1382,27 @@ describe("job-producer — tick re-entrancy guard", () => {
     });
     producer.start();
     const firstP = producer.tick(); // blocked inside enumerate
-    const second = await producer.tick(); // the overlapping cron tick
+    // The overlapping cron tick. Raced against a short timer so a broken
+    // guard fails DIAGNOSTICALLY: an un-skipped second tick would await the
+    // same enumerate gate and deadlock the test into its global timeout.
+    let raceTimer!: ReturnType<typeof setTimeout>;
+    const notSkipped = new Promise<never>((_resolve, reject) => {
+      raceTimer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              "overlapping scheduled tick was not skipped — it ran (and hung on the enumerate gate) instead of returning the skip sentinel",
+            ),
+          ),
+        1_000,
+      );
+    });
+    let second: TickResult;
+    try {
+      second = await Promise.race([producer.tick(), notSkipped]);
+    } finally {
+      clearTimeout(raceTimer); // the loser must not fire as an unhandled rejection
+    }
     // The overlapping tick is SKIPPED — no second batch, no phantom runId.
     expect(second.enqueued).toBe(0);
     expect(second.runId).toBe("");
