@@ -129,6 +129,20 @@ describe("comm-error ↔ status-row signal round-trip", () => {
     ).toBeUndefined();
   });
 
+  it("rejects an ARRAY at the TOP LEVEL (the signal blob itself an array)", () => {
+    // Same rationale one level up: a top-level array is typeof "object" and
+    // non-null, so it passes the bare first guard — and an array carrying the
+    // signal key as an EXPANDO property would then decode a comm error out of
+    // a blob that is never a valid wire shape. Array.isArray must reject the
+    // signal blob itself, not only the nested value.
+    expect(commErrorFromStatusSignal([])).toBeUndefined();
+    expect(
+      commErrorFromStatusSignal(
+        Object.assign([], { [FLEET_COMM_ERROR_SIGNAL_KEY]: SAMPLE_COMM_ERROR }),
+      ),
+    ).toBeUndefined();
+  });
+
   it("rejects a malformed embedded comm error (bad kind / missing fields)", () => {
     expect(
       commErrorFromStatusSignal({
