@@ -235,8 +235,9 @@ describe("runWorker loop-crash surfacing", () => {
     // stop() teardown contract below is observable: a rejecting loop.stop()
     // must still shut the pool down (PID-ceiling compounding otherwise).
     const shutdownSpy = vi.spyOn(BrowserPool.prototype, "shutdown");
+    let worker: Awaited<ReturnType<typeof runWorker>> | undefined;
     try {
-      const worker = await runWorker(config, {
+      worker = await runWorker(config, {
         queue,
         workerId: "worker-crash",
         logger,
@@ -313,6 +314,13 @@ describe("runWorker loop-crash surfacing", () => {
         expect(bodyLoopIfServed).not.toBe("ok");
       }
     } finally {
+      // Mirror the sibling default-boot test's try/finally teardown: if any
+      // assertion above failed BEFORE the explicit stop, the worker's bound
+      // /health server (and the pool) would leak across tests. stop()
+      // rejects with the loop-crash error BY DESIGN — the rejects.toThrow
+      // above is the assertion that cares; this safety-net swallow only
+      // guarantees both teardown arms (server close + pool shutdown) ran.
+      await worker?.stop().catch(() => {});
       shutdownSpy.mockRestore();
     }
   });
