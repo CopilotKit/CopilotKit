@@ -19,6 +19,13 @@ export const OpenGenerativeUIContentSchema = z.object({
   html: z.array(z.string()).optional(),
   htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
+  // `jsFunctionsComplete` / `jsExpressionsComplete` are streamed by the Open
+  // Generative UI middleware (open-generative-ui-middleware.ts emits them when
+  // the jsFunctions string / jsExpressions array finish parsing). They are not
+  // needed for execution — jsFunctions/jsExpressions run incrementally as they
+  // arrive — but they ARE the per-segment terminal markers the completion
+  // fallback reads (see isGenerationComplete) to recognize a fully-streamed
+  // payload whose `generating: false` delta never arrived.
   jsFunctionsComplete: z.boolean().optional(),
   jsExpressions: z.array(z.string()).optional(),
   jsExpressionsComplete: z.boolean().optional(),
@@ -55,6 +62,48 @@ function shouldFlushImmediately(
     return true;
   if (next.html?.length && (!previous || !previous.html?.length)) return true;
   return false;
+}
+
+/**
+ * Whether generation has finished. The Open Generative UI middleware emits the
+ * `generating: false` delta ONLY from its TOOL_CALL_END handler
+ * (open-generative-ui-middleware.ts). On a terminal path where the upstream
+ * agent never emits TOOL_CALL_END for the genui tool call — an abort/stop, an
+ * abrupt stream end, or a transport error after the args fully streamed — the
+ * runner's `finalizeRunEvents` synthesizes a TOOL_CALL_END at the runner level,
+ * AFTER the middleware already processed the stream, so it never flows back
+ * through the middleware and `generating: false` is never emitted. The
+ * fully-streamed payload then arrives with `generating` absent.
+ *
+ * Without a fallback, a renderer keying purely on `generating === false` leaves
+ * such a finished, interactive artifact permanently covered by the
+ * pointer-blocking overlay. The fallback treats a payload as terminal when
+ * every streamed segment that is PRESENT carries its `*Complete` flag
+ * (`htmlComplete`, plus `cssComplete`/`jsFunctionsComplete`/
+ * `jsExpressionsComplete` for whichever of css/jsFunctions/jsExpressions are
+ * present). Those flags are emitted by the producer as each segment finishes
+ * parsing, so this fires only once the WHOLE payload is terminal — never
+ * mid-stream (e.g. html done but jsExpressions still arriving leaves
+ * `jsExpressionsComplete` absent, so this stays false and the overlay stays up,
+ * matching the pre-fallback behavior on every normal path). `htmlComplete` is
+ * required because an interactive artifact only exists once html is complete.
+ * Mirrors the react-core renderer's identical helper.
+ */
+export function isGenerationComplete(
+  content: OpenGenerativeUIContent,
+): boolean {
+  if (content.generating === false) return true;
+  if (!content.htmlComplete) return false;
+  if (content.css !== undefined && !content.cssComplete) return false;
+  if (content.jsFunctions !== undefined && !content.jsFunctionsComplete)
+    return false;
+  if (
+    content.jsExpressions !== undefined &&
+    content.jsExpressions.length > 0 &&
+    !content.jsExpressionsComplete
+  )
+    return false;
+  return true;
 }
 
 // Match only a real head-opening tag: `<head>`, or `<head` followed by
@@ -489,6 +538,16 @@ export const OpenGenerativeUIRenderer = defineComponent({
             const functionsCode = throttledContent.value.jsFunctions;
             if (functionsCode && !jsFunctionsInjected.value) {
               jsFunctionsInjected.value = true;
+              // unshift (NOT push): during the rebuild window the jsExpressions
+              // watcher can already have pushed an expression onto pendingQueue
+              // before this ready callback runs. jsFunctions must be DEFINED
+              // before any expression executes (expressions call them), so they
+              // go to the FRONT, ahead of that queued expression. A push would
+              // append them after it and the expression would run against
+              // undefined functions. Matches react-core's effective order
+              // (Effect 1 clears the queue then requeues functions first, then
+              // expressions). Pinned by the "runs jsFunctions before a
+              // jsExpression queued during the rebuild window" test.
               pendingQueue.value.unshift(functionsCode);
             }
             const expressions = throttledContent.value.jsExpressions;
@@ -552,7 +611,7 @@ export const OpenGenerativeUIRenderer = defineComponent({
     );
 
     const isGenerating = computed(
-      () => throttledContent.value.generating !== false,
+      () => !isGenerationComplete(throttledContent.value),
     );
     watch(
       [hasPreview, fullHtml],

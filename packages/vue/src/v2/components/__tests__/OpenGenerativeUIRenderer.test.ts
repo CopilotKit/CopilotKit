@@ -295,6 +295,67 @@ describe("OpenGenerativeUIRenderer", () => {
     expect(mockRun).toHaveBeenCalledWith("foo()");
   });
 
+  // Ordering invariant on a final-sandbox rebuild: jsFunctions must be DEFINED
+  // before any jsExpression runs (expressions call the functions). During the
+  // rebuild window the jsExpressions watcher can push an expression into the
+  // pending queue BEFORE the sandbox's ready callback runs. The ready callback
+  // therefore `unshift`es jsFunctions to the FRONT of the queue so they execute
+  // ahead of that already-queued expression. A plain `push` would append the
+  // functions AFTER the queued expression and the expression would run against
+  // undefined functions. This pins functions-before-expressions through that
+  // exact race (and discriminates unshift from push — flip it and this fails).
+  it("runs jsFunctions before a jsExpression queued during the rebuild window", async () => {
+    // 1. Mount with html + jsFunctions, NO jsExpressions. The final-sandbox
+    //    watch fires, creates the sandbox and registers its ready callback, but
+    //    the promise stays UNRESOLVED (we don't resolve it yet). The
+    //    jsFunctions/jsExpressions watchers do not fire on mount (no immediate),
+    //    so the queue is empty and jsFunctions are NOT yet injected.
+    const mounted = renderRenderer({
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
+      jsFunctions: "function defineThings() {}",
+      generating: true,
+    });
+    await flushImport();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    // Nothing has run yet — the sandbox is not ready.
+    expect(mockRun).not.toHaveBeenCalled();
+
+    // 2. While the sandbox promise is still unresolved, a jsExpression streams
+    //    in. The jsExpressions watcher fires, sees the sandbox not ready, and
+    //    pushes the expression onto the pending queue — so the queue holds the
+    //    EXPRESSION before the functions are ever queued.
+    mounted.rerender({
+      activityType: "open-generative-ui",
+      content: {
+        html: ["<head></head><body></body>"],
+        htmlComplete: true,
+        jsFunctions: "function defineThings() {}",
+        jsExpressions: ["defineThings()"],
+        generating: true,
+      },
+      message: {},
+      agent: {},
+    });
+    await flushImport();
+    // Still nothing executed — promise not resolved; both are queued.
+    expect(mockRun).not.toHaveBeenCalled();
+
+    // 3. Resolve the sandbox. The ready callback unshifts jsFunctions ahead of
+    //    the already-queued expression, then flushes the queue in order.
+    mockPromiseResolve();
+    await mockPromise;
+    await flushImport();
+
+    const jsCalls = mockRun.mock.calls
+      .map((c) => c[0])
+      .filter(
+        (c) => c === "function defineThings() {}" || c === "defineThings()",
+      );
+    // Functions MUST come before the expression.
+    expect(jsCalls).toEqual(["function defineThings() {}", "defineThings()"]);
+  });
+
   it("passes localApi built from sandbox functions to websandbox", async () => {
     const handler = vi.fn().mockResolvedValue(42);
     const sandboxFunctions: SandboxFunction[] = [
@@ -562,6 +623,57 @@ describe("OpenGenerativeUIRenderer", () => {
       const [, options] = mockCreate.mock.calls[0];
       expect(options.frameContent).toContain("Done");
       expect(options.frameContent).not.toBe("<head></head><body></body>");
+    });
+  });
+
+  // The Open Generative UI middleware emits `generating: false` ONLY from its
+  // TOOL_CALL_END handler. On a terminal path where the upstream agent never
+  // emits TOOL_CALL_END for the genui tool call — an abort/stop, an abrupt
+  // stream end, or a transport error after the args fully streamed — the
+  // runner's finalizeRunEvents synthesizes a TOOL_CALL_END at the runner level,
+  // AFTER the middleware already processed the stream, so it never flows back
+  // through the middleware and `generating: false` is never emitted. The
+  // fully-streamed payload then arrives with `generating` absent. Without a
+  // fallback the renderer would keep the pointer-blocking overlay over a
+  // finished, interactive artifact forever. The completion fallback treats an
+  // all-segments-complete payload as terminal.
+  describe("terminal payload with absent generating flag (TOOL_CALL_END never reached the middleware)", () => {
+    it("does not cover a fully-streamed artifact with the progress overlay", async () => {
+      const { queryByTestId } = renderRenderer({
+        initialHeight: 200,
+        html: ["<head></head><body><div>Tall content</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        jsFunctions: "function init(){}",
+        jsFunctionsComplete: true,
+        jsExpressions: ["init()"],
+        jsExpressionsComplete: true,
+        // generating intentionally ABSENT — no `generating: false` delta arrived.
+      });
+      await flushImport();
+
+      expect(queryByTestId("open-generative-ui-progress-overlay")).toBeNull();
+    });
+
+    it("still covers an in-flight artifact whose js segments are not yet complete (no premature completion)", async () => {
+      // html finished but jsExpressions are still streaming
+      // (jsExpressionsComplete absent) — the NORMAL mid-stream shape, NOT a
+      // terminal payload. The overlay must stay up.
+      const { queryByTestId } = renderRenderer({
+        initialHeight: 200,
+        html: ["<head></head><body><div>partial</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        jsExpressions: ["init()"],
+        // jsExpressionsComplete ABSENT — still streaming. generating ABSENT too.
+      });
+      await flushImport();
+
+      expect(
+        queryByTestId("open-generative-ui-progress-overlay"),
+      ).not.toBeNull();
     });
   });
 
