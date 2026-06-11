@@ -13,6 +13,11 @@
 version: "1"
 
 defaults:
+  # To eval with Codex instead of Claude Code, change `agent` to codex here and
+  # point grader_provider/grader_model at a provider with an available key (e.g.
+  # openai / gpt-4.1-mini). The skillgrade --agent CLI flag is NOT sufficient:
+  # skillgrade 0.1.5 generates the Dockerfile that installs the agent CLI from
+  # this field and ignores the CLI override there.
   agent: claude
   provider: docker
   trials: 3
@@ -21,9 +26,17 @@ defaults:
   grader_provider: anthropic
   grader_model: claude-haiku-4-5-20251001
   docker:
+    # ca-certificates is required: codex is a Rust binary that uses the system CA
+    # store (absent from node:20-slim), and without it every API request fails with
+    # "stream disconnected". The codex wrapper fixes two things skillgrade's
+    # CodexAgent gets wrong in containers: codex 0.1xx+ ignores the OPENAI_API_KEY
+    # env var until `codex login --with-api-key` has run, and its --full-auto
+    # Landlock sandbox cannot initialize inside Docker (the container already
+    # provides isolation), so the wrapper swaps in the sandbox bypass flag.
+    # All of this is a no-op for claude runs.
     base: node:20-slim
     setup: |
-      apt-get update && apt-get install -y git jq
+      apt-get update && apt-get install -y git jq ca-certificates && if [ -f /usr/local/bin/codex ]; then mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex; fi
 
 tasks:
   - name: nextjs-app-router-setup
@@ -59,8 +72,11 @@ tasks:
             CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
           }
 
+          # Exclude .agents/.claude: skillgrade bakes the skill itself (including its
+          # code examples) into /workspace/.agents/skills and /workspace/.claude/skills,
+          # which would otherwise satisfy the source greps without the agent doing anything.
           grep_src() {
-            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules . > /dev/null 2>&1
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1
           }
 
           # Packages (per SKILL.md step 1: @copilotkit/react-core + @copilotkit/runtime)
@@ -77,7 +93,7 @@ tasks:
           fi
 
           # Runtime route exists (multi-route [[...slug]] or single-route)
-          ROUTE_FILE=$(find . -path '*api/copilotkit*' \( -name 'route.ts' -o -name 'route.js' \) -not -path '*/node_modules/*' 2>/dev/null | head -1)
+          ROUTE_FILE=$(find . -path '*api/copilotkit*' \( -name 'route.ts' -o -name 'route.js' \) -not -path '*/node_modules/*' -not -path '*/.agents/*' -not -path '*/.claude/*' 2>/dev/null | head -1)
           if [ -n "$ROUTE_FILE" ]; then
             add_check "Runtime route file exists" true "Found at $ROUTE_FILE"
           else
@@ -117,7 +133,7 @@ tasks:
             add_check "Chat component used" false "No CopilotChat/CopilotSidebar/CopilotPopup found"
           fi
 
-          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules . > /dev/null 2>&1; then
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1; then
             add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
           else
             add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
@@ -131,6 +147,10 @@ tasks:
       - type: llm_rubric
         weight: 0.3
         rubric: |
+          Ignore anything under .agents/, .claude/, tests/, and prompts/ — those are
+          eval-harness files and the mounted skill, not the agent's work. Grade only
+          the application project itself.
+
           Evaluate whether this project has a complete, working CopilotKit setup:
           1. Does it use the `CopilotKit` provider imported from
              `@copilotkit/react-core/v2` (NOT the legacy `CopilotKitProvider` or the
@@ -169,12 +189,15 @@ tasks:
             CHECKS=$(echo "$CHECKS" | jq --arg name "$1" --argjson passed "$2" --arg msg "$3" '. + [{"name": $name, "passed": $passed, "message": $msg}]')
           }
 
+          # Exclude .agents/.claude: skillgrade bakes the skill itself (including its
+          # code examples) into /workspace/.agents/skills and /workspace/.claude/skills,
+          # which would otherwise satisfy the source greps without the agent doing anything.
           grep_src() {
-            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules . > /dev/null 2>&1
+            grep -rE "$1" --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1
           }
 
           dep_in_any_pkg() {
-            for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' 2>/dev/null); do
+            for PKG_FILE in $(find . -name 'package.json' -not -path '*/node_modules/*' -not -path '*/.agents/*' -not -path '*/.claude/*' 2>/dev/null); do
               if jq -e ".dependencies[\"$1\"]" "$PKG_FILE" > /dev/null 2>&1; then
                 return 0
               fi
@@ -226,7 +249,7 @@ tasks:
             add_check "Chat UI component used" false "No chat UI component found"
           fi
 
-          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules . > /dev/null 2>&1; then
+          if grep -rE '@copilotkit/react-core/v2/styles\.css' --include='*.tsx' --include='*.ts' --include='*.jsx' --include='*.js' --include='*.css' --exclude-dir=node_modules --exclude-dir=.agents --exclude-dir=.claude . > /dev/null 2>&1; then
             add_check "Stylesheet imported" true "Found @copilotkit/react-core/v2/styles.css import"
           else
             add_check "Stylesheet imported" false "No @copilotkit/react-core/v2/styles.css import found"
@@ -240,6 +263,10 @@ tasks:
       - type: llm_rubric
         weight: 0.3
         rubric: |
+          Ignore anything under .agents/, .claude/, tests/, and prompts/ — those are
+          eval-harness files and the mounted skill, not the agent's work. Grade only
+          the application project itself.
+
           Evaluate whether CopilotKit is properly integrated into this Vite+React project:
           1. Is the `CopilotKit` provider (imported from `@copilotkit/react-core/v2`,
              NOT the legacy `CopilotKitProvider`) set up with a `runtimeUrl` pointing
