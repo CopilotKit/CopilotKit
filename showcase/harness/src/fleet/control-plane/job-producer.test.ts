@@ -762,6 +762,36 @@ describe("job-producer — sweep cadence", () => {
     expect(result.reclaimed).toBe(2);
   });
 
+  it("surfaces the sweep's reclaimedIndeterminate split on the TickResult when the queue reports it (optional access)", async () => {
+    // The queue-client splits out reclaims whose release outcome was
+    // INDETERMINATE (a transport failure after the CAS — the at-least-once /
+    // over-report slice of `reclaimed`). Read via optional access so the
+    // producer compiles against a SweepResult that doesn't carry the split.
+    const sweepResult = {
+      reclaimed: 3,
+      commErrors: [],
+      reclaimedIndeterminate: 2,
+    } as SweepResult;
+    const { producer } = startedProducer({
+      specs: d6Specs(["a"]),
+      queue: makeFakeQueue({ sweepImpl: async () => sweepResult }),
+    });
+    const result = await producer.tick();
+    expect(result.reclaimed).toBe(3);
+    expect(result.reclaimedIndeterminate).toBe(2);
+  });
+
+  it("omits reclaimedIndeterminate when the queue's sweep result does not carry the split", async () => {
+    const { producer } = startedProducer({
+      specs: d6Specs(["a"]),
+      queue: makeFakeQueue({
+        sweepImpl: async () => ({ reclaimed: 1, commErrors: [] }),
+      }),
+    });
+    const result = await producer.tick();
+    expect(result.reclaimedIndeterminate).toBeUndefined();
+  });
+
   it("[REQ-B] forwards the swept worker-reclaimed-pending comm errors to the onSweepCommErrors sink", async () => {
     // The whole point of REQ-B: a lease-expired worker's job is reclaimed
     // (re-queued to pending) and produces a worker-reclaimed-pending comm
@@ -1691,6 +1721,47 @@ describe("job-producer — stop() quiesce", () => {
     // its first enqueue.
     expect(queued.enqueued).toBe(0);
     expect(queue.enqueued).toHaveLength(0);
+  });
+
+  it("a queued trigger that executes AFTER stop logs its own debug event, not the misleading tick-while-stopped warn", async () => {
+    // Ordering: a trigger queues behind an in-flight tick, stop() flips
+    // `running` while it waits, then the queued trigger's turn arrives. That
+    // is a NORMAL quiesce ordering the producer itself orchestrated — logging
+    // the defensive "tick-while-stopped" WARN for it pointed operators at a
+    // scheduler-wiring bug that doesn't exist. It gets a distinct debug event.
+    const warns: string[] = [];
+    const debugs: string[] = [];
+    let releaseEnumerate!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnumerate = resolve));
+    let enumerateCalls = 0;
+    const queue = makeFakeQueue();
+    const producer = createJobProducer({
+      queue,
+      enumerate: async () => {
+        enumerateCalls += 1;
+        if (enumerateCalls === 1) await gate;
+        return d6Specs(["a"]);
+      },
+      logger: {
+        ...SILENT_LOGGER,
+        warn: (msg) => warns.push(msg),
+        debug: (msg) => debugs.push(msg),
+      },
+    });
+    producer.start();
+    const firstP = producer.tick(); // blocked inside enumerate
+    await vi.waitFor(() => expect(enumerateCalls).toBe(1));
+    const queuedP = producer.tick({ triggered: true }); // queued behind
+    const stopP = producer.stop();
+    releaseEnumerate();
+    await firstP;
+    await stopP;
+    const queued = await queuedP;
+
+    expect(queued.enqueued).toBe(0);
+    expect(queued.runId).toBe("");
+    expect(debugs).toContain("fleet.producer.queued-trigger-after-stop");
+    expect(warns).not.toContain("fleet.producer.tick-while-stopped");
   });
 
   it("a tick stopped mid-batch truncates the remaining enqueues (and logs the truncation)", async () => {

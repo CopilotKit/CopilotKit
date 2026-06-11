@@ -46,6 +46,7 @@ import type {
   PoolCommError,
   ServiceJobMeta,
   ServiceJobPayload,
+  SweepResult,
 } from "../contracts.js";
 import { probeKeyFamily } from "../contracts.js";
 import { deriveHealthUrl } from "../../probes/liveness.js";
@@ -218,8 +219,28 @@ export interface TickResult {
    * tick outcome.
    */
   sweepFailed: boolean;
-  /** Expired leases reclaimed by the sweep, when one ran (else 0). */
+  /**
+   * Expired leases reclaimed by the sweep, when one ran (else 0).
+   *
+   * AT-LEAST-ONCE / MAY OVER-REPORT: a reclaim whose release transport call
+   * fails AFTER the queue committed the re-queue is still counted here (the
+   * producer cannot tell a failed release from a lost response), so under
+   * release transport failures this count can exceed the number of jobs
+   * actually returned to pending. When the queue client reports the
+   * indeterminate slice separately, it is surfaced via
+   * `reclaimedIndeterminate` below.
+   */
   reclaimed: number;
+  /**
+   * Of `reclaimed`, the reclaims whose release outcome was INDETERMINATE
+   * (transport failure after the CAS — the over-report slice). OPTIONAL and
+   * read off the queue's sweep result via optional access: the split is
+   * provided by the queue-client's `SweepResult` extension (sibling branch);
+   * absent when the queue does not report it. INTEGRATOR NOTE: once the
+   * queue-client's `reclaimedIndeterminate` lands on the shared `SweepResult`
+   * contract, the optional access in `maybeSweep` can read it directly.
+   */
+  reclaimedIndeterminate?: number;
   /**
    * True iff the enumerator THREW on this tick (production short-circuited —
    * nothing was enqueued). Without this flag a discovery outage was
@@ -521,9 +542,12 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
    * swallowed — a transient PB blip on the reclamation path must NEVER
    * abort job production (the next tick retries).
    */
-  async function maybeSweep(
-    nowMs: number,
-  ): Promise<{ swept: boolean; sweepFailed: boolean; reclaimed: number }> {
+  async function maybeSweep(nowMs: number): Promise<{
+    swept: boolean;
+    sweepFailed: boolean;
+    reclaimed: number;
+    reclaimedIndeterminate?: number;
+  }> {
     const due =
       sweepIntervalMs <= 0 ||
       lastSweepAt === null ||
@@ -555,7 +579,22 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       // deliverSweepCommErrors — it runs on every sweep attempt, even a failed
       // one). The buffer is capped at MAX_BUFFERED_SWEEP_COMM_ERRORS.
       await deliverSweepCommErrors(result.commErrors);
-      return { swept: true, sweepFailed: false, reclaimed: result.reclaimed };
+      // OPTIONAL ACCESS (integrator coupling): the queue-client's sweep
+      // splits out reclaims whose release outcome was indeterminate
+      // (`reclaimedIndeterminate`, sibling branch) — read defensively so
+      // this module compiles against a SweepResult without the split, and
+      // surface it on the TickResult only when reported as a number.
+      const indeterminate = (
+        result as SweepResult & { reclaimedIndeterminate?: unknown }
+      ).reclaimedIndeterminate;
+      return {
+        swept: true,
+        sweepFailed: false,
+        reclaimed: result.reclaimed,
+        ...(typeof indeterminate === "number"
+          ? { reclaimedIndeterminate: indeterminate }
+          : {}),
+      };
     } catch (err) {
       logger.error("fleet.producer.sweep-failed", {
         err: err instanceof Error ? err.message : String(err),
@@ -812,6 +851,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         sweptExpired: sweep.swept,
         sweepFailed: sweep.sweepFailed,
         reclaimed: sweep.reclaimed,
+        ...(sweep.reclaimedIndeterminate !== undefined
+          ? { reclaimedIndeterminate: sweep.reclaimedIndeterminate }
+          : {}),
         enumerateFailed: true,
       };
     }
@@ -901,6 +943,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,
       reclaimed: sweep.reclaimed,
+      ...(sweep.reclaimedIndeterminate !== undefined
+        ? { reclaimedIndeterminate: sweep.reclaimedIndeterminate }
+        : {}),
     });
 
     return {
@@ -912,6 +957,9 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,
       reclaimed: sweep.reclaimed,
+      ...(sweep.reclaimedIndeterminate !== undefined
+        ? { reclaimedIndeterminate: sweep.reclaimedIndeterminate }
+        : {}),
       enumerateFailed: false,
     };
   }
@@ -1027,6 +1075,15 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
             await inFlightTick.catch(() => {});
           }
           queuedTrigger = null;
+          if (!running) {
+            // stop() flipped `running` while this trigger waited behind the
+            // in-flight tick — a quiesce ordering the producer itself
+            // orchestrated, NOT the scheduler-wiring bug runTick's
+            // tick-while-stopped WARN flags. Distinct debug event so the
+            // ordering stays observable without a misleading warn.
+            logger.debug("fleet.producer.queued-trigger-after-stop");
+            return skippedTickResult();
+          }
           const ticking = runTick(tickOpts);
           inFlightTick = ticking;
           try {
