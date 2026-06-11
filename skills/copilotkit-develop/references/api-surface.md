@@ -1,12 +1,12 @@
 # CopilotKit v2 Public API Reference
 
-Package imports: `@copilotkit/react`, `@copilotkit/runtime`, `@copilotkit/core`.
+Package imports: `@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/core`.
 
-Note: `@copilotkit/react` re-exports everything from `@ag-ui/client` (which itself re-exports `@ag-ui/core`), so applications typically only need `@copilotkit/react` and `@copilotkit/runtime`.
+Note: `@copilotkit/react-core/v2` re-exports everything from `@ag-ui/client` (which itself re-exports `@ag-ui/core`), so applications typically only need `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2`.
 
 ---
 
-## Hooks (`@copilotkit/react`)
+## Hooks (`@copilotkit/react-core/v2`)
 
 ### useFrontendTool
 
@@ -281,14 +281,18 @@ Registers a suggestion configuration. Two modes:
 function useThreads(input: UseThreadsInput): UseThreadsResult;
 
 interface UseThreadsInput {
-  userId: string;
   agentId: string;
+  includeArchived?: boolean; // default: false
+  limit?: number; // enables cursor-based pagination when set
 }
 
 interface UseThreadsResult {
   threads: Thread[];
   isLoading: boolean;
   error: Error | null;
+  hasMoreThreads: boolean;
+  isFetchingMoreThreads: boolean;
+  fetchMoreThreads: () => void;
   renameThread: (threadId: string, name: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
@@ -296,13 +300,16 @@ interface UseThreadsResult {
 
 interface Thread {
   id: string;
-  name?: string;
+  agentId: string;
+  name: string | null;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
+  lastRunAt?: string; // last agent run; prefer over updatedAt for "last activity"
 }
 ```
 
-Lists and manages Intelligence platform threads. Uses a realtime WebSocket subscription when available.
+Lists and manages Intelligence platform threads. Thread operations are scoped to the runtime-authenticated user (no `userId` input) and the given `agentId`. Uses a realtime WebSocket subscription when available.
 
 ---
 
@@ -340,7 +347,7 @@ Returns a function to render custom message decorators at `"before"` or `"after"
 
 ---
 
-## Components (`@copilotkit/react`)
+## Components (`@copilotkit/react-core/v2`)
 
 ### CopilotKit (provider)
 
@@ -450,7 +457,7 @@ Headless chat view with a slot-based architecture. Accepts slots for `messageVie
 
 ---
 
-## Types (`@copilotkit/react`)
+## Types (`@copilotkit/react-core/v2`)
 
 ### ReactFrontendTool
 
@@ -521,6 +528,6 @@ type FrontendToolHandlerContext = {
 
 ---
 
-## Runtime (`@copilotkit/runtime`)
+## Runtime (`@copilotkit/runtime/v2`)
 
 See [runtime-api.md](./runtime-api.md) for full runtime reference.
