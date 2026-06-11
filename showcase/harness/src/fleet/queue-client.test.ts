@@ -554,6 +554,29 @@ describe("FleetQueueClient.enqueue", () => {
     expect(rows[0].payload).toEqual(samplePayload());
   });
 
+  it("rejects a non-number meta.priority at the enqueue boundary (optional fields still have required shapes)", async () => {
+    // `priority` is the one optional META field; like cellIds/driverInputs
+    // it must have its required shape WHEN PRESENT. The untrusted JSON
+    // column could carry priority: "high" — accepted silently today, it
+    // round-trips to any future claimNext priority consumer as a non-number.
+    const { pb, rows } = makeFakePb();
+    const q = createFleetQueueClient({ pb, claim: makeFakeClaim(), logger });
+
+    const poisoned = samplePayload();
+    poisoned.meta = { ...poisoned.meta, priority: "high" as unknown as number };
+    await expect(q.enqueue({ payload: poisoned })).rejects.toThrow(
+      /priority/i,
+    );
+    expect(rows).toHaveLength(0);
+
+    // A NUMBER priority (and an absent one) still passes.
+    const fine = samplePayload();
+    fine.meta = { ...fine.meta, priority: 5 };
+    await q.enqueue({ payload: fine });
+    await q.enqueue({ payload: samplePayload() });
+    expect(rows).toHaveLength(2);
+  });
+
   it("validates the payload BEFORE creating the row (no poison row persisted)", async () => {
     // enqueue used to deref payload.meta.runId only AFTER pb.create — a
     // malformed caller payload threw AFTER persisting an undecodable row,

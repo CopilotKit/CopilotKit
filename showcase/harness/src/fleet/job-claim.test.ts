@@ -132,6 +132,51 @@ describe("job-claim client", () => {
     expect(claimAuthHeader).toBe("tok");
   });
 
+  it("memoizes the auth route across re-auths — a v0.22 backend pays the /_superusers 404 probe ONCE, not per token expiry", async () => {
+    // The /_superusers→/api/admins fallback ran inside authenticate() with
+    // route discovery as a LOCAL — every re-auth (401 token expiry) re-paid
+    // a wasted 404 probe against a backend whose route cannot have changed.
+    const calls: string[] = [];
+    let tokenSeq = 0;
+    let expiredOnce = false;
+    const fetchImpl = makeFetch((url) => {
+      calls.push(url);
+      if (url.includes("/_superusers/auth-with-password")) {
+        return new Response("not found", { status: 404 });
+      }
+      if (url.includes("/api/admins/auth-with-password")) {
+        tokenSeq += 1;
+        return new Response(JSON.stringify({ token: `tok-${tokenSeq}` }), {
+          status: 200,
+        });
+      }
+      // First claim under tok-1: 401 once (expired) to force a re-auth.
+      if (!expiredOnce) {
+        expiredOnce = true;
+        return new Response("expired", { status: 401 });
+      }
+      return new Response(JSON.stringify({ claimed: false }), { status: 200 });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+
+    await client.claimJob("j1", "worker-7", 30);
+
+    // Sequence: _superusers 404 → admins ok → claim 401 → RE-AUTH (admins
+    // DIRECTLY, no second 404 probe) → claim retry.
+    const superuserProbes = calls.filter((u) =>
+      u.includes("/_superusers/auth-with-password"),
+    );
+    expect(superuserProbes).toHaveLength(1);
+    expect(calls.filter((u) => u.includes("/api/admins/")).length).toBe(2);
+    expect(calls[calls.length - 1]).toContain("/api/fleet/claim");
+  });
+
   it("reports won=false when the endpoint says the row was already taken", async () => {
     const fetchImpl = authedFetch(
       () => new Response(JSON.stringify({ claimed: false }), { status: 200 }),

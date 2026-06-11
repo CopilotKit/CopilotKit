@@ -351,9 +351,16 @@ function assertServiceJobPayload(
       `queue-client: ${label} payload.meta must be a non-null object with a non-empty string runId, boolean triggered and non-empty string enqueuedAt`,
     );
   }
-  // Optional fields still have REQUIRED shapes when present: cellIds is a
-  // string array (the worker iterates it as feature ids) and driverInputs is
-  // a plain record (the worker reads keys off it).
+  // Optional fields still have REQUIRED shapes when present: priority is a
+  // number (copied verbatim onto the row; a future claimNext priority
+  // consumer would read it as one), cellIds is a string array (the worker
+  // iterates it as feature ids) and driverInputs is a plain record (the
+  // worker reads keys off it).
+  if (meta.priority !== undefined && typeof meta.priority !== "number") {
+    throw new Error(
+      `queue-client: ${label} payload.meta.priority must be a number when present`,
+    );
+  }
   if (
     candidate.cellIds !== undefined &&
     (!Array.isArray(candidate.cellIds) ||
@@ -453,7 +460,9 @@ function probeKeySlug(probeKey: string): string {
  * meaning — a retry can succeed — so they stay on the callers'
  * indeterminate/conservative paths (evicting a lease or skipping a comm
  * error on a momentary rate-limit blip would manufacture the exact false
- * signals the containments exist to prevent).
+ * signals the containments exist to prevent). 401 IS deterministic here:
+ * job-claim's postFleet already re-auths once on a 401 before throwing, so
+ * a 401 that reaches this predicate means fresh credentials were rejected.
  */
 function deterministicEndpointRejection(
   err: unknown,
@@ -495,7 +504,12 @@ function protocolViolationResult(args: {
     runId: `pviol_${args.jobId}`,
     workerId: args.workerId,
     aggregateState: "error",
-    aggregateKey: args.probeKey,
+    // Same defense-in-depth as the serviceSlug fallback: an EMPTY probe_key
+    // cannot reach this builder through claimNext today (the G1c charset
+    // guard skips empty-family rows at discovery), but an empty aggregate
+    // key would write a row keyed "" downstream — fall back to the
+    // jobId-derived placeholder instead of an empty sentinel.
+    aggregateKey: args.probeKey || `unknown-${args.jobId}`,
     aggregateSignal: { error: args.message },
     cells: [],
     rollup: { total: 0, passed: 0, failed: 0 },
@@ -1020,6 +1034,15 @@ export function createFleetQueueClient(
           // the next candidate instead; the row is retried naturally on the
           // next poll. (job-claim additionally maps a 5xx claim response to
           // won:false, so this catch covers genuine transport throws.)
+          //
+          // ACCEPTED REPETITION (deterministic 4xx): a hook that REJECTS
+          // this row's claim deterministically (malformed id, route drift)
+          // re-warns here on every poll until the row leaves pending — no
+          // per-row escalation state is kept. Bounded: the stale-pending
+          // sweep eventually claims-and-deletes the row (its CAS path can
+          // share the same 4xx, but the sweep's own error-level logs cover
+          // that), and a FLEET-WIDE deterministic rejection (rotated creds)
+          // already escalates via renewLease's error-level renew-rejected.
           let result: ClaimResult;
           try {
             result = await claim.claimJob(

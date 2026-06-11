@@ -201,6 +201,15 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
   const logger = config.logger;
   let authToken: string | null = null;
   let authInFlight: Promise<void> | null = null;
+  /**
+   * The auth route that WORKED last time (v0.23+ `/_superusers` vs the
+   * v0.22 `/api/admins` fallback), memoized across re-auths: route
+   * discovery used to be a local inside authenticate(), so EVERY token
+   * expiry re-paid a wasted 404 probe against a backend whose route cannot
+   * have changed mid-process. Only a SUCCESSFUL auth memoizes (a failed one
+   * proves nothing about the route); null until the first success.
+   */
+  let knownAuthPath: string | null = null;
 
   async function authenticate(): Promise<void> {
     if (!config.email || !config.password) {
@@ -215,13 +224,15 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       password: config.password,
     });
     // PB v0.23+ → /_superusers; v0.22 → /api/admins. Match pb-client.ts.
-    let authPath = "/api/collections/_superusers/auth-with-password";
+    // A memoized route from a prior successful auth skips the 404 probe.
+    let authPath =
+      knownAuthPath ?? "/api/collections/_superusers/auth-with-password";
     let res = await fetchImpl(`${baseUrl}${authPath}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: authBody,
     });
-    if (res.status === 404) {
+    if (res.status === 404 && knownAuthPath === null) {
       authPath = "/api/admins/auth-with-password";
       res = await fetchImpl(`${baseUrl}${authPath}`, {
         method: "POST",
@@ -264,6 +275,8 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
       throw new Error("job-claim auth returned empty or non-string token");
     }
     authToken = body.token;
+    // Memoize only on SUCCESS: the route is proven good for this backend.
+    knownAuthPath = authPath;
   }
 
   function ensureAuth(): Promise<void> {
