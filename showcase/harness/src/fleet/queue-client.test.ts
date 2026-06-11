@@ -575,6 +575,30 @@ describe("FleetQueueClient.enqueue", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("rejects a top-level ARRAY payload — the expando hole the nested meta check already closes", async () => {
+    // An array is `typeof "object"` and (as an in-process caller value) can
+    // carry expando fields that satisfy every per-field check below — the
+    // exact hole the meta check's Array.isArray guard closes one level down
+    // (and contracts' commErrorFromStatusSignal guards at its boundary). A
+    // top-level array payload is never a valid ServiceJobPayload; reject it
+    // before anything persists.
+    const { pb, rows } = makeFakePb();
+    const createSpy = vi.fn(pb.create.bind(pb));
+    pb.create = createSpy as PbClient["create"];
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const expandoArray = Object.assign(
+      [],
+      samplePayload(),
+    ) as unknown as ServiceJobPayload;
+    await expect(q.enqueue({ payload: expandoArray })).rejects.toThrow(
+      /no decodable payload/i,
+    );
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(0);
+  });
+
   it("rejects the documented forbidden EMPTY sentinels (probeKey/serviceSlug/driverKind/runId) before creating the row (G1c)", async () => {
     // emptyPayloadForLease documents empty serviceSlug/runId (and the rest)
     // as FORBIDDEN aggregation inputs: an empty runId groups into nothing in

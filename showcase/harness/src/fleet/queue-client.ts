@@ -276,7 +276,11 @@ function assertServiceJobPayload(
   label: string,
   raw: unknown,
 ): ServiceJobPayload {
-  if (raw === null || typeof raw !== "object") {
+  // An ARRAY is `typeof "object"` and (as an in-process caller value) can
+  // carry expando fields that satisfy every per-field check below — the same
+  // hole the nested meta check's Array.isArray guard closes one level down.
+  // A top-level array is never a valid payload; reject it here.
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error(`queue-client: ${label} has no decodable payload`);
   }
   const candidate = raw as Partial<ServiceJobPayload>;
