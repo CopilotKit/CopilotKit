@@ -10,6 +10,13 @@
 # or directly:
 #   cd skill-evals/copilotkit-setup && pnpm exec skillgrade --smoke
 #
+# Local run with ONLY an OpenAI key (no ANTHROPIC_API_KEY): the image installs
+# the codex CLI too, so the --agent flag works without editing this file. The
+# --grader filter skips the anthropic rubric (reward renormalizes over the
+# graders that run, so deterministic-only still scores 0..1):
+#   echo "OPENAI_API_KEY=sk-..." > .env   # gitignored via *.env
+#   pnpm exec skillgrade --trials=1 --agent=codex --grader=deterministic
+#
 # Graders are kept in sync with SKILL.md: they check for the canonical v2 APIs
 # (CopilotKit from @copilotkit/react-core/v2, createCopilotHonoHandler /
 # createCopilotExpressHandler) and fail on the deprecated aliases
@@ -35,15 +42,18 @@ defaults:
   docker:
     # ca-certificates is required: codex is a Rust binary that uses the system CA
     # store (absent from node:20-slim), and without it every API request fails with
-    # "stream disconnected". The codex wrapper fixes two things skillgrade's
-    # CodexAgent gets wrong in containers: codex 0.1xx+ ignores the OPENAI_API_KEY
-    # env var until `codex login --with-api-key` has run, and its --full-auto
-    # Landlock sandbox cannot initialize inside Docker (the container already
-    # provides isolation), so the wrapper swaps in the sandbox bypass flag.
-    # All of this is a no-op for claude runs.
+    # "stream disconnected". The codex CLI is installed here (not just when
+    # `agent: codex`) because skillgrade 0.1.5 only bakes the YAML-default agent
+    # into the image, which breaks the --agent CLI override; with both CLIs
+    # present, --agent=codex works without editing this file. The codex wrapper
+    # fixes two things skillgrade's CodexAgent gets wrong in containers: codex
+    # 0.1xx+ ignores the OPENAI_API_KEY env var until `codex login --with-api-key`
+    # has run, and its --full-auto Landlock sandbox cannot initialize inside
+    # Docker (the container already provides isolation), so the wrapper swaps in
+    # the sandbox bypass flag. All of this is a no-op for claude runs.
     base: node:20-slim
     setup: |
-      apt-get update && apt-get install -y git jq ca-certificates && if [ -f /usr/local/bin/codex ]; then mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex; fi
+      apt-get update && apt-get install -y git jq ca-certificates && if [ ! -f /usr/local/bin/codex ]; then npm install -g @openai/codex; fi && mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex
 
 tasks:
   - name: nextjs-app-router-setup
