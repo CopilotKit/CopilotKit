@@ -17,18 +17,10 @@ export interface CopilotKitProps extends Omit<
   CopilotKitProviderProps,
   "children"
 > {
-  /**
-   * Your Copilot Cloud API key.
-   *
-   * Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
-   */
+  /** Your CopilotKit public license key. */
   publicApiKey?: string;
 
-  /**
-   * Your public license key for accessing premium CopilotKit features.
-   *
-   * Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
-   */
+  /** Your public license key for accessing premium CopilotKit features. */
   publicLicenseKey?: string;
 
   /**
@@ -40,12 +32,7 @@ export interface CopilotKitProps extends Omit<
     invalidTopics?: string[];
   };
 
-  /**
-   * Restrict input to specific topics using guardrails.
-   * @remarks
-   *
-   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
-   */
+  /** @internal Defunct — retained for backward compatibility. */
   guardrails_c?: {
     validTopics?: string[];
     invalidTopics?: string[];
@@ -152,12 +139,7 @@ export interface CopilotKitProps extends Omit<
    */
   forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
 
-  /**
-   * The auth config to use for the CopilotKit.
-   * @remarks
-   *
-   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
-   */
+  /** @internal Defunct — retained for backward compatibility. */
   authConfig_c?: {
     SignInComponent: React.ComponentType<{
       onSignInComplete: (authState: AuthState) => void;
@@ -172,15 +154,11 @@ export interface CopilotKitProps extends Omit<
   /**
    * Optional error handler for comprehensive debugging and observability.
    *
-   * **Requires publicApiKey**: Error handling only works when publicApiKey is provided.
-   * This is a premium Copilot Cloud feature.
-   *
    * @param errorEvent - Structured error event with rich debugging context
    *
    * @example
    * ```typescript
    * <CopilotKit
-   *   publicApiKey="ck_pub_your_key"
    *   onError={(errorEvent) => {
    *     debugDashboard.capture(errorEvent);
    *   }}

@@ -96,13 +96,9 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
-  /**
-   * The Copilot Cloud public API key.
-   */
+  /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /**
-   * Alias for `publicApiKey`
-   **/
+  /** Your public license key for accessing premium CopilotKit features. */
   publicLicenseKey?: string;
   /**
    * Signed license token for offline verification of premium features.
