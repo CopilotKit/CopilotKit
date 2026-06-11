@@ -10,6 +10,7 @@ import {
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveD4Row,
   resolveD5Row,
   resolveD6Row,
   resolveStarterRow,
@@ -20,6 +21,7 @@ import {
 import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
 import { formatTs } from "./format-ts";
 import {
+  D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
   STARTER_STALE_AFTER_MS,
@@ -396,6 +398,133 @@ describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix
   });
 });
 
+describe("resolveD4Row — worst-state fold mirroring cell-model resolveD4", () => {
+  // Fixed `now` so the stale/fresh boundary is deterministic (same
+  // convention as the staleness-downgrade suite below).
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const freshAt = (ageMs: number): string =>
+    new Date(NOW - ageMs).toISOString();
+
+  it("returns null when both chat and tools rows are missing (no-data)", () => {
+    expect(resolveD4Row(mapOf([]), "agno", NOW)).toBeNull();
+  });
+
+  it("green chat + green tools (fresh) → green CHAT row (chat wins equal-rank ties)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("green");
+    // Tie-break DIRECTION: the fold iterates [chatRow, toolsRow] with a
+    // strict `>` rank comparison, so at equal rank the CHAT row must win.
+    // Swapping the fold order to [toolsRow, chatRow] would return the
+    // tools row here — these identity assertions pin the documented order.
+    expect(out?.dimension).toBe("chat");
+    expect(out?.key).toBe("chat:agno");
+  });
+
+  it("red chat + red tools (equal-rank red tie) → CHAT row identity returned", () => {
+    // At an equal-rank RED tie the returned row's IDENTITY matters most:
+    // its signal/fail_count surface in the drilldown, so the fold must
+    // deterministically return the chat row, not whichever side happens
+    // to win after an order swap.
+    const live = mapOf([
+      row("chat:agno", "chat", "red", {
+        observed_at: freshAt(0),
+        fail_count: 3,
+      }),
+      row("tools:agno", "tools", "red", {
+        observed_at: freshAt(0),
+        fail_count: 7,
+      }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("chat");
+    expect(out?.key).toBe("chat:agno");
+    expect(out?.fail_count).toBe(3);
+  });
+
+  it("green chat + red tools → red tools row wins the fold", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "red", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("tools");
+  });
+
+  it("red chat + green tools → red chat row wins the fold", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "red", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("chat");
+  });
+
+  it("stale-green chat alone (older than the 1h D4 window) → EFFECTIVE degraded row", () => {
+    // D4 uses the 1h window (D4_STALE_AFTER_MS), NOT the 6h e2e window —
+    // a 2h-old green chat row is stale for D4 but would be fresh for e2e.
+    // The returned winner must be the EFFECTIVE (downgraded) row so `.state`
+    // agrees with the rank that won the fold.
+    const live = mapOf([
+      row("chat:agno", "chat", "green", {
+        observed_at: freshAt(D4_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("degraded");
+  });
+
+  it("green tools only (chat missing) → null (unverified family collapses, e771c2351)", () => {
+    // `chat:<slug>` is producer-UNCONDITIONAL — a green tools row with the
+    // chat row missing is an unverified family and must collapse to no-data.
+    const live = mapOf([
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    expect(resolveD4Row(live, "agno", NOW)).toBeNull();
+  });
+
+  it("red tools only (chat missing) → red row returned (red dominates no-data)", () => {
+    const live = mapOf([
+      row("tools:agno", "tools", "red", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("tools");
+  });
+
+  it("green chat only (tools missing) → green (conditional tools row stays lenient)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("green");
+    expect(out?.dimension).toBe("chat");
+  });
+
+  it("out-of-vocab tools state with chat missing still SURFACES (rank above red survives the collapse)", () => {
+    // The missing-unconditional-chat collapse must be RANK-based, not a
+    // `!== "red"` literal — an out-of-vocabulary "error" state is ranked
+    // ABOVE red by the A2 machinery and must never be silently swallowed.
+    const outOfVocab = "error" as unknown as StatusRow["state"];
+    const live = mapOf([
+      row("tools:agno", "tools", outOfVocab, { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe(outOfVocab);
+  });
+});
+
 describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   // Order: red > degraded > green > error > unknown.
   // Rollup contributors: health, e2e (Decision #7: smokeRow dropped).
@@ -619,6 +748,63 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d6.label).toBe("?");
     expect(c.d5.row).toBeNull();
     expect(c.d6.row).toBeNull();
+  });
+
+  it("resolves d4 from integration-scoped chat+tools rows (green fold)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("green");
+    expect(c.d4.label).toBe("✓");
+  });
+
+  it("d4 red tools + green chat → red badge anchored on the tools row", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("red");
+    expect(c.d4.label).toBe("✗");
+    expect(c.d4.row?.dimension).toBe("tools");
+  });
+
+  it("d4 does NOT contribute to the rollup (informational only — Service scope is health + e2e)", () => {
+    // The pill's gate already consumes D4 via buildCellModel; the rollup's
+    // contributors stay health + e2e (the relabel decision). A red D4 fold
+    // must surface on its own badge while the service rollup stays green.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("e2e:agno/agentic-chat", "e2e", "green"),
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("red");
+    expect(c.rollup).toBe("green");
+  });
+
+  it("d4 stale-green chat (older than the 1h window) → amber badge with stale tooltip", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const live = mapOf([
+      row("chat:agno", "chat", "green", {
+        observed_at: new Date(
+          NOW - (D4_STALE_AFTER_MS + 60 * 60 * 1000),
+        ).toISOString(),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    expect(c.d4.tone).toBe("amber");
+    expect(c.d4.tooltip).toContain("stale");
+  });
+
+  it("d4 falls through to gray '?' when chat/tools rows are absent", () => {
+    const c = resolveCell(mapOf([]), "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("gray");
+    expect(c.d4.label).toBe("?");
+    expect(c.d4.row).toBeNull();
   });
 
   it("d5 / d6 do NOT contribute to the rollup (informational only)", () => {

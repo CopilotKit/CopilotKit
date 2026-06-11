@@ -16,6 +16,7 @@
 
 import { formatTs } from "./format-ts";
 import {
+  D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
   STARTER_STALE_AFTER_MS,
@@ -293,6 +294,18 @@ export interface CellState {
    * this integration.
    */
   d2: BadgeRender;
+  /**
+   * D4 (chat round-trip + tool round-trip) per-integration badge. Sourced
+   * from `chat:<slug>` / `tools:<slug>` rows via `resolveD4Row` — a
+   * worst-state fold with the missing-unconditional-chat collapse (see the
+   * resolver doc). Integration-scoped — every feature within the same
+   * integration sees the same D4 badge. Stays `gray` / `?` until the
+   * d4-chat-roundtrip driver has ticked for this integration. Does NOT
+   * contribute to the rollup — informational only; the pill's gate already
+   * consumes D4 via `buildCellModel` (cell-model.ts), so the drilldown row
+   * exists to make that gate's input visible, not to re-derive the verdict.
+   */
+  d4: BadgeRender;
   /**
    * D5 (deep / multi-turn conversation) per-feature badge. Sourced from
    * `d5:<slug>/<featureId>` rows emitted by the `e2e-deep` driver. Stays
@@ -642,6 +655,72 @@ export function resolveD6Row(
   return worst;
 }
 
+/**
+ * Resolve the rolled-up D4 (chat round-trip + tool round-trip) row for an
+ * integration. INTEGRATION-scoped, not per-feature: the producer
+ * (`d4-chat-roundtrip.ts`) writes `chat:<slug>` / `tools:<slug>` rows once
+ * per integration.
+ *
+ * Mirrors `resolveD4` in cell-model.ts, including its EXPECTATION MAPPING:
+ *   - `chat:<slug>` is producer-UNCONDITIONAL (written for every probed
+ *     integration). A green/degraded fold with the chat row MISSING is an
+ *     unverified family and collapses to `null` (no-data → gray badge). A
+ *     present RED-or-worse tools row still surfaces — red dominates no-data,
+ *     and the collapse guard is RANK-based (not `!== "red"` literal) so an
+ *     out-of-vocabulary state ranked above red by the A2 machinery is never
+ *     silently swallowed.
+ *   - `tools:<slug>` is CONDITIONAL (side-emitted only when the
+ *     integration's demos include `tool-rendering`), so its absence stays
+ *     LENIENT — a green chat row alone credits D4.
+ *
+ * Fold semantics match resolveD5Row/resolveD6Row: per-row stale-green →
+ * degraded downgrade (D4 uses the 1h `D4_STALE_AFTER_MS` window) applied
+ * BEFORE the worst-state comparison; strict `>` rank comparison over
+ * `[chat, tools]` scan order, so on an equal rank the chat row is retained.
+ * Like its siblings, the returned winner is the EFFECTIVE (stale-downgraded)
+ * row, so `.state` always agrees with the rank that won the fold. Exported
+ * for tests and consumed by `resolveCell` for the drilldown's D4 badge.
+ */
+export function resolveD4Row(
+  live: LiveStatusMap,
+  slug: string,
+  now: number = Date.now(),
+): StatusRow | null {
+  const chatRow = live.get(keyFor("chat", slug)) ?? null;
+  const toolsRow = live.get(keyFor("tools", slug)) ?? null;
+
+  if (!chatRow && !toolsRow) {
+    return null;
+  }
+
+  let worst: StatusRow | null = null;
+  let worstState: State | null = null;
+  for (const candidate of [chatRow, toolsRow]) {
+    if (!candidate) continue;
+    const eff = effectiveState(candidate, now, D4_STALE_AFTER_MS);
+    if (
+      worstState === null ||
+      worstStateRank(eff) > worstStateRank(worstState)
+    ) {
+      // Store the EFFECTIVE (downgraded) row — see resolveD5Row.
+      worst =
+        eff === candidate.state ? candidate : { ...candidate, state: eff };
+      worstState = eff;
+    }
+  }
+
+  // STRICT on the UNCONDITIONAL row: a missing `chat:<slug>` collapses a
+  // below-red fold to no-data (mirrors cell-model.ts resolveD4 and the
+  // D5/D6 anyMissing collapse). Rank-based so out-of-vocab states survive.
+  if (
+    !chatRow &&
+    (worstState === null || worstStateRank(worstState) < WORST_STATE_RANK.red)
+  ) {
+    return null;
+  }
+  return worst;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Starter row-group (spec §d / §a)                                    */
 /* ------------------------------------------------------------------ */
@@ -822,6 +901,7 @@ export type LiveDimension =
   | "agent"
   | "chat"
   | "tools"
+  | "d4"
   | "d5"
   | "d6"
   | "starter";
@@ -1053,6 +1133,10 @@ export function resolveCell(
   // weekly-rotation slot.
   const d5Row = resolveD5Row(live, slug, featureId, now);
   const d6Row = resolveD6Row(live, slug, featureId, now);
+  // D4 integration-scoped fold over `chat:<slug>`/`tools:<slug>` — same
+  // informational (non-rollup) model as d2/d5/d6; the pill's verification
+  // gate consumes D4 separately via buildCellModel.
+  const d4Row = resolveD4Row(live, slug, now);
 
   // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
   // Each contributor's stale-green is downgraded to degraded BEFORE tone
@@ -1115,7 +1199,8 @@ export function resolveCell(
   }
 
   // Per-badge stale-green downgrade windows: e2e/d5/d6 use the e2e (6h)
-  // window; health/d2(agent)/smoke use the tighter liveness (45m) window.
+  // window; d4 uses the D4 (1h) window; health/d2(agent)/smoke use the
+  // tighter liveness (45m) window.
   return {
     e2e: buildBadge("e2e", e2eRow, now, E2E_STALE_AFTER_MS, connection),
     smoke: buildBadge(
@@ -1133,6 +1218,7 @@ export function resolveCell(
       connection,
     ),
     d2: buildBadge("agent", agentRow, now, LIVENESS_STALE_AFTER_MS, connection),
+    d4: buildBadge("d4", d4Row, now, D4_STALE_AFTER_MS, connection),
     d5: buildBadge("d5", d5Row, now, E2E_STALE_AFTER_MS, connection),
     d6: buildBadge("d6", d6Row, now, E2E_STALE_AFTER_MS, connection),
     rollup,
