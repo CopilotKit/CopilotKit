@@ -2,7 +2,7 @@ import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
 import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
-import { type RuntimeLicenseStatus } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 
@@ -74,7 +74,18 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
+      // Legacy flat flag, kept for older clients. The `a2ui` object below is
+      // the source of truth: it preserves the per-agent scoping that this
+      // boolean discards (see CopilotKit/CopilotKit#5369).
       a2uiEnabled: !!runtime.a2ui,
+      ...(runtime.a2ui
+        ? {
+            a2ui: {
+              enabled: true,
+              ...(runtime.a2ui.agents ? { agents: runtime.a2ui.agents } : {}),
+            },
+          }
+        : {}),
       openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }

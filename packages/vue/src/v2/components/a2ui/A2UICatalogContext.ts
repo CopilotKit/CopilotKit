@@ -100,7 +100,7 @@ function extractCatalogComponentSchemas(catalog?: Catalog<ComponentApi>): {
         {
           properties: {
             component: { const: name },
-            ...(zodSchema.properties ?? {}),
+            ...zodSchema.properties,
           },
           required: ["component", ...(zodSchema.required ?? [])],
         },
@@ -135,11 +135,15 @@ export function registerA2UICatalogContext(
     [() => copilotkit.value, options.enabled, contextValue],
     ([core, isEnabled, value], _prev, onCleanup) => {
       if (!isEnabled) return;
+      // Scope to the agents the runtime applies A2UI to (#5369), so other
+      // agents on the endpoint don't receive the catalog payload.
+      const agentIds = core.a2uiAgents;
       const id = core.addContext({
         description:
           "A2UI catalog capabilities: available catalog IDs and " +
           "custom component definitions the client can render.",
         value,
+        ...(agentIds ? { agentIds } : {}),
       });
       onCleanup(() => core.removeContext(id));
     },
@@ -156,11 +160,14 @@ export function registerA2UICatalogContext(
     [() => copilotkit.value, options.enabled, schemaValue],
     ([core, isEnabled, schema], _prev, onCleanup) => {
       if (!isEnabled || !schema) return;
+      const agentIds = core.a2uiAgents;
+      const scope = agentIds ? { agentIds } : {};
       const ids: string[] = [];
       ids.push(
         core.addContext({
           description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
           value: schema,
+          ...scope,
         }),
       );
       ids.push(
@@ -170,6 +177,7 @@ export function registerA2UICatalogContext(
             "path rules, data model format, and " +
             "form/two-way-binding instructions.",
           value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+          ...scope,
         }),
       );
       ids.push(
@@ -178,6 +186,7 @@ export function registerA2UICatalogContext(
             "A2UI design guidelines — visual design rules, component " +
             "hierarchy tips, and action handler patterns.",
           value: A2UI_DEFAULT_DESIGN_GUIDELINES,
+          ...scope,
         }),
       );
       onCleanup(() => {
