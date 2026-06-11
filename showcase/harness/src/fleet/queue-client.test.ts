@@ -431,7 +431,11 @@ function sampleResult(
 
 describe("test-fake honesty (the fakes must throw, not vacuously match)", () => {
   it("rowMatchesFilter throws on operators it cannot honor", () => {
-    const row: FilterableRow = { id: "r1", status: "pending", probe_key: "d6:a" };
+    const row: FilterableRow = {
+      id: "r1",
+      status: "pending",
+      probe_key: "d6:a",
+    };
     // Comparison operators are not modeled at all.
     expect(() => rowMatchesFilter(row, 'created < "2026-01-01"')).toThrow(
       /unsupported field/,
@@ -467,7 +471,11 @@ describe("test-fake honesty (the fakes must throw, not vacuously match)", () => 
     // negatives. Multiple positive clauses for ONE field joined by `&&`
     // therefore evaluate WRONG (the model would OR what the filter ANDs) —
     // a test exercising that shape must fail loudly, not pass vacuously.
-    const row: FilterableRow = { id: "r1", status: "pending", probe_key: "d6:a" };
+    const row: FilterableRow = {
+      id: "r1",
+      status: "pending",
+      probe_key: "d6:a",
+    };
     expect(() =>
       rowMatchesFilter(row, 'probe_key ~ "d6:%" && probe_key ~ "d4:%"'),
     ).toThrow(/positive probe_key clauses ANDed/);
@@ -564,9 +572,7 @@ describe("FleetQueueClient.enqueue", () => {
 
     const poisoned = samplePayload();
     poisoned.meta = { ...poisoned.meta, priority: "high" as unknown as number };
-    await expect(q.enqueue({ payload: poisoned })).rejects.toThrow(
-      /priority/i,
-    );
+    await expect(q.enqueue({ payload: poisoned })).rejects.toThrow(/priority/i);
     expect(rows).toHaveLength(0);
 
     // A NUMBER priority (and an absent one) still passes.
@@ -592,9 +598,7 @@ describe("FleetQueueClient.enqueue", () => {
       ...samplePayload(),
       meta: "not-an-object",
     } as unknown as ServiceJobPayload;
-    await expect(q.enqueue({ payload: badPayload })).rejects.toThrow(
-      /meta/i,
-    );
+    await expect(q.enqueue({ payload: badPayload })).rejects.toThrow(/meta/i);
     expect(createSpy).not.toHaveBeenCalled();
     expect(rows).toHaveLength(0);
   });
@@ -870,7 +874,10 @@ describe("FleetQueueClient.claimNext", () => {
     // an older writer (or hand-edited) with an empty probeKey/serviceSlug/
     // driverKind/runId is released as failed and skipped, never handed to
     // the worker (where the empty sentinels corrupt aggregation).
-    const bad = (id: string, overrides: Partial<ServiceJobPayload>): JobRow => ({
+    const bad = (
+      id: string,
+      overrides: Partial<ServiceJobPayload>,
+    ): JobRow => ({
       ...jobView({ id }),
       payload: samplePayload(overrides),
     });
@@ -2622,7 +2629,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(store.find((r) => r.id === "old-boom")?.status).toBe("pending");
       expect(logger.warn).toHaveBeenCalledWith(
         "queue-client.sweep-stale-claim-threw",
-        expect.objectContaining({ jobId: "old-boom", err: "cas 400 bad request" }),
+        expect.objectContaining({
+          jobId: "old-boom",
+          err: "cas 400 bad request",
+        }),
       );
       // Contained per row — the phase wrapper never saw it.
       expect(logger.error).not.toHaveBeenCalledWith(
@@ -2681,9 +2691,9 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
 
       // All 10 expirable d4 rows reclaimed in ONE sweep…
       expect(sweep.expiredPending).toBe(10);
-      expect(
-        store.filter((r) => r.probe_key.startsWith("d4:")),
-      ).toHaveLength(0);
+      expect(store.filter((r) => r.probe_key.startsWith("d4:"))).toHaveLength(
+        0,
+      );
       // …and the not-yet-expirable slow family is untouched.
       expect(store).toHaveLength(50);
     });
@@ -2858,9 +2868,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(first.reclaimed).toBe(1);
       expect(first.commErrors[0]?.jobId).toBe("long-runner");
       expect(first.expiredPending).toBe(0);
-      expect(store.find((r) => r.id === "long-runner")?.status).toBe(
-        "pending",
-      );
+      expect(store.find((r) => r.id === "long-runner")?.status).toBe("pending");
 
       // Sweep 2: the grace set is per-call, so only the recent-lease
       // heuristic stands between the re-queued row and a claim-delete. The
@@ -2869,9 +2877,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // re-claimed and actually re-run.
       const second = await q.sweepExpired(T);
       expect(second.expiredPending).toBe(0);
-      expect(store.find((r) => r.id === "long-runner")?.status).toBe(
-        "pending",
-      );
+      expect(store.find((r) => r.id === "long-runner")?.status).toBe("pending");
 
       // CONTROL: once the retained lease itself is OLDER than the family
       // window (no re-claim for a whole window — genuinely abandoned), the
@@ -3040,9 +3046,7 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(sweep.reclaimed).toBe(1);
       expect(sweep.expiredPending).toBe(1);
       // The recently-expired row took today's path: re-queued to pending.
-      expect(store.find((r) => r.id === "recent-dead")?.status).toBe(
-        "pending",
-      );
+      expect(store.find((r) => r.id === "recent-dead")?.status).toBe("pending");
     });
 
     it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {
@@ -3262,7 +3266,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // warn fired here every sweep — pure noise with nothing truncated that
       // could matter.
       const rows = Array.from({ length: 50 }, (_, i) =>
-        runningRow(`live-${String(i).padStart(2, "0")}`, "2026-06-04T00:06:00.000Z"),
+        runningRow(
+          `live-${String(i).padStart(2, "0")}`,
+          "2026-06-04T00:06:00.000Z",
+        ),
       );
       const { pb, store } = makePagingPb(rows);
       const q = createFleetQueueClient({
@@ -3285,7 +3292,10 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       // means rows beyond the page (if any) could be expired too, so the
       // truncation is the one that matters and must be observable.
       const rows = Array.from({ length: 50 }, (_, i) =>
-        runningRow(`dead-${String(i).padStart(2, "0")}`, "2026-06-04T00:01:00.000Z"),
+        runningRow(
+          `dead-${String(i).padStart(2, "0")}`,
+          "2026-06-04T00:01:00.000Z",
+        ),
       );
       const { pb, store } = makePagingPb(rows);
       const q = createFleetQueueClient({
@@ -3501,7 +3511,11 @@ describe("FleetQueueClient.renewLease", () => {
     const q = createFleetQueueClient({ pb, claim, logger });
 
     await q.claimNext("worker-7", 30);
-    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+    await q.report({
+      jobId: "j1",
+      workerId: "worker-7",
+      result: sampleResult(),
+    });
     // The cache entry died with the report; a renew (e.g. a late heartbeat
     // racing the report) must re-read rather than serve the stale entry.
     const lease = await q.renewLease("j1", "worker-7", 30);
@@ -3662,7 +3676,8 @@ describe("FleetQueueClient.renewLease", () => {
         }),
       ),
       renewLease: vi.fn(async (): Promise<RenewResult> => {
-        if (renewThrows) throw new Error("2xx body unreadable — outcome indeterminate");
+        if (renewThrows)
+          throw new Error("2xx body unreadable — outcome indeterminate");
         return {
           renewed: true,
           job: jobView({
@@ -3758,7 +3773,11 @@ describe("FleetQueueClient.renewLease", () => {
     expect(lost).toBeNull();
     expect(logger.error).toHaveBeenCalledWith(
       "queue-client.renew-rejected",
-      expect.objectContaining({ jobId: "j1", workerId: "worker-7", status: 400 }),
+      expect.objectContaining({
+        jobId: "j1",
+        workerId: "worker-7",
+        status: 400,
+      }),
     );
     // The assumed-live warn must NOT fire for a deterministic rejection.
     expect(logger.warn).not.toHaveBeenCalledWith(
@@ -3836,7 +3855,11 @@ describe("FleetQueueClient.renewLease", () => {
         }),
       ),
       renewLease: vi.fn(async (): Promise<RenewResult> => {
-        throw new JobClaimEndpointError("/api/fleet/renew", 429, "rate limited");
+        throw new JobClaimEndpointError(
+          "/api/fleet/renew",
+          429,
+          "rate limited",
+        );
       }),
     });
     const q = createFleetQueueClient({ pb, claim, logger });
@@ -4228,7 +4251,12 @@ describe("FleetQueueClient.report", () => {
     const claim = makeFakeClaim({ releaseJob });
     // No-op sleep: this test pins the retry COUNT, not the pacing (pinned
     // separately below) — keep it instant.
-    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      sleep: async () => {},
+    });
 
     await expect(
       q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
@@ -4293,7 +4321,12 @@ describe("FleetQueueClient.report", () => {
         async (): Promise<ReleaseResult> => ({ released: true }),
       ),
     });
-    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      sleep: async () => {},
+    });
 
     const result = sampleResult();
     await q.report({ jobId: "j1", workerId: "worker-7", result });
@@ -4383,7 +4416,12 @@ describe("FleetQueueClient.report", () => {
         async (): Promise<ReleaseResult> => ({ released: true }),
       ),
     });
-    const q = createFleetQueueClient({ pb, claim, logger, sleep: async () => {} });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      sleep: async () => {},
+    });
 
     await expect(
       q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
@@ -4498,7 +4536,11 @@ describe("FleetQueueClient.report", () => {
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
-    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+    await q.report({
+      jobId: "j1",
+      workerId: "worker-7",
+      result: sampleResult(),
+    });
 
     expect(updateSpy).not.toHaveBeenCalled();
     expect(rows[0].result).toEqual(aggregated);
@@ -4535,7 +4577,11 @@ describe("FleetQueueClient.report", () => {
     });
     const q = createFleetQueueClient({ pb, claim, logger });
 
-    await q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() });
+    await q.report({
+      jobId: "j1",
+      workerId: "worker-7",
+      result: sampleResult(),
+    });
 
     expect(updateSpy).not.toHaveBeenCalled();
     expect(rows[0].result).toEqual(written);
@@ -4841,12 +4887,10 @@ describe("FleetQueueClient.sweepExpired", () => {
       mkExpired("j2", "w2"),
       mkExpired("j3", "w3"),
     ]);
-    const releaseJob = vi.fn(
-      async (jobId: string): Promise<ReleaseResult> => {
-        if (jobId === "j2") throw new Error("pb 502 mid-release");
-        return { released: true };
-      },
-    );
+    const releaseJob = vi.fn(async (jobId: string): Promise<ReleaseResult> => {
+      if (jobId === "j2") throw new Error("pb 502 mid-release");
+      return { released: true };
+    });
     const claim = makeFakeClaim({ releaseJob });
     const q = createFleetQueueClient({ pb, claim, logger });
 
@@ -4929,7 +4973,11 @@ describe("FleetQueueClient.sweepExpired", () => {
     const { pb } = makeFakePb([expired]);
     const claim = makeFakeClaim({
       releaseJob: vi.fn(async (): Promise<ReleaseResult> => {
-        throw new JobClaimEndpointError("/api/fleet/release", 502, "bad gateway");
+        throw new JobClaimEndpointError(
+          "/api/fleet/release",
+          502,
+          "bad gateway",
+        );
       }),
     });
     const q = createFleetQueueClient({ pb, claim, logger });
@@ -5235,8 +5283,9 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     // immediately stealable, renew thrash. Both lease-setting handlers must
     // floor the clamped value at 1 second.
     const floors =
-      hookSource.match(/Math\.max\(\s*1,\s*Math\.min\(\s*n,\s*3600\s*\)\s*\)/g) ??
-      [];
+      hookSource.match(
+        /Math\.max\(\s*1,\s*Math\.min\(\s*n,\s*3600\s*\)\s*\)/g,
+      ) ?? [];
     expect(floors.length).toBe(2);
   });
 
@@ -5252,8 +5301,7 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     // PB coerces a numeric workerId into the text claimed_by column, but the
     // holder then renews/releases with the STRING form — `claimed_by !==
     // workerId` never matches and the row is wedged until lease expiry.
-    const guards =
-      hookSource.match(/typeof workerId !== "string"/g) ?? [];
+    const guards = hookSource.match(/typeof workerId !== "string"/g) ?? [];
     expect(guards.length).toBe(3);
   });
 

@@ -503,7 +503,8 @@ describe("job-producer — per-family backlog dedupe", () => {
       logger: {
         ...SILENT_LOGGER,
         info: (msg, meta) => {
-          if (msg === "fleet.producer.tick-complete") tickCompleteMeta.push(meta);
+          if (msg === "fleet.producer.tick-complete")
+            tickCompleteMeta.push(meta);
         },
       },
     });
@@ -530,7 +531,8 @@ describe("job-producer — per-family backlog dedupe", () => {
       }),
     });
     expect(
-      (await triggered.producer.tick({ triggered: true })).backlogGateFailedOpen,
+      (await triggered.producer.tick({ triggered: true }))
+        .backlogGateFailedOpen,
     ).toBe(0);
 
     const stopped = startedProducer({ specs: d6Specs(["a"]) });
@@ -735,10 +737,7 @@ describe("job-producer — phantom probeKey guard", () => {
     for (const ghost of [null, undefined, 42]) {
       const errors: string[] = [];
       const { producer, queue } = startedProducer({
-        specs: [
-          ghost as unknown as ServiceJobSpec,
-          ...d6Specs(["alpha"]),
-        ],
+        specs: [ghost as unknown as ServiceJobSpec, ...d6Specs(["alpha"])],
         logger: {
           ...SILENT_LOGGER,
           error: (msg) => {
@@ -786,7 +785,10 @@ describe("job-producer — phantom probeKey guard", () => {
     const producer = createJobProducer({
       queue,
       enumerate: () => [
-        { ...GHOST_SPEC, driverInputs: { backendUrl: "https://ghost.example.com" } },
+        {
+          ...GHOST_SPEC,
+          driverInputs: { backendUrl: "https://ghost.example.com" },
+        },
         ...d6Specs(["alpha"]),
       ],
       logger: SILENT_LOGGER,

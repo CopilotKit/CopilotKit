@@ -618,9 +618,7 @@ function escapeFilterLiteral(value: string): string {
  * symmetrically.
  */
 function escapeLikeLiteral(value: string): string {
-  return escapeFilterLiteral(value)
-    .replace(/%/g, "\\%")
-    .replace(/_/g, "\\_");
+  return escapeFilterLiteral(value).replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
 /**
@@ -942,8 +940,7 @@ export function createFleetQueueClient(
       // decode boundaries byte-symmetric (same shared assertion).
       assertServiceJobPayload(
         `enqueue(probe_key ${String(
-          (payload as Partial<ServiceJobPayload> | null)?.probeKey ??
-            "unknown",
+          (payload as Partial<ServiceJobPayload> | null)?.probeKey ?? "unknown",
         )})`,
         payload,
       );
@@ -1133,17 +1130,14 @@ export function createFleetQueueClient(
                 }
               }
             } catch (releaseErr) {
-              logger.warn(
-                "queue-client.claim-won-without-job-release-failed",
-                {
-                  jobId: candidate.id,
-                  workerId: raceWorkerId,
-                  err:
-                    releaseErr instanceof Error
-                      ? releaseErr.message
-                      : String(releaseErr),
-                },
-              );
+              logger.warn("queue-client.claim-won-without-job-release-failed", {
+                jobId: candidate.id,
+                workerId: raceWorkerId,
+                err:
+                  releaseErr instanceof Error
+                    ? releaseErr.message
+                    : String(releaseErr),
+              });
             }
           }
           if (!result.won || !result.job) continue;
@@ -1410,7 +1404,10 @@ export function createFleetQueueClient(
         // rejection, or the renewed-without-job breach with nothing cached
         // (all handled above).
         logger.warn("queue-client.renew-no-payload", { jobId, workerId });
-        const fallback = leaseFromJob(result.job, emptyPayloadForLease(result.job));
+        const fallback = leaseFromJob(
+          result.job,
+          emptyPayloadForLease(result.job),
+        );
         leaseCache.set(jobId, fallback);
         return fallback;
       }
@@ -1672,526 +1669,526 @@ export function createFleetQueueClient(
   async function runSweepExpired(
     nowMs: number,
   ): Promise<SweepResultWithIndeterminate> {
-      // Scan claimed/running rows for expired leases (crashed/unreachable
-      // workers). PB lacks an OR-of-equals shortcut here, so list both running
-      // states and filter by lease in-process.
-      //
-      // ONE SWEEP OF GRACE: rows the lease phase re-queues below are tracked
-      // and EXCLUDED from this call's stale-pending phase. The stale phase
-      // ages off PB's system `created` (the ORIGINAL enqueue time — re-queue
-      // does not touch it), so a long-claimed job would otherwise be re-queued
-      // ("back in flight" per the worker-reclaimed-pending comm error) and
-      // then immediately claimed-and-deleted by the SAME call — falsifying the
-      // comm error and nulling downstream aggregate-key resolution on the
-      // deleted row. ACROSS calls the protection is split by HOW LONG the
-      // lease has been expired: a RECENTLY-expired lease (within the stale
-      // window) is re-queued, and the stale phase's RECENT-LEASE heuristic
-      // (see drainStalePending) protects it on later sweeps — the release
-      // hook retains the expired lease on re-queue, so a recently-in-flight
-      // row is not expired off its original `created` age by the NEXT sweep.
-      // A lease expired LONGER than the stale window on a stale-aged row is
-      // PAST that heuristic's reach: re-queueing it would emit a "back in
-      // flight" signal the NEXT sweep falsifies by claim-deleting the row —
-      // so the lease phase claim-deletes it DIRECTLY (G1d), with no comm
-      // error (the work is discarded, not re-run). (Re-anchoring the age to
-      // the re-queue time would need a column; the retained lease is the
-      // schema-free approximation.)
-      //
-      // MASS-CRASH PAGING: with >CLAIM_CANDIDATE_PAGE claimed/running rows
-      // (mass worker crash), an UNSORTED single page left the contents to PB's
-      // unspecified default order — the same page of live-lease rows could
-      // come back every sweep, leaving expired leases beyond it PERMANENTLY
-      // invisible. Sorting by `lease_expires_at` ascending (indexed —
-      // idx_probe_jobs_lease; empty dates sort first, and an empty lease
-      // counts as expired) puts the most-expired rows at the head of the page,
-      // so every sweep reclaims the oldest expirations first. We deliberately
-      // KEEP the single page per sweep: the sort guarantees forward progress
-      // (each reclaim frees head slots for the next sweep), so a backlog
-      // drains progressively without unbounded pagination inside one sweep.
-      const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
-        filter: 'status = "claimed" || status = "running"',
-        sort: "lease_expires_at",
+    // Scan claimed/running rows for expired leases (crashed/unreachable
+    // workers). PB lacks an OR-of-equals shortcut here, so list both running
+    // states and filter by lease in-process.
+    //
+    // ONE SWEEP OF GRACE: rows the lease phase re-queues below are tracked
+    // and EXCLUDED from this call's stale-pending phase. The stale phase
+    // ages off PB's system `created` (the ORIGINAL enqueue time — re-queue
+    // does not touch it), so a long-claimed job would otherwise be re-queued
+    // ("back in flight" per the worker-reclaimed-pending comm error) and
+    // then immediately claimed-and-deleted by the SAME call — falsifying the
+    // comm error and nulling downstream aggregate-key resolution on the
+    // deleted row. ACROSS calls the protection is split by HOW LONG the
+    // lease has been expired: a RECENTLY-expired lease (within the stale
+    // window) is re-queued, and the stale phase's RECENT-LEASE heuristic
+    // (see drainStalePending) protects it on later sweeps — the release
+    // hook retains the expired lease on re-queue, so a recently-in-flight
+    // row is not expired off its original `created` age by the NEXT sweep.
+    // A lease expired LONGER than the stale window on a stale-aged row is
+    // PAST that heuristic's reach: re-queueing it would emit a "back in
+    // flight" signal the NEXT sweep falsifies by claim-deleting the row —
+    // so the lease phase claim-deletes it DIRECTLY (G1d), with no comm
+    // error (the work is discarded, not re-run). (Re-anchoring the age to
+    // the re-queue time would need a column; the retained lease is the
+    // schema-free approximation.)
+    //
+    // MASS-CRASH PAGING: with >CLAIM_CANDIDATE_PAGE claimed/running rows
+    // (mass worker crash), an UNSORTED single page left the contents to PB's
+    // unspecified default order — the same page of live-lease rows could
+    // come back every sweep, leaving expired leases beyond it PERMANENTLY
+    // invisible. Sorting by `lease_expires_at` ascending (indexed —
+    // idx_probe_jobs_lease; empty dates sort first, and an empty lease
+    // counts as expired) puts the most-expired rows at the head of the page,
+    // so every sweep reclaims the oldest expirations first. We deliberately
+    // KEEP the single page per sweep: the sort guarantees forward progress
+    // (each reclaim frees head slots for the next sweep), so a backlog
+    // drains progressively without unbounded pagination inside one sweep.
+    const page = await pb.list<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
+      filter: 'status = "claimed" || status = "running"',
+      sort: "lease_expires_at",
+      perPage: CLAIM_CANDIDATE_PAGE,
+      skipTotal: true,
+    });
+    const pageTail = page.items[page.items.length - 1];
+    if (
+      page.items.length === CLAIM_CANDIDATE_PAGE &&
+      pageTail !== undefined &&
+      leaseExpired(pageTail.lease_expires_at, nowMs)
+    ) {
+      // A full page whose TAIL lease is already expired: under the
+      // ascending lease sort, rows truncated beyond the page may be expired
+      // too — make that observable instead of silently draining over
+      // multiple sweeps. A full page with a LIVE tail is NOT warned: every
+      // truncated row has an even later expiry, so nothing expirable was
+      // hidden (warning there would false-positive on every sweep at any
+      // healthy ≥50-in-flight steady state).
+      logger.warn("queue-client.sweep-lease-page-truncated", {
         perPage: CLAIM_CANDIDATE_PAGE,
-        skipTotal: true,
       });
-      const pageTail = page.items[page.items.length - 1];
-      if (
-        page.items.length === CLAIM_CANDIDATE_PAGE &&
-        pageTail !== undefined &&
-        leaseExpired(pageTail.lease_expires_at, nowMs)
-      ) {
-        // A full page whose TAIL lease is already expired: under the
-        // ascending lease sort, rows truncated beyond the page may be expired
-        // too — make that observable instead of silently draining over
-        // multiple sweeps. A full page with a LIVE tail is NOT warned: every
-        // truncated row has an even later expiry, so nothing expirable was
-        // hidden (warning there would false-positive on every sweep at any
-        // healthy ≥50-in-flight steady state).
-        logger.warn("queue-client.sweep-lease-page-truncated", {
-          perPage: CLAIM_CANDIDATE_PAGE,
-        });
+    }
+    const commErrors: PoolCommError[] = [];
+    let reclaimed = 0;
+    // AT-LEAST-ONCE SPLIT (G1g): thrown-release conservative maybes are
+    // counted HERE, not in `reclaimed` — a throw that did NOT commit
+    // would otherwise over-count confirmed reclaims (the count consumers
+    // alert on), while the comm errors deliberately keep their
+    // at-least-once duplication. commErrors length (excluding
+    // sweeper-held rows) = reclaimed + reclaimedIndeterminate.
+    let reclaimedIndeterminate = 0;
+    // GRACE-SET SCOPE (load-bearing): this set is per-call, IN-PROCESS
+    // state — it protects re-queued rows only from THIS sweep pass's own
+    // stale phase. IN-PROCESS concurrency is real (runControlPlane wires
+    // FOUR family producers over one queue client, and overlapping crons
+    // can call sweepExpired concurrently) and is closed by the
+    // CONCURRENT-SWEEP LATCH in `sweepExpired`: an overlapping caller
+    // piggybacks on the in-flight pass instead of racing this set.
+    // CROSS-PROCESS concurrency (a second control-plane REPLICA) is NOT
+    // covered — the fleet deploys exactly ONE control-plane instance; if
+    // that ever changes, the grace must move to ROW state (the retained
+    // lease heuristic in the stale phase already covers the cross-call
+    // case; a requeued_at column would cover both exactly).
+    const requeuedThisSweep = new Set<string>();
+    const observedAt = new Date(nowMs).toISOString();
+    // Stale expiries (deleted rows). Declared here — not at the stale
+    // phase — because the lease phase's long-expired carve-out below also
+    // deletes (G1d); both phases feed the same count.
+    let expiredPending = 0;
+    for (const row of page.items) {
+      if (!leaseExpired(row.lease_expires_at, nowMs)) continue;
+      // Snapshot the holder BEFORE the release CAS: the release drops
+      // ownership, and the special-case + comm-error attribution below must
+      // reflect who HELD the expired lease, not the post-release row.
+      const holder = row.claimed_by;
+      // LONG-EXPIRED CARVE-OUT (G1d): a row that is ALREADY
+      // stale-expirable — created-age past its family's stale window AND
+      // its lease expired LONGER than that window — is past the
+      // recent-lease heuristic's protection (see the header). Re-queueing
+      // it would emit a "back in flight" comm error the NEXT sweep
+      // falsifies by claim-deleting the row off its original `created`
+      // age. Delete it HERE, claim-first like the stale phase (the claim
+      // CAS admits an expired-lease claimed/running row — its reclaim
+      // safety net — so the delete stays race-free). No comm error and no
+      // reclaimed++: the work is discarded, not re-run. The carve-out
+      // requires a PARSEABLE created — an unparseable created stays on
+      // the conservative re-queue path below, and that COMPOSES honestly:
+      // the stale phase skips unparseable-created rows too, so the
+      // re-queued row stays claimable and "back in flight" stays true. An
+      // UNPARSEABLE (or empty) lease is the opposite: it carries no
+      // recent-flight evidence EITHER phase can honor — the stale phase's
+      // recent-lease protection needs a finite lease — so re-queueing
+      // would emit a "back in flight" signal the next sweep falsifies by
+      // claim-deleting the row off its stale created age. Treat it as
+      // long-expired and delete it HERE, so the emitted signal (none)
+      // matches the eventual outcome (discard). Sweeper-held rows
+      // (stale garbage mid-deletion, 60s lease) are always RECENTLY
+      // expired, so they keep their silent re-queue retry contract.
+      if (staleExpiryPeriods > 0 && holder !== STALE_PENDING_SWEEPER_ID) {
+        const family = probeKeyFamily(row.probe_key);
+        const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
+        const createdMs = Date.parse(
+          String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+        );
+        const leaseMs = Date.parse(
+          String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+        );
+        const staleExpirable =
+          !Number.isNaN(createdMs) &&
+          nowMs - createdMs > maxAgeMs &&
+          (!Number.isFinite(leaseMs) || leaseMs <= nowMs - maxAgeMs);
+        if (staleExpirable) {
+          // PER-ROW containment mirrors the stale phase: a thrown claim is
+          // indeterminate (skip this sweep; the row is unchanged for the
+          // next), a lost claim means a peer acted on the row, and a
+          // failed delete leaves the row sweeper-claimed — its short lease
+          // expires and the silent re-queue + later stale sweep retry the
+          // delete (the existing self-healing contract).
+          let won: ClaimResult;
+          try {
+            won = await claim.claimJob(
+              row.id,
+              STALE_PENDING_SWEEPER_ID,
+              STALE_PENDING_SWEEPER_LEASE_SECONDS,
+            );
+          } catch (err) {
+            logger.warn("queue-client.sweep-lease-stale-claim-threw", {
+              jobId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          if (!won.won) {
+            logger.debug("queue-client.sweep-lease-stale-claim-lost", {
+              jobId: row.id,
+            });
+            continue;
+          }
+          try {
+            await pb.delete(PROBE_JOBS_COLLECTION, row.id);
+          } catch (err) {
+            logger.error("queue-client.sweep-lease-stale-delete-failed", {
+              jobId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          // COUNT-NAME CAVEAT: despite the name, `expiredPending` here
+          // counts a CLAIMED/RUNNING row (long-expired lease, stale
+          // created-age) deleted by this carve-out — not just stale
+          // PENDING rows from the drain phase. The shared contract doc
+          // (`SweepResult.expiredPending` in contracts.ts) documents this
+          // lease-phase carve-out explicitly — the two sides agree.
+          expiredPending += 1;
+          logger.warn("queue-client.sweep-lease-stale-deleted", {
+            jobId: row.id,
+            probeKey: row.probe_key,
+            family,
+            workerId: holder,
+            maxAgeMs,
+          });
+          continue;
+        }
       }
-      const commErrors: PoolCommError[] = [];
-      let reclaimed = 0;
-      // AT-LEAST-ONCE SPLIT (G1g): thrown-release conservative maybes are
-      // counted HERE, not in `reclaimed` — a throw that did NOT commit
-      // would otherwise over-count confirmed reclaims (the count consumers
-      // alert on), while the comm errors deliberately keep their
-      // at-least-once duplication. commErrors length (excluding
-      // sweeper-held rows) = reclaimed + reclaimedIndeterminate.
-      let reclaimedIndeterminate = 0;
-      // GRACE-SET SCOPE (load-bearing): this set is per-call, IN-PROCESS
-      // state — it protects re-queued rows only from THIS sweep pass's own
-      // stale phase. IN-PROCESS concurrency is real (runControlPlane wires
-      // FOUR family producers over one queue client, and overlapping crons
-      // can call sweepExpired concurrently) and is closed by the
-      // CONCURRENT-SWEEP LATCH in `sweepExpired`: an overlapping caller
-      // piggybacks on the in-flight pass instead of racing this set.
-      // CROSS-PROCESS concurrency (a second control-plane REPLICA) is NOT
-      // covered — the fleet deploys exactly ONE control-plane instance; if
-      // that ever changes, the grace must move to ROW state (the retained
-      // lease heuristic in the stale phase already covers the cross-call
-      // case; a requeued_at column would cover both exactly).
-      const requeuedThisSweep = new Set<string>();
-      const observedAt = new Date(nowMs).toISOString();
-      // Stale expiries (deleted rows). Declared here — not at the stale
-      // phase — because the lease phase's long-expired carve-out below also
-      // deletes (G1d); both phases feed the same count.
-      let expiredPending = 0;
-      for (const row of page.items) {
-        if (!leaseExpired(row.lease_expires_at, nowMs)) continue;
-        // Snapshot the holder BEFORE the release CAS: the release drops
-        // ownership, and the special-case + comm-error attribution below must
-        // reflect who HELD the expired lease, not the post-release row.
-        const holder = row.claimed_by;
-        // LONG-EXPIRED CARVE-OUT (G1d): a row that is ALREADY
-        // stale-expirable — created-age past its family's stale window AND
-        // its lease expired LONGER than that window — is past the
-        // recent-lease heuristic's protection (see the header). Re-queueing
-        // it would emit a "back in flight" comm error the NEXT sweep
-        // falsifies by claim-deleting the row off its original `created`
-        // age. Delete it HERE, claim-first like the stale phase (the claim
-        // CAS admits an expired-lease claimed/running row — its reclaim
-        // safety net — so the delete stays race-free). No comm error and no
-        // reclaimed++: the work is discarded, not re-run. The carve-out
-        // requires a PARSEABLE created — an unparseable created stays on
-        // the conservative re-queue path below, and that COMPOSES honestly:
-        // the stale phase skips unparseable-created rows too, so the
-        // re-queued row stays claimable and "back in flight" stays true. An
-        // UNPARSEABLE (or empty) lease is the opposite: it carries no
-        // recent-flight evidence EITHER phase can honor — the stale phase's
-        // recent-lease protection needs a finite lease — so re-queueing
-        // would emit a "back in flight" signal the next sweep falsifies by
-        // claim-deleting the row off its stale created age. Treat it as
-        // long-expired and delete it HERE, so the emitted signal (none)
-        // matches the eventual outcome (discard). Sweeper-held rows
-        // (stale garbage mid-deletion, 60s lease) are always RECENTLY
-        // expired, so they keep their silent re-queue retry contract.
-        if (staleExpiryPeriods > 0 && holder !== STALE_PENDING_SWEEPER_ID) {
-          const family = probeKeyFamily(row.probe_key);
-          const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
-          const createdMs = Date.parse(
-            String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-          );
-          const leaseMs = Date.parse(
-            String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-          );
-          const staleExpirable =
-            !Number.isNaN(createdMs) &&
-            nowMs - createdMs > maxAgeMs &&
-            (!Number.isFinite(leaseMs) || leaseMs <= nowMs - maxAgeMs);
-          if (staleExpirable) {
-            // PER-ROW containment mirrors the stale phase: a thrown claim is
-            // indeterminate (skip this sweep; the row is unchanged for the
-            // next), a lost claim means a peer acted on the row, and a
-            // failed delete leaves the row sweeper-claimed — its short lease
-            // expires and the silent re-queue + later stale sweep retry the
-            // delete (the existing self-healing contract).
-            let won: ClaimResult;
-            try {
-              won = await claim.claimJob(
-                row.id,
-                STALE_PENDING_SWEEPER_ID,
-                STALE_PENDING_SWEEPER_LEASE_SECONDS,
-              );
-            } catch (err) {
-              logger.warn("queue-client.sweep-lease-stale-claim-threw", {
-                jobId: row.id,
-                err: err instanceof Error ? err.message : String(err),
-              });
-              continue;
-            }
-            if (!won.won) {
-              logger.debug("queue-client.sweep-lease-stale-claim-lost", {
-                jobId: row.id,
-              });
-              continue;
-            }
-            try {
-              await pb.delete(PROBE_JOBS_COLLECTION, row.id);
-            } catch (err) {
-              logger.error("queue-client.sweep-lease-stale-delete-failed", {
-                jobId: row.id,
-                err: err instanceof Error ? err.message : String(err),
-              });
-              continue;
-            }
-            // COUNT-NAME CAVEAT: despite the name, `expiredPending` here
-            // counts a CLAIMED/RUNNING row (long-expired lease, stale
-            // created-age) deleted by this carve-out — not just stale
-            // PENDING rows from the drain phase. The shared contract doc
-            // (`SweepResult.expiredPending` in contracts.ts) documents this
-            // lease-phase carve-out explicitly — the two sides agree.
-            expiredPending += 1;
-            logger.warn("queue-client.sweep-lease-stale-deleted", {
-              jobId: row.id,
-              probeKey: row.probe_key,
-              family,
-              workerId: holder,
-              maxAgeMs,
-            });
-            continue;
-          }
-        }
-        // Re-queue on behalf of the dead holder: the CAS authorizes on
-        // `claimed_by` (still the dead worker), so this atomically flips the
-        // row back to pending and drops ownership.
-        //
-        // PER-ROW containment (REQ-B): a release that THROWS (transport blip —
-        // distinct from a refused CAS, handled below) must not escape the
-        // loop. The producer swallows a sweepExpired throw, so an escape would
-        // discard the commErrors ALREADY synthesized for rows ALREADY released
-        // to pending in this pass — their gray "re-queued" surfaces would
-        // never reach the dashboard and are never regenerated (those rows are
-        // pending now; no later sweep re-emits them).
-        //
-        // TIMEOUT-AFTER-COMMIT (at-least-once): a thrown release may have
-        // COMMITTED server-side before the response was lost — the row IS
-        // pending then, so (a) the SAME call's stale phase could
-        // claim-and-delete it unless it is in the grace set, and (b) its
-        // worker-reclaimed-pending comm error would be lost FOREVER (the row
-        // is pending; no later sweep re-emits it — the file's own contract
-        // above). So treat a thrown release CONSERVATIVELY as if it
-        // committed: grace the row and synthesize the comm error anyway. If
-        // the release did NOT commit, the next sweep retries the
-        // still-expired lease and a DUPLICATE gray "re-queued" overlay may
-        // render — harmless; a MISSING one is not. Sweeper-held rows stay
-        // silent (mirroring the committed path below). The known-refused CAS
-        // (`released: false`) stays a clean skip, and a DETERMINISTIC 4xx
-        // (the hook rejected the request — nothing committed) is carved out
-        // below — only the genuinely indeterminate throw (5xx / transport /
-        // 2xx-unreadable) gets the conservative treatment.
-        let released: ReleaseResult;
-        try {
-          released = await claim.releaseJob(row.id, holder, "pending");
-        } catch (err) {
-          // DETERMINISTIC 4xx (G1d): the hook REJECTED the request before
-          // its transaction ran — definitively NOTHING committed, so the
-          // conservative at-least-once treatment below would be a LIE told
-          // EVERY sweep: a wedge row (concrete trigger: empty claimed_by →
-          // the hook 400s on the missing workerId) would paint a permanent
-          // per-sweep false worker-reclaimed-pending overlay for a row that
-          // never moves. Log loud (error — the row IS wedged and needs an
-          // operator) and synthesize nothing: no grace, no comm error, no
-          // reclaimed++. Only 5xx/transport/2xx-unreadable throws — plus
-          // the transient-by-meaning 408/429 (see
-          // deterministicEndpointRejection) — stay conservative.
-          if (deterministicEndpointRejection(err)) {
-            logger.error("queue-client.sweep-release-rejected", {
-              jobId: row.id,
-              workerId: holder,
-              status: err.status,
-              err: err.message,
-            });
-            continue;
-          }
-          logger.warn("queue-client.sweep-release-threw", {
+      // Re-queue on behalf of the dead holder: the CAS authorizes on
+      // `claimed_by` (still the dead worker), so this atomically flips the
+      // row back to pending and drops ownership.
+      //
+      // PER-ROW containment (REQ-B): a release that THROWS (transport blip —
+      // distinct from a refused CAS, handled below) must not escape the
+      // loop. The producer swallows a sweepExpired throw, so an escape would
+      // discard the commErrors ALREADY synthesized for rows ALREADY released
+      // to pending in this pass — their gray "re-queued" surfaces would
+      // never reach the dashboard and are never regenerated (those rows are
+      // pending now; no later sweep re-emits them).
+      //
+      // TIMEOUT-AFTER-COMMIT (at-least-once): a thrown release may have
+      // COMMITTED server-side before the response was lost — the row IS
+      // pending then, so (a) the SAME call's stale phase could
+      // claim-and-delete it unless it is in the grace set, and (b) its
+      // worker-reclaimed-pending comm error would be lost FOREVER (the row
+      // is pending; no later sweep re-emits it — the file's own contract
+      // above). So treat a thrown release CONSERVATIVELY as if it
+      // committed: grace the row and synthesize the comm error anyway. If
+      // the release did NOT commit, the next sweep retries the
+      // still-expired lease and a DUPLICATE gray "re-queued" overlay may
+      // render — harmless; a MISSING one is not. Sweeper-held rows stay
+      // silent (mirroring the committed path below). The known-refused CAS
+      // (`released: false`) stays a clean skip, and a DETERMINISTIC 4xx
+      // (the hook rejected the request — nothing committed) is carved out
+      // below — only the genuinely indeterminate throw (5xx / transport /
+      // 2xx-unreadable) gets the conservative treatment.
+      let released: ReleaseResult;
+      try {
+        released = await claim.releaseJob(row.id, holder, "pending");
+      } catch (err) {
+        // DETERMINISTIC 4xx (G1d): the hook REJECTED the request before
+        // its transaction ran — definitively NOTHING committed, so the
+        // conservative at-least-once treatment below would be a LIE told
+        // EVERY sweep: a wedge row (concrete trigger: empty claimed_by →
+        // the hook 400s on the missing workerId) would paint a permanent
+        // per-sweep false worker-reclaimed-pending overlay for a row that
+        // never moves. Log loud (error — the row IS wedged and needs an
+        // operator) and synthesize nothing: no grace, no comm error, no
+        // reclaimed++. Only 5xx/transport/2xx-unreadable throws — plus
+        // the transient-by-meaning 408/429 (see
+        // deterministicEndpointRejection) — stay conservative.
+        if (deterministicEndpointRejection(err)) {
+          logger.error("queue-client.sweep-release-rejected", {
             jobId: row.id,
             workerId: holder,
-            err: err instanceof Error ? err.message : String(err),
-          });
-          requeuedThisSweep.add(row.id);
-          if (holder !== STALE_PENDING_SWEEPER_ID) {
-            reclaimedIndeterminate += 1;
-            commErrors.push({
-              kind: "worker-reclaimed-pending",
-              message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queue release threw mid-flight — conservatively reported as re-queued (at-least-once)`,
-              workerId: holder || undefined,
-              jobId: row.id,
-              observedAt,
-            });
-          }
-          continue;
-        }
-        if (!released.released) {
-          // Another sweeper or a late worker report won the race — not an
-          // error, just nothing for us to reclaim on this row.
-          logger.debug("queue-client.sweep-skip", {
-            jobId: row.id,
-            workerId: holder,
+            status: err.status,
+            err: err.message,
           });
           continue;
         }
-        // SPECIAL CASE: a row claimed by the STALE-PENDING SWEEPER is stale
-        // garbage mid-deletion (the stale sweep won the claim but its delete
-        // failed), NOT a crashed worker's job. The releaseJob above already
-        // re-queued it — which is exactly the self-healing retry contract (a
-        // later stale sweep re-claims and re-deletes it) — but it must be
-        // SILENT: synthesizing `worker-reclaimed-pending` here would paint a
-        // gray "re-queued / back in flight" dashboard overlay for a row that
-        // was never in flight, attributed to a non-existent worker. Not
-        // counted in `reclaimed` either (reclaimed + reclaimedIndeterminate
-        // are paired 1:1 with the commErrors they document). It DOES feed
-        // the grace set: this call's
-        // stale phase must not claim-and-delete a row the lease phase just
-        // re-queued (the retry contract is a LATER sweep — re-deleting in the
-        // same sweep would race the very lease/delete failure that put the
-        // row here), so the sweeper-retry row gets the same one sweep of
-        // grace as a worker-reclaimed row.
-        if (holder === STALE_PENDING_SWEEPER_ID) {
-          requeuedThisSweep.add(row.id);
-          logger.debug("queue-client.stale-sweeper-retry-requeue", {
-            jobId: row.id,
-          });
-          continue;
-        }
-        reclaimed += 1;
-        requeuedThisSweep.add(row.id);
-        // The sweep boundary CANNOT distinguish a real worker crash from an
-        // expected platform teardown (Railway scale-down / redeploy SIGKILL with
-        // no graceful drain) — both leave an identical expired lease on a
-        // claimed/running row. So we do NOT synthesize `worker-crashed-mid-job`
-        // here (that would flap the whole service red on every routine
-        // teardown). The job has been RE-QUEUED to pending by the releaseJob
-        // above, so it is back in flight; emit the neutral
-        // `worker-reclaimed-pending` kind, which the dashboard renders as a gray
-        // "re-queued" surface, NOT a red unreachable overlay. A genuine pool
-        // outage keeps re-surfacing this and the cell stays gray (no green) — the
-        // honest signal. (A graceful worker shutdown drains the in-flight job to
-        // a terminal report BEFORE the lease expires, so the sweep never sees it
-        // at all — see the SIGTERM drain handler in orchestrator.bootFleet.)
-        commErrors.push({
-          kind: "worker-reclaimed-pending",
-          message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queued to pending`,
-          workerId: holder || undefined,
+        logger.warn("queue-client.sweep-release-threw", {
           jobId: row.id,
-          observedAt,
+          workerId: holder,
+          err: err instanceof Error ? err.message : String(err),
         });
-        logger.warn("queue-client.sweep-reclaimed", {
+        requeuedThisSweep.add(row.id);
+        if (holder !== STALE_PENDING_SWEEPER_ID) {
+          reclaimedIndeterminate += 1;
+          commErrors.push({
+            kind: "worker-reclaimed-pending",
+            message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queue release threw mid-flight — conservatively reported as re-queued (at-least-once)`,
+            workerId: holder || undefined,
+            jobId: row.id,
+            observedAt,
+          });
+        }
+        continue;
+      }
+      if (!released.released) {
+        // Another sweeper or a late worker report won the race — not an
+        // error, just nothing for us to reclaim on this row.
+        logger.debug("queue-client.sweep-skip", {
           jobId: row.id,
           workerId: holder,
         });
+        continue;
       }
-
-      // ── STALE-PENDING EXPIRY (structural backlog drain) ──────────────────
-      // A pending row had NO terminal path: the lease sweep above only touches
-      // claimed/running rows, so an accumulated backlog (staging: 3,734
-      // pending, oldest 22h) could only drain through the 2 serial workers and
-      // effectively never did. Expire pending jobs older than expiryPeriods ×
-      // their family's production period — the family has enqueued ~3 fresher
-      // batches since, so the stale job's eventual result would be ancient
-      // data. Each stale row is CLAIMED via the S0 CAS first (a racing worker
-      // either wins the row — the sweeper backs off — or loses it and never
-      // sees it again; the exactly-one-winner invariant makes the delete
-      // race-free) and then deleted. No comm error is synthesized: an
-      // expired-pending job never ran, and its family's next batch is the
-      // dashboard signal.
-      // The drain LOOPS pages (up to STALE_PENDING_MAX_PAGES_PER_SWEEP): a
-      // single 50-row page per sweep would take ~7.5h to drain the motivating
-      // 3,734-row backlog at ~10 sweeps/hour. When a pass removed rows from
-      // pending (deleted, or a claim CAS ran — win or lose, the row LEFT
-      // pending), pagination shifted back, so the SAME page index is
-      // re-listed and naturally yields the shifted-in batch. When a FULL page
-      // produced no claim attempt at all (every row too young / graced /
-      // unparseable), nothing shifted — ADVANCE to the next page instead of
-      // stopping: expiry is per-FAMILY while the sort is absolute `created`,
-      // so younger expirable fast-family rows can sit BEYOND a full page of
-      // not-yet-expirable slow-family rows (cross-family occlusion — the
-      // class this drain exists to fix). Only a NON-FULL page proves the
-      // queue's tail was seen; the page cap still bounds a sweep's work.
-      // PHASE containment (REQ-B): the whole stale drain is wrapped so a
-      // throw anywhere inside it (the pending pb.list, the claim CAS — only
-      // pb.delete was caught per-row) still returns the lease phase's partial
-      // result above. The producer swallows a sweepExpired throw, so an
-      // escape here would discard every commError the lease phase just
-      // synthesized — the same dashboard-signal loss as an escaped release.
-      // The drain itself is retried in full by the next sweep.
-      try {
-        await drainStalePending();
-      } catch (err) {
-        logger.error("queue-client.sweep-stale-phase-threw", {
-          expiredPendingBeforeThrow: expiredPending,
-          err: err instanceof Error ? err.message : String(err),
+      // SPECIAL CASE: a row claimed by the STALE-PENDING SWEEPER is stale
+      // garbage mid-deletion (the stale sweep won the claim but its delete
+      // failed), NOT a crashed worker's job. The releaseJob above already
+      // re-queued it — which is exactly the self-healing retry contract (a
+      // later stale sweep re-claims and re-deletes it) — but it must be
+      // SILENT: synthesizing `worker-reclaimed-pending` here would paint a
+      // gray "re-queued / back in flight" dashboard overlay for a row that
+      // was never in flight, attributed to a non-existent worker. Not
+      // counted in `reclaimed` either (reclaimed + reclaimedIndeterminate
+      // are paired 1:1 with the commErrors they document). It DOES feed
+      // the grace set: this call's
+      // stale phase must not claim-and-delete a row the lease phase just
+      // re-queued (the retry contract is a LATER sweep — re-deleting in the
+      // same sweep would race the very lease/delete failure that put the
+      // row here), so the sweeper-retry row gets the same one sweep of
+      // grace as a worker-reclaimed row.
+      if (holder === STALE_PENDING_SWEEPER_ID) {
+        requeuedThisSweep.add(row.id);
+        logger.debug("queue-client.stale-sweeper-retry-requeue", {
+          jobId: row.id,
         });
+        continue;
       }
+      reclaimed += 1;
+      requeuedThisSweep.add(row.id);
+      // The sweep boundary CANNOT distinguish a real worker crash from an
+      // expected platform teardown (Railway scale-down / redeploy SIGKILL with
+      // no graceful drain) — both leave an identical expired lease on a
+      // claimed/running row. So we do NOT synthesize `worker-crashed-mid-job`
+      // here (that would flap the whole service red on every routine
+      // teardown). The job has been RE-QUEUED to pending by the releaseJob
+      // above, so it is back in flight; emit the neutral
+      // `worker-reclaimed-pending` kind, which the dashboard renders as a gray
+      // "re-queued" surface, NOT a red unreachable overlay. A genuine pool
+      // outage keeps re-surfacing this and the cell stays gray (no green) — the
+      // honest signal. (A graceful worker shutdown drains the in-flight job to
+      // a terminal report BEFORE the lease expires, so the sweep never sees it
+      // at all — see the SIGTERM drain handler in orchestrator.bootFleet.)
+      commErrors.push({
+        kind: "worker-reclaimed-pending",
+        message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queued to pending`,
+        workerId: holder || undefined,
+        jobId: row.id,
+        observedAt,
+      });
+      logger.warn("queue-client.sweep-reclaimed", {
+        jobId: row.id,
+        workerId: holder,
+      });
+    }
 
-      return { reclaimed, reclaimedIndeterminate, commErrors, expiredPending };
+    // ── STALE-PENDING EXPIRY (structural backlog drain) ──────────────────
+    // A pending row had NO terminal path: the lease sweep above only touches
+    // claimed/running rows, so an accumulated backlog (staging: 3,734
+    // pending, oldest 22h) could only drain through the 2 serial workers and
+    // effectively never did. Expire pending jobs older than expiryPeriods ×
+    // their family's production period — the family has enqueued ~3 fresher
+    // batches since, so the stale job's eventual result would be ancient
+    // data. Each stale row is CLAIMED via the S0 CAS first (a racing worker
+    // either wins the row — the sweeper backs off — or loses it and never
+    // sees it again; the exactly-one-winner invariant makes the delete
+    // race-free) and then deleted. No comm error is synthesized: an
+    // expired-pending job never ran, and its family's next batch is the
+    // dashboard signal.
+    // The drain LOOPS pages (up to STALE_PENDING_MAX_PAGES_PER_SWEEP): a
+    // single 50-row page per sweep would take ~7.5h to drain the motivating
+    // 3,734-row backlog at ~10 sweeps/hour. When a pass removed rows from
+    // pending (deleted, or a claim CAS ran — win or lose, the row LEFT
+    // pending), pagination shifted back, so the SAME page index is
+    // re-listed and naturally yields the shifted-in batch. When a FULL page
+    // produced no claim attempt at all (every row too young / graced /
+    // unparseable), nothing shifted — ADVANCE to the next page instead of
+    // stopping: expiry is per-FAMILY while the sort is absolute `created`,
+    // so younger expirable fast-family rows can sit BEYOND a full page of
+    // not-yet-expirable slow-family rows (cross-family occlusion — the
+    // class this drain exists to fix). Only a NON-FULL page proves the
+    // queue's tail was seen; the page cap still bounds a sweep's work.
+    // PHASE containment (REQ-B): the whole stale drain is wrapped so a
+    // throw anywhere inside it (the pending pb.list, the claim CAS — only
+    // pb.delete was caught per-row) still returns the lease phase's partial
+    // result above. The producer swallows a sweepExpired throw, so an
+    // escape here would discard every commError the lease phase just
+    // synthesized — the same dashboard-signal loss as an escaped release.
+    // The drain itself is retried in full by the next sweep.
+    try {
+      await drainStalePending();
+    } catch (err) {
+      logger.error("queue-client.sweep-stale-phase-threw", {
+        expiredPendingBeforeThrow: expiredPending,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
 
-      /**
-       * The stale-pending drain loop (see the STALE-PENDING EXPIRY comment
-       * above). Mutates the enclosing `expiredPending` PER ROW (not per pass)
-       * so the partial count survives a mid-pass throw.
-       */
-      async function drainStalePending(): Promise<void> {
-        if (staleExpiryPeriods <= 0) return;
-        let listPage = 1;
-        for (let pass = 0; pass < STALE_PENDING_MAX_PAGES_PER_SWEEP; pass++) {
-          const pendingPage = await pb.list<ProbeJobRecord>(
-            PROBE_JOBS_COLLECTION,
-            {
-              filter: 'status = "pending"',
-              sort: "created",
-              page: listPage,
-              perPage: CLAIM_CANDIDATE_PAGE,
-              skipTotal: true,
-            },
-          );
-          if (pendingPage.items.length === 0) break;
-          // Rows that reached the claim CAS this pass — win or lose, such a
-          // row LEFT "pending" (won → claimed by the sweeper; lost → claimed
-          // by a racing worker), so any attempt means pagination shifted.
-          let passAttempted = 0;
-          for (const row of pendingPage.items) {
-            // ONE SWEEP OF GRACE (see function header): a row the lease phase
-            // re-queued moments ago in THIS call is "back in flight" — deleting
-            // it now would falsify the worker-reclaimed-pending comm error just
-            // emitted for it. Skip it; if truly stale it expires next sweep.
-            // Applied on EVERY pass of the drain loop — pagination must never
-            // out-run the grace set.
-            if (requeuedThisSweep.has(row.id)) {
-              logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
-              continue;
-            }
-            // Age off PB's system `created` (space-separated date form —
-            // normalize with the SAME anchored rewrite as leaseExpired). Unlike
-            // the lease path, an unparseable value is conservatively SKIPPED:
-            // delete is destructive, and "never wedge the queue" doesn't apply —
-            // a pending row is claimable regardless.
-            const createdMs = Date.parse(
-              String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-            );
-            if (Number.isNaN(createdMs)) {
-              logger.warn("queue-client.sweep-stale-unparseable-created", {
-                jobId: row.id,
-                created: row.created ?? null,
-              });
-              continue;
-            }
-            const family = probeKeyFamily(row.probe_key);
-            const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
-            const ageMs = nowMs - createdMs;
-            if (ageMs <= maxAgeMs) continue;
-            // RECENT-LEASE HEURISTIC (no schema change): the age above is
-            // anchored on PB `created`, which a re-queue does NOT touch — so
-            // a job that legitimately ran LONGER than its family's STALE
-            // WINDOW (`maxAgeMs` = expiryPeriods × the family period — 3
-            // periods by default, NOT one) comes back from the lease sweep
-            // already "stale" and would be claim-deleted by the NEXT sweep
-            // before any plausible re-run (the dashboard then permanently
-            // shows "re-queued" for silently-discarded work). The release
-            // hook RETAINS the expired lease_expires_at on a pending
-            // re-queue, so a PARSEABLE lease within that stale window means
-            // the row was IN FLIGHT recently and its `created`-based age is
-            // stale evidence — skip it; it expires normally once a full
-            // stale window passes with no re-claim. (A `requeued_at` column
-            // would be exact; the retained lease is the schema-free
-            // approximation.) Tradeoff: a sweeper-claimed row whose delete
-            // failed also carries a recent (60s) lease after its silent
-            // re-queue, so stale GARBAGE can linger up to one extra stale
-            // window before the retry delete — harmless, and the
-            // self-healing contract still holds.
-            const leaseMs = Date.parse(
-              String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-            );
-            if (Number.isFinite(leaseMs) && leaseMs > nowMs - maxAgeMs) {
-              logger.debug("queue-client.sweep-stale-recent-lease-skip", {
-                jobId: row.id,
-                leaseExpiresAt: row.lease_expires_at,
-              });
-              continue;
-            }
-            // PER-ROW containment: the claim CAS can THROW (a deterministic
-            // 4xx from the hook, or a transport blip the 5xx mapping doesn't
-            // cover). Letting it escape to the phase wrapper aborts the
-            // WHOLE drain for one sick row — every later stale row goes
-            // unprocessed this sweep. Warn + continue; the row is NOT
-            // counted as attempted (indeterminate whether it left pending).
-            let won: ClaimResult;
-            try {
-              won = await claim.claimJob(
-                row.id,
-                STALE_PENDING_SWEEPER_ID,
-                STALE_PENDING_SWEEPER_LEASE_SECONDS,
-              );
-            } catch (err) {
-              logger.warn("queue-client.sweep-stale-claim-threw", {
-                jobId: row.id,
-                err: err instanceof Error ? err.message : String(err),
-              });
-              continue;
-            }
-            passAttempted += 1;
-            if (!won.won) {
-              // A worker won the race — the job is in flight after all; not
-              // ours to expire. (The row left "pending", so it also drops out
-              // of the next pass's listing — no re-processing.)
-              //
-              // CAVEAT on the "left pending" assumption feeding passAttempted:
-              // job-claim maps a claim 5xx to won:false WITHOUT the row
-              // necessarily leaving pending. Such a row re-appears when the
-              // same page index is re-listed, so a page of persistently-5xx
-              // rows is retried pass after pass — bounded by the
-              // STALE_PENDING_MAX_PAGES_PER_SWEEP cap, after which the sweep
-              // ends and the NEXT sweep retries. A bounded stall on a sick
-              // backend, never an infinite loop.
-              logger.debug("queue-client.sweep-stale-claim-lost", {
-                jobId: row.id,
-              });
-              continue;
-            }
-            try {
-              await pb.delete(PROBE_JOBS_COLLECTION, row.id);
-            } catch (err) {
-              // The row stays claimed by the sweeper; its short lease expires
-              // and the NEXT lease sweep re-queues it to pending, where a later
-              // stale sweep retries — self-healing, so log and move on.
-              logger.error("queue-client.sweep-stale-delete-failed", {
-                jobId: row.id,
-                err: err instanceof Error ? err.message : String(err),
-              });
-              continue;
-            }
-            // Per ROW (not per pass) so a mid-pass throw caught by the phase
-            // wrapper still reports the rows already expired.
-            expiredPending += 1;
-            logger.warn("queue-client.sweep-expired-pending", {
-              jobId: row.id,
-              probeKey: row.probe_key,
-              family,
-              ageMs,
-              maxAgeMs,
-            });
+    return { reclaimed, reclaimedIndeterminate, commErrors, expiredPending };
+
+    /**
+     * The stale-pending drain loop (see the STALE-PENDING EXPIRY comment
+     * above). Mutates the enclosing `expiredPending` PER ROW (not per pass)
+     * so the partial count survives a mid-pass throw.
+     */
+    async function drainStalePending(): Promise<void> {
+      if (staleExpiryPeriods <= 0) return;
+      let listPage = 1;
+      for (let pass = 0; pass < STALE_PENDING_MAX_PAGES_PER_SWEEP; pass++) {
+        const pendingPage = await pb.list<ProbeJobRecord>(
+          PROBE_JOBS_COLLECTION,
+          {
+            filter: 'status = "pending"',
+            sort: "created",
+            page: listPage,
+            perPage: CLAIM_CANDIDATE_PAGE,
+            skipTotal: true,
+          },
+        );
+        if (pendingPage.items.length === 0) break;
+        // Rows that reached the claim CAS this pass — win or lose, such a
+        // row LEFT "pending" (won → claimed by the sweeper; lost → claimed
+        // by a racing worker), so any attempt means pagination shifted.
+        let passAttempted = 0;
+        for (const row of pendingPage.items) {
+          // ONE SWEEP OF GRACE (see function header): a row the lease phase
+          // re-queued moments ago in THIS call is "back in flight" — deleting
+          // it now would falsify the worker-reclaimed-pending comm error just
+          // emitted for it. Skip it; if truly stale it expires next sweep.
+          // Applied on EVERY pass of the drain loop — pagination must never
+          // out-run the grace set.
+          if (requeuedThisSweep.has(row.id)) {
+            logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
+            continue;
           }
-          // A NON-FULL page → we have already seen the queue's tail; nothing
-          // more for this sweep to do. (A zero-EXPIRY pass is intentionally
-          // NOT a termination signal: claim-CAS-lost rows LEAVE pending, so
-          // expiring nothing does not mean re-listing returns the same rows.)
-          if (pendingPage.items.length < CLAIM_CANDIDATE_PAGE) break;
-          // A FULL page where no row even reached the claim CAS: nothing left
-          // pending, pagination did not shift — ADVANCE past it (cross-family
-          // occlusion; see the drain header). Otherwise rows left pending and
-          // pagination shifted back, so re-list the SAME page index to see
-          // the shifted-in batch.
-          //
-          // PAGE-ADVANCE INDETERMINACY (accepted): a claim that THREW is not
-          // counted in passAttempted, but it may still have COMMITTED
-          // server-side (thrown-but-committed) — the row then LEFT pending
-          // and pagination shifted even though this pass looks attempt-free,
-          // so an advance here can skip shifted-in rows for the REST of this
-          // sweep. Bounded and self-healing: the next sweep re-lists from
-          // page 1 and re-evaluates everything skipped.
-          if (passAttempted === 0) listPage += 1;
+          // Age off PB's system `created` (space-separated date form —
+          // normalize with the SAME anchored rewrite as leaseExpired). Unlike
+          // the lease path, an unparseable value is conservatively SKIPPED:
+          // delete is destructive, and "never wedge the queue" doesn't apply —
+          // a pending row is claimable regardless.
+          const createdMs = Date.parse(
+            String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+          );
+          if (Number.isNaN(createdMs)) {
+            logger.warn("queue-client.sweep-stale-unparseable-created", {
+              jobId: row.id,
+              created: row.created ?? null,
+            });
+            continue;
+          }
+          const family = probeKeyFamily(row.probe_key);
+          const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
+          const ageMs = nowMs - createdMs;
+          if (ageMs <= maxAgeMs) continue;
+          // RECENT-LEASE HEURISTIC (no schema change): the age above is
+          // anchored on PB `created`, which a re-queue does NOT touch — so
+          // a job that legitimately ran LONGER than its family's STALE
+          // WINDOW (`maxAgeMs` = expiryPeriods × the family period — 3
+          // periods by default, NOT one) comes back from the lease sweep
+          // already "stale" and would be claim-deleted by the NEXT sweep
+          // before any plausible re-run (the dashboard then permanently
+          // shows "re-queued" for silently-discarded work). The release
+          // hook RETAINS the expired lease_expires_at on a pending
+          // re-queue, so a PARSEABLE lease within that stale window means
+          // the row was IN FLIGHT recently and its `created`-based age is
+          // stale evidence — skip it; it expires normally once a full
+          // stale window passes with no re-claim. (A `requeued_at` column
+          // would be exact; the retained lease is the schema-free
+          // approximation.) Tradeoff: a sweeper-claimed row whose delete
+          // failed also carries a recent (60s) lease after its silent
+          // re-queue, so stale GARBAGE can linger up to one extra stale
+          // window before the retry delete — harmless, and the
+          // self-healing contract still holds.
+          const leaseMs = Date.parse(
+            String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
+          );
+          if (Number.isFinite(leaseMs) && leaseMs > nowMs - maxAgeMs) {
+            logger.debug("queue-client.sweep-stale-recent-lease-skip", {
+              jobId: row.id,
+              leaseExpiresAt: row.lease_expires_at,
+            });
+            continue;
+          }
+          // PER-ROW containment: the claim CAS can THROW (a deterministic
+          // 4xx from the hook, or a transport blip the 5xx mapping doesn't
+          // cover). Letting it escape to the phase wrapper aborts the
+          // WHOLE drain for one sick row — every later stale row goes
+          // unprocessed this sweep. Warn + continue; the row is NOT
+          // counted as attempted (indeterminate whether it left pending).
+          let won: ClaimResult;
+          try {
+            won = await claim.claimJob(
+              row.id,
+              STALE_PENDING_SWEEPER_ID,
+              STALE_PENDING_SWEEPER_LEASE_SECONDS,
+            );
+          } catch (err) {
+            logger.warn("queue-client.sweep-stale-claim-threw", {
+              jobId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          passAttempted += 1;
+          if (!won.won) {
+            // A worker won the race — the job is in flight after all; not
+            // ours to expire. (The row left "pending", so it also drops out
+            // of the next pass's listing — no re-processing.)
+            //
+            // CAVEAT on the "left pending" assumption feeding passAttempted:
+            // job-claim maps a claim 5xx to won:false WITHOUT the row
+            // necessarily leaving pending. Such a row re-appears when the
+            // same page index is re-listed, so a page of persistently-5xx
+            // rows is retried pass after pass — bounded by the
+            // STALE_PENDING_MAX_PAGES_PER_SWEEP cap, after which the sweep
+            // ends and the NEXT sweep retries. A bounded stall on a sick
+            // backend, never an infinite loop.
+            logger.debug("queue-client.sweep-stale-claim-lost", {
+              jobId: row.id,
+            });
+            continue;
+          }
+          try {
+            await pb.delete(PROBE_JOBS_COLLECTION, row.id);
+          } catch (err) {
+            // The row stays claimed by the sweeper; its short lease expires
+            // and the NEXT lease sweep re-queues it to pending, where a later
+            // stale sweep retries — self-healing, so log and move on.
+            logger.error("queue-client.sweep-stale-delete-failed", {
+              jobId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          // Per ROW (not per pass) so a mid-pass throw caught by the phase
+          // wrapper still reports the rows already expired.
+          expiredPending += 1;
+          logger.warn("queue-client.sweep-expired-pending", {
+            jobId: row.id,
+            probeKey: row.probe_key,
+            family,
+            ageMs,
+            maxAgeMs,
+          });
         }
+        // A NON-FULL page → we have already seen the queue's tail; nothing
+        // more for this sweep to do. (A zero-EXPIRY pass is intentionally
+        // NOT a termination signal: claim-CAS-lost rows LEAVE pending, so
+        // expiring nothing does not mean re-listing returns the same rows.)
+        if (pendingPage.items.length < CLAIM_CANDIDATE_PAGE) break;
+        // A FULL page where no row even reached the claim CAS: nothing left
+        // pending, pagination did not shift — ADVANCE past it (cross-family
+        // occlusion; see the drain header). Otherwise rows left pending and
+        // pagination shifted back, so re-list the SAME page index to see
+        // the shifted-in batch.
+        //
+        // PAGE-ADVANCE INDETERMINACY (accepted): a claim that THREW is not
+        // counted in passAttempted, but it may still have COMMITTED
+        // server-side (thrown-but-committed) — the row then LEFT pending
+        // and pagination shifted even though this pass looks attempt-free,
+        // so an advance here can skip shifted-in rows for the REST of this
+        // sweep. Bounded and self-healing: the next sweep re-lists from
+        // page 1 and re-evaluates everything skipped.
+        if (passAttempted === 0) listPage += 1;
       }
+    }
   }
 }

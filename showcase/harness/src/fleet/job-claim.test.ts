@@ -108,8 +108,7 @@ describe("job-claim client", () => {
       if (url.includes("/api/admins/auth-with-password")) {
         return new Response(JSON.stringify({ token: "tok" }), { status: 200 });
       }
-      claimAuthHeader = (init?.headers as Record<string, string>)
-        .authorization;
+      claimAuthHeader = (init?.headers as Record<string, string>).authorization;
       return new Response(JSON.stringify({ claimed: false }), { status: 200 });
     });
     const client = createJobClaimClient({
