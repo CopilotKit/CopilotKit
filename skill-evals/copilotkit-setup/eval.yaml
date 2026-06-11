@@ -50,10 +50,15 @@ defaults:
     # 0.1xx+ ignores the OPENAI_API_KEY env var until `codex login --with-api-key`
     # has run, and its --full-auto Landlock sandbox cannot initialize inside
     # Docker (the container already provides isolation), so the wrapper swaps in
-    # the sandbox bypass flag. All of this is a no-op for claude runs.
+    # the sandbox bypass flag.
+    # The claude wrapper sets IS_SANDBOX=1: skillgrade containers run as root and
+    # Claude Code refuses --dangerously-skip-permissions as root unless it knows
+    # it is inside a sandbox. Auth comes from the forwarded env: ANTHROPIC_API_KEY
+    # (Console billing) or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`
+    # (subscription billing) -- put either in a .env next to this file.
     base: node:20-slim
     setup: |
-      apt-get update && apt-get install -y git jq ca-certificates && if [ ! -f /usr/local/bin/codex ]; then npm install -g @openai/codex; fi && mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex
+      apt-get update && apt-get install -y git jq ca-certificates && if [ ! -f /usr/local/bin/codex ]; then npm install -g @openai/codex; fi && mv /usr/local/bin/codex /usr/local/bin/codex-real && printf '#!/bin/bash\n[ -n "$OPENAI_API_KEY" ] && [ ! -f /root/.codex/auth.json ] && printf "%%s" "$OPENAI_API_KEY" | /usr/local/bin/codex-real login --with-api-key >/dev/null 2>&1\nexec /usr/local/bin/codex-real "${@/--full-auto/--dangerously-bypass-approvals-and-sandbox}"\n' > /usr/local/bin/codex && chmod +x /usr/local/bin/codex && if [ -f /usr/local/bin/claude ]; then mv /usr/local/bin/claude /usr/local/bin/claude-real && printf '#!/bin/bash\nexport IS_SANDBOX=1\nexec /usr/local/bin/claude-real "$@"\n' > /usr/local/bin/claude && chmod +x /usr/local/bin/claude; fi
 
 tasks:
   - name: nextjs-app-router-setup
