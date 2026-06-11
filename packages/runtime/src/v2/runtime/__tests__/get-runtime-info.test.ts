@@ -120,6 +120,23 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.a2uiEnabled).toBe(true);
   });
 
+  it("should return a2uiEnabled: false when a2ui is explicitly disabled", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: { enabled: false },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(false);
+  });
+
   it("should include capabilities when agent implements getCapabilities", async () => {
     const mockCapabilities = {
       tools: { supported: true, clientProvided: true },

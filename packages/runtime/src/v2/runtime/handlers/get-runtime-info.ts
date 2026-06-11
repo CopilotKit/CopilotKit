@@ -1,8 +1,12 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../core/runtime";
 import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
-import { type RuntimeLicenseStatus } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 
@@ -74,7 +78,7 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
-      a2uiEnabled: !!runtime.a2ui,
+      a2uiEnabled: isA2UIEnabled(runtime.a2ui),
       openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
