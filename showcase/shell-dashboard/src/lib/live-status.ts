@@ -248,6 +248,14 @@ export interface CellState {
    * ANY cell fails and would mis-paint green cells red. A missing row resolves
    * to a gray `?` badge. Does NOT contribute to the rollup for the same reason
    * as D5.
+   *
+   * UNGATED — not for top-level D6 badges. This is the raw per-dimension D6
+   * fold with NO verification-ladder gate: a Coverage-tab D6 badge or D6
+   * stat MUST consume `CellModel.d6Effective` (cell-model.ts), which
+   * collapses a D6 claim to null when the ladder below it (D1-D5) is broken
+   * or unverified. The only intended consumer of THIS field is the
+   * cell-drilldown's raw per-dimension diagnostic row, where showing the
+   * ungated underlying D6 result is the point.
    */
   d6: BadgeRender;
   /** Rollup tone for the cell, by precedence red > degraded > green > error > unknown. */
@@ -438,8 +446,13 @@ function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
  * them to anything. The caller (`resolveCell`) renders gray when no
  * row is returned, which surfaces "no data yet" distinctly from
  * green.
+ *
+ * Returns the EFFECTIVE (stale-downgraded) winner row — a stale-green
+ * winner comes back with `state: "degraded"`, matching the rank that made
+ * it win the fold, so `.state` never contradicts the resolution (mirrors
+ * `resolveD5` in cell-model.ts and `buildBadge` below). Exported for tests.
  */
-function resolveD5Row(
+export function resolveD5Row(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
@@ -482,7 +495,9 @@ function resolveD5Row(
       worstState === null ||
       worstStateRank(eff) > worstStateRank(worstState)
     ) {
-      worst = row;
+      // Store the EFFECTIVE (downgraded) row so the returned `.state` agrees
+      // with the rank that won the fold — mirrors cell-model.ts `resolveD5`.
+      worst = eff === row.state ? row : { ...row, state: eff };
       worstState = eff;
     }
   }
@@ -520,9 +535,11 @@ function resolveD5Row(
  * sub-rows — a missing
  * mapped sub-row collapses a present green/degraded fold to `null` (no-data →
  * gray badge) UNLESS a present sub-row is red (red dominates no-data). An
- * unmapped feature returns `null` (no D6 test exists for it).
+ * unmapped feature returns `null` (no D6 test exists for it). Like
+ * `resolveD5Row`, the returned winner is the EFFECTIVE (stale-downgraded)
+ * row, so `.state` agrees with the fold. Exported for tests.
  */
-function resolveD6Row(
+export function resolveD6Row(
   live: LiveStatusMap,
   slug: string,
   featureId: string,
@@ -546,7 +563,8 @@ function resolveD6Row(
       worstState === null ||
       worstStateRank(eff) > worstStateRank(worstState)
     ) {
-      worst = row;
+      // Store the EFFECTIVE (downgraded) row — see resolveD5Row.
+      worst = eff === row.state ? row : { ...row, state: eff };
       worstState = eff;
     }
   }
@@ -806,10 +824,20 @@ function summarizeSignal(signal: unknown): string {
   return s.length > 80 ? `${s.slice(0, 77)}...` : s;
 }
 
+/**
+ * `stale` is the SAME per-row staleness check the badge tone derivation uses
+ * (`isStale(row, now, maxAgeMs)`, computed by `buildBadge`). It splits the
+ * degraded copy: an AGE-DOWNGRADED green (or a degraded row that has itself
+ * stopped updating) reads "stale — last seen @ …", while a FRESH
+ * producer-emitted degraded reads "degraded since …" — labeling a fresh
+ * degraded signal "stale" told operators the row had stopped updating when
+ * the producer genuinely emitted degradation on a recent tick.
+ */
 function formatTooltip(
   dim: LiveDimension,
   row: StatusRow | null,
   connection: ConnectionStatus,
+  stale: boolean,
 ): string {
   if (connection === "error") {
     // When the SSE stream is dead AND we have a recent red/degraded row,
@@ -837,7 +865,15 @@ function formatTooltip(
       // for a degraded row that timestamp is when degradation was
       // last observed. Earlier copy ("last pass @ ...") was misleading
       // operators into reading it as the last green tick.
-      const base = `${dim} stale — last seen @ ${formatTs(row.observed_at)}`;
+      if (stale) {
+        const base = `${dim} stale — last seen @ ${formatTs(row.observed_at)}`;
+        const sig = summarizeSignal(row.signal);
+        return sig ? `${base} — ${sig}` : base;
+      }
+      // FRESH producer-emitted degraded: the row IS updating — the signal is
+      // genuine degradation, not a frozen row. Mirrors the red copy's
+      // "since" anchored on the state transition.
+      const base = `${dim} degraded since ${formatTs(row.transitioned_at)}`;
       const sig = summarizeSignal(row.signal);
       return sig ? `${base} — ${sig}` : base;
     }
@@ -889,14 +925,17 @@ function buildBadge(
   maxAgeMs: number,
   connection: ConnectionStatus,
 ): BadgeRender {
+  // ONE staleness check shared by the tone downgrade AND the tooltip copy
+  // split (see formatTooltip's `stale` param) so the two can never disagree.
+  const stale = row !== null && isStale(row, now, maxAgeMs);
   const effRow: StatusRow | null =
-    row && row.state === "green" && isStale(row, now, maxAgeMs)
+    row && row.state === "green" && stale
       ? { ...row, state: "degraded" }
       : row;
   return {
     tone: rowTone(effRow),
     label: formatLabel(dim, effRow),
-    tooltip: formatTooltip(dim, effRow, connection),
+    tooltip: formatTooltip(dim, effRow, connection, stale),
     row: effRow,
   };
 }

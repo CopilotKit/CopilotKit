@@ -8,6 +8,8 @@ import {
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveD5Row,
+  resolveD6Row,
   resolveStarterRow,
   starterIsSupported,
   upsertByKey,
@@ -926,6 +928,44 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
   });
 });
 
+describe("resolveD5Row / resolveD6Row — effective (stale-downgraded) winner (G2f)", () => {
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const staleAt = new Date(NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000)
+    .toISOString();
+  const freshAt = new Date(NOW).toISOString();
+
+  it("resolveD5Row returns the EFFECTIVE row for a stale-green winner (.row.state agrees with the fold)", () => {
+    // The fold ranks the stale-green sub-row as degraded, but the resolver
+    // used to store the RAW row — a consumer reading .state saw a latent
+    // false-green that contradicted the rank that made it the winner.
+    // Mirrors cell-model.ts resolveD5's effective-row storage.
+    const live = mapOf([
+      row("d5:agno/agentic-chat", "d5", "green", { observed_at: staleAt }),
+    ]);
+    const r = resolveD5Row(live, "agno", "agentic-chat", NOW);
+    expect(r?.state).toBe("degraded");
+    // Producer fields preserved by the spread (drilldown metadata intact).
+    expect(r?.key).toBe("d5:agno/agentic-chat");
+    expect(r?.observed_at).toBe(staleAt);
+  });
+
+  it("resolveD6Row returns the EFFECTIVE row for a stale-green winner", () => {
+    const live = mapOf([
+      row("d6:agno/agentic-chat", "d6", "green", { observed_at: staleAt }),
+    ]);
+    const r = resolveD6Row(live, "agno", "agentic-chat", NOW);
+    expect(r?.state).toBe("degraded");
+  });
+
+  it("a fresh winner row passes through by reference, unmodified", () => {
+    const fresh = row("d5:agno/agentic-chat", "d5", "green", {
+      observed_at: freshAt,
+    });
+    const live = mapOf([fresh]);
+    expect(resolveD5Row(live, "agno", "agentic-chat", NOW)).toBe(fresh);
+  });
+});
+
 describe("formatTooltip behaviour (via resolveCell)", () => {
   it("degraded tooltip drops the hardcoded '>6h' threshold (LS2)", () => {
     const live = mapOf([
@@ -955,6 +995,36 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
       `last seen @ ${formatTs("2026-04-22T08:00:00Z")}`,
     );
     expect(c.e2e.tooltip).not.toContain("last pass");
+  });
+
+  it("a FRESH producer-emitted degraded row says 'degraded', not 'stale' (G2f)", () => {
+    // The producer genuinely emitted `degraded` on a recent tick: labeling
+    // that "stale" told operators the row had stopped updating when the
+    // signal is actually fresh-and-degraded. The stale copy is reserved for
+    // rows that fail the SAME staleness check the badge tone uses.
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const freshTs = new Date(NOW - 60 * 1000).toISOString();
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "degraded", {
+        observed_at: freshTs,
+        transitioned_at: freshTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.e2e.tooltip).toContain("degraded since");
+    expect(c.e2e.tooltip).not.toContain("stale");
+  });
+
+  it("an age-downgraded green row keeps the 'stale — last seen' copy (G2f)", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000)
+      .toISOString();
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "green", { observed_at: oldTs }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.e2e.tone).toBe("amber");
+    expect(c.e2e.tooltip).toContain(`stale — last seen @ ${formatTs(oldTs)}`);
   });
 
   it("red tooltip surfaces non-empty signal summary (LS8)", () => {
