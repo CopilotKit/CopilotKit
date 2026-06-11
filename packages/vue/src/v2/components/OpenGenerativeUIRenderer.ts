@@ -180,6 +180,31 @@ function ensureHead(html: string): string {
 }
 
 /**
+ * Neutralizes the `<style>`-element-closing sequence inside agent css before it
+ * is spliced into a `<style>` element. The agent css is injected RAW into every
+ * `<style>${css}</style>` sink in this file (the final document via
+ * `injectCssIntoHtml`, and the streaming preview head via
+ * `buildPreviewHeadHtml`); a css value containing `</style>` would otherwise
+ * close the element early and let the markup after it become LIVE content in the
+ * sandbox iframe (e.g. `css: "a{}</style><script>alert(1)</script>"` → live
+ * script).
+ *
+ * The escape inserts a CSS backslash into the `/` of the close token
+ * (`</style` → `<\/style`), case-preservingly via `$1`. This is LOSSLESS inside
+ * a CSS string (a CSS parser reads `"\/"` back as `/`) and a dead, non-closing
+ * token in any other CSS position, so it changes nothing about how the css
+ * renders while making the element-close impossible.
+ *
+ * Mirrors react-core's exported helper (which guards its own assembleDocument /
+ * buildPreviewHeadHtml css sinks) and MUST stay lockstep with it — the escape is
+ * byte-for-byte identical so the final document and preview are produced the same
+ * way on both packages.
+ */
+function escapeStyleClose(css: string): string {
+  return css.replace(/<(\/style)/gi, "<\\$1");
+}
+
+/**
  * Injects the agent css into the real head so the documented cascade holds
  * (author head content first, agent css last). Every structural search runs on a
  * length-preserving MASKED copy (complete comments + style/script content
@@ -222,12 +247,17 @@ function injectCssIntoHtml(html: string, css: string): string {
   // PRECEDES the real head, splicing the agent css outside and before the real
   // head and inverting the documented cascade.
   const searchFrom = head ? head.index + head.token.length : 0;
+  // Escape any `</style>` in the agent css (escapeStyleClose) at EVERY sink
+  // below so a css value cannot close the injected `<style>` element early and
+  // smuggle live markup into the sandbox iframe. Lossless inside CSS, dead token
+  // otherwise. Mirrors react-core's css sinks.
+  const safeCss = escapeStyleClose(css);
   const closeRel = masked.slice(searchFrom).search(/<\/head>/i);
   if (closeRel !== -1) {
     const headCloseIdx = closeRel + searchFrom;
     return (
       html.slice(0, headCloseIdx) +
-      `<style>${css}</style>` +
+      `<style>${safeCss}</style>` +
       html.slice(headCloseIdx)
     );
   }
@@ -238,7 +268,7 @@ function injectCssIntoHtml(html: string, css: string): string {
   if (bodyRel && bodyRel.index !== undefined) {
     const bodyIdx = searchFrom + bodyRel.index;
     return (
-      html.slice(0, bodyIdx) + `<style>${css}</style>` + html.slice(bodyIdx)
+      html.slice(0, bodyIdx) + `<style>${safeCss}</style>` + html.slice(bodyIdx)
     );
   }
   // No `</head>` and no `<body>`. ensureHead guaranteed a real head-open, so
@@ -248,10 +278,12 @@ function injectCssIntoHtml(html: string, css: string): string {
   if (head) {
     const insertAt = head.index + head.token.length;
     return (
-      html.slice(0, insertAt) + `<style>${css}</style>` + html.slice(insertAt)
+      html.slice(0, insertAt) +
+      `<style>${safeCss}</style>` +
+      html.slice(insertAt)
     );
   }
-  return `<head><style>${css}</style></head>${html}`;
+  return `<head><style>${safeCss}</style></head>${html}`;
 }
 
 /**
@@ -273,8 +305,15 @@ function buildPreviewHeadHtml(
   css: string | undefined,
 ): string {
   const headParts: string[] = [PREVIEW_OVERFLOW_GUARD];
+  // previewStyles are hoisted from the agent's OWN complete `<style>` elements
+  // (extractCompleteStyles). They are spliced verbatim and NOT escaped: by
+  // construction a complete `<style>` element cannot contain a live `</style>`
+  // (that token already terminated it), so re-emitting it cannot break out.
+  // Mirrors react-core (only the agent css param is escaped here).
   if (previewStyles) headParts.push(previewStyles);
-  if (css) headParts.push(`<style>${css}</style>`);
+  // Escape any `</style>` in the agent css so the css value cannot close this
+  // `<style>` element early and inject live markup into the preview iframe.
+  if (css) headParts.push(`<style>${escapeStyleClose(css)}</style>`);
   return headParts.join("");
 }
 

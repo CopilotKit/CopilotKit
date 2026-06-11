@@ -1159,6 +1159,136 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(agentIdx).toBeLessThan(bodyIdx);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Finding 1 — agent css is injected RAW into `<style>` elements (the final
+  // document via injectCssIntoHtml, and the streaming preview head via
+  // buildPreviewHeadHtml). A css value containing `</style>` closes the style
+  // element early, and any markup after it becomes LIVE content in the sandbox
+  // iframe. The renderer must neutralize the element-close sequence with the
+  // SAME escape semantics react-core ships: `css.replace(/<(\/style)/gi,
+  // "<\\$1")` — a CSS backslash is inserted into the `/`, which is lossless
+  // inside a CSS string (`"\/"` unescapes to `/`) and a dead token otherwise.
+  // The previewStyles HOISTED from the agent's real `<style>` elements are NOT
+  // escaped: they were extracted from already-terminated style elements, so by
+  // construction they cannot contain a live `</style>`.
+  // -------------------------------------------------------------------------
+  describe("agent css style-close escaping (Finding 1)", () => {
+    function finalFrameContent(): string {
+      const finalCall = mockCreate.mock.calls.find(
+        ([, options]) =>
+          typeof options.frameContent === "string" &&
+          options.frameContent !== "<head></head><body></body>",
+      );
+      return (finalCall?.[1].frameContent as string) ?? "";
+    }
+    function lastHeadPayload(): string | undefined {
+      const headCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      return headCalls.length
+        ? (headCalls[headCalls.length - 1]![0] as string)
+        : undefined;
+    }
+
+    // The reviewer's repro: a css value that closes the style element early and
+    // injects a live <script>. RED pre-fix: the raw `</style>` terminates the
+    // injected `<style>` and the `<script>alert(1)</script>` lands as live markup
+    // in the frameContent (unbalanced style tags). GREEN post-fix: the close
+    // sequence is escaped, the style tags stay balanced, and no live
+    // `<script>alert` exists outside a style element.
+    it("escapes a </style> breakout in the final document so no live script is injected", async () => {
+      renderRenderer({
+        html: ["<head></head><body><div>x</div></body>"],
+        htmlComplete: true,
+        css: "a{}</style><script>alert(1)</script>",
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // No LIVE <script>alert lands outside a <style> element. Strip every
+      // <style>…</style> region, then assert the malicious tag is not in what
+      // remains (it survives only as inert text inside the escaped style block).
+      const outsideStyles = frameContent.replace(
+        /<style[^>]*>[\s\S]*?<\/style>/gi,
+        "",
+      );
+      expect(outsideStyles).not.toContain("<script>alert");
+
+      // Style tags are balanced: every `<style…>` has a matching `</style>`.
+      const openCount = (frameContent.match(/<style[^>]*>/gi) ?? []).length;
+      const closeCount = (frameContent.match(/<\/style>/gi) ?? []).length;
+      expect(openCount).toBe(closeCount);
+
+      // The escape is exactly react-core's: the `/` of the close gains a CSS
+      // backslash, so the literal `<\/style` token is present.
+      expect(frameContent).toContain("<\\/style");
+    });
+
+    // Lossless inside a CSS string: `content: "</style>"` is a legitimate value.
+    // The escape inserts a backslash before the `/` — `"</style>"` becomes
+    // `"<\/style>"`, which a CSS parser reads back as the original `</style>`
+    // (the backslash is an identity escape on `/`). The injected style element
+    // stays balanced (the close is neutralized) and the escaped token is present.
+    it("losslessly escapes a CSS string value of </style>", async () => {
+      const css = '.x::before{content:"</style>"}';
+      renderRenderer({
+        html: ["<head></head><body><div>x</div></body>"],
+        htmlComplete: true,
+        css,
+        cssComplete: true,
+      });
+      await flushImport();
+      const frameContent = finalFrameContent();
+
+      // The raw, element-closing `</style>` from the css does NOT appear as-is
+      // inside the value (it was escaped); the escaped form does.
+      expect(frameContent).toContain('content:"<\\/style>"');
+      // Style tags stay balanced — the value's `</style>` did not close the tag.
+      const openCount = (frameContent.match(/<style[^>]*>/gi) ?? []).length;
+      const closeCount = (frameContent.match(/<\/style>/gi) ?? []).length;
+      expect(openCount).toBe(closeCount);
+    });
+
+    // The preview head payload (buildPreviewHeadHtml) injects the agent css into
+    // a `<style>` too, so it must escape the close sequence with identical
+    // semantics. RED pre-fix: the raw `</style>` from the css closes the agent
+    // style element inside the head innerHTML payload. GREEN post-fix: the
+    // payload carries the escaped `<\/style` token and no bare element-closing
+    // `</style>` from the css value.
+    it("escapes a </style> breakout in the preview head payload", async () => {
+      renderRenderer({
+        css: "a{}</style><script>alert(1)</script>",
+        cssComplete: true,
+        html: ["<body><div>Preview body</div>"],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      // The payload is `document.head.innerHTML = ${JSON.stringify(headHtml)}`,
+      // so the single CSS backslash from the escape is doubled by JSON.stringify
+      // → the runtime payload carries `<\\/style` (two literal backslashes).
+      expect(headPayload!).toContain("<\\\\/style");
+      // The breakout signature — a bare element-closing `</style>` immediately
+      // followed by the `<script>` — must be gone. Pre-fix the raw css produced
+      // exactly `</style><script>`; post-fix the close is escaped so that exact
+      // sequence never appears (the only real `</style>` is the agent block's own
+      // terminator, preceded by `</script>`).
+      expect(headPayload!).not.toContain("</style><script>");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
