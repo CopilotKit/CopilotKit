@@ -415,6 +415,49 @@ function probeKeySlug(probeKey: string): string {
 }
 
 /**
+ * Build the synthetic `worker-protocol-violation` result the claim race
+ * persists when a row must be released terminal WITHOUT a decodable payload
+ * (a claim-time decode failure, or a won-without-job endpoint breach). A
+ * terminal resultless row past the consumer's grace window is synthesized as
+ * a RED `worker-crashed-mid-job` — a protocol breach is NOT a crash, so this
+ * result carries the honest taxonomy kind instead. Honors
+ * `emptyPayloadForLease`'s no-empty-sentinel contract: `serviceSlug` is
+ * recovered from the row's probe_key slug segment (jobId-derived placeholder
+ * when even that is empty) and `runId` is minted from the jobId
+ * (non-colliding), while the aggregate key falls back to the row's probe_key
+ * (the `d6:<slug>` aggregate row key) — mirroring the worker's comm-error
+ * result builder.
+ */
+function protocolViolationResult(args: {
+  jobId: string;
+  probeKey: string;
+  workerId: string;
+  message: string;
+  observedAt: string;
+}): ServiceJobResult {
+  return {
+    jobId: args.jobId,
+    probeKey: args.probeKey,
+    serviceSlug: probeKeySlug(args.probeKey) || `unknown-${args.jobId}`,
+    runId: `pviol_${args.jobId}`,
+    workerId: args.workerId,
+    aggregateState: "error",
+    aggregateKey: args.probeKey,
+    aggregateSignal: { error: args.message },
+    cells: [],
+    rollup: { total: 0, passed: 0, failed: 0 },
+    finishedAt: args.observedAt,
+    commError: {
+      kind: "worker-protocol-violation",
+      message: args.message,
+      workerId: args.workerId,
+      jobId: args.jobId,
+      observedAt: args.observedAt,
+    },
+  };
+}
+
+/**
  * Anchor the PB space→"T" date-separator rewrite to the canonical PB shape
  * (`YYYY-MM-DD ` then time) so we ONLY convert the date/time boundary, never an
  * arbitrary first space. MUST stay byte-for-byte identical to the JSVM hook's
@@ -870,11 +913,19 @@ export function createFleetQueueClient(
             // (nobody renews or reports the orphaned claim; the sweeper
             // later reclaims it under a FALSE worker-reclaimed-pending
             // overlay). Make the breach visible, then mirror the
-            // decode-failure containment with a best-effort release back to
-            // `pending` (no work happened, and unlike a poison payload the
-            // job itself may be perfectly runnable). Failures are
-            // swallowed+warned: if this worker did NOT actually own the row,
-            // the release is refused/4xxs and nothing changes.
+            // decode-failure containment below: release the row TERMINAL
+            // (`failed`) and persist a synthetic worker-protocol-violation
+            // result. A `pending`-target release can NEVER succeed here —
+            // the hook refuses every pending-target release while the row's
+            // lease is live (`refused_lease_live`, no holder exemption; a
+            // committed win just MINTED that lease) and `refused_not_holder`
+            // otherwise — whereas a terminal target passes the live-lease
+            // gate (the expiry gate only rejects EXPIRED leases). The job
+            // may have been perfectly runnable, but there is no honest path
+            // back to pending; the synthetic result attributes the discard
+            // to the breach instead of a false crash/reclaim overlay.
+            // Failures are swallowed+warned: if this worker did NOT actually
+            // own the row, the release is refused/4xxs and nothing changes.
             logger.warn("queue-client.claim-won-without-job", {
               jobId: candidate.id,
               workerId: raceWorkerId,
@@ -883,7 +934,7 @@ export function createFleetQueueClient(
               const released = await claim.releaseJob(
                 candidate.id,
                 raceWorkerId,
-                "pending",
+                "failed",
               );
               if (!released.released) {
                 logger.warn(
@@ -894,6 +945,39 @@ export function createFleetQueueClient(
                     reason: released.reason ?? "unknown",
                   },
                 );
+              } else {
+                // The row is now TERMINAL but RESULTLESS — write the
+                // best-effort synthetic result so the consumer renders the
+                // honest protocol-violation signal instead of synthesizing
+                // a RED crash past grace. SINGLE attempt, same trade as the
+                // decode-failure write below (G1g): this happens INSIDE the
+                // claim race, so retry pacing would stall the rotation.
+                const observedAt = new Date(now()).toISOString();
+                const violation = protocolViolationResult({
+                  jobId: candidate.id,
+                  probeKey: candidate.probe_key,
+                  workerId: raceWorkerId,
+                  message: `claim CAS for job ${candidate.id} returned won:true without a job view (endpoint contract breach)`,
+                  observedAt,
+                });
+                try {
+                  await pb.update(PROBE_JOBS_COLLECTION, candidate.id, {
+                    result: violation,
+                    result_processed: false,
+                  });
+                } catch (writeErr) {
+                  logger.warn(
+                    "queue-client.claim-won-without-job-result-write-lost",
+                    {
+                      jobId: candidate.id,
+                      workerId: raceWorkerId,
+                      err:
+                        writeErr instanceof Error
+                          ? writeErr.message
+                          : String(writeErr),
+                    },
+                  );
+                }
               }
             } catch (releaseErr) {
               logger.warn(
@@ -961,42 +1045,19 @@ export function createFleetQueueClient(
                 // move on, never throw out of claimNext.
                 // Injected clock (config.now) — not a bare `new Date()` — so
                 // the synthetic timestamps are pinnable under test clocks.
+                // No decodable payload → nothing to ECHO; the shared builder
+                // honors the no-empty-sentinel contract (slug recovered from
+                // the probe_key, runId minted from the jobId).
                 const observedAt = new Date(now()).toISOString();
-                const message = `job ${result.job.id} payload failed to decode at claim time: ${
-                  err instanceof Error ? err.message : String(err)
-                }`;
-                const violation: ServiceJobResult = {
+                const violation = protocolViolationResult({
                   jobId: result.job.id,
                   probeKey: candidate.probe_key,
-                  // No decodable payload → nothing to ECHO, but the result
-                  // must not carry the empty `serviceSlug`/`runId` sentinels
-                  // `emptyPayloadForLease` forbids feeding aggregation (an
-                  // empty runId groups into nothing; an empty serviceSlug
-                  // corrupts the per-service rollup). Recover the slug from
-                  // the row's probe_key (`d6:<slug>` → `<slug>`) and mint a
-                  // non-colliding synthetic runId from the jobId. The
-                  // aggregate key falls back to the row's probe_key (the
-                  // `d6:<slug>` aggregate row key), mirroring the worker's
-                  // comm-error result builder.
-                  serviceSlug:
-                    probeKeySlug(candidate.probe_key) ||
-                    `unknown-${result.job.id}`,
-                  runId: `pviol_${result.job.id}`,
                   workerId: raceWorkerId,
-                  aggregateState: "error",
-                  aggregateKey: candidate.probe_key,
-                  aggregateSignal: { error: message },
-                  cells: [],
-                  rollup: { total: 0, passed: 0, failed: 0 },
-                  finishedAt: observedAt,
-                  commError: {
-                    kind: "worker-protocol-violation",
-                    message,
-                    workerId: raceWorkerId,
-                    jobId: result.job.id,
-                    observedAt,
-                  },
-                };
+                  message: `job ${result.job.id} payload failed to decode at claim time: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                  observedAt,
+                });
                 // SINGLE attempt (G1g) — deliberately NOT writeResult's
                 // bounded retry + 250ms pacing: this write happens INSIDE
                 // the claim race, so each retry pause stalls the whole

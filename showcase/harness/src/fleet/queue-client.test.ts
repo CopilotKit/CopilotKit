@@ -1071,28 +1071,65 @@ describe("FleetQueueClient.claimNext", () => {
     );
   });
 
-  it("releases a won-without-job row back to pending before falling through — never abandons a row this worker may own (G1e)", async () => {
+  it("contains a won-without-job breach with a TERMINAL 'failed' release + synthetic worker-protocol-violation result (G1e)", async () => {
     // won:true with NO job view violates the endpoint contract — but the
-    // CAS may genuinely have committed, so this worker may now OWN the row.
-    // Falling through silently wedged a full lease window: nobody renews or
-    // reports the orphaned claim, the sweeper later reclaims it and paints a
-    // false worker-reclaimed-pending overlay. Mirror the decode-failure
-    // containment: best-effort release back to `pending` (no work happened —
-    // unlike the decode poison row, the job itself may be perfectly
-    // runnable) before moving on.
-    const { pb } = makeFakePb([
+    // CAS may genuinely have committed, so this worker may now OWN the row
+    // under a LIVE, just-minted lease. A release back to `pending` can NEVER
+    // succeed there: the hook refuses EVERY pending-target release while the
+    // row's lease is live (refused_lease_live — no holder exemption) and
+    // refused_not_holder otherwise, so a pending-target containment is
+    // INERT — the row wedges a full lease window and the sweeper later
+    // paints a FALSE worker-reclaimed-pending overlay. A TERMINAL target
+    // passes the live-lease gate (the expiry gate only rejects EXPIRED
+    // leases), so the containment mirrors the decode-failure path: release
+    // `failed` + a synthetic worker-protocol-violation result.
+    const NOW = Date.parse("2026-06-04T00:00:00.000Z");
+    const { pb, rows } = makeFakePb([
       { ...jobView({ id: "j1" }), payload: samplePayload() },
     ]);
-    const releaseJob = vi.fn(
-      async (): Promise<ReleaseResult> => ({ released: true }),
+    const claimJob = vi.fn(
+      async (jobId: string, workerId: string): Promise<ClaimResult> => {
+        // The CAS COMMITTED (row claimed under a live lease) but the
+        // response lost its job view — the breach under containment.
+        const row = rows.find((r) => r.id === jobId)!;
+        row.status = "claimed";
+        row.claimed_by = workerId;
+        row.lease_expires_at = new Date(NOW + 30_000).toISOString();
+        return { won: true };
+      },
     );
-    const claim = makeFakeClaim({
-      releaseJob,
-      // won:true with NO job violates the endpoint contract (a win always
-      // carries the row view).
-      claimJob: vi.fn(async (): Promise<ClaimResult> => ({ won: true })),
-    });
-    const q = createFleetQueueClient({ pb, claim, logger });
+    // Hook-faithful releaseJob (fleet-claim.pb.js /api/fleet/release):
+    // authorizes on claimed_by; REFUSES a pending-target release while the
+    // CURRENT lease is live (refused_lease_live — the TOCTOU close, no
+    // holder exemption) and a terminal-target release on an EXPIRED lease
+    // (refused_not_holder). Expiry via the exported leaseExpired so the
+    // fake stays byte-equivalent with both sides of the contract.
+    const releaseJob = vi.fn(
+      async (
+        jobId: string,
+        workerId: string,
+        status: "done" | "failed" | "pending",
+      ): Promise<ReleaseResult> => {
+        const row = rows.find((r) => r.id === jobId);
+        if (!row || !["claimed", "running"].includes(row.status)) {
+          return { released: false, reason: "refused_not_holder" };
+        }
+        if (row.claimed_by !== workerId) {
+          return { released: false, reason: "refused_not_holder" };
+        }
+        if (status === "pending" && !leaseExpired(row.lease_expires_at, NOW)) {
+          return { released: false, reason: "refused_lease_live" };
+        }
+        if (status !== "pending" && leaseExpired(row.lease_expires_at, NOW)) {
+          return { released: false, reason: "refused_not_holder" };
+        }
+        row.status = status;
+        if (status === "pending") row.claimed_by = "";
+        return { released: true, job: { ...row } };
+      },
+    );
+    const claim = makeFakeClaim({ claimJob, releaseJob });
+    const q = createFleetQueueClient({ pb, claim, logger, now: () => NOW });
 
     const claimed = await q.claimNext("worker-7", 30);
 
@@ -1101,8 +1138,57 @@ describe("FleetQueueClient.claimNext", () => {
       "queue-client.claim-won-without-job",
       expect.objectContaining({ jobId: "j1" }),
     );
-    // The possibly-owned row was released back to pending (no work ran).
-    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "pending");
+    // TERMINAL release — never the inert pending target (the hook-faithful
+    // fake would refuse it refused_lease_live).
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
+    expect(releaseJob).not.toHaveBeenCalledWith("j1", "worker-7", "pending");
+    expect(rows[0].status).toBe("failed");
+    // The synthetic result attributes the breach honestly (the taxonomy's
+    // protocol-violation kind, never a crash synthesis) and respects the
+    // no-empty-sentinel contract (slug recovered from probe_key, minted
+    // runId).
+    const result = rows[0].result as ServiceJobResult;
+    expect(result.commError?.kind).toBe("worker-protocol-violation");
+    expect(result.jobId).toBe("j1");
+    expect(result.workerId).toBe("worker-7");
+    expect(result.aggregateState).toBe("error");
+    expect(result.aggregateKey).toBe("d6:langgraph-python");
+    expect(result.serviceSlug).toBe("langgraph-python");
+    expect(result.runId).not.toBe("");
+    expect(rows[0].result_processed).toBe(false);
+  });
+
+  it("a REFUSED won-without-job terminal release writes nothing — the CAS never actually committed (G1e)", async () => {
+    // Contrast: the breach response may ALSO mean the CAS did NOT commit
+    // (this worker never owned the row). The hook then refuses the terminal
+    // release (refused_not_holder) — warn with the threaded reason, write NO
+    // result, and fall through.
+    const { pb, rows } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    const releaseJob = vi.fn(
+      async (): Promise<ReleaseResult> => ({
+        released: false,
+        reason: "refused_not_holder",
+      }),
+    );
+    const claim = makeFakeClaim({
+      releaseJob,
+      // Breach without a commit: the row is untouched (still pending).
+      claimJob: vi.fn(async (): Promise<ClaimResult> => ({ won: true })),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(releaseJob).toHaveBeenCalledWith("j1", "worker-7", "failed");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-won-without-job-release-refused",
+      expect.objectContaining({ jobId: "j1", reason: "refused_not_holder" }),
+    );
+    expect(rows[0].result).toBeUndefined();
+    expect(rows[0].status).toBe("pending");
   });
 
   it("a THROWN won-without-job release is swallowed with a warn — best-effort only (G1e)", async () => {
