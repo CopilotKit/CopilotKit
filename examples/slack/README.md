@@ -313,6 +313,31 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
+## Deploying
+
+The example is two processes, each with its own image — everything they need is encoded in the Dockerfiles (no platform build magic required):
+
+| Process                          | Dockerfile           | Env vars                                                                                                 | Network                                |
+| -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `runtime` (agent backend)        | `Dockerfile.runtime` | `OPENAI_API_KEY`, `LINEAR_API_KEY` (optional), `LINEAR_TEAM_KEY` (optional), `PORT` (default 8200)       | Listens on `PORT`; keep it private     |
+| `bot` (Slack ingress + renderer) | `Dockerfile.bot`     | `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `AGENT_URL` (the runtime's `/api/copilotkit/agent/triage/run` URL) | Outbound-only (Socket Mode) — no ports |
+
+```bash
+docker build -f Dockerfile.runtime -t slack-example-runtime .
+docker build -f Dockerfile.bot -t slack-example-bot .
+```
+
+The bot image bakes in Playwright Chromium and its system libraries (for the
+`render_chart` / `render_diagram` tools): browsers install inside
+`node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`) so they ship with the app layer.
+
+On Railway: one project, two services pointed at this directory with the
+respective `dockerfilePath`, secrets set per the table, and
+`AGENT_URL=http://<runtime-private-domain>:8200/api/copilotkit/agent/triage/run`
+over the private network. Scope deploy triggers with a watch path of
+`/examples/slack/**`. Note: a bot restart drops in-flight button handlers
+(in-memory `ActionStore`) — clicks on older messages degrade to "expired".
+
 ## Tests
 
 ```bash
