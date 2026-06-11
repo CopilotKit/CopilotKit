@@ -1133,6 +1133,54 @@ describe("FleetQueueClient.claimNext", () => {
     );
   });
 
+  it("the decode-failure synthetic result write is SINGLE-attempt — no retry pacing inside the claim race (G1g)", async () => {
+    // The synthetic write is best-effort with a documented backstop (the
+    // consumer's crash synthesis), so the bounded-retry + 250ms pacing of
+    // report()'s writeResult is pure latency injected into claimNext's
+    // candidate race — up to 500ms of sleeps per poison row while the whole
+    // claim poll waits. One attempt + the lost warn is the contract.
+    const { pb } = makeFakePb([
+      {
+        ...jobView({ id: "j1" }),
+        payload: null as unknown as ServiceJobPayload,
+      },
+    ]);
+    const updateSpy = vi.fn(async () => {
+      throw new Error("pb write blip");
+    });
+    pb.update = updateSpy as PbClient["update"];
+    const sleeps: number[] = [];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({ released: true }),
+      ),
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({ id: jobId, status: "claimed", claimed_by: workerId }),
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({
+      pb,
+      claim,
+      logger,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+
+    const claimed = await q.claimNext("worker-7", 30);
+
+    expect(claimed.claimed).toBe(false);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(sleeps).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.claim-decode-result-write-lost",
+      expect.objectContaining({ jobId: "j1", err: "pb write blip" }),
+    );
+  });
+
   it("uses the injected clock for the decode-failure synthetic result's timestamps", async () => {
     // The synthetic worker-protocol-violation result used `new Date()`
     // directly while the rest of the queue layer takes injected time —
@@ -2699,7 +2747,11 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(sweep.commErrors).toHaveLength(1);
       expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
       expect(sweep.commErrors[0].jobId).toBe("throw-commit");
-      expect(sweep.reclaimed).toBe(1);
+      // ...counted as an INDETERMINATE maybe, not a confirmed reclaim (G1g):
+      // `reclaimed` counts only CAS-confirmed releases; the conservative
+      // thrown-release maybes ride the separate at-least-once counter.
+      expect(sweep.reclaimed).toBe(0);
+      expect(sweep.reclaimedIndeterminate).toBe(1);
       // ...and the grace set protected the (committed-pending, stale) row
       // from the SAME sweep's stale phase — it survives to be re-claimed.
       expect(sweep.expiredPending).toBe(0);
@@ -3804,6 +3856,66 @@ describe("FleetQueueClient.report", () => {
     );
   });
 
+  it("a report() retry whose pre-write read resolves NULL refuses to blind-write (G1g)", async () => {
+    // pb.getOne resolves null for a missing/unreadable row — semantically a
+    // FAILED read, not "no result present". Falling through to writeResult
+    // on it is exactly the blind rewrite the guard exists to prevent (and
+    // would resurrect a row the consumer may have deleted). Throw loud;
+    // report() stays retryable.
+    const { pb, rows } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    pb.getOne = vi.fn(async () => null) as PbClient["getOne"];
+    const updateSpy = vi.fn(pb.update.bind(pb));
+    pb.update = updateSpy as PbClient["update"];
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await expect(
+      q.report({ jobId: "j1", workerId: "worker-7", result: sampleResult() }),
+    ).rejects.toThrow(/cannot verify existing result/i);
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(rows[0].result).toBeUndefined();
+  });
+
+  it("a report() retry treats an EMPTY-STRING result as absent (PB unset-JSON shape) and completes the write (G1g)", async () => {
+    // PB returns "" (not undefined/null) for an unset JSON column on some
+    // read paths. The presence check treated "" as a written result and
+    // SKIPPED the write — silently dropping the retry's result (terminal
+    // resultless row → the consumer later synthesizes a false
+    // worker-crashed-mid-job). "" must take the no-result leg: fall through
+    // to writeResult (the original retryability contract).
+    const row: JobRow = {
+      ...jobView({ id: "j1", status: "done", claimed_by: "worker-7" }),
+      payload: samplePayload(),
+      result: "",
+      result_processed: false,
+    };
+    const { pb, rows } = makeFakePb([row]);
+    const claim = makeFakeClaim({
+      releaseJob: vi.fn(
+        async (): Promise<ReleaseResult> => ({
+          released: false,
+          reason: "refused_terminal_same_holder",
+        }),
+      ),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    const result = sampleResult();
+    await q.report({ jobId: "j1", workerId: "worker-7", result });
+
+    expect(rows[0].result).toEqual(result);
+    expect(rows[0].result_processed).toBe(false);
+  });
+
   it("a report() retry that cannot READ the row refuses to blind-write (throws, retryable)", async () => {
     // If the pre-write read blips, falling through to writeResult would be
     // exactly the blind rewrite the guard exists to prevent. Fail the retry
@@ -3878,6 +3990,8 @@ describe("FleetQueueClient.sweepExpired", () => {
     const sweep = await q.sweepExpired(now);
 
     expect(sweep.reclaimed).toBe(1);
+    // A clean CAS-confirmed release carries no at-least-once maybes (G1g).
+    expect(sweep.reclaimedIndeterminate).toBe(0);
     expect(sweep.commErrors).toHaveLength(1);
     // flap-band #70: the sweep boundary cannot tell a real crash from an
     // expected platform teardown (both leave an identical expired lease), and
@@ -4008,8 +4122,11 @@ describe("FleetQueueClient.sweepExpired", () => {
     // and j2's throw is handled CONSERVATIVELY (timeout-after-commit): the
     // release may have committed server-side, so its comm error is
     // synthesized anyway (at-least-once — a duplicate gray overlay is
-    // harmless, a missing one is lost forever).
-    expect(sweep.reclaimed).toBe(3);
+    // harmless, a missing one is lost forever). The split count (G1g) keeps
+    // `reclaimed` exact (confirmed CAS releases only) while the maybe rides
+    // `reclaimedIndeterminate`.
+    expect(sweep.reclaimed).toBe(2);
+    expect(sweep.reclaimedIndeterminate).toBe(1);
     expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["j1", "j2", "j3"]);
     expect(logger.warn).toHaveBeenCalledWith(
       "queue-client.sweep-release-threw",
@@ -4051,6 +4168,7 @@ describe("FleetQueueClient.sweepExpired", () => {
     const sweep = await q.sweepExpired(now);
 
     expect(sweep.reclaimed).toBe(0);
+    expect(sweep.reclaimedIndeterminate).toBe(0);
     expect(sweep.commErrors).toHaveLength(0);
     expect(logger.error).toHaveBeenCalledWith(
       "queue-client.sweep-release-rejected",
@@ -4085,8 +4203,10 @@ describe("FleetQueueClient.sweepExpired", () => {
     const sweep = await q.sweepExpired(now);
 
     // 5xx is indeterminate — the release may have committed server-side, so
-    // the comm error is synthesized anyway (at-least-once).
-    expect(sweep.reclaimed).toBe(1);
+    // the comm error is synthesized anyway (at-least-once), counted on the
+    // indeterminate counter rather than the confirmed one (G1g).
+    expect(sweep.reclaimed).toBe(0);
+    expect(sweep.reclaimedIndeterminate).toBe(1);
     expect(sweep.commErrors).toHaveLength(1);
     expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
     expect(logger.warn).toHaveBeenCalledWith(
@@ -4313,6 +4433,15 @@ describe("fleet-claim.pb.js hook parity (client ↔ JSVM contract pins)", () => 
     // workerId` never matches and the row is wedged until lease expiry.
     const guards =
       hookSource.match(/typeof workerId !== "string"/g) ?? [];
+    expect(guards.length).toBe(3);
+  });
+
+  it("every handler rejects a non-string jobId (consistency with the workerId guard) — G1g", () => {
+    // `!jobId` admits a truthy non-string (a JSON number/object); the
+    // workerId guard rejects exactly that class for the text column, and
+    // jobId feeds findRecordById the same way — a numeric jobId must 400 at
+    // the boundary, not depend on the dao's coercion behavior.
+    const guards = hookSource.match(/typeof jobId !== "string"/g) ?? [];
     expect(guards.length).toBe(3);
   });
 

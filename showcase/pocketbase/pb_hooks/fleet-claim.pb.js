@@ -98,6 +98,12 @@ routerAdd("POST", "/api/fleet/claim", (c) => {
   if (typeof workerId !== "string") {
     return c.json(400, { error: "workerId must be a string" });
   }
+  // Same class for jobId (consistency with the workerId guard): `!jobId`
+  // admits a truthy non-string (a JSON number/object) that would otherwise
+  // ride into findRecordById on the dao's coercion behavior. 400 up front.
+  if (typeof jobId !== "string") {
+    return c.json(400, { error: "jobId must be a string" });
+  }
 
   let claimed = false;
   let alreadyHeld = false;
@@ -213,6 +219,12 @@ routerAdd("POST", "/api/fleet/renew", (c) => {
   if (typeof workerId !== "string") {
     return c.json(400, { error: "workerId must be a string" });
   }
+  // Same class for jobId (consistency with the workerId guard): `!jobId`
+  // admits a truthy non-string (a JSON number/object) that would otherwise
+  // ride into findRecordById on the dao's coercion behavior. 400 up front.
+  if (typeof jobId !== "string") {
+    return c.json(400, { error: "jobId must be a string" });
+  }
 
   let renewed = false;
   let view = null;
@@ -291,6 +303,12 @@ routerAdd("POST", "/api/fleet/release", (c) => {
   // row wedges until lease expiry. Reject the type up front.
   if (typeof workerId !== "string") {
     return c.json(400, { error: "workerId must be a string" });
+  }
+  // Same class for jobId (consistency with the workerId guard): `!jobId`
+  // admits a truthy non-string (a JSON number/object) that would otherwise
+  // ride into findRecordById on the dao's coercion behavior. 400 up front.
+  if (typeof jobId !== "string") {
+    return c.json(400, { error: "jobId must be a string" });
   }
   if (!target) {
     return c.json(400, {

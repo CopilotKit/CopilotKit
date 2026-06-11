@@ -287,10 +287,16 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
         },
         body: JSON.stringify(payload),
       });
+    // Snapshot the token THIS request goes out under: a concurrent caller
+    // can refresh `authToken` while our 401 response is in flight, and
+    // blindly nulling it here would discard the FRESH token — forcing a
+    // redundant re-auth round-trip per racing caller (an auth stampede
+    // under sustained concurrency). Only invalidate if it is unchanged.
+    const tokenUsed = authToken;
     let res = await doPost();
     // Single re-auth on 401 — token may have expired between calls.
     if (res.status === 401) {
-      authToken = null;
+      if (authToken === tokenUsed) authToken = null;
       await ensureAuth();
       res = await doPost();
     }
@@ -359,6 +365,15 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
         // whole candidate rotation for one contested row; won:false lets
         // claimNext fall through to the next candidate. (Already warned by
         // postFleet's endpoint-error log.)
+        //
+        // BOUNDED FALSE-OVERLAY SOURCE (documented, accepted): the 5xx can
+        // ALSO mask a claim that COMMITTED under THIS workerId before the
+        // error surfaced. The caller then treats it as lost and never
+        // renews/reports, so the row sits claimed until its lease expires
+        // and the sweeper re-queues it — synthesizing a neutral (gray)
+        // worker-reclaimed-pending overlay for a worker that never knew it
+        // held the job. Bounded by one lease duration, self-healing (the
+        // re-queued job re-runs), and never a red crash overlay.
         return { won: false };
       }
       return { won: body.claimed === true, job: body.job };

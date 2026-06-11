@@ -190,6 +190,30 @@ export interface StalePendingPolicy {
   expiryPeriods?: number;
 }
 
+/**
+ * `SweepResult` plus the AT-LEAST-ONCE split (G1g): `reclaimed` counts only
+ * CAS-CONFIRMED re-queues, while the conservative thrown-release maybes
+ * (timeout-after-commit — the release may or may not have committed; a comm
+ * error is synthesized either way) ride `reclaimedIndeterminate`. Summing the
+ * two recovers the old over-counting behavior; consumers that alert on
+ * reclaim counts should treat the indeterminate share as "at least zero, at
+ * most this many" extra re-queues.
+ *
+ * The contracts-level `SweepResult`/`TickResult` are sibling-owned: once
+ * `TickResult` gains the field, the producer threads it with a one-liner
+ * (`reclaimedIndeterminate: sweep.reclaimedIndeterminate`) where it copies
+ * `sweep.reclaimed` today.
+ */
+export interface SweepResultWithIndeterminate extends SweepResult {
+  /** Thrown-release conservative maybes (at-least-once; see above). */
+  reclaimedIndeterminate: number;
+}
+
+/** `FleetQueueClient` with this implementation's richer sweep result. */
+export interface FleetQueueClientWithSweepOutcome extends FleetQueueClient {
+  sweepExpired(nowMs: number): Promise<SweepResultWithIndeterminate>;
+}
+
 export interface FleetQueueClientConfig {
   /** Record-level PB access for enqueue (create) + queue reads (list). */
   pb: PbClient;
@@ -548,7 +572,7 @@ function shuffleInPlace<T>(arr: T[], rng: () => number): T[] {
 
 export function createFleetQueueClient(
   config: FleetQueueClientConfig,
-): FleetQueueClient {
+): FleetQueueClientWithSweepOutcome {
   const { pb, claim, logger } = config;
   const rng = config.rng ?? Math.random;
   const now = config.now ?? Date.now;
@@ -588,9 +612,11 @@ export function createFleetQueueClient(
    * TERMINAL probe_jobs row — the SEPARATE record write that follows a
    * release CAS (migration 1779989700 adds `result` + `result_processed`).
    * Never throws: returns `{ ok: true }` on success, or `{ ok: false,
-   * lastErr }` after RESULT_WRITE_MAX_ATTEMPTS attempts so each caller
-   * decides whether the loss is fatal (`report` — distinct "result lost"
-   * error) or best-effort (the decode-failure attribution in `claimNext`).
+   * lastErr }` after RESULT_WRITE_MAX_ATTEMPTS attempts so the caller
+   * decides what the loss means (`report` — distinct "result lost" error).
+   * Used by `report()` ONLY: the decode-failure attribution in `claimNext`
+   * is a deliberate single-attempt write (its retry pacing would stall the
+   * claim race, and the consumer's crash synthesis is its backstop).
    * `result_processed` seeds false: the consumer latches it true after
    * aggregating exactly once.
    */
@@ -971,19 +997,27 @@ export function createFleetQueueClient(
                     observedAt,
                   },
                 };
-                const write = await writeResult(
-                  result.job.id,
-                  raceWorkerId,
-                  violation,
-                );
-                if (!write.ok) {
+                // SINGLE attempt (G1g) — deliberately NOT writeResult's
+                // bounded retry + 250ms pacing: this write happens INSIDE
+                // the claim race, so each retry pause stalls the whole
+                // candidate rotation (up to 500ms per poison row per poll).
+                // The write is best-effort with a documented backstop — a
+                // lost write leaves a terminal resultless row the consumer
+                // synthesizes a crash result for past grace — so one try +
+                // the lost warn is the right trade.
+                try {
+                  await pb.update(PROBE_JOBS_COLLECTION, result.job.id, {
+                    result: violation,
+                    result_processed: false,
+                  });
+                } catch (writeErr) {
                   logger.warn("queue-client.claim-decode-result-write-lost", {
                     jobId: result.job.id,
                     workerId: raceWorkerId,
                     err:
-                      write.lastErr instanceof Error
-                        ? write.lastErr.message
-                        : String(write.lastErr),
+                      writeErr instanceof Error
+                        ? writeErr.message
+                        : String(writeErr),
                   });
                 }
               }
@@ -1194,6 +1228,12 @@ export function createFleetQueueClient(
             // exhausted the result write). The result is still THIS holder's
             // to write — proceed to writeResult instead of falsely declaring
             // it discarded; this is what makes report() retryable.
+            //
+            // DEPLOY SKEW: retryability depends on the HOOK threading this
+            // reason. Against an older fleet-claim.pb.js (no reason field)
+            // the same retry takes the generic-refusal throw below instead
+            // — fail-closed (the result is declared discarded), never a
+            // blind write. Roll the hook out before (or with) the harness.
             logger.warn("queue-client.release-refused-terminal-same-holder", {
               jobId: input.jobId,
               workerId: input.workerId,
@@ -1215,6 +1255,11 @@ export function createFleetQueueClient(
             //     retryability contract).
             // A failed read must NOT fall through to a blind write — throw
             // loud; report() stays retryable and the next retry re-reads.
+            // That includes a getOne that RESOLVES NULL (missing/unreadable
+            // row): semantically a failed read, not "no result present".
+            // And PB's unset-JSON shape reads back as "" — treat it as
+            // ABSENT so the retry still lands its result instead of
+            // skipping the write against an empty column.
             let existing: ProbeJobRecord | null;
             try {
               existing = await pb.getOne<ProbeJobRecord>(
@@ -1228,10 +1273,15 @@ export function createFleetQueueClient(
                 }`,
               );
             }
+            if (existing === null) {
+              throw new Error(
+                `queue-client: cannot verify existing result for job ${input.jobId} (worker ${input.workerId}) before retry rewrite — the pre-write read returned no row; refusing to blind-write`,
+              );
+            }
             if (
-              existing &&
               existing.result !== undefined &&
-              existing.result !== null
+              existing.result !== null &&
+              existing.result !== ""
             ) {
               logger.info(
                 existing.result_processed === true
@@ -1350,7 +1400,7 @@ export function createFleetQueueClient(
       return totalItems;
     },
 
-    async sweepExpired(nowMs: number): Promise<SweepResult> {
+    async sweepExpired(nowMs: number): Promise<SweepResultWithIndeterminate> {
       // Scan claimed/running rows for expired leases (crashed/unreachable
       // workers). PB lacks an OR-of-equals shortcut here, so list both running
       // states and filter by lease in-process.
@@ -1412,6 +1462,13 @@ export function createFleetQueueClient(
       }
       const commErrors: PoolCommError[] = [];
       let reclaimed = 0;
+      // AT-LEAST-ONCE SPLIT (G1g): thrown-release conservative maybes are
+      // counted HERE, not in `reclaimed` — a throw that did NOT commit
+      // would otherwise over-count confirmed reclaims (the count consumers
+      // alert on), while the comm errors deliberately keep their
+      // at-least-once duplication. commErrors length (excluding
+      // sweeper-held rows) = reclaimed + reclaimedIndeterminate.
+      let reclaimedIndeterminate = 0;
       // SINGLE-SWEEPER ASSUMPTION (load-bearing): this grace set is
       // per-call, IN-PROCESS state. It protects re-queued rows only from
       // THIS control-plane's own stale phase — a SECOND concurrent sweeper
@@ -1571,7 +1628,7 @@ export function createFleetQueueClient(
           });
           requeuedThisSweep.add(row.id);
           if (holder !== STALE_PENDING_SWEEPER_ID) {
-            reclaimed += 1;
+            reclaimedIndeterminate += 1;
             commErrors.push({
               kind: "worker-reclaimed-pending",
               message: `lease for job ${row.id} expired (worker ${holder || "unknown"} reclaimed); re-queue release threw mid-flight — conservatively reported as re-queued (at-least-once)`,
@@ -1599,8 +1656,9 @@ export function createFleetQueueClient(
         // SILENT: synthesizing `worker-reclaimed-pending` here would paint a
         // gray "re-queued / back in flight" dashboard overlay for a row that
         // was never in flight, attributed to a non-existent worker. Not
-        // counted in `reclaimed` either (that count is paired 1:1 with the
-        // commErrors it documents). It DOES feed the grace set: this call's
+        // counted in `reclaimed` either (reclaimed + reclaimedIndeterminate
+        // are paired 1:1 with the commErrors they document). It DOES feed
+        // the grace set: this call's
         // stale phase must not claim-and-delete a row the lease phase just
         // re-queued (the retry contract is a LATER sweep — re-deleting in the
         // same sweep would race the very lease/delete failure that put the
@@ -1683,7 +1741,7 @@ export function createFleetQueueClient(
         });
       }
 
-      return { reclaimed, commErrors, expiredPending };
+      return { reclaimed, reclaimedIndeterminate, commErrors, expiredPending };
 
       /**
        * The stale-pending drain loop (see the STALE-PENDING EXPIRY comment
@@ -1741,21 +1799,23 @@ export function createFleetQueueClient(
             if (ageMs <= maxAgeMs) continue;
             // RECENT-LEASE HEURISTIC (no schema change): the age above is
             // anchored on PB `created`, which a re-queue does NOT touch — so
-            // a job that legitimately ran LONGER than its family window
-            // comes back from the lease sweep already "stale" and would be
-            // claim-deleted by the NEXT sweep before any plausible re-run
-            // (the dashboard then permanently shows "re-queued" for
-            // silently-discarded work). The release hook RETAINS the expired
-            // lease_expires_at on a pending re-queue, so a PARSEABLE lease
-            // within the family window means the row was IN FLIGHT recently
-            // and its `created`-based age is stale evidence — skip it; it
-            // expires normally once a full window passes with no re-claim.
-            // (A `requeued_at` column would be exact; the retained lease is
-            // the schema-free approximation.) Tradeoff: a sweeper-claimed
-            // row whose delete failed also carries a recent (60s) lease
-            // after its silent re-queue, so stale GARBAGE can linger up to
-            // one extra family window before the retry delete — harmless,
-            // and the self-healing contract still holds.
+            // a job that legitimately ran LONGER than its family's STALE
+            // WINDOW (`maxAgeMs` = expiryPeriods × the family period — 3
+            // periods by default, NOT one) comes back from the lease sweep
+            // already "stale" and would be claim-deleted by the NEXT sweep
+            // before any plausible re-run (the dashboard then permanently
+            // shows "re-queued" for silently-discarded work). The release
+            // hook RETAINS the expired lease_expires_at on a pending
+            // re-queue, so a PARSEABLE lease within that stale window means
+            // the row was IN FLIGHT recently and its `created`-based age is
+            // stale evidence — skip it; it expires normally once a full
+            // stale window passes with no re-claim. (A `requeued_at` column
+            // would be exact; the retained lease is the schema-free
+            // approximation.) Tradeoff: a sweeper-claimed row whose delete
+            // failed also carries a recent (60s) lease after its silent
+            // re-queue, so stale GARBAGE can linger up to one extra stale
+            // window before the retry delete — harmless, and the
+            // self-healing contract still holds.
             const leaseMs = Date.parse(
               String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
             );
@@ -1838,6 +1898,14 @@ export function createFleetQueueClient(
           // occlusion; see the drain header). Otherwise rows left pending and
           // pagination shifted back, so re-list the SAME page index to see
           // the shifted-in batch.
+          //
+          // PAGE-ADVANCE INDETERMINACY (accepted): a claim that THREW is not
+          // counted in passAttempted, but it may still have COMMITTED
+          // server-side (thrown-but-committed) — the row then LEFT pending
+          // and pagination shifted even though this pass looks attempt-free,
+          // so an advance here can skip shifted-in rows for the REST of this
+          // sweep. Bounded and self-healing: the next sweep re-lists from
+          // page 1 and re-evaluates everything skipped.
           if (passAttempted === 0) listPage += 1;
         }
       }

@@ -243,6 +243,74 @@ describe("job-claim client", () => {
     expect(claimCalls).toBe(2);
   });
 
+  it("a 401 retry does NOT clobber a token a concurrent caller already refreshed (G1g)", async () => {
+    // RACE: caller A's request goes out under tok1 and 401s; while that
+    // response is in flight, caller B also 401s, re-auths, and installs
+    // tok2. A's 401 handling then blindly nulled authToken — discarding the
+    // FRESH tok2 and forcing a third auth round-trip (and under sustained
+    // concurrency, an auth stampede). A must only invalidate the token if it
+    // is STILL the one its failed request used.
+    let authCalls = 0;
+    let releaseJ1: ((r: Response) => void) | undefined;
+    const j1Gate = new Promise<Response>((res) => {
+      releaseJ1 = res;
+    });
+    let j1Calls = 0;
+    let j2Calls = 0;
+    const claimAuthHeaders: string[] = [];
+    const fetchImpl = makeFetch(async (url, init) => {
+      if (url.includes("auth-with-password")) {
+        authCalls += 1;
+        return new Response(JSON.stringify({ token: `tok${authCalls}` }), {
+          status: 200,
+        });
+      }
+      const body = JSON.parse(String(init?.body)) as { jobId: string };
+      claimAuthHeaders.push(
+        String((init?.headers as Record<string, string>).authorization),
+      );
+      if (body.jobId === "j1") {
+        j1Calls += 1;
+        // A's FIRST request hangs until the test releases it (after B's
+        // refresh has completed); its retry succeeds.
+        if (j1Calls === 1) return j1Gate;
+        return new Response(
+          JSON.stringify({ claimed: true, job: SAMPLE_JOB }),
+          { status: 200 },
+        );
+      }
+      j2Calls += 1;
+      if (j2Calls === 1) return new Response("unauthorized", { status: 401 });
+      return new Response(JSON.stringify({ claimed: true, job: SAMPLE_JOB }), {
+        status: 200,
+      });
+    });
+    const client = createJobClaimClient({
+      url: "http://pb",
+      email: "a@b",
+      password: "pw",
+      logger,
+      fetchImpl,
+    });
+
+    // A: auth (tok1) → POST j1 (hangs on the gate).
+    const pA = client.claimJob("j1", "wA", 30);
+    await new Promise((r) => setTimeout(r, 10));
+    // B: 401 under tok1 → re-auth (tok2) → retry wins.
+    const rB = await client.claimJob("j2", "wB", 30);
+    expect(rB.won).toBe(true);
+    // Now A's first request comes back 401 — but tok2 is already installed.
+    releaseJ1!(new Response("unauthorized", { status: 401 }));
+    const rA = await pA;
+    expect(rA.won).toBe(true);
+
+    // Exactly TWO auths total: the initial one and B's refresh. A's retry
+    // reused B's fresh tok2 instead of nulling it and re-authing a third
+    // time.
+    expect(authCalls).toBe(2);
+    expect(claimAuthHeaders[claimAuthHeaders.length - 1]).toBe("tok2");
+  });
+
   it("throws a descriptive error on a non-401 failure status (renew/release)", async () => {
     const fetchImpl = authedFetch(() => new Response("boom", { status: 500 }));
     const client = createJobClaimClient({
