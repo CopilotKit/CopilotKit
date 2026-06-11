@@ -290,13 +290,14 @@ describe("fleet surface-state contract cross-package drift", () => {
     expect(body).not.toContain('=== "red"');
   });
 
-  it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with failure passthrough", () => {
-    // Same pin on the dashboard side (behaviorally covered by the flap-band
-    // #70 tests in __tests__/cell-model.test.ts; this guards the SHAPE so a
-    // refactor that drops the reclaim branch reds the drift suite too).
-    // Match to the END OF THE STATEMENT (a `;` at end-of-line followed by a
-    // blank line) — a bare non-greedy `;` would stop at a semicolon inside the
-    // derivation's own comments.
+  /**
+   * Extract the dashboard's `surfaceState` derivation statement from
+   * cell-model.ts. Match to the END OF THE STATEMENT (a `;` at end-of-line
+   * followed by a blank line) — a bare non-greedy `;` would stop at a
+   * semicolon inside the derivation's own comments. Throws if the statement
+   * can't be located so a refactor is loud.
+   */
+  function parseDashboardSurfaceDerivation(): string {
     const m = dashboardCellModelSource().match(
       /const surfaceState: FleetSurfaceState =[\s\S]*?;\n\n/,
     );
@@ -306,7 +307,14 @@ describe("fleet surface-state contract cross-package drift", () => {
           "cell-model.ts — if the source shape changed, update this regex.",
       );
     }
-    const body = m[0];
+    return m[0];
+  }
+
+  it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with failure passthrough", () => {
+    // Same pin on the dashboard side (behaviorally covered by the flap-band
+    // #70 tests in __tests__/cell-model.test.ts; this guards the SHAPE so a
+    // refactor that drops the reclaim branch reds the drift suite too).
+    const body = parseDashboardSurfaceDerivation();
     expect(body).toContain('"worker-reclaimed-pending"');
     expect(body).toContain('"pending"');
     expect(body).toContain('"unreachable"');
@@ -315,5 +323,30 @@ describe("fleet surface-state contract cross-package drift", () => {
     // mirroring the harness only-green-becomes-pending semantics (G3a).
     expect(body).toContain('chipColor === "red"');
     expect(body).toContain('chipColor === "amber"');
+  });
+
+  it("the pending-gate ASYMMETRY is deliberate: harness green-only, dashboard green-or-gray (G3d)", () => {
+    // The two derivations are NOT byte-mirrors and must not be: the harness
+    // derives over `ProbeState`, which has NO no-data colour, so its pending
+    // gate is GREEN-ONLY equality. The dashboard derives over `ChipColor`,
+    // whose `gray` is a dashboard-only no-data colour the harness cannot
+    // represent — there a reclaim on a no-data cell IS pending, so the gate
+    // is expressed as FAILURE-PASSTHROUGH (red / amber / regression pass
+    // through; green AND gray become "pending"). This test pins the
+    // DERIVATION DIFFERENCE itself so neither side can silently "fix" the
+    // asymmetry into a contradiction again.
+    //
+    // Harness side: green-equality gate, and no "gray" anywhere — the
+    // ProbeState vocabulary cannot name the no-data case.
+    const harnessBody = parseHarnessSurfaceDerivation();
+    expect(harnessBody).toContain('row.state === "green"');
+    expect(harnessBody).not.toContain('"gray"');
+    //
+    // Dashboard side: must NOT be a green-equality gate (that would drop the
+    // gray→pending leg), and must consult the regression flag — a regressed
+    // cell never reads as neutrally pending.
+    const dashboardBody = parseDashboardSurfaceDerivation();
+    expect(dashboardBody).not.toContain('chipColor === "green"');
+    expect(dashboardBody).toContain("isRegression");
   });
 });

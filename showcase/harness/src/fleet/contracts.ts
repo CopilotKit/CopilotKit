@@ -334,6 +334,16 @@ export interface PoolCommError {
  *     red, degraded, error, or an out-of-vocabulary runtime state — passes
  *     through — the neutral overlay must never mask a genuine failure.
  *   - otherwise the row's last-known probe colour (`state`).
+ *
+ * DELIBERATE ASYMMETRY in the pending gate: this HARNESS derivation is
+ * green-ONLY because `ProbeState` has no no-data colour to route. The
+ * dashboard's derivation runs over its `ChipColor` vocabulary, whose `gray`
+ * is a dashboard-only no-data colour this side cannot represent — there, a
+ * reclaim on a green OR gray (non-regressed) cell becomes `"pending"`. The
+ * shared invariant both sides pin is the NEVER-MASK rule: red / degraded
+ * (amber) / error / out-of-vocabulary states — and, dashboard-side, a
+ * regression — always pass through; only healthy-or-no-data becomes pending.
+ * The dashboard's commError-contract-drift.test.ts pins both derivations.
  */
 export type FleetSurfaceState = ProbeState | "unreachable" | "pending";
 
@@ -361,8 +371,7 @@ export interface FleetStatusRow {
 
 /**
  * Compute the dashboard's surface state from a row's colour + comm error.
- * Mirrors the dashboard's `cell-model.ts` derivation exactly: the
- * sweep-inferred `worker-reclaimed-pending` kind renders the NEUTRAL
+ * The sweep-inferred `worker-reclaimed-pending` kind renders the NEUTRAL
  * `"pending"` surface (the job is re-queued / back in flight, not a known
  * crash) ONLY when the row's last-known probe colour is green (healthy).
  * ANY non-green state — red, degraded, error, or an out-of-vocabulary
@@ -372,6 +381,12 @@ export interface FleetStatusRow {
  * kind is a directly-observed pool failure and renders the red
  * `"unreachable"` overlay; absent any comm error the row's last-known probe
  * colour passes through unchanged.
+ *
+ * The dashboard's `cell-model.ts` mirrors this derivation over its
+ * `ChipColor` vocabulary with ONE deliberate difference (see the
+ * `FleetSurfaceState` doc above): its dashboard-only no-data `gray` ALSO
+ * becomes `"pending"` — green-only here purely because `ProbeState` has no
+ * no-data colour. The never-mask rule is identical on both sides.
  */
 export function fleetSurfaceState(row: FleetStatusRow): FleetSurfaceState {
   if (!row.commError) return row.state;

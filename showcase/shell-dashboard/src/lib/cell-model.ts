@@ -483,10 +483,12 @@ function resolveD6(
 }
 
 /**
- * Map a derived `ChipColor` onto the presentation surface state. `FleetSurfaceState`
- * is `ChipColor | "unreachable"`, so every chip colour passes straight through;
- * the `"unreachable"` overlay is applied separately by the caller when a comm
- * error is present. Pure; no widening cast needed.
+ * Map a derived `ChipColor` onto the presentation surface state.
+ * `FleetSurfaceState` is `ChipColor | "unreachable" | "pending"`, so every
+ * chip colour passes straight through; the `"unreachable"` and `"pending"`
+ * overlay members are applied separately by the caller when a comm error is
+ * present (see the `surfaceState` derivation in `buildCellModel`). Pure; no
+ * widening cast needed.
  */
 function chipColorToSurface(color: ChipColor): FleetSurfaceState {
   return color;
@@ -833,11 +835,21 @@ export function buildCellModel(
         // cell's real probe result is healthy (green) or no-data (gray) and not
         // a regression. ANY failure colour — red OR amber (partial failure /
         // degraded ladder) — or a regression below the ceiling is a GENUINE
-        // failure that the neutral pending overlay must NOT mask (mirrors the
-        // harness fleetSurfaceState: only green becomes "pending"; every
-        // non-green failure state passes through) — otherwise DepthChip's
-        // "pending" early-return would hide a real failure. The failure colour
-        // wins; routine teardown (green/gray) still shows gray.
+        // failure that the neutral pending overlay must NOT mask — otherwise
+        // DepthChip's "pending" early-return would hide a real failure. The
+        // failure colour wins; routine teardown (green/gray) still shows gray.
+        //
+        // DELIBERATE ASYMMETRY vs the harness `fleetSurfaceState` gate: the
+        // harness derives over `ProbeState`, which has NO no-data colour, so
+        // its gate is green-only ("green becomes pending, everything else
+        // passes through"). The dashboard derives over `ChipColor`, whose
+        // `gray` is the dashboard-only no-data colour the harness cannot
+        // represent — and a no-data cell awaiting a re-queued job IS pending,
+        // so gray ALSO becomes "pending" here. Both sides agree on the
+        // never-mask rule: red / amber (degraded) / error-derived states /
+        // regression always pass through; ONLY the healthy-or-no-data cases
+        // become "pending". Pinned by the surface-state drift suite in
+        // commError-contract-drift.test.ts.
         chipColor === "red" || chipColor === "amber" || isRegression
         ? chipColorToSurface(chipColor)
         : "pending"

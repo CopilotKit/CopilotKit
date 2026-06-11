@@ -1846,6 +1846,42 @@ describe("buildCellModel", () => {
         expect(model.commError?.kind).toBe("worker-reclaimed-pending");
       });
 
+      it("a reclaimed-pending comm error on a NO-DATA (gray) cell surfaces 'pending' — the deliberate dashboard-side asymmetry (G3d)", () => {
+        // The harness pending gate is green-ONLY because ProbeState has no
+        // no-data colour. The dashboard's gray IS its no-data colour, and a
+        // no-data cell awaiting a re-queued job is genuinely pending — so
+        // gray ALSO routes to "pending" here, deliberately diverging from
+        // the harness derivation (pinned shape-wise by
+        // commError-contract-drift.test.ts).
+        const live = mapOf([
+          // No probe rows at all for this cell → chip gray (no-data). The
+          // reclaim comm error rides the integration-level d6 aggregate row,
+          // which the per-cell resolvers never read (so the chip stays gray).
+          row(keyFor("d6", "agno"), "d6", "green", {
+            signal: reclaimSignal,
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        expect(model.chipColor).toBe("gray");
+        expect(model.isRegression).toBe(false);
+        expect(model.surfaceState).toBe("pending");
+        expect(model.commError?.kind).toBe("worker-reclaimed-pending");
+      });
+
+      it("a reclaimed-pending comm error must NOT mask a RED chip — red passes through", () => {
+        const live = mapOf([
+          row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
+          row(keyFor("d6", "agno"), "d6", "green", {
+            signal: reclaimSignal,
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        expect(model.chipColor).toBe("red");
+        expect(model.surfaceState).toBe("red");
+        expect(model.surfaceState).not.toBe("pending");
+        expect(model.commError?.kind).toBe("worker-reclaimed-pending");
+      });
+
       it("a crash (worker-crashed-mid-job) still surfaces red 'unreachable' — only reclaim is neutralized", () => {
         const live = mapOf([
           row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {
