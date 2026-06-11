@@ -412,6 +412,14 @@ describe("matcher boundaries (SU-15)", () => {
     tokensToRegexp(parseMatcherPath(config.matcher[0])).source,
   );
 
+  it("pins a single matcher entry — every boundary below compiles config.matcher[0] only (SU7-F3)", () => {
+    // A second matcher entry would be entirely untested by this
+    // describe (matcherRe compiles only the first); fail HERE with a
+    // self-explanatory message instead of silently green-lighting an
+    // unverified pattern.
+    expect(config.matcher).toHaveLength(1);
+  });
+
   it("runs middleware on /api and /api-reference (SEO sources R1/R3)", () => {
     expect(matcherRe.test("/api")).toBe(true);
     expect(matcherRe.test("/api-reference")).toBe(true);
@@ -561,8 +569,14 @@ describe("empty framework-slug set guard (SU-20)", () => {
     vi.stubEnv("NODE_ENV", "production");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     warnIfNoFrameworkSlugs(new Set());
-    expect(error).toHaveBeenCalledOnce();
-    expect(error.mock.calls[0][0]).toContain("ZERO framework slugs");
+    // Message-filtered count (SU6-A6, applied SU7-F3): a bare
+    // toHaveBeenCalledOnce() would absorb any unrelated error into this
+    // count — or mask a missing slug error when exactly one unrelated
+    // error fired.
+    const slugErrors = error.mock.calls.filter(([msg]) =>
+      String(msg).includes("ZERO framework slugs"),
+    );
+    expect(slugErrors).toHaveLength(1);
   });
 
   it("console.warns outside production when the slug set is empty", () => {
@@ -903,6 +917,27 @@ describe("buildRedirectLookup rejects malformed entries (SU3-A3)", () => {
     expect(warns).toHaveLength(1);
   });
 
+  it("rejects+warns a root EXACT source '/' — it would hijack the homepage (SU7-F3)", () => {
+    // The twin of the root-wildcard guard: "/" passes every source
+    // check (starts with "/", no "//", no ?/#, length-1 so the
+    // trailing-slash guard skips it) and lands in the exact map, where
+    // it matches the HOMEPAGE — never a legitimate SEO entry.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { exactMap } = buildRedirectLookup([
+      { id: "root-exact", source: "/", destination: "/y" },
+      { id: "ok", source: "/ok", destination: "/fine" },
+    ]);
+    expect(exactMap.has("/")).toBe(false);
+    expect(exactMap.size).toBe(1);
+    expect(exactMap.get("/ok")?.id).toBe("ok");
+    const warns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes("hijack the homepage"),
+    );
+    expect(warns).toHaveLength(1);
+    expect(String(warns[0][0])).toContain("root-exact");
+    expect(String(warns[0][0])).not.toContain("(ok)");
+  });
+
   it("skips+warns destinations that are not root-relative or carry ?/#", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { exactMap, wildcardEntries } = buildRedirectLookup([
@@ -982,6 +1017,34 @@ describe("buildRedirectLookup rejects malformed entries (SU3-A3)", () => {
     for (const id of ["no-slash", "query", "frag", "wild-no-slash"]) {
       expect(String(warns[0][0])).toContain(id);
     }
+  });
+
+  it("rejects+warns entries whose source or destination contains non-printable-ASCII (SU7-F3)", () => {
+    // NextRequest pathnames are percent-encoded ASCII, so a source with
+    // a raw space or a non-ASCII character can never match — previously
+    // a silent dead entry. The check also enforces the ASCII
+    // length-preservation assumption the positional-slicing comments
+    // rely on (toLowerCase is only guaranteed length-preserving for
+    // ASCII).
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { exactMap, wildcardEntries } = buildRedirectLookup([
+      { id: "space-src", source: "/with space", destination: "/y" },
+      { id: "uni-src", source: "/café", destination: "/y" },
+      { id: "uni-dest", source: "/ok-src", destination: "/naïve" },
+      { id: "wild-uni", source: "/wü/:path*", destination: "/y/:path*" },
+      { id: "ok", source: "/ok", destination: "/fine" },
+    ]);
+    expect(exactMap.size).toBe(1);
+    expect(exactMap.get("/ok")?.id).toBe("ok");
+    expect(wildcardEntries).toHaveLength(0);
+    const warns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes("non-printable-ASCII"),
+    );
+    expect(warns).toHaveLength(1);
+    for (const id of ["space-src", "uni-src", "uni-dest", "wild-uni"]) {
+      expect(String(warns[0][0])).toContain(id);
+    }
+    expect(String(warns[0][0])).not.toContain("(ok)");
   });
 
   it("skips+warns trailing-slash exact sources — unreachable after stripping (SU4-A2)", () => {
@@ -1151,6 +1214,65 @@ describe("buildRedirectLookup rejects malformed entries (SU3-A3)", () => {
     expect(warns).toHaveLength(1);
     expect(String(warns[0][0])).toContain("typo-collapse");
     expect(String(warns[0][0])).not.toContain("kept-ok");
+  });
+
+  it("classifies a discarded same-destination tokenless wildcard twin as a silent duplicate — ZERO tokenless warns (SU7-F3)", () => {
+    // The duplicate-prefix owner check used to run AFTER the
+    // miscased/tokenless destination checks, so an entry that was about
+    // to be DISCARDED as a duplicate still fired destination warns —
+    // misclassifying a harmless same-destination twin as a tokenless
+    // table bug and desensitizing that channel (the exact failure mode
+    // the SU5-A3 twin allowlist exists to prevent).
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { wildcardEntries } = buildRedirectLookup([
+      // Allowlisted deliberate collapse — silent by design (SU6-A2).
+      {
+        id: "P10",
+        source: "/reference/v1/:path*",
+        destination: "/reference/v2",
+      },
+      // Same-destination twin whose id is NOT allowlisted: it must be
+      // skipped silently as a duplicate, never reaching the tokenless
+      // check.
+      {
+        id: "P10-twin",
+        source: "/reference/v1/:path*",
+        destination: "/reference/v2",
+      },
+    ]);
+    expect(wildcardEntries).toHaveLength(1);
+    expect(wildcardEntries[0].id).toBe("P10");
+    const tokenlessWarns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes('no ":path*" token'),
+    );
+    expect(tokenlessWarns).toHaveLength(0);
+    const dupWarns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes("duplicate"),
+    );
+    expect(dupWarns).toHaveLength(0);
+  });
+
+  it("classifies a miscased-destination duplicate as a DUPLICATE, not a miscased-token bug (SU7-F3)", () => {
+    // A diverging duplicate is discarded whatever its destination looks
+    // like — it must warn on the duplicate channel (naming the shadowing
+    // owner), not on the miscased-token channel.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { wildcardEntries } = buildRedirectLookup([
+      { id: "owner", source: "/x/:path*", destination: "/a/:path*" },
+      { id: "twin", source: "/x/:path*", destination: "/a/:PATH*" },
+    ]);
+    expect(wildcardEntries).toHaveLength(1);
+    expect(wildcardEntries[0].id).toBe("owner");
+    const miscasedWarns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes("miscased"),
+    );
+    expect(miscasedWarns).toHaveLength(0);
+    const dupWarns = warn.mock.calls.filter(([msg]) =>
+      String(msg).includes("duplicate wildcard"),
+    );
+    expect(dupWarns).toHaveLength(1);
+    expect(String(dupWarns[0][0])).toContain("twin");
+    expect(String(dupWarns[0][0])).toContain("owner");
   });
 
   it("stays silent for the documented deliberate-collapse wildcard entries (SU6-A2)", () => {
@@ -1392,6 +1514,18 @@ describe("normalizePosthogHost — use-site guard (SU2-A6/SU4-A7)", () => {
     );
     expect(normalizePosthogHost("https://eu.posthog.com")).toBe(
       "https://eu.posthog.com",
+    );
+  });
+
+  it("strips trailing slashes so the /capture/ concatenation never yields '//' (SU7-F3)", () => {
+    // The guard exists to keep `${host}/capture/` well-formed for ANY
+    // raw value a future caller hands it — completing that contract
+    // means a trailing-slash host must not produce "host//capture/".
+    expect(normalizePosthogHost("https://eu.posthog.example.test/")).toBe(
+      "https://eu.posthog.example.test",
+    );
+    expect(normalizePosthogHost("eu.posthog.example.test//")).toBe(
+      "https://eu.posthog.example.test",
     );
   });
 });

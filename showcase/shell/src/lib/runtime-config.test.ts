@@ -45,17 +45,28 @@ describe("server getRuntimeConfig (shell)", () => {
   });
 
   it("returns env values when all are set (production)", () => {
+    // ALL five env values actually set — the test name promises it, and
+    // the exact-shape toEqual pins the full config (including posthogKey
+    // PRESENCE; a regression dropping the field from the return object
+    // would otherwise pass against an undefined-tolerant comparison).
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.BASE_URL = "https://showcase.copilotkit.ai";
     process.env.POSTHOG_HOST = "https://eu.i.posthog.com";
-    expect(getRuntimeConfig()).toEqual({
+    process.env.POSTHOG_KEY = "phc_test_key";
+    process.env.DOCS_HOST = "https://docs-staging.example.com";
+    process.env.SHOWCASE_BACKEND_HOST_PATTERN =
+      "showcase-{slug}-staging.up.railway.app";
+    const cfg = getRuntimeConfig();
+    expect(cfg).toEqual({
       baseUrl: "https://showcase.copilotkit.ai",
       posthogHost: "https://eu.i.posthog.com",
-      // Defaults preserved when the new env vars are unset — prod
-      // requires NO env change.
-      backendHostPattern: "showcase-{slug}-production.up.railway.app",
-      docsHost: "https://docs.showcase.copilotkit.ai",
+      posthogKey: "phc_test_key",
+      backendHostPattern: "showcase-{slug}-staging.up.railway.app",
+      docsHost: "https://docs-staging.example.com",
     });
+    // toEqual treats a missing key and an undefined value as equal —
+    // pin posthogKey presence explicitly.
+    expect(cfg.posthogKey).toBe("phc_test_key");
   });
 
   it("backendHostPattern/docsHost default to prod values when unset (both envs, no FATAL log)", async () => {
@@ -69,9 +80,11 @@ describe("server getRuntimeConfig (shell)", () => {
       vi.resetModules();
       const { getRuntimeConfig: freshGet } = await import("./runtime-config");
       const errs: string[] = [];
-      const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-        errs.push(m);
-      });
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
       // try/finally so a failing assertion can't leak the spy into
       // other tests (matches every other spy in this file).
       let cfg: ReturnType<typeof freshGet>;
@@ -146,7 +159,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const errs: string[] = [];
       const errSpy = vi
         .spyOn(console, "error")
-        .mockImplementation((m: string) => void errs.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       try {
         const cfg = freshGet();
@@ -203,6 +218,71 @@ describe("server getRuntimeConfig (shell)", () => {
     expect(getRuntimeConfig().docsHost).toBe("http://[::1]:3005");
   });
 
+  it("rejects a loopback BASE_URL in production with the sentinel + FATAL (no silent http:// prepend)", async () => {
+    // The loopback http:// prepend exists for frictionless DEV — in
+    // production it silently "fixed" BASE_URL=localhost:3000, so
+    // canonical hrefs, OG metadata, and the docs loop guard all ran
+    // against localhost with zero log. Prod loopback is always a
+    // misconfig: FATAL path, not the prepend.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    for (const bad of [
+      "localhost:3000",
+      "http://127.0.0.1:3000",
+      "[::1]:3000",
+    ]) {
+      process.env.BASE_URL = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errs: string[] = [];
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
+      try {
+        expect(freshGet().baseUrl, `value ${JSON.stringify(bad)}`).toBe(
+          "https://shell-base-url-missing.invalid",
+        );
+        expect(
+          errs.some((m) => m.includes("BASE_URL") && m.includes("loopback")),
+          `value ${JSON.stringify(bad)} should log a loopback FATAL`,
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("rejects a loopback DOCS_HOST in production with the default fallback + FATAL", async () => {
+    // Same class as the BASE_URL case: `DOCS_HOST=localhost:3005` is
+    // documented local-dev wiring — in production it would 308 every
+    // docs visitor to localhost, silently.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const bad of ["localhost:3005", "http://localhost:3005"]) {
+      process.env.DOCS_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const errs: string[] = [];
+      const spy = vi
+        .spyOn(console, "error")
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
+      try {
+        expect(freshGet().docsHost, `value ${JSON.stringify(bad)}`).toBe(
+          "https://docs.showcase.copilotkit.ai",
+        );
+        expect(
+          errs.some((m) => m.includes("DOCS_HOST") && m.includes("loopback")),
+          `value ${JSON.stringify(bad)} should log a loopback FATAL`,
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
   it("preserves an explicit http:// scheme on DOCS_HOST", () => {
     (process.env as Record<string, string>).NODE_ENV = "development";
     process.env.BASE_URL = "http://localhost:3000";
@@ -220,9 +300,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
@@ -247,9 +327,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
@@ -272,9 +352,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.baseUrl).toBe("https://shell.copilotkit.ai");
@@ -295,9 +375,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.baseUrl).toBe("https://shell-base-url-missing.invalid");
@@ -330,7 +410,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const errs: string[] = [];
       const spy = vi
         .spyOn(console, "error")
-        .mockImplementation((m: string) => void errs.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
       try {
         const cfg = freshGet();
         expect(cfg.baseUrl, `value ${JSON.stringify(bad)}`).toBe(
@@ -358,7 +440,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const errs: string[] = [];
     const spy = vi
       .spyOn(console, "error")
-      .mockImplementation((m: string) => void errs.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
     try {
       expect(freshGet().baseUrl).toBe("https://shell-base-url-missing.invalid");
       expect(errs.some((m) => m.includes("BASE_URL"))).toBe(true);
@@ -383,7 +467,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const warns: string[] = [];
       const spy = vi
         .spyOn(console, "warn")
-        .mockImplementation((m: string) => void warns.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
       try {
         expect(freshGet().baseUrl, `${why} should normalize to origin`).toBe(
           "https://shell.example.com",
@@ -411,10 +497,14 @@ describe("server getRuntimeConfig (shell)", () => {
     const errs: string[] = [];
     const warnSpy = vi
       .spyOn(console, "warn")
-      .mockImplementation((m: string) => void warns.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
     const errSpy = vi
       .spyOn(console, "error")
-      .mockImplementation((m: string) => void errs.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
     try {
       const cfg = freshGet();
       expect(cfg.baseUrl).toBe("http://localhost:3000");
@@ -436,7 +526,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const errs: string[] = [];
     const spy = vi
       .spyOn(console, "error")
-      .mockImplementation((m: string) => void errs.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
     try {
       freshGet();
       const fatal = errs.find((m) => m.includes("BASE_URL is unset"));
@@ -454,9 +546,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.baseUrl).toBe("https://shell-base-url-missing.invalid");
@@ -485,9 +577,11 @@ describe("server getRuntimeConfig (shell)", () => {
       vi.resetModules();
       const { getRuntimeConfig: freshGet } = await import("./runtime-config");
       const warns: string[] = [];
-      const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
-        warns.push(m);
-      });
+      const spy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
       try {
         const cfg = freshGet();
         expect(cfg.docsHost, `${why} should normalize to origin`).toBe(
@@ -513,9 +607,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
@@ -553,7 +647,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const errs: string[] = [];
       const spy = vi
         .spyOn(console, "error")
-        .mockImplementation((m: string) => void errs.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
       try {
         const cfg = freshGet();
         expect(cfg.docsHost, `value ${JSON.stringify(bad)}`).toBe(
@@ -578,9 +674,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       freshGet();
       expect(
@@ -606,10 +702,14 @@ describe("server getRuntimeConfig (shell)", () => {
     const errs: string[] = [];
     const warnSpy = vi
       .spyOn(console, "warn")
-      .mockImplementation((m: string) => void warns.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
     const errSpy = vi
       .spyOn(console, "error")
-      .mockImplementation((m: string) => void errs.push(m));
+      .mockImplementation(
+          (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+        );
     try {
       const cfg = freshGet();
       // Same fallback VALUE as prod — only the log level/text branches.
@@ -637,9 +737,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
@@ -665,9 +765,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
       await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe(DOCS_REDIRECTS_DISABLED_HOST);
@@ -702,9 +802,9 @@ describe("server getRuntimeConfig (shell)", () => {
     const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
       await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.docsHost).toBe(DOCS_REDIRECTS_DISABLED_HOST);
@@ -716,6 +816,62 @@ describe("server getRuntimeConfig (shell)", () => {
       );
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  it("re-logs the DOCS_HOST fallback when the shell host or mode changes the outcome (guard key covers both)", async () => {
+    // The fallback log's MESSAGE and OUTCOME (default vs disabled
+    // sentinel) depend on shellHost — a live BASE_URL re-read — and its
+    // LEVEL depends on the mode. A once-guard keyed on the raw value
+    // alone swallows a changed outcome: the deploy silently flips to
+    // redirects-disabled with zero log.
+    process.env.DOCS_HOST = "https://";
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.BASE_URL = "https://shell.example.com";
+    vi.resetModules();
+    const { getRuntimeConfig: freshGet, DOCS_REDIRECTS_DISABLED_HOST } =
+      await import("./runtime-config");
+    const errs: string[] = [];
+    const warns: string[] = [];
+    const errSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
+    try {
+      // Dev: warn-level fallback consumed the raw-value guard.
+      expect(freshGet().docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(warns.some((m) => m.includes("DOCS_HOST"))).toBe(true);
+      // Same raw value, PROD mode: the FATAL must still fire.
+      (process.env as Record<string, string>).NODE_ENV = "production";
+      expect(freshGet().docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(
+        errs.some((m) => m.includes("FATAL-CONFIG") && m.includes("DOCS_HOST")),
+        "prod FATAL must not be swallowed by the dev warn's guard entry",
+      ).toBe(true);
+      // Same raw value, same mode, but BASE_URL moved to the default
+      // docs host: the OUTCOME flips to the disabled sentinel — that
+      // must be logged, not silently returned.
+      process.env.BASE_URL = "https://docs.showcase.copilotkit.ai";
+      const before = errs.length;
+      expect(freshGet().docsHost).toBe(DOCS_REDIRECTS_DISABLED_HOST);
+      expect(
+        errs.slice(before).some((m) => m.includes("disabled")),
+        "outcome change (fallback → disabled sentinel) must re-log",
+      ).toBe(true);
+      // And the guard still holds per (mode, shellHost, value): an
+      // identical repeat call logs nothing new.
+      const after = errs.length;
+      freshGet();
+      expect(errs.length).toBe(after);
+    } finally {
+      errSpy.mockRestore();
+      warnSpy.mockRestore();
     }
   });
 
@@ -731,6 +887,47 @@ describe("server getRuntimeConfig (shell)", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       expect(freshGet().docsHost).toBe("https://docs.showcase.copilotkit.ai");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("trips the self-host loop guard for a trailing-dot FQDN spelling (both compare sides)", async () => {
+    // `shell.example.com.` is the same authority as `shell.example.com`
+    // to DNS and browsers — the redirect table's self-referential paths
+    // loop just the same, but a literal host compare let the dotted
+    // spelling evade the guard.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://shell.example.com";
+    process.env.DOCS_HOST = "https://shell.example.com.";
+    vi.resetModules();
+    let { getRuntimeConfig: freshGet } = await import("./runtime-config");
+    const errs: string[] = [];
+    let spy = vi
+      .spyOn(console, "error")
+      .mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
+    try {
+      expect(freshGet().docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(
+        errs.some((m) => m.includes("DOCS_HOST") && m.includes("own host")),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+
+    // Dotted spelling on the SHELL side: the fallback collision
+    // re-check must normalize too, or a shell deployed at
+    // `docs.showcase.copilotkit.ai.` hands out the looping default.
+    process.env.BASE_URL = "https://docs.showcase.copilotkit.ai.";
+    delete process.env.DOCS_HOST;
+    vi.resetModules();
+    const fresh2 = await import("./runtime-config");
+    freshGet = fresh2.getRuntimeConfig;
+    spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(freshGet().docsHost).toBe(fresh2.DOCS_REDIRECTS_DISABLED_HOST);
     } finally {
       spy.mockRestore();
     }
@@ -793,9 +990,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     // try/finally so a throwing call can't leak the spy into other
     // tests (matches every other spy in this file).
     let cfg: ReturnType<typeof freshGet>;
@@ -825,9 +1022,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const errs: string[] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
-      errs.push(m);
-    });
+    const spy = vi.spyOn(console, "error").mockImplementation(
+        (...args: unknown[]) => void errs.push(args.map(String).join(" ")),
+      );
     try {
       freshGet();
       expect(errs.filter((m) => m.includes("BASE_URL")).length).toBe(1);
@@ -844,9 +1041,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
-      warns.push(m);
-    });
+    const spy = vi.spyOn(console, "warn").mockImplementation(
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
     try {
       freshGet();
       expect(warns.filter((m) => m.includes("BASE_URL")).length).toBe(1);
@@ -954,9 +1151,9 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
-      warns.push(m);
-    });
+    const spy = vi.spyOn(console, "warn").mockImplementation(
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
     try {
       const cfg = freshGet();
       expect(cfg.posthogHost).toBe("https://eu.i.posthog.com");
@@ -977,14 +1174,56 @@ describe("server getRuntimeConfig (shell)", () => {
     vi.resetModules();
     const { getRuntimeConfig: freshGet } = await import("./runtime-config");
     const warns: string[] = [];
-    const spy = vi.spyOn(console, "warn").mockImplementation((m: string) => {
-      warns.push(m);
-    });
+    const spy = vi.spyOn(console, "warn").mockImplementation(
+        (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+      );
     try {
       expect(freshGet().posthogHost).toBe("https://eu.i.posthog.com");
       expect(warns.some((m) => m.includes("POSTHOG_HOST"))).toBe(true);
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  it("labels POSTHOG_HOST rejections accurately (scheme vs degenerate vs parse failure)", async () => {
+    // `ftp://ph.example.com` PARSED fine and no prepend happened — the
+    // previous catch-all warn claimed the value "is not a usable http(s)
+    // URL (even after prepending https://)": both clauses false. Same
+    // for the degenerate bare-scheme value (it parses too). Each
+    // rejection class must name its actual reason — the same branched
+    // labeling readDocsHost has.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    for (const [bad, mustInclude, parsedFine] of [
+      ["ftp://ph.example.com", "scheme", true],
+      ["https://", "no usable host", true],
+      ["not a posthog host", "not a parseable URL", false],
+    ] as const) {
+      process.env.POSTHOG_HOST = bad;
+      vi.resetModules();
+      const { getRuntimeConfig: freshGet } = await import("./runtime-config");
+      const warns: string[] = [];
+      const spy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
+      try {
+        expect(freshGet().posthogHost, `value ${JSON.stringify(bad)}`).toBe(
+          "https://eu.i.posthog.com",
+        );
+        const warn = warns.find((m) => m.includes("POSTHOG_HOST"));
+        expect(warn, `value ${JSON.stringify(bad)} should warn`).toBeDefined();
+        expect(warn, `value ${JSON.stringify(bad)}`).toContain(mustInclude);
+        if (parsedFine) {
+          // The value parsed and (for ftp://) no prepend happened — the
+          // parse-failure clauses must not appear.
+          expect(warn).not.toContain("not a parseable URL");
+          expect(warn).not.toContain("even after prepending");
+        }
+      } finally {
+        spy.mockRestore();
+      }
     }
   });
 
@@ -1006,7 +1245,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const warns: string[] = [];
       const spy = vi
         .spyOn(console, "warn")
-        .mockImplementation((m: string) => void warns.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
       try {
         const cfg = freshGet();
         expect(cfg.posthogHost, `value ${JSON.stringify(bad)}`).toBe(
@@ -1063,7 +1304,9 @@ describe("server getRuntimeConfig (shell)", () => {
       const warns: string[] = [];
       const spy = vi
         .spyOn(console, "warn")
-        .mockImplementation((m: string) => void warns.push(m));
+        .mockImplementation(
+          (...args: unknown[]) => void warns.push(args.map(String).join(" ")),
+        );
       try {
         expect(freshGet().posthogHost, `value ${JSON.stringify(bad)}`).toBe(
           expected,

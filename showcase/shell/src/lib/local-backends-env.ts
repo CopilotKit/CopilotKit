@@ -97,7 +97,12 @@ export function localBackendsEnv(portsPath: string): string {
         `${Array.isArray(parsed) ? "an array" : typeof parsed}).`,
     );
   }
-  const map: Record<string, string> = {};
+  // Null-prototype accumulator: on a plain `{}`, a "__proto__" key in
+  // the ports file would hit the Object.prototype setter — a silent
+  // no-op that drops the entry from the emitted JSON even though the
+  // slug-contract warn below fires. With no prototype it lands as an
+  // ordinary own data property (JSON.stringify serializes it fine).
+  const map: Record<string, string> = Object.create(null);
   for (const [slug, port] of Object.entries(parsed)) {
     // Registry slugs are [a-z0-9-]+ (see lib/backend-url.ts SLUG_RE) —
     // a key outside that contract can never match an integration slug,

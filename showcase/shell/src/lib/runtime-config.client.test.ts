@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getRuntimeConfig } from "./runtime-config.client";
 
 describe("client getRuntimeConfig (shell)", () => {
@@ -154,6 +154,22 @@ describe("client getRuntimeConfig (shell)", () => {
     expect(getRuntimeConfig().posthogKey).toBe("phc_x");
   });
 
+  it("throws (naming posthogKey) when a PRESENT posthogKey is an empty string", () => {
+    // The server reader can never produce "" (readEnvPair maps empty to
+    // undefined), so a present-but-empty key is the same wiring-bug
+    // class as a wrong type — NOT the legitimate absence case.
+    (
+      window as unknown as { __SHOWCASE_CONFIG__?: unknown }
+    ).__SHOWCASE_CONFIG__ = {
+      baseUrl: "https://showcase.example.com",
+      posthogHost: "https://eu.i.posthog.com",
+      backendHostPattern: "showcase-{slug}-production.up.railway.app",
+      docsHost: "https://docs.showcase.copilotkit.ai",
+      posthogKey: "",
+    };
+    expect(() => getRuntimeConfig()).toThrow(/"posthogKey"/);
+  });
+
   it("returns a frozen object so consumers cannot mutate the shared config", () => {
     (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
       {
@@ -173,20 +189,28 @@ describe("client getRuntimeConfig (shell)", () => {
   });
 
   it("returns SSR sentinel placeholder when window is undefined", () => {
-    // Simulate SSR by removing window. "use client" component
-    // bodies execute on the server during SSR, so this reader
+    // Simulate SSR by stubbing window to undefined. "use client"
+    // component bodies execute on the server during SSR, so this reader
     // MUST be SSR-safe (returns parseable-URL placeholders so
     // `new URL()` in consumers doesn't throw) and NOT throw —
-    // otherwise the whole server-rendered HTML 500s.
-    const w = globalThis.window;
-    // @ts-expect-error — deliberately removing window for the test
-    delete globalThis.window;
+    // otherwise the whole server-rendered HTML 500s. stubGlobal (not
+    // delete/reassign) per repo discipline: vitest restores the
+    // original even if an assertion throws mid-test (same pattern as
+    // runtime-url-wiring.test.ts).
+    vi.stubGlobal("window", undefined);
     try {
       const cfg = getRuntimeConfig();
       // URL fields must be parseable.
       expect(() => new URL(cfg.baseUrl)).not.toThrow();
       expect(() => new URL(cfg.posthogHost)).not.toThrow();
       expect(() => new URL(cfg.docsHost)).not.toThrow();
+      // Structural parity with the server reader: every real value is
+      // slashless (the server strips trailing slashes at every exit
+      // path), so the SSR placeholder must be slashless too — consumers
+      // string-compose against these values and must see ONE form.
+      expect(cfg.baseUrl).not.toMatch(/\/$/);
+      expect(cfg.posthogHost).not.toMatch(/\/$/);
+      expect(cfg.docsHost).not.toMatch(/\/$/);
       // The host pattern is not a URL but must keep the {slug}
       // placeholder so substitution still yields a syntactically
       // valid (non-resolvable) host during SSR.
@@ -194,7 +218,7 @@ describe("client getRuntimeConfig (shell)", () => {
       // The placeholder is shared module state — must be frozen too.
       expect(Object.isFrozen(cfg)).toBe(true);
     } finally {
-      (globalThis as { window?: typeof w }).window = w;
+      vi.unstubAllGlobals();
     }
   });
 });

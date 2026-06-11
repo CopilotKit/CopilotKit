@@ -26,7 +26,11 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it("returns '' without touching the file when SHOWCASE_LOCAL is not 1", () => {
+  it("returns '' silently (file untouched) when SHOWCASE_LOCAL is explicitly blank", () => {
+    // Blank is a deliberate "off" state and stays SILENT — a non-blank
+    // value other than "1" warns instead (see the dedicated test
+    // below), so the old "is not 1" title misdescribed what this
+    // covers. No missing-file warn = the ports file was never read.
     vi.stubEnv("SHOWCASE_LOCAL", "");
     expect(localBackendsEnv(portsPath)).toBe("");
     expect(warns).toEqual([]);
@@ -131,7 +135,12 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
     expect(() => localBackendsEnv(portsPath)).toThrow(portsPath);
   });
 
-  it("labels an unreadable file as a read failure, not as invalid JSON", () => {
+  // chmod-based denial tests are meaningless as root (root bypasses
+  // permission bits, so the read SUCCEEDS and the assertions fail for
+  // a reason unrelated to the code under test) — skip them there.
+  const runningAsRoot = process.getuid?.() === 0;
+
+  it.skipIf(runningAsRoot)("labels an unreadable file as a read failure, not as invalid JSON", () => {
     // fs.readFileSync used to live INSIDE the JSON.parse try — an
     // EACCES surfaced as "<path> is not valid JSON", sending the
     // developer to inspect a file's syntax when the problem is its
@@ -155,7 +164,7 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
     }
   });
 
-  it("labels an unsearchable parent directory as a read failure, not as a missing file", () => {
+  it.skipIf(runningAsRoot)("labels an unsearchable parent directory as a read failure, not as a missing file", () => {
     // fs.existsSync returns false for EACCES on the parent directory —
     // the old guard masked a permissions problem as "file does not
     // exist", defeating the labeled-throw design the read/parse split
@@ -193,7 +202,14 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
       string,
       string
     >;
-    expect(out.ok).toBe("http://localhost:3106");
+    // Pin the include-vs-skip behavior: warn-only entries are still
+    // EMITTED (the warn says "can never apply", not "dropped") — a
+    // silent skip here would contradict the warn text.
+    expect(out).toEqual({
+      Mastra: "http://localhost:3104",
+      under_score: "http://localhost:3105",
+      ok: "http://localhost:3106",
+    });
     expect(warns.some((m) => m.includes('"Mastra"'))).toBe(true);
     expect(warns.some((m) => m.includes('"under_score"'))).toBe(true);
     // A contract-conforming map stays silent.
@@ -201,6 +217,23 @@ describe("localBackendsEnv (next.config build-time helper)", () => {
     fs.writeFileSync(portsPath, JSON.stringify({ "langgraph-python": 3104 }));
     localBackendsEnv(portsPath);
     expect(warns).toEqual([]);
+  });
+
+  it("emits a __proto__ key as map data instead of silently dropping it", () => {
+    // The accumulator was a plain `{}` — `map["__proto__"] = ...` hits
+    // the Object.prototype setter and is a silent no-op, so the entry
+    // vanished from the emitted JSON even though the slug-contract warn
+    // fired. A null-prototype accumulator makes it an ordinary own
+    // property (and the [a-z0-9-]+ warn still flags it).
+    fs.writeFileSync(portsPath, '{"__proto__": 3104, "ok": 3105}');
+    const out = JSON.parse(localBackendsEnv(portsPath)) as Record<
+      string,
+      string
+    >;
+    expect(Object.keys(out)).toContain("__proto__");
+    expect(out["__proto__"]).toBe("http://localhost:3104");
+    expect(out.ok).toBe("http://localhost:3105");
+    expect(warns.some((m) => m.includes('"__proto__"'))).toBe(true);
   });
 
   it("warns loudly when SHOWCASE_LOCAL=1 in a production build (localhost targets in a prod image)", () => {

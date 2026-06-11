@@ -31,6 +31,14 @@ import registry from "@/data/registry.json";
  */
 export const DELIBERATE_COLLAPSE_WILDCARD_IDS = /^(?:P10$|S13w×)/;
 
+// Printable-ASCII gate for sources and destinations (SU7-F3): request
+// pathnames are percent-encoded ASCII, so an entry containing a raw
+// space or any non-ASCII character can never match — a silent dead
+// entry. It also enforces the length-preservation assumption every
+// positional-slicing comment in this module relies on: toLowerCase is
+// only guaranteed length-preserving for ASCII.
+const PRINTABLE_ASCII_RE = /^[\x21-\x7e]+$/;
+
 /**
  * Build the exact-match map and wildcard list from the redirect table
  * (exported for tests). The table is documented as "first match wins" —
@@ -80,6 +88,8 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
   const malformedWildcards: string[] = [];
   const invalidSources: string[] = [];
   const invalidDestinations: string[] = [];
+  const rootExactSources: string[] = [];
+  const nonAsciiEntries: string[] = [];
   const unreachableTrailingSlashSources: string[] = [];
   const exactDestinationsWithToken: string[] = [];
   const wildcardDestinationsWithMiscasedToken: string[] = [];
@@ -100,6 +110,19 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
   // divergence: a false-positive warn (SU6-A3).
 
   for (const entry of entries) {
+    // Printable-ASCII gate FIRST (SU7-F3, see PRINTABLE_ASCII_RE): a
+    // non-ASCII or whitespace-bearing source can never match a request
+    // pathname (silent dead entry), and every later check slices by
+    // position under the ASCII length-preservation assumption.
+    if (
+      !PRINTABLE_ASCII_RE.test(entry.source) ||
+      !PRINTABLE_ASCII_RE.test(entry.destination)
+    ) {
+      nonAsciiEntries.push(
+        `${entry.source} -> ${entry.destination} (${entry.id})`,
+      );
+      continue;
+    }
     // Sources must be root-relative paths with no query/fragment
     // (SU4-A2): NextRequest pathnames always start with "/" and never
     // carry "?"/"#", so a source violating that can never match —
@@ -161,6 +184,15 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
       // matchPath in middleware()). Also makes a source typo like MG3's
       // "/migration-guides/1.10.X" match the lowercase live URL.
       const key = entry.source.toLowerCase();
+      // A root EXACT source ("/") would match the HOMEPAGE — the twin
+      // of the root-wildcard guard in the wildcard branch below: it
+      // passes every other source check (root-relative, no "//", no
+      // ?/#, and the trailing-slash guard skips length-1 keys), yet is
+      // never a legitimate SEO entry. Reject it loudly (SU7-F3).
+      if (key === "/") {
+        rootExactSources.push(`${entry.source} (${entry.id})`);
+        continue;
+      }
       // A trailing-slash exact source is UNREACHABLE (SU4-A2):
       // middleware strips trailing slashes from matchPath before the
       // lookup, so a key ending in "/" (other than root) can never be
@@ -268,6 +300,28 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
         );
         continue;
       }
+      // Duplicate-prefix owner check FIRST (SU7-F3): a later entry for
+      // an already-claimed prefix is DISCARDED whatever its destination
+      // looks like, so it must classify as a duplicate — running the
+      // miscased/tokenless destination checks below on it would fire
+      // table-bug warns for an entry that never ships (a harmless
+      // same-destination tokenless twin stayed loud, desensitizing the
+      // channel exactly like the duplicate twins before SU5-A3).
+      const owner = wildcardPrefixOwners.get(prefix);
+      if (owner) {
+        // Same-destination twin allowlist — see the exact-map branch
+        // above (SU5-A3); same request-time-normalized comparison
+        // (SU6-A3).
+        if (
+          normalizeRedirectPath(owner.destinationTemplate) !==
+          normalizeRedirectPath(entry.destination)
+        ) {
+          duplicateWildcardSources.push(
+            `${entry.source} (${entry.id} shadowed by ${owner.id})`,
+          );
+        }
+        continue;
+      }
       // Substitution is CASE-SENSITIVE — substituteWildcardTemplate
       // replaces the literal lowercase ":path*" only — so a miscased
       // token in a WILDCARD destination (":PATH*") never substitutes
@@ -300,21 +354,6 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
         tokenlessWildcardDestinations.push(
           `${entry.source} -> ${entry.destination} (${entry.id})`,
         );
-      }
-      const owner = wildcardPrefixOwners.get(prefix);
-      if (owner) {
-        // Same-destination twin allowlist — see the exact-map branch
-        // above (SU5-A3); same request-time-normalized comparison
-        // (SU6-A3).
-        if (
-          normalizeRedirectPath(owner.destinationTemplate) !==
-          normalizeRedirectPath(entry.destination)
-        ) {
-          duplicateWildcardSources.push(
-            `${entry.source} (${entry.id} shadowed by ${owner.id})`,
-          );
-        }
-        continue;
       }
       // Overlapping wildcard prefixes (SU4-A2): the scan is first-match-
       // wins, so when an EARLIER wildcard's prefix is a prefix of this
@@ -382,6 +421,24 @@ export function buildRedirectLookup(entries: readonly RedirectEntry[]): {
       "[middleware] seo-redirects has entries with an invalid source " +
         '(must be a root-relative path starting with "/", with no "//", ' +
         `"?" or "#") — they are ignored: ${invalidSources.join(", ")}`,
+    );
+  }
+  if (nonAsciiEntries.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[middleware] seo-redirects has entries whose source or " +
+        "destination contains non-printable-ASCII characters (raw " +
+        "whitespace or non-ASCII) — request pathnames are " +
+        "percent-encoded ASCII, so they can never match; they are " +
+        `ignored: ${nonAsciiEntries.join(", ")}`,
+    );
+  }
+  if (rootExactSources.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[middleware] seo-redirects has a root ("/") EXACT source — it ' +
+        "would hijack the homepage (the root-wildcard guard's exact " +
+        `twin); it is ignored: ${rootExactSources.join(", ")}`,
     );
   }
   if (unreachableTrailingSlashSources.length > 0) {
@@ -542,7 +599,14 @@ function warnCaptureFailureOnce(failureClass: string, detail: string): void {
  * URL on EVERY redirect, silently zeroing the decommission report.
  */
 export function normalizePosthogHost(host: string): string {
-  return SCHEME_RE.test(host) ? host : `https://${host}`;
+  // Trailing slashes are stripped FIRST (SU7-F3) so the caller's
+  // `${host}/capture/` concatenation never yields "host//capture/" —
+  // the same defense-in-depth posture as the scheme guard below
+  // (runtime-config's readUrl already strips them for values threaded
+  // through middleware(), so like the scheme branch this is only
+  // reachable by future direct callers).
+  const stripped = host.replace(/\/+$/, "");
+  return SCHEME_RE.test(stripped) ? stripped : `https://${stripped}`;
 }
 
 function trackRedirect(

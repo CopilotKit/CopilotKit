@@ -74,22 +74,34 @@ function fatalPatternOnce(key: string, message: string): void {
  * the per-issue normalizations can't fix: empty results ("https://" or
  * "/" normalize to ""), internal whitespace, and anything else
  * `new URL` rejects or that parses without a real host.
+ *
+ * Returns `undefined` when usable, otherwise a reason discriminant so
+ * the FATAL can be honest: a probe whose HOST is literally
+ * "http"/"https" (e.g. `https:/host` — one slash short, so SCHEME_RE
+ * never strips it) DOES parse — calling it "unparseable" would hide
+ * the actual problem (a stray scheme fragment in host position).
  */
-function isUsablePattern(normalized: string): boolean {
-  if (normalized.length === 0) return false;
+function patternUsabilityProblem(
+  normalized: string,
+): "unparseable" | "stray-scheme-fragment" | undefined {
+  if (normalized.length === 0) return "unparseable";
   try {
     const probe = new URL(
       `https://${normalized.replaceAll("{slug}", "probe")}`,
     );
-    return probe.hostname.length > 0 && !/^https?$/i.test(probe.hostname);
+    if (probe.hostname.length === 0) return "unparseable";
+    if (/^https?$/i.test(probe.hostname)) return "stray-scheme-fragment";
+    return undefined;
   } catch {
-    return false;
+    return "unparseable";
   }
 }
 
 /**
  * Does the pattern carry a component no backend base URL may have?
- * Probed via the same consumer-exact composition as isUsablePattern.
+ * Detected on the LITERAL delimiter characters (see inline comments —
+ * the WHATWG getters return "" for present-but-empty components, so a
+ * probe-based check leaks bare `?`/`#`/`@`).
  * Returns a human-readable component name for the FATAL log, or
  * undefined when the pattern is clean. Three rejected classes (same
  * gates validateBaseUrl has in runtime-config.ts):
@@ -100,24 +112,35 @@ function isUsablePattern(normalized: string): boolean {
  * - query / fragment: consumers concatenate demo routes onto the
  *   composed URL, so `https://host?x=1` + `/route` yields
  *   `https://host?x=1/route` — every backend URL ships corrupted.
- *
- * An unparseable value returns undefined here; the usability gate
- * handles it.
  */
 function patternForbiddenComponent(normalized: string): string | undefined {
-  try {
-    const probe = new URL(
-      `https://${normalized.replaceAll("{slug}", "probe")}`,
-    );
-    if (probe.username !== "" || probe.password !== "") {
-      return "userinfo credentials";
-    }
-    if (probe.search !== "") return "a query component";
-    if (probe.hash !== "") return "a fragment component";
-    return undefined;
-  } catch {
-    return undefined;
+  // Query/fragment are detected on the LITERAL characters, not the
+  // probe getters: WHATWG getters return "" for a present-but-EMPTY
+  // component (`https://host?` has search === ""), so a bare trailing
+  // `?`/`#` would slip a getter check while the raw character still
+  // ships in the pattern — and route concatenation then swallows every
+  // demo route into the query/fragment. The literal check is strictly
+  // stronger than the getter check (a non-empty search/hash implies the
+  // literal character), so the getters aren't consulted at all. Which
+  // component a literal introduces follows URL precedence: `#` starts
+  // the fragment; `?` starts a query only when no `#` precedes it.
+  const hashAt = normalized.indexOf("#");
+  const queryAt = normalized.indexOf("?");
+  if (queryAt !== -1 && (hashAt === -1 || queryAt < hashAt)) {
+    return "a query component";
   }
+  if (hashAt !== -1) return "a fragment component";
+  // Userinfo is a literal check too: `https://@host` and
+  // `https://:@host` parse with username === "" AND password === ""
+  // (present-but-EMPTY userinfo), so the getter check let the raw
+  // `@`-bearing string ship. Any `@` in the AUTHORITY (the part before
+  // the first `/` — query/fragment are already rejected above) is a
+  // userinfo delimiter; it is never valid inside a hostname.
+  const slashAt = normalized.indexOf("/");
+  const authority =
+    slashAt === -1 ? normalized : normalized.slice(0, slashAt);
+  if (authority.includes("@")) return "userinfo credentials";
+  return undefined;
 }
 
 /**
@@ -139,15 +162,19 @@ export function normalizeBackendHostPattern(pattern: string): string {
   if (/\s/.test(normalized)) {
     // Whitespace was the ONE misconfig class with zero warning — a
     // pasted ` host` yields an iframe src like `https:// host`. Trim
-    // the ends (fixable); internal whitespace splits by position:
-    // host-position whitespace makes the pattern unparseable, so the
-    // usability gate below falls back to the DEFAULT (it never ships);
-    // path-position whitespace parses and genuinely ships broken.
+    // the ends (fixable) and strip internal tab/CR/LF (the WHATWG URL
+    // parser deletes \t\r\n pre-parse, so a tab-bearing pattern would
+    // pass the usability gate while the RAW control character shipped
+    // in every iframe src — stripping matches what the parser does
+    // anyway). Internal SPACES split by position: a host-position
+    // space makes the pattern unparseable, so the usability gate below
+    // falls back to the DEFAULT (it never ships); a path-position
+    // space parses and genuinely ships broken.
     warnPatternOnce(
       `whitespace:${pattern}`,
-      `"${pattern}" contains whitespace — trimming the ends. Internal whitespace in the host cannot form a usable pattern (falls back to the default); internal whitespace in a path segment ships in every backend URL.`,
+      `"${pattern}" contains whitespace — trimming the ends and stripping internal tab/CR/LF (the URL parser ignores them anyway). An internal space in the host cannot form a usable pattern (falls back to the default); a space in a path segment ships in every backend URL.`,
     );
-    normalized = normalized.trim();
+    normalized = normalized.replace(/[\t\r\n]/g, "").trim();
   }
   // Loop the strip to convergence: a single pass left "https://https://
   // host" with a scheme that the consumer then double-prepends. Collect
@@ -184,6 +211,16 @@ export function normalizeBackendHostPattern(pattern: string): string {
   // "https://", and the injected "" failed the client reader's
   // REQUIRED_CONFIG_FIELDS check, crashing every client component with
   // a message blaming the layout injection instead of this env var.
+  //
+  // DESIGN DECISION — degenerate/forbidden patterns fail OPEN to
+  // DEFAULT_BACKEND_HOST_PATTERN, which is the PROD host pattern. On a
+  // staging deploy, a mistyped SHOWCASE_BACKEND_HOST_PATTERN therefore
+  // silently (FATAL log aside) iframes PROD integrations — the exact
+  // staging→prod leakage this module exists to prevent. The
+  // alternative (fail CLOSED: ship "" and break every integration
+  // pane) was rejected because a hard outage is worse than serving
+  // prod content with a FATAL-CONFIG log; revisit if staging/prod
+  // divergence ever becomes load-bearing for correctness.
   const forbidden = patternForbiddenComponent(normalized);
   if (forbidden !== undefined) {
     fatalPatternOnce(
@@ -196,15 +233,39 @@ export function normalizeBackendHostPattern(pattern: string): string {
     );
     return DEFAULT_BACKEND_HOST_PATTERN;
   }
-  if (!isUsablePattern(normalized)) {
+  // Fails OPEN to the prod pattern too — see the DESIGN DECISION note
+  // above the forbidden-component gate.
+  const usabilityProblem = patternUsabilityProblem(normalized);
+  if (usabilityProblem !== undefined) {
     fatalPatternOnce(
       `degenerate:${pattern}`,
-      `${JSON.stringify(pattern)} normalizes to ${JSON.stringify(normalized)}, ` +
-        `which cannot form a parseable backend URL; falling back to the ` +
-        `default pattern ${DEFAULT_BACKEND_HOST_PATTERN}.`,
+      usabilityProblem === "stray-scheme-fragment"
+        ? `${JSON.stringify(pattern)} normalizes to ` +
+            `${JSON.stringify(normalized)}, whose host is literally ` +
+            `"http"/"https" — it looks like a stray scheme fragment, not ` +
+            `a backend host; falling back to the default pattern ` +
+            `${DEFAULT_BACKEND_HOST_PATTERN}.`
+        : `${JSON.stringify(pattern)} normalizes to ` +
+            `${JSON.stringify(normalized)}, which cannot form a parseable ` +
+            `backend URL; falling back to the default pattern ` +
+            `${DEFAULT_BACKEND_HOST_PATTERN}.`,
     );
     return DEFAULT_BACKEND_HOST_PATTERN;
   }
+  // Canonicalize the authority for parity with the override path,
+  // which returns the parsed-normalized form (lowercase host, default
+  // port elided) — the pattern path ships this string RAW into iframe
+  // srcs, leaking uppercase hosts and an explicit :443. Hosts are
+  // case-insensitive and the consumer always prepends https://, so
+  // lowercasing the authority and stripping a trailing :443 (the https
+  // default — :80 is a REAL port under https and must survive) matches
+  // what the URL parser does to the composed URL anyway. The path part
+  // (from the first "/") is case-SENSITIVE and stays untouched; the
+  // lowercase {slug} placeholder survives lowercasing verbatim.
+  const pathAt = normalized.indexOf("/");
+  const authority = pathAt === -1 ? normalized : normalized.slice(0, pathAt);
+  const pathPart = pathAt === -1 ? "" : normalized.slice(pathAt);
+  normalized = authority.toLowerCase().replace(/:443$/, "") + pathPart;
   if (!normalized.includes("{slug}")) {
     warnPatternOnce(
       `no-slug:${pattern}`,
@@ -285,8 +346,14 @@ export function parseLocalBackends(
 ): Record<string, string> {
   if (!raw) return NO_LOCAL_BACKENDS;
   if (raw !== lastLocalBackendsRaw) {
+    // Compute FIRST, then commit key and value together: committing
+    // the key before the value meant a throw mid-compute (console.warn
+    // is a foreign call — a logging shim CAN throw) left the memo
+    // poisoned, and the next call with the same raw returned the
+    // PREVIOUS raw's value.
+    const backends = Object.freeze(parseLocalBackendsUncached(raw));
     lastLocalBackendsRaw = raw;
-    lastLocalBackends = Object.freeze(parseLocalBackendsUncached(raw));
+    lastLocalBackends = backends;
   }
   return lastLocalBackends;
 }
@@ -298,7 +365,13 @@ function parseLocalBackendsUncached(raw: string): Record<string, string> {
       // Validate values instead of an unchecked `as Record<string,
       // string>` flow-through — a non-string value would otherwise
       // surface much later as a garbage iframe src.
-      const backends: Record<string, string> = {};
+      //
+      // Null-prototype accumulator: on a plain `{}`, assigning a
+      // "__proto__" key hits the Object.prototype setter and is a
+      // silent no-op — the entry would vanish with no warning (every
+      // other rejected entry warns). With no prototype it lands as an
+      // ordinary own data property.
+      const backends: Record<string, string> = Object.create(null);
       for (const [slug, url] of Object.entries(parsed)) {
         if (typeof url === "string") {
           backends[slug] = url;
@@ -338,10 +411,26 @@ export function resolveBackendUrl(slug: string, pattern: string): string {
   // so a live server-side value would silently diverge from what client
   // components resolve.
   const local = parseLocalBackends(process.env.NEXT_PUBLIC_LOCAL_BACKENDS);
-  // Length-aware: an empty-string override (e.g. `{"mastra": ""}`) is
-  // not a usable URL — `??` would accept it and yield an empty base.
-  const override = local[slug];
-  if (override !== undefined && override.length > 0) {
+  const rawOverride = local[slug];
+  if (rawOverride !== undefined) {
+    // Trim before validating — the same paste-artifact tolerance the
+    // pattern path applies (normalizeBackendHostPattern trims the
+    // ends): a leading-space override otherwise fails the SCHEME_RE
+    // anchor even though the URL parser accepts the value.
+    const override = rawOverride.trim();
+    // Length-aware: an empty/whitespace-only override (e.g.
+    // `{"mastra": ""}`) is not a usable URL — `??` would accept it and
+    // yield an empty base. The emptiness check lives INSIDE the
+    // override block so it warns like every other bad override:
+    // skipping it in the outer condition ignored the dead override
+    // with zero signal.
+    if (override.length === 0) {
+      warnLocalBackendsOnce(
+        `bad-override:${slug}:empty`,
+        `override for "${slug}" is empty (or whitespace-only) — ignoring it.`,
+      );
+      return backendUrlFromPattern(pattern, slug);
+    }
     // The override lands verbatim in an iframe src — require a
     // scheme-bearing, parseable URL (`localhost:4111` without a scheme
     // parses as scheme "localhost:"!) whose protocol is http(s):
@@ -372,10 +461,16 @@ export function resolveBackendUrl(slug: string, pattern: string): string {
       // origin + pathname IS the whole URL.
       return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
     }
+    // Name the actual requirements instead of "not parseable":
+    // `http:localhost:4111` IS parseable (special schemes tolerate
+    // missing slashes), but it fails the explicit `scheme://`
+    // requirement — a "not parseable" claim sends the developer
+    // chasing a parse problem that doesn't exist.
     warnLocalBackendsOnce(
       `bad-override:${slug}:${override}`,
-      `override for "${slug}" (${JSON.stringify(override)}) is not a plain ` +
-        `parseable http(s) base URL (no userinfo/query/fragment) — ignoring it.`,
+      `override for "${slug}" (${JSON.stringify(override)}) must be an ` +
+        `http(s) URL with an explicit "scheme://" and no userinfo, query, ` +
+        `or fragment — ignoring it.`,
     );
   }
   return backendUrlFromPattern(pattern, slug);

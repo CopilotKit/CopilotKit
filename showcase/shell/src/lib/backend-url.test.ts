@@ -136,6 +136,21 @@ describe("normalizeBackendHostPattern", () => {
     expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
   });
 
+  it("strips internal tab/CR/LF instead of shipping raw control characters", () => {
+    // The WHATWG URL parser deletes \t\r\n BEFORE parsing, so a
+    // tab-bearing pattern passed the usability gate (the probe parsed
+    // fine) while the RAW control character shipped in every iframe
+    // src — and the old warn text claimed it would "fall back". Strip
+    // them exactly the way the parser would, and warn.
+    expect(
+      normalizeFresh("showcase-{slug}\t-staging.up.railway.app"),
+    ).toBe("showcase-{slug}-staging.up.railway.app");
+    expect(
+      normalizeFresh("show\rcase-{slug}.example\n.com"),
+    ).toBe("showcase-{slug}.example.com");
+    expect(warns.some((m) => m.includes("whitespace"))).toBe(true);
+  });
+
   it("whitespace warn text matches the actual outcomes (host position falls back, path position ships)", () => {
     // The old text claimed internal whitespace "yields a broken backend
     // host" unconditionally — but HOST-position whitespace fails the
@@ -147,6 +162,27 @@ describe("normalizeBackendHostPattern", () => {
     expect(w).toContain("falls back");
     expect(w).toContain("path");
     expect(w).not.toContain("yields a broken backend host");
+  });
+
+  it("canonicalizes the authority like the override path (lowercase host, :443 elided)", () => {
+    // The override path returns the parsed-normalized form (lowercase
+    // host, default port elided) — the pattern path shipped the RAW
+    // string into iframe srcs, leaking uppercase hosts and an explicit
+    // :443. Hosts are case-insensitive and the consumer always
+    // prepends https://, so this matches what the URL parser does to
+    // the composed URL anyway. The {slug} placeholder is lowercase and
+    // survives verbatim.
+    expect(
+      normalizeFresh("SHOWCASE-{slug}-Staging.UP.Railway.App:443"),
+    ).toBe("showcase-{slug}-staging.up.railway.app");
+    // :80 is NOT the https default — a real port must survive.
+    expect(normalizeFresh("showcase-{slug}.example.com:80")).toBe(
+      "showcase-{slug}.example.com:80",
+    );
+    // Path segments are case-SENSITIVE and stay untouched.
+    expect(normalizeFresh("Backends.example.com/Base/{slug}")).toBe(
+      "backends.example.com/Base/{slug}",
+    );
   });
 
   it("names EVERY stripped scheme on a stacked-scheme pattern", () => {
@@ -285,6 +321,77 @@ describe("normalizeBackendHostPattern", () => {
       }
     });
 
+    it("rejects an empty-userinfo '@' in the authority (empty username/password evade the getters)", () => {
+      // `https://@host` and `https://:@host` parse with username ===
+      // "" AND password === "" — the present-but-EMPTY userinfo slips
+      // the getter check, so the RAW `@`-bearing string previously
+      // shipped into every iframe src.
+      for (const bad of [
+        "@showcase-{slug}.example.com",
+        ":@showcase-{slug}.example.com",
+      ]) {
+        const result = normalizeFresh(bad);
+        expect(result, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN") &&
+              m.includes("userinfo"),
+          ),
+          `pattern ${JSON.stringify(bad)} should log a userinfo FATAL`,
+        ).toBe(true);
+      }
+    });
+
+    it("rejects a bare trailing '?' / '#' (empty component evades the WHATWG getters)", () => {
+      // `https://host?` parses with search === "" and `https://host#`
+      // with hash === "" — a present-but-EMPTY component slips the
+      // probe getters, so the RAW string (literal `?`/`#` included)
+      // previously shipped, and route concatenation swallowed every
+      // demo route into the query/fragment.
+      for (const [bad, component] of [
+        ["showcase-{slug}.example.com?", "query"],
+        ["showcase-{slug}.example.com#", "fragment"],
+      ] as const) {
+        const result = normalizeFresh(bad);
+        expect(result, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        expect(
+          errs.some(
+            (m) =>
+              m.includes("FATAL-CONFIG") &&
+              m.includes("SHOWCASE_BACKEND_HOST_PATTERN") &&
+              m.includes(component),
+          ),
+          `pattern ${JSON.stringify(bad)} should log a ${component} FATAL`,
+        ).toBe(true);
+      }
+    });
+
+    it("calls out a stray scheme fragment (host literally http/https) instead of claiming unparseable", () => {
+      // `https:/host` (missing one slash, so SCHEME_RE never strips
+      // it) probes to `https://https:/host` — hostname "https". The
+      // value DOES parse, so the old "cannot form a parseable backend
+      // URL" text was a lie that hid the actual problem: a stray
+      // scheme fragment in host position.
+      for (const bad of ["https:/showcase-{slug}.example.com", "http"]) {
+        const result = normalizeFresh(bad);
+        expect(result, `pattern ${JSON.stringify(bad)}`).toBe(
+          "showcase-{slug}-production.up.railway.app",
+        );
+        const e = errs.find(
+          (m) => m.includes("FATAL-CONFIG") && m.includes(JSON.stringify(bad)),
+        );
+        expect(e, `pattern ${JSON.stringify(bad)} should FATAL`).toBeDefined();
+        expect(e).toContain("stray scheme fragment");
+        expect(e).not.toContain("cannot form a parseable");
+      }
+    });
+
     it("FATAL fires once per distinct value, not per call", () => {
       normalizeFresh("https://");
       const after = errs.length;
@@ -382,18 +489,48 @@ describe("parseLocalBackends", () => {
     expect(warns.filter((m) => m.includes("not valid JSON")).length).toBe(1);
   });
 
-  it("memoizes the parse on the raw string (no per-call JSON.parse)", () => {
-    const parseSpy = vi.spyOn(JSON, "parse");
-    try {
-      const raw = '{"mastra":"http://localhost:4111"}';
-      const first = parseFresh(raw);
-      const second = parseFresh(raw);
-      expect(second).toEqual({ mastra: "http://localhost:4111" });
-      expect(second).toBe(first);
-      expect(parseSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      parseSpy.mockRestore();
-    }
+  it("memoizes the parse on the raw string (same object identity per raw)", () => {
+    // Identity is the OBSERVABLE memo contract. (A global JSON.parse
+    // call-count spy used to assert "called once" — fragile: ANY other
+    // code touching JSON.parse during the test, including vitest
+    // internals, breaks it for reasons unrelated to this module.)
+    const raw = '{"mastra":"http://localhost:4111"}';
+    const first = parseFresh(raw);
+    const second = parseFresh(raw);
+    expect(second).toEqual({ mastra: "http://localhost:4111" });
+    expect(second).toBe(first);
+  });
+
+  it("does not poison the memo when the uncached parse throws mid-compute", () => {
+    // The memo key (raw) was committed BEFORE the value was computed —
+    // if the compute throws (console.warn is a foreign call, and a
+    // logging shim CAN throw), the next call with the same raw found
+    // the key already cached and returned the PREVIOUS raw's value.
+    const good = parseFresh('{"mastra":"http://localhost:4111"}');
+    expect(good).toEqual({ mastra: "http://localhost:4111" });
+    // Make the warn inside the compute throw once ("not json" warns).
+    warnSpy.mockImplementationOnce(() => {
+      throw new Error("logging shim exploded");
+    });
+    expect(() => parseFresh("not json")).toThrow("logging shim exploded");
+    // Same raw again (warn restored): must NOT return the stale good
+    // map committed under the previous raw.
+    expect(parseFresh("not json")).toEqual({});
+  });
+
+  it("keeps a __proto__ key as map data instead of silently dropping it", () => {
+    // The accumulator was a plain `{}` — assigning `backends["__proto__"]`
+    // hits the Object.prototype setter and is a silent no-op, so the
+    // entry vanished with NO warning (every other rejected entry warns).
+    // A null-prototype accumulator makes it an ordinary own property.
+    const parsed = parseFresh(
+      '{"__proto__":"http://localhost:4111","mastra":"http://localhost:4112"}',
+    );
+    expect(Object.keys(parsed)).toContain("__proto__");
+    expect(parsed["__proto__"]).toBe("http://localhost:4111");
+    expect(parsed["mastra"]).toBe("http://localhost:4112");
+    // And it must land as DATA — never as prototype pollution.
+    expect(({} as Record<string, unknown>).mastra).toBeUndefined();
   });
 
   it("returns frozen objects (the memo is shared across every caller)", () => {
@@ -478,13 +615,31 @@ describe("resolveBackendUrl", () => {
     ).toBe("https://proxy.example.com");
   });
 
-  it("ignores an empty-string local override instead of yielding an empty URL", () => {
+  it("warns about and ignores an empty-string local override instead of yielding an empty URL", async () => {
     // A `??` fallback treated `{"mastra": ""}` as a valid override and
-    // returned "" — which renders an iframe src of just the route.
-    process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({ mastra: "" });
-    expect(
-      resolveBackendUrl("mastra", "showcase-{slug}-production.up.railway.app"),
-    ).toBe("https://showcase-mastra-production.up.railway.app");
+    // returned "" — which renders an iframe src of just the route. The
+    // emptiness skip then happened BEFORE the warn block, so the dead
+    // override was ignored with ZERO signal — the one bad-override
+    // class that never warned. Fresh module instance: the warn-once
+    // latch is module state.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({ mastra: "" });
+      expect(
+        resolveFresh("mastra", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-mastra-production.up.railway.app");
+      expect(
+        warns.some((m) => m.includes("mastra") && m.includes("empty")),
+        "ignoring an empty override should warn, naming the slug",
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("warns and ignores a local override with a non-http(s) scheme (iframe-src injection guard)", async () => {
@@ -553,6 +708,67 @@ describe("resolveBackendUrl", () => {
       expect(
         resolveFresh("adk", "showcase-{slug}-production.up.railway.app"),
       ).toBe("http://localhost:4114");
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("trims a whitespace-padded local override before validating it (paste artifact)", async () => {
+    // The pattern path trims paste artifacts (normalizeBackendHostPattern)
+    // — the override path rejected " http://localhost:4111" outright,
+    // because the SCHEME_RE anchor fails on the leading space even
+    // though the URL parser accepts the value. Align the philosophy:
+    // trim first, then validate. Whitespace-ONLY collapses to the
+    // empty-override warn path.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+        mastra: " http://localhost:4111\t",
+        agno: "   ",
+      });
+      expect(
+        resolveFresh("mastra", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("http://localhost:4111");
+      expect(warns.some((m) => m.includes("mastra"))).toBe(false);
+      expect(
+        resolveFresh("agno", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-agno-production.up.railway.app");
+      expect(
+        warns.some((m) => m.includes("agno") && m.includes("empty")),
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("explains WHY a slashless-but-parseable override (http:localhost:4111) is rejected", async () => {
+    // `http:localhost:4111` IS parseable (special schemes tolerate
+    // missing slashes — it parses to http://localhost:4111/), so the
+    // old "is not a plain parseable http(s) base URL" warn sent the
+    // developer chasing a parse problem that doesn't exist. The real
+    // rejection is the explicit `scheme://` requirement.
+    vi.resetModules();
+    const { resolveBackendUrl: resolveFresh } = await import("./backend-url");
+    const warns: string[] = [];
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((m: string) => void warns.push(m));
+    try {
+      process.env.NEXT_PUBLIC_LOCAL_BACKENDS = JSON.stringify({
+        mastra: "http:localhost:4111",
+      });
+      expect(
+        resolveFresh("mastra", "showcase-{slug}-production.up.railway.app"),
+      ).toBe("https://showcase-mastra-production.up.railway.app");
+      const w = warns.find((m) => m.includes("mastra"));
+      expect(w).toBeDefined();
+      expect(w).toContain("://");
+      expect(w).not.toContain("not a plain parseable");
     } finally {
       warnSpy.mockRestore();
     }

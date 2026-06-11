@@ -39,13 +39,16 @@ declare global {
  * that inline config values at render time should read them in an
  * effect/state instead.
  */
-// URL fields use a parseable `https://ssr-placeholder.invalid/` sentinel
+// URL fields use a parseable `https://ssr-placeholder.invalid` sentinel
 // — NOT the empty string — because consumer components may call
 // `new URL(cfg.someUrl)` inline during render, and `new URL("")` throws
 // a TypeError that escapes the SSR response as a 500. The `.invalid`
 // TLD is reserved by RFC 2606 so the URL also can't accidentally
-// resolve.
-const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid/";
+// resolve. Declared WITHOUT a trailing slash: the server reader strips
+// trailing slashes at every exit path, so every REAL value is slashless
+// — the placeholder keeps the SSR and client forms structurally
+// identical for consumers that string-compose against them.
+const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid";
 const SSR_PLACEHOLDER: Readonly<RuntimeConfig> = Object.freeze({
   baseUrl: SSR_PLACEHOLDER_URL,
   posthogHost: SSR_PLACEHOLDER_URL,
@@ -115,15 +118,24 @@ export function getRuntimeConfig(): Readonly<RuntimeConfig> {
   }
   // posthogKey is exempt from the REQUIRED set because ABSENCE is a
   // valid state (legitimately unset off-prod) — but the absence
-  // exemption must not exempt wrong TYPES: a layout bug injecting a
-  // number would sail through and explode far from the cause inside a
-  // capture consumer.
-  if (cfg.posthogKey !== undefined && typeof cfg.posthogKey !== "string") {
+  // exemption must not exempt wrong TYPES or the empty string: a layout
+  // bug injecting a number would sail through and explode far from the
+  // cause inside a capture consumer, and the server reader can never
+  // produce "" (readEnvPair maps empty to undefined), so a present-but-
+  // empty key is the same wiring-bug class.
+  if (
+    cfg.posthogKey !== undefined &&
+    (typeof cfg.posthogKey !== "string" || cfg.posthogKey.length === 0)
+  ) {
     throw new Error(
       `[runtime-config.client] window.__SHOWCASE_CONFIG__ is malformed: ` +
-        `field "posthogKey" is of type ${typeof cfg.posthogKey} (expected ` +
-        `a string or absence). The root layout injection ran with broken ` +
-        `inputs — check the server-side runtime config.`,
+        `field "posthogKey" is ${
+          typeof cfg.posthogKey === "string"
+            ? "empty"
+            : `of type ${typeof cfg.posthogKey}`
+        } (expected a non-empty string or absence). The root layout ` +
+        `injection ran with broken inputs — check the server-side ` +
+        `runtime config.`,
     );
   }
   return Object.freeze(cfg);

@@ -391,8 +391,10 @@ function restoreFromGitHeadLocked(
     // Belt-and-braces: handles a race where a tracked file is removed
     // between partitionTrackedPaths and this checkout (e.g. a parallel
     // rm from another harness touching the same tree). Realistically
-    // unreachable in this suite — we run with fileParallelism: false and
-    // no concurrent harness — but cheap to tolerate. Git produces this as
+    // unreachable in this suite — suites run under fileParallelism:
+    // true, but their snapshot targets are disjoint (see the
+    // PARALLELISM note above) and no concurrent harness removes
+    // tracked files — but cheap to tolerate. Git produces this as
     // `error: pathspec '…' did not match any file(s) known to git`
     // (exit 1). Anything else — EACCES, git missing, corrupt worktree —
     // bubbles up so the suite fails loudly instead of seeding a drifted
