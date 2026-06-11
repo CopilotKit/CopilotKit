@@ -983,6 +983,25 @@ export function createResultAggregator(
         statusOutcomes.push(outcome);
       }
 
+      // §4.2 reds counters: durable State transitions only, across the
+      // aggregate + cell outcomes collected above. An error tick
+      // (`newState === "error"`) is a measurement failure — the prior
+      // durable colour rides on `errorStatePrev` — so it neither introduced
+      // nor cleared a red and is excluded from both counters. A missing
+      // outcome (a writer that resolved without one — seen from doMock'd
+      // writers in tests) likewise contributes nothing.
+      let redsIntroduced = 0;
+      let redsCleared = 0;
+      for (const o of statusOutcomes) {
+        if (!o || o.newState === "error") continue;
+        if (o.previousState === "green" && o.newState === "red") {
+          redsIntroduced += 1;
+        }
+        if (o.previousState === "red" && o.newState === "green") {
+          redsCleared += 1;
+        }
+      }
+
       // Persist the rollup. `terminalJobStatus` maps green→done / anything
       // else (incl. comm error) →failed; run-history's narrower enum is
       // completed/failed, so a "done" job is a "completed" run.
@@ -994,7 +1013,11 @@ export function createResultAggregator(
             id: runRowId,
             finishedAt: now(),
             state: runState,
-            summary: runSummaryForServiceJobResult(result),
+            summary: {
+              ...runSummaryForServiceJobResult(result),
+              redsIntroduced,
+              redsCleared,
+            },
           });
         } catch (err) {
           const info = errorInfo(err);

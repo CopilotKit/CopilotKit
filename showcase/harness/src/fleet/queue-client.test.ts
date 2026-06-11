@@ -8,6 +8,8 @@ import {
   PoisonedBacklogCountError,
   RESULT_WRITE_MAX_ATTEMPTS,
   RESULT_WRITE_RETRY_DELAY_MS,
+  PRUNE_TERMINAL_MAX_AGE_MS,
+  PRUNE_ZOMBIE_MAX_AGE_MS,
 } from "./queue-client.js";
 import { createJobClaimClient, JobClaimEndpointError } from "./job-claim.js";
 import type {
@@ -110,6 +112,11 @@ interface JobRow extends JobView {
   /** Result-flow columns (migration 1779989700) the report path writes. */
   result?: unknown;
   result_processed?: boolean;
+  /** Run-metadata columns (migration 1779990200) enqueue denormalizes. */
+  run_id?: string;
+  family?: string;
+  /** PB system column; seeded by prune tests (real PB stamps it on create). */
+  created?: string;
 }
 
 /**
@@ -274,8 +281,11 @@ function rowMatchesFilter(row: FilterableRow, filter?: string): boolean {
 function makeFakePb(rows: JobRow[] = []): {
   pb: PbClient;
   rows: JobRow[];
+  /** Every filter string passed to deleteByFilter, in call order. */
+  deleteFilters: string[];
 } {
   const store = [...rows];
+  const deleteFilters: string[] = [];
   const unsupported = (name: string) => () => {
     throw new Error(`fake-pb: ${name} not implemented`);
   };
@@ -292,6 +302,10 @@ function makeFakePb(rows: JobRow[] = []): {
         lease_expires_at: (record.lease_expires_at as string | null) ?? null,
         version: Number(record.version ?? 0),
         payload: record.payload as ServiceJobPayload,
+        // Run-metadata columns (migration 1779990200): capture exactly what
+        // enqueue writes so the denormalization tests assert the record body.
+        run_id: record.run_id as string | undefined,
+        family: record.family as string | undefined,
       };
       store.push(row);
       return row as unknown as T;
@@ -374,13 +388,35 @@ function makeFakePb(rows: JobRow[] = []): {
     },
     upsertByField: unsupported("upsertByField") as PbClient["upsertByField"],
     delete: unsupported("delete") as PbClient["delete"],
-    deleteByFilter: unsupported("deleteByFilter") as PbClient["deleteByFilter"],
+    // Honor the two clause shapes pruneAged builds — OR-of-`status = "x"`
+    // equals plus a `created < "<ISO cutoff>"` age bound — the way the real
+    // client would, so the retention-leg tests exercise actual row deletion
+    // (survivors stay in `store`) rather than just capturing filter strings.
+    // ISO-8601 strings compare lexicographically, so `<` on the raw strings
+    // matches PB's date comparison for the canonical shapes seeded here.
+    async deleteByFilter(_collection: string, filter: string): Promise<number> {
+      deleteFilters.push(filter);
+      const statuses = new Set(
+        [...filter.matchAll(/status\s*=\s*"(\w+)"/g)].map((mm) => mm[1]),
+      );
+      const createdMatch = filter.match(/created\s*<\s*"([^"]+)"/);
+      const before = store.length;
+      for (let i = store.length - 1; i >= 0; i--) {
+        const row = store[i];
+        const statusOk = statuses.size === 0 || statuses.has(row.status);
+        const createdOk =
+          !createdMatch ||
+          (row.created !== undefined && row.created < createdMatch[1]);
+        if (statusOk && createdOk) store.splice(i, 1);
+      }
+      return before - store.length;
+    },
     health: unsupported("health") as PbClient["health"],
     createBackup: unsupported("createBackup") as PbClient["createBackup"],
     downloadBackup: unsupported("downloadBackup") as PbClient["downloadBackup"],
     deleteBackup: unsupported("deleteBackup") as PbClient["deleteBackup"],
   };
-  return { pb, rows: store };
+  return { pb, rows: store, deleteFilters };
 }
 
 /** Configurable fake JobClaimClient — each method is a vi.fn the test wires. */
@@ -562,6 +598,7 @@ describe("FleetQueueClient.enqueue", () => {
     expect(rows[0].payload).toEqual(samplePayload());
   });
 
+
   it("rejects a non-number meta.priority at the enqueue boundary (optional fields still have required shapes)", async () => {
     // `priority` is the one optional META field; like cellIds/driverInputs
     // it must have its required shape WHEN PRESENT. The untrusted JSON
@@ -659,6 +696,40 @@ describe("FleetQueueClient.enqueue", () => {
     }
     expect(createSpy).not.toHaveBeenCalled();
     expect(rows).toHaveLength(0);
+  });
+
+  it("denormalizes payload.meta.runId into the run_id column", async () => {
+    // §4.2: run_id rides an indexed column so the run-view projection can
+    // group a batch with a filter instead of a JSON-path scan over payload.
+    const { pb, rows } = makeFakePb();
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.enqueue({ payload: samplePayload() });
+
+    expect(rows[0].run_id).toBe("run-1");
+  });
+
+  it("stamps the family column when EnqueueJobInput.family is present", async () => {
+    const { pb, rows } = makeFakePb();
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.enqueue({ payload: samplePayload(), family: "d6" });
+
+    expect(rows[0].family).toBe("d6");
+  });
+
+  it("writes empty family when the input omits it (pre-P2 row parity)", async () => {
+    // An absent family must write the column EMPTY — matching rows enqueued
+    // before P2, which the new per-family API simply never selects.
+    const { pb, rows } = makeFakePb();
+    const claim = makeFakeClaim();
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.enqueue({ payload: samplePayload() });
+
+    expect(rows[0].family).toBe("");
   });
 });
 
@@ -5145,6 +5216,122 @@ describe("FleetQueueClient.sweepExpired", () => {
     expect(sweep.reclaimed).toBe(0);
     expect(sweep.commErrors).toHaveLength(0);
     expect(claim.releaseJob).not.toHaveBeenCalled();
+  });
+});
+
+describe("FleetQueueClient.pruneAged", () => {
+  const NOW = Date.parse("2026-06-10T00:00:00.000Z");
+  /** An ISO `created` stamp `ageMs` in the past relative to NOW. */
+  const createdAgo = (ageMs: number): string =>
+    new Date(NOW - ageMs).toISOString();
+  const DAY_MS = 24 * 3600_000;
+  const HOUR_MS = 3600_000;
+
+  function prunableRow(overrides: Partial<JobRow>): JobRow {
+    return { ...jobView(), payload: samplePayload(), ...overrides };
+  }
+
+  it("deletes terminal rows older than 14 days including result_processed=false poison rows", async () => {
+    const { pb, rows, deleteFilters } = makeFakePb([
+      // Poison row: terminal but the aggregator could never process its
+      // result (`result_processed` stuck false). §4.2: the latch gates
+      // aggregation, NOT retention — at 14 days the consume-once question is
+      // moot and the row is reaped like any other terminal row.
+      prunableRow({
+        id: "j1",
+        status: "done",
+        created: createdAgo(15 * DAY_MS),
+        result_processed: false,
+      }),
+      prunableRow({
+        id: "j2",
+        status: "failed",
+        created: createdAgo(20 * DAY_MS),
+        result_processed: true,
+      }),
+      // Younger terminal row — inside the 14-day window, must survive.
+      prunableRow({
+        id: "j3",
+        status: "done",
+        created: createdAgo(13 * DAY_MS),
+        result_processed: true,
+      }),
+    ]);
+    const q = createFleetQueueClient({ pb, claim: makeFakeClaim(), logger });
+
+    const pruned = await q.pruneAged(NOW);
+
+    expect(pruned).toEqual({ terminal: 2, zombie: 0 });
+    expect(rows.map((r) => r.id)).toEqual(["j3"]);
+    // §4.2: retention is deliberately blind to the aggregation latch — the
+    // terminal-leg filter must NOT carry a result_processed clause.
+    const terminalFilter = deleteFilters.find((f) => f.includes('"done"'));
+    expect(terminalFilter).toBeDefined();
+    expect(terminalFilter).not.toContain("result_processed");
+  });
+
+  it("deletes non-terminal rows older than 48 hours (zombie leg)", async () => {
+    // Nothing else ever reaps abandoned pending/claimed/running rows: a
+    // pending row has no lease for sweepExpired to expire, and the terminal
+    // leg only touches done/failed. All three non-terminal states are reaped
+    // past the 48 h zombie window.
+    const { pb, rows } = makeFakePb([
+      prunableRow({
+        id: "j1",
+        status: "pending",
+        created: createdAgo(49 * HOUR_MS),
+      }),
+      prunableRow({
+        id: "j2",
+        status: "claimed",
+        claimed_by: "worker-dead",
+        created: createdAgo(72 * HOUR_MS),
+      }),
+      prunableRow({
+        id: "j3",
+        status: "running",
+        claimed_by: "worker-dead",
+        created: createdAgo(50 * HOUR_MS),
+      }),
+    ]);
+    const q = createFleetQueueClient({ pb, claim: makeFakeClaim(), logger });
+
+    const pruned = await q.pruneAged(NOW);
+
+    expect(pruned).toEqual({ terminal: 0, zombie: 3 });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("leaves younger non-terminal (stalled-but-within-window) rows untouched", async () => {
+    // A stalled batch keeps its full ~2-day diagnostic window rendering as
+    // `stalled` on the Ops tab — the zombie leg must never reap rows the
+    // stalled-classification window still owns. The cutoff keys on `created`
+    // (renewal-immune), not `updated`.
+    const { pb, rows } = makeFakePb([
+      prunableRow({
+        id: "j1",
+        status: "pending",
+        created: createdAgo(47 * HOUR_MS),
+      }),
+      prunableRow({
+        id: "j2",
+        status: "running",
+        claimed_by: "worker-7",
+        created: createdAgo(2 * HOUR_MS),
+      }),
+    ]);
+    const q = createFleetQueueClient({ pb, claim: makeFakeClaim(), logger });
+
+    const pruned = await q.pruneAged(NOW);
+
+    expect(pruned).toEqual({ terminal: 0, zombie: 0 });
+    expect(rows.map((r) => r.id)).toEqual(["j1", "j2"]);
+  });
+
+  it("computes both cutoffs from the exported window constants", () => {
+    // T15 and the route tests reference these — pin the §4.2 windows.
+    expect(PRUNE_TERMINAL_MAX_AGE_MS).toBe(14 * DAY_MS);
+    expect(PRUNE_ZOMBIE_MAX_AGE_MS).toBe(48 * HOUR_MS);
   });
 });
 
