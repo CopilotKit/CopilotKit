@@ -188,10 +188,19 @@ export interface TickResult {
    * construction does not mint a runId.
    */
   runId: string;
-  /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures and backlog-gate skips). */
+  /** Number of per-service jobs enqueued (services enumerated, minus enqueue failures, backlog-gate skips, AND stop truncation). */
   enqueued: number;
   /** Number of enqueue attempts that threw (a service that failed to enqueue). */
   enqueueFailures: number;
+  /**
+   * Number of per-service jobs NOT enqueued because `stop()` truncated the
+   * enqueue loop mid-batch (the quiesce re-check). Without this the
+   * truncated specs vanished from the tick outcome entirely: `services`
+   * could not be reconciled against `enqueued + enqueueFailures +
+   * skippedForBacklog`. The partition invariant is `services enumerated ==
+   * enqueued + enqueueFailures + skippedForBacklog + truncatedByStop`.
+   */
+  truncatedByStop: number;
   /**
    * Number of per-service jobs SKIPPED because their family already had a
    * non-terminal (pending/claimed/running) batch on the queue (scheduled
@@ -327,6 +336,7 @@ function skippedTickResult(): TickResult {
     enqueued: 0,
     enqueueFailures: 0,
     skippedForBacklog: 0,
+    truncatedByStop: 0,
     sweptExpired: false,
     sweepFailed: false,
     reclaimed: 0,
@@ -725,6 +735,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
         enqueued: 0,
         enqueueFailures: 0,
         skippedForBacklog: 0,
+        truncatedByStop: 0,
         sweptExpired: sweep.swept,
         sweepFailed: sweep.sweepFailed,
         reclaimed: sweep.reclaimed,
@@ -762,16 +773,19 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
 
     let enqueued = 0;
     let enqueueFailures = 0;
+    let truncatedByStop = 0;
     for (const spec of gate.specs) {
       // QUIESCE re-check: stop() flips `running` and then awaits this tick.
       // Dispatching the REST of the batch after stop began would leak jobs
-      // past the producer's lifecycle — truncate, loudly.
+      // past the producer's lifecycle — truncate, loudly, and ACCOUNT for
+      // the truncated specs (they must not vanish from the tick outcome).
       if (!running) {
+        truncatedByStop = gate.specs.length - enqueued - enqueueFailures;
         logger.warn("fleet.producer.enqueue-truncated-stopped", {
           runId,
           enqueued,
           enqueueFailures,
-          remaining: gate.specs.length - enqueued - enqueueFailures,
+          remaining: truncatedByStop,
         });
         break;
       }
@@ -801,6 +815,8 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       }
     }
 
+    // `services` partitions exactly: services == enqueued + enqueueFailures
+    // + skippedForBacklog + truncatedByStop (see TickResult.truncatedByStop).
     logger.info("fleet.producer.tick-complete", {
       runId,
       triggered,
@@ -808,6 +824,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       enqueued,
       enqueueFailures,
       skippedForBacklog: gate.skipped,
+      truncatedByStop,
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,
       reclaimed: sweep.reclaimed,
@@ -818,6 +835,7 @@ export function createJobProducer(opts: JobProducerOptions): JobProducer {
       enqueued,
       enqueueFailures,
       skippedForBacklog: gate.skipped,
+      truncatedByStop,
       sweptExpired: sweep.swept,
       sweepFailed: sweep.sweepFailed,
       reclaimed: sweep.reclaimed,

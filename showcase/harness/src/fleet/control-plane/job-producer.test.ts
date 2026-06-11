@@ -1627,6 +1627,72 @@ describe("job-producer — stop() quiesce", () => {
     expect(warns).toContain("fleet.producer.enqueue-truncated-stopped");
   });
 
+  it("stop-truncated specs are ACCOUNTED in TickResult.truncatedByStop (and tick-complete's services line up)", async () => {
+    // Truncated specs used to VANISH from the tick outcome: services said 3,
+    // but enqueued + enqueueFailures + skippedForBacklog only summed to 1 —
+    // the two truncated jobs were uncounted in both the TickResult and the
+    // tick-complete log, so a stop-truncated run was indistinguishable from
+    // a partially-failed one whose failures went unreported.
+    let releaseEnqueue!: () => void;
+    const gate = new Promise<void>((resolve) => (releaseEnqueue = resolve));
+    const infos: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    const logger: Logger = {
+      ...SILENT_LOGGER,
+      info: (msg, meta) => {
+        infos.push({ msg, ...(meta !== undefined ? { meta } : {}) });
+      },
+    };
+    const queue = makeFakeQueue({
+      enqueueImpl: async (input) => {
+        if (input.payload.serviceSlug === "a") await gate;
+        return jobView(input);
+      },
+    });
+    const producer = createJobProducer({
+      queue,
+      enumerate: () => d6Specs(["a", "b", "c"]),
+      logger,
+    });
+    producer.start();
+    const tickP = producer.tick();
+    await vi.waitFor(() => {
+      expect(queue.enqueued).toHaveLength(1);
+    });
+    const stopP = producer.stop();
+    releaseEnqueue();
+    const result = await tickP;
+    await stopP;
+    // "b" and "c" were truncated by the stop — and COUNTED.
+    expect(result.truncatedByStop).toBe(2);
+    expect(result.enqueued).toBe(1);
+    // The tick outcome partitions the enumerated services exactly.
+    const complete = infos.find(
+      (e) => e.msg === "fleet.producer.tick-complete",
+    );
+    expect(complete).toBeDefined();
+    const meta = complete!.meta as {
+      services: number;
+      enqueued: number;
+      enqueueFailures: number;
+      skippedForBacklog: number;
+      truncatedByStop: number;
+    };
+    expect(meta.truncatedByStop).toBe(2);
+    expect(meta.services).toBe(
+      meta.enqueued +
+        meta.enqueueFailures +
+        meta.skippedForBacklog +
+        meta.truncatedByStop,
+    );
+  });
+
+  it("a tick that runs to completion reports truncatedByStop:0", async () => {
+    const { producer } = startedProducer({ specs: d6Specs(["a", "b"]) });
+    const result = await producer.tick();
+    expect(result.truncatedByStop).toBe(0);
+    expect(result.enqueued).toBe(2);
+  });
+
   it("stop() makes one final delivery attempt of buffered sweep comm errors", async () => {
     // Buffered comm errors used to be silently DROPPED at shutdown — the
     // reclaimed jobs' dashboard signal vanished with the process.
