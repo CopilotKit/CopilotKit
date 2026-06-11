@@ -78,7 +78,20 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
+      // Legacy flat flag, kept for older clients. The `a2ui` object below is
+      // the source of truth: it preserves the per-agent scoping that this
+      // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
+      // shared isA2UIEnabled() predicate so an explicit `enabled: false`
+      // disables a2ui here exactly as it does on the run path.
       a2uiEnabled: isA2UIEnabled(runtime.a2ui),
+      ...(isA2UIEnabled(runtime.a2ui)
+        ? {
+            a2ui: {
+              enabled: true,
+              ...(runtime.a2ui.agents ? { agents: runtime.a2ui.agents } : {}),
+            },
+          }
+        : {}),
       openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }

@@ -118,6 +118,45 @@ describe("handleGetRuntimeInfo", () => {
 
     const data = await response.json();
     expect(data.a2uiEnabled).toBe(true);
+    expect(data.a2ui).toEqual({ enabled: true });
+  });
+
+  it("should forward per-agent a2ui scoping in the a2ui info object", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: { agents: ["agentic_chat", "tool_based_generative_ui"] },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(true);
+    expect(data.a2ui).toEqual({
+      enabled: true,
+      agents: ["agentic_chat", "tool_based_generative_ui"],
+    });
+  });
+
+  it("should omit the a2ui info object when a2ui is not configured", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(false);
+    expect(data.a2ui).toBeUndefined();
   });
 
   it("should return a2uiEnabled: false when a2ui is explicitly disabled", async () => {

@@ -1,12 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -250,7 +250,7 @@ export class RunHandler {
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -346,7 +346,7 @@ export class RunHandler {
             ...forwardedProps,
           },
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );

@@ -502,6 +502,87 @@ describe("CopilotKitProvider", () => {
       });
     });
 
+    describe("A2UI catalog context scoping (#5369)", () => {
+      // setupTests pins randomUUID to a constant ("mock-thread-id"), which
+      // makes every addContext id collide so the ContextStore can only hold a
+      // single entry. These tests assert on all four catalog entries, so they
+      // need unique ids.
+      beforeEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        let n = 0;
+        vi.mocked(randomUUID).mockImplementation(() => `ctx-uuid-${n++}`);
+      });
+
+      afterEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+      });
+
+      it("scopes the A2UI catalog context entries to the runtime's a2ui agents", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            version: "1.0.0",
+            agents: {},
+            audioFileTranscriptionEnabled: false,
+            a2uiEnabled: true,
+            a2ui: { enabled: true, agents: ["my_a2ui_agent"] },
+          }),
+        });
+
+        const { result } = renderHook(() => useCopilotKit(), {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+              {children}
+            </CopilotKitProvider>
+          ),
+        });
+
+        await vi.waitFor(() => {
+          expect(
+            Object.values(result.current.copilotkit.context).length,
+          ).toBeGreaterThanOrEqual(4);
+        });
+
+        const entries = Object.values(result.current.copilotkit.context);
+        for (const entry of entries) {
+          expect(entry.agentIds).toEqual(["my_a2ui_agent"]);
+        }
+      });
+
+      it("leaves the A2UI catalog context unscoped when the runtime applies a2ui to all agents", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            version: "1.0.0",
+            agents: {},
+            audioFileTranscriptionEnabled: false,
+            a2uiEnabled: true,
+            a2ui: { enabled: true },
+          }),
+        });
+
+        const { result } = renderHook(() => useCopilotKit(), {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+              {children}
+            </CopilotKitProvider>
+          ),
+        });
+
+        await vi.waitFor(() => {
+          expect(
+            Object.values(result.current.copilotkit.context).length,
+          ).toBeGreaterThanOrEqual(4);
+        });
+
+        const entries = Object.values(result.current.copilotkit.context);
+        for (const entry of entries) {
+          expect(entry.agentIds).toBeUndefined();
+        }
+      });
+    });
+
     it("does not register an a2ui-surface renderer when runtime reports a2uiEnabled: false", async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
