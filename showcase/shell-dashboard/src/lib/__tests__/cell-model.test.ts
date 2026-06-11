@@ -1651,6 +1651,27 @@ describe("buildCellModel", () => {
         expect(model.chipColor).toBe("green");
       });
 
+      it("a reclaimed-pending comm error must NOT mask an AMBER (partial-failure) chip — amber passes through", () => {
+        // D5 green + D6 red → chipColor amber (partial failure / degraded
+        // ladder). Amber is a GENUINE failure colour, not no-data: the
+        // neutral "pending" overlay masking it would hide a real partial
+        // regression behind a benign gray surface (the same never-mask rule
+        // the red passthrough enforces — mirrors the harness
+        // fleetSurfaceState, where only green becomes "pending").
+        const live = mapOf([
+          row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+          row(keyFor("d6", "agno", "agentic-chat"), "d6", "red", {
+            signal: reclaimSignal,
+          }),
+        ]);
+        const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+        expect(model.chipColor).toBe("amber");
+        expect(model.surfaceState).toBe("amber");
+        expect(model.surfaceState).not.toBe("pending");
+        // The comm error is still decoded (for the tooltip).
+        expect(model.commError?.kind).toBe("worker-reclaimed-pending");
+      });
+
       it("a crash (worker-crashed-mid-job) still surfaces red 'unreachable' — only reclaim is neutralized", () => {
         const live = mapOf([
           row(keyFor("d6", "agno", "agentic-chat"), "d6", "green", {

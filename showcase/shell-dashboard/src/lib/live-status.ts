@@ -114,7 +114,7 @@ export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
  * type only — never a persisted column.
  *
  * This is the dashboard analogue of the harness `FleetSurfaceState`
- * (`ProbeState | "unreachable"`). The dashboard's cell render model uses
+ * (`ProbeState | "unreachable" | "pending"`). The dashboard's cell render model uses
  * `ChipColor` (with `gray` for no-data and `amber` for degraded) rather than
  * the raw probe `State`, so the union is expressed over `ChipColor` to avoid an
  * unsafe widen of the no-data `gray` case through `State`.

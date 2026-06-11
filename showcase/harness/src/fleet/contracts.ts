@@ -320,10 +320,11 @@ export interface PoolCommError {
  * derivation) produces THREE outcomes:
  *   - `"unreachable"` — a directly-observed crash kind (worker-crashed-mid-job,
  *     worker-unreachable, ...) overlays the row: the red comm-error treatment.
- *   - `"pending"` — a `worker-reclaimed-pending` comm error on a NON-red row:
+ *   - `"pending"` — a `worker-reclaimed-pending` comm error on a GREEN row:
  *     the lease lapsed and the sweeper re-queued the job (routine teardown,
  *     not a known crash), so the surface is the NEUTRAL gray "re-queued /
- *     pending" treatment (see POOL_COMM_ERROR_KINDS). A red row passes
+ *     pending" treatment (see POOL_COMM_ERROR_KINDS). ANY non-green row —
+ *     red, degraded, error, or an out-of-vocabulary runtime state — passes
  *     through — the neutral overlay must never mask a genuine failure.
  *   - otherwise the row's last-known probe colour (`state`).
  */
@@ -356,16 +357,19 @@ export interface FleetStatusRow {
  * Mirrors the dashboard's `cell-model.ts` derivation exactly: the
  * sweep-inferred `worker-reclaimed-pending` kind renders the NEUTRAL
  * `"pending"` surface (the job is re-queued / back in flight, not a known
- * crash) UNLESS the row's own probe colour is red — a present red is a
- * genuine failure the neutral overlay must NOT mask, so it passes through.
- * Every other comm-error kind is a directly-observed pool failure and
- * renders the red `"unreachable"` overlay; no comm error passes the row's
- * last-known probe colour through unchanged.
+ * crash) ONLY when the row's last-known probe colour is green (healthy).
+ * ANY non-green state — red, degraded, error, or an out-of-vocabulary
+ * runtime value — is a genuine failure the neutral overlay must NOT mask
+ * (the A2 rank principle: an unrecognized state ranks ABOVE red, so it
+ * passes through too), and passes through unchanged. Every other comm-error
+ * kind is a directly-observed pool failure and renders the red
+ * `"unreachable"` overlay; absent any comm error the row's last-known probe
+ * colour passes through unchanged.
  */
 export function fleetSurfaceState(row: FleetStatusRow): FleetSurfaceState {
   if (!row.commError) return row.state;
   if (row.commError.kind === "worker-reclaimed-pending") {
-    return row.state === "red" ? row.state : "pending";
+    return row.state === "green" ? "pending" : row.state;
   }
   return "unreachable";
 }

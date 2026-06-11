@@ -221,19 +221,25 @@ describe("fleet surface-state contract cross-package drift", () => {
     );
   });
 
-  it("harness fleetSurfaceState derivation routes worker-reclaimed-pending → 'pending' with red passthrough", () => {
+  it("harness fleetSurfaceState derivation routes worker-reclaimed-pending → 'pending' ONLY on green (failure passthrough)", () => {
     // Pins the harness DERIVATION shape: the sweep-inferred reclaim kind must
     // route to the neutral "pending" surface (never the red "unreachable"
-    // overlay), and a red probe colour must pass through unmasked — the same
-    // three-outcome derivation cell-model.ts applies on the dashboard side.
+    // overlay) ONLY when the row's last-known colour is green — ANY non-green
+    // failure state (red, degraded, error, out-of-vocab) must pass through
+    // unmasked. The same only-healthy-becomes-pending derivation cell-model.ts
+    // applies on the dashboard side over its ChipColor vocabulary.
     const body = parseHarnessSurfaceDerivation();
     expect(body).toContain('"worker-reclaimed-pending"');
     expect(body).toContain('"pending"');
     expect(body).toContain('"unreachable"');
-    expect(body).toContain('"red"');
+    // The pending gate must be expressed as only-green-becomes-pending —
+    // a literal red-equality check (`=== "red"`) masks degraded/error/
+    // out-of-vocab failure states behind the neutral overlay (G3a).
+    expect(body).toContain('=== "green"');
+    expect(body).not.toContain('=== "red"');
   });
 
-  it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with red passthrough", () => {
+  it("dashboard cell-model derivation routes worker-reclaimed-pending → 'pending' with failure passthrough", () => {
     // Same pin on the dashboard side (behaviorally covered by the flap-band
     // #70 tests in __tests__/cell-model.test.ts; this guards the SHAPE so a
     // refactor that drops the reclaim branch reds the drift suite too).
@@ -253,5 +259,10 @@ describe("fleet surface-state contract cross-package drift", () => {
     expect(body).toContain('"worker-reclaimed-pending"');
     expect(body).toContain('"pending"');
     expect(body).toContain('"unreachable"');
+    // The dashboard's pending gate must pass through EVERY failure colour in
+    // its ChipColor vocabulary — red AND amber (degraded/partial failure) —
+    // mirroring the harness only-green-becomes-pending semantics (G3a).
+    expect(body).toContain('chipColor === "red"');
+    expect(body).toContain('chipColor === "amber"');
   });
 });

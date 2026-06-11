@@ -169,33 +169,45 @@ describe("fleetSurfaceState", () => {
     }
   });
 
-  it("routes worker-reclaimed-pending on a non-red row to the NEUTRAL 'pending' surface", () => {
+  it("routes worker-reclaimed-pending on a GREEN row to the NEUTRAL 'pending' surface", () => {
     // The sweep boundary cannot tell a real crash from a routine platform
-    // teardown — either way the job is re-queued (back in flight), so the
-    // surface is the neutral gray "pending", NEVER the red "unreachable"
-    // overlay (see POOL_COMM_ERROR_KINDS; mirrors the dashboard derivation).
+    // teardown — either way the job is re-queued (back in flight), so on a
+    // healthy (green) row the surface is the neutral gray "pending", NEVER
+    // the red "unreachable" overlay (see POOL_COMM_ERROR_KINDS; mirrors the
+    // dashboard derivation).
     expect(fleetSurfaceState({ ...row, commError: RECLAIM_COMM_ERROR })).toBe(
       "pending",
     );
-    expect(
-      fleetSurfaceState({
-        ...row,
-        state: "degraded",
-        commError: RECLAIM_COMM_ERROR,
-      }),
-    ).toBe("pending");
   });
 
-  it("worker-reclaimed-pending must NOT mask a red probe result (red passes through)", () => {
-    // Mirrors the dashboard's cell-model derivation: a present red is a
-    // GENUINE failure the neutral pending overlay must not hide.
+  it("worker-reclaimed-pending must NOT mask ANY non-green failure state (red/degraded/error pass through)", () => {
+    // Mirrors the dashboard's cell-model derivation and the A2 rank
+    // principle (an unrecognized/error state ranks ABOVE red): every
+    // non-green last-known state is a GENUINE failure the neutral pending
+    // overlay must not hide — only green becomes "pending".
+    for (const state of ["red", "degraded", "error"] as const) {
+      expect(
+        fleetSurfaceState({
+          ...row,
+          state,
+          commError: RECLAIM_COMM_ERROR,
+        }),
+      ).toBe(state);
+    }
+  });
+
+  it("worker-reclaimed-pending passes an OUT-OF-VOCABULARY runtime state through (never masks)", () => {
+    // `FleetStatusRow.state` is typed ProbeState, but a runtime row can carry
+    // an out-of-vocabulary value; the A2 never-swallow rule ranks it above
+    // red, so the neutral overlay must pass it through, not mask it.
+    const outOfVocab = "flapping" as unknown as FleetStatusRow["state"];
     expect(
       fleetSurfaceState({
         ...row,
-        state: "red",
+        state: outOfVocab,
         commError: RECLAIM_COMM_ERROR,
       }),
-    ).toBe("red");
+    ).toBe(outOfVocab);
   });
 
   it("type-level: the union carries the 'pending' member alongside 'unreachable'", () => {

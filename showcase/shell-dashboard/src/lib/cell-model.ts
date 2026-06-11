@@ -103,12 +103,14 @@ export interface CellModel {
    *   - `"unreachable"` — a `commError` of a directly-observed crash kind
    *     (`worker-crashed-mid-job`, `worker-unreachable`, …) is present: paint
    *     the red comm-error overlay.
-   *   - `"pending"` — a NON-RED `worker-reclaimed-pending` commError is present:
-   *     a lease lapsed and the job was re-queued (routine teardown, not a known
-   *     crash), so render the neutral gray "pending" surface.
+   *   - `"pending"` — a `worker-reclaimed-pending` commError is present on a
+   *     healthy/no-data (green/gray, non-regressed) cell: a lease lapsed and
+   *     the job was re-queued (routine teardown, not a known crash), so render
+   *     the neutral gray "pending" surface.
    *   - the cell's underlying probe colour (mapped from `chipColor`) — no
    *     commError, OR a `worker-reclaimed-pending` commError that must NOT mask
-   *     a red/regressed probe result (the genuine failure passes through).
+   *     a red/amber/regressed probe result (any genuine failure passes
+   *     through; only green/gray becomes "pending").
    */
   surfaceState: FleetSurfaceState;
 }
@@ -792,12 +794,15 @@ export function buildCellModel(
   const surfaceState: FleetSurfaceState = commError
     ? commError.kind === "worker-reclaimed-pending"
       ? // A reclaimed-pending overlay is NEUTRAL (gray "pending") ONLY when the
-        // cell's real probe result isn't itself red/regressed. A present red
-        // (or a regression below the ceiling) is a GENUINE failure that the
-        // neutral pending overlay must NOT mask — otherwise DepthChip's
-        // "pending" early-return would hide a real red. The red probe result
-        // wins; routine teardown (non-red) still shows gray.
-        chipColor === "red" || isRegression
+        // cell's real probe result is healthy (green) or no-data (gray) and not
+        // a regression. ANY failure colour — red OR amber (partial failure /
+        // degraded ladder) — or a regression below the ceiling is a GENUINE
+        // failure that the neutral pending overlay must NOT mask (mirrors the
+        // harness fleetSurfaceState: only green becomes "pending"; every
+        // non-green failure state passes through) — otherwise DepthChip's
+        // "pending" early-return would hide a real failure. The failure colour
+        // wins; routine teardown (green/gray) still shows gray.
+        chipColor === "red" || chipColor === "amber" || isRegression
         ? chipColorToSurface(chipColor)
         : "pending"
       : "unreachable"
