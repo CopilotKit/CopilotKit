@@ -88,17 +88,22 @@ own.
 4. **Fresh agent succeeds.** A brand-new agent, asked the same over-limit
    request, reads the distilled knowledge back and performs the unlock unaided.
 
-### Known gap: client-side action recording
+### Client-side action recording
 
-Steps 2→3 are intended to be reinforced by an explicit client-side recording API
-(`useRecordUserActionInCurrentThread` from `@copilotkit/react-core/v2`). **That
-hook does not exist in this OSS react-core/v2 build** (verified against the hooks
-index), so `src/lib/record-user-action.ts` is a no-op shim and the call sites in
-`policy-exception-modal.tsx` / `transactions-list.tsx` record nothing. The
-self-learning loop can still ingest the raw run event stream over the gateway,
-but explicit "demonstrated action" recording from the browser is blocked until a
-react-core build that exports such a hook is available. See the file's header
-comment for details.
+Steps 2→3 are reinforced by an explicit client-side recording API:
+`src/lib/record-user-action.ts` adapts the teaching call sites in
+`policy-exception-modal.tsx` / `policy-exception-inline.tsx` /
+`transactions-list.tsx` onto `useLearnFromUserActionInCurrentThread` from
+`@copilotkit/react-core/v2` (the successor name of
+`useRecordUserActionInCurrentThread`). Each demonstrated action posts to the
+runtime's `/annotate` endpoint, which resolves the user via `identifyUser` and
+forwards to the platform's `PUT /connector/annotate/:clientEventId`.
+
+Recording therefore requires an Intelligence backend that exposes the
+generalized `/connector/annotate` route. Older backends that only expose
+`/connector/user-actions/record` will 404 the recording call (agent runs and
+recall are unaffected); in pure OSS mode (no `INTELLIGENCE_*` env) `/annotate`
+returns 422 and the demo simply doesn't record.
 
 ## Architecture at a glance
 
