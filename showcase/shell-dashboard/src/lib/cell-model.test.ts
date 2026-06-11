@@ -129,6 +129,45 @@ describe("buildCellModel — comm-error overlay precedence", () => {
     expect(model.surfaceState).toBe("unreachable");
   });
 
+  it("G2f: a green tools row with the chat row MISSING does not credit D4 (chat is unconditionally expected)", () => {
+    // The D4 producer ALWAYS writes `chat:<slug>` (the L3 round-trip) and
+    // writes `tools:<slug>` only for integrations whose demos include
+    // tool-rendering. A tools-only fold therefore means the unconditional
+    // chat row is missing — an unverified family that must NOT be credited
+    // green (mirrors the D5/D6 missing-mapped-sub-row collapse).
+    const live: LiveStatusMap = new Map();
+    live.set(keyFor("tools", SLUG), row(keyFor("tools", SLUG), "green"));
+
+    const model = buildCellModel(live, WIRED, NOW);
+
+    expect(model.d4?.exists).toBe(true);
+    expect(model.d4?.status).toBeNull();
+    expect(model.d4?.row).toBeNull();
+  });
+
+  it("G2f: a RED tools row still surfaces even when the chat row is missing (red dominates no-data)", () => {
+    const live: LiveStatusMap = new Map();
+    live.set(keyFor("tools", SLUG), row(keyFor("tools", SLUG), "red"));
+
+    const model = buildCellModel(live, WIRED, NOW);
+
+    expect(model.d4?.status).toBe("red");
+    expect(model.d4?.row?.key).toBe(keyFor("tools", SLUG));
+  });
+
+  it("G2f: a green chat row with tools missing keeps crediting D4 (tools is producer-conditional)", () => {
+    // tools:<slug> legitimately doesn't exist for integrations without the
+    // tool-rendering demo, and the dashboard has no per-integration demo
+    // mapping to distinguish "not expected" from "not yet emitted" — so a
+    // missing tools row stays lenient (documented on resolveD4).
+    const live: LiveStatusMap = new Map();
+    live.set(keyFor("chat", SLUG), row(keyFor("chat", SLUG), "green"));
+
+    const model = buildCellModel(live, WIRED, NOW);
+
+    expect(model.d4?.status).toBe("green");
+  });
+
   it("FF7: an unparseable observedAt is treated as stale (no phantom overlay)", () => {
     const live: LiveStatusMap = new Map();
     live.set(

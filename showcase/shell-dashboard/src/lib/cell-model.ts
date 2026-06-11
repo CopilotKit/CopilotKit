@@ -198,6 +198,22 @@ function foldStateToTestStatus(state: State): TestStatus {
  * D4 checks both `chat:<slug>` and `tools:<slug>`. When both exist the
  * worst-state wins — a green chat + red tools yields red D4, not green.
  *
+ * EXPECTATION MAPPING (which rows MUST exist — driven by the producer,
+ * `d4-chat-roundtrip.ts`):
+ *   - `chat:<slug>` is UNCONDITIONAL: the driver writes the L3 chat
+ *     round-trip row for every probed integration. A green tools row with
+ *     the chat row MISSING is therefore an unverified family — it collapses
+ *     a green/degraded fold to `status: null` (no-data), mirroring the
+ *     D5/D6 missing-mapped-sub-row strictness. A present RED tools row
+ *     still surfaces (red dominates no-data).
+ *   - `tools:<slug>` is CONDITIONAL: the driver side-emits it only when the
+ *     integration's demos include `tool-rendering`, so its absence is
+ *     legitimate for tool-less integrations. The dashboard has no
+ *     per-integration demo mapping to distinguish "not expected" from "not
+ *     yet emitted", so a missing tools row stays LENIENT (chat alone can
+ *     credit D4) — the safe default given the producer mapping lives
+ *     harness-side.
+ *
  * Staleness applies the same downgrade as `resolveD3`, but PER ROW and
  * BEFORE the worst-state fold (mirroring `resolveD5`): a green chat/tools
  * row whose `observed_at` is older than `D4_STALE_AFTER_MS` is treated as
@@ -242,6 +258,17 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
   if (!winner || worstState === null) {
     // Both rows present-checked above, so this is unreachable in practice;
     // guard anyway instead of asserting (mirrors resolveD5/resolveD6).
+    return { exists: true, status: null, row: null };
+  }
+
+  // STRICT on the UNCONDITIONAL row: a missing `chat:<slug>` (the row the
+  // producer always writes) makes the family unverified — collapse a present
+  // green/degraded fold to no-data, exactly like the D5/D6 anyMissing
+  // collapse. RANK-based, not red-literal equality, so an out-of-vocabulary
+  // state (ranked above red by the A2 machinery) still surfaces. The
+  // conditional `tools:` row is deliberately NOT held to this (see the
+  // expectation mapping in the doc above).
+  if (!chatRow && rankOfState(worstState) < STATE_RANK.red) {
     return { exists: true, status: null, row: null };
   }
 
@@ -524,8 +551,9 @@ function chipColorToSurface(color: ChipColor): FleetSurfaceState {
  * an OLDER real crash. So we decode EVERY candidate row and return the
  * highest-SEVERITY comm error, using the most recent `observedAt` only to break
  * ties WITHIN a severity tier and falling back to scan order when timestamps are
- * equal/absent (stable tie-break). Returns `undefined` when no candidate row
- * carries a comm error (pool reachable).
+ * equal (stable tie-break; an UNPARSEABLE `observedAt` never reaches the
+ * tie-break — the staleness gate below skips it first). Returns `undefined`
+ * when no candidate row carries a comm error (pool reachable).
  *
  * STALENESS WINDOW: a comm error is only surfaced while it is RECENT. The
  * control-plane mirrors a `PoolCommError` onto the `d6:<slug>` aggregate row but
@@ -635,8 +663,9 @@ function decodeCellCommError(
   // a routine teardown. So a NEWER reclaim must NOT out-rank an OLDER real
   // crash — severity is the primary winner key, recency only the tie-break
   // WITHIN a tier. Within the same tier a later candidate wins only when its
-  // `observedAt` is strictly newer, so for equal/absent timestamps the
-  // first-in-scan-order error is retained (stable tie-break).
+  // `observedAt` is strictly newer, so for equal timestamps the
+  // first-in-scan-order error is retained (stable tie-break). An unparseable
+  // `observedAt` never reaches the tie-break: the staleness gate skips it.
   let winner: PoolCommError | undefined;
   let winnerSeverity = Number.NEGATIVE_INFINITY;
   let winnerTs = Number.NEGATIVE_INFINITY;

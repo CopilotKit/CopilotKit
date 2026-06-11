@@ -295,16 +295,32 @@ describe("buildCellModel", () => {
 
   // ── D4 via tools instead of chat ────────────────────────────────────
   describe("D4 via tools row", () => {
-    it("resolves D4 from tools:<slug> when chat is absent", () => {
+    it("does NOT credit D4 green from tools:<slug> alone when chat is absent (G2f strictness)", () => {
+      // `chat:<slug>` is UNCONDITIONAL on the producer side (the D4 driver
+      // writes the L3 round-trip row for every probed integration), so a
+      // tools-only green fold means the always-expected sibling is missing —
+      // an unverified family that must collapse to no-data, mirroring the
+      // D5/D6 missing-mapped-sub-row strictness. (A green CHAT row with
+      // tools missing still credits D4 — tools is producer-conditional.)
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("tools", "agno"), "tools", "green"),
       ]);
       const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
       expect(model.d4!.exists).toBe(true);
-      expect(model.d4!.status).toBe("green");
+      expect(model.d4!.status).toBeNull();
+      expect(model.d4!.row).toBeNull();
+      expect(model.achievedDepth).toBe(3);
+    });
+
+    it("a RED tools row still surfaces when chat is absent (red dominates no-data)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("tools", "agno"), "tools", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.d4!.status).toBe("red");
       expect(model.d4!.row!.dimension).toBe("tools");
-      expect(model.achievedDepth).toBe(4);
     });
 
     it("worst-state wins when both chat and tools exist", () => {
