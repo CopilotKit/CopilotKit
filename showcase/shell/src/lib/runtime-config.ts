@@ -12,15 +12,34 @@
 // window.__SHOWCASE_CONFIG__ which the root layout injects.
 
 import { unstable_noStore as noStore } from "next/cache";
+import { normalizeBackendHostPattern } from "./backend-url";
 
 export interface RuntimeConfig {
   /** Canonical shell base URL — used for canonical hrefs, OG metadata, etc. */
   baseUrl: string;
   /** PostHog host — middleware ships seo_redirect events here. */
   posthogHost: string;
+  /**
+   * Backend host pattern — `{slug}` is the only placeholder. Used to
+   * derive each integration's backend URL at request time instead of
+   * trusting the registry value baked at Docker build (which froze
+   * prod hostnames into every image — staging iframed prod). Same
+   * semantics as SHOWCASE_BACKEND_HOST_PATTERN in
+   * scripts/generate-registry.ts: host only, `https://` is prepended
+   * by the consumer (see lib/backend-url.ts).
+   */
+  backendHostPattern: string;
+  /** Docs shell host — middleware 301s /docs, /ag-ui, /reference and framework-slug routes here. */
+  docsHost: string;
 }
 
 const PROD_INVALID_BASE_URL = "about:blank#shell-base-url-missing";
+
+// Defaults reproduce today's baked prod values exactly, so a deploy
+// with neither env var set (i.e. current prod) behaves byte-identically.
+export const DEFAULT_BACKEND_HOST_PATTERN =
+  "showcase-{slug}-production.up.railway.app";
+export const DEFAULT_DOCS_HOST = "https://docs.showcase.copilotkit.ai";
 
 /**
  * Resolve the runtime config for shell. Called once per request by the
@@ -57,7 +76,64 @@ export function getRuntimeConfig(
   // matches the previous middleware behavior.
   const posthogHost = readKey("POSTHOG_HOST", "https://eu.i.posthog.com");
 
-  return { baseUrl, posthogHost };
+  // Both URL-routing values have legitimate prod defaults — unset env
+  // means "production behavior", so (like POSTHOG_HOST) they never log
+  // FATAL-CONFIG. Staging/preview deploys override them per-request via
+  // SHOWCASE_BACKEND_HOST_PATTERN / DOCS_HOST service variables.
+  //
+  // backendHostPattern is a host *pattern*, not a URL — don't run it
+  // through readKey/readUrl (`{slug}` must survive untouched). It IS
+  // normalized against common env misconfigs (leading scheme, trailing
+  // slash, missing `{slug}`) with warn-once guards — see
+  // normalizeBackendHostPattern in lib/backend-url.ts.
+  const backendHostPattern = normalizeBackendHostPattern(
+    readEnvPair("SHOWCASE_BACKEND_HOST_PATTERN") ??
+      DEFAULT_BACKEND_HOST_PATTERN,
+  );
+  const docsHost = readDocsHost();
+
+  return { baseUrl, posthogHost, backendHostPattern, docsHost };
+}
+
+// Matches an explicit URL scheme prefix (e.g. `https://`, `http://`).
+const SCHEME_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+// One loud log per distinct bad DOCS_HOST value — not per request.
+const docsHostFallbackLogged = new Set<string>();
+
+/**
+ * Read DOCS_HOST defensively. Middleware calls `new URL(docsHost)` on
+ * every docs-host route, so an unparseable value would 500 ALL docs
+ * traffic. Two hardening steps:
+ *
+ * 1. A scheme-less, host-only value (e.g. `docs-staging.example.com`)
+ *    gets `https://` prepended. This is a likely misconfig: the sibling
+ *    SHOWCASE_BACKEND_HOST_PATTERN var is documented as scheme-less,
+ *    and an operator can easily carry that format over.
+ * 2. If the value still isn't parseable as a URL, log loudly once and
+ *    fall back to the default docs host — degraded-but-working docs
+ *    redirects beat a sitewide docs 500.
+ */
+function readDocsHost(): string {
+  const raw = readKey("DOCS_HOST", DEFAULT_DOCS_HOST);
+  const candidate = SCHEME_RE.test(raw) ? raw : `https://${raw}`;
+  try {
+    // Parse for validation only — return the string form so trailing-slash
+    // stripping (readKey) is preserved.
+    new URL(candidate);
+    return candidate;
+  } catch {
+    if (!docsHostFallbackLogged.has(raw)) {
+      docsHostFallbackLogged.add(raw);
+      // eslint-disable-next-line no-console
+      console.error(
+        `[shell runtime-config] FATAL-CONFIG: DOCS_HOST ${JSON.stringify(raw)} is not a ` +
+          `parseable URL (even after prepending https://); falling back to ` +
+          `${DEFAULT_DOCS_HOST}. Fix the DOCS_HOST env var on the Railway service.`,
+      );
+    }
+    return DEFAULT_DOCS_HOST;
+  }
 }
 
 /**

@@ -13,6 +13,11 @@ describe("client getRuntimeConfig (shell)", () => {
 
   afterEach(() => {
     (globalThis as { window?: Window }).window = originalWindow;
+    // Clean up the injected config HERE, not only in the next test's
+    // beforeEach — the last test in this file must not leak
+    // __SHOWCASE_CONFIG__ into other test files under worker reuse.
+    delete (globalThis.window as Window & { __SHOWCASE_CONFIG__?: unknown })
+      .__SHOWCASE_CONFIG__;
   });
 
   it("returns the injected config", () => {
@@ -20,10 +25,14 @@ describe("client getRuntimeConfig (shell)", () => {
       {
         baseUrl: "https://showcase.example.com",
         posthogHost: "https://eu.i.posthog.com",
+        backendHostPattern: "showcase-{slug}-production.up.railway.app",
+        docsHost: "https://docs.showcase.copilotkit.ai",
       };
     expect(getRuntimeConfig()).toEqual({
       baseUrl: "https://showcase.example.com",
       posthogHost: "https://eu.i.posthog.com",
+      backendHostPattern: "showcase-{slug}-production.up.railway.app",
+      docsHost: "https://docs.showcase.copilotkit.ai",
     });
   });
 
@@ -47,6 +56,11 @@ describe("client getRuntimeConfig (shell)", () => {
       // URL fields must be parseable.
       expect(() => new URL(cfg.baseUrl)).not.toThrow();
       expect(() => new URL(cfg.posthogHost)).not.toThrow();
+      expect(() => new URL(cfg.docsHost)).not.toThrow();
+      // The host pattern is not a URL but must keep the {slug}
+      // placeholder so substitution still yields a syntactically
+      // valid (non-resolvable) host during SSR.
+      expect(cfg.backendHostPattern).toContain("{slug}");
     } finally {
       (globalThis as { window?: typeof w }).window = w;
     }

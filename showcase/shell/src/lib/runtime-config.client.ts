@@ -36,6 +36,12 @@ const SSR_PLACEHOLDER_URL = "https://ssr-placeholder.invalid/";
 const SSR_PLACEHOLDER: RuntimeConfig = {
   baseUrl: SSR_PLACEHOLDER_URL,
   posthogHost: SSR_PLACEHOLDER_URL,
+  // Keep the {slug} placeholder so an SSR-phase substitution still
+  // yields a parseable, RFC-2606-unresolvable host. No iframe ever
+  // renders from this: backend-URL consumers gate on client state
+  // that is only populated post-hydration.
+  backendHostPattern: "showcase-{slug}.ssr-placeholder.invalid",
+  docsHost: SSR_PLACEHOLDER_URL,
 };
 
 /**

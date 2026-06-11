@@ -17,8 +17,12 @@ describe("server getRuntimeConfig (shell)", () => {
     for (const k of [
       "BASE_URL",
       "POSTHOG_HOST",
+      "DOCS_HOST",
+      "SHOWCASE_BACKEND_HOST_PATTERN",
       "NEXT_PUBLIC_BASE_URL",
       "NEXT_PUBLIC_POSTHOG_HOST",
+      "NEXT_PUBLIC_DOCS_HOST",
+      "NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN",
       "NODE_ENV",
     ]) {
       delete (process.env as Record<string, string | undefined>)[k];
@@ -26,6 +30,15 @@ describe("server getRuntimeConfig (shell)", () => {
   });
 
   afterEach(() => {
+    // Full restore, not just value restore: Object.assign alone cannot
+    // DELETE keys a test added (e.g. DOCS_HOST set by a test but absent
+    // from the snapshot), which poisons other test FILES under vitest
+    // worker reuse. Drop added keys first, then restore values.
+    for (const key of Object.keys(process.env)) {
+      if (!(key in ORIGINAL_ENV)) {
+        delete (process.env as Record<string, string | undefined>)[key];
+      }
+    }
     Object.assign(process.env, ORIGINAL_ENV);
   });
 
@@ -36,7 +49,113 @@ describe("server getRuntimeConfig (shell)", () => {
     expect(getRuntimeConfig()).toEqual({
       baseUrl: "https://showcase.copilotkit.ai",
       posthogHost: "https://eu.i.posthog.com",
+      // Defaults preserved when the new env vars are unset — prod
+      // requires NO env change.
+      backendHostPattern: "showcase-{slug}-production.up.railway.app",
+      docsHost: "https://docs.showcase.copilotkit.ai",
     });
+  });
+
+  it("backendHostPattern/docsHost default to prod values when unset (both envs, no FATAL log)", () => {
+    for (const nodeEnv of ["production", "development"]) {
+      (process.env as Record<string, string>).NODE_ENV = nodeEnv;
+      process.env.BASE_URL = "https://showcase.copilotkit.ai";
+      const errs: string[] = [];
+      const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+        errs.push(m);
+      });
+      const cfg = getRuntimeConfig();
+      spy.mockRestore();
+      expect(cfg.backendHostPattern).toBe(
+        "showcase-{slug}-production.up.railway.app",
+      );
+      expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      // These have legitimate prod defaults — never FATAL-CONFIG noise.
+      expect(errs.some((m) => m.includes("DOCS_HOST"))).toBe(false);
+      expect(
+        errs.some((m) => m.includes("SHOWCASE_BACKEND_HOST_PATTERN")),
+      ).toBe(false);
+    }
+  });
+
+  it("honors SHOWCASE_BACKEND_HOST_PATTERN and DOCS_HOST at request time", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://staging.example.com";
+    process.env.SHOWCASE_BACKEND_HOST_PATTERN =
+      "showcase-{slug}-staging.up.railway.app";
+    process.env.DOCS_HOST = "https://docs-staging.example.com/";
+    const cfg = getRuntimeConfig();
+    expect(cfg.backendHostPattern).toBe(
+      "showcase-{slug}-staging.up.railway.app",
+    );
+    // docsHost is a URL — trailing slash stripped like the others.
+    expect(cfg.docsHost).toBe("https://docs-staging.example.com");
+
+    // Live re-read on each call (no module-load freeze).
+    process.env.DOCS_HOST = "https://docs-staging2.example.com";
+    expect(getRuntimeConfig().docsHost).toBe(
+      "https://docs-staging2.example.com",
+    );
+  });
+
+  it("normalizes a scheme-bearing / slash-trailing SHOWCASE_BACKEND_HOST_PATTERN", () => {
+    // The consumer (backendUrlFromPattern) prepends `https://` and
+    // concatenates routes — a scheme-bearing value would yield
+    // `https://https://…` and a trailing slash would yield `//route`.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.SHOWCASE_BACKEND_HOST_PATTERN =
+      "https://showcase-{slug}-staging.up.railway.app/";
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(getRuntimeConfig().backendHostPattern).toBe(
+        "showcase-{slug}-staging.up.railway.app",
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("prepends https:// when DOCS_HOST lacks a scheme (host-only misconfig)", () => {
+    // Middleware does `new URL(docsHost)` on every docs route. A
+    // host-only DOCS_HOST (the documented format of the sibling
+    // SHOWCASE_BACKEND_HOST_PATTERN var, an easy misconfig) must NOT
+    // produce an unparseable URL that 500s every docs request.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    process.env.DOCS_HOST = "docs-staging.example.com";
+    const cfg = getRuntimeConfig();
+    expect(cfg.docsHost).toBe("https://docs-staging.example.com");
+    expect(() => new URL(cfg.docsHost)).not.toThrow();
+  });
+
+  it("preserves an explicit http:// scheme on DOCS_HOST", () => {
+    (process.env as Record<string, string>).NODE_ENV = "development";
+    process.env.DOCS_HOST = "http://localhost:3005";
+    expect(getRuntimeConfig().docsHost).toBe("http://localhost:3005");
+  });
+
+  it("falls back to the default docs host (with one loud log) when DOCS_HOST is unparseable", () => {
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.BASE_URL = "https://showcase.copilotkit.ai";
+    // Spaces make the host unparseable even after prepending https://.
+    process.env.DOCS_HOST = "not a parseable host";
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
+      errs.push(m);
+    });
+    try {
+      const cfg = getRuntimeConfig();
+      expect(cfg.docsHost).toBe("https://docs.showcase.copilotkit.ai");
+      expect(() => new URL(cfg.docsHost)).not.toThrow();
+      expect(errs.some((m) => m.includes("DOCS_HOST"))).toBe(true);
+      // Loud log fires ONCE per bad value, not per request.
+      const before = errs.length;
+      getRuntimeConfig();
+      expect(errs.length).toBe(before);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("strips trailing slashes", () => {
@@ -122,19 +241,26 @@ describe("server getRuntimeConfig (shell)", () => {
   it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {
     const cacheMod = await import("next/cache");
     const noStoreSpy = vi.spyOn(cacheMod, "unstable_noStore");
-    (process.env as Record<string, string>).NODE_ENV = "production";
-    process.env.BASE_URL = "https://edge.example.com";
-    process.env.POSTHOG_HOST = "https://edge-posthog.example.com";
+    // try/finally so a failing assertion can't leak the spy into other
+    // tests — mockRestore after the assertions alone never runs on failure.
+    try {
+      (process.env as Record<string, string>).NODE_ENV = "production";
+      process.env.BASE_URL = "https://edge.example.com";
+      process.env.POSTHOG_HOST = "https://edge-posthog.example.com";
 
-    const { getRuntimeConfigForMiddleware } = await import("./runtime-config");
-    const cfg = getRuntimeConfigForMiddleware();
-    expect(cfg.baseUrl).toBe("https://edge.example.com");
-    expect(noStoreSpy).not.toHaveBeenCalled();
+      const { getRuntimeConfigForMiddleware } = await import(
+        "./runtime-config"
+      );
+      const cfg = getRuntimeConfigForMiddleware();
+      expect(cfg.baseUrl).toBe("https://edge.example.com");
+      expect(noStoreSpy).not.toHaveBeenCalled();
 
-    // And confirm the default entrypoint DOES call noStore().
-    noStoreSpy.mockClear();
-    getRuntimeConfig();
-    expect(noStoreSpy).toHaveBeenCalledTimes(1);
-    noStoreSpy.mockRestore();
+      // And confirm the default entrypoint DOES call noStore().
+      noStoreSpy.mockClear();
+      getRuntimeConfig();
+      expect(noStoreSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      noStoreSpy.mockRestore();
+    }
   });
 });

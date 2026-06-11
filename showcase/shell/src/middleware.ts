@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
 import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
+import { resolveDocsHostRedirect } from "@/lib/docs-redirects";
 import registry from "@/data/registry.json";
 
 // ---------------------------------------------------------------------------
@@ -81,35 +82,38 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
 // Middleware
 // ---------------------------------------------------------------------------
 
-// Framework slugs owned by the new `/<framework>/<...slug>` catch-all
-// route. Any path whose first segment matches one of these is a
-// first-class framework-scoped docs URL — the SEO-redirect table must
-// NOT hijack it even when the legacy framework keys (`mastra`,
-// `agno`, `llamaindex`, `pydantic-ai`, `ag2`) overlap with registry
-// slugs. Concretely: `/mastra/agentic-chat-ui` is the new docs URL,
-// not a legacy SEO path.
+// Framework slugs owned by the docs shell. Any path whose first
+// segment matches one of these is a framework-scoped docs URL — it
+// 301s to the docs host BEFORE the SEO-redirect table runs, so legacy
+// redirects (e.g. `/mastra/agentic-chat-ui` →
+// `/docs/integrations/mastra/prebuilt-components`) can never hijack it
+// even when legacy framework keys overlap with registry slugs.
 const REGISTRY_FRAMEWORK_SLUGS: Set<string> = new Set(
   (registry as { integrations?: { slug: string }[] }).integrations?.map(
     (i) => i.slug,
   ) ?? [],
 );
 
-function pathIsFrameworkScoped(pathname: string): boolean {
-  const first = pathname.split("/").filter(Boolean)[0];
-  return Boolean(first) && REGISTRY_FRAMEWORK_SLUGS.has(first);
-}
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Short-circuit: paths owned by the framework-scoped docs route
-  // should never be touched by the SEO-redirect table. This prevents
-  // legacy redirects (e.g. `/mastra/agentic-chat-ui` →
-  // `/docs/integrations/mastra/prebuilt-components`) from fighting the
-  // new catch-all, which wants `/mastra/agentic-chat-ui` to render the
-  // Mastra-scoped Agentic Chat UI docs in place.
-  if (pathIsFrameworkScoped(pathname)) {
-    return NextResponse.next();
+  // 0. Docs-host routes (/docs, /ag-ui, /reference, /<framework-slug>).
+  // These 301s used to live in next.config.ts `redirects()` — which
+  // runs BEFORE middleware, hence this check sits FIRST to preserve
+  // the exact same precedence over the SEO table. They moved here so
+  // the destination host resolves from the runtime config (DOCS_HOST
+  // env var) at request time instead of being baked into the image.
+  const docsDestination = resolveDocsHostRedirect(
+    pathname,
+    getRuntimeConfigForMiddleware().docsHost,
+    REGISTRY_FRAMEWORK_SLUGS,
+  );
+  if (docsDestination) {
+    const dest = new URL(docsDestination);
+    // next.config redirects forward the query string by default — keep
+    // that behavior.
+    dest.search = request.nextUrl.search;
+    return NextResponse.redirect(dest, 301);
   }
 
   // 1. Exact match (O(1) Map lookup)
