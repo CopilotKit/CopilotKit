@@ -51,6 +51,7 @@ import type {
   JobClaimClient,
   JobView,
   ReleaseResult,
+  RenewResult,
 } from "./job-claim.js";
 import { RELEASE_REFUSED_TERMINAL_SAME_HOLDER } from "./job-claim.js";
 import { probeKeyFamily, terminalJobStatus } from "./contracts.js";
@@ -512,6 +513,17 @@ export function createFleetQueueClient(
   // time and reuse it on renew, making the re-read a non-fatal convenience.
   const payloadCache = new Map<string, ServiceJobPayload>();
 
+  // Last-known GOOD lease per held job, set at claim time and refreshed on
+  // every successful renew. This is what an INDETERMINATE renew (a thrown
+  // claim.renewLease — 5xx or 2xx-unreadable; the renew may or may not have
+  // committed) hands back to the heartbeat: the worker heartbeat treats a
+  // renewLease THROW like a lost lease (it breaks), so letting the throw
+  // escape kills the heartbeat → the sweeper reclaims a LIVE job → a FALSE
+  // worker-crashed-mid-job. Returning the current lease unchanged keeps the
+  // heartbeat alive so the NEXT beat retries; only a definitive
+  // `renewed: false` stops it. Evicted exactly where payloadCache is.
+  const leaseCache = new Map<string, JobLease>();
+
   /**
    * Bounded-retry persistence of a per-service result onto an ALREADY
    * TERMINAL probe_jobs row — the SEPARATE record write that follows a
@@ -858,13 +870,16 @@ export function createFleetQueueClient(
             continue;
           }
           // Cache for the renew path so a later heartbeat doesn't depend on a
-          // fresh PB re-read to re-hydrate the payload.
+          // fresh PB re-read to re-hydrate the payload, and remember the
+          // lease itself so an INDETERMINATE renew can keep it assumed-live.
           payloadCache.set(result.job.id, payload);
+          const lease = leaseFromJob(result.job, payload);
+          leaseCache.set(result.job.id, lease);
           logger.debug("queue-client.claimed", {
             jobId: result.job.id,
             workerId: raceWorkerId,
           });
-          return { claimed: true, lease: leaseFromJob(result.job, payload) };
+          return { claimed: true, lease };
         }
         return null;
       }
@@ -875,7 +890,40 @@ export function createFleetQueueClient(
       workerId: string,
       leaseSeconds: number,
     ): Promise<JobLease | null> {
-      const result = await claim.renewLease(jobId, workerId, leaseSeconds);
+      let result: RenewResult;
+      try {
+        result = await claim.renewLease(jobId, workerId, leaseSeconds);
+      } catch (err) {
+        // INDETERMINATE renew (thrown 5xx / transport blip / job-claim's
+        // 2xx-unreadable): the renew may or may not have committed. The
+        // worker heartbeat treats a renewLease THROW as fatal (it breaks),
+        // so an escaped throw stops heartbeating and the sweeper later
+        // reclaims a possibly-LIVE job — a false worker-crashed-mid-job.
+        // Contain it: keep the last-known lease ASSUMED-LIVE (no eviction,
+        // not null) so the heartbeat retries on the next beat; only a
+        // definitive `renewed: false` stops it.
+        //
+        // ACCEPTED RISK (at most one lease duration): if the renew really
+        // did NOT commit, the server-side lease keeps ticking toward its
+        // previous expiry while we assume-live — the sweeper may re-queue
+        // the job while this worker still runs it (duplicate execution for
+        // up to one lease window). That is bounded and safe: the release
+        // CAS arbitrates terminal writes, so the loser's report is refused.
+        const known = leaseCache.get(jobId);
+        if (known) {
+          logger.warn("queue-client.renew-indeterminate", {
+            jobId,
+            workerId,
+            msg: "renew indeterminate — keeping lease assumed-live, retrying next beat",
+            err: err instanceof Error ? err.message : String(err),
+          });
+          return known;
+        }
+        // No locally-known lease (no same-process claim preceded this renew
+        // — outside the worker flow): nothing to assume-live from, so stay
+        // loud rather than fabricate a lease.
+        throw err;
+      }
       if (!result.renewed || !result.job) {
         // The renew CAS was LOST: the lease is gone for this worker (stolen,
         // swept, or already terminal) and it will never report or renew this
@@ -884,6 +932,7 @@ export function createFleetQueueClient(
         // cache entry strands forever and the per-client map grows with
         // every lost/abandoned job.
         payloadCache.delete(jobId);
+        leaseCache.delete(jobId);
         return null;
       }
       // The renew CAS already returned the authoritative lifecycle columns. The
@@ -938,9 +987,13 @@ export function createFleetQueueClient(
         // payload synthesized from the authoritative CAS row. We ONLY return
         // null when the CAS itself failed (handled above).
         logger.warn("queue-client.renew-no-payload", { jobId, workerId });
-        return leaseFromJob(result.job, emptyPayloadForLease(result.job));
+        const fallback = leaseFromJob(result.job, emptyPayloadForLease(result.job));
+        leaseCache.set(jobId, fallback);
+        return fallback;
       }
-      return leaseFromJob(result.job, payload);
+      const renewedLease = leaseFromJob(result.job, payload);
+      leaseCache.set(jobId, renewedLease);
+      return renewedLease;
     },
 
     async report(input: ReportJobInput): Promise<void> {
@@ -1031,9 +1084,10 @@ export function createFleetQueueClient(
         );
       } finally {
         // Terminal for this worker no matter the outcome — drop the cached
-        // payload here so neither a refused release nor an exhausted result
-        // write leaks the entry.
+        // payload + lease here so neither a refused release nor an exhausted
+        // result write leaks the entries.
         payloadCache.delete(input.jobId);
+        leaseCache.delete(input.jobId);
       }
     },
 

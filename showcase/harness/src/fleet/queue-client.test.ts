@@ -2526,6 +2526,89 @@ describe("FleetQueueClient.renewLease", () => {
     );
   });
 
+  it("a THROWN renew (5xx / unreadable-2xx) keeps the CURRENT lease assumed-live instead of killing the heartbeat", async () => {
+    // INDETERMINACY CONTAINMENT (G1b): a renew that THROWS (transport blip,
+    // 5xx, or job-claim's 2xx-unreadable indeterminate) may or may not have
+    // committed. The worker heartbeat catches a renewLease throw and BREAKS
+    // (worker-loop.ts), so an escaped throw stops heartbeating → the sweeper
+    // reclaims a LIVE job → a FALSE worker-crashed-mid-job. renewLease must
+    // contain the throw: warn, keep the last-known lease assumed-live, and
+    // let the NEXT beat retry. Only a definitive renewed:false stops the
+    // heartbeat.
+    const payload = samplePayload();
+    const { pb } = makeFakePb([{ ...jobView({ id: "j1" }), payload }]);
+    const getOneSpy = vi.fn(pb.getOne.bind(pb));
+    pb.getOne = getOneSpy as PbClient["getOne"];
+    let renewThrows = true;
+    const claim = makeFakeClaim({
+      claimJob: vi.fn(
+        async (jobId, workerId): Promise<ClaimResult> => ({
+          won: true,
+          job: jobView({
+            id: jobId,
+            status: "claimed",
+            claimed_by: workerId,
+            lease_expires_at: "2026-06-04T00:01:00.000Z",
+            version: 1,
+          }),
+        }),
+      ),
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        if (renewThrows) throw new Error("2xx body unreadable — outcome indeterminate");
+        return {
+          renewed: true,
+          job: jobView({
+            id: "j1",
+            status: "running",
+            claimed_by: "worker-7",
+            lease_expires_at: "2026-06-04T00:02:00.000Z",
+            version: 2,
+          }),
+        };
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    await q.claimNext("worker-7", 30);
+
+    // The thrown renew is contained: the CURRENT (claim-time) lease comes
+    // back unchanged — NOT null — so the heartbeat continues.
+    const kept = await q.renewLease("j1", "worker-7", 30);
+    expect(kept).not.toBeNull();
+    expect(kept?.leaseExpiresAt).toBe("2026-06-04T00:01:00.000Z");
+    expect(kept?.payload).toEqual(payload);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "queue-client.renew-indeterminate",
+      expect.objectContaining({ jobId: "j1", workerId: "worker-7" }),
+    );
+
+    // The payload cache was NOT evicted by the indeterminate beat: the next
+    // (successful) renew re-hydrates from cache, never the convenience
+    // re-read.
+    renewThrows = false;
+    const next = await q.renewLease("j1", "worker-7", 30);
+    expect(next?.leaseExpiresAt).toBe("2026-06-04T00:02:00.000Z");
+    expect(next?.payload).toEqual(payload);
+    expect(getOneSpy).not.toHaveBeenCalled();
+  });
+
+  it("a thrown renew with NO locally-known lease still throws (nothing to assume-live from)", async () => {
+    const { pb } = makeFakePb([
+      { ...jobView({ id: "j1" }), payload: samplePayload() },
+    ]);
+    const claim = makeFakeClaim({
+      renewLease: vi.fn(async (): Promise<RenewResult> => {
+        throw new Error("renew transport blip");
+      }),
+    });
+    const q = createFleetQueueClient({ pb, claim, logger });
+
+    // No prior claim in this process → no cached lease to keep alive.
+    await expect(q.renewLease("j1", "worker-7", 30)).rejects.toThrow(
+      /renew transport blip/,
+    );
+  });
+
   it("returns a lease on a SUCCESSFUL CAS even when cache miss AND reread fail", async () => {
     // The CAS renewed (won), but there is NO prior same-process claim (cache
     // empty) AND the convenience re-read THROWS (PB blip). A successful CAS
