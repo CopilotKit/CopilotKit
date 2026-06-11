@@ -1,13 +1,37 @@
-import { Check, MessageSquare, PlusCircle, Send, X } from "lucide-react";
-import type { Transaction } from "@/app/api/v1/data";
+"use client";
+
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  Check,
+  MessageSquare,
+  X,
+} from "lucide-react";
+import type {
+  ExpensePolicy,
+  PolicyException,
+  Transaction,
+} from "@/app/api/v1/data";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
+import { useRecording } from "@/components/recording-context";
+import { PolicyExceptionInline } from "@/components/policy-exception-inline";
+
+type ExceptionResult = {
+  ok: boolean;
+  data?: PolicyException;
+  error?: string;
+};
 
 interface ApprovalInterfaceProps {
-  onApprove?: (transactionId: string) => void;
-  onDeny?: (transactionId: string) => void;
+  // Return true iff the server mutation succeeded, so the caller only records
+  // the human action when it actually took effect (a blocked over-limit
+  // approval must not be recorded as an approval).
+  onApprove?: (transactionId: string) => Promise<boolean> | boolean;
+  onDeny?: (transactionId: string) => Promise<boolean> | boolean;
 }
 
 interface TransactionsListProps {
@@ -15,6 +39,19 @@ interface TransactionsListProps {
   compact?: boolean;
   showApprovalInterface?: boolean;
   approvalInterfaceProps?: ApprovalInterfaceProps;
+  // Expense policies, used to derive the over-limit indicator on the client
+  // (no server-only store import). Only needed when showApprovalInterface.
+  policies?: ExpensePolicy[];
+  // REST callers, threaded in from the page's `useCreditCards` hook to avoid
+  // duplicate polling. Passed straight to the PolicyExceptionModal. Only
+  // needed when the approval interface is shown.
+  openPolicyException?: (args: {
+    transactionId: string;
+    code: string;
+  }) => Promise<ExceptionResult>;
+  finalizePolicyException?: (args: {
+    exceptionId: string;
+  }) => Promise<ExceptionResult>;
 }
 
 export function TransactionsList({
@@ -22,145 +59,213 @@ export function TransactionsList({
   compact = false,
   showApprovalInterface = false,
   approvalInterfaceProps = {},
+  policies = [],
+  openPolicyException,
+  finalizePolicyException,
 }: TransactionsListProps) {
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 3000);
-
-    // Cleanup the timer on component unmount
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (loading) {
-    return (
-      <div
-        className={cn(
-          "border rounded-lg overflow-hidden p-4",
-          compact ? "text-sm" : "text-base",
-        )}
-      >
-        Fetching data...
-      </div>
-    );
-  }
+  // Called unconditionally at the top so hook order is stable. When this
+  // component is rendered compact / read-only (without showApprovalInterface)
+  // the recorder is simply never invoked.
+  const recordUserAction = useRecordUserActionInCurrentThread();
+  // Bracket each record so the canvas recording vignette pulses while a
+  // demonstrated action is captured (true even against the no-op shim).
+  const { beginRecording, endRecording } = useRecording();
+  const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
   return (
-    <div
-      className={cn(
-        "border rounded-lg overflow-hidden",
-        compact ? "text-sm" : "text-base",
-      )}
-    >
-      {transactions.map((transaction, index) => (
-        <div key={transaction.id}>
-          <div className={cn("flex items-center p-4", compact ? "p-3" : "p-4")}>
+    <div className={cn("overflow-hidden", compact ? "text-sm" : "text-base")}>
+      {transactions.map((transaction) => {
+        // Over-limit is derived on the CLIENT from already-loaded data: a
+        // pending txn whose policy would be pushed past its limit by this
+        // amount, and which has no exception linked yet. Once a justifying
+        // exception is finalized server-side, `activeExceptionId` is set and
+        // this clears. (A non-justifying exception also clears the badge but
+        // the approve will re-block server-side — acceptable for the demo.)
+        const policy = policies.find((p) => p.id === transaction.policyId);
+        const policyOver =
+          !!policy &&
+          policy.spent + Math.abs(transaction.amount) > policy.limit;
+        const overLimit = policyOver && !transaction.activeExceptionId;
+
+        const isIncome = transaction.amount > 0;
+        return (
+          <div key={transaction.id}>
             <div
               className={cn(
-                "rounded-full flex items-center justify-center mr-4",
-                transaction.amount > 0 ? "bg-green-500" : "bg-red-500",
-                compact ? "w-6 h-6" : "w-8 h-8",
+                "flex items-center rounded-2xl transition-colors hover:bg-surface-muted",
+                compact ? "gap-3 p-2.5" : "gap-4 p-3",
               )}
             >
-              {transaction.amount > 0 ? (
-                <PlusCircle
-                  className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")}
-                />
-              ) : (
-                <Send
-                  className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")}
-                />
-              )}
-            </div>
-            <div className="flex-1 space-y-1">
-              <p
+              <div
                 className={cn(
-                  "font-medium leading-tight",
-                  compact ? "text-xs" : "text-sm",
+                  "flex items-center justify-center rounded-full",
+                  isIncome
+                    ? "bg-positive-soft text-positive"
+                    : "bg-negative-soft text-negative",
+                  compact ? "h-9 w-9" : "h-11 w-11",
                 )}
               >
-                {transaction.title}
-              </p>
-              <p
-                className={cn(
-                  "text-neutral-500 dark:text-neutral-400 leading-tight",
-                  compact ? "text-xs" : "text-sm",
+                {isIncome ? (
+                  <ArrowUpRight
+                    className={cn(compact ? "h-4 w-4" : "h-5 w-5")}
+                  />
+                ) : (
+                  <ArrowDownRight
+                    className={cn(compact ? "h-4 w-4" : "h-5 w-5")}
+                  />
                 )}
-              >
-                {transaction.date}
-              </p>
-            </div>
-            <div
-              className={cn(
-                transaction.amount > 0 ? "text-green-500" : "text-red-500",
-                compact ? "text-sm" : "text-base",
-              )}
-            >
-              {transaction.amount > 0 ? "+" : ""}
-              {formatCurrency(transaction.amount)}
-            </div>
-          </div>
-          {transaction.note && (
-            <div
-              className={cn(
-                "bg-neutral-100 dark:bg-neutral-800 p-3 flex items-start",
-                compact ? "p-2" : "p-3",
-              )}
-            >
-              <MessageSquare
-                className={cn(
-                  "text-neutral-500 dark:text-neutral-400 mr-2 flex-shrink-0",
-                  compact ? "h-3 w-3 mt-0.5" : "h-4 w-4 mt-1",
-                )}
-              />
-              <div className="flex-1">
+              </div>
+              <div className="flex-1 space-y-0.5">
                 <p
                   className={cn(
-                    "text-neutral-700 dark:text-neutral-300",
+                    "font-semibold leading-tight text-ink",
                     compact ? "text-xs" : "text-sm",
                   )}
                 >
-                  {transaction.note.content}
+                  {transaction.title}
                 </p>
                 <p
                   className={cn(
-                    "text-neutral-500 dark:text-neutral-400 mt-1",
-                    compact ? "text-xs" : "text-sm",
+                    "leading-tight text-ink-muted",
+                    compact ? "text-[0.7rem]" : "text-xs",
                   )}
                 >
-                  {transaction.note.date}
+                  {isIncome ? "Incoming" : "Outgoing"} · {transaction.date}
                 </p>
               </div>
-            </div>
-          )}
-          {showApprovalInterface && transaction.status === "pending" && (
-            <div className="flex items-center justify-center space-x-4 rounded-lg bg-white p-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  approvalInterfaceProps?.onApprove?.(transaction.id)
-                }
-                aria-label="Approve"
-                className="h-12 w-12 rounded-full bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30 dark:hover:text-green-300"
+              <div
+                className={cn(
+                  "font-semibold tabular-nums",
+                  isIncome ? "text-positive" : "text-negative",
+                  compact ? "text-sm" : "text-base",
+                )}
               >
-                <Check className="h-6 w-6" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => approvalInterfaceProps?.onDeny?.(transaction.id)}
-                aria-label="Deny"
-                className="h-12 w-12 rounded-full bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300"
-              >
-                <X className="h-6 w-6" />
-              </Button>
+                {isIncome ? "+" : ""}
+                {formatCurrency(transaction.amount)}
+              </div>
             </div>
-          )}
-          {index < transactions.length - 1 && <Separator className="my-0" />}
-        </div>
-      ))}
+            {transaction.note && (
+              <div
+                className={cn(
+                  "mx-3 mb-2 flex items-start rounded-xl bg-surface-muted",
+                  compact ? "p-2" : "p-3",
+                )}
+              >
+                <MessageSquare
+                  className={cn(
+                    "mr-2 flex-shrink-0 text-ink-muted",
+                    compact ? "h-3 w-3 mt-0.5" : "h-4 w-4 mt-0.5",
+                  )}
+                />
+                <div className="flex-1">
+                  <p
+                    className={cn("text-ink", compact ? "text-xs" : "text-sm")}
+                  >
+                    {transaction.note.content}
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-1 text-ink-muted",
+                      compact ? "text-xs" : "text-sm",
+                    )}
+                  >
+                    {transaction.note.date}
+                  </p>
+                </div>
+              </div>
+            )}
+            {showApprovalInterface && transaction.status === "pending" && (
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface p-4">
+                {overLimit && (
+                  <div className="flex w-full flex-col items-center gap-2">
+                    <div className="flex items-center gap-1.5 rounded-full bg-negative-soft px-2.5 py-1 text-xs font-medium text-negative ring-1 ring-inset ring-negative/30">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Over policy limit
+                    </div>
+                    {exceptionTxnId === transaction.id &&
+                    openPolicyException &&
+                    finalizePolicyException ? (
+                      // The exception flow renders INLINE in the chat card (not
+                      // a popup modal) so the officer's whole demonstration —
+                      // symptom → file exception → recorded — happens right in
+                      // the conversation.
+                      <PolicyExceptionInline
+                        transactionId={transaction.id}
+                        openPolicyException={openPolicyException}
+                        finalizePolicyException={finalizePolicyException}
+                        onFiled={() => setExceptionTxnId(null)}
+                        onCancel={() => setExceptionTxnId(null)}
+                      />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExceptionTxnId(transaction.id)}
+                      >
+                        File policy exception
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center justify-center space-x-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={async () => {
+                      const ok =
+                        (await approvalInterfaceProps?.onApprove?.(
+                          transaction.id,
+                        )) ?? false;
+                      if (!ok) return;
+                      beginRecording();
+                      recordUserAction({
+                        title: "transaction.approved",
+                        description:
+                          "User approved a pending transaction from the transactions view.",
+                        previousData: { status: "pending" },
+                        newData: { status: "approved" },
+                        metadata: { transactionId: transaction.id },
+                      })
+                        .catch(console.error)
+                        .finally(() => endRecording());
+                    }}
+                    aria-label="Approve"
+                    className="h-12 w-12 rounded-full border-transparent bg-positive-soft text-positive hover:bg-positive-soft hover:text-positive hover:brightness-95 dark:hover:brightness-110"
+                  >
+                    <Check className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={async () => {
+                      const ok =
+                        (await approvalInterfaceProps?.onDeny?.(
+                          transaction.id,
+                        )) ?? false;
+                      if (!ok) return;
+                      beginRecording();
+                      recordUserAction({
+                        title: "transaction.denied",
+                        description:
+                          "User denied a pending transaction from the transactions view.",
+                        previousData: { status: "pending" },
+                        newData: { status: "denied" },
+                        metadata: { transactionId: transaction.id },
+                      })
+                        .catch(console.error)
+                        .finally(() => endRecording());
+                    }}
+                    aria-label="Deny"
+                    className="h-12 w-12 rounded-full border-transparent bg-negative-soft text-negative hover:bg-negative-soft hover:text-negative hover:brightness-95 dark:hover:brightness-110"
+                  >
+                    <X className="h-6 w-6" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

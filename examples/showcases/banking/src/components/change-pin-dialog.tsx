@@ -47,7 +47,17 @@ export function ChangePinDialog({
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>Choose card</DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="col-span-4 justify-between">
+                  {cardId
+                    ? (() => {
+                        const c = cards.find((card) => card.id === cardId);
+                        return c ? `${c.type} - ${c.last4}` : "Choose card";
+                      })()
+                    : "Choose card"}
+                  <CreditCard className="ml-2 h-4 w-4 text-ink-muted" />
+                </Button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent>
                 {cards.map((card) => (
                   <DropdownMenuItem
@@ -55,7 +65,7 @@ export function ChangePinDialog({
                     onClick={() => setCardId(card.id)}
                   >
                     <div className="flex items-center">
-                      <div className="bg-blue-500 rounded-full p-1 mr-2">
+                      <div className="brand-gradient mr-2 rounded-full p-1">
                         <CreditCard className="h-4 w-4 text-white" />
                       </div>
                       {card.type} - {card.last4}
