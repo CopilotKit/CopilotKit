@@ -1,17 +1,17 @@
+import type { Signal } from "@angular/core";
 import {
   DestroyRef,
   Injectable,
   inject,
   signal,
   computed,
-  Signal,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
@@ -43,7 +43,13 @@ export class AgentStore {
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
-        this.#messages.set(abstractAgent.messages);
+        // Copy into a fresh array so the signal's Object.is equality check
+        // sees a new reference. AbstractAgent.addMessage mutates its messages
+        // array in place and notifies with the same reference, so set()ing
+        // that reference directly is a no-op: OnPush views bound to this
+        // signal would not re-render until the array identity changed (e.g.
+        // at run completion). See issue #5416.
+        this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
         this.#state.set(abstractAgent.state);
