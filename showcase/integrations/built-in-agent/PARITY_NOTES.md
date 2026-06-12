@@ -77,10 +77,18 @@ PR that bumps `@copilotkit/react-core`.
 
 Two demos render a graceful "not supported" banner with
 `data-testid="not-supported-banner"` so the harness can detect them
-deterministically instead of timing out on missing UI:
+deterministically instead of timing out on missing UI (mount wired by
+PR #5413, commit `3585c33b8`):
 
-- `hitl` (superseded by `hitl-in-chat` + `hitl-in-chat-booking`)
+- `gen-ui-interrupt` (NSF-quarantined: BIA has no `interrupt()` primitive;
+  see Strategy-B adaptations above for the async-handler model used by the
+  non-quarantined HITL demos)
 - `shared-state-streaming` (BIA has no per-token state-delta streaming)
+
+The dashboard-labeled "In-chat" and "In-app" HITL demos (`hitl-in-chat`,
+`hitl-in-app`) are GREEN on staging — they are NOT NSF. They use
+`useFrontendTool` with async handlers per the Strategy-B adaptation
+documented above.
 
 D6 probes should treat a `not-supported-banner` hit as PASS-SKIPPED, not
 FAIL.
@@ -155,3 +163,7 @@ layer.
   `useAgent` / `useCoAgent` state-subscription path), not the BIA
   integration.
 - Action: tracked in follow-up PR against `packages/react-core`.
+
+## Doc maintenance
+
+PARITY_NOTES inaccuracies surfaced by staging verify after PR #5413 merge — fixed 2026-06-12.
