@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MsAgentHarnessControlRoom.Agent</RootNamespace>
+    <AssemblyName>MsAgentHarnessControlRoom.Agent</AssemblyName>
+    <UserSecretsId>ms-agent-harness-control-room-87654321-4321-4321-4321-cba987654321</UserSecretsId>
+    <NoWarn>$(NoWarn);MAAI001;OPENAI001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenAI" Version="2.10.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.6.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.6.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.6.2" />
+    <PackageReference Include="Microsoft.Agents.AI.AGUI" Version="1.6.2-preview.260521.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="1.6.2-preview.260521.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.6.2-preview.260521.1" />
+    <!-- Locally-built shim: Microsoft.Agents.AI.Tools.Shell was not published
+         to nuget.org alongside the 1.6.2 Harness preview. Tools.Shell is
+         pulled in transitively by Harness's nuspec; this entry pins it so
+         restore satisfies the transitive dep against our local-nuget feed. We
+         don't reference the types directly because the public NuGet binary
+         is strong-name-signed by Microsoft and our local rebuild is not. -->
+    <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.6.2-preview.260521.1" />
+  </ItemGroup>
+</Project>
