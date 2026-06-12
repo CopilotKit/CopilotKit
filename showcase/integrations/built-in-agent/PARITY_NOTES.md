@@ -148,10 +148,6 @@ layer.
 - Action: tracked in follow-up PR; bundled with the
   `a2ui-fixed-schema` renderer-host fix.
 
-### `sub-agents` — RED (pending diagnose)
-
-TODO(sub-agents): pending diagnose follow-up; current staging state RED.
-
 ### `gen-ui-agent` — RED (state never reaches frontend)
 
 - D6 status: RED — `StepsPanel` stays in its placeholder "No plan yet"
