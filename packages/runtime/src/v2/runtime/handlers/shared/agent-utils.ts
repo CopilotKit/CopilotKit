@@ -154,7 +154,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   // influence this value.
   const readableContainers =
     userResult.learningContainers?.readableContainers;
-  const readableHeader =
+  const readableHeader: Record<string, string> =
     readableContainers !== undefined
       ? { [INTELLIGENCE_READABLE_CONTAINERS_HEADER]: readableContainers.join(",") }
       : {};
