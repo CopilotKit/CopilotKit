@@ -44,7 +44,7 @@ jobs:
       ts-changed: ${{ steps.changes.outputs.ts }}
       python-changed: ${{ steps.changes.outputs.python }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
@@ -176,7 +176,7 @@ jobs:
 
       - name: Checkout CPK
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           lfs: true
           path: CopilotKit
@@ -185,7 +185,7 @@ jobs:
 
       - name: Checkout AGUI
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
@@ -246,7 +246,7 @@ jobs:
 
       - name: Install uv
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
 
       - name: Install cpk dependencies
         if: steps.should-run.outputs.skip != 'true'

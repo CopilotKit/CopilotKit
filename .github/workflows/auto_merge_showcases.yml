@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check author is on Demo team
         id: check-team
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           # Authorize on the PR AUTHOR (immutable for the lifetime of the PR),
           # never `context.actor` — `actor` is whoever triggered the most
@@ -40,7 +40,7 @@ jobs:
       - name: Check PR only touches showcases
         if: steps.check-team.outputs.is_demo == 'true'
         id: check-files
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -65,7 +65,7 @@ jobs:
 
       - name: Approve PR
         if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             await github.rest.pulls.createReview({
@@ -78,7 +78,7 @@ jobs:
 
       - name: Enable auto-merge
         if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             await github.graphql(`
