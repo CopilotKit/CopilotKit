@@ -284,7 +284,12 @@ describe("fixture collision detection", () => {
     // gen-ui-declarative + cst/tool-rendering fixtures, runtime-disambiguated
     // by toolCallId chunk boundaries and load-order ordering of inner-call
     // mirrors before outer fixtures (see _meta._note in those files).
-    const KNOWN_SHADOW_CEILING = 128;
+    // Bumped 128→134 in #5427: 6 new substring overlaps in
+    // d6/built-in-agent/{tool-rendering, tool-rendering-reasoning-chain}
+    // fixtures from the BIA 5-tool D6 port (weather/flight/stock/d20/
+    // catchall pill variants), runtime-disambiguated by toolName +
+    // toolCallId.
+    const KNOWN_SHADOW_CEILING = 134;
 
     const shadows: string[] = [];
 
