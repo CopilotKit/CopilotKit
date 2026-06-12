@@ -1,17 +1,17 @@
+import type { Signal } from "@angular/core";
 import {
   DestroyRef,
   Injectable,
   inject,
   signal,
   computed,
-  Signal,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
@@ -43,7 +43,7 @@ export class AgentStore {
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
-        this.#messages.set(abstractAgent.messages);
+        this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
         this.#state.set(abstractAgent.state);
