@@ -173,7 +173,6 @@ export function CenterWorkstream() {
   return (
     <div className="h-full min-h-0 overflow-hidden">
       <CopilotChat
-        key={localState.chatSessionKey}
         threadId={localState.activeThreadId}
         agentId={CONTROL_ROOM_AGENT_NAME}
         className="h-full w-full"

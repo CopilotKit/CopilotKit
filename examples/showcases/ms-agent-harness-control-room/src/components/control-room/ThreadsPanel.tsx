@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useAgent, useCopilotKit, useThreads } from "@copilotkit/react-core/v2";
+import { useCopilotKit, useThreads } from "@copilotkit/react-core/v2";
 import type { Thread } from "@copilotkit/react-core/v2";
 
 import { Button } from "@/components/ui/button";
@@ -61,12 +61,6 @@ function formatLastActivity(thread: Thread): string {
 export function ThreadsPanel({ className }: { className?: string }) {
   const { localState, setActiveThreadId, startFreshThread } =
     useControlRoomLocal();
-  // updates: [] — we only need the agent instance for the fresh-thread
-  // reset below, not re-renders on its activity.
-  const { agent } = useAgent({
-    agentId: CONTROL_ROOM_AGENT_NAME,
-    updates: [],
-  });
   const {
     threads,
     isLoading,
@@ -81,41 +75,15 @@ export function ThreadsPanel({ className }: { className?: string }) {
 
   const activeThreadId = localState.activeThreadId;
 
-  // Saved-thread switching is fully handled by CopilotChat: it receives
-  // the active threadId as a prop, and on change detaches the in-flight
-  // run, resets the shared agent, and replays the incoming thread's
-  // history.
+  // All thread switching — including "New thread", which is just a
+  // switch to a freshly minted id — is handled by CopilotChat via its
+  // threadId prop: it detaches the in-flight run, resets the shared
+  // agent, and connects to the incoming thread. No demo-side agent
+  // lifecycle management; ad-hoc detach/wipe sequences here raced the
+  // stream teardown and corrupted conversations.
   const switchThread = (threadId: string) => {
     if (threadId === activeThreadId) return;
     setActiveThreadId(threadId);
-  };
-
-  /**
-   * Fresh conversations are the one path CopilotChat can't reset for us:
-   * they never /connect, so the shared agent would keep showing the
-   * previous conversation. Mirror core's fresh-restore — stop any
-   * in-flight run, wipe messages/state, and drop the departed thread's
-   * replay cursor (so revisiting it replays fully instead of resuming
-   * mid-stream onto wiped state) — then remount the chat empty.
-   *
-   * abortRun (not awaited detachActiveRun): it stops the platform run —
-   * releasing its thread lock — and resets the agent's run state
-   * synchronously. Awaiting detachActiveRun blocked on the run's
-   * completion promise, so the wipe and remount landed seconds late and
-   * raced whatever the user did next (messages sent into the old thread
-   * against its still-held lock → 409 → merged/failed conversations).
-   */
-  const startNewThread = () => {
-    agent.abortRun();
-    agent.setMessages([]);
-    agent.setState({});
-    const proxied = agent as unknown as {
-      clearReplayCursor?: (threadId: string) => void;
-    };
-    if (activeThreadId && typeof proxied.clearReplayCursor === "function") {
-      proxied.clearReplayCursor(activeThreadId);
-    }
-    startFreshThread();
   };
 
   const removeThread = async (
@@ -124,7 +92,7 @@ export function ThreadsPanel({ className }: { className?: string }) {
   ) => {
     await action(threadId);
     if (activeThreadId === threadId) {
-      startNewThread();
+      startFreshThread();
     }
   };
 
@@ -154,7 +122,7 @@ export function ThreadsPanel({ className }: { className?: string }) {
                 <Button
                   type="button"
                   size="icon-sm"
-                  onClick={startNewThread}
+                  onClick={startFreshThread}
                   className="cr-brand-gradient-control size-7 shrink-0 rounded-lg border-transparent text-white shadow-none hover:text-white"
                   aria-label="Start a new conversation"
                 >

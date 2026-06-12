@@ -58,23 +58,16 @@ export function ControlRoomApp() {
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
     undefined,
   );
-  // Bumped on every "New thread" so the chat remounts into a fresh,
-  // non-explicit conversation (which is what shows the welcome screen)
-  // even when activeThreadId is already undefined.
-  const [freshThreadNonce, setFreshThreadNonce] = useState(0);
 
+  // A fresh conversation is just a thread switch to a newly minted id.
+  // Every switch — including "New thread" mid-generation — then goes
+  // through CopilotChat's own threadId handling (detach the in-flight
+  // run, reset the shared agent, connect), which is the only race-free
+  // path. The page's very first conversation stays non-explicit
+  // (undefined) so the welcome screen shows on load.
   const startFreshThread = useCallback(() => {
-    setActiveThreadId(undefined);
-    setFreshThreadNonce((nonce) => nonce + 1);
+    setActiveThreadId(crypto.randomUUID());
   }, []);
-
-  // Saved-thread switches happen in place — CopilotChat receives the
-  // threadId as a prop and handles detach/reset/replay internally. The
-  // key changes only for fresh conversations, so each "New thread" click
-  // remounts the chat with a newly minted non-explicit threadId (which is
-  // what brings the welcome screen back).
-  const chatSessionKey =
-    activeThreadId === undefined ? `fresh-${freshThreadNonce}` : "thread";
 
   const runtimeHeaders = useCallback(
     () => ({
@@ -114,7 +107,6 @@ export function ControlRoomApp() {
           setOpenGenerativeUIEnabled={setOpenGenerativeUIEnabled}
           activeThreadId={activeThreadId}
           setActiveThreadId={setActiveThreadId}
-          chatSessionKey={chatSessionKey}
           startFreshThread={startFreshThread}
         >
           <GenerativeUICatalogProvider>
