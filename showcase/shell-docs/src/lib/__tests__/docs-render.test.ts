@@ -211,6 +211,16 @@ describe("migration docs", () => {
 });
 
 describe("framework nav", () => {
+  it("loads early-access frontmatter for gated platform guides", () => {
+    const slack = loadDoc("slack")?.fm;
+    const teams = loadDoc("microsoft-teams")?.fm;
+
+    expect(slack?.earlyAccess).toBe("slack");
+    expect(slack?.hideTOC).toBe(true);
+    expect(teams?.earlyAccess).toBe("teams");
+    expect(teams?.hideTOC).toBe(true);
+  });
+
   it("includes the shared React Native platform guide in generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
