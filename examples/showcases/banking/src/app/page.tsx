@@ -187,62 +187,68 @@ export default function Page() {
     },
   });
 
-  useHumanInTheLoop({
-    followUp: false,
-    name: "assignPolicyToCard",
-    description:
-      "Assign a policy to a card. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    available: PERMISSIONS.ADD_POLICY.includes(currentUser.role),
-    parameters: z.object({
-      cardId: z
-        .string()
-        .describe("The card (from existing) to assign policy to"),
-      policyType: z.string().describe("The type of the policy to use"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { cardId, policyType } = args;
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "assignPolicyToCard",
+      description:
+        "Assign a policy to a card. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+      available: PERMISSIONS.ADD_POLICY.includes(currentUser.role),
+      parameters: z.object({
+        cardId: z
+          .string()
+          .describe("The card (from existing) to assign policy to"),
+        policyType: z.string().describe("The type of the policy to use"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { cardId, policyType } = args;
 
-      if (status === "inProgress") {
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+
+        const card = cards.find((c) => c.id === cardId);
+        const policy = policies.find((p) => p.type === policyType);
+
         return (
-          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-            Loading…
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">
+              Assign Policy to Card
+            </h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Card:</span>{" "}
+                {card ? `${card.type} ending in ${card.last4}` : cardId}
+              </p>
+              <p>
+                <span className="text-ink-muted">Policy:</span> {policyType}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                const policyId = policy?.id;
+                if (!cardId || !policyId) {
+                  respond?.("Could not find matching policy to assign");
+                  return;
+                }
+                await assignPolicyToCard({ cardId, policyId });
+                respond?.("Policy assigned successfully");
+              }}
+              onDeny={() => respond?.("Policy assignment denied by user")}
+            />
           </div>
         );
-      }
-
-      const card = cards.find((c) => c.id === cardId);
-      const policy = policies.find((p) => p.type === policyType);
-
-      return (
-        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">
-            Assign Policy to Card
-          </h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-ink-muted">Card:</span>{" "}
-              {card ? `${card.type} ending in ${card.last4}` : cardId}
-            </p>
-            <p>
-              <span className="text-ink-muted">Policy:</span> {policyType}
-            </p>
-          </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              const policyId = policy?.id;
-              if (!cardId || !policyId) {
-                respond?.("Could not find matching policy to assign");
-                return;
-              }
-              await assignPolicyToCard({ cardId, policyId });
-              respond?.("Policy assigned successfully");
-            }}
-            onDeny={() => respond?.("Policy assignment denied by user")}
-          />
-        </div>
-      );
+      },
+      // Re-register when cards/policies load; otherwise this render (mount-keyed
+      // effect) resolves the card/policy against the EMPTY initial arrays and
+      // shows raw ids. Mirrors selectCard / showTransactions.
     },
-  });
+    [cards, policies],
+  );
 
   // Visual card picker (human-in-the-loop). Instead of listing the user's
   // cards as text, the agent calls this to render a tappable picker (brand +
@@ -295,60 +301,66 @@ export default function Page() {
     [cards, policies],
   );
 
-  useHumanInTheLoop({
-    followUp: false,
-    name: "addNoteToTransaction",
-    description:
-      "Add note to transaction. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
-    parameters: z.object({
-      transactionId: z
-        .string()
-        .describe("The transaction to add note to (ID provided by copilot)"),
-      content: z.string().describe("The content of the note"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { transactionId, content } = args;
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "addNoteToTransaction",
+      description:
+        "Add note to transaction. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
+      available: PERMISSIONS.ADD_NOTE.includes(currentUser.role),
+      parameters: z.object({
+        transactionId: z
+          .string()
+          .describe("The transaction to add note to (ID provided by copilot)"),
+        content: z.string().describe("The content of the note"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { transactionId, content } = args;
 
-      if (status === "inProgress") {
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+
+        const transaction = transactions.find((t) => t.id === transactionId);
+
         return (
-          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-            Loading…
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">
+              Add Note to Transaction
+            </h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Transaction:</span>{" "}
+                {transaction?.title ?? transactionId}
+              </p>
+              <p>
+                <span className="text-ink-muted">Note:</span> {content}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                if (!transactionId || !content) {
+                  respond?.("Missing transaction or note content");
+                  return;
+                }
+                await addNoteToTransaction({ transactionId, content });
+                respond?.("Note added successfully");
+              }}
+              onDeny={() => respond?.("Note addition denied by user")}
+            />
           </div>
         );
-      }
-
-      const transaction = transactions.find((t) => t.id === transactionId);
-
-      return (
-        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">
-            Add Note to Transaction
-          </h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-ink-muted">Transaction:</span>{" "}
-              {transaction?.title ?? transactionId}
-            </p>
-            <p>
-              <span className="text-ink-muted">Note:</span> {content}
-            </p>
-          </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              if (!transactionId || !content) {
-                respond?.("Missing transaction or note content");
-                return;
-              }
-              await addNoteToTransaction({ transactionId, content });
-              respond?.("Note added successfully");
-            }}
-            onDeny={() => respond?.("Note addition denied by user")}
-          />
-        </div>
-      );
+      },
+      // Re-register when transactions load; otherwise this render (mount-keyed
+      // effect) resolves the transaction title against the EMPTY initial array.
+      // Mirrors selectCard / showTransactions.
     },
-  });
+    [transactions],
+  );
 
   // Showcase usage of generative UI. Display-only components use `useComponent`
   // (not `useFrontendTool`): its render is unconditional, so the rendered card
@@ -405,63 +417,70 @@ export default function Page() {
   );
 
   // Enable pin changing with co pilot
-  useHumanInTheLoop({
-    followUp: false,
-    name: "setCardPin",
-    description:
-      "Set the pin code of an existing card. Ask the user for the new 4-digit PIN, then call this action immediately. Do NOT ask for additional confirmation - the approval UI will handle that.",
-    available: PERMISSIONS.SET_PIN.includes(currentUser.role),
-    parameters: z.object({
-      cardId: z.string().describe("The id of the card (provided by copilot)"),
-      pin: z
-        .string()
-        .describe("The new 4-digit PIN code (provided by the user)"),
-    }),
-    render: ({ args, respond, status }) => {
-      const { cardId, pin } = args;
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "setCardPin",
+      description:
+        "Set the pin code of an existing card. Ask the user for the new 4-digit PIN, then call this action immediately. Do NOT ask for additional confirmation - the approval UI will handle that.",
+      available: PERMISSIONS.SET_PIN.includes(currentUser.role),
+      parameters: z.object({
+        cardId: z.string().describe("The id of the card (provided by copilot)"),
+        pin: z
+          .string()
+          .describe("The new 4-digit PIN code (provided by the user)"),
+      }),
+      render: ({ args, respond, status }) => {
+        const { cardId, pin } = args;
 
-      if (status === "inProgress") {
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+
+        const card = cards.find((c) => c.id === cardId);
+
         return (
-          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-            Loading…
+          <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">Change Card PIN</h3>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="text-ink-muted">Card:</span>{" "}
+                {card ? `${card.type} ending in ${card.last4}` : cardId}
+              </p>
+              <p>
+                <span className="text-ink-muted">New PIN:</span> {pin}
+              </p>
+            </div>
+            <ApprovalButtons
+              onApprove={async () => {
+                if (!pin || !cardId) {
+                  respond?.("Missing PIN or card information");
+                  return;
+                }
+                await changePin({ pin, cardId });
+                respond?.("PIN changed successfully");
+              }}
+              onDeny={() => respond?.("PIN change denied by user")}
+            />
           </div>
         );
-      }
-
-      const card = cards.find((c) => c.id === cardId);
-
-      return (
-        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
-          <h3 className="text-lg font-semibold text-ink">Change Card PIN</h3>
-          <div className="text-sm space-y-1">
-            <p>
-              <span className="text-ink-muted">Card:</span>{" "}
-              {card ? `${card.type} ending in ${card.last4}` : cardId}
-            </p>
-            <p>
-              <span className="text-ink-muted">New PIN:</span> {pin}
-            </p>
-          </div>
-          <ApprovalButtons
-            onApprove={async () => {
-              if (!pin || !cardId) {
-                respond?.("Missing PIN or card information");
-                return;
-              }
-              await changePin({ pin, cardId });
-              respond?.("PIN changed successfully");
-            }}
-            onDeny={() => respond?.("PIN change denied by user")}
-          />
-        </div>
-      );
+      },
+      // Re-register when cards load; otherwise this render (mount-keyed effect)
+      // resolves the card against the EMPTY initial array. Mirrors selectCard /
+      // showTransactions.
     },
-  });
+    [cards],
+  );
 
-  useHumanInTheLoop({
-    followUp: false,
-    name: "showAndApproveTransactions",
-    description: `
+  useHumanInTheLoop(
+    {
+      followUp: false,
+      name: "showAndApproveTransactions",
+      description: `
       This operation is per department.
       An executive department admin is allowed to approve/deny from other departments as well.
       Show the unapproved transactions and allow the admin per department to approve them.
@@ -470,77 +489,83 @@ export default function Page() {
       calls to this tool.
       Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.
     `,
-    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
-    parameters: z.object({
-      transactionIds: z
-        .string()
-        .describe(
-          'Comma-separated ids of ALL pending transactions to present to the given department admin in this single call (provided by copilot), e.g. "t-1,t-2"',
-        ),
-    }),
-    render: ({ args, respond, status }) => {
-      const transactionId = args.transactionIds ?? "";
-      if (status === "inProgress") {
-        return (
-          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-            Loading…
-          </div>
-        );
-      }
-
-      if (transactionId.length === 0) {
-        respond?.(
-          "A transaction ID was not given, could be that there arent any pending approval or there was an error",
-        );
-        return <div>No pending transactions</div>;
-      }
-
-      // Run the REST mutation and respond with the REAL outcome. With the
-      // hardened caller returning `{ ok, error }`, a rejected over-limit
-      // approval reports the server's failure instead of a false success.
-      // Returns `ok` so the list only records the human action when it took
-      // effect.
-      async function handleChangeTransactionStatus({
-        id,
-        status,
-      }: {
-        id: string;
-        status: Transaction["status"];
-      }): Promise<boolean> {
-        const { ok, error } = await changeTransactionStatus({ id, status });
-        if (!ok) {
-          respond?.(`Could not ${status} transaction ${id}: ${error}`);
-        } else {
-          respond?.(`transaction ${id} ${status}`);
+      available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+      parameters: z.object({
+        transactionIds: z
+          .string()
+          .describe(
+            'Comma-separated ids of ALL pending transactions to present to the given department admin in this single call (provided by copilot), e.g. "t-1,t-2"',
+          ),
+      }),
+      render: ({ args, respond, status }) => {
+        const transactionId = args.transactionIds ?? "";
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
         }
-        return ok;
-      }
 
-      return (
-        <TransactionsList
-          transactions={transactions.filter((t) =>
-            transactionId.includes(t.id),
-          )}
-          policies={policies}
-          openPolicyException={openPolicyException}
-          finalizePolicyException={finalizePolicyException}
-          showApprovalInterface
-          approvalInterfaceProps={{
-            onApprove: (transactionId) =>
-              handleChangeTransactionStatus({
-                id: transactionId,
-                status: "approved",
-              }),
-            onDeny: (transactionId) =>
-              handleChangeTransactionStatus({
-                id: transactionId,
-                status: "denied",
-              }),
-          }}
-        />
-      );
+        if (transactionId.length === 0) {
+          respond?.(
+            "A transaction ID was not given, could be that there arent any pending approval or there was an error",
+          );
+          return <div>No pending transactions</div>;
+        }
+
+        // Run the REST mutation and respond with the REAL outcome. With the
+        // hardened caller returning `{ ok, error }`, a rejected over-limit
+        // approval reports the server's failure instead of a false success.
+        // Returns `ok` so the list only records the human action when it took
+        // effect.
+        async function handleChangeTransactionStatus({
+          id,
+          status,
+        }: {
+          id: string;
+          status: Transaction["status"];
+        }): Promise<boolean> {
+          const { ok, error } = await changeTransactionStatus({ id, status });
+          if (!ok) {
+            respond?.(`Could not ${status} transaction ${id}: ${error}`);
+          } else {
+            respond?.(`transaction ${id} ${status}`);
+          }
+          return ok;
+        }
+
+        return (
+          <TransactionsList
+            transactions={transactions.filter((t) =>
+              transactionId.includes(t.id),
+            )}
+            policies={policies}
+            openPolicyException={openPolicyException}
+            finalizePolicyException={finalizePolicyException}
+            showApprovalInterface
+            approvalInterfaceProps={{
+              onApprove: (transactionId) =>
+                handleChangeTransactionStatus({
+                  id: transactionId,
+                  status: "approved",
+                }),
+              onDeny: (transactionId) =>
+                handleChangeTransactionStatus({
+                  id: transactionId,
+                  status: "denied",
+                }),
+            }}
+          />
+        );
+      },
+      // Re-register when transactions/policies load; otherwise this render
+      // (registered in a mount-keyed effect) keeps filtering the EMPTY initial
+      // arrays and the approval card shows no rows to approve. Mirrors the deps
+      // on selectCard / the showTransactions useComponent.
     },
-  });
+    [transactions, policies],
+  );
 
   // Open a draft policy exception against a transaction (human-in-the-loop).
   // The description is deliberately NEUTRAL: it must not say what opening an
