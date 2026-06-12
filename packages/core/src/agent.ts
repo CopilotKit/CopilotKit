@@ -147,6 +147,13 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
     }
+
+    // React idioms routinely detach methods from the instance — destructuring
+    // (`const { subscribe } = agent`), `useSyncExternalStore(agent.subscribe, ...)`,
+    // passing `agent.subscribe` as a callback — which invokes them with
+    // `this === undefined` and crashes in AbstractAgent.subscribe (#5000).
+    // Bind the subscription surface so a detached reference stays callable.
+    this.subscribe = this.subscribe.bind(this);
   }
 
   /**
