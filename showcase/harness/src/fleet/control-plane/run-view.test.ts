@@ -17,11 +17,6 @@ import { buildProducerSchedules } from "../../orchestrator.js";
 import type { ProducerSchedule } from "./control-plane.js";
 import {
   FLEET_FAMILIES,
-  type FamilySummaryEntry,
-  type FamilySummaryResponse,
-  type ProbeJobRecord,
-  type RunViewDeps,
-  type WorkerRow,
   classifyInflight,
   createMemoizedFamilySummary,
   deriveOutcome,
@@ -29,6 +24,13 @@ import {
   periodMsFromCron,
   projectRunBatch,
   projectWorker,
+} from "./run-view.js";
+import type {
+  FamilySummaryEntry,
+  FamilySummaryResponse,
+  ProbeJobRecord,
+  RunViewDeps,
+  WorkerRow,
 } from "./run-view.js";
 
 // ───────────────────────────────────────────────────────────────────────
@@ -693,7 +695,7 @@ describe("createMemoizedFamilySummary", () => {
     const { pb } = makeFakePb({});
     const summary = await createMemoizedFamilySummary(makeDeps({ pb })).get();
     expect(summary.families.map((f) => f.family).sort()).toEqual(
-      [...FLEET_FAMILIES.map((f) => f.family)].sort(),
+      FLEET_FAMILIES.map((f) => f.family).sort(),
     );
     for (const fam of FLEET_FAMILIES) {
       const entry = familyEntry(summary, fam.family);
@@ -783,11 +785,13 @@ describe("createMemoizedFamilySummary", () => {
     expect(d6.lastRun?.runId).toBe("run-prev");
   });
 
-  it("lastSuccessAt walk-back: a newest done JOB inside an overall-failed batch does not count; the prior completed batch's finish wins", async () => {
+  it("lastSuccessAt walk-back: a newest done JOB inside a batch with a comm-error sibling does not count; the prior terminal-completion batch's finish wins", async () => {
     const { pb } = makeFakePb({
       jobs: [
-        // Newest batch: overall failed, but contains a done job whose
-        // finished_at is the newest timestamp anywhere.
+        // Newest batch: NOT a terminal completion — one job carries a
+        // worker-comm-level failure (`commError`). The done sibling's
+        // finished_at is the newest timestamp anywhere, but a single
+        // comm-erroring job disqualifies the whole batch.
         batchRow({
           runId: "run-failed",
           status: "done",
@@ -799,8 +803,9 @@ describe("createMemoizedFamilySummary", () => {
           status: "failed",
           enqueuedAt: iso(-10 * 60_000),
           finishedAt: iso(-2 * 60_000),
+          result: { commError: { kind: "worker-crashed-mid-job" } },
         }),
-        // Prior batch: completed.
+        // Prior batch: terminal completion (all jobs done, no commError).
         batchRow({
           runId: "run-ok",
           status: "done",
@@ -821,7 +826,13 @@ describe("createMemoizedFamilySummary", () => {
     expect(d6.lastSuccessAt).toBe(iso(-64 * 60_000));
   });
 
-  it("lastSuccessAt is null when no completed batch exists in the capped window", async () => {
+  it("lastSuccessAt is null when every batch in the capped window has a commError (real outage)", async () => {
+    // §5.2.1 "terminal completion" semantics: a `status: "failed"` job WITH
+    // a `result.commError` means the worker couldn't reach the pool / crashed
+    // / was reclaimed — that's NOT a terminal completion, it's a real outage
+    // signal. Only when every batch in the window contains such jobs does
+    // `lastSuccessAt` stay null. (Cell-level reds without commError are
+    // covered by the "advances even with cell-fail counts" test below.)
     const { pb } = makeFakePb({
       jobs: [
         batchRow({
@@ -829,12 +840,136 @@ describe("createMemoizedFamilySummary", () => {
           status: "failed",
           enqueuedAt: iso(-10 * 60_000),
           finishedAt: iso(-9 * 60_000),
+          result: { commError: { kind: "worker-crashed-mid-job" } },
         }),
         batchRow({
           runId: "run-0",
           status: "failed",
           enqueuedAt: iso(-70 * 60_000),
           finishedAt: iso(-69 * 60_000),
+          result: { commError: { kind: "worker-crashed-mid-job" } },
+        }),
+      ],
+    });
+    const summary = await createMemoizedFamilySummary(makeDeps({ pb })).get();
+    expect(familyEntry(summary, "d6").lastSuccessAt).toBeNull();
+  });
+
+  it("lastSuccessAt advances when all jobs reach a terminal state with no commError, even if cells failed", async () => {
+    // Regression for the D5/D6 family-silence banner false alarm: chronic
+    // content-reds left every batch's outcome="failed" (cell-level), which
+    // under the OLD all-green-only definition pinned lastSuccessAt=null
+    // forever and tripped the "worker family X has not completed successfully
+    // since Yh ago" banner even though workers were healthy. Under the new
+    // §5.2.1 terminal-completion definition, a batch where every job reached
+    // a terminal state without a `commError` IS a successful evaluation
+    // cycle — cells red, worker green.
+    const { pb } = makeFakePb({
+      jobs: [
+        // Newest batch: every job terminal, one done one failed-with-reds,
+        // both carry a rollup but NEITHER carries a commError.
+        batchRow({
+          runId: "run-recent",
+          status: "done",
+          probeKey: "d6:langgraph-python",
+          enqueuedAt: iso(-10 * 60_000),
+          finishedAt: iso(-9 * 60_000),
+          result: { rollup: { total: 6, passed: 6, failed: 0 } },
+        }),
+        batchRow({
+          runId: "run-recent",
+          status: "failed",
+          probeKey: "d6:crew",
+          enqueuedAt: iso(-10 * 60_000),
+          finishedAt: iso(-8 * 60_000),
+          result: { rollup: { total: 6, passed: 3, failed: 3 } },
+        }),
+      ],
+    });
+    const summary = await createMemoizedFamilySummary(makeDeps({ pb })).get();
+    const d6 = familyEntry(summary, "d6");
+    // The §5.2.1 outcome precedence still derives "failed" for the run.
+    expect(d6.lastRun?.outcome).toBe("failed");
+    // But lastSuccessAt now reflects the worker terminally completing the
+    // batch — the newest finished_at across the terminal-completion batch.
+    expect(d6.lastSuccessAt).toBe(iso(-8 * 60_000));
+  });
+
+  it("lastSuccessAt does NOT count a batch where any job carries a commError (worker-outage signal)", async () => {
+    const { pb } = makeFakePb({
+      jobs: [
+        // Newest batch: one done, one failed-with-commError → real outage,
+        // does NOT count as a terminal completion.
+        batchRow({
+          runId: "run-outage",
+          status: "done",
+          probeKey: "d6:langgraph-python",
+          enqueuedAt: iso(-5 * 60_000),
+          finishedAt: iso(-4 * 60_000),
+          result: { rollup: { total: 6, passed: 6, failed: 0 } },
+        }),
+        batchRow({
+          runId: "run-outage",
+          status: "failed",
+          probeKey: "d6:crew",
+          enqueuedAt: iso(-5 * 60_000),
+          finishedAt: iso(-4 * 60_000),
+          result: { commError: { kind: "worker-crashed-mid-job" } },
+        }),
+        // Prior batch: terminal completion, cells some-red but no commError —
+        // this one DOES count.
+        batchRow({
+          runId: "run-prior",
+          status: "failed",
+          probeKey: "d6:langgraph-python",
+          enqueuedAt: iso(-70 * 60_000),
+          finishedAt: iso(-66 * 60_000),
+          result: { rollup: { total: 6, passed: 5, failed: 1 } },
+        }),
+        batchRow({
+          runId: "run-prior",
+          status: "done",
+          probeKey: "d6:crew",
+          enqueuedAt: iso(-70 * 60_000),
+          finishedAt: iso(-65 * 60_000),
+          result: { rollup: { total: 6, passed: 6, failed: 0 } },
+        }),
+      ],
+    });
+    const summary = await createMemoizedFamilySummary(makeDeps({ pb })).get();
+    const d6 = familyEntry(summary, "d6");
+    // The newest batch is skipped (commError present); the prior batch wins.
+    expect(d6.lastSuccessAt).toBe(iso(-65 * 60_000));
+  });
+
+  it("lastSuccessAt does NOT count a batch with non-terminal jobs (worker never finished)", async () => {
+    // A `pending` or `claimed` job in the newest non-inflight slot means the
+    // worker never reached a terminal state — that batch is a stall / abandon
+    // signal, not a successful completion. (The actual newest-group is the
+    // inflight and is excluded by run-view's existing skip; this fixture
+    // exercises an OLDER stalled batch.)
+    const { pb } = makeFakePb({
+      jobs: [
+        // Newest batch: live inflight (skipped by the existing rule).
+        batchRow({
+          runId: "run-live",
+          status: "running",
+          probeKey: "d6:langgraph-python",
+          enqueuedAt: iso(-2 * 60_000),
+        }),
+        // Older batch: one job zombied pending (worker never finished).
+        batchRow({
+          runId: "run-stalled",
+          status: "pending",
+          probeKey: "d6:crew",
+          enqueuedAt: iso(-70 * 60_000),
+        }),
+        batchRow({
+          runId: "run-stalled",
+          status: "done",
+          probeKey: "d6:langgraph-python",
+          enqueuedAt: iso(-70 * 60_000),
+          finishedAt: iso(-65 * 60_000),
         }),
       ],
     });
