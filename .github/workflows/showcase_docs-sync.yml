@@ -26,7 +26,7 @@ jobs:
       SHOWCASE_BRANCH: main
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ env.SHOWCASE_BRANCH }}
           fetch-depth: 0
@@ -372,7 +372,7 @@ jobs:
       - name: Notify Slack (auto-sync)
         id: notify-auto-sync
         if: always() && env.SLACK_WEBHOOK != '' && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -381,7 +381,7 @@ jobs:
       - name: Notify Slack (merge failed)
         id: notify-merge-failed
         if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -395,7 +395,7 @@ jobs:
       - name: Notify Slack (review needed, with PR)
         id: notify-review-with-pr
         if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -408,7 +408,7 @@ jobs:
       - name: Notify Slack (review needed, no PR)
         id: notify-review-no-pr
         if: always() && env.SLACK_WEBHOOK != '' && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -419,7 +419,7 @@ jobs:
       - name: Notify Slack (review needed, existing PR)
         id: notify-review-existing-pr
         if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.existing_pr == 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -428,7 +428,7 @@ jobs:
       - name: Notify Slack (failure)
         id: notify-failure
         if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened != 'true'
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
