@@ -232,7 +232,17 @@ describe("fixture collision detection", () => {
     // prebuilt-popup.json / prebuilt-sidebar.json entries for that context.
     // Disambiguated at runtime by the probe's fixtureFile / demo route, like
     // the other cross-feature overlaps above.
-    const KNOWN_DUPLICATE_CEILING = 290;
+    //
+    // Bumped 290 → 291 (+1) in #5427 when BIA tool-rendering.json's bare 'AAPL'
+    // matchers were tightened to 'current price of AAPL' to stop shadowing
+    // gen-ui-headless-complete.json's 'price of AAPL right now' headless pill.
+    // The tightened matchers share keys with tool-rendering-custom-catchall.json's
+    // pre-existing 'current price of AAPL' entries in the same BIA context (the
+    // hasToolResult:false emitter pair and the hasToolResult:true narration pair).
+    // Disambiguated at runtime by feature route (tool-rendering vs custom-catchall
+    // fixtureFile) plus the catchall's distinct first prompt ('check Tokyo weather
+    // forecast') that gates the multi-pill session before the AAPL pill fires.
+    const KNOWN_DUPLICATE_CEILING = 291;
 
     const collisions: string[] = [];
 
@@ -284,7 +294,22 @@ describe("fixture collision detection", () => {
     // gen-ui-declarative + cst/tool-rendering fixtures, runtime-disambiguated
     // by toolCallId chunk boundaries and load-order ordering of inner-call
     // mirrors before outer fixtures (see _meta._note in those files).
-    const KNOWN_SHADOW_CEILING = 128;
+    // Bumped 128→134 in #5427: 6 new substring overlaps in
+    // d6/built-in-agent/{tool-rendering, tool-rendering-reasoning-chain}
+    // fixtures from the BIA 5-tool D6 port (weather/flight/stock/d20/
+    // catchall pill variants), runtime-disambiguated by toolName +
+    // toolCallId.
+    //
+    // Ratcheted 134→132 (-2) in #5427 follow-up: BIA tool-rendering.json's
+    // bare 'AAPL' matchers were tightened to 'current price of AAPL' (no
+    // longer a substring of gen-ui-headless-complete's 'price of AAPL right
+    // now' pill), removing 2 pre-existing shadow pairs. The companion
+    // sequenceIndex-gated emitter + narration-fallback pairs in
+    // gen-ui-headless-complete.json do not introduce new shadows — the
+    // narration fallbacks share the same userMessage prefix as the emitters
+    // (which the shadow detector skips because identical strings are caught
+    // by the exact-duplicate test, not the shadow test).
+    const KNOWN_SHADOW_CEILING = 132;
 
     const shadows: string[] = [];
 

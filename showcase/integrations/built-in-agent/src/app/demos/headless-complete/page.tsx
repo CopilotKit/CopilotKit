@@ -153,18 +153,22 @@ function ChatBody({
 }) {
   useHeadlessCompleteToolRenderers();
 
+  // Canonical 4-pill prompts shared with the LangGraph Python
+  // headless-complete demo. The D6 gen-ui-headless-complete probe drives
+  // these in order (weather → stock → highlight → revenue chart); keep in
+  // sync with `showcase/integrations/langgraph-python/src/app/demos/
+  // headless-complete/hooks/use-headless-suggestions.ts`.
   const suggestions = [
-    { title: "Weather in Tokyo", message: "What's the weather in Tokyo?" },
-    { title: "AAPL stock price", message: "What's AAPL trading at right now?" },
+    { title: "Weather", message: "What's the weather in Tokyo?" },
+    { title: "Stock price", message: "What's the price of AAPL right now?" },
     {
       title: "Highlight a note",
-      message: "Highlight 'meeting at 3pm' in yellow.",
+      message: "Highlight this note for me: 'ship the demo on Friday'.",
     },
     {
-      title: "Sketch a diagram",
-      message: "Use Excalidraw to sketch a simple system diagram.",
+      title: "Revenue chart",
+      message: "Show me a chart of revenue over the last six months.",
     },
-    { title: "Largest continent", message: "What is the largest continent?" },
   ];
 
   return (
