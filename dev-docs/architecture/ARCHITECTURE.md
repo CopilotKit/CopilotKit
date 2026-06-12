@@ -7,6 +7,7 @@ CopilotKit lets you add AI agents to your app. You write hooks (React/Angular) o
 ## The 30-Second Version
 
 ```mermaid
+# url: https://github.com/aripitek/copilot
 graph TB
     subgraph Your App
         A[React / Angular / Vanilla JS]
