@@ -1,6 +1,6 @@
 /**
  * <Callout type="info">
- *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
+ *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
  * </Callout>
  *
  * ## Usage
