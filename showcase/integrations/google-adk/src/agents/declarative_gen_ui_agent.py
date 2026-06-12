@@ -6,11 +6,15 @@ secondary-LLM A2UI planner is already wired up there. The agent calls
 component (cards, charts, lists, forms, etc.) and the runtime middleware
 detects the a2ui_operations container in the tool result.
 
-The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT verbatim so
-both showcases steer the LLM toward the same catalog usage patterns and
-chart-vs-card heuristics. See
+The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT (plus an
+ADK-specific note that `generate_a2ui` takes no arguments) so both
+showcases steer the LLM toward the same sales-analyst persona and
+composition heuristics. See
 `showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py` for
-the canonical source.
+the canonical source. The fictional sales dataset and the per-question
+composition rules arrive via frontend context entries (registered in
+declarative-gen-ui/sales-context.ts), which `generate_a2ui` serialises
+into the secondary planner's system instruction.
 """
 
 from __future__ import annotations
@@ -22,26 +26,22 @@ from agents.shared_chat import get_model, stop_on_terminal_text
 # `agents.main` defines `generate_a2ui` — reuse it here instead of cloning.
 from agents.main import generate_a2ui
 
-# Ported verbatim from LP's a2ui_dynamic.SYSTEM_PROMPT so the catalog usage
-# heuristics, chart-type preferences, and "one short sentence" reply rule
-# are identical across showcases. The catalog ("declarative-gen-ui-catalog")
-# is registered by the frontend via <CopilotKit a2ui={{ catalog: myCatalog }}>
-# and is serialised into the secondary LLM's context inside `generate_a2ui`.
 _INSTRUCTION = (
-    "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
-    "Schema). Whenever a response would benefit from a rich visual — a "
-    "dashboard, status report, KPI summary, card layout, info grid, a "
-    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
-    "values across categories, or anything more structured than plain text — "
-    "call `generate_a2ui` to draw it. The registered catalog includes "
-    "`Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, "
-    "and `BarChart` (in addition to the basic A2UI primitives). Prefer "
-    "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
-    "sources, portfolio allocation) and `BarChart` for comparisons across "
-    "categories (quarterly revenue, headcount by team, signups per month). "
-    "`generate_a2ui` takes no arguments and handles the rendering "
-    "automatically. Keep chat replies to one short sentence; let the UI do "
-    "the talking."
+    "You are the embedded sales analyst for Vantage Threads, the fictional "
+    "B2B apparel company described in your context. Answer every business "
+    "question by calling `generate_a2ui` to draw a rich visual surface, and "
+    "keep the chat reply to one short sentence.\n"
+    "\n"
+    "Ground every number in the sales dataset from your context — never "
+    "invent figures that contradict it. Follow the dashboard composition "
+    "rules from your context when choosing components: pick the component "
+    "by the shape of the question (snapshot → composed KPI dashboard with "
+    "charts; team performance → DataTable; risk → StatusBadge cards; "
+    "single account → InfoRow facts; part-of-whole → PieChart; "
+    "trend/comparison → BarChart). Never ask the user which chart they "
+    "want. `generate_a2ui` takes no arguments and handles the rendering "
+    "automatically. Compose generously — a dashboard should feel like a "
+    "real analytics product, not a single widget."
 )
 
 declarative_gen_ui_agent = LlmAgent(
