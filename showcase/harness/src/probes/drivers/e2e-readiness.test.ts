@@ -1722,7 +1722,11 @@ describe("shortest-service-first dispatch (integration)", () => {
           transition: "first" as const,
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
 
@@ -1861,7 +1865,11 @@ describe("shortest-service-first dispatch (integration)", () => {
           transition: "first" as const,
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
 

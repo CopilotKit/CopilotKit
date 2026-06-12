@@ -24,7 +24,6 @@ import {
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   hydrateProbeLastRuns,
-  surfaceReclaimedCommErrors,
   verifyWorkerRegistered,
   drainFleetWorker,
   DRAIN_DEREGISTER_TIMEOUT_MS,
@@ -55,11 +54,12 @@ import {
   E2E_DEMOS_DRIVER_KIND,
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
-import type {
-  CommErrorSurfacePb,
-  WorkerRegistryReadPb,
-} from "./orchestrator.js";
+import type { WorkerRegistryReadPb } from "./orchestrator.js";
 import type { State, ProbeResult } from "./types/index.js";
+import type {
+  StatusWriter,
+  OverlayWriteOutcome,
+} from "./writers/status-writer.js";
 import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
 import type { PoolCommError } from "./fleet/contracts.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
@@ -773,6 +773,33 @@ describe("orchestrator.createStatusReader key safety (R28-slot1-A10)", () => {
     // Filter string quotes the key via JSON.stringify.
     expect(getFirst.mock.calls[0]![1]).toBe(`key = "smoke:langchain"`);
   });
+
+  it("degrades a corrupt durable state read-back to null instead of echoing it (A6(viii) round 7)", async () => {
+    // Red-green (round-7 A6viii): the reader returned `row?.state ?? null`
+    // RAW — a corrupt/legacy PB value (anything outside green|red|degraded)
+    // flowed into dispatchCronAlert's synthesized WriteOutcome as a bogus
+    // prior state. Same degrade-don't-trust posture as every other PB
+    // state read (asKnownState).
+    const getFirst = vi.fn(async (_c: string, _f: string) => ({
+      id: "r1",
+      key: "smoke:langchain",
+      state: "blue", // corrupt PB value
+    }));
+    const reader = createStatusReader({
+      getFirst: getFirst as unknown as <T>(
+        collection: string,
+        filter: string,
+      ) => Promise<T | null>,
+    });
+    await expect(reader.getStateByKey("smoke:langchain")).resolves.toBeNull();
+    // A valid value still passes through.
+    getFirst.mockResolvedValueOnce({
+      id: "r1",
+      key: "smoke:langchain",
+      state: "red",
+    });
+    await expect(reader.getStateByKey("smoke:langchain")).resolves.toBe("red");
+  });
 });
 
 /**
@@ -806,8 +833,12 @@ describe("orchestrator.createBrowserPoolHealthSignals (CR-FIX #6)", () => {
       }),
     };
     const statusReader = {
-      getStateByKey: vi.fn(async (_key: string): Promise<State | null> => {
+      getStateByKey: vi.fn(async (key: string): Promise<State | null> => {
         if (opts?.readThrows) throw new Error("PB read boom");
+        // `priorState` models the DEGRADED key only; the unrecoverable key
+        // is never-written (null) in these fixtures — its recovery leg has
+        // dedicated A2 (round 6) tests below.
+        if (key !== BROWSER_POOL_DEGRADED_KEY) return null;
         return opts?.priorState ?? null;
       }),
     };
@@ -887,6 +918,92 @@ describe("orchestrator.createBrowserPoolHealthSignals (CR-FIX #6)", () => {
         (c) => c[0].key === BROWSER_POOL_DEGRADED_KEY,
       ),
     ).toBe(true);
+  });
+
+  // A2 (round 6): BROWSER_POOL_UNRECOVERABLE_KEY was write-only red —
+  // writeUnrecoverable painted it red but writeHealthy only greened the
+  // DEGRADED key, so after the redeploy the terminal alarm demands, the
+  // unrecoverable row stayed red forever.
+  it("greens the unrecoverable key on writeHealthy when its prior state is red (A2 round 6)", async () => {
+    const writes: Array<CapturedWrite & { key: string }> = [];
+    const writer = {
+      write: vi.fn(async (result: CapturedWrite & { key: string }) => {
+        writes.push(result);
+        return {};
+      }),
+    };
+    // Post-redeploy shape: BOTH keys persisted red by writeUnrecoverable.
+    const statusReader = {
+      getStateByKey: vi.fn(async (_key: string): Promise<State | null> => {
+        return "red";
+      }),
+    };
+    const { writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: { warn: () => {} },
+    });
+    await writeHealthy();
+    const unrecoverable = writes.filter(
+      (w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY,
+    );
+    expect(unrecoverable).toHaveLength(1);
+    expect(unrecoverable[0]!.state).toBe("green");
+    expect(unrecoverable[0]!.signal.recovered).toBe(true);
+    // The shared degraded key still greens as before.
+    const degraded = writes.filter((w) => w.key === BROWSER_POOL_DEGRADED_KEY);
+    expect(degraded).toHaveLength(1);
+    expect(degraded[0]!.state).toBe("green");
+  });
+
+  it("does NOT seed a never-written unrecoverable key on writeHealthy (A2 round 6 — F2.1 discipline)", async () => {
+    const writes: Array<CapturedWrite & { key: string }> = [];
+    const writer = {
+      write: vi.fn(async (result: CapturedWrite & { key: string }) => {
+        writes.push(result);
+        return {};
+      }),
+    };
+    // Cold boot: neither key has ever been written (prior state null).
+    const statusReader = {
+      getStateByKey: vi.fn(async (): Promise<State | null> => null),
+    };
+    const { writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: { warn: () => {} },
+    });
+    await writeHealthy();
+    // The degraded key greens (cold-boot healthy stamp, as before)…
+    expect(writes.some((w) => w.key === BROWSER_POOL_DEGRADED_KEY)).toBe(true);
+    // …but the never-written unrecoverable key is NOT seeded.
+    expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+      false,
+    );
+  });
+
+  it("does NOT green the unrecoverable key when its prior state is already green (A2 round 6)", async () => {
+    const writes: Array<CapturedWrite & { key: string }> = [];
+    const writer = {
+      write: vi.fn(async (result: CapturedWrite & { key: string }) => {
+        writes.push(result);
+        return {};
+      }),
+    };
+    const statusReader = {
+      getStateByKey: vi.fn(async (key: string): Promise<State | null> => {
+        return key === BROWSER_POOL_UNRECOVERABLE_KEY ? "green" : "red";
+      }),
+    };
+    const { writeHealthy } = createBrowserPoolHealthSignals({
+      writer,
+      statusReader,
+      logger: { warn: () => {} },
+    });
+    await writeHealthy();
+    expect(writes.some((w) => w.key === BROWSER_POOL_UNRECOVERABLE_KEY)).toBe(
+      false,
+    );
   });
 });
 
@@ -2584,127 +2701,6 @@ describe("hydrateProbeLastRuns", () => {
 });
 
 /**
- * CR-FIX #2: surfaceReclaimedCommErrors must NOT invent a green status row for
- * a NEVER-OBSERVED probe key.
- *
- * Pre-fix the surfacer defaulted a never-observed key to `state: "green"` and
- * wrote that through the status-writer — fabricating a healthy cell for a
- * service whose worker crashed before it was ever probed. The codebase's
- * no-data representation is an ABSENT status row (status-writer F2.1: a
- * first-ever observation that is an "error" writes only status_history and
- * seeds NO status row). So a comm error on a never-observed key must be written
- * as state:"error" (never green), and an OBSERVED key must carry its real prior
- * colour.
- */
-describe("orchestrator.surfaceReclaimedCommErrors never-observed key (CR-FIX #2)", () => {
-  function makeLogger() {
-    return {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    };
-  }
-
-  function makeCommError(jobId: string): PoolCommError {
-    return {
-      kind: "worker-crashed-mid-job",
-      message: "worker died mid-job",
-      workerId: "worker-abc",
-      jobId,
-      observedAt: "2025-01-01T00:00:00.000Z",
-    };
-  }
-
-  // Build a pb fake satisfying the surfacer's CommErrorSurfacePb. Plain generic
-  // methods (NOT vi.fn, which collapses the type param to unknown) so the canned
-  // rows type-check against getOne<T>/getFirst<T>. The tests assert on the
-  // statusWriter writes, not on these reads, so call-tracking isn't needed.
-  function makeSurfacePb(opts: {
-    jobRow: { probe_key?: string } | null;
-    statusRow: { state?: string; signal?: unknown } | null;
-  }): CommErrorSurfacePb {
-    return {
-      getOne<T>(): Promise<T | null> {
-        return Promise.resolve(opts.jobRow as T | null);
-      },
-      getFirst<T>(): Promise<T | null> {
-        return Promise.resolve(opts.statusRow as T | null);
-      },
-      // CVDIAG durable diag_events write — best-effort; these tests assert on
-      // statusWriter, not on this sink, so a no-op create is sufficient.
-      create<T>(): Promise<T> {
-        return Promise.resolve(undefined as T);
-      },
-    };
-  }
-
-  it("writes state 'error' (NOT green) when the probe key was never observed", async () => {
-    const writes: ProbeResult<unknown>[] = [];
-    const statusWriter = {
-      write: vi.fn(async (r: ProbeResult<unknown>) => {
-        writes.push(r);
-        return undefined;
-      }),
-    };
-    const pb = makeSurfacePb({
-      // Job row resolves to a probe_key; never observed → no status row.
-      jobRow: { probe_key: "d6:never-seen-service" },
-      statusRow: null,
-    });
-    const logger = makeLogger();
-
-    await surfaceReclaimedCommErrors({ pb, statusWriter, logger }, [
-      makeCommError("job-1"),
-    ]);
-
-    expect(statusWriter.write).toHaveBeenCalledTimes(1);
-    expect(writes).toHaveLength(1);
-    // THE FIX: never-observed key must NOT be reported green.
-    expect(writes[0].state).not.toBe("green");
-    expect(writes[0].state).toBe("error");
-    expect(writes[0].key).toBe("d6:never-seen-service");
-    // The comm-error overlay is still carried on the signal.
-    expect(
-      (writes[0].signal as Record<string, unknown>)[
-        FLEET_COMM_ERROR_SIGNAL_KEY
-      ],
-    ).toBeDefined();
-  });
-
-  it("carries the real prior colour for an OBSERVED key (regression guard)", async () => {
-    const writes: ProbeResult<unknown>[] = [];
-    const statusWriter = {
-      write: vi.fn(async (r: ProbeResult<unknown>) => {
-        writes.push(r);
-        return undefined;
-      }),
-    };
-    const pb = makeSurfacePb({
-      jobRow: { probe_key: "d6:seen-service" },
-      // Observed: a red status row exists.
-      statusRow: { state: "red", signal: { prior: true } },
-    });
-    const logger = makeLogger();
-
-    await surfaceReclaimedCommErrors({ pb, statusWriter, logger }, [
-      makeCommError("job-2"),
-    ]);
-
-    expect(writes).toHaveLength(1);
-    // Observed key carries its real last-known colour, not "error", not green.
-    expect(writes[0].state).toBe("red");
-    // Base signal preserved + overlay added.
-    expect((writes[0].signal as Record<string, unknown>).prior).toBe(true);
-    expect(
-      (writes[0].signal as Record<string, unknown>)[
-        FLEET_COMM_ERROR_SIGNAL_KEY
-      ],
-    ).toBeDefined();
-  });
-});
-
-/**
  * CR-FIX #4: verifyWorkerRegistered must reflect the ACTUAL upsert outcome.
  *
  * registerWorker is best-effort and swallows the boot-upsert failure, so the
@@ -3565,6 +3561,15 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
+    // resetModules clears the module CACHE, not the doMock REGISTRY — drop
+    // every specifier this describe doMocks so later describes don't import
+    // these stubs by registration-order luck.
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./fleet/queue-client.js");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+    vi.doUnmock("./probes/run-history.js");
+    vi.doUnmock("./scheduler/scheduler.js");
   });
 
   it("surfaces a swept job's worker-crashed overlay onto its d6:<slug> status row", async () => {
@@ -3633,7 +3638,8 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
     });
 
     // Capture every status-writer write so we can assert the overlay landed on
-    // the d6:<slug> row.
+    // the d6:<slug> row. This leg is never-observed (pb getFirst → null), so
+    // writeOverlay is not taken; the stub still satisfies the interface.
     const writes: ProbeResult<unknown>[] = [];
     vi.doMock("./writers/status-writer.js", async () => {
       const actual = await vi.importActual<
@@ -3641,11 +3647,32 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
       >("./writers/status-writer.js");
       return {
         ...actual,
-        createStatusWriter: () => ({
+        // The `(): StatusWriter` annotation makes tsc enforce the real
+        // WriteOutcome contract on the stub (the round-8 fix completed the
+        // writeOverlay shapes but left `write` returning undefined).
+        createStatusWriter: (): StatusWriter => ({
           write: async (r: ProbeResult<unknown>) => {
             writes.push(r);
-            return undefined;
+            // Contract-honest shape, mirroring the real writer's
+            // first-observation outcome: `newState` carries the written state
+            // end-to-end and `persisted` is required + truthful.
+            return {
+              previousState: null,
+              newState: r.state,
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
           },
+          writeOverlay: async (): Promise<OverlayWriteOutcome> => ({
+            applied: false,
+            state: null,
+            // The real writer ALWAYS stamps historyPersisted (optional at the
+            // type level only for best-effort wrappers); applied:false from
+            // the real writer is always historyPersisted:false.
+            historyPersisted: false,
+          }),
         }),
       };
     });
@@ -3761,6 +3788,15 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
+    // resetModules clears the module CACHE, not the doMock REGISTRY — drop
+    // every specifier this describe doMocks so later describes don't import
+    // these stubs by registration-order luck.
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./fleet/queue-client.js");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+    vi.doUnmock("./probes/run-history.js");
+    vi.doUnmock("./fleet/control-plane/result-consumer.js");
   });
 
   it("preserves a previously-RED service's colour on a worker-self-report comm error (not degraded)", async () => {
@@ -3826,18 +3862,48 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
       };
     });
 
-    // Capture every status-writer write so we can assert the carried colour.
+    // Capture both status-writer seams: with the resolver wired, the
+    // observed-prior-colour self-report leg routes through the H1 overlay
+    // path (writeOverlay), preserving the row's durable state/attribution.
     const writes: ProbeResult<unknown>[] = [];
+    const overlays: {
+      key: string;
+      signal: Record<string, unknown>;
+      observedAt: string;
+    }[] = [];
     vi.doMock("./writers/status-writer.js", async () => {
       const actual = await vi.importActual<
         typeof import("./writers/status-writer.js")
       >("./writers/status-writer.js");
       return {
         ...actual,
-        createStatusWriter: () => ({
+        // The `(): StatusWriter` annotation makes tsc enforce the real
+        // WriteOutcome contract on the stub (the round-8 fix completed the
+        // writeOverlay shapes but left `write` returning undefined).
+        createStatusWriter: (): StatusWriter => ({
           write: async (r: ProbeResult<unknown>) => {
             writes.push(r);
-            return undefined;
+            // Contract-honest shape, mirroring the real writer's
+            // first-observation outcome: `newState` carries the written state
+            // end-to-end and `persisted` is required + truthful.
+            return {
+              previousState: null,
+              newState: r.state,
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
+          },
+          writeOverlay: async (o: {
+            key: string;
+            signal: Record<string, unknown>;
+            observedAt: string;
+          }): Promise<OverlayWriteOutcome> => {
+            overlays.push(o);
+            // Full-success shape: the real writer stamps historyPersisted on
+            // EVERY outcome (true here — overlay + audit row both landed).
+            return { applied: true, state: "red", historyPersisted: true };
           },
         }),
       };
@@ -3906,16 +3972,14 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
         commError: selfReportCommError,
       } as never);
 
-      const primary = writes.find((w) => w.key === "d6:selfreport-svc");
+      // With the resolver wired, the prior-RED service routes through the H1
+      // overlay path — NOT a degraded no-data write() (which is what an
+      // unwired aggregator would produce), and NOT a same-state red re-write.
+      expect(writes.find((w) => w.key === "d6:selfreport-svc")).toBeUndefined();
+      const primary = overlays.find((o) => o.key === "d6:selfreport-svc");
       expect(primary).toBeDefined();
-      // The carried colour is the prior RED — NOT the degraded no-data fallback
-      // (which is what an unwired aggregator would write), and NOT green.
-      expect(primary!.state).toBe("red");
-      expect(primary!.state).not.toBe("degraded");
-      expect(primary!.state).not.toBe("green");
       // The comm-error overlay still rides on the row the dashboard reads.
-      const signal = primary!.signal as Record<string, unknown>;
-      const overlay = signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
+      const overlay = primary!.signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
         | PoolCommError
         | undefined;
       expect(overlay).toBeDefined();
@@ -4986,7 +5050,25 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
       >("./writers/status-writer.js");
       return {
         ...actual,
-        createStatusWriter: () => ({ write: async () => undefined }),
+        // Stub the full StatusWriter surface (write + writeOverlay) with
+        // contract-honest outcome shapes — the `(): StatusWriter` annotation
+        // makes tsc enforce the real WriteOutcome contract on the stub
+        // (pre-fix `write: async () => undefined` violated it).
+        createStatusWriter: (): StatusWriter => ({
+          write: async () => ({
+            previousState: null,
+            newState: "green",
+            transition: "first",
+            firstFailureAt: null,
+            failCount: 0,
+            persisted: true,
+          }),
+          writeOverlay: async () => ({
+            applied: false,
+            state: null,
+            historyPersisted: false,
+          }),
+        }),
       };
     });
 
