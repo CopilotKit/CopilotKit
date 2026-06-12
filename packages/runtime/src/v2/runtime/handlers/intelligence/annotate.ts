@@ -57,7 +57,7 @@ function isNonEmptyString(value: unknown): value is string {
  * `POST /annotate` handler.
  *
  * Three-tier flow:
- *   recordAnnotation() (frontend lib; called by useLearnFromUserAction / useLearningContainers)
+ *   recordAnnotation() (frontend lib; called by useLearnFromUserAction)
  *     → POST ${runtimeUrl}/annotate
  *     → this handler resolves the Intel user from BFF auth
  *     → intelligence.annotate(...)

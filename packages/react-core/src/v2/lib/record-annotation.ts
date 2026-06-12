@@ -34,7 +34,7 @@ export interface RecordAnnotationArgs {
   headers: Record<string, string>;
   /**
    * The annotation discriminant understood by the Intelligence platform.
-   * Known values: `"user_action"`, `"set_learning_containers"`.
+   * Known values: `"user_action"`.
    */
   type: string;
   /**

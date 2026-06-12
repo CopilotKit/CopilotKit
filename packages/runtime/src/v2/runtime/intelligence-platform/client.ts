@@ -206,10 +206,9 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
  * it with the project id at write time.
  *
  * `payload` is the type-specific JSON blob for the annotation (e.g. a
- * `"user_action"` event carries the recorded fields, a
- * `"set_learning_containers"` event carries the container list). The exact
- * shape per type is validated by the Intelligence backend; canonical shapes
- * are documented on the Intelligence react-core side.
+ * `"user_action"` event carries the recorded fields). The exact shape per
+ * type is validated by the Intelligence backend; canonical shapes are
+ * documented on the Intelligence react-core side.
  */
 export interface AnnotateParams {
   /** The user the annotation belongs to. */
@@ -219,7 +218,7 @@ export interface AnnotateParams {
   /**
    * Discriminator identifying the annotation type.
    * Must match a type known to the Intelligence platform
-   * (e.g. `"user_action"`, `"set_learning_containers"`).
+   * (e.g. `"user_action"`).
    */
   type: string;
   /** Type-specific payload. Shape varies by `type`. */
@@ -769,7 +768,6 @@ export class CopilotKitIntelligence {
    * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
    * multiple annotation types via the `type` discriminator:
    * - `"user_action"` — records a user UI interaction for the self-learning loop.
-   * - `"set_learning_containers"` — sets the learning containers for a thread.
    *
    * `userId` must be resolved on the runtime side before calling this — the
    * platform prefixes it with the project id from the API key.
