@@ -431,6 +431,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
     });
 

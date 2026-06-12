@@ -110,36 +110,38 @@ add_langgraph_fastapi_endpoint(
 )
 ```
 
-### Next.js Route (src/app/api/copilotkit/route.ts)
+### Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    sample_agent: new LangGraphHttpAgent({
-      url: process.env.AGENT_URL || "http://localhost:8123",
+    default: new LangGraphHttpAgent({
+      url: `${process.env.AGENT_URL || "http://localhost:8123"}/`,
     }),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
-Use `LangGraphHttpAgent` (from `@copilotkit/runtime/langgraph`) for self-hosted agents. The default port is 8123.
+Use `LangGraphHttpAgent` (from `@copilotkit/runtime/langgraph`) for self-hosted agents -- the FastAPI server runs under `ag-ui-langgraph`, which speaks AG-UI directly. The default port is 8123 (note the trailing slash on the URL).
 
 ---
 
@@ -147,10 +149,16 @@ Use `LangGraphHttpAgent` (from `@copilotkit/runtime/langgraph`) for self-hosted 
 
 This is the `langgraph-python` example pattern. Uses `LangGraphAgent` which connects to a LangGraph deployment (local or cloud).
 
-### Next.js Route
+### Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
 
 const defaultAgent = new LangGraphAgent({
   deploymentUrl:
@@ -161,20 +169,21 @@ const defaultAgent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
-  a2ui: { injectA2UITool: true },
-  mcpApps: {
-    servers: [
-      {
-        type: "http",
-        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
-        serverId: "example_mcp_app",
-      },
-    ],
-  },
+  runner: new InMemoryAgentRunner(),
 });
+
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
-Key difference from self-hosted: `LangGraphAgent` uses `deploymentUrl` and `graphId` (and optionally `langsmithApiKey`), while `LangGraphHttpAgent` uses a plain `url`.
+Key difference from self-hosted: `LangGraphAgent` uses `deploymentUrl` and `graphId` (and optionally `langsmithApiKey`) to target the LangGraph Platform / `langgraph-cli dev` surface, while `LangGraphHttpAgent` uses a plain `url` for a self-hosted AG-UI server.
 
 ---
 
@@ -260,9 +269,26 @@ Key JS-specific patterns:
 - Use `convertActionsToDynamicStructuredTools()` to convert frontend actions to LangChain tools
 - Check `copilotkit.actions` to determine whether a tool call should route to `tool_node` (backend) or `__end__` (frontend)
 
+### Serving the JS graph
+
+`LangGraphAgent` with `deploymentUrl`/`graphId` targets the LangGraph **server** surface, not the bare compiled `graph` export. Serve the graph with the LangGraph JS CLI (`@langchain/langgraph-cli`) so that surface exists. Add a `langgraph.json` next to the agent:
+
+```json
+{
+  "node_version": "20",
+  "dependencies": ["."],
+  "graphs": {
+    "sample_agent": "./src/agent.ts:graph"
+  },
+  "env": "../.env"
+}
+```
+
+Run it with `langgraphjs dev --port 8123` (the agent app's `dev` script). The `graphId` you pass to `LangGraphAgent` must match a key under `graphs` (here `"sample_agent"`), and `deploymentUrl` points at the CLI server (`http://localhost:8123`).
+
 ### Next.js Route
 
-Same as the Platform pattern -- uses `LangGraphAgent` with `deploymentUrl` and `graphId`.
+The catch-all `src/app/api/copilotkit/[[...slug]]/route.ts` uses `LangGraphAgent` (from `@copilotkit/runtime/langgraph`) with `deploymentUrl` (the `langgraphjs dev` URL, e.g. `http://localhost:8123`) and `graphId` (`"sample_agent"`), mounted via `createCopilotHonoHandler`.
 
 ## Monorepo Structure (JS)
 
@@ -271,9 +297,9 @@ The JS variant uses a Turborepo monorepo:
 ```
 apps/
   web/          # Next.js frontend
-  agent/        # LangGraph agent (Node.js)
+  agent/        # LangGraph agent, served via `langgraphjs dev` (langgraph.json)
 pnpm-workspace.yaml
 turbo.json
 ```
 
-Run `pnpm dev` to start both apps via Turborepo.
+Run `pnpm dev` to start both apps via Turborepo (the agent app runs `langgraphjs dev --port 8123`).

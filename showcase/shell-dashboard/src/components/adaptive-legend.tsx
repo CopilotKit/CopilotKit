@@ -56,7 +56,7 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D3</span>
-        Page Load: demo page loads in a browser
+        E2E (Demo): demo page loads and round-trips in a browser
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D4</span>
@@ -69,7 +69,7 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D6</span>
-        Parity (PR): full all-pills run verified against the reference
+        Parity (Reference): full all-pills run verified against the reference
         integration
       </LegendItem>
       {/* Regression indicator */}
@@ -82,7 +82,7 @@ function HealthLegend() {
         <span className="text-[var(--ok)]">D4 ✓</span>/
         <span className="text-[var(--amber)]">~</span>/
         <span className="text-[var(--danger)]">✗</span>
-        round-trip check (green &lt;6h / amber stale / red fail)
+        round-trip check (green &lt;1h / amber stale / red fail)
       </LegendItem>
       <LegendItem>
         <span className="text-[var(--ok)]">D5</span>/

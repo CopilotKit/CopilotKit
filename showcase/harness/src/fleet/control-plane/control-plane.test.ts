@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   createControlPlane,
+  buildJobProducer,
   FLEET_PRODUCER_SCHEDULE_ID,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   DEFAULT_PRODUCER_CRON,
 } from "./control-plane.js";
 import type { JobProducer, TickResult } from "./job-producer.js";
@@ -13,7 +17,12 @@ import type {
 import type { FleetHealthMonitor, FleetHealthResult } from "./fleet-health.js";
 import type { Scheduler, ScheduleEntry } from "../../scheduler/scheduler.js";
 import type { Logger } from "../../types/index.js";
-import type { PoolCommError } from "../contracts.js";
+import type {
+  EnqueueJobInput,
+  FleetQueueClient,
+  JobView,
+  PoolCommError,
+} from "../contracts.js";
 
 /**
  * Pins the control-plane ASSEMBLY: start() registers the producer's tick as the
@@ -49,8 +58,13 @@ function makeFakeProducer(): JobProducer & {
         runId: "r",
         enqueued: 0,
         enqueueFailures: 0,
+        skippedForBacklog: 0,
+        backlogGateFailedOpen: 0,
+        truncatedByStop: 0,
         sweptExpired: false,
+        sweepFailed: false,
         reclaimed: 0,
+        enumerateFailed: false,
       };
     },
     isRunning() {
@@ -87,7 +101,7 @@ function makeFakeAggregator(): ResultAggregator & {
     },
     async aggregateCommError(input) {
       commErrorCalls.push(input);
-      return { statusOutcomes: [] };
+      return { statusOutcomes: [], overlayOutcomes: [] };
     },
   };
 }
@@ -157,20 +171,35 @@ function makeFakeScheduler(): Scheduler & {
   };
 }
 
-/** A controllable fake setInterval/clearInterval pair. */
+/**
+ * A controllable fake setInterval/clearInterval pair. PER-HANDLE like the
+ * real timers: the control-plane registers up to TWO intervals (consumer
+ * poll + fleet-health), and the old single-callback-slot fake let the
+ * second registration silently overwrite the first — any test "driving" the
+ * consumer loop with fleet-health injected was vacuous, and a leaked
+ * (never-cleared) interval was invisible to the `cleared` flag.
+ */
 class FakeTimers {
-  private cb: (() => void) | undefined;
-  cleared = false;
+  private handles = new Map<number, () => void>();
+  private nextHandle = 1;
+  /** Total intervals ever registered (cleared or not). */
+  registered = 0;
   setIntervalImpl = ((fn: () => void) => {
-    this.cb = fn;
-    return 1 as unknown as ReturnType<typeof setInterval>;
+    const handle = this.nextHandle++;
+    this.registered += 1;
+    this.handles.set(handle, fn);
+    return handle as unknown as ReturnType<typeof setInterval>;
   }) as unknown as typeof setInterval;
-  clearIntervalImpl = (() => {
-    this.cleared = true;
-    this.cb = undefined;
+  clearIntervalImpl = ((handle: unknown) => {
+    this.handles.delete(handle as number);
   }) as unknown as typeof clearInterval;
+  /** True when at least one interval was registered and ALL were cleared. */
+  get cleared(): boolean {
+    return this.registered > 0 && this.handles.size === 0;
+  }
+  /** Fire every ACTIVE (uncleared) interval callback once. */
   async fire(): Promise<void> {
-    this.cb?.();
+    for (const cb of [...this.handles.values()]) cb();
     // Let the void-returned async cycle settle.
     await Promise.resolve();
     await Promise.resolve();
@@ -435,6 +464,14 @@ describe("createControlPlane — multi-schedule hardening", () => {
     // Nothing registered.
     expect(scheduler.entries.size).toBe(0);
 
+    // `started` is not latched true on the FAILED instance: a retry on the
+    // SAME control-plane re-validates and throws again (a latched-true latch
+    // would make the second start() a silent no-op).
+    expect(() => cp.start()).toThrow(/fleet-bad/);
+    expect(producerA.started).toBe(false);
+    expect(producerB.started).toBe(false);
+    expect(scheduler.entries.size).toBe(0);
+
     // `started` is not latched true: a subsequent start() with valid crons works.
     const cpOk = createControlPlane({
       producer: producerA,
@@ -497,6 +534,77 @@ describe("createControlPlane — multi-schedule hardening", () => {
     cp.start();
     expect(scheduler.entries.size).toBe(1);
     expect(scheduler.entries.has(FLEET_PRODUCER_SCHEDULE_ID)).toBe(true);
+  });
+});
+
+// ── §5.1 constant homing + §4.2 family threading through the wrapper ────────
+describe("control-plane — e2e producer schedule-id constants", () => {
+  it("exports FLEET_PRODUCER_SMOKE/DEMOS/DEEP_SCHEDULE_ID with the producer schedule id values", () => {
+    // These values MUST equal the scheduler entry ids the orchestrator wires
+    // (orchestrator.ts re-imports them from here after the T8 constant move).
+    expect(FLEET_PRODUCER_SMOKE_SCHEDULE_ID).toBe("fleet-producer-e2e-smoke");
+    expect(FLEET_PRODUCER_DEMOS_SCHEDULE_ID).toBe("fleet-producer-e2e-demos");
+    expect(FLEET_PRODUCER_DEEP_SCHEDULE_ID).toBe("fleet-producer-e2e-deep");
+  });
+});
+
+describe("buildJobProducer — family forwarding", () => {
+  /** Minimal producer-facing queue fake recording enqueue inputs. */
+  function makeRecordingQueue(): FleetQueueClient & {
+    enqueued: EnqueueJobInput[];
+  } {
+    const enqueued: EnqueueJobInput[] = [];
+    let jobSeq = 0;
+    const unsupported = (n: string) => () => {
+      throw new Error(`fake-queue: ${n} not used by these tests`);
+    };
+    return {
+      enqueued,
+      async enqueue(input: EnqueueJobInput): Promise<JobView> {
+        enqueued.push(input);
+        jobSeq += 1;
+        return {
+          id: `job-${jobSeq}`,
+          probe_key: input.payload.probeKey,
+          status: "pending",
+          claimed_by: "",
+          lease_expires_at: null,
+          version: 1,
+        };
+      },
+      async sweepExpired() {
+        return { reclaimed: 0, commErrors: [] };
+      },
+      async pruneAged() {
+        return { terminal: 0, zombie: 0 };
+      },
+      claimNext: unsupported("claimNext"),
+      renewLease: unsupported("renewLease"),
+      report: unsupported("report"),
+    } as unknown as FleetQueueClient & { enqueued: EnqueueJobInput[] };
+  }
+
+  it("forwards family to createJobProducer (observed on a produced enqueue input)", async () => {
+    // The wrapper re-declares every forwarded dep (explicit spread), so an
+    // omitted `family` field would SILENTLY drop the option (§4.2) — this test
+    // pins the forwarding by observing the stamped family end-to-end.
+    const queue = makeRecordingQueue();
+    const producer = buildJobProducer({
+      queue,
+      enumerate: () => [
+        {
+          probeKey: "d5-single-pill-e2e:langgraph-python",
+          serviceSlug: "langgraph-python",
+          driverKind: "e2e_d5",
+        },
+      ],
+      logger: SILENT_LOGGER,
+      family: "d5",
+    });
+    producer.start();
+    await producer.tick();
+    expect(queue.enqueued).toHaveLength(1);
+    expect(queue.enqueued[0]!.family).toBe("d5");
   });
 });
 
@@ -592,14 +700,49 @@ describe("createControlPlane — REQ-B comm-error surfacing", () => {
       logger: SILENT_LOGGER,
       aggregator,
       fleetHealth,
-      // Use the SAME fake timer for both consumer + fleet-health; fire() drives
-      // whichever callback was registered last (fleet-health), proving the loop
-      // is attached. We assert the monitor was invoked.
+      // The SAME fake timer pair carries both the consumer and fleet-health
+      // intervals (per-handle, like the real setInterval); fire() drives
+      // every active callback. We assert the monitor was invoked.
       setIntervalImpl: timers.setIntervalImpl,
       clearIntervalImpl: timers.clearIntervalImpl,
     });
     cp.start();
     await timers.fire();
+    expect(fleetHealth.calls).toBe(1);
+  });
+
+  it("with fleetHealth injected, the consumer AND fleet-health intervals BOTH fire — and stop() clears BOTH", async () => {
+    // The old FakeTimers held a SINGLE callback slot, so the second
+    // registration (fleet-health) silently overwrote the consumer's — a
+    // control-plane that never started the consumer loop when fleet-health
+    // was injected would have passed every test in this file. Per-handle
+    // timers pin both loops, and per-handle clears pin that stop() tears
+    // down BOTH (a leaked interval would survive shutdown).
+    const consumer = makeFakeConsumer();
+    const fleetHealth = makeFakeFleetHealth(emptyHealthResult());
+    const timers = makeFakeTimers();
+    const cp = createControlPlane({
+      producer: makeFakeProducer(),
+      consumer,
+      scheduler: makeFakeScheduler(),
+      logger: SILENT_LOGGER,
+      aggregator: makeFakeAggregator(),
+      fleetHealth,
+      setIntervalImpl: timers.setIntervalImpl,
+      clearIntervalImpl: timers.clearIntervalImpl,
+    });
+    cp.start();
+    expect(timers.registered).toBe(2);
+
+    await timers.fire();
+    expect(consumer.calls).toBe(1);
+    expect(fleetHealth.calls).toBe(1);
+
+    await cp.stop();
+    // ALL registered handles cleared — not just the last one.
+    expect(timers.cleared).toBe(true);
+    await timers.fire();
+    expect(consumer.calls).toBe(1);
     expect(fleetHealth.calls).toBe(1);
   });
 
@@ -747,5 +890,111 @@ describe("createControlPlane — REQ-B comm-error surfacing", () => {
 
     expect(aggregator.commErrorCalls).toHaveLength(1);
     expect(aggregator.commErrorCalls[0].lastKnownState).toBeUndefined();
+  });
+});
+
+describe("createControlPlane — §9 family-silence tick seam", () => {
+  function makeFakeFamilySilence(impl?: (nowMs: number) => Promise<void>) {
+    const calls: number[] = [];
+    return {
+      calls,
+      async tick(nowMs: number): Promise<void> {
+        calls.push(nowMs);
+        if (impl) return impl(nowMs);
+      },
+    };
+  }
+
+  function makeRecordingLogger(): Logger & {
+    warns: Array<{ msg: string; meta?: Record<string, unknown> }>;
+  } {
+    const warns: Array<{ msg: string; meta?: Record<string, unknown> }> = [];
+    return {
+      warns,
+      info: () => {},
+      warn: (msg, meta) => {
+        warns.push({ msg, ...(meta ? { meta } : {}) });
+      },
+      error: () => {},
+      debug: () => {},
+    };
+  }
+
+  /** Flush the fire-and-forget tick chain (deeper than FakeTimers.fire covers). */
+  async function settle(): Promise<void> {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  it("the fleet-health interval invokes familySilence.tick when supplied", async () => {
+    const familySilence = makeFakeFamilySilence();
+    const fleetHealth = makeFakeFleetHealth(emptyHealthResult());
+    const timers = makeFakeTimers();
+    const cp = createControlPlane({
+      producer: makeFakeProducer(),
+      consumer: makeFakeConsumer(),
+      scheduler: makeFakeScheduler(),
+      logger: SILENT_LOGGER,
+      fleetHealth,
+      familySilence,
+      setIntervalImpl: timers.setIntervalImpl,
+      clearIntervalImpl: timers.clearIntervalImpl,
+    });
+    cp.start();
+    await timers.fire();
+    await settle();
+    expect(fleetHealth.calls).toBe(1);
+    expect(familySilence.calls).toHaveLength(1);
+    expect(typeof familySilence.calls[0]).toBe("number");
+  });
+
+  it("a familySilence tick rejection is logged and never wedges the loop", async () => {
+    const familySilence = makeFakeFamilySilence(async () => {
+      throw new Error("monitor blew up");
+    });
+    const fleetHealth = makeFakeFleetHealth(emptyHealthResult());
+    const logger = makeRecordingLogger();
+    const timers = makeFakeTimers();
+    const cp = createControlPlane({
+      producer: makeFakeProducer(),
+      consumer: makeFakeConsumer(),
+      scheduler: makeFakeScheduler(),
+      logger,
+      fleetHealth,
+      familySilence,
+      setIntervalImpl: timers.setIntervalImpl,
+      clearIntervalImpl: timers.clearIntervalImpl,
+    });
+    cp.start();
+    await timers.fire();
+    await settle();
+    await timers.fire();
+    await settle();
+    // The rejection never wedges health reclaim: both cycles ran.
+    expect(fleetHealth.calls).toBe(2);
+    expect(familySilence.calls).toHaveLength(2);
+    expect(
+      logger.warns.some(
+        (w) => w.msg === "fleet.control-plane.family-silence-tick-failed",
+      ),
+    ).toBe(true);
+  });
+
+  it("familySilence ticks on the fleet-health interval even with no fleet-health monitor injected", async () => {
+    const familySilence = makeFakeFamilySilence();
+    const timers = makeFakeTimers();
+    const cp = createControlPlane({
+      producer: makeFakeProducer(),
+      consumer: makeFakeConsumer(),
+      scheduler: makeFakeScheduler(),
+      logger: SILENT_LOGGER,
+      // no fleetHealth — the monitor must still ride the interval
+      familySilence,
+      setIntervalImpl: timers.setIntervalImpl,
+      clearIntervalImpl: timers.clearIntervalImpl,
+    });
+    cp.start();
+    await timers.fire();
+    await settle();
+    expect(familySilence.calls).toHaveLength(1);
   });
 });

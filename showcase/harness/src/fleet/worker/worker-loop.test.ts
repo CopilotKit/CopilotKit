@@ -161,7 +161,12 @@ function makeDriver(args: {
         observedAt,
       });
       return {
-        key: `e2e_d6:${args.slug}`,
+        // The d6 AGGREGATE row key `d6:<slug>` — the fleet contract forbids an
+        // `e2e_d6:<slug>` row on the fleet path (see ServiceJobResult
+        // .aggregateKey), and the comm-error/driver-error paths in this file
+        // pin `d6:<slug>`; the success path must pin the SAME key form so a
+        // success≠error key drift can't hide.
+        key: `d6:${args.slug}`,
         state: args.aggregateState,
         signal: { shape: "package", slug: args.slug },
         observedAt,
@@ -203,6 +208,12 @@ function makeQueue(claims: ClaimedJob[]): RecordingQueue {
     },
     async sweepExpired() {
       return { reclaimed: 0, commErrors: [] };
+    },
+    async countPendingForFamily(): Promise<number> {
+      throw new Error("countPendingForFamily not used by worker");
+    },
+    async pruneAged() {
+      return { terminal: 0, zombie: 0 };
     },
   };
 }
@@ -258,7 +269,7 @@ describe("buildServiceJobResult", () => {
   it("echoes payload identity and folds in the aggregate + rollup", () => {
     const lease = makeLease();
     const aggregate: ProbeResult = {
-      key: "e2e_d6:langgraph-python",
+      key: "d6:langgraph-python",
       state: "green",
       signal: { ok: true },
       observedAt: "2026-06-04T00:04:00.000Z",
@@ -285,7 +296,7 @@ describe("buildServiceJobResult", () => {
     expect(result.runId).toBe("run-42");
     expect(result.workerId).toBe("worker-test");
     expect(result.aggregateState).toBe("green");
-    expect(result.aggregateKey).toBe("e2e_d6:langgraph-python");
+    expect(result.aggregateKey).toBe("d6:langgraph-python");
     expect(result.cells).toEqual(cells);
     expect(result.rollup).toEqual({ total: 1, passed: 1, failed: 0 });
     expect(result.commError).toBeUndefined();
@@ -300,7 +311,7 @@ describe("buildServiceJobResult", () => {
     // error result instead of persisting junk.
     const lease = makeLease();
     const aggregate = {
-      key: "e2e_d6:langgraph-python",
+      key: "d6:langgraph-python",
       state: "grene" as ProbeState,
       signal: {},
       observedAt: "2026-06-04T00:04:00.000Z",
@@ -374,7 +385,7 @@ describe("runClaimedJob", () => {
     );
     expect(result.rollup).toEqual({ total: 2, passed: 1, failed: 1 });
     expect(result.aggregateState).toBe("red");
-    expect(result.aggregateKey).toBe("e2e_d6:langgraph-python");
+    expect(result.aggregateKey).toBe("d6:langgraph-python");
     expect(result.commError).toBeUndefined();
   });
 
@@ -668,7 +679,7 @@ describe("runClaimedJob", () => {
         markStarted();
         await released;
         return {
-          key: "e2e_d6:langgraph-python",
+          key: "d6:langgraph-python",
           state: "green",
           signal: { shape: "package", slug: "langgraph-python" },
           observedAt: ctx.now().toISOString(),
@@ -739,7 +750,7 @@ describe("runClaimedJob", () => {
           await new Promise((r) => setTimeout(r, 0));
         }
         return {
-          key: "e2e_d6:langgraph-python",
+          key: "d6:langgraph-python",
           state: "green",
           signal: { shape: "package", slug: "langgraph-python" },
           observedAt: ctx.now().toISOString(),
@@ -1374,7 +1385,7 @@ describe("startWorkerLoop", () => {
           await ctx.writer.write(redAbortCell);
         }
         return {
-          key: "e2e_d6:langgraph-python",
+          key: "d6:langgraph-python",
           state: "red",
           signal: { shape: "package", slug: "langgraph-python" },
           observedAt,
@@ -1518,7 +1529,7 @@ describe("startWorkerLoop", () => {
         });
         reasonAfterAbort = ctx.drainReason;
         return {
-          key: "e2e_d6:langgraph-python",
+          key: "d6:langgraph-python",
           state: "red",
           signal: { shape: "package", slug: "langgraph-python" },
           observedAt: ctx.now().toISOString(),
@@ -1593,7 +1604,7 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
         await released;
         settled = true;
         return {
-          key: "e2e_d6:langgraph-python",
+          key: "d6:langgraph-python",
           state: "green",
           signal: { shape: "package", slug: "langgraph-python" },
           observedAt: ctx.now().toISOString(),
@@ -1783,7 +1794,7 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
         ctx: ServiceDriverContext,
         _input: unknown,
       ): Promise<ProbeResult> => ({
-        key: "e2e_d6:langgraph-python",
+        key: "d6:langgraph-python",
         state: "green",
         signal: { shape: "package", slug: "langgraph-python" },
         observedAt: ctx.now().toISOString(),
@@ -1952,7 +1963,7 @@ describe("drain grace (WORKER_DRAIN_GRACE_MS)", () => {
           // Deliberately IGNORE ctx.abortSignal — a wedged teardown.
           await released;
           return {
-            key: "e2e_d6:langgraph-python",
+            key: "d6:langgraph-python",
             state: "green",
             signal: { shape: "package", slug: "langgraph-python" },
             observedAt: ctx.now().toISOString(),

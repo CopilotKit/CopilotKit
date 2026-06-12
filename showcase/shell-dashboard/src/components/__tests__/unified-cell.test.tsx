@@ -224,7 +224,7 @@ describe("UnifiedCell", () => {
       expect(queryByTestId("mock-depth-chip")).not.toBeInTheDocument();
 
       // No badges rendered
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
 
@@ -298,7 +298,7 @@ describe("UnifiedCell", () => {
 
   // ── Test 3: Only shows badges for test levels that exist ──────────
   describe("badge existence filtering", () => {
-    it("shows API badge when D3 exists but hides RT badge when D4 is missing", () => {
+    it("shows E2E badge when D3 exists but hides RT badge when D4 is missing", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
@@ -309,8 +309,8 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      // API badge present (D3 exists)
-      expect(getByTestId("mock-badge-API")).toBeInTheDocument();
+      // E2E badge present (D3 exists)
+      expect(getByTestId("mock-badge-E2E")).toBeInTheDocument();
       // RT badge absent (D4 does not exist)
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       // CV badge present (D5 exists)
@@ -328,7 +328,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -344,7 +344,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
       expect(getByTestId("mock-badge-RT")).toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -352,7 +352,7 @@ describe("UnifiedCell", () => {
 
   // ── Test 4: Shows all three badges when all levels exist ──────────
   describe("all badges visible", () => {
-    it("shows API, RT, and CV badges when all three levels exist", () => {
+    it("shows E2E, RT, and CV badges when all three levels exist", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
@@ -363,9 +363,9 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const apiBadge = getByTestId("mock-badge-API");
-      expect(apiBadge).toBeInTheDocument();
-      expect(apiBadge.getAttribute("data-tone")).toBe("green");
+      const e2eBadge = getByTestId("mock-badge-E2E");
+      expect(e2eBadge).toBeInTheDocument();
+      expect(e2eBadge.getAttribute("data-tone")).toBe("green");
 
       const rtBadge = getByTestId("mock-badge-RT");
       expect(rtBadge).toBeInTheDocument();
@@ -391,7 +391,7 @@ describe("UnifiedCell", () => {
       );
 
       expect(queryByTestId("health-layer")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -542,7 +542,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const badge = getByTestId("mock-badge-API");
+      const badge = getByTestId("mock-badge-E2E");
       expect(badge.getAttribute("data-tone")).toBe("green");
       expect(badge.textContent).toContain("✓");
     });
@@ -559,7 +559,7 @@ describe("UnifiedCell", () => {
       );
 
       // A no-data rung emits label "?", which the real Badge hides → no badge.
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
     });
   });
 

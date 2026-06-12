@@ -225,7 +225,10 @@ function HealthLayer({ model }: { model: CellModel }) {
       data-testid="health-layer"
       className="flex items-center justify-center gap-2.5"
     >
-      <TestBadge name="API" level={model.d3} />
+      {/* Legend-correct names: D3 = E2E (demo round-trip in a browser; the
+          "API" name belongs to the D2 agent badge), D4 = RT (chat/tools
+          round-trip). */}
+      <TestBadge name="E2E" level={model.d3} />
       <TestBadge name="RT" level={model.d4} />
       <TestBadge name="CV" level={model.d5} />
       {/*

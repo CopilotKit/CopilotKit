@@ -17,19 +17,23 @@ This plugin includes an MCP server (`copilotkit-docs`) that provides `search-doc
 
 CopilotKit v2 is built on the AG-UI protocol (`@ag-ui/client` / `@ag-ui/core`). The stack has three layers:
 
-1. **Runtime** (`@copilotkit/runtime`) -- Server-side. Hosts agents, handles SSE/Intelligence transport, middleware, transcription.
+1. **Runtime** (`@copilotkit/runtime`, v2 symbols under `@copilotkit/runtime/v2`) -- Server-side. Hosts agents, handles SSE/Intelligence transport, middleware, transcription.
 2. **Core** (`@copilotkit/core`) -- Shared state management, tool registry, suggestion engine. Not imported directly by apps.
-3. **React** (`@copilotkit/react`) -- Provider, chat components, hooks. Re-exports everything from `@ag-ui/client` so apps need only one import.
+3. **React** (`@copilotkit/react-core`, v2 symbols under `@copilotkit/react-core/v2`) -- Provider, chat components, hooks. Re-exports everything from `@ag-ui/client` so apps need only one import.
 
 ## Workflow
 
 ### 1. Set Up the Runtime (Server)
 
-Create a `CopilotRuntime` (or the explicit `CopilotSseRuntime` / `CopilotIntelligenceRuntime`) and expose it via `createCopilotEndpoint` (Hono) or `createCopilotEndpointExpress` (Express).
+Create a `CopilotRuntime` (or the explicit `CopilotSseRuntime` / `CopilotIntelligenceRuntime`) and expose it via `createCopilotHonoHandler` (Hono) or `createCopilotExpressHandler` (Express).
 
 ```ts
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+} from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -39,10 +43,18 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
+
+// Multi-route (the default): export every method the runtime serves.
+// useThreads needs them all — rename via PATCH, delete via DELETE; archive
+// uses the already-exported POST.
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 ### 2. Wrap Your App with the Provider (Client)
@@ -54,7 +66,10 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    // useSingleEndpoint={false} matches the multi-route backend above. The
+    // v1-compat CopilotKit bridge defaults it to true (single transport),
+    // which would 404 against a multi-route handler.
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <YourApp />
     </CopilotKit>
   );
@@ -66,7 +81,7 @@ function App() {
 Use `<CopilotChat>`, `<CopilotPopup>`, or `<CopilotSidebar>`:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
 function ChatPage() {
   return <CopilotChat agentId="myAgent" />;
@@ -78,7 +93,7 @@ function ChatPage() {
 Let the agent call functions in the browser:
 
 ```tsx
-import { useFrontendTool } from "@copilotkit/react";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 useFrontendTool({
@@ -97,7 +112,7 @@ useFrontendTool({
 Provide runtime data to the agent:
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 useAgentContext({
   description: "The user's current shopping cart",
@@ -110,7 +125,7 @@ useAgentContext({
 When an agent pauses for human input:
 
 ```tsx
-import { useInterrupt } from "@copilotkit/react";
+import { useInterrupt } from "@copilotkit/react-core/v2";
 
 useInterrupt({
   render: ({ event, resolve }) => (
@@ -127,7 +142,7 @@ useInterrupt({
 Show custom UI when tools execute:
 
 ```tsx
-import { useRenderTool } from "@copilotkit/react";
+import { useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 useRenderTool(
@@ -153,7 +168,7 @@ useRenderTool(
 | `useComponent`             | Register a React component as a chat-rendered tool (convenience wrapper around `useFrontendTool`) |
 | `useAgentContext`          | Share JSON-serializable application state with the agent                                          |
 | `useAgent`                 | Get the `AbstractAgent` instance for an agent ID; subscribe to message/state/run-status changes   |
-| `useInterrupt`             | Handle `on_interrupt` events from agents with render + optional handler/filter                    |
+| `useInterrupt`             | Handle `on_interrupt` events from agents with render + optional handler/`enabled` predicate       |
 | `useHumanInTheLoop`        | Register a tool that pauses execution until the user responds via a rendered UI                   |
 | `useRenderTool`            | Register a renderer for tool calls (by name or wildcard `"*"`)                                    |
 | `useDefaultRenderTool`     | Register a wildcard `"*"` renderer using the built-in expandable card UI                          |
@@ -179,11 +194,13 @@ useRenderTool(
 
 ## Quick Reference: Runtime
 
-| Export                         | Purpose                                                   |
-| ------------------------------ | --------------------------------------------------------- |
-| `CopilotRuntime`               | Auto-detecting runtime (delegates to SSE or Intelligence) |
-| `CopilotSseRuntime`            | Explicit SSE-mode runtime                                 |
-| `CopilotIntelligenceRuntime`   | Intelligence-mode runtime with durable threads            |
-| `createCopilotEndpoint`        | Create a Hono app with all CopilotKit routes              |
-| `createCopilotEndpointExpress` | Create an Express router with all CopilotKit routes       |
-| `CopilotKitIntelligence`       | Intelligence platform client configuration                |
+All v2 runtime symbols import from `@copilotkit/runtime/v2` (`createCopilotExpressHandler` from `@copilotkit/runtime/v2/express`).
+
+| Export                        | Purpose                                                   |
+| ----------------------------- | --------------------------------------------------------- |
+| `CopilotRuntime`              | Auto-detecting runtime (delegates to SSE or Intelligence) |
+| `CopilotSseRuntime`           | Explicit SSE-mode runtime                                 |
+| `CopilotIntelligenceRuntime`  | Intelligence-mode runtime with durable threads            |
+| `createCopilotHonoHandler`    | Create a Hono app with all CopilotKit routes              |
+| `createCopilotExpressHandler` | Create an Express router with all CopilotKit routes       |
+| `CopilotKitIntelligence`      | Intelligence platform client configuration                |

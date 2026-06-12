@@ -75,6 +75,7 @@ import type {
   StatusRecord,
   Target,
 } from "./types/index.js";
+import { asKnownState } from "./types/index.js";
 import { resolveFleetRoleConfig } from "./fleet/role-config.js";
 import type { FleetRoleConfig } from "./fleet/role-config.js";
 import { createJobClaimClient } from "./fleet/job-claim.js";
@@ -82,10 +83,7 @@ import {
   createFleetQueueClient,
   PROBE_JOBS_COLLECTION,
 } from "./fleet/queue-client.js";
-import {
-  commErrorToStatusSignal,
-  WORKERS_COLLECTION,
-} from "./fleet/contracts.js";
+import { WORKERS_COLLECTION } from "./fleet/contracts.js";
 import type { PoolCommError } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import {
@@ -100,10 +98,7 @@ import {
 } from "./fleet/worker/worker-loop.js";
 import type { DriverRegistry } from "./fleet/worker/worker-loop.js";
 import { registerWorker } from "./fleet/worker/registration.js";
-import {
-  asKnownState,
-  createResultAggregator,
-} from "./fleet/control-plane/result-aggregator.js";
+import { createResultAggregator } from "./fleet/control-plane/result-aggregator.js";
 import { createResultConsumer } from "./fleet/control-plane/result-consumer.js";
 import {
   createFleetHealthMonitor,
@@ -122,6 +117,9 @@ import {
   createControlPlane,
   DEFAULT_PRODUCER_CRON,
   FLEET_PRODUCER_SCHEDULE_ID,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
 } from "./fleet/control-plane/control-plane.js";
 import type {
   ControlPlane,
@@ -133,6 +131,8 @@ import type {
   ServiceEnumerator,
   JobProducer,
 } from "./fleet/control-plane/job-producer.js";
+import { createMemoizedFamilySummary } from "./fleet/control-plane/run-view.js";
+import { createFamilySilenceMonitor } from "./fleet/control-plane/family-silence-monitor.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -187,7 +187,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const bus = createEventBus();
   const renderer = createRenderer();
   const stateStore = createAlertStateStore(pb);
-  const writer = createStatusWriter({ pb, bus, logger });
+  // Writer identity: this is the legacy monolith scheduler's writer — the
+  // identity the cross-writer flip warn attributes legacy-vs-fleet fights to.
+  const writer = createStatusWriter({ pb, bus, logger, writtenBy: "legacy" });
   const scheduler = createScheduler({ logger });
   const metrics = createMetricsRegistry();
 
@@ -196,7 +198,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   // Observability: increment counters on bus events so /metrics stays fresh.
   busUnsubs.push(bus.on("rules.reloaded", () => metrics.inc("rule_reloads")));
-  // Each successfully-written probe result maps 1:1 to a probe run.
+  // Ticks once per `status.changed` emit. NOT strictly 1:1 with probe runs:
+  // besides each successfully-written durable result, an ERROR tick whose
+  // observed_at refresh persisted on an existing row also emits
+  // `status.changed` (F2.2 — the writer only suppresses the emit when the
+  // refresh did NOT persist), so error ticks against observed keys tick this
+  // counter too.
   // (HMAC failures + alert matches/sends are incremented at their call sites.)
   busUnsubs.push(
     bus.on("status.changed", (e) =>
@@ -337,8 +344,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // today: the legacy one via `rule.scheduled` (rule-level cron trigger),
   // the new one via `status.changed` (probe-driven status write). Phase 4.1
   // retires the legacy path once every dimension has a driver. Until then,
-  // Railway's own dedupe on identical `status` rows keeps this safe — two
-  // writers with the same probe result produce one row, not two.
+  // the status-writer's upsertByField on the PocketBase `key` field collapses
+  // both writers onto a single `status` row (nothing dedupes at the platform
+  // level). That collapse does NOT make concurrent writers safe: two writers
+  // upserting the same key still interleave — the flap-comb incident this
+  // branch detects — which is why rows carry `written_by` attribution and the
+  // writer warns on a cross-writer state flip.
   //
   // Scheduler IDs use the `probe:` prefix so they never collide with the
   // rule-cron IDs (`<ruleId>:cron:<idx>`) or the internal IDs (`internal:`).
@@ -1298,10 +1309,61 @@ export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
 export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
 export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
 
-/** Scheduler entry ids for the three non-d6 browser-family producers. */
-export const FLEET_PRODUCER_SMOKE_SCHEDULE_ID = "fleet-producer-e2e-smoke";
-export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
-export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
+/**
+ * Scheduler entry ids for the three non-d6 browser-family producers. Homed in
+ * `control-plane.ts` beside `FLEET_PRODUCER_SCHEDULE_ID` (§5.1 — `run-view.ts`
+ * consumes them without importing this module); re-exported here because
+ * existing import sites (tests included) reach them via `orchestrator.js`.
+ */
+export {
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+} from "./fleet/control-plane/control-plane.js";
+
+/**
+ * §4.2 family ids `runControlPlane` stamps onto its four producers — the
+ * single const all four `buildJobProducer` call sites read, keyed by the same
+ * producer handles `buildProducerSchedules` takes. Values are §5.1 registry
+ * family ids; the drift-lock test pins them set-equal to
+ * `FLEET_FAMILIES[*].family` so a producer can never enqueue jobs invisible
+ * to the /api/runs projection (nor a registry family go eternally silent).
+ */
+export const PRODUCER_FAMILY_WIRING = {
+  d6: "d6",
+  smoke: "e2e-smoke",
+  demos: "e2e-demos",
+  deep: "d5",
+} as const;
+
+/**
+ * Nominal production period per probe FAMILY (the probe_key prefix each
+ * producer enqueues under — see `probeKeyFamily`), derived from the producer
+ * crons above. Feeds the queue client's STALE-PENDING EXPIRY policy: a
+ * pending job older than 3 × its family's period is structurally stale (its
+ * family has enqueued fresher batches since) and is swept off the queue so a
+ * backlog drains instead of compounding. Keep in lockstep with the cron
+ * constants above (and the d6 `DEFAULT_PRODUCER_CRON`).
+ *
+ * KNOWN DRIFT LIMITATION: the d6 entry assumes the DEFAULT cron. A
+ * `FLEET_PRODUCER_CRON` env override (the local fast-cadence seam — see
+ * `buildProducerSchedules`) changes d6's REAL production period without
+ * updating this map, so under an override the stale-pending expiry window for
+ * d6 is computed from the nominal hourly period, not the overridden cadence.
+ * Acceptable today (the override is a local/dev seam; staleness only widens or
+ * narrows the 3× drain window), but don't rely on this map being exact when
+ * the override is set.
+ */
+export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
+  /** d6 — DEFAULT_PRODUCER_CRON `40 * * * *` (hourly). */
+  d6: 60 * 60 * 1000,
+  /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
+  d4: 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
+  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
+  "e2e-demos": 60 * 60 * 1000,
+};
 
 /**
  * Assemble the multi-schedule producer manifest `runControlPlane` passes to
@@ -1381,16 +1443,6 @@ export function registerAllProbeDrivers(
 }
 
 /**
- * Thin reader over the `status` collection that the alert engine uses
- * when synthesizing a cron outcome's previousState. Defense-in-depth:
- * runs `assertSafeKey` on the incoming key so a control-char key never
- * reaches PB's filter parser (where the parse error would get swallowed
- * by dispatchCronAlert's wrapper and silently fail the rule).
- *
- * Exported for tests so the key-safety invariant can be asserted
- * without spinning up the full boot path.
- */
-/**
  * The PB status key the browser-pool capacity-loss signal is written under.
  * Exported so the boot wiring and the health-signal factory share one source
  * of truth.
@@ -1454,6 +1506,14 @@ interface ProbeResultLike {
 }
 
 /**
+ * Abort the best-effort Slack ping after this long. The health-signal writes
+ * are SERIALIZED (writeChain), so a hung webhook fetch would otherwise stall
+ * the whole degraded↔healthy↔unrecoverable write chain indefinitely. The ping
+ * is best-effort, so a timeout just logs and moves on.
+ */
+const BROWSER_POOL_SLACK_TIMEOUT_MS = 5_000;
+
+/**
  * Build the browser-pool degraded/healthy status writers.
  *
  * Two correctness properties the inline closures lacked (fix #6):
@@ -1476,14 +1536,6 @@ interface ProbeResultLike {
  * Exported for unit tests so the read-error + flap-ordering invariants can be
  * asserted without the full boot path.
  */
-/**
- * Abort the best-effort Slack ping after this long. The health-signal writes
- * are SERIALIZED (writeChain), so a hung webhook fetch would otherwise stall
- * the whole degraded↔healthy↔unrecoverable write chain indefinitely. The ping
- * is best-effort, so a timeout just logs and moves on.
- */
-const BROWSER_POOL_SLACK_TIMEOUT_MS = 5_000;
-
 export function createBrowserPoolHealthSignals(
   deps: BrowserPoolHealthSignalsDeps,
 ): {
@@ -1558,6 +1610,36 @@ export function createBrowserPoolHealthSignals(
             : { healthy: true, healthyAt: new Date().toISOString() },
           observedAt: nextObservedAt(),
         });
+        // A2 (round 6): the terminal key must not be write-only red.
+        // `writeUnrecoverable` paints BROWSER_POOL_UNRECOVERABLE_KEY red and
+        // demands a redeploy — but only the degraded key was greened here, so
+        // after that redeploy the unrecoverable row stayed red forever. Green
+        // it too, gated on a PRIOR-STATE READ (F2.1 discipline: only clear a
+        // key that was actually persisted red — never seed a never-written
+        // key, and don't churn an already-green one).
+        let priorUnrecoverable: State | null;
+        try {
+          priorUnrecoverable = await statusReader.getStateByKey(
+            BROWSER_POOL_UNRECOVERABLE_KEY,
+          );
+        } catch (readErr) {
+          // Same posture as the degraded-key read above: log, don't swallow.
+          // Defaulting to null skips the green write this round; the next
+          // writeHealthy retries.
+          logger.warn("boot.browser-pool-prior-state-read-failed", {
+            key: BROWSER_POOL_UNRECOVERABLE_KEY,
+            error: readErr instanceof Error ? readErr.message : String(readErr),
+          });
+          priorUnrecoverable = null;
+        }
+        if (priorUnrecoverable === "red") {
+          await writer.write({
+            key: BROWSER_POOL_UNRECOVERABLE_KEY,
+            state: "green",
+            signal: { recovered: true, recoveredAt: new Date().toISOString() },
+            observedAt: nextObservedAt(),
+          });
+        }
       } catch (writeErr) {
         logger.warn("boot.browser-pool-status-write-failed", {
           error:
@@ -1689,6 +1771,16 @@ export function createBrowserPoolHealthSignals(
   return { writeDegraded, writeHealthy, writeUnrecoverable };
 }
 
+/**
+ * Thin reader over the `status` collection that the alert engine uses
+ * when synthesizing a cron outcome's previousState. Defense-in-depth:
+ * runs `assertSafeKey` on the incoming key so a control-char key never
+ * reaches PB's filter parser (where the parse error would get swallowed
+ * by dispatchCronAlert's wrapper and silently fail the rule).
+ *
+ * Exported for tests so the key-safety invariant can be asserted
+ * without spinning up the full boot path.
+ */
 export function createStatusReader(pb: {
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
 }): {
@@ -1709,7 +1801,11 @@ export function createStatusReader(pb: {
         "status",
         `key = ${JSON.stringify(key)}`,
       );
-      return row?.state ?? null;
+      // A6(viii) (round 7): degrade-don't-trust, same as every other PB
+      // state read. Returning `row?.state` RAW let a corrupt/legacy value
+      // (anything outside green|red|degraded) flow into dispatchCronAlert's
+      // synthesized WriteOutcome as a bogus prior state.
+      return asKnownState(row?.state) ?? null;
     },
   };
 }
@@ -1951,29 +2047,6 @@ export function buildCronProbeResolver(
 }
 
 /**
- * Minimal Railway GraphQL adapter used by the aimock-wiring probe.
- * Lists services in a project and fetches per-service env-var values
- * for a given environment. Endpoint: https://backboard.railway.app/graphql/v2.
- *
- * Routes through the shared `makeGql` helper exported from
- * `probes/discovery/railway-services.ts` so error taxonomy (Auth /
- * Backend / Schema / Transport class hierarchy) and partial-success
- * envelope handling stay aligned with the discovery source. Pre-fix,
- * the orchestrator's inline gql threw on any non-empty `errors[]` even
- * when `data` was present, and surfaced raw `SyntaxError` from
- * `res.json()` on HTML edge-proxy error pages — both diverged from
- * makeGql's behaviour.
- *
- * Per-tick: each `listServices()` issues one fresh GraphQL roundtrip,
- * so renamed/added Railway services surface on the next cron tick
- * without orchestrator restart. (The prior in-adapter cache survived
- * across ticks and would silently miss service-list changes.)
- *
- * Exported for unit-test access. Production callers go through
- * `buildCronProbeResolver`.
- */
-
-/**
  * Hydrate scheduler `lastRun*` bookkeeping from the PocketBase `probe_runs`
  * collection at boot time so the dashboard doesn't show "never run" for
  * probes that haven't ticked since the last restart.
@@ -2034,6 +2107,28 @@ export async function hydrateProbeLastRuns(deps: {
   }
 }
 
+/**
+ * Minimal Railway GraphQL adapter used by the aimock-wiring probe.
+ * Lists services in a project and fetches per-service env-var values
+ * for a given environment. Endpoint: https://backboard.railway.app/graphql/v2.
+ *
+ * Routes through the shared `makeGql` helper exported from
+ * `probes/discovery/railway-services.ts` so error taxonomy (Auth /
+ * Backend / Schema / Transport class hierarchy) and partial-success
+ * envelope handling stay aligned with the discovery source. Pre-fix,
+ * the orchestrator's inline gql threw on any non-empty `errors[]` even
+ * when `data` was present, and surfaced raw `SyntaxError` from
+ * `res.json()` on HTML edge-proxy error pages — both diverged from
+ * makeGql's behaviour.
+ *
+ * `listServices()` is TTL-cached for 60s (`cachedListServices`): the
+ * intra-tick fan-out (N `getServiceEnv()` calls) collapses into one
+ * GraphQL roundtrip, while cross-tick reads stay fresh at cron cadence
+ * so renamed/added Railway services surface without orchestrator restart.
+ *
+ * Exported for unit-test access. Production callers go through
+ * `buildCronProbeResolver`.
+ */
 export function createRailwayAdapter(
   opts: {
     token: string;
@@ -2167,138 +2262,41 @@ export function createRailwayAdapter(
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal PB surface `surfaceReclaimedCommErrors` reads — a structural subset
- * of `PbClient` so the real client satisfies it and tests can pass a tiny fake.
- * Exported so unit tests can type their fake against it without `as any`.
+ * Build the late-bound REQ-B sweep sink `runControlPlane` shares across all
+ * four family producers. The control-plane is assembled AFTER the producers
+ * (each needs the other — the cycle is broken with a late bind), so the sink
+ * dereferences the control-plane through `getControlPlane` on every delivery
+ * rather than capturing it at build time.
+ *
+ * AT-LEAST-ONCE GUARD: the job-producer's `deliverSweepCommErrors` treats a
+ * RESOLVED sink call as "delivered" and clears its undelivered-comm-error
+ * buffer — `sweepExpired` cannot re-derive a missed batch. If this sink
+ * resolved while the control-plane was still unbound (a sweep racing the
+ * assembly window, or the bind-failure teardown's final drain), the producer
+ * would clear a batch that never reached the aggregator — silently dropping
+ * the worker-crashed overlay. Throw instead: the producer logs, re-buffers
+ * the batch, and redelivers on a later sweep once the bind has happened.
+ *
+ * Exported for tests.
  */
-export interface CommErrorSurfacePb {
-  getOne<T>(collection: string, id: string): Promise<T | null>;
-  getFirst<T>(collection: string, filter: string): Promise<T | null>;
-  // CVDIAG: the surfacer persists a durable diag_events row when a comm-error
-  // surface fails, so the dropped crash overlay survives the restart that ends
-  // a wedge. That goes through `writeDiagEvent`, which needs `.create` — the
-  // real `PbClient` already satisfies it.
-  create<T>(collection: string, record: Record<string, unknown>): Promise<T>;
-}
-
-/** Deps for the REQ-B comm-error surfacer (injectable for unit tests). */
-export interface SurfaceReclaimedCommErrorsDeps {
-  pb: CommErrorSurfacePb;
-  statusWriter: { write(result: ProbeResult<unknown>): Promise<unknown> };
-  logger: Logger;
-}
-
-/**
- * REQ-B surfacing: fleet-health DETECTS a dead worker and reclaims its in-flight
- * jobs, returning a `worker-crashed-mid-job` PoolCommError per reclaimed job —
- * but a comm error only reaches the dashboard once it is mirrored onto the job's
- * STATUS row (under FLEET_COMM_ERROR_SIGNAL_KEY). The worker-self-report path
- * does that via the aggregator; the control-plane-detected (worker-death) path
- * has no result to aggregate, so we persist it here.
- *
- * Per reclaimed job we resolve the job row's `probe_key` (the dashboard status-
- * row key) and surface the comm error under FLEET_COMM_ERROR_SIGNAL_KEY. HOW
- * depends on whether the cell was EVER OBSERVED:
- *
- *   OBSERVED (a status row exists): re-write the existing row's last-known
- *   colour carrying the overlaid signal. We deliberately do NOT write state
- *   "error" here — the status-writer's error path persists the signal only to
- *   `status_history`, not the `status` row the dashboard reads — so to get the
- *   overlay onto the readable row while PRESERVING its colour we re-write the
- *   real prior state.
- *
- *   NEVER OBSERVED (no status row): there is NO last-known colour to carry. The
- *   previous code INVENTED "green" here, a false green — a service whose worker
- *   crashed before it was ever probed would be reported healthy. Instead we
- *   route an "error"-state result through the writer. Per the writer's F2.1
- *   discipline this records the comm error to `status_history` WITHOUT seeding a
- *   status row, so the cell stays "no data" (the codebase's no-data
- *   representation: absent status row) rather than a fabricated green. The first
- *   real worker observation then establishes the true baseline.
- */
-export async function surfaceReclaimedCommErrors(
-  deps: SurfaceReclaimedCommErrorsDeps,
-  commErrors: readonly PoolCommError[],
-): Promise<void> {
-  const { pb, statusWriter, logger } = deps;
-  for (const err of commErrors) {
-    if (!err.jobId) continue;
-    try {
-      const job = await pb.getOne<{ probe_key?: string }>(
-        PROBE_JOBS_COLLECTION,
-        err.jobId,
+export function buildSweepCommErrorSink(
+  getControlPlane: () =>
+    | Pick<ControlPlane, "surfaceSweepCommErrors">
+    | undefined,
+): (commErrors: PoolCommError[]) => Promise<void> {
+  return async (commErrors) => {
+    const controlPlane = getControlPlane();
+    if (controlPlane === undefined) {
+      // Resolving here would violate the producer's at-least-once contract
+      // (a resolved sink call clears the batch). Reject so the producer
+      // re-buffers and redelivers once the control-plane is bound.
+      throw new Error(
+        "sweep comm-error sink called before the control-plane was bound; " +
+          `re-buffering ${commErrors.length} comm error(s) for redelivery`,
       );
-      const probeKey = job?.probe_key;
-      if (!probeKey) {
-        logger.warn("fleet.control-plane.commerror-no-probekey", {
-          jobId: err.jobId,
-        });
-        // CVDIAG: a reclaimed crashed-worker job had no probe_key, so its comm
-        // error cannot be surfaced onto the dashboard — breadcrumb the drop.
-        console.log(
-          formatCvdiag({
-            component: "harness-orchestrator:commerror-no-probekey",
-            boundary: "inbound",
-            status: "error",
-            error: `jobId=${err.jobId} kind=${err.kind}`,
-          }),
-        );
-        continue;
-      }
-      const existing = await pb.getFirst<{ state?: string; signal?: unknown }>(
-        "status",
-        `key = ${JSON.stringify(probeKey)}`,
-      );
-      const baseSignal =
-        existing?.signal && typeof existing.signal === "object"
-          ? (existing.signal as Record<string, unknown>)
-          : {};
-      const overlaidSignal = { ...baseSignal, ...commErrorToStatusSignal(err) };
-      // Validate the PB string against the known State set rather than
-      // blind-casting it — a malformed/legacy `state` degrades to the no-data
-      // ("error") path below instead of being re-persisted as a bogus colour.
-      const priorState = asKnownState(existing?.state);
-      // Never observed → write as "error" so NO green status row is invented;
-      // observed → re-write the real prior colour carrying the overlay.
-      await statusWriter.write({
-        key: probeKey,
-        state: priorState ?? "error",
-        signal: overlaidSignal,
-        observedAt: err.observedAt,
-      });
-      logger.info("fleet.control-plane.commerror-surfaced", {
-        jobId: err.jobId,
-        probeKey,
-        kind: err.kind,
-        carriedState: priorState ?? "no-data",
-      });
-    } catch (writeErr) {
-      // Best-effort: a failed surface must not wedge the monitor — the job is
-      // already reclaimed; the next cycle's worker run re-establishes the row.
-      logger.warn("fleet.control-plane.commerror-surface-failed", {
-        jobId: err.jobId,
-        err: writeErr instanceof Error ? writeErr.message : String(writeErr),
-      });
-      // CVDIAG: surfacing a reclaimed (crashed-worker) job's comm error onto
-      // the dashboard failed — the cell will stay stale. Best-effort surface +
-      // durable row so the dropped crash overlay is post-wedge retrievable.
-      console.log(
-        formatCvdiag({
-          component: "harness-orchestrator:commerror-surface-failed",
-          boundary: "inbound",
-          status: "error",
-          error: `jobId=${err.jobId} ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
-        }),
-      );
-      void writeDiagEvent(pb, {
-        run_id: mintRunId(),
-        component: "commerror-surface-failed",
-        boundary: "inbound",
-        status: "error",
-        error: `jobId=${err.jobId} ${writeErr instanceof Error ? writeErr.message : String(writeErr)}`,
-      });
     }
-  }
+    await controlPlane.surfaceSweepCommErrors(commErrors);
+  };
 }
 
 /**
@@ -2315,6 +2313,14 @@ export async function surfaceReclaimedCommErrors(
  *     jobs and surfaces the resulting comm errors onto the dashboard, and
  *   - returns the same `{ stop, port, bus }` shape `boot()` returns so the
  *     entrypoint's lifecycle handling stays uniform.
+ *
+ * ALERTING OWNERSHIP (coexistence): the fleet control-plane emits
+ * `status.changed` on its own bus but wires NO in-process alert engine —
+ * nothing in this process consumes those events for alerting. During
+ * legacy/fleet coexistence, alerting is owned by the legacy `boot()` process
+ * (its alert engine + cron rules over the shared PB rows); fleet-written
+ * status/history rows surface to operators through that path and the
+ * dashboards, not through this process.
  */
 export async function runControlPlane(
   config: FleetRoleConfig,
@@ -2342,7 +2348,16 @@ export async function runControlPlane(
     logger,
   });
   const bus = createEventBus();
-  const queue = createFleetQueueClient({ pb, claim, logger });
+  // The control-plane's sweep expires stale pending jobs per family period
+  // (the structural backlog drain) — wire the per-family cadences so the
+  // 15min families (d4/d5) expire on a 45min window instead of the 3h
+  // default. The worker-side queue client never sweeps, so it stays unwired.
+  const queue = createFleetQueueClient({
+    pb,
+    claim,
+    logger,
+    stalePending: { familyPeriodsMs: FLEET_FAMILY_PERIODS_MS },
+  });
   const scheduler = createScheduler({ logger });
 
   // S5 aggregator — the ONLY authoritative dashboard writer — over the
@@ -2351,17 +2366,22 @@ export async function runControlPlane(
   // worker-self-report results AND the REQ-B crash-path comm-error overlays:
   // the control-plane feeds the producer-sweep + fleet-health legs into its
   // `aggregateCommError`.
-  const statusWriter = createStatusWriter({ pb, bus, logger });
-  // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key so
-  // EVERY comm-error leg preserves it on the overlay (a `red` service whose
-  // worker crashes — or whose worker self-reports a comm error — stays `red` +
-  // unreachable) instead of stomping it to green/degraded. Validates the read
-  // value against the known State set; a never-observed key (no row) returns
-  // null → the no-data ("error") path, never a fabricated green. Self-defensive:
-  // a lookup throw returns null. This SAME resolver is passed into BOTH the
-  // aggregator (its `aggregate()` worker-self-report leg) AND the control-plane
-  // (its `aggregateCommError` crash/lease-expiry legs) so all three legs share
-  // identical prior-colour semantics.
+  // Writer identity: the CP aggregator is the fleet's sole status writer
+  // (workers report results via the queue; they never write status rows), so
+  // the fleet side of a cross-writer flip always attributes to `fleet-cp`.
+  const statusWriter = createStatusWriter({
+    pb,
+    bus,
+    logger,
+    writtenBy: "fleet-cp",
+  });
+  // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key.
+  // Validates the read value against the known State set; a never-observed key
+  // (no row) returns null, never a fabricated green. Self-defensive: a lookup
+  // throw returns null. NOTE (F1d): comm-error routing is decided PER KEY by
+  // attempting the status-writer's `writeOverlay` first — its `applied` result
+  // is the source of truth, so this resolver's hint is accepted-and-ignored
+  // downstream (deprecated). The wiring below remains for API stability only.
   const statusReader = createStatusReader(pb);
   const resolvePriorState: PriorStateResolver = async (
     aggregateKey,
@@ -2393,19 +2413,16 @@ export async function runControlPlane(
     runWriter: createProbeRunWriter(pb),
     logger,
     now: () => Date.now(),
-    // Preserve the prior observed colour on the worker-self-report comm-error
-    // leg (REQ-B): without this, `aggregate()` falls back to the "degraded"
-    // no-data colour for a service whose worker reports a comm error, stomping
-    // a previously-RED service. Sharing the control-plane's resolver keeps the
-    // aggregate() leg consistent with the aggregateCommError() crash legs.
+    // Deprecated (F1d): `aggregate()` routes its comm-error leg per key via
+    // `writeOverlay.applied`, not this hint — the resolver is accepted and
+    // ignored. Passed for API stability only.
     resolvePriorState,
   });
   // The worker->aggregator bridge: polls terminal rows carrying an unprocessed
-  // ServiceJobResult and aggregates each exactly once. REQ-B (Fix A1): share the
-  // SAME prior-state resolver the aggregator + control-plane legs use so the
-  // consumer's result-lost leg preserves a previously-observed service's colour
-  // on its ⚡ "unreachable" overlay (lands on the LIVE status row, not
-  // history-only) instead of falling back to the no-data "error" path.
+  // ServiceJobResult and aggregates each exactly once. The resolver is passed
+  // for API stability only (deprecated, F1d): the result-lost leg routes per
+  // key via `writeOverlay.applied`, which already preserves a previously-
+  // observed service's colour on its ⚡ "unreachable" overlay.
   const consumer = createResultConsumer({
     pb,
     aggregator,
@@ -2420,11 +2437,16 @@ export async function runControlPlane(
   // reclaimed job so the dashboard surfaces the pool outage. The restart hook is
   // best-effort and env-guarded (Railway serviceInstanceRedeploy in staging);
   // locally it stays a no-op so N=1 docker needs no Railway wiring.
+  // Boot-resolved heartbeat window — hoisted to a local because BOTH the
+  // fleet-health monitor and the §5.2 run-view projection (fleet-runs routes +
+  // §9 family-silence monitor below) must judge worker staleness against the
+  // SAME window, never the DEFAULT_ constant.
+  const workerStaleAfterMs = resolveWorkerStaleAfterMs();
   const fleetHealth = createFleetHealthMonitor({
     pb,
     claim,
     logger,
-    staleAfterMs: resolveWorkerStaleAfterMs(),
+    staleAfterMs: workerStaleAfterMs,
     gcAfterMs: resolveWorkerGcAfterMs(),
     restartWorker: resolveWorkerRestartHook(logger),
   });
@@ -2477,14 +2499,13 @@ export async function runControlPlane(
   // so it emits the neutral re-queued kind rather than `worker-crashed-mid-job`
   // — see queue-client.ts sweepExpired), but a
   // bare swept error carries only the `jobId`, not the `d6:<slug>` dashboard
-  // key. This resolver maps each error to its aggregate key via the SAME
-  // `probe_jobs` row lookup `surfaceReclaimedCommErrors` used (the job row's
-  // `probe_key` IS the `d6:<slug>` aggregate status-row key). Returns null to
-  // SKIP an error whose row vanished — the control-plane's surfaceSweepCommErrors
-  // logs+skips it. SELF-DEFENSIVE: a lookup throw is caught HERE and returns null
-  // (mirroring surfaceReclaimedCommErrors's own try/catch) so one bad lookup
-  // skips just this error and never aborts the sweep leg — we do NOT delegate
-  // the catch to the caller.
+  // key. This resolver maps each error to its aggregate key via a `probe_jobs`
+  // row lookup (the job row's `probe_key` IS the `d6:<slug>` aggregate
+  // status-row key). Returns null to SKIP an error whose row vanished — the
+  // control-plane's surfaceSweepCommErrors logs+skips it. SELF-DEFENSIVE: a
+  // lookup throw is caught HERE and returns null so one bad lookup skips just
+  // this error and never aborts the sweep leg — we do NOT delegate the catch
+  // to the caller.
   const resolveSweepAggregateKey: SweepAggregateKeyResolver = async (
     commError,
   ): Promise<string | null> => {
@@ -2515,22 +2536,35 @@ export async function runControlPlane(
     }
   };
 
-  // Forward-reference the assembled control-plane so the producer's sweep sink
-  // can call `surfaceSweepCommErrors` (the control-plane needs the producer, the
-  // producer needs the control-plane's sink — break the cycle with a late bind).
+  // Forward-reference the assembled control-plane so the producers' sweep sink
+  // can call `surfaceSweepCommErrors` (the control-plane needs the producers,
+  // the producers need the control-plane's sink — break the cycle with a late
+  // bind).
   let controlPlaneRef: ControlPlane | undefined;
+  // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
+  // which resolves each `d6:<slug>` key and writes the overlay through the
+  // aggregator. Best-effort; never aborts production. ALL FOUR producers share
+  // this ONE sink: each family's cron runs the same GLOBAL `queue.sweepExpired`
+  // (the sweep is not family-scoped), and the sweep's S0 CAS means whichever
+  // producer's tick fires first wins each expired job's reclaim — and with it
+  // the synthesized comm error. With only d6 wired (hourly @ :40), the far more
+  // frequent smoke/demos/deep sweeps won most reclaims and DROPPED their comm
+  // errors (job-producer's `maybeSweep` forwards only when the sink is wired),
+  // so the worker-reclaimed overlay was lost ~11 of 12 sweeps. Sharing the sink
+  // is safe: the CAS guarantees exactly ONE producer reclaims (and forwards)
+  // each expired job, and `surfaceSweepCommErrors` is best-effort per error.
+  // While `controlPlaneRef` is still unbound the sink THROWS (see
+  // `buildSweepCommErrorSink`) so the producer re-buffers instead of clearing
+  // an undelivered batch.
+  const onSweepCommErrors = buildSweepCommErrorSink(() => controlPlaneRef);
   const producer = buildJobProducer({
     queue,
     enumerate,
     logger,
-    // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
-    // which resolves each `d6:<slug>` key and writes the overlay through the
-    // aggregator. Best-effort; never aborts production. Only the d6 producer
-    // wires this sweep leg — it's the historic REQ-B path and stays unchanged;
-    // the three new browser-family producers below do not forward sweep errors.
-    onSweepCommErrors: async (commErrors) => {
-      await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
-    },
+    // §4.2: the family id stamped onto every EnqueueJobInput this producer
+    // builds (and the prune-ownership key — the d6 producer owns pruneAged).
+    family: PRODUCER_FAMILY_WIRING.d6,
+    onSweepCommErrors,
     // #72 PRE-DISPATCH WARM-UP: fire a fire-and-forget GET <backendUrl>/health
     // at every enumerated d6 backend before its pills run, so a cold
     // (scaled-to-zero) container starts waking ahead of the probe — removing
@@ -2540,23 +2574,30 @@ export async function runControlPlane(
     warmHealth: { fetchImpl: globalThis.fetch },
   });
   // The three non-d6 browser families each get their own producer over their
-  // family enumerator. They intentionally do NOT wire `onSweepCommErrors`: the
-  // single REQ-B sweep-surfacing leg stays on the d6 producer (preserving the
-  // current behavior); adding parallel sweep legs is out of scope for Phase 2.
+  // family enumerator. Each wires the SAME `onSweepCommErrors` sink as d6:
+  // their crons sweep the same global queue far more often than d6's hourly
+  // tick, so they must forward (not drop) the comm errors of the reclaims they
+  // win — see the sink's comment above.
   const smokeProducer = buildJobProducer({
     queue,
     enumerate: enumerateSmoke,
     logger,
+    family: PRODUCER_FAMILY_WIRING.smoke,
+    onSweepCommErrors,
   });
   const demosProducer = buildJobProducer({
     queue,
     enumerate: enumerateDemos,
     logger,
+    family: PRODUCER_FAMILY_WIRING.demos,
+    onSweepCommErrors,
   });
   const deepProducer = buildJobProducer({
     queue,
     enumerate: enumerateDeep,
     logger,
+    family: PRODUCER_FAMILY_WIRING.deep,
+    onSweepCommErrors,
   });
 
   // Producer cron cadence. Defaults to the hourly-at-:40 rhythm
@@ -2581,6 +2622,46 @@ export async function runControlPlane(
     ...(producerCron ? { d6Cron: producerCron } : {}),
   });
 
+  // §5.2 shared-instance seam: ONE memoized family-summary projection,
+  // injected into BOTH the /api/runs routes (buildServer below) and the §9
+  // family-silence monitor — "the monitor shares the route's memo" is true by
+  // construction, bounding PB load at ~one fan-out per TTL regardless of
+  // viewer count.
+  const familySummary = createMemoizedFamilySummary({
+    pb,
+    scheduler,
+    schedules,
+    workerStaleAfterMs,
+    logger,
+  });
+
+  // §9 family-silence monitor: the Slack alerting hook for the one incident
+  // class the status-row alert engine is structurally blind to (a silent
+  // family produces NO row transitions). Ticks off the control-plane's
+  // fleet-health interval (familySilence dep below) — it owns no timer of its
+  // own, so there is nothing extra to tear down on stop/bind-failure paths.
+  // The oss_alerts webhook resolves from SLACK_WEBHOOK_OSS_ALERTS at send
+  // time; when unset the target logs `slack-webhook.env-unset` and throws,
+  // which the monitor swallows per its post-failure discipline — alerting
+  // ships disabled, the monitor still evaluates (so /health's
+  // fleetRuns.lastEvaluatedAt stays live).
+  const alertStateStore = createAlertStateStore(pb);
+  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  const familySilence = createFamilySilenceMonitor({
+    summary: familySummary,
+    schedules,
+    alertStore: alertStateStore,
+    postAlert: async (text: string): Promise<void> => {
+      await ossAlertsTarget.send(
+        { payload: { text }, contentType: "application/json" },
+        { kind: "slack_webhook", webhook: "oss_alerts" },
+      );
+    },
+    // Boot grace (1× resolved period per family) anchored at construction.
+    bootAtMs: Date.now(),
+    logger,
+  });
+
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the
   // dashboard through the proper module seams (the control-plane runs the
@@ -2599,6 +2680,9 @@ export async function runControlPlane(
     logger,
     aggregator,
     fleetHealth,
+    // §9: the family-silence monitor rides the fleet-health interval — the
+    // control-plane fire-and-forgets `familySilence.tick(now)` each cycle.
+    familySilence,
     resolveSweepAggregateKey,
     resolvePriorState,
   });
@@ -2898,6 +2982,22 @@ export async function runControlPlane(
     schedulerIsStopped: () => scheduler.isStopped(),
     bus,
     probes: probesDeps,
+    // §5.2 unconditional CP mount: unlike `probes` (token-gated), the
+    // read-only fleet-runs routes are ALWAYS supplied on the control-plane
+    // role — `summary` is the §5.2 shared memo instance the §9 monitor also
+    // reads, so a dashboard poll and a monitor evaluation inside the same TTL
+    // share one PB fan-out.
+    fleetRuns: {
+      summary: familySummary,
+      pb,
+      schedules,
+      scheduler,
+      workerStaleAfterMs,
+      logger,
+    },
+    // §9 compensating control: stamp the monitor's last evaluation cycle into
+    // /health so an external poll can detect a wedged monitor.
+    fleetRunsLastEvaluatedAt: () => familySilence.lastEvaluatedAt(),
   });
 
   scheduler.start();
@@ -3073,7 +3173,7 @@ function resolveWorkerRestartHook(log: Logger): RestartWorkerHook | undefined {
     return undefined;
   }
   log.info("fleet.control-plane.health-restart-armed", {
-    msg: "Railway recovery creds present — wedged workers will be redeployed best-effort",
+    msg: "Railway recovery creds present — wedged-worker restart hook is LOG-ONLY (Railway redeploy wiring pending in the deploy/ops slot); no redeploy is performed",
   });
   return async (workerId: string): Promise<void> => {
     // Best-effort staging recovery: a wedged worker is redeployed via Railway's

@@ -81,8 +81,37 @@ export interface RunResult {
   target: string;
   results: TerminalResult[];
   passed: number;
+  /**
+   * A5 (round 7): degraded results, counted separately — degraded is a
+   * distinct durable state (the C3 split the summary already renders), NOT
+   * a failure, so it no longer inflates `failed` (and no longer fails the
+   * CLI exit code).
+   */
+  degraded: number;
+  /** red + error results only — excludes degraded (A5 round 7). */
   failed: number;
   durationMs: number;
+}
+
+/**
+ * Split terminal results into the C3 passed/degraded/failed buckets
+ * (A5(i) round 7). Mirrors printSummary's rendering split so the counts the
+ * CLI exits on agree with the counts the operator reads.
+ */
+export function countTerminalStates(results: TerminalResult[]): {
+  passed: number;
+  degraded: number;
+  failed: number;
+} {
+  let passed = 0;
+  let degraded = 0;
+  let failed = 0;
+  for (const r of results) {
+    if (r.state === "green") passed += 1;
+    else if (r.state === "degraded") degraded += 1;
+    else failed += 1;
+  }
+  return { passed, degraded, failed };
 }
 
 // ---------------------------------------------------------------------------
@@ -413,15 +442,26 @@ export async function run(
   }
 
   // -- 11. Print summary ----------------------------------------------------
-  printSummary(allResults);
+  // B1 / A4 (round 7): surface every dropped PB write — whether the writer
+  // never constructed (init failure) or a live writer swallowed individual
+  // write failures mid-run. The flag lets the summary name the cause.
+  printSummary(
+    allResults,
+    pbWriter
+      ? {
+          pbDroppedWrites: pbWriter.droppedWriteCount(),
+          pbWriterInitFailed: pbWriter.initFailed,
+        }
+      : undefined,
+  );
 
-  const passed = allResults.filter((r) => r.state === "green").length;
-  const failed = allResults.filter((r) => r.state !== "green").length;
+  const { passed, degraded, failed } = countTerminalStates(allResults);
 
   return {
     target,
     results: allResults,
     passed,
+    degraded,
     failed,
     durationMs: Date.now() - runStart,
   };
@@ -478,109 +518,119 @@ async function runLevel(
 
   switch (depth) {
     case "smoke": {
-      const inputs = buildSmokeInputs(testTarget, config);
-      for (const input of inputs) {
-        if (ctx.abortSignal?.aborted) break;
-        const startedAt = Date.now();
-        try {
-          const result = await livenessDriver.run(ctx, input);
-          const terminal = probeResultToTerminal(result, startedAt);
-          printResult(terminal);
-          results.push(terminal);
-          await bestEffortPbWrite(result, pbWriter, logger);
-        } catch (err) {
-          const terminal = errorToTerminal(
-            `smoke:${slug}`,
-            err,
-            Date.now() - startedAt,
-          );
-          printResult(terminal);
-          results.push(terminal);
-        }
-      }
+      results.push(
+        ...(await runDriverInputs(
+          buildSmokeInputs(testTarget, config),
+          livenessDriver,
+          ctx,
+          pbWriter,
+          logger,
+        )),
+      );
       break;
     }
 
     case "d4": {
-      const inputs = buildChatToolsInputs(testTarget, config);
-      for (const input of inputs) {
-        if (ctx.abortSignal?.aborted) break;
-        const startedAt = Date.now();
-        try {
-          const result = await e2eChatToolsDriver.run(ctx, input);
-          const terminal = probeResultToTerminal(result, startedAt);
-          printResult(terminal);
-          results.push(terminal);
-          await bestEffortPbWrite(result, pbWriter, logger);
-        } catch (err) {
-          const terminal = errorToTerminal(
-            `d4:${slug}`,
-            err,
-            Date.now() - startedAt,
-          );
-          printResult(terminal);
-          results.push(terminal);
-        }
-      }
+      results.push(
+        ...(await runDriverInputs(
+          buildChatToolsInputs(testTarget, config),
+          e2eChatToolsDriver,
+          ctx,
+          pbWriter,
+          logger,
+        )),
+      );
       break;
     }
 
     case "d5": {
       // D5 = "D6 take-one": run the SAME D6 driver, scoped by the inputs
       // (`representativeOnly` + `rowPrefix: "d5"`) that buildDeepInputs stamps.
-      const inputs = buildDeepInputs(testTarget, config);
-      for (const input of inputs) {
-        if (ctx.abortSignal?.aborted) break;
-        const startedAt = Date.now();
-        try {
-          const result = await fullDriver.run(ctx, input);
-          const terminal = probeResultToTerminal(result, startedAt);
-          printResult(terminal);
-          results.push(terminal);
-          await bestEffortPbWrite(result, pbWriter, logger);
-        } catch (err) {
-          // Use the SAME primary key the D5 success path writes (`input.key`,
-          // i.e. `d5-single-pill-e2e:<slug>` from buildDeepInputs) so the
-          // thrown-error row is consistent with the success row. The driver's
-          // side-emitted `d5:<slug>/<ft>` rows are what render the dashboard
-          // cells, so the error-path primary key only needs to match success.
-          const terminal = errorToTerminal(
-            input.key,
-            err,
-            Date.now() - startedAt,
-          );
-          printResult(terminal);
-          results.push(terminal);
-        }
-      }
+      results.push(
+        ...(await runDriverInputs(
+          buildDeepInputs(testTarget, config),
+          fullDriver,
+          ctx,
+          pbWriter,
+          logger,
+        )),
+      );
       break;
     }
 
     case "d6": {
-      const inputs = buildFullInputs(testTarget, config);
-      for (const input of inputs) {
-        if (ctx.abortSignal?.aborted) break;
-        const startedAt = Date.now();
-        try {
-          const result = await fullDriver.run(ctx, input);
-          const terminal = probeResultToTerminal(result, startedAt);
-          printResult(terminal);
-          results.push(terminal);
-          await bestEffortPbWrite(result, pbWriter, logger);
-        } catch (err) {
-          const terminal = errorToTerminal(
-            `d6:${slug}`,
-            err,
-            Date.now() - startedAt,
-          );
-          printResult(terminal);
-          results.push(terminal);
-        }
-      }
+      results.push(
+        ...(await runDriverInputs(
+          buildFullInputs(testTarget, config),
+          fullDriver,
+          ctx,
+          pbWriter,
+          logger,
+        )),
+      );
       break;
     }
   }
 
+  return results;
+}
+
+/**
+ * Run one probe driver over its inputs: print + collect each terminal
+ * result, best-effort persist to PB, convert thrown driver errors into
+ * error-state terminal lines. Shared by every depth level (A5(ii) round 7
+ * — previously four near-identical inline loops).
+ *
+ * Error-path key contract: a thrown driver error is recorded under
+ * `input.key` — the SAME primary key the success path writes — so the
+ * error row is always consistent with the success row. This is the
+ * documented d5 fix (its success key is `d5-single-pill-e2e:<slug>`, not
+ * `d5:<slug>`) propagated to all levels: reconstructing `<depth>:<slug>`
+ * here drifts the moment an input keyspace differs. The driver's
+ * side-emitted rows (e.g. d5's `d5:<slug>/<ft>` dashboard cells) are
+ * unaffected; only the primary key needs to match.
+ *
+ * Exported for tests.
+ */
+export async function runDriverInputs<I extends { key: string }>(
+  inputs: I[],
+  driver: {
+    run(ctx: ProbeContext, input: I): Promise<ProbeResult<unknown>>;
+  },
+  ctx: ProbeContext,
+  pbWriter: StatusWriter | null,
+  logger: Logger,
+): Promise<TerminalResult[]> {
+  const results: TerminalResult[] = [];
+  for (const input of inputs) {
+    if (ctx.abortSignal?.aborted) break;
+    const startedAt = Date.now();
+    try {
+      const result = await driver.run(ctx, input);
+      const terminal = probeResultToTerminal(result, startedAt);
+      printResult(terminal);
+      results.push(terminal);
+      await bestEffortPbWrite(result, pbWriter, logger);
+    } catch (err) {
+      const terminal = errorToTerminal(input.key, err, Date.now() - startedAt);
+      printResult(terminal);
+      results.push(terminal);
+      // Persist the thrown-error row too, mirroring the returned-error-state
+      // path: with --live an errored probe must land an error-state PB row
+      // under the SAME primary key — skipping the write left stale dashboard
+      // state and excluded the failure from the dropped-write count.
+      await bestEffortPbWrite(
+        {
+          key: input.key,
+          state: "error",
+          signal: { errorDesc: terminal.error },
+          observedAt: ctx.now().toISOString(),
+        },
+        pbWriter,
+        logger,
+      );
+    }
+  }
   return results;
 }
 
@@ -608,9 +658,14 @@ async function bestEffortPbWrite(
 }
 
 /**
- * Convert a caught error into a TerminalResult for display.
+ * Convert a caught error into a TerminalResult for display. A5(iii)
+ * (round 7): the duration clamps to >= 0 — a clock adjustment mid-run can
+ * make `Date.now() - startedAt` negative, and a negative duration must
+ * never render (same posture as probeResultToTerminal's A5(iv) clamp).
+ *
+ * Exported for tests.
  */
-function errorToTerminal(
+export function errorToTerminal(
   key: string,
   err: unknown,
   durationMs: number,
@@ -618,7 +673,7 @@ function errorToTerminal(
   return {
     key,
     state: "error",
-    durationMs,
+    durationMs: Math.max(0, durationMs),
     error: err instanceof Error ? err.message : String(err),
   };
 }

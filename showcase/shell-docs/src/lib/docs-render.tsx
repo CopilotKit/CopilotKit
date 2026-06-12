@@ -1508,6 +1508,11 @@ export interface DocFrontmatter {
   defaultFramework?: string;
   defaultCell?: string;
   hideTOC?: boolean;
+  /**
+   * Early-access gate id (see `src/lib/early-access.ts`). When set,
+   * the page renders blurred behind the matching password gate.
+   */
+  earlyAccess?: string;
 }
 
 function slugSegments(slugPath: string): string[] | null {
@@ -1651,6 +1656,8 @@ export function loadDoc(
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const hideTOC = data.hideTOC === true;
+  const earlyAccess =
+    typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
 
   return {
     source,
@@ -1661,6 +1668,7 @@ export function loadDoc(
       defaultFramework,
       defaultCell,
       hideTOC,
+      earlyAccess,
     },
   };
 }
