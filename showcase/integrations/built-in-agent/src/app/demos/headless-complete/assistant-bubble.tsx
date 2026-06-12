@@ -10,7 +10,10 @@ export function AssistantBubble({ children }: { children: React.ReactNode }) {
   if (isEmpty(children)) return null;
 
   return (
-    <div className="flex justify-start">
+    <div
+      data-testid="headless-message-assistant"
+      className="flex justify-start"
+    >
       <div className="max-w-[85%] flex flex-col gap-2">
         <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] text-[#010507] px-4 py-2 text-sm">
           {children}

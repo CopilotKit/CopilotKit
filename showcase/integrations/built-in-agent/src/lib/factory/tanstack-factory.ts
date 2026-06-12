@@ -166,6 +166,28 @@ async function* convertStream(
           delta: (parsedContent as { delta: unknown[] }).delta,
         };
       }
+      // `set_steps` is the gen-ui-agent demo's custom plan tool (see
+      // state-tools.ts). The tool's server handler returns `{ steps }`;
+      // translate that into a STATE_DELTA that replaces `/steps` on the
+      // agent state, so the frontend `useAgent` subscriber sees the
+      // plan update and `StepsPanel` mounts `agent-state-card`.
+      if (
+        toolName === "set_steps" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "steps" in parsedContent
+      ) {
+        yield {
+          type: EventType.STATE_DELTA,
+          delta: [
+            {
+              op: "replace",
+              path: "/steps",
+              value: (parsedContent as { steps: unknown }).steps,
+            },
+          ],
+        };
+      }
 
       let serializedContent: string;
       if (typeof rawPayload === "string") {

@@ -87,6 +87,25 @@ function ActionButton({
 
 // @region[renderers-tsx]
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
+  /**
+   * Card override: wraps the basic-catalog Card render so the flight card
+   * exposes a stable `data-testid` for D6 e2e tests. Behavior is otherwise
+   * identical to the basic catalog default (renders the resolved `child`).
+   */
+  Card: ({ props, children }) => (
+    <div
+      data-testid="a2ui-fixed-card"
+      style={{
+        background: "#ffffff",
+        border: "1px solid rgba(0, 0, 0, 0.08)",
+        borderRadius: "16px",
+        padding: "16px",
+        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+      }}
+    >
+      {props.child ? children(props.child) : null}
+    </div>
+  ),
   Title: ({ props: rawProps }) => {
     const props = rawProps as Record<string, any>;
     return (
