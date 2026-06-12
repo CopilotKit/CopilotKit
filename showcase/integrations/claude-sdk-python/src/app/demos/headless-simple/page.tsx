@@ -112,6 +112,20 @@ function HeadlessChat() {
         {agent.messages.length === 0 && (
           <div className="text-sm text-gray-400">No messages yet. Say hi!</div>
         )}
+        {/*
+          The `data-testid="headless-message-{user,assistant}"` markers below
+          are intentionally NOT unique within a conversation — they repeat
+          once per message in the list. This mirrors the canonical LGP
+          implementation (see
+          `showcase/integrations/langgraph-python/src/app/demos/headless-simple/message-bubble.tsx`
+          and `.../headless-complete/chat/message-{user,assistant}.tsx`) so
+          downstream selectors stay byte-identical across integrations.
+          Role discrimination for the D6 conversation-runner cascade is
+          driven by `data-message-role` (see harness probes), not by the
+          testids; tests that need to address a single bubble should use
+          `.last()`, `.nth(i)`, or a `data-message-role`-scoped selector
+          rather than expecting strict-mode uniqueness on the testid.
+        */}
         {agent.messages.map((m) => {
           if (m.role === "user") {
             return (
