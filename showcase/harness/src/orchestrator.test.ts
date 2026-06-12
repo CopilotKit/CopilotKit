@@ -3919,9 +3919,14 @@ describe("orchestrator runControlPlane REQ-B sweep wiring — non-d6 producer (s
       };
     });
 
-    // Capture every status-writer write so we can assert the overlay landed on
-    // the d6:<slug> row.
-    const writes: ProbeResult<unknown>[] = [];
+    // Capture every status-writer overlay so we can assert the overlay landed
+    // on the d6:<slug> row. Aggregator routes comm errors through writeOverlay
+    // (H1 path); `write` is unused by this leg but provided for the interface.
+    const writes: Array<{
+      key: string;
+      signal: Record<string, unknown>;
+      observedAt: string;
+    }> = [];
     vi.doMock("./writers/status-writer.js", async () => {
       const actual = await vi.importActual<
         typeof import("./writers/status-writer.js")
@@ -3929,9 +3934,14 @@ describe("orchestrator runControlPlane REQ-B sweep wiring — non-d6 producer (s
       return {
         ...actual,
         createStatusWriter: () => ({
-          write: async (r: ProbeResult<unknown>) => {
-            writes.push(r);
-            return undefined;
+          write: async (_r: ProbeResult<unknown>) => undefined,
+          writeOverlay: async (o: {
+            key: string;
+            signal: Record<string, unknown>;
+            observedAt: string;
+          }): Promise<OverlayWriteOutcome> => {
+            writes.push(o);
+            return { applied: true, state: null, historyPersisted: true };
           },
         }),
       };
