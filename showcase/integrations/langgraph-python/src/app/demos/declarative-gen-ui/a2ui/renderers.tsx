@@ -27,6 +27,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { TriangleAlert, CircleAlert, CircleCheck, Info } from "lucide-react";
 
 import type { MyDefinitions } from "./definitions";
 import { Badge } from "../_components/badge";
@@ -146,6 +147,12 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
+  Text: ({ props }) => (
+    <span style={{ fontSize: "0.85rem", color: c.cardFg, lineHeight: 1.5 }}>
+      {props.text}
+    </span>
+  ),
+
   Card: ({ props, children }) => (
     <CardShell
       title={props.title}
@@ -156,14 +163,28 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     </CardShell>
   ),
 
-  StatusBadge: ({ props }) => (
-    <Badge
-      variant={props.variant ?? "info"}
-      data-testid="declarative-status-badge"
-    >
-      {props.text}
-    </Badge>
-  ),
+  StatusBadge: ({ props }) => {
+    const variant = props.variant ?? "info";
+    const Icon = {
+      error: TriangleAlert,
+      warning: CircleAlert,
+      success: CircleCheck,
+      info: Info,
+    }[variant];
+    return (
+      // `alignSelf: flex-start` keeps the pill content-sized — flex parents
+      // (our Column override) default to stretch, which inflates it into a
+      // full-width banner.
+      <Badge
+        variant={variant}
+        style={{ alignSelf: "flex-start" }}
+        data-testid="declarative-status-badge"
+      >
+        <Icon size={12} strokeWidth={2.5} style={{ marginRight: 4 }} />
+        {props.text}
+      </Badge>
+    );
+  },
 
   Metric: ({ props }) => {
     const trendColors: Record<string, string> = {

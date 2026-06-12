@@ -39,6 +39,15 @@ export const myDefinitions = {
     }),
   },
 
+  // Override the basic catalog's Text so it aligns flush with sibling
+  // components (the built-in version carries an 8px outer margin).
+  Text: {
+    description: "A plain text line. Use for short explanations inside cards.",
+    props: z.object({
+      text: z.string(),
+    }),
+  },
+
   Card: {
     description:
       "A titled card container with an optional subtitle and a single child slot. Use it to group related content (metrics, rows, buttons).",
