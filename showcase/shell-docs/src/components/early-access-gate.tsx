@@ -13,7 +13,7 @@
 
 import React, { useEffect, useId, useState } from "react";
 import Image from "next/image";
-import { Lock, Slack } from "lucide-react";
+import { Lock, Slack, Users } from "lucide-react";
 import { getEarlyAccessGate } from "@/lib/early-access";
 import type { EarlyAccessGateConfig } from "@/lib/early-access";
 
@@ -25,6 +25,7 @@ const GATE_ICONS: Record<
   React.ComponentType<{ className?: string }>
 > = {
   slack: Slack,
+  teams: Users,
 };
 
 const UNLOCKED_VALUE = "unlocked";
