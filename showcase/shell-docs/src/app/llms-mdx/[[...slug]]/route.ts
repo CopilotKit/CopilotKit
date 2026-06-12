@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "@/lib/registry";
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
 import { resolveReferencePage } from "@/lib/reference-items";
@@ -145,18 +150,29 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     return null;
   }
 
-  // Bare unscoped doc.
-  const doc = loadDoc(url);
-  if (!doc) return null;
-  return {
-    page: {
-      url,
-      title: doc.fm.title,
-      description: doc.fm.description,
-      filePath: doc.filePath,
-      loadSlug: url,
-    },
-  };
+  // Bare unscoped doc. The root surface serves ROOT_FRAMEWORK's
+  // authored page when one exists (mirrors UnscopedDocsPage), so the
+  // `.md` variant must resolve the same MDX the page renders.
+  const rootOverride = `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${url}`;
+  const candidates =
+    getDocsMode(ROOT_FRAMEWORK) === "authored" ? [rootOverride, url] : [url];
+  for (const candidate of candidates) {
+    const doc = loadDoc(candidate);
+    if (!doc) continue;
+    const isOverride = candidate !== url;
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: candidate,
+        framework: isOverride ? ROOT_FRAMEWORK : undefined,
+      },
+      framework: isOverride ? ROOT_FRAMEWORK : undefined,
+    };
+  }
+  return null;
 }
 
 /**

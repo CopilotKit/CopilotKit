@@ -160,7 +160,7 @@ AI SDK can talk to it, the Built-in Agent can use it.
 
   To switch models per user, request, or feature flag, construct the agent with
   the desired `model` on your own backend. For full control over the runtime you
-  can also use a [Custom Agent](/built-in-agent/custom-agent).
+  can also use a [Custom Agent](/backend/custom-agent).
 </Callout>
 
 ## How it works
@@ -176,6 +176,6 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
 
 <Callout type="info" title="Need a different AI SDK or full control?">
-  The [Custom Agent](/built-in-agent/custom-agent) lets you bring your own AI SDK,
+  The [Custom Agent](/backend/custom-agent) lets you bring your own AI SDK,
   TanStack AI, or any custom LLM backend while CopilotKit handles the rest.
 </Callout>

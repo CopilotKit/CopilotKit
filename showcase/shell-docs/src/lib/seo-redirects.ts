@@ -430,7 +430,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F20",
     source: "/direct-to-llm/guides/mcp",
-    destination: "/built-in-agent/build-with-agents",
+    destination: "/build-with-agents",
   },
 ];
 
@@ -484,9 +484,10 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/copilot-suggestions",
     destination: "/reference/v2/hooks/useSuggestions",
   },
-  // /direct-to-llm keeps its BIA canonical path, but the retired
-  // /integrations/built-in-agent landing route should go home.
-  { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
+  // /direct-to-llm content is the Built-in Agent docs, which are served
+  // at the root; the retired /integrations/built-in-agent landing route
+  // also goes home.
+  { id: "R14", source: "/direct-to-llm", destination: "/" },
   {
     id: "R15",
     source: "/integrations/built-in-agent",
@@ -515,13 +516,13 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/architecture",
     destination: "/concepts/architecture",
   },
-  {
-    id: "R25",
-    source: "/runtime-server-adapter",
-    destination: "/backend/copilot-runtime",
-  },
-  // Manual overrides (Category 7) — root-level doc pages
-  { id: "M2", source: "/quickstart", destination: "/" },
+  // NOTE: the former R25 (`/runtime-server-adapter` →
+  // `/backend/copilot-runtime`) was removed. `runtime-server-adapter.mdx`
+  // is a distinct, current "Deploy to any runtime" page (deploying the
+  // runtime on Express/Hono/Bun/Deno/CF Workers) — not a copilot-runtime
+  // alias — and it's linked from the docs sidebar. The redirect shadowed
+  // the real page, sending the sidebar's "Deploy to any runtime" entry to
+  // the unrelated Copilot Runtime page.
   // Broken link fixes (B1-B3)
   {
     id: "B1",
@@ -540,46 +541,11 @@ const ROOT_RENAMES: RedirectEntry[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// BIA-default root surface — Built-in Agent is now the soft-default
-// framework, so legacy and external links of the form `/<bia-page>`
-// (without a framework prefix) should resolve to the canonical
-// `/built-in-agent/<bia-page>` rather than 404. Each entry below targets
-// a topic whose only on-disk file is under
-// `content/docs/integrations/built-in-agent/` — there is no agnostic
-// root MDX, so without these redirects the bare URL has nothing to
-// render. SidebarLink already rewrites internal sidebar clicks to the
-// framework-scoped URL, so the affected traffic is external (blog
-// posts, marketing material, old bookmarks).
-// ---------------------------------------------------------------------------
-
-const BIA_DEFAULT_ROOT_REDIRECTS: RedirectEntry[] = [
-  {
-    id: "BIA-server-tools",
-    source: "/server-tools",
-    destination: "/built-in-agent/server-tools",
-  },
-  {
-    id: "BIA-mcp-servers",
-    source: "/mcp-servers",
-    destination: "/built-in-agent/mcp-servers",
-  },
-  {
-    id: "BIA-model-selection",
-    source: "/model-selection",
-    destination: "/built-in-agent/model-selection",
-  },
-  {
-    id: "BIA-advanced-configuration",
-    source: "/advanced-configuration",
-    destination: "/built-in-agent/advanced-configuration",
-  },
-  {
-    id: "BIA-agent-app-context",
-    source: "/agent-app-context",
-    destination: "/built-in-agent/agent-app-context",
-  },
-];
+// NOTE: the former BIA_DEFAULT_ROOT_REDIRECTS section (`/<bia-page>` →
+// `/built-in-agent/<bia-page>`) was retired when the Built-in Agent
+// docs moved to the root surface: those bare URLs now render the
+// BIA-authored pages directly, and redirecting them would loop against
+// next.config.ts's `/built-in-agent/:path*` → `/:path*` rule.
 
 // ---------------------------------------------------------------------------
 // Moved root pages — topics that used to be addressable at `/<page>` in
@@ -598,8 +564,9 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
     destination: "/generative-ui/mcp-apps",
   },
   // /copilot-runtime and /custom-agent moved under /backend/ in
-  // shell-docs. R25 already covers /runtime-server-adapter; these
-  // cover the canonical legacy paths.
+  // shell-docs; these cover the canonical legacy paths. (Note:
+  // /runtime-server-adapter is NOT redirected — it's a live page; see
+  // the removed-R25 note above.)
   {
     id: "MV-copilot-runtime",
     source: "/copilot-runtime",
@@ -683,13 +650,9 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
     source: "/getting-started/quickstart-chatbot",
     destination: "/quickstart",
   },
-  // /telemetry was a one-off legacy page. It now lives under the
-  // built-in-agent docs where runtime configuration pages are grouped.
-  {
-    id: "MV-telemetry",
-    source: "/telemetry",
-    destination: "/built-in-agent/telemetry",
-  },
+  // NOTE: the former MV-telemetry entry (`/telemetry` →
+  // `/built-in-agent/telemetry`) was retired with the root-served BIA
+  // surface — the bare URL renders the BIA telemetry page directly.
   // /reference/hooks/useCoAgent — useCoAgent (v1) was renamed to
   // useAgent (v2). External links still point at the old name.
   {
@@ -827,16 +790,19 @@ const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
 
 const DOCS_INTEGRATIONS_RENAMES: RedirectEntry[] = FRAMEWORKS.flatMap((fw) => {
   const fwDest = canonicalSlug(fw);
+  // The unselected/ tree's canonical owner (Built-in Agent) is served
+  // at the root surface, so its destinations carry no framework prefix.
+  const destPrefix = fwDest === "built-in-agent" ? "" : `/${fwDest}`;
   return [
     {
       id: `DI-wild×${fw}`,
       source: `/docs/integrations/${fw}/:path*`,
-      destination: `/${fwDest}/:path*`,
+      destination: `${destPrefix}/:path*`,
     },
     {
       id: `DI-root×${fw}`,
       source: `/docs/integrations/${fw}`,
-      destination: `/${fwDest}`,
+      destination: destPrefix || "/",
     },
   ];
 });
@@ -970,23 +936,24 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/coagents/:path*",
     destination: "/langgraph-python/:path*",
   },
-  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
+  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent
+  // retire to the root-served BIA surface
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
-    destination: "/built-in-agent/:path*",
+    destination: "/:path*",
   },
   {
     id: "R17",
     source: "/integrations/built-in-agent/:path*",
-    destination: "/built-in-agent/:path*",
+    destination: "/:path*",
   },
   { id: "R26", source: "/shared/:path*", destination: "/:path*" },
   // Category 6 wildcards
   {
     id: "F17",
     source: "/generative-ui/direct-to-llm/:path*",
-    destination: "/built-in-agent/:path*",
+    destination: "/:path*",
   },
   {
     id: "F18",
@@ -1014,10 +981,13 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   },
   { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
   // Category 1: Pattern rules (bulk coverage)
+  // The /guides tree no longer exists anywhere (its old BIA destination
+  // 404'd, and pointing it back at /guides/* would self-loop), so the
+  // retired section sends readers home.
   {
     id: "P11",
     source: "/guides/:path*",
-    destination: "/built-in-agent/guides/:path*",
+    destination: "/",
   },
   { id: "P3", source: "/learn/:path*", destination: "/concepts/:path*" },
   // P1 + P2: Per-framework catch-alls (MUST be last — they match any /{framework}/*)
@@ -1049,7 +1019,6 @@ export const seoRedirects: RedirectEntry[] = [
   ...SPECIFIC_FRAMEWORK,
   ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
-  ...BIA_DEFAULT_ROOT_REDIRECTS,
   ...MOVED_ROOT_REDIRECTS,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),

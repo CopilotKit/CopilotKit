@@ -50,12 +50,44 @@ describe("seoRedirects", () => {
           source: "/integrations",
           destination: "/",
         },
-        {
-          id: "MV-telemetry",
-          source: "/telemetry",
-          destination: "/built-in-agent/telemetry",
-        },
       ]),
     );
+  });
+
+  it("serves the Built-in Agent docs at the root: no redirect may capture a bare BIA page URL", () => {
+    // These bare URLs render BIA-authored pages directly now. A
+    // middleware entry whose source matches one of them would either
+    // shadow the page or loop against next.config.ts's
+    // /built-in-agent/:path* → /:path* rule.
+    const rootBiaPages = [
+      "/quickstart",
+      "/server-tools",
+      "/mcp-servers",
+      "/model-selection",
+      "/advanced-configuration",
+      "/agent-app-context",
+      "/telemetry",
+    ];
+    const captured = seoRedirects.filter((entry) =>
+      rootBiaPages.includes(entry.source),
+    );
+    expect(captured).toEqual([]);
+  });
+
+  it("points no live destination at the retired /built-in-agent prefix", () => {
+    // /built-in-agent/* 308s back to /* (next.config.ts), so middleware
+    // destinations under that prefix would force a redirect chain (or a
+    // loop when the source is the bare root form). Sources under
+    // /built-in-agent/* or /unselected/* are unreachable (next.config
+    // intercepts them first), so generated legacy entries are exempt.
+    const live = seoRedirects.filter(
+      (entry) =>
+        !entry.source.startsWith("/built-in-agent") &&
+        !entry.source.startsWith("/unselected"),
+    );
+    const stale = live.filter((entry) =>
+      entry.destination.startsWith("/built-in-agent"),
+    );
+    expect(stale).toEqual([]);
   });
 });

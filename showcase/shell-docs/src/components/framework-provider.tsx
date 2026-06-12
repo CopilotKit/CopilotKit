@@ -67,6 +67,10 @@ const STORAGE_KEY = "selectedFramework";
  * via the Next.js runtime, no external agent server. Treating fresh
  * visitors as if they'd picked it removes the forced-picker dead end and
  * gives them working code on first paint.
+ *
+ * Its docs are served at the ROOT surface (no `/built-in-agent/` URL
+ * prefix). Mirrors ROOT_FRAMEWORK in `lib/registry.ts`, which client
+ * modules must not import (it would pull registry.json into the bundle).
  */
 export const DEFAULT_FRAMEWORK = "built-in-agent";
 

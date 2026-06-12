@@ -89,10 +89,9 @@ export interface DocsPageViewProps {
   slugPath: string;
   /**
    * Optional content path to load the MDX from, when it differs from
-   * `slugPath`. Used by the framework-scoped router when falling back
-   * from a missing root page to a per-framework override (e.g. BIA
-   * serves `integrations/built-in-agent/server-tools.mdx` at the URL
-   * `/built-in-agent/server-tools`). Defaults to `slugPath`.
+   * `slugPath`. Used when a per-framework override backs the page (e.g.
+   * BIA serves `integrations/built-in-agent/server-tools.mdx` at the
+   * root URL `/server-tools`). Defaults to `slugPath`.
    */
   contentSlugPath?: string;
   /**
@@ -477,25 +476,33 @@ export async function DocsPageView({
                         },
                         // When rendering under a framework-scoped route, rewrite
                         // root-relative MDX links (/quickstart, /shared-state, …)
-                        // to the framework-scoped equivalent so clicks never land
-                        // on the unscoped page and trigger a RouterPivot redirect.
+                        // to the framework-scoped equivalent so clicks stay in
+                        // the framework's URL namespace. When rendering at the
+                        // ROOT surface (slugHrefPrefix "", where the default
+                        // framework's docs are served), the inverse applies:
+                        // links written as /<frameworkOverride>/… collapse onto
+                        // their root equivalents so clicks don't bounce through
+                        // the /built-in-agent/:path* redirect.
                         ...(frameworkOverride && {
                           a: ({
                             href,
                             children,
                             ...rest
                           }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-                            // Rewrite root-relative MDX links into the
-                            // framework scope EXCEPT when the link already
-                            // points at the framework root or its subtree.
-                            // Without the bare-root check, `[…](/built-in-agent)`
-                            // (no trailing slash) would rewrite to
-                            // `/built-in-agent/built-in-agent` and dead-end.
-                            // Also guard protocol-relative URLs (`//host/…`):
+                            // Guard protocol-relative URLs (`//host/…`):
                             // they pass startsWith("/") but must not be
                             // treated as in-app paths.
                             const isProtocolRelative =
                               !!href && href.startsWith("//");
+                            const isInAppPath =
+                              !!href &&
+                              href.startsWith("/") &&
+                              !isProtocolRelative;
+                            // Links already pointing at the framework root or
+                            // its subtree. Without the bare-root check,
+                            // `[…](/built-in-agent)` (no trailing slash) would
+                            // rewrite to `/built-in-agent/built-in-agent` and
+                            // dead-end.
                             const alreadyScoped =
                               !!href &&
                               (href === `/${frameworkOverride}` ||
@@ -508,10 +515,9 @@ export async function DocsPageView({
                             // MDX link like `/a2a/generative-ui/...`
                             // rendered on a BIA page becomes
                             // `/built-in-agent/a2a/...` and 404s.
-                            const firstSegment =
-                              href?.startsWith("/") && !isProtocolRelative
-                                ? href.slice(1).split(/[/?#]/, 1)[0]
-                                : undefined;
+                            const firstSegment = isInAppPath
+                              ? href.slice(1).split(/[/?#]/, 1)[0]
+                              : undefined;
                             const targetsAnotherFramework =
                               firstSegment !== undefined &&
                               CROSS_FRAMEWORK_SLUGS.has(firstSegment) &&
@@ -519,14 +525,23 @@ export async function DocsPageView({
                             const targetsReservedRoute =
                               firstSegment !== undefined &&
                               RESERVED_ROUTE_SLUG_SET.has(firstSegment);
-                            const resolved =
-                              href?.startsWith("/") &&
-                              !isProtocolRelative &&
-                              !alreadyScoped &&
-                              !targetsAnotherFramework &&
-                              !targetsReservedRoute
-                                ? `/${frameworkOverride}${href}`
-                                : href;
+                            let resolved = href;
+                            if (isInAppPath) {
+                              if (!slugHrefPrefix) {
+                                if (alreadyScoped) {
+                                  resolved =
+                                    href.slice(
+                                      `/${frameworkOverride}`.length,
+                                    ) || "/";
+                                }
+                              } else if (
+                                !alreadyScoped &&
+                                !targetsAnotherFramework &&
+                                !targetsReservedRoute
+                              ) {
+                                resolved = `/${frameworkOverride}${href}`;
+                              }
+                            }
                             return (
                               <Link href={resolved ?? "#"} {...rest}>
                                 {children}
