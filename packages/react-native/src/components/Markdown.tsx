@@ -19,6 +19,12 @@ export interface CopilotMarkdownProps {
   style?: MarkdownStyle;
   /** Whether to enable the streaming fade-in animation (default: true). */
   streamingAnimation?: boolean;
+  /**
+   * Markdown flavour passed to `react-native-enriched-markdown`.
+   * Use `"github"` (default) to enable GitHub Flavored Markdown including
+   * table support. Requires `react-native-enriched-markdown >=0.6.0`.
+   */
+  flavor?: "commonmark" | "github";
 }
 
 /**
@@ -108,6 +114,7 @@ export function CopilotMarkdown({
   content,
   style,
   streamingAnimation = true,
+  flavor = "github",
 }: CopilotMarkdownProps) {
   const mergedStyles = useMemo(() => {
     if (!style) return defaultMarkdownStyles;
@@ -119,6 +126,7 @@ export function CopilotMarkdown({
       markdown={content}
       markdownStyle={mergedStyles}
       streamingAnimation={streamingAnimation}
+      flavor={flavor}
     />
   );
 }

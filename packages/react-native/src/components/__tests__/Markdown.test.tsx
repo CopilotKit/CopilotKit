@@ -87,6 +87,16 @@ describe("CopilotMarkdown", () => {
     render(<CopilotMarkdown content="test" streamingAnimation={false} />);
     expect(lastStreamdownProps.streamingAnimation).toBe(false);
   });
+
+  it("defaults flavor to github for GFM table support", () => {
+    render(<CopilotMarkdown content="test" />);
+    expect(lastStreamdownProps.flavor).toBe("github");
+  });
+
+  it("allows overriding flavor to commonmark", () => {
+    render(<CopilotMarkdown content="test" flavor="commonmark" />);
+    expect(lastStreamdownProps.flavor).toBe("commonmark");
+  });
 });
 
 describe("defaultMarkdownStyles", () => {

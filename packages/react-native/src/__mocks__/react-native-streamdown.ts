@@ -11,6 +11,7 @@ export function StreamdownText(props: {
   markdown: string;
   markdownStyle?: Record<string, unknown>;
   streamingAnimation?: boolean;
+  flavor?: "commonmark" | "github";
 }) {
   return React.createElement("div", null, props.markdown);
 }
