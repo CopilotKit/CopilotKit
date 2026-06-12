@@ -43,7 +43,13 @@ let INTEGRATIONS: Array<{
 }>;
 
 beforeAll(() => {
-  runGenerator();
+  // Only regenerate if registry.json is absent. When generate-registry.test.ts
+  // runs concurrently (fileParallelism: true), its beforeAll already creates
+  // the file; re-running the generator here would race with that suite's
+  // sentinel test (atomic rename clobbers the appended sentinel).
+  if (!fs.existsSync(path.join(SHELL_DATA_DIR, "registry.json"))) {
+    runGenerator();
+  }
   dataRestorer.snapshot();
 
   const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
