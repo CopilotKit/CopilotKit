@@ -84,6 +84,7 @@ import {
   PROBE_JOBS_COLLECTION,
 } from "./fleet/queue-client.js";
 import { WORKERS_COLLECTION } from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import {
   createPayloadToInput,
@@ -1309,6 +1310,35 @@ export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
 export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
 
 /**
+ * Nominal production period per probe FAMILY (the probe_key prefix each
+ * producer enqueues under — see `probeKeyFamily`), derived from the producer
+ * crons above. Feeds the queue client's STALE-PENDING EXPIRY policy: a
+ * pending job older than 3 × its family's period is structurally stale (its
+ * family has enqueued fresher batches since) and is swept off the queue so a
+ * backlog drains instead of compounding. Keep in lockstep with the cron
+ * constants above (and the d6 `DEFAULT_PRODUCER_CRON`).
+ *
+ * KNOWN DRIFT LIMITATION: the d6 entry assumes the DEFAULT cron. A
+ * `FLEET_PRODUCER_CRON` env override (the local fast-cadence seam — see
+ * `buildProducerSchedules`) changes d6's REAL production period without
+ * updating this map, so under an override the stale-pending expiry window for
+ * d6 is computed from the nominal hourly period, not the overridden cadence.
+ * Acceptable today (the override is a local/dev seam; staleness only widens or
+ * narrows the 3× drain window), but don't rely on this map being exact when
+ * the override is set.
+ */
+export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
+  /** d6 — DEFAULT_PRODUCER_CRON `40 * * * *` (hourly). */
+  d6: 60 * 60 * 1000,
+  /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
+  d4: 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
+  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
+  "e2e-demos": 60 * 60 * 1000,
+};
+
+/**
  * Assemble the multi-schedule producer manifest `runControlPlane` passes to
  * `createControlPlane`. Pure (no I/O) so the schedule ids + crons are
  * unit-testable without booting the control-plane. Each browser family ticks on
@@ -2205,6 +2235,44 @@ export function createRailwayAdapter(
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the late-bound REQ-B sweep sink `runControlPlane` shares across all
+ * four family producers. The control-plane is assembled AFTER the producers
+ * (each needs the other — the cycle is broken with a late bind), so the sink
+ * dereferences the control-plane through `getControlPlane` on every delivery
+ * rather than capturing it at build time.
+ *
+ * AT-LEAST-ONCE GUARD: the job-producer's `deliverSweepCommErrors` treats a
+ * RESOLVED sink call as "delivered" and clears its undelivered-comm-error
+ * buffer — `sweepExpired` cannot re-derive a missed batch. If this sink
+ * resolved while the control-plane was still unbound (a sweep racing the
+ * assembly window, or the bind-failure teardown's final drain), the producer
+ * would clear a batch that never reached the aggregator — silently dropping
+ * the worker-crashed overlay. Throw instead: the producer logs, re-buffers
+ * the batch, and redelivers on a later sweep once the bind has happened.
+ *
+ * Exported for tests.
+ */
+export function buildSweepCommErrorSink(
+  getControlPlane: () =>
+    | Pick<ControlPlane, "surfaceSweepCommErrors">
+    | undefined,
+): (commErrors: PoolCommError[]) => Promise<void> {
+  return async (commErrors) => {
+    const controlPlane = getControlPlane();
+    if (controlPlane === undefined) {
+      // Resolving here would violate the producer's at-least-once contract
+      // (a resolved sink call clears the batch). Reject so the producer
+      // re-buffers and redelivers once the control-plane is bound.
+      throw new Error(
+        "sweep comm-error sink called before the control-plane was bound; " +
+          `re-buffering ${commErrors.length} comm error(s) for redelivery`,
+      );
+    }
+    await controlPlane.surfaceSweepCommErrors(commErrors);
+  };
+}
+
+/**
  * Control-plane role entrypoint: scheduler / queue / aggregator. Runs NO
  * Chromium / BrowserPool.
  *
@@ -2253,7 +2321,16 @@ export async function runControlPlane(
     logger,
   });
   const bus = createEventBus();
-  const queue = createFleetQueueClient({ pb, claim, logger });
+  // The control-plane's sweep expires stale pending jobs per family period
+  // (the structural backlog drain) — wire the per-family cadences so the
+  // 15min families (d4/d5) expire on a 45min window instead of the 3h
+  // default. The worker-side queue client never sweeps, so it stays unwired.
+  const queue = createFleetQueueClient({
+    pb,
+    claim,
+    logger,
+    stalePending: { familyPeriodsMs: FLEET_FAMILY_PERIODS_MS },
+  });
   const scheduler = createScheduler({ logger });
 
   // S5 aggregator — the ONLY authoritative dashboard writer — over the
@@ -2427,22 +2504,32 @@ export async function runControlPlane(
     }
   };
 
-  // Forward-reference the assembled control-plane so the producer's sweep sink
-  // can call `surfaceSweepCommErrors` (the control-plane needs the producer, the
-  // producer needs the control-plane's sink — break the cycle with a late bind).
+  // Forward-reference the assembled control-plane so the producers' sweep sink
+  // can call `surfaceSweepCommErrors` (the control-plane needs the producers,
+  // the producers need the control-plane's sink — break the cycle with a late
+  // bind).
   let controlPlaneRef: ControlPlane | undefined;
+  // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
+  // which resolves each `d6:<slug>` key and writes the overlay through the
+  // aggregator. Best-effort; never aborts production. ALL FOUR producers share
+  // this ONE sink: each family's cron runs the same GLOBAL `queue.sweepExpired`
+  // (the sweep is not family-scoped), and the sweep's S0 CAS means whichever
+  // producer's tick fires first wins each expired job's reclaim — and with it
+  // the synthesized comm error. With only d6 wired (hourly @ :40), the far more
+  // frequent smoke/demos/deep sweeps won most reclaims and DROPPED their comm
+  // errors (job-producer's `maybeSweep` forwards only when the sink is wired),
+  // so the worker-reclaimed overlay was lost ~11 of 12 sweeps. Sharing the sink
+  // is safe: the CAS guarantees exactly ONE producer reclaims (and forwards)
+  // each expired job, and `surfaceSweepCommErrors` is best-effort per error.
+  // While `controlPlaneRef` is still unbound the sink THROWS (see
+  // `buildSweepCommErrorSink`) so the producer re-buffers instead of clearing
+  // an undelivered batch.
+  const onSweepCommErrors = buildSweepCommErrorSink(() => controlPlaneRef);
   const producer = buildJobProducer({
     queue,
     enumerate,
     logger,
-    // REQ-B: forward swept comm errors into the control-plane's surfacing sink,
-    // which resolves each `d6:<slug>` key and writes the overlay through the
-    // aggregator. Best-effort; never aborts production. Only the d6 producer
-    // wires this sweep leg — it's the historic REQ-B path and stays unchanged;
-    // the three new browser-family producers below do not forward sweep errors.
-    onSweepCommErrors: async (commErrors) => {
-      await controlPlaneRef?.surfaceSweepCommErrors(commErrors);
-    },
+    onSweepCommErrors,
     // #72 PRE-DISPATCH WARM-UP: fire a fire-and-forget GET <backendUrl>/health
     // at every enumerated d6 backend before its pills run, so a cold
     // (scaled-to-zero) container starts waking ahead of the probe — removing
@@ -2452,23 +2539,27 @@ export async function runControlPlane(
     warmHealth: { fetchImpl: globalThis.fetch },
   });
   // The three non-d6 browser families each get their own producer over their
-  // family enumerator. They intentionally do NOT wire `onSweepCommErrors`: the
-  // single REQ-B sweep-surfacing leg stays on the d6 producer (preserving the
-  // current behavior); adding parallel sweep legs is out of scope for Phase 2.
+  // family enumerator. Each wires the SAME `onSweepCommErrors` sink as d6:
+  // their crons sweep the same global queue far more often than d6's hourly
+  // tick, so they must forward (not drop) the comm errors of the reclaims they
+  // win — see the sink's comment above.
   const smokeProducer = buildJobProducer({
     queue,
     enumerate: enumerateSmoke,
     logger,
+    onSweepCommErrors,
   });
   const demosProducer = buildJobProducer({
     queue,
     enumerate: enumerateDemos,
     logger,
+    onSweepCommErrors,
   });
   const deepProducer = buildJobProducer({
     queue,
     enumerate: enumerateDeep,
     logger,
+    onSweepCommErrors,
   });
 
   // Producer cron cadence. Defaults to the hourly-at-:40 rhythm

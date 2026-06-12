@@ -305,7 +305,7 @@ function formatTransitionLine(row: {
 }
 
 /**
- * Shared status row: API / RT / CV badges (D2 API / D4 Round Trip / D5 Conversation).
+ * Shared status row: API / E2E / CV badges (D2 API / D3 E2E / D5 Conversation).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
  * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
@@ -344,7 +344,7 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
         dimensionKey={keyFor("agent", ctx.integration.slug)}
       />
       <LiveBadge
-        name="RT"
+        name="E2E"
         badge={cell.e2e}
         dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
       />

@@ -49,8 +49,13 @@ function makeFakeProducer(): JobProducer & {
         runId: "r",
         enqueued: 0,
         enqueueFailures: 0,
+        skippedForBacklog: 0,
+        backlogGateFailedOpen: 0,
+        truncatedByStop: 0,
         sweptExpired: false,
+        sweepFailed: false,
         reclaimed: 0,
+        enumerateFailed: false,
       };
     },
     isRunning() {
@@ -157,20 +162,35 @@ function makeFakeScheduler(): Scheduler & {
   };
 }
 
-/** A controllable fake setInterval/clearInterval pair. */
+/**
+ * A controllable fake setInterval/clearInterval pair. PER-HANDLE like the
+ * real timers: the control-plane registers up to TWO intervals (consumer
+ * poll + fleet-health), and the old single-callback-slot fake let the
+ * second registration silently overwrite the first — any test "driving" the
+ * consumer loop with fleet-health injected was vacuous, and a leaked
+ * (never-cleared) interval was invisible to the `cleared` flag.
+ */
 class FakeTimers {
-  private cb: (() => void) | undefined;
-  cleared = false;
+  private handles = new Map<number, () => void>();
+  private nextHandle = 1;
+  /** Total intervals ever registered (cleared or not). */
+  registered = 0;
   setIntervalImpl = ((fn: () => void) => {
-    this.cb = fn;
-    return 1 as unknown as ReturnType<typeof setInterval>;
+    const handle = this.nextHandle++;
+    this.registered += 1;
+    this.handles.set(handle, fn);
+    return handle as unknown as ReturnType<typeof setInterval>;
   }) as unknown as typeof setInterval;
-  clearIntervalImpl = (() => {
-    this.cleared = true;
-    this.cb = undefined;
+  clearIntervalImpl = ((handle: unknown) => {
+    this.handles.delete(handle as number);
   }) as unknown as typeof clearInterval;
+  /** True when at least one interval was registered and ALL were cleared. */
+  get cleared(): boolean {
+    return this.registered > 0 && this.handles.size === 0;
+  }
+  /** Fire every ACTIVE (uncleared) interval callback once. */
   async fire(): Promise<void> {
-    this.cb?.();
+    for (const cb of [...this.handles.values()]) cb();
     // Let the void-returned async cycle settle.
     await Promise.resolve();
     await Promise.resolve();
@@ -435,6 +455,14 @@ describe("createControlPlane — multi-schedule hardening", () => {
     // Nothing registered.
     expect(scheduler.entries.size).toBe(0);
 
+    // `started` is not latched true on the FAILED instance: a retry on the
+    // SAME control-plane re-validates and throws again (a latched-true latch
+    // would make the second start() a silent no-op).
+    expect(() => cp.start()).toThrow(/fleet-bad/);
+    expect(producerA.started).toBe(false);
+    expect(producerB.started).toBe(false);
+    expect(scheduler.entries.size).toBe(0);
+
     // `started` is not latched true: a subsequent start() with valid crons works.
     const cpOk = createControlPlane({
       producer: producerA,
@@ -592,14 +620,49 @@ describe("createControlPlane — REQ-B comm-error surfacing", () => {
       logger: SILENT_LOGGER,
       aggregator,
       fleetHealth,
-      // Use the SAME fake timer for both consumer + fleet-health; fire() drives
-      // whichever callback was registered last (fleet-health), proving the loop
-      // is attached. We assert the monitor was invoked.
+      // The SAME fake timer pair carries both the consumer and fleet-health
+      // intervals (per-handle, like the real setInterval); fire() drives
+      // every active callback. We assert the monitor was invoked.
       setIntervalImpl: timers.setIntervalImpl,
       clearIntervalImpl: timers.clearIntervalImpl,
     });
     cp.start();
     await timers.fire();
+    expect(fleetHealth.calls).toBe(1);
+  });
+
+  it("with fleetHealth injected, the consumer AND fleet-health intervals BOTH fire — and stop() clears BOTH", async () => {
+    // The old FakeTimers held a SINGLE callback slot, so the second
+    // registration (fleet-health) silently overwrote the consumer's — a
+    // control-plane that never started the consumer loop when fleet-health
+    // was injected would have passed every test in this file. Per-handle
+    // timers pin both loops, and per-handle clears pin that stop() tears
+    // down BOTH (a leaked interval would survive shutdown).
+    const consumer = makeFakeConsumer();
+    const fleetHealth = makeFakeFleetHealth(emptyHealthResult());
+    const timers = makeFakeTimers();
+    const cp = createControlPlane({
+      producer: makeFakeProducer(),
+      consumer,
+      scheduler: makeFakeScheduler(),
+      logger: SILENT_LOGGER,
+      aggregator: makeFakeAggregator(),
+      fleetHealth,
+      setIntervalImpl: timers.setIntervalImpl,
+      clearIntervalImpl: timers.clearIntervalImpl,
+    });
+    cp.start();
+    expect(timers.registered).toBe(2);
+
+    await timers.fire();
+    expect(consumer.calls).toBe(1);
+    expect(fleetHealth.calls).toBe(1);
+
+    await cp.stop();
+    // ALL registered handles cleared — not just the last one.
+    expect(timers.cleared).toBe(true);
+    await timers.fire();
+    expect(consumer.calls).toBe(1);
     expect(fleetHealth.calls).toBe(1);
   });
 

@@ -63,7 +63,8 @@ const headroomPidsReader: CgroupPidsReader = () => ({ current: 10, max: 1000 });
 function makeJobView(overrides: Partial<JobView> = {}): JobView {
   return {
     id: "job-1",
-    probe_key: "d6:langgraph-python",
+    // Joins the payload's probeKey (the tracer) — see makePayload below.
+    probe_key: "d6:tracer-slug",
     status: "claimed",
     claimed_by: "worker-test",
     lease_expires_at: "2026-06-04T00:05:00.000Z",
@@ -76,13 +77,21 @@ function makePayload(
   overrides: Partial<ServiceJobPayload> = {},
 ): ServiceJobPayload {
   return {
-    probeKey: "d6:langgraph-python",
-    serviceSlug: "langgraph-python",
+    probeKey: "d6:tracer-slug",
+    serviceSlug: "tracer-slug",
     driverKind: "e2e_d6",
     // A runnable d6 input with NO declared features → the d6 driver returns its
     // green "no D5 features declared" aggregate without acquiring a browser.
+    // `key` is a contract-conformant `d6:<slug>` TRACER (the fleet contract
+    // forbids `e2e_d6:<slug>` row keys on the fleet path — see
+    // ServiceJobResult.aggregateKey): a slug no production default ships,
+    // kept ALIGNED across probeKey/serviceSlug/driverInputs.key because the
+    // d6 driver derives its aggregate side-row slug from `input.key`
+    // (`deriveSlug`) while the worker loop filters that side row by
+    // `d6:<serviceSlug>` — a mismatched tracer slug would surface the side
+    // row as a phantom cell.
     driverInputs: {
-      key: "e2e_d6:langgraph-python",
+      key: "d6:tracer-slug",
       backendUrl: "https://lg.example.com",
     },
     meta: {
@@ -129,6 +138,9 @@ function makeQueue(claims: ClaimedJob[]): RecordingQueue {
     async sweepExpired() {
       return { reclaimed: 0, commErrors: [] };
     },
+    async countPendingForFamily(): Promise<number> {
+      throw new Error("countPendingForFamily not used by worker");
+    },
   };
 }
 
@@ -166,9 +178,15 @@ describe("runWorker default (self-contained) boot", () => {
     const result = queue.reports[0]!;
     // The e2e_d6 job was routed to the REAL d6 driver (not a protocol
     // violation): the d6 driver's green "no D5 features declared" aggregate.
+    // The aggregateKey is the TRACER `driverInputs.key` echoed back through
+    // the real driver (pass-through proof), and the signal note pins that
+    // the d6 driver itself produced the result.
     expect(result.commError).toBeUndefined();
     expect(result.aggregateState).toBe("green");
-    expect(result.aggregateKey).toBe("e2e_d6:langgraph-python");
+    expect(result.aggregateKey).toBe("d6:tracer-slug");
+    expect(result.aggregateSignal).toMatchObject({
+      note: "no D5 features declared",
+    });
   });
 });
 
@@ -232,8 +250,9 @@ describe("runWorker loop-crash surfacing", () => {
     // stop() teardown contract below is observable: a rejecting loop.stop()
     // must still shut the pool down (PID-ceiling compounding otherwise).
     const shutdownSpy = vi.spyOn(BrowserPool.prototype, "shutdown");
+    let worker: Awaited<ReturnType<typeof runWorker>> | undefined;
     try {
-      const worker = await runWorker(config, {
+      worker = await runWorker(config, {
         queue,
         workerId: "worker-crash",
         logger,
@@ -277,9 +296,46 @@ describe("runWorker loop-crash surfacing", () => {
       await expect(worker.stop()).rejects.toThrow("poison claim");
       expect(shutdownSpy).toHaveBeenCalledTimes(1);
       // The port no longer accepts connections — the health server really
-      // closed (a still-bound server would answer this fetch).
-      await expect(fetch(`http://127.0.0.1:${port}/health`)).rejects.toThrow();
+      // closed (a still-bound server would answer this fetch). Mirror the
+      // src/orchestrator.test.ts hardening: a parallel test process can
+      // legitimately reclaim the freed port, so a successful fetch is not
+      // by itself a failure — but whatever answered MUST NOT claim "ok".
+      let networkErrored = false;
+      let errorMessage = "";
+      let statusIfServed: number | null = null;
+      let bodyLoopIfServed: string | undefined;
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/health`);
+        statusIfServed = r.status;
+        const healthBody = (await r.json()) as { loop?: string };
+        bodyLoopIfServed = healthBody.loop;
+      } catch (err) {
+        networkErrored = true;
+        errorMessage = err instanceof Error ? err.message : String(err);
+      }
+      if (networkErrored) {
+        // Connection refused / fetch-failed / socket hang-up all prove the
+        // server shut down. Assert a meaningful error shape so an unrelated
+        // rejection (DNS failure, bad URL, TLS error) can't masquerade as
+        // a closed port.
+        expect(errorMessage.length).toBeGreaterThan(0);
+        expect(errorMessage).toMatch(
+          /fetch failed|ECONNREFUSED|ECONN|network|socket|closed/i,
+        );
+      } else {
+        // The port was reclaimed and another process answered: the response
+        // MUST NOT claim a healthy "ok" loop — OUR server is gone.
+        expect(statusIfServed).not.toBe(200);
+        expect(bodyLoopIfServed).not.toBe("ok");
+      }
     } finally {
+      // Mirror the sibling default-boot test's try/finally teardown: if any
+      // assertion above failed BEFORE the explicit stop, the worker's bound
+      // /health server (and the pool) would leak across tests. stop()
+      // rejects with the loop-crash error BY DESIGN — the rejects.toThrow
+      // above is the assertion that cares; this safety-net swallow only
+      // guarantees both teardown arms (server close + pool shutdown) ran.
+      await worker?.stop().catch(() => {});
       shutdownSpy.mockRestore();
     }
   });

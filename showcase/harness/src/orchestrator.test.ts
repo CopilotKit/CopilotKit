@@ -17,6 +17,8 @@ import {
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
   buildProducerSchedules,
+  buildSweepCommErrorSink,
+  FLEET_FAMILY_PERIODS_MS,
   FLEET_PRODUCER_SMOKE_CRON,
   FLEET_PRODUCER_DEMOS_CRON,
   FLEET_PRODUCER_DEEP_CRON,
@@ -60,8 +62,19 @@ import type {
   StatusWriter,
   OverlayWriteOutcome,
 } from "./writers/status-writer.js";
-import { FLEET_COMM_ERROR_SIGNAL_KEY } from "./fleet/contracts.js";
+import {
+  FLEET_COMM_ERROR_SIGNAL_KEY,
+  probeKeyFamily,
+} from "./fleet/contracts.js";
 import type { PoolCommError } from "./fleet/contracts.js";
+import {
+  createD6ServiceEnumerator,
+  createE2eSmokeServiceEnumerator,
+  createE2eDeepServiceEnumerator,
+  createE2eDemosServiceEnumerator,
+} from "./fleet/control-plane/catalog-enumerator.js";
+import type { DiscoverySource } from "./probes/types.js";
+import type { RailwayServiceInfo } from "./probes/discovery/railway-services.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
@@ -90,6 +103,21 @@ import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
  * the two probes F1.1 is about; pb-up status is orthogonal and already
  * covered by server.test.ts.
  */
+// FILE-LEVEL MOCK HYGIENE: vi.doMock factories persist across the whole file
+// (vi.resetModules clears the module CACHE, not the mock REGISTRY), so a
+// describe that doMocks a module and only runs resetModules/restoreAllMocks in
+// its afterEach leaks its factory into every later test that imports the same
+// module without re-mocking it. The HTTP-probes describe already doUnmocks its
+// own set per-describe; these three are doMocked by the REQ-B / worker-self-
+// report / 4-schedules describes which did NOT unmock them. Unmock after EVERY
+// test so a leaked queue-client/status-writer/result-consumer stub can never
+// poison a sibling.
+afterEach(() => {
+  vi.doUnmock("./fleet/queue-client.js");
+  vi.doUnmock("./writers/status-writer.js");
+  vi.doUnmock("./fleet/control-plane/result-consumer.js");
+});
+
 async function pickPort(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const s = net.createServer();
@@ -1547,6 +1575,9 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
     const prevNodeEnv = process.env.NODE_ENV;
     const prevSecret = process.env.SHARED_SECRET;
     const prevPrev = process.env.SHARED_SECRET_PREV;
+    // Save/restore POCKETBASE_URL like the HF13-A2 tests — an unconditional
+    // `delete` in finally would clobber a pre-existing value for later tests.
+    const prevPbUrl = process.env.POCKETBASE_URL;
     process.env.NODE_ENV = "production";
     delete process.env.SHARED_SECRET;
     delete process.env.SHARED_SECRET_PREV;
@@ -1562,7 +1593,8 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
       if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
-      delete process.env.POCKETBASE_URL;
+      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
+      else process.env.POCKETBASE_URL = prevPbUrl;
     }
   });
 
@@ -1592,6 +1624,9 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
   it("boots successfully in production when at least one webhook secret is set", async () => {
     const prevNodeEnv = process.env.NODE_ENV;
     const prevSecret = process.env.SHARED_SECRET;
+    // Save/restore POCKETBASE_URL like the HF13-A2 tests — an unconditional
+    // `delete` in finally would clobber a pre-existing value for later tests.
+    const prevPbUrl = process.env.POCKETBASE_URL;
     process.env.NODE_ENV = "production";
     process.env.SHARED_SECRET = "test-secret-prod-ok";
     process.env.POCKETBASE_URL = "http://localhost:8090";
@@ -1608,7 +1643,8 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
       else delete process.env.SHARED_SECRET;
-      delete process.env.POCKETBASE_URL;
+      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
+      else process.env.POCKETBASE_URL = prevPbUrl;
     }
   });
 });
@@ -2889,6 +2925,9 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
       async sweepExpired() {
         return { reclaimed: 0, commErrors: [] };
       },
+      async countPendingForFamily(): Promise<number> {
+        throw new Error("countPendingForFamily not used by worker");
+      },
     };
   }
 
@@ -3615,6 +3654,7 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
             swept = true;
             return { reclaimed: 1, commErrors: [sweptCommError] };
           },
+          countPendingForFamily: async () => 0,
         }),
       };
     });
@@ -3713,10 +3753,11 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
               cron: string;
               handler: () => Promise<unknown>;
             }) => {
-              // The d6 producer (`fleet-job-producer`) is the ONLY one wired
-              // with the REQ-B `onSweepCommErrors` sweep leg, so capture ITS
-              // handler specifically — the other three browser-family producer
-              // schedules + the `probe:*` HTTP entries also register here.
+              // Capture the d6 producer's (`fleet-job-producer`) handler
+              // specifically — all four producers share the REQ-B
+              // `onSweepCommErrors` sink (the non-d6 leg is covered by the
+              // sink fan-out sibling below); the other three browser-family
+              // producer schedules + `probe:*` HTTP entries also register here.
               if (entry.id === FLEET_PRODUCER_SCHEDULE_ID) {
                 producerHandler = entry.handler;
               }
@@ -3750,6 +3791,235 @@ describe("orchestrator runControlPlane REQ-B sweep wiring (control-plane integra
       expect(overlay).toBeDefined();
       expect(overlay!.kind).toBe("worker-crashed-mid-job");
       expect(overlay!.jobId).toBe("job-swept-1");
+    } finally {
+      await handle.stop();
+    }
+  });
+});
+
+/**
+ * REQ-B sweep-sink fan-out: a sweep performed by a NON-d6 producer must ALSO
+ * forward its comm errors to the aggregator.
+ *
+ * All four family producers run the same GLOBAL `queue.sweepExpired` on their
+ * own crons, and the sweep's S0 CAS means whichever producer sweeps FIRST wins
+ * each expired job's reclaim — and with it the synthesized
+ * `worker-reclaimed-pending` comm error. The job-producer's `maybeSweep`
+ * forwards those errors only when its `onSweepCommErrors` sink is wired, so a
+ * producer built WITHOUT the sink silently DROPS them. With only d6 wired
+ * (hourly @ :40) and smoke/demos/deep sweeping far more often (every-15min,
+ * :10 hourly, and :05/:20/:35/:50), the reclaim overlay was dropped ~11 of 12
+ * sweeps.
+ *
+ * This drives the SMOKE producer's tick (scheduler entry
+ * `FLEET_PRODUCER_SMOKE_SCHEDULE_ID`) through `runControlPlane`'s real
+ * assembly and asserts the swept overlay lands on the job's `d6:<slug>` status
+ * row. RED against d6-only wiring (the smoke producer has no sink); GREEN once
+ * all four producers share the control-plane sink.
+ */
+describe("orchestrator runControlPlane REQ-B sweep wiring — non-d6 producer (sink fan-out)", () => {
+  let port = 0;
+
+  beforeEach(async () => {
+    port = await pickPort();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("surfaces a swept job's overlay when the SMOKE producer performs the sweep", async () => {
+    vi.resetModules();
+
+    // SELF-CONTAINED MOCK SET: `vi.doMock` factories registered by sibling
+    // tests persist for the rest of the file (resetModules clears the module
+    // CACHE, not the mock REGISTRY), so explicitly unmock every module this
+    // test touches before re-mocking — the test must pass in isolation AND in
+    // file order regardless of which siblings leaked factories.
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./fleet/queue-client.js");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./storage/s3-backup.js");
+    vi.doUnmock("./writers/status-writer.js");
+    vi.doUnmock("./probes/run-history.js");
+    vi.doUnmock("./scheduler/scheduler.js");
+    vi.doUnmock("./fleet/control-plane/result-consumer.js");
+    vi.doUnmock("./events/event-bus.js");
+    vi.doUnmock("./probes/loader/probe-loader.js");
+
+    // The smoke/demos/deep producers always use their REAL catalog enumerators
+    // (`opts.fleetEnumerate` is a d6-ONLY test seam), so inject an empty
+    // roster via the LOCAL_SERVICES_JSON local-injection seam — the smoke tick
+    // enumerates [] without Railway creds, and `maybeSweep` runs regardless of
+    // what enumeration yields.
+    vi.stubEnv("LOCAL_SERVICES_JSON", "[]");
+
+    // We need the REAL serve() so this role binds cleanly and the producer
+    // tick can run — pin it (the async-bind siblings leak a rejecting stub).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    const sweptCommError: PoolCommError = {
+      kind: "worker-crashed-mid-job",
+      message: "lease expired; worker presumed crashed",
+      workerId: "worker-dead",
+      jobId: "job-swept-smoke",
+      observedAt: "2026-06-10T00:00:00.000Z",
+    };
+
+    // Queue fake: sweepExpired yields the swept comm error exactly once — to
+    // WHICHEVER producer sweeps first; this test only drives the SMOKE
+    // producer's tick, so the smoke producer wins the sweep.
+    vi.doMock("./fleet/queue-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./fleet/queue-client.js")
+      >("./fleet/queue-client.js");
+      let swept = false;
+      return {
+        ...actual,
+        createFleetQueueClient: () => ({
+          enqueue: async () => ({}) as never,
+          claimNext: async () => ({ claimed: false }) as never,
+          renewLease: async () => null,
+          report: async () => undefined,
+          sweepExpired: async () => {
+            if (swept) return { reclaimed: 0, commErrors: [] };
+            swept = true;
+            return { reclaimed: 1, commErrors: [sweptCommError] };
+          },
+          countPendingForFamily: async () => 0,
+        }),
+      };
+    });
+
+    // pb fake: getOne(probe_jobs, "job-swept-smoke") resolves the swept job's
+    // probe_key (the resolveSweepAggregateKey lookup); getFirst(status, ...)
+    // is the "never observed" path. health() true so the role boots clean.
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async (_collection: string, id: string) =>
+            id === "job-swept-smoke"
+              ? { probe_key: "d6:swept-svc-smoke" }
+              : null,
+          getFirst: async () => null,
+        }),
+      };
+    });
+
+    // Capture every status-writer overlay so we can assert the overlay landed
+    // on the d6:<slug> row. Aggregator routes comm errors through writeOverlay
+    // (H1 path); `write` is unused by this leg but provided for the interface.
+    const writes: Array<{
+      key: string;
+      signal: Record<string, unknown>;
+      observedAt: string;
+    }> = [];
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: () => ({
+          write: async (_r: ProbeResult<unknown>) => undefined,
+          writeOverlay: async (o: {
+            key: string;
+            signal: Record<string, unknown>;
+            observedAt: string;
+          }): Promise<OverlayWriteOutcome> => {
+            writes.push(o);
+            return { applied: true, state: null, historyPersisted: true };
+          },
+        }),
+      };
+    });
+
+    // run-history writer is irrelevant to the sweep leg; stub it so the
+    // aggregator constructs without a real PB run-history collection.
+    vi.doMock("./probes/run-history.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/run-history.js")
+      >("./probes/run-history.js");
+      return {
+        ...actual,
+        createProbeRunWriter: () => ({
+          findByJobId: async () => null,
+          start: async () => ({}) as never,
+          finishTerminal: async () => undefined,
+        }),
+      };
+    });
+
+    // Capture the SMOKE producer's scheduler handler so we can drive ITS tick
+    // (which runs the sweep) deterministically without waiting on cron.
+    let smokeHandler: (() => Promise<unknown>) | undefined;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            register: (entry: {
+              id: string;
+              cron: string;
+              handler: () => Promise<unknown>;
+            }) => {
+              // Capture the NON-d6 smoke producer's handler specifically —
+              // the d6 `fleet-job-producer`, the other two browser-family
+              // schedules, and the `probe:*` HTTP entries also register here.
+              if (entry.id === FLEET_PRODUCER_SMOKE_SCHEDULE_ID) {
+                smokeHandler = entry.handler;
+              }
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      // Empty d6 enumerator → no d6 enqueue churn (the smoke enumerator is
+      // emptied via LOCAL_SERVICES_JSON above).
+      { port, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(smokeHandler).toBeDefined();
+      // Drive one SMOKE producer tick → maybeSweep → onSweepCommErrors →
+      // surfaceSweepCommErrors → resolveSweepAggregateKey → aggregateCommError.
+      await smokeHandler!();
+
+      const overlayWrite = writes.find((w) => w.key === "d6:swept-svc-smoke");
+      expect(overlayWrite).toBeDefined();
+      const signal = overlayWrite!.signal as Record<string, unknown>;
+      const overlay = signal[FLEET_COMM_ERROR_SIGNAL_KEY] as
+        | PoolCommError
+        | undefined;
+      expect(overlay).toBeDefined();
+      expect(overlay!.kind).toBe("worker-crashed-mid-job");
+      expect(overlay!.jobId).toBe("job-swept-smoke");
     } finally {
       await handle.stop();
     }
@@ -3833,6 +4103,7 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
           renewLease: async () => null,
           report: async () => undefined,
           sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+          countPendingForFamily: async () => 0,
         }),
       };
     });
@@ -4989,6 +5260,122 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
   });
 });
 
+/**
+ * REQ-B late-bind at-least-once guard: `buildSweepCommErrorSink` must THROW
+ * while the control-plane ref is still unbound. The job-producer's
+ * `deliverSweepCommErrors` clears its undelivered buffer whenever the sink
+ * RESOLVES, so an unbound sink that resolved would mark a never-delivered
+ * batch as delivered — silently dropping the worker-crashed overlay
+ * (`sweepExpired` cannot re-derive a missed batch). A rejection makes the
+ * producer re-buffer and redeliver on a later sweep, after the bind.
+ */
+describe("buildSweepCommErrorSink (REQ-B late-bind at-least-once guard)", () => {
+  const commError: PoolCommError = {
+    kind: "worker-crashed-mid-job",
+    message: "lease expired; worker presumed crashed",
+    workerId: "worker-dead",
+    jobId: "job-unbound-1",
+    observedAt: "2026-06-10T00:00:00.000Z",
+  };
+
+  it("rejects while the control-plane is unbound (producer must re-buffer, not clear)", async () => {
+    const sink = buildSweepCommErrorSink(() => undefined);
+    await expect(sink([commError])).rejects.toThrow(
+      /control-plane.*not.*bound|before the control-plane/i,
+    );
+  });
+
+  it("forwards the batch to surfaceSweepCommErrors once bound, and resolves", async () => {
+    const seen: PoolCommError[][] = [];
+    let ref:
+      | { surfaceSweepCommErrors(errs: PoolCommError[]): Promise<void> }
+      | undefined;
+    // Built UNBOUND (mirroring runControlPlane's assembly order), bound after.
+    const sink = buildSweepCommErrorSink(() => ref);
+    ref = {
+      surfaceSweepCommErrors: async (errs) => {
+        seen.push(errs);
+      },
+    };
+    await expect(sink([commError])).resolves.toBeUndefined();
+    expect(seen).toEqual([[commError]]);
+  });
+
+  it("propagates a bound sink's rejection (the producer's re-buffer trigger)", async () => {
+    const sink = buildSweepCommErrorSink(() => ({
+      surfaceSweepCommErrors: async () => {
+        throw new Error("aggregator write failed");
+      },
+    }));
+    await expect(sink([commError])).rejects.toThrow("aggregator write failed");
+  });
+});
+
+/**
+ * Drift-lock: FLEET_FAMILY_PERIODS_MS keys must EXACTLY match the probe-key
+ * families the four real enumerators enqueue under. The map feeds the queue
+ * client's stale-pending expiry; `stalePendingFilters` silently falls back to
+ * the 1h default for any family missing from the map, so a typo'd family key
+ * (e.g. "d5" vs "d5-single-pill-e2e") would never throw — it would just
+ * quietly mis-size that family's drain window. The families are derived by
+ * RUNNING each enumerator factory against a fake discovery source, so this
+ * test breaks if either side (map key or enumerator prefix) drifts.
+ *
+ * NOTE: this locks the NOMINAL period map only. The d6 cron-override drift
+ * (FLEET_PRODUCER_CRON changing d6's real cadence without updating the map)
+ * is a documented limitation on FLEET_FAMILY_PERIODS_MS, not testable here.
+ */
+describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
+  it("map keys exactly match the families the four enumerators enqueue under", async () => {
+    const service: RailwayServiceInfo = {
+      name: "showcase-langgraph-python",
+      imageRef: "ghcr.io/org/showcase-langgraph-python:latest",
+      publicUrl: "http://langgraph-python:10000",
+      env: {},
+      shape: "package",
+      deployedDigest: "",
+      demos: ["agentic_chat"],
+      notSupportedFeatures: [],
+      deployedAt: "",
+    };
+    const source = {
+      name: "railway-services",
+      async enumerate(): Promise<RailwayServiceInfo[]> {
+        return [service];
+      },
+    } as unknown as DiscoverySource<RailwayServiceInfo>;
+    const silent = {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    };
+    const deps = {
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: silent,
+    };
+
+    const enumerators = [
+      createD6ServiceEnumerator(deps),
+      createE2eSmokeServiceEnumerator(deps),
+      createE2eDeepServiceEnumerator(deps),
+      createE2eDemosServiceEnumerator(deps),
+    ];
+    const families = new Set<string>();
+    for (const enumerate of enumerators) {
+      const specs = await enumerate({ triggered: false, runId: "drift-lock" });
+      expect(specs.length).toBeGreaterThan(0);
+      for (const spec of specs) families.add(probeKeyFamily(spec.probeKey));
+    }
+
+    expect([...families].sort()).toEqual(
+      Object.keys(FLEET_FAMILY_PERIODS_MS).sort(),
+    );
+  });
+});
+
 describe("runControlPlane registers 4 producer schedules on the scheduler", () => {
   let port = 0;
 
@@ -5026,6 +5413,7 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
           renewLease: async () => null,
           report: async () => undefined,
           sweepExpired: async () => ({ reclaimed: 0, commErrors: [] }),
+          countPendingForFamily: async () => 0,
         }),
       };
     });
