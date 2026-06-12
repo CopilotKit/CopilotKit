@@ -199,8 +199,12 @@ function makeCannedTransitionStatusWriter(
         transition: canned?.newState === "error" ? "error" : "first",
         firstFailureAt: null,
         failCount: 0,
+        persisted: true,
       };
       return outcome;
+    },
+    async writeOverlay() {
+      return { applied: false, state: null };
     },
   };
   return { writer, writes };
@@ -2800,7 +2804,7 @@ describe("createResultAggregator", () => {
 
   // ── B6: contract pins — documented ERROR CONTRACTs + loud-throw guards ───
   describe("[B6] documented error contracts", () => {
-    it("aggregate() ERROR CONTRACT: rejects on the FIRST status write that throws — remaining writes not attempted, finish skipped", async () => {
+    it("aggregate() per-row try/catch: a thrown status write is logged and the batch CONTINUES — finish still runs", async () => {
       const writes: RecordedWrite[] = [];
       let writeCalls = 0;
       const throwingWriter: StatusWriter = {
@@ -2829,18 +2833,17 @@ describe("createResultAggregator", () => {
       });
 
       // Default fixture projects 3 rows (primary + 2 cells); the SECOND
-      // write throws.
-      await expect(agg.aggregate(makeResult())).rejects.toThrow(
-        "PB write blip",
-      );
-      // The first write landed, the second threw, the THIRD was never
-      // attempted.
-      expect(writeCalls).toBe(2);
-      expect(writes.map((w) => w.result.key)).toEqual(["d6:langgraph-python"]);
-      // finish is SKIPPED — the run row stays `running` for the boot-time
-      // stale-run sweep (start DID run, bracketing the writes).
+      // write throws — per-row try/catch swallows it and the third still runs.
+      // The run-history finish still lands (no `running` row left for the
+      // boot-time stale-run sweep).
+      await agg.aggregate(makeResult());
+      expect(writeCalls).toBe(3);
+      expect(writes.map((w) => w.result.key)).toEqual([
+        "d6:langgraph-python",
+        "d6:langgraph-python/human-in-the-loop",
+      ]);
       expect(runFake.calls.start).toHaveLength(1);
-      expect(runFake.calls.finish).toHaveLength(0);
+      expect(runFake.calls.finish).toHaveLength(1);
     });
 
     it("aggregateCommError ERROR CONTRACT: an aggregate-key fallback write that throws rejects — the cell key is not attempted", async () => {
@@ -2878,7 +2881,7 @@ describe("createResultAggregator", () => {
       expect(writeCalls).toBe(1);
     });
 
-    it("findByJobId-throw branch: warns and PROCEEDS without dedup (full write path still runs)", async () => {
+    it("findByJobId-throw branch: warns and SKIPS run-row mint (status writes still run, no run-history row)", async () => {
       runFake.writer.findByJobId = async () => {
         throw new Error("lookup blip");
       };
@@ -2886,12 +2889,16 @@ describe("createResultAggregator", () => {
 
       const outcome = await agg.aggregate(makeResult());
 
-      // The lookup failure was swallowed: aggregation ran in full.
+      // The lookup throw is UNCERTAIN: aggregation proceeds with the status
+      // writes (idempotent via the writer state machine) but does NOT mint a
+      // fresh run-history row — minting could duplicate a row that already
+      // exists (which the failed lookup couldn't see). A subsequent successful
+      // tick reconciles the run-history row.
       expect(outcome.skipped).toBe(false);
       expect(statusFake.writes).toHaveLength(3);
-      expect(runFake.calls.start).toHaveLength(1);
-      expect(runFake.calls.finish).toHaveLength(1);
-      expect(outcome.runRowId).toBe("run-row-1");
+      expect(runFake.calls.start).toHaveLength(0);
+      expect(runFake.calls.finish).toHaveLength(0);
+      expect(outcome.runRowId).toBeNull();
     });
 
     it("runWriter.start-throw branch: runRowId null, finish skipped, aggregation continues", async () => {
@@ -3147,6 +3154,10 @@ describe("createResultAggregator", () => {
       // (contributes to neither counter) instead of dereferencing it.
       const writer: StatusWriter = {
         write: (async () => undefined) as unknown as StatusWriter["write"],
+        writeOverlay: (async () => ({
+          applied: false,
+          state: null,
+        })) as unknown as StatusWriter["writeOverlay"],
       };
       const agg = createResultAggregator({
         statusWriter: writer,

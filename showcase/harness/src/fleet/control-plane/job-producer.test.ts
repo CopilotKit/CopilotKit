@@ -145,7 +145,6 @@ function startedProducer(overrides?: {
     queue,
     enumerate: () => specs,
     logger: overrides?.logger ?? SILENT_LOGGER,
-    logger: SILENT_LOGGER,
     family: overrides?.family ?? "d6",
     ...(overrides?.now ? { now: overrides.now } : {}),
     ...(overrides?.sweepIntervalMs !== undefined
@@ -247,6 +246,7 @@ describe("job-producer — per-service enqueue", () => {
         return d6Specs(["a"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
       now: () => t,
     });
     producer.start();
@@ -266,6 +266,7 @@ describe("job-producer — per-service enqueue", () => {
         return d6Specs(["a"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
       now: () => t,
     });
     producer.start();
@@ -282,6 +283,7 @@ describe("job-producer — per-service enqueue", () => {
         queue,
         enumerate: () => d6Specs(["a"]),
         logger: SILENT_LOGGER,
+        family: "d6",
         now: () => 123_456,
         // no runIdFactory → default factory under test
       });
@@ -335,6 +337,7 @@ describe("job-producer — per-service enqueue", () => {
         return d6Specs(["a", "b"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     await producer.tick({ filter: { slugs: ["crewai"] } }); // NOT triggered
@@ -367,6 +370,7 @@ describe("job-producer — per-service enqueue", () => {
         return d6Specs(["a"]);
       },
       logger,
+      family: "d6",
     });
     producer.start();
     await producer.tick();
@@ -683,6 +687,7 @@ describe("job-producer — per-family backlog dedupe", () => {
       queue: realQueue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       sweepIntervalMs: Number.MAX_SAFE_INTEGER,
     });
     producer.start();
@@ -806,6 +811,7 @@ describe("job-producer — phantom probeKey guard", () => {
         ...d6Specs(["alpha"]),
       ],
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -872,6 +878,7 @@ describe("job-producer — failure isolation", () => {
       enumerate: () =>
         Promise.resolve(null) as unknown as Promise<ServiceJobSpec[]>,
       logger: SILENT_LOGGER,
+      family: "d6",
       now: () => 1_000,
     });
     producer.start();
@@ -895,6 +902,7 @@ describe("job-producer — failure isolation", () => {
         throw new Error("railway discovery down");
       },
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     const result = await producer.tick();
@@ -1174,6 +1182,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       sweepIntervalMs: 0, // sweep every tick
       onSweepCommErrors: (errs) => {
         sinkCalls += 1;
@@ -1215,6 +1224,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       sweepIntervalMs: 0, // sweep every tick
       onSweepCommErrors: (errs) => {
         sinkCalls += 1;
@@ -1258,6 +1268,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       sweepIntervalMs: 0,
       onSweepCommErrors: (batch) => {
         sinkCalls += 1;
@@ -1306,6 +1317,7 @@ describe("job-producer — sweep cadence", () => {
           warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
         },
       },
+      family: "d6",
       sweepIntervalMs: 0,
       onSweepCommErrors: () => {
         throw new Error("aggregator down");
@@ -1354,6 +1366,7 @@ describe("job-producer — sweep cadence", () => {
           warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
         },
       },
+      family: "d6",
       sweepIntervalMs: 0,
       onSweepCommErrors: () => {
         throw new Error("aggregator down");
@@ -1400,6 +1413,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger,
+      family: "d6",
       sweepIntervalMs: 0, // sweep (and drop) on every tick
       // no onSweepCommErrors sink
     });
@@ -1455,6 +1469,7 @@ describe("job-producer — sweep cadence", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger,
+      family: "d6",
       sweepIntervalMs: 0, // sweep (and drop) on every tick
       // no onSweepCommErrors sink
     });
@@ -1713,6 +1728,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha", "beta"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1746,6 +1762,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl, timeoutMs: 1_000 },
     });
     producer.start();
@@ -1773,6 +1790,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1805,6 +1823,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha", "beta"]),
       logger,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1831,6 +1850,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue: makeFakeQueue(),
       enumerate: () => d6Specs(["alpha"]),
       logger,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1861,6 +1881,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue: makeFakeQueue(),
       enumerate: () => d6Specs(["alpha"]),
       logger,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1889,6 +1910,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: throwingDebugLogger,
+      family: "d6",
       warmHealth: { fetchImpl: failingFetch },
     });
     producer.start();
@@ -1953,6 +1975,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
             debugs.push({ msg, ...(meta !== undefined ? { meta } : {}) });
         },
       },
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -1989,6 +2012,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
             warns.push({ msg, ...(meta !== undefined ? { meta } : {}) });
         },
       },
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     producer.start();
@@ -2014,6 +2038,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
       queue: makeFakeQueue(),
       enumerate: () => [],
       logger,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     empty.start();
@@ -2027,6 +2052,7 @@ describe("job-producer — #72 pre-dispatch health warm-up", () => {
         ...d6Specs(["alpha"]),
       ],
       logger,
+      family: "d6",
       warmHealth: { fetchImpl },
     });
     mixed.start();
@@ -2064,6 +2090,7 @@ describe("job-producer — default run-id factory", () => {
         queue: makeFakeQueue(),
         enumerate: () => d6Specs(["a"]),
         logger: SILENT_LOGGER,
+        family: "d6",
         // no runIdFactory → the DEFAULT factory under test
       });
       producer.start();
@@ -2108,6 +2135,7 @@ describe("job-producer — tick re-entrancy guard", () => {
         return d6Specs(["a"]);
       },
       logger,
+      family: "d6",
     });
     producer.start();
     const firstP = producer.tick(); // blocked inside enumerate
@@ -2164,6 +2192,7 @@ describe("job-producer — tick re-entrancy guard", () => {
         return d6Specs(["a"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     const firstP = producer.tick(); // scheduled, blocked inside enumerate
@@ -2213,6 +2242,7 @@ describe("job-producer — tick re-entrancy guard", () => {
         return d6Specs(["a"]);
       },
       logger,
+      family: "d6",
     });
     producer.start();
     const firstP = producer.tick(); // blocked inside enumerate
@@ -2260,6 +2290,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     const tickP = producer.tick();
@@ -2297,6 +2328,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     const tickP = producer.tick();
@@ -2336,6 +2368,7 @@ describe("job-producer — stop() quiesce", () => {
         return d6Specs(["a"]);
       },
       logger: SILENT_LOGGER,
+      family: "d6",
     });
     producer.start();
     const firstP = producer.tick(); // blocked inside enumerate
@@ -2383,6 +2416,7 @@ describe("job-producer — stop() quiesce", () => {
         warn: (msg) => warns.push(msg),
         debug: (msg) => debugs.push(msg),
       },
+      family: "d6",
     });
     producer.start();
     const firstP = producer.tick(); // blocked inside enumerate
@@ -2420,6 +2454,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a", "b", "c"]),
       logger,
+      family: "d6",
     });
     producer.start();
     const tickP = producer.tick();
@@ -2461,6 +2496,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a", "b", "c"]),
       logger,
+      family: "d6",
     });
     producer.start();
     const tickP = producer.tick();
@@ -2524,6 +2560,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       onSweepCommErrors: (errs) => {
         sinkCalls += 1;
         if (sinkCalls === 1) throw new Error("aggregator down");
@@ -2563,6 +2600,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger,
+      family: "d6",
       onSweepCommErrors: () => {
         throw new Error("aggregator down for good");
       },
@@ -2606,6 +2644,7 @@ describe("job-producer — stop() quiesce", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       onSweepCommErrors: async () => {
         sinkCalls += 1;
         if (sinkCalls === 1) throw new Error("aggregator down"); // buffer j1
@@ -2678,6 +2717,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
       queue,
       enumerate: () => d6Specs(["a"]),
       logger: SILENT_LOGGER,
+      family: "d6",
       runIdFactory,
     });
     // Never started.
@@ -2709,6 +2749,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
         ...SILENT_LOGGER,
         debug: (msg) => debugEvents.push(msg),
       },
+      family: "d6",
     });
 
     await producer.stop(); // never started — must NOT latch `stopped`
@@ -2742,6 +2783,7 @@ describe("job-producer — lifecycle seams (start/stop/tick)", () => {
             if (msg === "fleet.producer.tick-while-stopped") metas.push(meta);
           },
         },
+        family: "d6",
       });
       return { producer, metas };
     };
@@ -2818,6 +2860,7 @@ describe("job-producer — throwing-logger hardening", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: makeThrowingLogger(),
+      family: "d6",
     });
     producer.start();
     const result = await producer.tick(); // must resolve, not reject
@@ -2832,6 +2875,7 @@ describe("job-producer — throwing-logger hardening", () => {
         throw new Error("discovery down");
       },
       logger: makeThrowingLogger(),
+      family: "d6",
     });
     producer.start();
     const result = await producer.tick(); // logger.error in the catch throws
@@ -2849,6 +2893,7 @@ describe("job-producer — throwing-logger hardening", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: makeThrowingLogger(),
+      family: "d6",
     });
     producer.start();
     const result = await producer.tick();
@@ -2860,6 +2905,7 @@ describe("job-producer — throwing-logger hardening", () => {
       queue: makeFakeQueue(),
       enumerate: () => d6Specs(["alpha"]),
       logger: makeThrowingLogger(),
+      family: "d6",
     });
     // Never started — the tick-while-stopped warn throws.
     const result = await producer.tick();
@@ -2871,6 +2917,7 @@ describe("job-producer — throwing-logger hardening", () => {
       queue: makeFakeQueue(),
       enumerate: () => d6Specs(["alpha"]),
       logger: makeThrowingLogger(),
+      family: "d6",
     });
     producer.start();
     await producer.tick();
@@ -2902,6 +2949,7 @@ describe("job-producer — throwing-logger hardening", () => {
       queue,
       enumerate: () => d6Specs(["alpha"]),
       logger: makeThrowingLogger(),
+      family: "d6",
       onSweepCommErrors: () => {
         throw new Error("aggregator down for good");
       },

@@ -598,7 +598,6 @@ describe("FleetQueueClient.enqueue", () => {
     expect(rows[0].payload).toEqual(samplePayload());
   });
 
-
   it("rejects a non-number meta.priority at the enqueue boundary (optional fields still have required shapes)", async () => {
     // `priority` is the one optional META field; like cellIds/driverInputs
     // it must have its required shape WHEN PRESENT. The untrusted JSON
