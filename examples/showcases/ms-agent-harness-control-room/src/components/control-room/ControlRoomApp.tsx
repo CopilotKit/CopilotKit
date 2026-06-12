@@ -68,10 +68,13 @@ export function ControlRoomApp() {
     setFreshThreadNonce((nonce) => nonce + 1);
   }, []);
 
-  // One chat mount per conversation: every thread switch (and every fresh
-  // conversation) remounts CopilotChat, so the previous mount's connect
-  // stream and run subscriptions are deterministically torn down.
-  const chatSessionKey = activeThreadId ?? `fresh-${freshThreadNonce}`;
+  // Saved-thread switches happen in place — CopilotChat receives the
+  // threadId as a prop and handles detach/reset/replay internally. The
+  // key changes only for fresh conversations, so each "New thread" click
+  // remounts the chat with a newly minted non-explicit threadId (which is
+  // what brings the welcome screen back).
+  const chatSessionKey =
+    activeThreadId === undefined ? `fresh-${freshThreadNonce}` : "thread";
 
   const runtimeHeaders = useCallback(
     () => ({

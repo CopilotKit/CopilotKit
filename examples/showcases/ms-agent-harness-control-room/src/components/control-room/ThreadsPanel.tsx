@@ -61,8 +61,8 @@ function formatLastActivity(thread: Thread): string {
 export function ThreadsPanel({ className }: { className?: string }) {
   const { localState, setActiveThreadId, startFreshThread } =
     useControlRoomLocal();
-  // updates: [] — we only need the agent instance to detach in-flight
-  // runs on switch, not re-renders on its activity.
+  // updates: [] — we only need the agent instance for the fresh-thread
+  // reset below, not re-renders on its activity.
   const { agent } = useAgent({
     agentId: CONTROL_ROOM_AGENT_NAME,
     updates: [],
@@ -81,36 +81,27 @@ export function ThreadsPanel({ className }: { className?: string }) {
 
   const activeThreadId = localState.activeThreadId;
 
-  /**
-   * Detach any in-flight run before changing conversations. Without the
-   * detach, the old run's stream keeps applying to the shared agent and
-   * collides with the next thread's connect replay ("Cannot send
-   * 'RUN_STARTED' while a run is still active"). Detaching only drops the
-   * client subscription — in Intelligence mode the run continues
-   * server-side and its output lands in its (durable) thread.
-   */
-  const detachActiveRun = async () => {
-    await agent.detachActiveRun().catch(() => {});
-  };
-
-  const switchThread = async (threadId: string) => {
+  // Saved-thread switching is fully handled by CopilotChat: it receives
+  // the active threadId as a prop, and on change detaches the in-flight
+  // run, resets the shared agent, and replays the incoming thread's
+  // history.
+  const switchThread = (threadId: string) => {
     if (threadId === activeThreadId) return;
-    await detachActiveRun();
     setActiveThreadId(threadId);
   };
 
+  /**
+   * Fresh conversations are the one path CopilotChat can't reset for us:
+   * they never /connect, so the shared agent would keep showing the
+   * previous conversation. Mirror core's fresh-restore — detach any
+   * in-flight run, wipe messages/state, and drop the departed thread's
+   * replay cursor (so revisiting it replays fully instead of resuming
+   * mid-stream onto wiped state) — then remount the chat empty.
+   */
   const startNewThread = async () => {
-    await detachActiveRun();
-    // Fresh conversations skip /connect, so nothing else clears the shared
-    // agent — wipe messages/state the same way core's connect path does on
-    // a fresh restore. Without this the previous thread's content leaks
-    // into the new chat (and suppresses the welcome screen).
+    await agent.detachActiveRun().catch(() => {});
     agent.setMessages([]);
     agent.setState({});
-    // Clear the departed thread's replay cursor too. Fresh chats never
-    // /connect, so core's last-connected pointer still names that thread;
-    // revisiting it would look like same-thread churn and resume from the
-    // cursor mid-stream onto the wiped state instead of replaying fully.
     const proxied = agent as unknown as {
       clearReplayCursor?: (threadId: string) => void;
     };
@@ -206,7 +197,7 @@ export function ThreadsPanel({ className }: { className?: string }) {
                   key={thread.id}
                   thread={thread}
                   active={thread.id === activeThreadId}
-                  onSelect={() => void switchThread(thread.id)}
+                  onSelect={() => switchThread(thread.id)}
                   onRename={(name) => renameThread(thread.id, name)}
                   onArchive={() => removeThread(thread.id, archiveThread)}
                   onDelete={() => removeThread(thread.id, deleteThread)}
