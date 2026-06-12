@@ -93,6 +93,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-user"
                 data-message-role="user"
                 className="self-end rounded-lg bg-blue-600 px-3 py-2 text-white max-w-[80%]"
               >
@@ -106,6 +107,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-assistant"
                 data-message-role="assistant"
                 className="self-start max-w-[90%]"
               >
@@ -140,7 +142,7 @@ function HeadlessChat() {
           </button>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div data-testid="headless-composer" className="flex gap-2">
         <textarea
           className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
           rows={2}

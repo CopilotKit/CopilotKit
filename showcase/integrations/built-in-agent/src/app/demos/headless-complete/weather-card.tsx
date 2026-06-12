@@ -16,7 +16,10 @@ export function WeatherCard({
   conditions,
 }: WeatherCardProps) {
   return (
-    <div className="mt-2 mb-2 max-w-xs rounded-xl border border-[#DBDBE5] bg-[#EDEDF5] p-3 text-[#010507] shadow-sm">
+    <div
+      data-testid="headless-weather-card"
+      className="mt-2 mb-2 max-w-xs rounded-xl border border-[#DBDBE5] bg-[#EDEDF5] p-3 text-[#010507] shadow-sm"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
