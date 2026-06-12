@@ -11,6 +11,21 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
+// `crypto.randomUUID()` is only exposed in secure contexts in browsers
+// (HTTPS or localhost). The D6 probe loads this page over plain http://
+// against an internal hostname, which makes `randomUUID` undefined and
+// crashes the page. Fall back to a Math.random-based UUIDv4 when the
+// native API isn't available.
+function generateUUID(): string {
+  const g = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (g?.randomUUID) return g.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function HeadlessSimpleDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="headless-simple">
@@ -58,7 +73,7 @@ function HeadlessChat() {
     const text = (override ?? input).trim();
     if (!text || agent.isRunning) return;
     agent.addMessage({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       content: text,
     });
@@ -69,14 +84,23 @@ function HeadlessChat() {
     setInput("");
   };
 
+  // Mirrors `SAMPLES` in
+  // `showcase/integrations/langgraph-python/src/app/demos/headless-simple/empty-state.tsx`.
+  // The D5 probe (`harness/src/probes/scripts/d5-headless-simple.ts`) clicks
+  // `button >> text="Say hello in one short sentence."` — keep the first entry
+  // (and ideally the full set) byte-identical with LGP to avoid drift.
   const suggestions = [
     {
-      title: "Profile card",
-      message: "Show me a profile card for Ada Lovelace",
+      title: "Say hello in one short sentence.",
+      message: "Say hello in one short sentence.",
     },
     {
-      title: "Largest continent",
-      message: "What is the largest continent?",
+      title: "Tell me a one-line joke.",
+      message: "Tell me a one-line joke.",
+    },
+    {
+      title: "Give me a fun fact.",
+      message: "Give me a fun fact.",
     },
   ];
 
@@ -93,6 +117,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-user"
                 data-message-role="user"
                 className="self-end rounded-lg bg-blue-600 px-3 py-2 text-white max-w-[80%]"
               >
@@ -106,6 +131,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-assistant"
                 data-message-role="assistant"
                 className="self-start max-w-[90%]"
               >
@@ -142,6 +168,7 @@ function HeadlessChat() {
       </div>
       <div className="flex gap-2">
         <textarea
+          data-testid="headless-composer"
           className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
           rows={2}
           value={input}
