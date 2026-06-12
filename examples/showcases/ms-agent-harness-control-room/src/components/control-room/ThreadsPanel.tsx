@@ -93,13 +93,20 @@ export function ThreadsPanel({ className }: { className?: string }) {
   /**
    * Fresh conversations are the one path CopilotChat can't reset for us:
    * they never /connect, so the shared agent would keep showing the
-   * previous conversation. Mirror core's fresh-restore — detach any
+   * previous conversation. Mirror core's fresh-restore — stop any
    * in-flight run, wipe messages/state, and drop the departed thread's
    * replay cursor (so revisiting it replays fully instead of resuming
    * mid-stream onto wiped state) — then remount the chat empty.
+   *
+   * abortRun (not awaited detachActiveRun): it stops the platform run —
+   * releasing its thread lock — and resets the agent's run state
+   * synchronously. Awaiting detachActiveRun blocked on the run's
+   * completion promise, so the wipe and remount landed seconds late and
+   * raced whatever the user did next (messages sent into the old thread
+   * against its still-held lock → 409 → merged/failed conversations).
    */
-  const startNewThread = async () => {
-    await agent.detachActiveRun().catch(() => {});
+  const startNewThread = () => {
+    agent.abortRun();
     agent.setMessages([]);
     agent.setState({});
     const proxied = agent as unknown as {
@@ -117,7 +124,7 @@ export function ThreadsPanel({ className }: { className?: string }) {
   ) => {
     await action(threadId);
     if (activeThreadId === threadId) {
-      void startNewThread();
+      startNewThread();
     }
   };
 
@@ -147,7 +154,7 @@ export function ThreadsPanel({ className }: { className?: string }) {
                 <Button
                   type="button"
                   size="icon-sm"
-                  onClick={() => void startNewThread()}
+                  onClick={startNewThread}
                   className="cr-brand-gradient-control size-7 shrink-0 rounded-lg border-transparent text-white shadow-none hover:text-white"
                   aria-label="Start a new conversation"
                 >
