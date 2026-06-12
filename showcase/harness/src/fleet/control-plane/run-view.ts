@@ -37,17 +37,15 @@ import {
   isPoolCommErrorKind,
 } from "../contracts.js";
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
-import {
-  PROBE_RUNS_COLLECTION,
-  type ProbeRunSummary,
-} from "../../probes/run-history.js";
+import { PROBE_RUNS_COLLECTION } from "../../probes/run-history.js";
+import type { ProbeRunSummary } from "../../probes/run-history.js";
 import {
   FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_SCHEDULE_ID,
   FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
-  type ProducerSchedule,
 } from "./control-plane.js";
+import type { ProducerSchedule } from "./control-plane.js";
 
 // ───────────────────────────────────────────────────────────────────────
 // §5.1 family registry
@@ -225,11 +223,19 @@ export interface FamilySummaryEntry {
   lastRun?: RunBatch | null;
   inflight?: InflightState | null;
   /**
-   * Finish of the newest completed batch within the capped walk-back, or null
-   * (no completed batch in window / never succeeded / fresh env). Null
-   * consumers (§7.3 glyph, §7.4 banner, §9 alert) fall back to the OLDEST
-   * known batch's enqueuedAt as the staleness reference; with zero batches at
-   * all they stay silent (§5.2.1 null semantics).
+   * Finish of the newest "terminal completion" batch within the capped
+   * walk-back, or null (no terminal completion in window / never succeeded /
+   * fresh env). A batch counts as a terminal completion when EVERY job
+   * reached a terminal state (done | failed) AND no job carries a
+   * `result.commError` — i.e. the worker reached the pool, ran the probe,
+   * and returned a result, even if cells were red. Cell-level failures (the
+   * §5.2.1 outcome=="failed" via rollup.failed > 0) do NOT block this
+   * timestamp: chronic content reds with healthy workers must not fool the
+   * §7.4 silence banner / §9 silence monitor into reporting "no successful
+   * run since Xh ago". Null consumers (§7.3 glyph, §7.4 banner, §9 alert)
+   * still fall back to the OLDEST known batch's enqueuedAt as the staleness
+   * reference; with zero batches at all they stay silent (§5.2.1 null
+   * semantics).
    */
   lastSuccessAt?: string | null;
 }
@@ -781,14 +787,48 @@ function eligibleGroups(
   return groups.slice(0, -1);
 }
 
-/** Index of the first batch in walk-order with derived outcome "completed". */
-function findCompletedBatch(groups: RunBatchRows[]): RunBatchRows | null {
+/**
+ * §5.2.1 "terminal completion" predicate for `lastSuccessAt`: a batch where
+ * every job reached a terminal state (done | failed) AND no job carries a
+ * `commError` on its result. A batch with cell-level failures but no
+ * comm-error IS a terminal completion — the worker reached the pool, ran the
+ * probe, and returned a result; cells red is a content-quality signal, not a
+ * worker-outage signal.
+ *
+ * This is deliberately LOOSER than the §5.2.1 outcome=="completed"
+ * all-cells-green precedence (which still drives `lastRun.outcome`). The
+ * silence banner (§7.4) and the §9 silence monitor want to fire on "the
+ * worker stopped producing results" — chronic content reds with healthy
+ * workers must NOT fool that fallback into "no successful run since Xh ago"
+ * (the regression that motivated this redefinition).
+ */
+function isTerminalCompletionBatch(batch: RunBatchRows): boolean {
+  // All jobs must be in a terminal status (done | failed).
+  if (batch.rows.some((row) => !isTerminal(row))) return false;
+  // No job may carry a worker-comm-level failure (crashed / reclaimed /
+  // lease-expired). resultView().commErrorKind === undefined means there is
+  // either no result object or a result with no commError (cells-red only).
+  for (const row of batch.rows) {
+    if (resultView(row).commErrorKind !== undefined) return false;
+  }
+  return true;
+}
+
+/**
+ * Index of the first batch in walk-order qualifying as a §5.2.1 terminal
+ * completion (the `lastSuccessAt` reference). Skips the newest group when
+ * it's the live inflight batch (any non-terminal row) — that batch is the
+ * current attempt, never the last success.
+ */
+function findTerminalCompletionBatch(
+  groups: RunBatchRows[],
+): RunBatchRows | null {
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
     // The newest group, while non-terminal, is the inflight batch — it is
     // not a terminal outcome and can never be the last success.
     if (i === 0 && group.rows.some((row) => !isTerminal(row))) continue;
-    if (deriveOutcome(group, i > 0) === "completed") return group;
+    if (isTerminalCompletionBatch(group)) return group;
   }
   return null;
 }
@@ -823,13 +863,13 @@ async function projectFamily(
   // One indexed list (1 page) covers lastRun + inflight (a batch is ≤ ~25
   // jobs; 200 rows ≈ several batches). Only the lastSuccessAt walk-back
   // extends to the §5.2.2 capped loop, and only when the first page holds
-  // no completed batch.
+  // no terminal-completion batch.
   const first = await fetchFamilyJobRows(deps, fam.family, undefined, 1);
   let rows = first.rows;
   let exhausted = first.exhausted;
   let groups = eligibleGroups(groupBatches(rows), exhausted);
-  let completed = findCompletedBatch(groups);
-  if (completed === null && !exhausted && rows.length > 0) {
+  let terminalCompletion = findTerminalCompletionBatch(groups);
+  if (terminalCompletion === null && !exhausted && rows.length > 0) {
     const oldest = rows[rows.length - 1];
     const more = await fetchFamilyJobRows(
       deps,
@@ -840,7 +880,7 @@ async function projectFamily(
     rows = [...rows, ...more.rows];
     exhausted = more.exhausted;
     groups = eligibleGroups(groupBatches(rows), exhausted);
-    completed = findCompletedBatch(groups);
+    terminalCompletion = findTerminalCompletionBatch(groups);
   }
 
   // inflight = the newest group only (§5.2.1) — null when all-terminal.
@@ -877,7 +917,9 @@ async function projectFamily(
     nextRunAt: nextRun ? nextRun.toISOString() : null,
     lastRun,
     inflight,
-    lastSuccessAt: completed ? maxFinishedAtIso(completed) : null,
+    lastSuccessAt: terminalCompletion
+      ? maxFinishedAtIso(terminalCompletion)
+      : null,
   };
 }
 
