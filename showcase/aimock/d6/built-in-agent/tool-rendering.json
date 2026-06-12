@@ -388,8 +388,9 @@
       }
     },
     {
+      "_comment": "Legacy 'current price of AAPL' probe (tool-rendering Stock-price pill alias). MUST NOT be loosened to bare 'AAPL' — bare 'AAPL' matches the headless-complete probe's 'What's the price of AAPL right now?' as a substring and shadows gen-ui-headless-complete.json's tighter matcher when the BIA reprompt loop fires after id rewriting.",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "current price of AAPL",
         "toolCallId": "call_d5_get_stock_price_001",
         "context": "built-in-agent"
       },
@@ -398,9 +399,9 @@
       }
     },
     {
-      "_comment": "AAPL probe — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture). Must precede the first-leg emitter below.",
+      "_comment": "AAPL probe — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture). Must precede the first-leg emitter below. Tightened from bare 'AAPL' to 'current price of AAPL' to avoid shadowing gen-ui-headless-complete.json's 'price of AAPL right now' pill.",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "current price of AAPL",
         "hasToolResult": true,
         "context": "built-in-agent"
       },
@@ -410,7 +411,7 @@
     },
     {
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "current price of AAPL",
         "turnIndex": 0,
         "context": "built-in-agent"
       },
@@ -425,9 +426,9 @@
       }
     },
     {
-      "_comment": "AAPL probe — first-leg tool-emit fallback for multi-pill sessions where turnIndex is not 0 (the custom-catchall probe sends 'weather in Tokyo' first, then 'AAPL'). Anchored on hasToolResult:false so it only emits BEFORE the stock tool has run.",
+      "_comment": "AAPL probe — first-leg tool-emit fallback for multi-pill sessions where turnIndex is not 0 (the custom-catchall probe sends 'weather in Tokyo' first, then 'AAPL'). Anchored on hasToolResult:false so it only emits BEFORE the stock tool has run. Tightened from bare 'AAPL' to 'current price of AAPL' to avoid shadowing gen-ui-headless-complete.json's 'price of AAPL right now' pill.",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "current price of AAPL",
         "hasToolResult": false,
         "context": "built-in-agent"
       },
