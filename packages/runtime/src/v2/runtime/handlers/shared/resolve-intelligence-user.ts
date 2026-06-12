@@ -1,4 +1,4 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeUser,
 } from "../../core/runtime";
@@ -20,7 +20,15 @@ export async function resolveIntelligenceUser(params: {
       return errorResponse("identifyUser must return a valid user name", 400);
     }
 
-    return { id: user.id, name: user.name };
+    return {
+      id: user.id,
+      name: user.name,
+      // Pass through Intelligence learning-container authorization untouched so
+      // downstream stamping (CPK-4) can read it. Absent = unrestricted.
+      ...(user.learningContainers !== undefined
+        ? { learningContainers: user.learningContainers }
+        : {}),
+    };
   } catch (error) {
     console.error("Error identifying intelligence user:", error);
     return errorResponse("Failed to identify user", 500);
