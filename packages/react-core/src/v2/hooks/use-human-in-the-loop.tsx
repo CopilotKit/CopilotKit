@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";

@@ -35,27 +35,28 @@ def test_a2ui_part_serialization():
 def test_non_a2ui_data_part():
     part = Part(
         root=DataPart(
-            data={"foo": "bar"}, metadata={"mimeType": "application/json"}  # Not A2UI
+            data={"foo": "bar"},
+            metadata={"mimeType": "application/json"},  # Not A2UI
         )
     )
-    assert not a2ui_extension.is_a2ui_part(
-        part
-    ), "Should not be identified as A2UI part"
-    assert (
-        a2ui_extension.get_a2ui_datapart(part) is None
-    ), "Should not return A2UI DataPart"
+    assert not a2ui_extension.is_a2ui_part(part), (
+        "Should not be identified as A2UI part"
+    )
+    assert a2ui_extension.get_a2ui_datapart(part) is None, (
+        "Should not return A2UI DataPart"
+    )
 
 
 def test_non_a2ui_part():
     text_part = TextPart(text="this is some text")
     part = Part(root=text_part)
 
-    assert not a2ui_extension.is_a2ui_part(
-        part
-    ), "Should not be identified as A2UI part"
-    assert (
-        a2ui_extension.get_a2ui_datapart(part) is None
-    ), "Should not return A2UI DataPart"
+    assert not a2ui_extension.is_a2ui_part(part), (
+        "Should not be identified as A2UI part"
+    )
+    assert a2ui_extension.get_a2ui_datapart(part) is None, (
+        "Should not return A2UI DataPart"
+    )
 
 
 def test_get_a2ui_agent_extension():

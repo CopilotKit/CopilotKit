@@ -5,7 +5,6 @@ icon: "lucide/MessageSquareMore"
 doc_type: tutorial
 ---
 
-<ThreadsEarlyAccess>
 
 ## What you'll build
 
@@ -22,8 +21,15 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
 ## Prerequisites
 
 - Node.js 20+
-- A CopilotKit project with the Intelligence Platform configured (via [Copilot Cloud](https://cloud.copilotkit.ai) or [self-hosted](/premium/self-hosting))
-- `@copilotkit/react-core` v1.50+
+- A CopilotKit project with the Enterprise Intelligence Platform configured
+- `@copilotkit/react-core` v1.56+
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Need an Intelligence Platform project?"
+  body="The free Developer tier on Copilot Cloud has everything this tutorial uses — threads, realtime sync, and a license key."
+  surface="docs_tutorial_multi_conversation_chat"
+/>
 
 ## Steps
 
@@ -269,4 +275,3 @@ You now have a working multi-conversation chat app with persistent threads. Thre
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
 
-</ThreadsEarlyAccess>

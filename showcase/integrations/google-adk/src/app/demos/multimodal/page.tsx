@@ -1,47 +1,38 @@
 "use client";
 
-import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+/**
+ * Multimodal Attachments demo (Google ADK).
+ *
+ * Wires CopilotChat's `AttachmentsConfig` for image + PDF uploads and adds
+ * two "Try with sample X" buttons that inject bundled files through the
+ * same pipeline the paperclip button uses.
+ *
+ * Architecture:
+ * - Dedicated runtime route at `/api/copilotkit-multimodal` (see
+ *   ../../api/copilotkit-multimodal/route.ts). Keeping multimodal on its
+ *   own route preserves the per-cell isolation pattern LP uses and gives
+ *   us a clean place to wire the LegacyConverterShim subscriber.
+ * - Dedicated ADK agent at `src/agents/multimodal_agent.py` under the
+ *   slug `multimodal-demo`. The agent is registered in `registry.py`
+ *   under the backend name `multimodal`. Gemini is natively multimodal
+ *   so image/PDF parts are forwarded through ADK directly — no Python-
+ *   side flattening needed.
+ * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
+ *   (see `public/demo-files/`). The sample-buttons component fetches them
+ *   client-side, wraps the blob in a File, and routes through the same
+ *   V2 agent surface (`agent.addMessage` + `copilotkit.runAgent`) the
+ *   paperclip path ultimately feeds.
+ */
 
-export default function MultimodalDemo() {
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { LegacyConverterShim } from "./legacy-converter-shim";
+import { MultimodalChat } from "./multimodal-chat";
+
+export default function MultimodalDemoPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="multimodal">
-      <DemoContent />
+    <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+      <LegacyConverterShim />
+      <MultimodalChat />
     </CopilotKit>
-  );
-}
-
-function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Describe upload",
-        message: "Describe what you see in the attached image.",
-      },
-      {
-        title: "Summarize PDF",
-        message: "Summarize the attached PDF in 3 bullet points.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <div className="flex justify-center items-center h-screen w-full bg-gray-50">
-      <div className="h-full w-full max-w-4xl">
-        <CopilotChat
-          agentId="multimodal"
-          className="h-full rounded-2xl"
-          labels={{
-            chatInputPlaceholder:
-              "Attach an image or PDF, then ask about it...",
-          }}
-        />
-      </div>
-    </div>
   );
 }

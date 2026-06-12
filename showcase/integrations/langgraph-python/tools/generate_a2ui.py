@@ -15,22 +15,25 @@ _logger = logging.getLogger(__name__)
 
 CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
-# The render_a2ui tool schema that the secondary LLM is bound to.
-RENDER_A2UI_TOOL_SCHEMA = {
-    "name": "render_a2ui",
+# The _design_a2ui_surface tool schema that the secondary LLM is bound to.
+DESIGN_A2UI_SURFACE_TOOL_SCHEMA = {
+    "name": "_design_a2ui_surface",
     "description": (
         "Render a dynamic A2UI v0.9 surface.\n\n"
         "Args:\n"
         "    surfaceId: Unique surface identifier.\n"
-        "    catalogId: The catalog ID (use \"copilotkit://app-dashboard-catalog\").\n"
+        '    catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").\n'
         "    components: A2UI v0.9 component array (flat format). "
-        "The root component must have id \"root\".\n"
+        'The root component must have id "root".\n'
         "    data: Optional initial data model for the surface."
     ),
     "parameters": {
         "type": "object",
         "properties": {
-            "surfaceId": {"type": "string", "description": "Unique surface identifier."},
+            "surfaceId": {
+                "type": "string",
+                "description": "Unique surface identifier.",
+            },
             "catalogId": {"type": "string", "description": "The catalog ID."},
             "components": {
                 "type": "array",
@@ -55,7 +58,7 @@ def generate_a2ui_impl(
 
     Returns a dict with:
       - system_prompt: The system prompt for the secondary LLM (built from context)
-      - tool_schema: The render_a2ui tool schema to bind to the LLM
+      - tool_schema: The _design_a2ui_surface tool schema to bind to the LLM
       - tool_choice: The tool name to force
       - messages: The conversation messages to pass through
       - catalog_id: The default catalog ID
@@ -75,8 +78,8 @@ def generate_a2ui_impl(
 
     return {
         "system_prompt": context_text,
-        "tool_schema": RENDER_A2UI_TOOL_SCHEMA,
-        "tool_choice": "render_a2ui",
+        "tool_schema": DESIGN_A2UI_SURFACE_TOOL_SCHEMA,
+        "tool_choice": "_design_a2ui_surface",
         "messages": messages,
         "catalog_id": CUSTOM_CATALOG_ID,
     }
@@ -91,12 +94,18 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
     catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
     components = args.get("components", [])
     if not components:
-        _logger.warning("build_a2ui_operations_from_tool_call received empty components list")
+        _logger.warning(
+            "build_a2ui_operations_from_tool_call received empty components list"
+        )
     data = args.get("data")
 
     ops = [
         {"type": "create_surface", "surfaceId": surface_id, "catalogId": catalog_id},
-        {"type": "update_components", "surfaceId": surface_id, "components": components},
+        {
+            "type": "update_components",
+            "surfaceId": surface_id,
+            "components": components,
+        },
     ]
     if data:
         ops.append({"type": "update_data_model", "surfaceId": surface_id, "data": data})

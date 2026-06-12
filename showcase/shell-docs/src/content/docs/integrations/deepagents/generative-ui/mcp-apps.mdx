@@ -1,0 +1,122 @@
+---
+title: "MCP Apps"
+icon: "lucide/Monitor"
+description: "Render interactive UI components from MCP servers directly in your chat interface."
+---
+## What is this?
+
+MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat — no additional frontend code required.
+
+Key benefits:
+- **Zero frontend code** — UI components are served by the MCP server
+- **Full interactivity** — Components can use HTML, CSS, and JavaScript
+- **Secure sandboxing** — Content runs in isolated iframes
+- **Thread persistence** — MCP Apps are stored in conversation history and restored on reconnect
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect />
+  </Step>
+  <Step>
+    ### Add MCP Apps middleware to your agent
+
+    Install the middleware package and add it to your `LangGraphAgent` with `.use()`:
+
+    ```bash
+    npm install @ag-ui/mcp-apps-middleware
+    ```
+
+    ```typescript title="app/api/copilotkit/route.ts"
+    import {
+      CopilotRuntime,
+      ExperimentalEmptyAdapter,
+      copilotRuntimeNextJSAppRouterEndpoint,
+    } from "@copilotkit/runtime";
+    import { LangGraphAgent } from "@copilotkit/runtime/langgraph"; // [!code highlight]
+    import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
+    import { NextRequest } from "next/server";
+
+    const agent = new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+      graphId: "sample_agent",
+      langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+    });
+
+    // [!code highlight:10]
+    agent.use(
+      new MCPAppsMiddleware({
+        mcpServers: [
+          {
+            type: "http",
+            url: "https://mcp.excalidraw.com",
+            serverId: "excalidraw",
+          },
+        ],
+      }),
+    );
+
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        endpoint: "/api/copilotkit",
+        serviceAdapter: new ExperimentalEmptyAdapter(),
+        runtime: new CopilotRuntime({
+          agents: {
+            default: agent,
+          },
+        }),
+      });
+
+      return handleRequest(req);
+    };
+    ```
+
+    <Callout type="info" title="Server ID">
+      Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    That's it. MCP Apps will render automatically when the agent uses tools that have associated UI resources. No changes to your agent code or frontend are needed.
+  </Step>
+</Steps>
+
+## Transport Types
+
+The middleware supports two transport types:
+
+### HTTP Transport
+
+For MCP servers using HTTP-based communication:
+
+```typescript
+{
+  type: "http",
+  url: "http://localhost:3101/mcp",
+  serverId: "my-http-server"
+}
+```
+
+### SSE Transport
+
+For MCP servers using Server-Sent Events:
+
+```typescript
+{
+  type: "sse",
+  url: "https://mcp.example.com/sse",
+  headers: {
+    "Authorization": "Bearer token"
+  },
+  serverId: "my-sse-server"
+}
+```
+
+## Example MCP Servers
+
+Try these open-source MCP Apps servers to get started:
+
+https://github.com/modelcontextprotocol/ext-apps

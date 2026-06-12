@@ -70,10 +70,7 @@ public sealed class HitlInAppAgentFactory
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateHitlInAppAgent()

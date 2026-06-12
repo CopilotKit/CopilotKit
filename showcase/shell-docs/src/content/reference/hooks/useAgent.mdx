@@ -24,7 +24,7 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
 
 <PropertyReference name="agentId" type="string" default='"default"'>
   ID of the agent to retrieve. Must match an agent configured in
-  `CopilotKitProvider`.
+  `CopilotKit`.
 </PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
@@ -77,15 +77,15 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
 
     ### Methods
 
-    <PropertyReference name="runAgent" type="(options?: RunAgentOptions) => Promise<void>">
-      Manually triggers agent execution.
+    <PropertyReference name="runAgent" type="(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) => Promise<RunAgentResult>">
+      Manually triggers agent execution. Resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
 
       **Parameters:**
-      - `options.forwardedProps?: any` - Data to pass to the agent execution context
+      - `parameters.forwardedProps?: any` - Data to pass to the agent execution context
 
       **Example:**
       ```tsx
-      await agent.runAgent({
+      const { result, newMessages } = await agent.runAgent({
         forwardedProps: {
           command: { resume: "user response" }
         }

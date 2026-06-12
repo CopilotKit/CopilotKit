@@ -1,13 +1,18 @@
-import { Component, signal } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  signal,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  AbstractAgent,
-  type AgentSubscriber,
-  type BaseEvent,
-  type Message,
-  type RunAgentInput,
-  type State,
+import { AbstractAgent } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentInput,
+  State,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { AgentStore, injectAgentStore } from "./agent";
@@ -69,6 +74,19 @@ class MockAgent extends AbstractAgent {
 
   emitMessages(messages: Message[]) {
     this.messages = messages;
+    for (const s of this.subscribers) {
+      s.onMessagesChanged?.({
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
+  /** Mirrors AbstractAgent.addMessage: mutate the messages array in place and
+   *  notify with the SAME array reference (no reassignment). */
+  pushMessageInPlace(message: Message) {
+    this.messages.push(message);
     for (const s of this.subscribers) {
       s.onMessagesChanged?.({
         messages: this.messages,
@@ -307,5 +325,77 @@ describe("injectAgentStore", () => {
     expect(() => fixture.componentInstance.store()).toThrowError(
       /injectAgentStore: Agent 'missing' not found after runtime sync/,
     );
+  });
+
+  // Regression: issue #5416. AbstractAgent.addMessage mutates its messages
+  // array in place and notifies with the same reference; the store must not
+  // forward that live reference, or the signal's Object.is check makes set()
+  // a no-op and OnPush views never re-render until the run finishes.
+  it("exposes a fresh array reference, not the agent's live messages array", () => {
+    const agent = new MockAgent("agent-1");
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class Host {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    const store = fixture.componentInstance.store();
+
+    agent.pushMessageInPlace(userMsg("1", "Hello"));
+
+    expect(store.messages()).toEqual([userMsg("1", "Hello")]);
+    expect(store.messages()).not.toBe(agent.messages);
+  });
+
+  it("re-renders an OnPush view when messages are mutated in place", () => {
+    const agent = new MockAgent("agent-1");
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({
+      selector: "message-count",
+      standalone: true,
+      changeDetection: ChangeDetectionStrategy.OnPush,
+      template: `
+        {{ store.messages().length }}
+      `,
+    })
+    class MessageCount {
+      @Input({ required: true }) store!: AgentStore;
+    }
+
+    @Component({
+      standalone: true,
+      imports: [MessageCount],
+      template: `
+        <message-count [store]="store()" />
+      `,
+    })
+    class Host {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    const rendered = () => fixture.nativeElement.textContent.trim();
+    expect(rendered()).toBe("0");
+
+    // First in-place push: the signal's reference differs from its initial
+    // value, so this notifies even with the bug present.
+    agent.pushMessageInPlace(userMsg("1", "Hello"));
+    fixture.detectChanges();
+    expect(rendered()).toBe("1");
+
+    // Second in-place push reuses the array reference the signal now holds.
+    // Without the shallow copy this is an Object.is no-op: the signal never
+    // notifies, the OnPush child stays clean, and the count stays at "1".
+    agent.pushMessageInPlace(userMsg("2", "World"));
+    fixture.detectChanges();
+    expect(rendered()).toBe("2");
   });
 });

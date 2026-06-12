@@ -5,7 +5,7 @@ This serves our agents through a FastAPI server.
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  
+load_dotenv()
 
 from fastapi import FastAPI
 import uvicorn

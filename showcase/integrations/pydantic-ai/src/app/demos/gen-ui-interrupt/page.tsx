@@ -1,44 +1,81 @@
 "use client";
 
-/**
- * Gen UI (Interrupt) — placeholder.
- *
- * PydanticAI's AG-UI bridge does not expose a graph-interrupt primitive,
- * so this feature is marked unsupported in `manifest.yaml`. See the
- * sibling README.md for the full rationale and a pointer to the working
- * reference in the langgraph-python integration.
- */
+// @region[frontend-useinterrupt-render]
+import {
+  CopilotKit,
+  CopilotChat,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
 
-import React from "react";
-
-export default function GenUIInterruptUnsupported() {
+export default function GenUiInterruptDemo() {
   return (
-    <div className="flex justify-center items-center h-screen w-full bg-[#FAFAFC]">
-      <div className="max-w-md w-full rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm">
-        <span className="inline-block rounded-full border border-[#FFAC4D33] bg-[#FFAC4D]/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
-          Not supported by pydantic-ai
-        </span>
-        <h1 className="mt-3 text-xl font-semibold text-[#010507]">
-          Gen UI (Interrupt)
-        </h1>
-        <p className="mt-2 text-sm text-[#57575B]">
-          PydanticAI's AG-UI bridge has no equivalent of LangGraph's{" "}
-          <code className="rounded bg-[#F0F0F4] px-1 py-0.5 font-mono text-xs">
-            interrupt()
-          </code>{" "}
-          primitive — runs are linear and cannot pause to await a frontend
-          response, then resume the same call with that value.
-        </p>
-        <p className="mt-3 text-sm text-[#57575B]">
-          See the working reference in the{" "}
-          <span className="font-medium text-[#010507]">langgraph-python</span>{" "}
-          integration, and{" "}
-          <code className="rounded bg-[#F0F0F4] px-1 py-0.5 font-mono text-xs">
-            src/app/demos/gen-ui-interrupt/README.md
-          </code>{" "}
-          for the full rationale.
-        </p>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
       </div>
-    </div>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  useGenUiInterruptSuggestions();
+
+  // This framework has no LangGraph-style `interrupt()` primitive, so the
+  // LangGraph showcase's `useInterrupt({ renderInChat: true })` hook is
+  // silently dead here — it listens for AG-UI `interrupt` events that this
+  // backend never emits, leaving the chat stuck on the "[Scheduling...]"
+  // tool-call placeholder.
+  //
+  // The backend instead exposes `schedule_meeting` as a tool the model is
+  // instructed to call (Strategy B); the frontend registers a matching
+  // `useHumanInTheLoop` here, renders the picker inline, and resolves the
+  // call via `respond(...)`. UX matches LGP's interrupt-rendered card; the
+  // mechanism differs.
+  useHumanInTheLoop({
+    agentId: "gen-ui-interrupt",
+    name: "schedule_meeting",
+    description:
+      "Ask the user to pick a meeting time. The picker renders inline in " +
+      "the chat; the chosen slot is returned to the agent so it can confirm.",
+    parameters: z.object({
+      topic: z
+        .string()
+        .describe("What the meeting is about (e.g. 'Intro with sales')"),
+      attendee: z
+        .string()
+        .optional()
+        .describe("Who the meeting is with (e.g. 'Alice')"),
+    }),
+    render: ({ args, respond }: any) => {
+      // `TimePickerCard` here is the gen-ui-interrupt-specific variant
+      // (under `_components/`) that gates buttons on its own internal
+      // `picked`/`cancelled` state — it doesn't take a `status` prop like
+      // the hitl-in-chat version. That's fine: the buttons stay clickable
+      // until the user makes a choice and `respond(...)` resolves the
+      // tool call.
+      const topic = (args?.topic as string | undefined) ?? "a call";
+      const attendee = args?.attendee as string | undefined;
+      const slots = generateFallbackSlots();
+      return (
+        <TimePickerCard
+          topic={topic}
+          attendee={attendee}
+          slots={slots}
+          onSubmit={(result) => respond?.(result)}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-useinterrupt-render]
+
+  return (
+    <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />
   );
 }

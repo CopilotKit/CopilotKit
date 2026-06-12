@@ -2,6 +2,7 @@
  * Unit tests for ComposedCell — overlay-aware cell renderer that composes
  * different content layers based on which overlays are currently active.
  */
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import { ComposedCell } from "../composed-cell";
@@ -31,6 +32,16 @@ vi.mock("@/components/cell-pieces", () => ({
       feature: { id: string };
       shellUrl: string;
     }) => <div data-testid="mock-docs-row">{feature.id}</div>,
+  ),
+}));
+
+vi.mock("@/components/link-preview", () => ({
+  LinkPreview: vi.fn(
+    ({ children, href }: { children: React.ReactNode; href: string }) => (
+      <span data-testid="mock-link-preview" data-href={href}>
+        {children}
+      </span>
+    ),
   ),
 }));
 
@@ -66,7 +77,12 @@ vi.mock("@/components/depth-utils", async () => {
   >("@/components/depth-utils");
   return {
     ...actual,
-    deriveDepth: vi.fn(() => ({ achieved: 2, isRegression: false })),
+    deriveDepth: vi.fn(() => ({
+      achieved: 2,
+      maxPossible: 4,
+      isRegression: false,
+      unsupported: false,
+    })),
   };
 });
 
@@ -244,10 +260,10 @@ describe("ComposedCell", () => {
     ).toBeTruthy();
   });
 
-  it("renders 3 layers when all active — docs deduped by health", () => {
+  it("renders 4 layers when all content overlays active", () => {
     const ctx = makeCtx();
     const catalogCell = makeCatalogCell();
-    const { getByText, getByTestId, queryByTestId } = render(
+    const { getByText, getByTestId } = render(
       <ComposedCell
         ctx={ctx}
         overlays={overlaySet("links", "depth", "health", "docs", "parity")}
@@ -258,12 +274,12 @@ describe("ComposedCell", () => {
     expect(getByText("Demo")).toBeInTheDocument();
     expect(getByTestId("depth-layer")).toBeInTheDocument();
     expect(getByTestId("health-layer")).toBeInTheDocument();
-    // DocsLayer suppressed when health is active (CellStatus already includes docs)
-    expect(queryByTestId("docs-layer")).toBeNull();
+    // DocsLayer renders independently — health and docs are separate layers
+    expect(getByTestId("docs-layer")).toBeInTheDocument();
 
     const composedCell = getByTestId("composed-cell");
     const children = Array.from(composedCell.children);
-    expect(children.length).toBe(3);
+    expect(children.length).toBe(4); // links, depth, health, docs (parity adds no content)
   });
 
   it("applies opacity-60 for testing-kind features", () => {
@@ -306,6 +322,22 @@ describe("ComposedCell", () => {
     expect(queryByText("Demo")).not.toBeInTheDocument();
   });
 
+  it("wraps Demo and Code links with LinkPreview", () => {
+    const ctx = makeCtx();
+    const { getAllByTestId } = render(
+      <ComposedCell ctx={ctx} overlays={overlaySet("links")} />,
+    );
+
+    const previews = getAllByTestId("mock-link-preview");
+    expect(previews).toHaveLength(2);
+    expect(previews[0].getAttribute("data-href")).toBe(
+      "https://demo.test/preview",
+    );
+    expect(previews[1].getAttribute("data-href")).toBe(
+      "https://demo.test/code",
+    );
+  });
+
   it("renders empty div when only parity overlay is active", () => {
     const ctx = makeCtx();
     const { getByTestId, queryByTestId } = render(
@@ -325,5 +357,74 @@ describe("ComposedCell", () => {
 
     const composedCell = getByTestId("composed-cell");
     expect(composedCell.className).not.toContain("opacity-60");
+  });
+
+  describe("docs-only kind", () => {
+    function docsOnlyCtx(overrides?: Partial<CellContext>): CellContext {
+      return makeCtx({
+        feature: {
+          id: "cli-start",
+          name: "CLI Start",
+          category: "dev-ex",
+          description: "CLI scaffold command",
+          kind: "docs-only",
+        },
+        ...overrides,
+      });
+    }
+
+    // Updated: docs-only features now render LinksLayer when "links" is
+    // active (showing Demo/Code links) plus DocsLayer when "docs" is active.
+    // Depth and health layers are suppressed for docs-only features.
+    it("renders links + docs layers when all overlays active (no depth/health)", () => {
+      const ctx = docsOnlyCtx();
+      const { getByTestId, getByText, queryByTestId } = render(
+        <ComposedCell
+          ctx={ctx}
+          overlays={overlaySet("links", "depth", "health", "docs")}
+          catalogCell={makeCatalogCell()}
+        />,
+      );
+
+      // Links and docs layers present for docs-only features
+      expect(getByText("Demo")).toBeInTheDocument();
+      expect(getByTestId("docs-layer")).toBeInTheDocument();
+      // Depth and health layers suppressed for docs-only kind
+      expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
+      expect(queryByTestId("health-layer")).not.toBeInTheDocument();
+    });
+
+    // Updated: with only links + health active, docs-only features show
+    // LinksLayer (their fallback content) — not DocsLayer.
+    it("renders links layer when links overlay is active (not just docs)", () => {
+      const ctx = docsOnlyCtx();
+      const { getByTestId, getByText } = render(
+        <ComposedCell ctx={ctx} overlays={overlaySet("links", "health")} />,
+      );
+
+      // Docs-only features show links content when "links" overlay active
+      expect(getByText("Demo")).toBeInTheDocument();
+      expect(getByTestId("composed-cell")).toBeInTheDocument();
+    });
+
+    it("renders empty when only parity overlay is active", () => {
+      const ctx = docsOnlyCtx();
+      const { getByTestId, queryByTestId } = render(
+        <ComposedCell ctx={ctx} overlays={overlaySet("parity")} />,
+      );
+
+      expect(getByTestId("composed-cell-empty")).toBeInTheDocument();
+      expect(queryByTestId("composed-cell")).not.toBeInTheDocument();
+    });
+
+    it("applies opacity-60 for docs-only features", () => {
+      const ctx = docsOnlyCtx();
+      const { getByTestId } = render(
+        <ComposedCell ctx={ctx} overlays={overlaySet("docs")} />,
+      );
+
+      const composedCell = getByTestId("composed-cell");
+      expect(composedCell.className).toContain("opacity-60");
+    });
   });
 });

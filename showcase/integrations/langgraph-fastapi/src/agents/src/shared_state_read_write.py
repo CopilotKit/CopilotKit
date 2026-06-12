@@ -125,9 +125,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         prefs_message = self._build_prefs_message(prefs)
         if prefs_message is None:
             return handler(request)
-        return handler(
-            request.override(messages=[prefs_message, *request.messages])
-        )
+        return handler(request.override(messages=[prefs_message, *request.messages]))
 
     async def awrap_model_call(
         self,

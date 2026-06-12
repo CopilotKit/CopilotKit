@@ -12,6 +12,14 @@ import {
   DEFAULT_SURFACE_ID,
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
+import {
+  A2UILifecycleFields,
+  A2UIBuildingState,
+  A2UIRetryingState,
+  A2UIRecoveryFailure,
+  resolveDebugExposure,
+  type A2UIRecoveryRendererOptions,
+} from "./A2UIRecoveryStates";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.
@@ -45,18 +53,40 @@ export type A2UIMessageRendererOptions = {
   theme: Theme;
   /** Optional component catalog to pass to A2UIProvider */
   catalog?: any;
-  /** Optional custom loading component shown while A2UI surface is generating. */
+  /** Optional custom loading component shown while the A2UI surface is building. */
   loadingComponent?: React.ComponentType;
+  /**
+   * Pre-paint recovery/loading UX options (OSS-162): timing before the
+   * "Retrying…" sub-label appears + how much retry/debug detail to surface.
+   */
+  recovery?: A2UIRecoveryRendererOptions;
 };
+
+/**
+ * The `a2ui-surface` activity carries the WHOLE generative-UI lifecycle on one
+ * stable messageId (OSS-162): pre-paint `status` ("building" | "retrying" |
+ * "failed") with recovery detail, then `a2ui_operations` on paint. The states
+ * swap in place, so the painted surface replaces the skeleton with no extra
+ * coordination. `.passthrough()` preserves operations + any future fields.
+ */
+const A2UISurfaceContentSchema = z
+  .object({
+    a2ui_operations: z.array(z.any()).optional(),
+    ...A2UILifecycleFields,
+  })
+  .passthrough();
 
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme, catalog, loadingComponent } = options;
+  const { theme, catalog, loadingComponent, recovery } = options;
+  const showAfterMs = recovery?.showAfterMs ?? 2000;
+  const showAfterAttempts = recovery?.showAfterAttempts ?? 2;
+  const optionDebugExposure = recovery?.debugExposure ?? "collapsed";
 
   return {
     activityType: "a2ui-surface",
-    content: z.any(),
+    content: A2UISurfaceContentSchema,
     render: ({ content, agent }) => {
       ensureInitialized();
 
@@ -95,13 +125,78 @@ export function createA2UIMessageRenderer(
         return groups;
       }, [operations]);
 
-      if (!groupedOperations.size) {
-        // Show loading state while A2UI surface is being generated
-        const LoadingComponent = loadingComponent ?? DefaultA2UILoading;
-        return <LoadingComponent />;
+      const hasOps = groupedOperations.size > 0;
+
+      // Renders the pre-paint lifecycle state for a given content snapshot.
+      const renderLifecycle = (c: any) => {
+        const status = c?.status;
+        const debugExposure = resolveDebugExposure(c, optionDebugExposure);
+        if (status === "failed") {
+          return (
+            <A2UIRecoveryFailure content={c} debugExposure={debugExposure} />
+          );
+        }
+        if (status === "retrying") {
+          return (
+            <A2UIRetryingState
+              content={c}
+              showAfterMs={showAfterMs}
+              showAfterAttempts={showAfterAttempts}
+              debugExposure={debugExposure}
+            />
+          );
+        }
+        // "building" / default: a host-supplied loader wins; else the skeleton.
+        if (loadingComponent) {
+          const LoadingComponent = loadingComponent;
+          return <LoadingComponent />;
+        }
+        return <A2UIBuildingState content={c} />;
+      };
+
+      // Remember the last pre-paint snapshot so the hand-off below keeps showing
+      // exactly what was on screen (building skeleton w/ its count, or the retry
+      // status) instead of flickering to a generic one.
+      const lastLoaderContentRef = useRef<any>(null);
+      // Track from the CONTENT (not the lagging operations state) so a paint
+      // snapshot never clobbers the last genuine pre-paint snapshot.
+      const contentHasOps =
+        Array.isArray(content?.[A2UI_OPERATIONS_KEY]) &&
+        content[A2UI_OPERATIONS_KEY].length > 0;
+      if (!contentHasOps) lastLoaderContentRef.current = content;
+
+      // Cross-over: hold the loader in-flow while the surface mounts + paints
+      // OFFSCREEN, then swap the instant the surface reports its first painted
+      // content (onReady). That makes the card REPLACE the skeleton with no gap,
+      // independent of stream latency / payload size / machine speed — a fixed
+      // delay can't, since the "right" delay varies with all of those. The timer
+      // below is only a safety fallback if onReady never fires. (OSS-162)
+      const [surfaceReady, setSurfaceReady] = useState(false);
+      const readyRef = useRef(false);
+      const markSurfaceReady = useCallback(() => {
+        if (readyRef.current) return;
+        readyRef.current = true;
+        // One frame so the painted surface is on-screen before the loader drops.
+        requestAnimationFrame(() => setSurfaceReady(true));
+      }, []);
+      useEffect(() => {
+        if (!hasOps) {
+          setSurfaceReady(false);
+          readyRef.current = false;
+          return;
+        }
+        const t = setTimeout(() => setSurfaceReady(true), 8000); // fallback only
+        return () => clearTimeout(t);
+      }, [hasOps]);
+
+      if (!hasOps) {
+        // No painted surface yet → render the pre-paint lifecycle state. These
+        // share this activity's messageId, so the painted surface below replaces
+        // them in place once operations arrive.
+        return renderLifecycle(content);
       }
 
-      return (
+      const surfaces = (
         <div className="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6">
           {Array.from(groupedOperations.entries()).map(([surfaceId, ops]) => (
             <ReactSurfaceHost
@@ -112,8 +207,36 @@ export function createA2UIMessageRenderer(
               agent={agent}
               copilotkit={copilotkit}
               catalog={catalog}
+              onReady={markSurfaceReady}
             />
           ))}
+        </div>
+      );
+
+      // Stable tree: ReactSurfaceHost stays MOUNTED in the same position across
+      // the hold→ready swap (only its wrapper styling toggles), so the surface
+      // painted OFFSCREEN during the hold is preserved — not remounted, which
+      // would reintroduce the very gap we're closing. The loader sits on top
+      // until ready, then is removed and the surface drops into normal flow.
+      return (
+        <div style={{ position: "relative" }}>
+          <div
+            aria-hidden={!surfaceReady}
+            style={
+              surfaceReady
+                ? undefined
+                : {
+                    position: "absolute",
+                    inset: 0,
+                    opacity: 0,
+                    pointerEvents: "none",
+                  }
+            }
+          >
+            {surfaces}
+          </div>
+          {!surfaceReady &&
+            renderLifecycle(lastLoaderContentRef.current ?? content)}
         </div>
       );
     },
@@ -128,6 +251,8 @@ type ReactSurfaceHostProps = {
   copilotkit: any;
   /** Optional component catalog to pass to A2UIProvider */
   catalog?: any;
+  /** Fired once the surface has processed its first operations (painted). */
+  onReady?: () => void;
 };
 
 /**
@@ -141,6 +266,7 @@ function ReactSurfaceHost({
   agent,
   copilotkit,
   catalog,
+  onReady,
 }: ReactSurfaceHostProps) {
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
@@ -172,6 +298,7 @@ function ReactSurfaceHost({
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}
+          onReady={onReady}
         />
         <A2UISurfaceOrError surfaceId={surfaceId} />
       </A2UIProvider>
@@ -202,9 +329,11 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
 function SurfaceMessageProcessor({
   surfaceId,
   operations,
+  onReady,
 }: {
   surfaceId: string;
   operations: any[];
+  onReady?: () => void;
 }) {
   const { processMessages, getSurface } = useA2UIActions();
   const lastHashRef = useRef<string>("");
@@ -226,52 +355,37 @@ function SurfaceMessageProcessor({
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
-  }, [processMessages, getSurface, surfaceId, operations]);
+    // Signal the cross-over to swap ONLY once the surface can actually paint a
+    // card. A data-bound list renders nothing until its data model arrives, so
+    // for those we wait for the first non-empty updateDataModel; static surfaces
+    // are renderable from components alone. Latency-independent. (OSS-162)
+    if (onReady && surfaceHasRenderableContent(operations)) onReady();
+  }, [processMessages, getSurface, surfaceId, operations, onReady]);
 
   return null;
 }
 
 /**
- * Default loading component shown while an A2UI surface is generating.
- * Displays an animated shimmer skeleton.
+ * Whether the surface's operations are enough to paint a visible card yet.
+ * A data-bound surface references its data via `path` and renders nothing until
+ * the data model has ≥1 value; a static surface (no path refs) paints from its
+ * components alone. Used to time the loader→surface cross-over to actual content
+ * arrival rather than a fixed delay. (OSS-162)
  */
-function DefaultA2UILoading() {
-  return (
-    <div
-      className="cpk:flex cpk:flex-col cpk:gap-3 cpk:rounded-xl cpk:border cpk:border-gray-100 cpk:bg-gray-50/50 cpk:p-5"
-      style={{ minHeight: 120 }}
-    >
-      <div className="cpk:flex cpk:items-center cpk:gap-2">
-        <div
-          className="cpk:h-3 cpk:w-3 cpk:rounded-full cpk:bg-gray-200"
-          style={{
-            animation: "cpk-a2ui-pulse 1.5s ease-in-out infinite",
-          }}
-        />
-        <span className="cpk:text-xs cpk:font-medium cpk:text-gray-400">
-          Generating UI...
-        </span>
-      </div>
-      <div className="cpk:flex cpk:flex-col cpk:gap-2">
-        {[0.8, 0.6, 0.4].map((width, i) => (
-          <div
-            key={i}
-            className="cpk:h-3 cpk:rounded cpk:bg-gray-200/70"
-            style={{
-              width: `${width * 100}%`,
-              animation: `cpk-a2ui-pulse 1.5s ease-in-out ${i * 0.15}s infinite`,
-            }}
-          />
-        ))}
-      </div>
-      <style>{`
-        @keyframes cpk-a2ui-pulse {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-    </div>
-  );
+function surfaceHasRenderableContent(operations: any[]): boolean {
+  const componentOps = operations.filter((o) => o?.updateComponents);
+  if (!componentOps.length) return false;
+  const needsData = JSON.stringify(componentOps).includes('"path"');
+  if (!needsData) return true;
+  return operations.some((o) => {
+    const v = o?.updateDataModel?.value;
+    if (!v || typeof v !== "object") return false;
+    return Object.values(v).some((x) =>
+      Array.isArray(x)
+        ? x.length > 0
+        : x !== null && x !== undefined && x !== "",
+    );
+  });
 }
 
 function getOperationSurfaceId(operation: any): string | null {

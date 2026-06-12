@@ -13,15 +13,6 @@ below are the ones where those primitives are genuinely unavailable.
 
 ### LangGraph graph-control primitives (no Spring AI equivalent)
 
-- **gen-ui-interrupt** — Spring AI has no `interrupt` primitive. The
-  `SpringAIAgent` runs a single `ChatClient` call to completion on each
-  HTTP request; there is no graph-level pause/resume API to carry client
-  input across suspensions. LangGraph-specific.
-
-- **interrupt-headless** — Same missing primitive as `gen-ui-interrupt`.
-  No way to pause a `SpringAIAgent` run and resume it from client-supplied
-  state.
-
 - **subagents** — Ported using the tool-composition pattern (each
   sub-agent is a separate `ChatClient` call wired as a supervisor tool;
   see `SubagentsController`). This deviates from LangGraph's
@@ -54,6 +45,20 @@ below are the ones where those primitives are genuinely unavailable.
 
 ## Ported with caveats
 
+- **gen-ui-interrupt** — Ported using **Strategy B** (the same approach
+  used by MS Agent Python). Spring AI has no `interrupt()` primitive, so
+  the backend agent (`InterruptAgentController`) provides a scheduling
+  system prompt with NO backend tool callbacks. The `schedule_meeting`
+  tool is registered entirely on the frontend via `useFrontendTool` with
+  an async handler that renders a `TimePickerCard` and blocks until the
+  user picks a slot or cancels. The UX is identical to the LangGraph
+  version.
+
+- **interrupt-headless** — Same Strategy B adaptation as
+  `gen-ui-interrupt`, but the time-picker popup renders in the app
+  surface (outside the chat) instead of inline. Both demos share the
+  same backend agent (`InterruptAgentController`).
+
 - **byoc-hashbrown** — Ported. The hashbrown UI kit
   (`@hashbrownai/react@0.5.0-beta.4`) consumes streaming text and uses
   `useJsonParser` to progressively assemble UI from partial JSON. Spring
@@ -67,13 +72,72 @@ below are the ones where those primitives are genuinely unavailable.
   partial JSON; the Zod schemas accept partials so the chart components
   can render once enough fields are present.
 
-- **agentic-chat-reasoning**, **reasoning-default-render**,
+- **reasoning-custom**, **reasoning-default**,
   **tool-rendering-reasoning-chain** — frontend code is wired for
-  `REASONING_MESSAGE_*` events; when the adapter begins forwarding OpenAI
-  reasoning content (and/or a reasoning-capable model is wired through),
-  the reasoning UI lights up automatically. Until then the chat behaves
-  as a regular chat. Shipped as frontend code so the pattern is documented
-  end-to-end.
+  `REASONING_MESSAGE_*` events, but the Spring AI handler CANNOT emit
+  them. This is a genuine SDK limitation in Spring AI 1.0.1, not an
+  adapter or wiring gap. Details below.
+
+  **What the demo needs.** The reasoning UI mounts only when the backend
+  emits AG-UI `REASONING_MESSAGE_START` / `_CONTENT` / `_END` events
+  (role `"reasoning"`). The canonical `langgraph-python` agent produces
+  these by routing the OpenAI model's reasoning summary through the
+  **OpenAI Responses API** (`reasoning={"effort": "medium", "summary":
+"detailed"}`). The aimock fixtures for these spring-ai cells
+  (`d6/spring-ai/reasoning.json`,
+  `d6/spring-ai/tool-rendering-reasoning-chain.json`, copied from
+  langgraph-python) carry the reasoning text in a dedicated
+  `response.reasoning` field, which aimock renders over the OpenAI
+  **chat-completions** wire as streaming `delta.reasoning_content`
+  chunks (see `@copilotkit/aimock` `buildTextChunks` —
+  `delta: { reasoning_content: slice }`).
+
+  **Why Spring AI 1.0.1 cannot surface it.** The spring-ai integration
+  speaks OpenAI chat-completions (`spring-ai-starter-model-openai`,
+  `/v1/chat/completions`). In `spring-ai-openai:1.0.1` the streaming
+  delta is bound to the record `OpenAiApi.ChatCompletionMessage`, whose
+  components are exactly `rawContent, role, name, toolCallId, toolCalls,
+refusal, audioOutput, annotations` — there is **no `reasoning_content`
+  / `reasoning` field**, no metadata map, and no `@JsonAnySetter`
+  catch-all. The record is annotated `@JsonIgnoreProperties`, so the
+  inbound `reasoning_content` JSON property is **silently discarded at
+  deserialization**. It never reaches `ChatResponse` /
+  `Generation.getOutput()`, so the Java handler has no API to read it.
+  The reasoning-summary channel of the OpenAI **Responses API** is also
+  unavailable: `spring-ai-openai:1.0.1` ships no Responses-API client
+  (only `OpenAiApi` chat-completions classes exist), so the
+  langgraph-python parity path cannot be reproduced either.
+
+  **Why the inline-`<reasoning>`-tag workaround does not apply.** The
+  proven `claude-sdk-python` agent PRIMARILY maps Anthropic's native
+  extended-thinking channel: it enables `thinking={"type": "enabled", ...}`
+  on the Messages API, receives `thinking_delta` blocks, and re-routes
+  them to `REASONING_MESSAGE_*`. Only when no native thinking channel is
+  present does it FALL BACK to prompting the model to wrap its plan in
+  literal `<reasoning>...</reasoning>` text tags inside normal output and
+  parsing those tags out of the text stream. The inline-tag fallback IS
+  expressible in Spring AI (the handler already streams
+  `getOutput().getText()`). But neither claude-sdk path fits these cells:
+  the spring-ai aimock fixtures emit reasoning through the dedicated
+  `reasoning` field (→ `reasoning_content`), NOT via an Anthropic native
+  thinking channel and NOT as inline `<reasoning>` tags in `content`.
+  Rewriting the fixtures to embed inline tags — or hand-fabricating a
+  reasoning block in the handler — would be a demo-weakening fixture hack
+  that misrepresents the integration's real capability, so it is
+  deliberately not done.
+
+  **What a real fix requires (upstream / out of scope here).** Either
+  (a) Spring AI adds a `reasoning_content` (or reasoning-summary) field
+  to its chat-completions delta record and exposes it on
+  `Generation`/output metadata; or (b) Spring AI ships an OpenAI
+  Responses-API client that surfaces the reasoning summary; or (c) a
+  custom `WebClient`-level interceptor parses the raw chat-completions
+  SSE for `delta.reasoning_content` BEFORE Spring AI's binding drops it,
+  bypassing `ChatClient` entirely (a substantial custom-parser effort
+  that re-implements the streaming pipeline). None of these is a
+  showcase-side change. Until one lands, these cells ship as frontend
+  code (so the pattern is documented end-to-end) and the chat behaves as
+  a regular chat with no reasoning block.
 
 - **multimodal** — the frontend sends image + PDF attachments through
   CopilotChat's `AttachmentsConfig`. Whether the adapter forwards them

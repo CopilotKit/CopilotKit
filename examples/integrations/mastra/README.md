@@ -36,7 +36,7 @@ yarn install
 bun install
 ```
 
-2. Start the development server:
+3. Start the development server:
 
 ```bash
 # Using npm (default)

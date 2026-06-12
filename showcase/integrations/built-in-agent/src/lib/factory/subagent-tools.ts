@@ -1,8 +1,14 @@
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 import { z } from "zod";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
-// @region[subagent-setup]
 // Each role becomes its own nested chat() with a dedicated system prompt.
 // They don't share memory or tools with the supervisor — the supervisor
 // only sees the role's return value via the delegate tool below.
@@ -39,7 +45,6 @@ const subagentRoles = [
 // with their own fresh AbortController, which means a user cancel never reaches
 // the in-flight subagent call — orphan async work, billed tokens, hung
 // promises. Each parent run threads its controller through here.
-// @region[supervisor-delegation-tools]
 // Each `<role>_agent` tool wraps a nested chat() call with the
 // role's system prompt. The supervisor LLM "calls" these tools to
 // delegate work; each invocation runs the matching subagent and returns
@@ -56,7 +61,7 @@ export function buildSubagentTools(parentAbortController: AbortController) {
       }),
     }).server(async ({ task }) => {
       const text = await chat({
-        adapter: openaiText("gpt-4o"),
+        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
         messages: [{ role: "user", content: task }],
         systemPrompts: [role.systemPrompt],
         abortController: parentAbortController,

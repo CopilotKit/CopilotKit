@@ -1,39 +1,26 @@
 "use client";
 
-import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+// @region[voice-page]
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { VoiceChat } from "./voice-chat";
 
-export default function VoiceDemo() {
+export default function VoiceDemoPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="voice">
-      <DemoContent />
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-voice"
+      agent="voice-demo"
+      useSingleEndpoint={false}
+      // The dev-only `<cpk-web-inspector>` overlay (auto-enabled on
+      // localhost via shouldShowDevConsole) intercepts pointer events
+      // on top of the voice sample-audio button, so dev/D5 probe runs
+      // can't click it through Playwright. Production isn't localhost
+      // so the inspector never mounts there — voice is D5 in prod and
+      // D4 locally for this reason alone. Disable explicitly here so
+      // the demo behaves the same in both environments.
+      enableInspector={false}
+    >
+      <VoiceChat />
     </CopilotKit>
   );
 }
-
-function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Try voice", message: "Tap the mic and ask me anything." },
-      { title: "Quick tip", message: "Give me one productivity tip." },
-    ],
-    available: "always",
-  });
-
-  return (
-    <div className="flex justify-center items-center h-screen w-full bg-gradient-to-br from-purple-50 to-pink-50">
-      <div className="h-full w-full max-w-4xl">
-        {/* The voice button is rendered by CopilotChat's default input slot
-            when @copilotkit/voice is installed and the runtime exposes a
-            transcribe endpoint — passing an empty `input={{}}` prop here
-            previously overrode that default with no override at all. We
-            omit the prop entirely so the default slot stays active. */}
-        <CopilotChat agentId="voice" className="h-full rounded-2xl" />
-      </div>
-    </div>
-  );
-}
+// @endregion[voice-page]

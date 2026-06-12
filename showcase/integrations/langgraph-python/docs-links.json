@@ -37,7 +37,7 @@
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/headless-ui",
       "shell_docs_path": "/custom-look-and-feel/headless-ui"
     },
-    "agentic-chat-reasoning": {
+    "reasoning-custom": {
       "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
       "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
     },

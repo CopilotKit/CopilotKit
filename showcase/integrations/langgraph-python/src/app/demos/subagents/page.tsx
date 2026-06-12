@@ -3,13 +3,20 @@
 import React from "react";
 import {
   CopilotKit,
-  CopilotChat,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
+  useRenderTool,
 } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 
-import { DelegationLog, Delegation } from "./delegation-log";
+import { Delegation } from "./delegation-log";
+import {
+  SubAgentActivityCard,
+  type SubAgentToolStatus,
+} from "./subagent-activity-card";
+import { DemoLayout } from "./demo-layout";
+import { inferActiveSubAgent } from "./active-subagent";
+import { useSubagentsSuggestions } from "./suggestions";
 
 interface SubagentsAgentState {
   delegations?: Delegation[];
@@ -29,45 +36,76 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Write a blog post",
-        message:
-          "Produce a short blog post about the benefits of cold exposure training. Research first, then write, then critique.",
-      },
-      {
-        title: "Explain a topic",
-        message:
-          "Explain how large language models handle tool calling. Research, write a paragraph, then critique.",
-      },
-      {
-        title: "Summarize a topic",
-        message:
-          "Summarize the current state of reusable rockets in 1 polished paragraph, with research and critique.",
-      },
-    ],
-    available: "always",
-  });
+  useSubagentsSuggestions();
+
+  // @region[subagent-tool-renderers]
+  // Per-tool renderers — one for each sub-agent tool the supervisor can
+  // call. These surface "Researcher is running task Y" inline in the
+  // chat stream so the user can see what is happening without staring
+  // at the side panel. Each tool's `render` receives streaming
+  // parameters + the eventual result + a status that walks
+  // inProgress → executing → complete.
+  useRenderTool(
+    {
+      name: "research_agent",
+      parameters: z.object({ task: z.string() }),
+      render: ({ parameters, status, result }) => (
+        <SubAgentActivityCard
+          subAgent="research_agent"
+          task={parameters?.task}
+          status={status as SubAgentToolStatus}
+          result={typeof result === "string" ? result : undefined}
+        />
+      ),
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "writing_agent",
+      parameters: z.object({ task: z.string() }),
+      render: ({ parameters, status, result }) => (
+        <SubAgentActivityCard
+          subAgent="writing_agent"
+          task={parameters?.task}
+          status={status as SubAgentToolStatus}
+          result={typeof result === "string" ? result : undefined}
+        />
+      ),
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "critique_agent",
+      parameters: z.object({ task: z.string() }),
+      render: ({ parameters, status, result }) => (
+        <SubAgentActivityCard
+          subAgent="critique_agent"
+          task={parameters?.task}
+          status={status as SubAgentToolStatus}
+          result={typeof result === "string" ? result : undefined}
+        />
+      ),
+    },
+    [],
+  );
+  // @endregion[subagent-tool-renderers]
 
   const agentState = agent.state as SubagentsAgentState | undefined;
   const delegations = agentState?.delegations ?? [];
   const isRunning = agent.isRunning;
+  const activeSubAgent = isRunning
+    ? inferActiveSubAgent(delegations, agent.messages)
+    : null;
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
-      <section className="flex-1 min-h-0 p-4">
-        <DelegationLog delegations={delegations} isRunning={isRunning} />
-      </section>
-      <aside className="md:w-[420px] md:shrink-0 flex flex-col min-h-0 border-l bg-white">
-        <CopilotChat
-          agentId="subagents"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Give the supervisor a task...",
-          }}
-        />
-      </aside>
-    </div>
+    <DemoLayout
+      delegations={delegations}
+      isRunning={isRunning}
+      activeSubAgent={activeSubAgent}
+    />
   );
 }

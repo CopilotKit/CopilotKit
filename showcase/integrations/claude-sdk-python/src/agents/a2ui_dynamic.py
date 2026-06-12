@@ -81,7 +81,9 @@ GENERATE_A2UI_TOOL = {
 }
 
 
-def _generate_a2ui(context: str, conversation_messages: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _generate_a2ui(
+    context: str, conversation_messages: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Invoke a secondary LLM bound to render_a2ui and return an operations container."""
     client = openai.OpenAI()
     llm_messages: list[dict[str, Any]] = [
@@ -90,7 +92,12 @@ def _generate_a2ui(context: str, conversation_messages: list[dict[str, Any]] | N
     if conversation_messages:
         llm_messages.extend(conversation_messages)
     else:
-        llm_messages.append({"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."})
+        llm_messages.append(
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            }
+        )
     response = client.chat.completions.create(
         model=os.getenv("OPENAI_MODEL", "gpt-4.1"),
         messages=llm_messages,
@@ -110,7 +117,7 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -132,15 +139,19 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
 
-    yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
+    )
 
     while True:
         msg_id = f"msg-{run_id}-{len(messages)}"
-        yield encoder.encode(TextMessageStartEvent(
-            type=EventType.TEXT_MESSAGE_START,
-            message_id=msg_id,
-            role="assistant",
-        ))
+        yield encoder.encode(
+            TextMessageStartEvent(
+                type=EventType.TEXT_MESSAGE_START,
+                message_id=msg_id,
+                role="assistant",
+            )
+        )
 
         response_text = ""
         tool_calls: list[dict[str, Any]] = []
@@ -164,58 +175,79 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
                             current_tool_id = block.id
                             current_tool_name = block.name
                             current_tool_args = ""
-                            yield encoder.encode(ToolCallStartEvent(
-                                type=EventType.TOOL_CALL_START,
-                                tool_call_id=current_tool_id,
-                                tool_call_name=current_tool_name,
-                                parent_message_id=msg_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallStartEvent(
+                                    type=EventType.TOOL_CALL_START,
+                                    tool_call_id=current_tool_id,
+                                    tool_call_name=current_tool_name,
+                                    parent_message_id=msg_id,
+                                )
+                            )
                     elif etype == "RawContentBlockDeltaEvent":
                         delta = event.delta  # type: ignore[attr-defined]
                         if delta.type == "text_delta":
                             response_text += delta.text
-                            yield encoder.encode(TextMessageContentEvent(
-                                type=EventType.TEXT_MESSAGE_CONTENT,
-                                message_id=msg_id,
-                                delta=delta.text,
-                            ))
+                            yield encoder.encode(
+                                TextMessageContentEvent(
+                                    type=EventType.TEXT_MESSAGE_CONTENT,
+                                    message_id=msg_id,
+                                    delta=delta.text,
+                                )
+                            )
                         elif delta.type == "input_json_delta":
                             current_tool_args += delta.partial_json
-                            yield encoder.encode(ToolCallArgsEvent(
-                                type=EventType.TOOL_CALL_ARGS,
-                                tool_call_id=current_tool_id or "",
-                                delta=delta.partial_json,
-                            ))
-                    elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                            yield encoder.encode(
+                                ToolCallArgsEvent(
+                                    type=EventType.TOOL_CALL_ARGS,
+                                    tool_call_id=current_tool_id or "",
+                                    delta=delta.partial_json,
+                                )
+                            )
+                    elif etype in (
+                        "RawContentBlockStopEvent",
+                        "ParsedContentBlockStopEvent",
+                    ):
                         if current_tool_id and current_tool_name:
-                            yield encoder.encode(ToolCallEndEvent(
-                                type=EventType.TOOL_CALL_END,
-                                tool_call_id=current_tool_id,
-                            ))
+                            yield encoder.encode(
+                                ToolCallEndEvent(
+                                    type=EventType.TOOL_CALL_END,
+                                    tool_call_id=current_tool_id,
+                                )
+                            )
                             try:
-                                parsed = json.loads(current_tool_args) if current_tool_args else {}
+                                parsed = (
+                                    json.loads(current_tool_args)
+                                    if current_tool_args
+                                    else {}
+                                )
                             except json.JSONDecodeError:
                                 parsed = {}
-                            tool_calls.append({
-                                "id": current_tool_id,
-                                "name": current_tool_name,
-                                "input": parsed,
-                            })
+                            tool_calls.append(
+                                {
+                                    "id": current_tool_id,
+                                    "name": current_tool_name,
+                                    "input": parsed,
+                                }
+                            )
                             current_tool_id = None
                             current_tool_name = None
                             current_tool_args = ""
         except Exception:
             err_text = f"Agent error: {traceback.format_exc()}"
-            yield encoder.encode(TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT,
-                message_id=msg_id,
-                delta=err_text,
-            ))
+            yield encoder.encode(
+                TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=err_text,
+                )
+            )
 
-        yield encoder.encode(TextMessageEndEvent(
-            type=EventType.TEXT_MESSAGE_END,
-            message_id=msg_id,
-        ))
+        yield encoder.encode(
+            TextMessageEndEvent(
+                type=EventType.TEXT_MESSAGE_END,
+                message_id=msg_id,
+            )
+        )
 
         if not tool_calls:
             break
@@ -225,12 +257,14 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
         if response_text:
             assistant_content.append({"type": "text", "text": response_text})
         for tc in tool_calls:
-            assistant_content.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": tc["input"],
-            })
+            assistant_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                }
+            )
         messages.append({"role": "assistant", "content": assistant_content})
 
         # Execute generate_a2ui and emit tool_result.
@@ -242,17 +276,25 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
                 result_text = json.dumps(result_obj)
             else:
                 result_text = json.dumps({"error": f"unknown tool {tc['name']}"})
-            yield encoder.encode(ToolCallResultEvent(
-                type=EventType.TOOL_CALL_RESULT,
-                tool_call_id=tc["id"],
-                message_id=f"{msg_id}-tool-result-{tc['id']}",
-                content=result_text,
-            ))
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tc["id"],
-                "content": result_text,
-            })
+            yield encoder.encode(
+                ToolCallResultEvent(
+                    type=EventType.TOOL_CALL_RESULT,
+                    tool_call_id=tc["id"],
+                    message_id=f"{msg_id}-tool-result-{tc['id']}",
+                    content=result_text,
+                )
+            )
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tc["id"],
+                    "content": result_text,
+                }
+            )
         messages.append({"role": "user", "content": tool_results})
 
-    yield encoder.encode(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id))
+    yield encoder.encode(
+        RunFinishedEvent(
+            type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
+        )
+    )

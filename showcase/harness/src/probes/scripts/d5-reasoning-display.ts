@@ -1,18 +1,34 @@
 /**
  * D5 — reasoning-display script.
  *
- * Covers BOTH `/demos/agentic-chat-reasoning` and
- * `/demos/reasoning-default-render` via preNavigateRoute. The driver
- * runs one feature per featureType per integration, so the registered
- * type ('reasoning-display') gets one run regardless of how many
- * registry IDs map to it. The default route is `agentic-chat-reasoning`
- * — the alternate route is informational only at the catalog level
- * (see open question Q5 in `.claude/specs/lgp-d5-coverage.md`).
+ * Covers BOTH `/demos/reasoning-custom` and `/demos/reasoning-default`
+ * via preNavigateRoute. The driver runs one feature per featureType per
+ * integration, so the registered type ('reasoning-display') gets one run
+ * regardless of how many registry IDs map to it. The default route is
+ * `reasoning-custom` — the alternate route is informational only at the
+ * catalog level (see open question Q5 in `.claude/specs/lgp-d5-coverage.md`).
  *
- * Assertion: the assistant transcript must contain reasoning-flavored
- * keywords ("reasoning" / "step" / "thinking") to prove the
- * reasoning-block rendered, even if the canonical reasoning-block
- * selector is integration-specific.
+ * NOTE: in the LGP demo-pass these routes were renamed from
+ * `agentic-chat-reasoning` → `reasoning-custom` and
+ * `reasoning-default-render` → `reasoning-default`; the genuine-pass Phase 0
+ * cleanup updates the mapping and this branch logic accordingly.
+ *
+ * Assertion (strict-only): a reasoning-role message must render via
+ * one of the known stable selectors:
+ *   - `[data-testid="reasoning-block"]`
+ *   - `[data-testid="reasoning-content"]`
+ *   - `[data-testid="reasoning-default"]`
+ *   - `[data-message-role="reasoning"]`
+ *
+ * The probe used to also accept a transcript-keyword fallback
+ * (`"reasoning"`, `"step"`, `"thinking"`), but those tokens are
+ * typical assistant acknowledgements of the user prompt
+ * ("show your reasoning step by step") and made the assertion
+ * pass regardless of whether the framework actually surfaced
+ * REASONING_MESSAGE_* events to the frontend. The fallback was
+ * non-genuine and has been removed. Integrations that render
+ * reasoning inline without a stable testid must add one to be
+ * counted by this probe.
  */
 
 import {
@@ -23,54 +39,65 @@ import {
 } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
-const TRANSCRIPT_TIMEOUT_MS = 5_000;
+const REASONING_TIMEOUT_MS = 5_000;
 
-async function readAssistantTranscript(page: Page): Promise<string> {
+/** Stable selectors that indicate a reasoning-role message has
+ *  rendered. The first three are the testids emitted by
+ *  showcase/integrations/* ReasoningBlock components (the
+ *  `reasoning-custom` demo override). The fourth is the AG-UI role
+ *  marker. The fifth is a body-text signal: the published
+ *  CopilotChatReasoningMessage built-in slot (used by the
+ *  `reasoning-default` demo) renders a "Thought for X seconds" /
+ *  "Thinking…" header verbatim and carries no testid in
+ *  @copilotkit/react-core ≤ 1.57.1 — until that release ships a
+ *  stable testid (mirroring the tool-rendering testid release path),
+ *  the visible header text is the only stable hook we have for the
+ *  built-in slot. */
+export const REASONING_SELECTORS = [
+  '[data-testid="reasoning-block"]',
+  '[data-testid="reasoning-content"]',
+  '[data-testid="reasoning-default"]',
+  '[data-message-role="reasoning"]',
+  "text=Thought for",
+  "text=Thinking…",
+] as const;
+
+async function hasReasoningMessage(page: Page): Promise<boolean> {
   return (await page.evaluate(() => {
     const win = globalThis as unknown as {
       document: {
-        querySelectorAll(
-          sel: string,
-        ): ArrayLike<{ textContent: string | null }>;
+        querySelector(sel: string): unknown;
+        body: { textContent: string | null };
       };
     };
     const sels = [
-      '[data-testid="copilot-assistant-message"]',
-      '[role="article"]:not([data-message-role="user"])',
-      '[data-message-role="assistant"]',
+      '[data-testid="reasoning-block"]',
+      '[data-testid="reasoning-content"]',
+      '[data-testid="reasoning-default"]',
+      '[data-message-role="reasoning"]',
     ];
-    let nodes: ArrayLike<{ textContent: string | null }> = { length: 0 };
-    for (const s of sels) {
-      const f = win.document.querySelectorAll(s);
-      if (f.length > 0) {
-        nodes = f;
-        break;
-      }
-    }
-    let acc = "";
-    for (let i = 0; i < nodes.length; i++) {
-      acc += " " + (nodes[i]!.textContent ?? "");
-    }
-    return acc.toLowerCase();
-  })) as string;
+    if (sels.some((s) => win.document.querySelector(s) !== null)) return true;
+    // Fallback: built-in CopilotChatReasoningMessage's verbatim header
+    // text. Both spellings are emitted by the published component
+    // depending on whether reasoning is in-flight ("Thinking…") or
+    // finalised ("Thought for N seconds").
+    const body = (win.document.body.textContent ?? "").toLowerCase();
+    return body.includes("thought for") || body.includes("thinking…");
+  })) as boolean;
 }
-
-export const REASONING_KEYWORDS = ["reasoning", "step", "thinking"] as const;
 
 export function buildReasoningAssertion(opts?: {
   timeoutMs?: number;
 }): (page: Page) => Promise<void> {
-  const timeout = opts?.timeoutMs ?? TRANSCRIPT_TIMEOUT_MS;
+  const timeout = opts?.timeoutMs ?? REASONING_TIMEOUT_MS;
   return async (page: Page): Promise<void> => {
     const deadline = Date.now() + timeout;
-    let last = "";
     while (Date.now() < deadline) {
-      last = await readAssistantTranscript(page);
-      if (REASONING_KEYWORDS.some((kw) => last.includes(kw))) return;
+      if (await hasReasoningMessage(page)) return;
       await new Promise<void>((r) => setTimeout(r, 200));
     }
     throw new Error(
-      `reasoning-display: transcript missing reasoning keyword (any of ${REASONING_KEYWORDS.join(", ")}) — got "${last.slice(0, 200)}"`,
+      `reasoning-display: no reasoning-role message rendered within ${timeout}ms — expected one of ${REASONING_SELECTORS.join(", ")}`,
     );
   };
 }
@@ -85,21 +112,21 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
 }
 
 /** Force the route to a real demo path. Default `/demos/reasoning-display`
- *  doesn't exist; we pick `agentic-chat-reasoning` as the canonical
- *  reasoning surface. Per Q5 in the coverage doc this may split later. */
+ *  doesn't exist; we pick `reasoning-custom` as the canonical reasoning
+ *  surface. Per Q5 in the coverage doc this may split later. */
 export function preNavigateRoute(
   _ft: D5FeatureType,
   ctx?: D5RouteContext,
 ): string {
-  // If the integration declares only `reasoning-default-render`, prefer that route.
+  // If the integration declares only `reasoning-default`, prefer that route.
   if (
     ctx?.demos &&
-    ctx.demos.includes("reasoning-default-render") &&
-    !ctx.demos.includes("agentic-chat-reasoning")
+    ctx.demos.includes("reasoning-default") &&
+    !ctx.demos.includes("reasoning-custom")
   ) {
-    return "/demos/reasoning-default-render";
+    return "/demos/reasoning-default";
   }
-  return "/demos/agentic-chat-reasoning";
+  return "/demos/reasoning-custom";
 }
 
 registerD5Script({

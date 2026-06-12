@@ -20,7 +20,7 @@ const byocHashbrownAgent = new HttpAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { byoc_hashbrown: byocHashbrownAgent as AbstractAgent },
+  agents: { "byoc-hashbrown-demo": byocHashbrownAgent as AbstractAgent },
 });
 
 export const POST = async (req: NextRequest) => {

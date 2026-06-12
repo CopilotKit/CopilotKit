@@ -86,7 +86,7 @@ left for a follow-up.
 
 ### Require streaming Claude extended-thinking plumbing
 
-- `agentic-chat-reasoning`, `reasoning-default-render`,
+- `reasoning-custom`, `reasoning-default`,
   `tool-rendering-reasoning-chain` — require streaming Claude extended-
   thinking (reasoning) blocks as distinct AG-UI message parts. The current
   `src/agents/agent.py` AG-UI bridge does not translate Anthropic
@@ -115,7 +115,7 @@ follow-up commits.
 ## Follow-up buckets
 
 - Reasoning / extended-thinking plumbing in `agent.py` (unlocks
-  `agentic-chat-reasoning`, `reasoning-default-render`,
+  `reasoning-custom`, `reasoning-default`,
   `tool-rendering-reasoning-chain`).
 - A2UI catalog demos (unlocks `declarative-gen-ui`, `a2ui-fixed-schema`).
 - MCP client integration (unlocks `mcp-apps`).

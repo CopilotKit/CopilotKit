@@ -38,7 +38,7 @@ def update_components(
         "updateComponents": {
             "surfaceId": surface_id,
             "components": components,
-        }
+        },
     }
 
 
@@ -54,7 +54,7 @@ def update_data_model(
             "surfaceId": surface_id,
             "path": path,
             "value": data,
-        }
+        },
     }
 
 
@@ -72,7 +72,7 @@ def create_surface(
         "createSurface": {
             "surfaceId": surface_id,
             "catalogId": catalog_id,
-        }
+        },
     }
 
 
@@ -80,9 +80,7 @@ A2UI_OPERATIONS_KEY = "a2ui_operations"
 """The container key used to wrap A2UI operations for explicit detection."""
 
 
-def render(
-    operations: list[dict[str, Any]]
-) -> str:
+def render(operations: list[dict[str, Any]]) -> str:
     """Wrap operations in the a2ui_operations container and serialize to JSON.
 
     Args:

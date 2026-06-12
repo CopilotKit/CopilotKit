@@ -84,9 +84,7 @@ def build_instructions(run_context: RunContext) -> str:
         """
     ).strip()
 
-    prefs_block = _format_preferences(
-        getattr(run_context, "session_state", None) or {}
-    )
+    prefs_block = _format_preferences(getattr(run_context, "session_state", None) or {})
     if prefs_block:
         return f"{prefs_block}\n\n{base}"
     return base

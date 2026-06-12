@@ -1,3 +1,5 @@
+// @region[supervisor-delegation-tools]
+// @region[subagent-setup]
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
@@ -250,7 +252,6 @@ public sealed class SubagentsAgentFactory
     private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string SubAgentModel = "gpt-4o-mini";
 
-    // @region[subagent-setup]
     // Each sub-agent is a single-shot ChatClient call (built per-delegation
     // in DelegateAsync) with its own system prompt. They don't share memory
     // or tools with the supervisor — the supervisor only sees their return
@@ -311,14 +312,13 @@ public sealed class SubagentsAgentFactory
         var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent CreateAgent()
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
-        // @region[supervisor-delegation-tools]
         // Each sub-agent is exposed to the supervisor LLM as an AIFunction
         // tool. When the supervisor invokes one, DelegateAsync runs a fresh
         // ChatClient call with that sub-agent's system prompt, appends a

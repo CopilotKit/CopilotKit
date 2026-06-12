@@ -1,0 +1,118 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / gen-ui-declarative",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22",
+    "_note": "Components MUST use the flat A2UI catalog shape: {id, component, ...catalog-props-at-top-level}. The sanitize_a2ui_components contract (showcase/integrations/langgraph-python/src/agents/_a2ui_utils.py) drops any entry missing top-level `id` or `component`. The renderer (showcase/integrations/claude-sdk-python/src/app/demos/declarative-gen-ui/a2ui/renderers.tsx) receives the non-id/component fields as `props.*`. Each pill emits render_a2ui with a flat catalog payload mirroring the langgraph-python D6 fixture."
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — emits render_a2ui with Card root + Column + Metric children. D5 asserts declarative-card and declarative-metric testids mount.",
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"Q4 KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,231\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard with 3-4 metrics",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — emits render_a2ui with PieChart root. D5 asserts declarative-pie-chart testid mounts.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Pie chart rendered showing sales distribution across North America (45%), Europe (30%), and Asia Pacific (25%)."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — emits render_a2ui with BarChart root. D5 asserts declarative-bar-chart testid mounts.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":320000},{\"label\":\"Q3\",\"value\":350000},{\"label\":\"Q4\",\"value\":410000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Bar chart rendered showing quarterly revenue trending upward from Q1 ($280K) to Q4 ($410K)."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — emits render_a2ui with Card root + Column + StatusBadge children. D5 asserts declarative-status-badge testid mounts (the distinguishing signal).",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy (99.97% uptime)\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy (99.99% uptime)\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded (98.2% uptime)\",\"variant\":\"warning\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "System health report: API and Database are healthy (99.97% and 99.99% uptime). Background Workers are slightly degraded at 98.2% uptime."
+      }
+    }
+  ]
+}

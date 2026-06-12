@@ -5,8 +5,8 @@
 # tier doesn't sleep containers, but warm-state decays over idle.
 #
 # This workflow is intentionally minimal — no Slack, no metrics, no state.
-# Observability / alerting is already handled by showcase_smoke-monitor.yml.
-# This is strictly keep-alive.
+# This is strictly keep-alive; alerting lives with the validation/deploy
+# workflows.
 
 name: "Showcase: Keep-Alive"
 
@@ -15,8 +15,13 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
   ping:
+    permissions:
+      contents: read
     name: Ping ${{ matrix.slug }}
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -39,6 +44,7 @@ jobs:
           - llamaindex
           - mastra
           - ms-agent-dotnet
+          - ms-agent-harness-dotnet
           - ms-agent-python
           - pydantic-ai
           - spring-ai

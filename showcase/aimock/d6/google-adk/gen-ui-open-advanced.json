@@ -1,0 +1,37 @@
+{
+    "_meta": {
+        "description": "D6 fixtures for google-adk / gen-ui-open-advanced (open-gen-ui-advanced demo)",
+        "sourceFile": "d5-gen-ui-open-advanced.ts",
+        "created": "2026-05-22"
+    },
+    "fixtures": [
+        {
+            "_comment": "Disabled: prior matcher 'Inline expression evaluator' shadowed the working LGP-aligned matcher in gen-ui-open.json (same userMessage, same context, but missing the jsFunctions field on generateSandboxedUi arguments — without jsFunctions the Evaluate button has no click handler and the open-gen-ui-advanced.spec.ts 'typing + clicking Evaluate fires host evaluateExpression handler' test fails). gen-ui-open.json owns this pill; userMessage renamed to a non-matching sentinel so this entry is effectively dead. Mirrors LGP (which has no gen-ui-open-advanced.json file at all — the inline evaluator fixture lives entirely in gen-ui-open.json).",
+            "match": {
+                "userMessage": "_d6_unused_open_gen_ui_advanced_inline_eval",
+                "hasToolResult": false,
+                "context": "google-adk"
+            },
+            "response": {
+                "toolCalls": [
+                    {
+                        "id": "call_d6_open_gen_ui_adv_inline_001",
+                        "name": "generateSandboxedUi",
+                        "arguments": "{}"
+                    }
+                ]
+            }
+        },
+        {
+            "_comment": "Disabled: prior matcher 'Inline expression evaluator' / hasToolResult:true shadowed gen-ui-open.json's toolCallId-based follow-up. See sibling disabled entry above.",
+            "match": {
+                "userMessage": "_d6_unused_open_gen_ui_advanced_inline_eval_followup",
+                "hasToolResult": true,
+                "context": "google-adk"
+            },
+            "response": {
+                "content": "(disabled)"
+            }
+        }
+    ]
+}

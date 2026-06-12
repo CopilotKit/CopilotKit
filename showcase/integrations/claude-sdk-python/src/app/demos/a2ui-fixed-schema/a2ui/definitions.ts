@@ -16,6 +16,7 @@
  * This matches the canonical catalog's `DynString` helper:
  *   examples/integrations/langgraph-python/src/app/declarative-generative-ui/definitions.ts
  */
+// @region[definitions-types]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
@@ -25,8 +26,20 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-// @region[definitions-types]
 export const flightDefinitions = {
+  /**
+   * Card override: wraps the basic catalog's Card output in a div carrying
+   * the `a2ui-fixed-card` testid so the e2e harness can target the
+   * fixed-schema flight card. Declared here so the `Card` renderer entry
+   * is recognized by the typed catalog (last-write-wins over the basic
+   * catalog's Card).
+   */
+  Card: {
+    description: "A container card with a single child.",
+    props: z.object({
+      child: z.string(),
+    }),
+  },
   Title: {
     description: "A prominent heading for the flight card.",
     props: z.object({

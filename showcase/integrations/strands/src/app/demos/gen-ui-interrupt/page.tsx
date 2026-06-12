@@ -1,41 +1,73 @@
-/**
- * Stub page for `gen-ui-interrupt`.
- *
- * This feature is listed under `not_supported_features` in
- * `showcase/integrations/strands/manifest.yaml` because it is built on
- * `useLangGraphInterrupt`, which hooks directly into the LangGraph
- * interrupt lifecycle. AWS Strands does not expose an equivalent
- * first-class interrupt primitive (see PARITY_NOTES.md).
- *
- * The ergonomic replacement Strands users can reach for is `hitl-in-chat`,
- * which uses `useHumanInTheLoop` on top of a regular frontend tool —
- * Strands supports that natively.
- */
+"use client";
 
-export default function GenUIInterruptUnsupported() {
+// @region[frontend-useinterrupt-render]
+import {
+  CopilotKit,
+  CopilotChat,
+  useInterrupt,
+} from "@copilotkit/react-core/v2";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
+
+export default function GenUiInterruptDemo() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-[#FBFBFE] p-6">
-      <div className="max-w-md rounded-2xl border border-[#E5E5ED] bg-white p-6 text-[#010507] shadow-sm">
-        <h1 className="text-xl font-semibold">
-          gen-ui-interrupt is not available on AWS Strands
-        </h1>
-        <p className="mt-3 text-sm text-[#3A3A46]">
-          This feature is built on <code>useLangGraphInterrupt</code>, which
-          hooks into the LangGraph interrupt lifecycle. AWS Strands does not
-          expose an equivalent first-class interrupt primitive.
-        </p>
-        <p className="mt-3 text-sm text-[#3A3A46]">
-          For an ergonomic replacement on Strands, see the{" "}
-          <a
-            className="font-medium text-[#5856D6] underline"
-            href="/demos/hitl-in-chat"
-          >
-            hitl-in-chat
-          </a>{" "}
-          demo, which uses <code>useHumanInTheLoop</code> on top of a regular
-          frontend tool.
-        </p>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
       </div>
-    </div>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  useGenUiInterruptSuggestions();
+
+  // `useInterrupt` is the low-level primitive for handling LangGraph
+  // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
+  // a structured payload — `{ topic, attendee, slots }` — which we render
+  // inline in the chat as a message bubble. Calling `resolve(...)` resumes
+  // the LangGraph run with the user's selection.
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    renderInChat: true,
+    render: ({ event, resolve }) => {
+      // The AG-UI adapter JSON-stringifies interrupt values, so parse
+      // when needed to extract the structured payload.
+      const raw = event.value ?? {};
+      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+        topic?: string;
+        attendee?: string;
+        slots?: TimeSlot[];
+      };
+      const slots =
+        payload.slots && payload.slots.length > 0
+          ? payload.slots
+          : generateFallbackSlots();
+      return (
+        <TimePickerCard
+          topic={payload.topic ?? "a call"}
+          attendee={payload.attendee}
+          slots={slots}
+          onSubmit={(result) => {
+            // Defer resolve so React commits the picked/cancelled state
+            // before useInterrupt clears the interrupt element. A single
+            // requestAnimationFrame is not reliable — rAF fires before
+            // React's commit in some scheduling scenarios. Using a short
+            // setTimeout ensures the commit lands first and the user sees
+            // the "Booked"/"Cancelled" badge before the card unmounts.
+            setTimeout(() => resolve(result), 500);
+          }}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-useinterrupt-render]
+
+  return (
+    <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />
   );
 }

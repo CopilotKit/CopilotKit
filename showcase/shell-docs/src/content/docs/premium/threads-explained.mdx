@@ -6,6 +6,13 @@ doc_type: explanation
 ---
 <ThreadsEarlyAccess>
 
+<OpsPlatformCTA
+  variant="inline"
+  title="Want to see threads in your own app?"
+  body="Persistent threads ship with the Enterprise Intelligence Platform on the free Developer tier."
+  surface="docs_learn_threads"
+/>
+
 ## What are threads?
 
 A thread is a persistent, server-side container for a multi-turn conversation between a user and an agent. Unlike ephemeral chat sessions that disappear when the page reloads, threads store the full event history — every message, tool call, and state change — so conversations can be paused, resumed, and replayed across sessions and devices.
@@ -26,7 +33,7 @@ From a developer's perspective, threads involve three things:
 |-------------|-------------|
 | `useThreads` hook | Lists, renames, archives, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
-| `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Intelligence Platform, and relays events to connected clients. |
+| `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
 
 You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 
@@ -52,7 +59,7 @@ Neither operation has a built-in confirmation dialog — your application should
 When a user sends their first message on a new thread:
 
 1. Your app renders `CopilotChat` (with or without a `threadId` — if omitted, a new thread is created automatically).
-2. The runtime creates the thread on the Intelligence Platform and begins executing the agent.
+2. The runtime creates the thread on the Enterprise Intelligence Platform and begins executing the agent.
 3. Events stream back to the client via WebSocket in realtime — messages, tool calls, and state updates appear as they happen.
 4. Once the first run completes, the runtime auto-generates a thread name (if enabled).
 

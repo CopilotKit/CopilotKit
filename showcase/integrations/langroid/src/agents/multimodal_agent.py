@@ -116,13 +116,22 @@ def _normalize_part(part: Any) -> dict[str, Any] | None:
     - ``{"type": "binary", "mimeType": "...", "data": "<b64>"}`` (legacy)
     - ``{"type": "image_url", "image_url": {"url": "data:..."}}`` (already OpenAI shape)
     - bare strings (treated as text).
+    - Pydantic model instances (e.g. ``TextInputContent``, ``ImageInputContent``,
+      ``DocumentInputContent`` from ``ag_ui.core``) — converted to dicts via
+      ``model_dump()`` so the rest of the function can use ``.get()``.
     """
     if isinstance(part, str):
         if not part:
             return None
         return {"type": "text", "text": part}
+    # Pydantic model instances (from ag_ui.core deserialization) are not
+    # dicts but expose model_dump(). Convert once so the rest of the
+    # function can use dict-style .get() access uniformly.
     if not isinstance(part, dict):
-        return None
+        if hasattr(part, "model_dump"):
+            part = part.model_dump(by_alias=True)
+        else:
+            return None
     ptype = part.get("type")
 
     if ptype == "text":
@@ -222,9 +231,7 @@ def _build_messages(messages: Any, system_prompt: str) -> list[dict[str, Any]]:
         return out
     for msg in messages:
         role = (
-            getattr(msg, "role", None)
-            if not isinstance(msg, dict)
-            else msg.get("role")
+            getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
         )
         if not isinstance(role, str):
             continue
@@ -265,9 +272,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         body = await request.json()
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.exception(
-            "multimodal: failed to parse body (error_id=%s)", error_id
-        )
+        logger.exception("multimodal: failed to parse body (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid JSON body",
@@ -279,9 +284,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         run_input = RunAgentInput(**body)
     except (pydantic.ValidationError, TypeError, ValueError) as exc:
-        logger.exception(
-            "multimodal: invalid RunAgentInput (error_id=%s)", error_id
-        )
+        logger.exception("multimodal: invalid RunAgentInput (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid RunAgentInput payload",
@@ -358,9 +361,7 @@ async def handle_run(request: Request) -> StreamingResponse:
             return
 
         yield _sse_line(
-            TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END, message_id=message_id
-            )
+            TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
         )
         yield _sse_line(
             RunFinishedEvent(

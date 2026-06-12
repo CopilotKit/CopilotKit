@@ -13,7 +13,6 @@ import com.agui.core.message.ToolMessage;
 import com.agui.core.state.State;
 import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
-import com.agui.server.LocalAgent;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -80,7 +79,7 @@ import static com.agui.server.EventFactory.toolCallStartEvent;
  * the tool call request) and the {@code .call()} path produces the complete
  * response including tool execution.
  */
-public class StreamingToolAgent extends LocalAgent {
+public class StreamingToolAgent extends PropagatingLocalAgent {
 
     private static final Logger log = LoggerFactory.getLogger(StreamingToolAgent.class);
 
@@ -105,6 +104,16 @@ public class StreamingToolAgent extends LocalAgent {
         String threadId = input.threadId();
         String runId = input.runId();
 
+        // RUN_STARTED must precede every terminal RUN_ERROR — AG-UI clients
+        // drop a RUN_ERROR that arrives without a started run, hanging the
+        // UI. Emit it BEFORE reading the user message so the no-user-message
+        // / null-content error paths still terminate a started run.
+        this.emitEvent(runStartedEvent(threadId, runId), subscriber);
+
+        // Null-guard the message + content: getLatestUserMessage only throws
+        // AGUIException when NO user message exists; a present-but-empty or
+        // null-content message returns normally and would NPE downstream.
+        // Treat empty content as a handled error.
         String userContent;
         try {
             var userMessage = this.getLatestUserMessage(messages);
@@ -114,10 +123,21 @@ public class StreamingToolAgent extends LocalAgent {
             this.emitEvent(runErrorEvent(String.format(
                     "agent run failed: %s (see server logs)",
                     e.getClass().getSimpleName())), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
+            return;
+        }
+        if (!StringUtils.hasText(userContent)) {
+            log.warn("Latest user message has null/blank content");
+            this.emitEvent(runErrorEvent(
+                    "agent run failed: user message was empty"), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
             return;
         }
 
-        this.emitEvent(runStartedEvent(threadId, runId), subscriber);
         this.emitEvent(textMessageStartEvent(messageId, "assistant"), subscriber);
 
         var assistantMessage = new AssistantMessage();
@@ -135,16 +155,22 @@ public class StreamingToolAgent extends LocalAgent {
 
             if (!detectedToolCalls.isEmpty()) {
                 // Classify tool calls as frontend vs backend.
+                // A tool registered on BOTH sides (e.g. useRenderTool for
+                // a backend-registered tool) is treated as FRONTEND because
+                // the frontend registration means "I want to render this
+                // tool's result in a custom component". The runtime will
+                // re-invoke the agent with the tool result after the
+                // frontend handler runs.
                 Set<String> backendToolNames = getBackendToolNames();
                 Set<String> frontendToolNames = getFrontendToolNames(input);
 
                 boolean hasFrontendToolCalls = detectedToolCalls.stream()
-                        .anyMatch(tc -> !backendToolNames.contains(tc.name())
-                                && frontendToolNames.contains(tc.name()));
-                boolean hasBackendToolCalls = detectedToolCalls.stream()
-                        .anyMatch(tc -> backendToolNames.contains(tc.name()));
+                        .anyMatch(tc -> frontendToolNames.contains(tc.name()));
+                boolean hasBackendOnlyToolCalls = detectedToolCalls.stream()
+                        .anyMatch(tc -> backendToolNames.contains(tc.name())
+                                && !frontendToolNames.contains(tc.name()));
 
-                if (hasFrontendToolCalls && !hasBackendToolCalls) {
+                if (hasFrontendToolCalls && !hasBackendOnlyToolCalls) {
                     // All tool calls are frontend tools (HITL, useFrontendTool).
                     // Emit TOOL_CALL_START/ARGS/END events WITHOUT TOOL_CALL_RESULT
                     // so the CopilotKit runtime's processAgentResult detects the
@@ -174,9 +200,10 @@ public class StreamingToolAgent extends LocalAgent {
                     // request preamble, not a final answer).
                     assistantMessage.setContent("");
                 } else {
-                    // Backend tools needed (or mixed). Discard the streamed
-                    // text and re-invoke with .call() + tool callbacks so
-                    // Spring AI's internal loop handles execution.
+                    // Backend-only tools needed (or mixed with backend-only).
+                    // Discard the streamed text and re-invoke with .call()
+                    // + tool callbacks so Spring AI's internal loop handles
+                    // execution.
                     assistantMessage.setContent("");
                     callWithTools(input, userContent, messageId,
                             assistantMessage, deferredEvents, subscriber);
@@ -184,9 +211,17 @@ public class StreamingToolAgent extends LocalAgent {
             }
         } catch (Exception e) {
             log.error("Agent run failed", e);
+            // textMessageStart was already emitted — close the message before
+            // RUN_ERROR so subscribers tear down cleanly, then finalize so the
+            // SSE stream completes (no double textMessageEnd: this path returns
+            // before the happy-path textMessageEnd below).
+            this.emitEvent(textMessageEndEvent(messageId), subscriber);
             this.emitEvent(runErrorEvent(String.format(
                     "agent run failed: %s (see server logs)",
                     e.getClass().getSimpleName())), subscriber);
+            this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
+            subscriber.onRunFinalized(
+                    new AgentSubscriberParams(input.messages(), state, this, input));
             return;
         }
 
@@ -223,12 +258,16 @@ public class StreamingToolAgent extends LocalAgent {
         AtomicReference<Throwable> streamError = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        // Build request WITHOUT tool callbacks and with internal tool
-        // execution disabled — we just want to stream text and detect
-        // whether tools are needed without Spring AI's model layer
-        // attempting to execute them through the global ToolCallingManager.
+        // Build request WITH tool definitions but with internal tool
+        // execution disabled — the LLM (or aimock) needs to see the tool
+        // schemas to decide whether to emit tool_calls, but we don't want
+        // Spring AI's model layer to auto-execute them through the global
+        // ToolCallingManager. Execution happens in Phase 2 if needed.
         ChatClient.ChatClientRequestSpec request = buildBaseRequest(
                 input, userContent, true);
+        if (!toolCallbacks.isEmpty()) {
+            request = request.toolCallbacks(toolCallbacks);
+        }
 
         request.stream()
                 .chatResponse()
@@ -494,8 +533,14 @@ public class StreamingToolAgent extends LocalAgent {
             deferredEvents.add(toolCallStartEvent(parentMessageId, toolName, toolCallId));
             deferredEvents.add(toolCallArgsEvent(toolInput, toolCallId));
             deferredEvents.add(toolCallEndEvent(toolCallId));
+            // The tool result message MUST have its own unique messageId.
+            // Reusing parentMessageId causes the React deduplicateMessages()
+            // to overwrite the assistant message with the tool message (they
+            // share the same id key in the Map), hiding the assistant text
+            // from the DOM.
+            String toolResultMessageId = UUID.randomUUID().toString();
             deferredEvents.add(toolCallResultEvent(
-                    toolCallId, result, parentMessageId, Role.tool));
+                    toolCallId, result, toolResultMessageId, Role.tool));
 
             return result;
         }

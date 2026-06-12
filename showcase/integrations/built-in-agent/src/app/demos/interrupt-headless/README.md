@@ -1,10 +1,13 @@
-# Headless Interrupt — Not supported
+# Headless Interrupt — Built-in Agent (Strategy B: Frontend Tool)
 
-`interrupt-headless` drives the same `useInterrupt` primitive as
-`gen-ui-interrupt`, but from arbitrary app surface (not the chat). It
-still depends on LangGraph's graph-interrupt lifecycle.
+Headless time-picker popup rendered outside the chat in the app surface.
+Same mechanism as `gen-ui-interrupt` but the picker is an external popup,
+not an inline chat card.
 
-The built-in-agent integration uses TanStack AI's chat-completions
-factory, which has no equivalent graph-interrupt primitive — there is
-no node-level pause/resume to hook into. See the
-`langgraph-python` integration for a working implementation.
+The frontend registers `schedule_meeting` via `useFrontendTool` with an
+async handler. The handler sets a pending state to render the external
+popup, then returns a Promise that resolves when the user picks a slot.
+The `render` callback returns null so nothing appears inline in the chat.
+
+See the `langgraph-python` integration for the native interrupt-based
+implementation.

@@ -1,12 +1,15 @@
 name: "Showcase: Docs Sync"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/content/docs/**"
-      - "docs/snippets/**"
+  # Auto-trigger disabled ahead of the shell-docs cutover (2026-05-19).
+  # Shell-docs is becoming the canonical authoring source; an upstream→shell
+  # sync would clobber edits made directly in showcase/shell-docs/. Re-enable
+  # only if the cutover is reverted and docs/content/docs/ becomes upstream
+  # again. Manual runs remain available via workflow_dispatch.
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: showcase-docs-sync
@@ -21,15 +24,17 @@ jobs:
       pull-requests: write
     env:
       SHOWCASE_BRANCH: main
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ env.SHOWCASE_BRANCH }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
           cache: pnpm
@@ -75,10 +80,12 @@ jobs:
       - name: Generate bot token
         id: bot-token
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       # Create PR. For action=auto_push (no review items) the PR is
       # auto-merged via the devops bot (bypasses branch protection). For
@@ -364,8 +371,8 @@ jobs:
 
       - name: Notify Slack (auto-sync)
         id: notify-auto-sync
-        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -373,8 +380,8 @@ jobs:
 
       - name: Notify Slack (merge failed)
         id: notify-merge-failed
-        if: failure() && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -387,8 +394,8 @@ jobs:
       # PR URL (not on any error path that leaves pr_url empty).
       - name: Notify Slack (review needed, with PR)
         id: notify-review-with-pr
-        if: always() && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -400,8 +407,8 @@ jobs:
       # the existing-PR collision path, which gets its own step below.
       - name: Notify Slack (review needed, no PR)
         id: notify-review-no-pr
-        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: always() && env.SLACK_WEBHOOK != '' && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -411,8 +418,8 @@ jobs:
       # needs-review PR already exists — point reviewers at it.
       - name: Notify Slack (review needed, existing PR)
         id: notify-review-existing-pr
-        if: always() && steps.push.outputs.existing_pr == 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: always() && env.SLACK_WEBHOOK != '' && steps.push.outputs.existing_pr == 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -420,8 +427,8 @@ jobs:
 
       - name: Notify Slack (failure)
         id: notify-failure
-        if: failure() && steps.push.outputs.pr_opened != 'true'
-        uses: slackapi/slack-github-action@v2.1.0
+        if: failure() && env.SLACK_WEBHOOK != '' && steps.push.outputs.pr_opened != 'true'
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -440,7 +447,7 @@ jobs:
       # values cannot contain " or \.
       - name: Notify Slack (alert machinery failed)
         if: >-
-          always() && (
+          always() && env.SLACK_WEBHOOK != '' && (
             steps.notify-auto-sync.outcome == 'failure' ||
             steps.notify-merge-failed.outcome == 'failure' ||
             steps.notify-review-with-pr.outcome == 'failure' ||

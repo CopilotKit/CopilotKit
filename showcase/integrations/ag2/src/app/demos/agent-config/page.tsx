@@ -1,67 +1,44 @@
 "use client";
 
-// Agent Config Object demo (AG2).
-//
-// The frontend writes a typed config object (tone / expertise /
-// responseLength) into agent state via `agent.setState({...})`. AG2's
-// AGUIStream maps initial state into ContextVariables on every run; the
-// agent reads them and rebuilds its system prompt per turn.
-//
-// References:
-// - src/agents/agent_config_agent.py — the AG2 ConversableAgent backing this.
+/**
+ * Agent Config Object — typed config knobs (tone / expertise / responseLength)
+ * forwarded from the provider into the agent so its behavior changes per turn.
+ *
+ * Wiring: the toggles live in `useAgentConfig`. Each render the resolved
+ * config is published to the agent via `useAgentContext` — the v2 idiom
+ * for "frontend → agent runtime context" in LangGraph 0.6+. The Python
+ * graph picks it up through `CopilotKitMiddleware`, which routes the
+ * context entry into the model's prompt before each call.
+ *
+ * (LangGraph 0.6 deprecated `configurable` in favor of `context`; the
+ * `properties` prop on `<CopilotKit>` still works for v1-style relays
+ * but goes through `forwardedProps` and does not land in `RunnableConfig`
+ * in @ag-ui/langgraph 0.0.31. `useAgentContext` is the supported path.)
+ */
 
-import { CopilotChat, CopilotKit, useAgent } from "@copilotkit/react-core/v2";
-import { useEffect } from "react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-import { ConfigCard } from "./config-card";
-import type { AgentConfig } from "./config-types";
+import { DemoLayout } from "./demo-layout";
+import { ConfigContextRelay } from "./config-context-relay";
 import { useAgentConfig } from "./use-agent-config";
-
-const RUNTIME_URL = "/api/copilotkit";
-const AGENT_ID = "agent-config-demo";
-
-function ConfigStateSync({ config }: { config: AgentConfig }) {
-  const { agent } = useAgent({ agentId: AGENT_ID });
-  useEffect(() => {
-    if (!agent) return;
-    try {
-      // AG-UI AbstractAgent#setState maps to AG2 ContextVariables on each run.
-      (agent as unknown as { setState?: (s: unknown) => void }).setState?.(
-        config,
-      );
-    } catch (err) {
-      console.warn("[agent-config] setState failed", err);
-    }
-  }, [agent, config]);
-  return null;
-}
 
 export default function AgentConfigDemoPage() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
 
   return (
-    <CopilotKit runtimeUrl={RUNTIME_URL} agent={AGENT_ID}>
-      <div className="flex h-screen flex-col gap-3 p-6">
-        <header>
-          <h1 className="text-lg font-semibold">Agent Config Object</h1>
-          <p className="text-sm text-neutral-600">
-            Forwarded props let the frontend tell the agent how to behave. This
-            demo passes <code>tone</code>, <code>expertise</code>, and{" "}
-            <code>responseLength</code> through agent state; the AG2 agent reads
-            them from ContextVariables and rebuilds its system prompt per turn.
-          </p>
-        </header>
-        <ConfigCard
-          config={config}
-          onToneChange={setTone}
-          onExpertiseChange={setExpertise}
-          onResponseLengthChange={setResponseLength}
-        />
-        <ConfigStateSync config={config} />
-        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <CopilotChat agentId={AGENT_ID} className="h-full rounded-md" />
-        </div>
-      </div>
+    // @region[provider-setup]
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-agent-config"
+      agent="agent-config-demo"
+    >
+      <ConfigContextRelay config={config} />
+      <DemoLayout
+        config={config}
+        onToneChange={setTone}
+        onExpertiseChange={setExpertise}
+        onResponseLengthChange={setResponseLength}
+      />
     </CopilotKit>
+    // @endregion[provider-setup]
   );
 }

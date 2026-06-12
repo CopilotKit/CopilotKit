@@ -79,6 +79,13 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 - `showcase_deploy.yml` -- deployment pipeline
 - **Gap:** No automatic Playwright E2E in CI on every PR; aimock E2E requires manual trigger
 
+## Probe Depth Coverage
+
+| Depth | Probe Name       | Cadence    | What "Green" Means                                |
+| ----- | ---------------- | ---------- | ------------------------------------------------- |
+| D5    | e2e-demos        | hourly :10 | All per-integration smoke probes pass             |
+| D6    | d6-all-pills-e2e | hourly :40 | All demo cells pass across every integration pill |
+
 ## Recommended Next Steps
 
 1. **Add aimock fixtures** for gen-ui-tool-based (haiku), gen-ui-agent (task steps), shared-state (recipe/deals/document), subagents (travel), and HITL (interrupt with steps)

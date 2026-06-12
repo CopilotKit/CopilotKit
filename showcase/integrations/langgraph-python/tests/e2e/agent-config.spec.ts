@@ -9,7 +9,7 @@ test.describe("Agent Config Object", () => {
     page,
   }) => {
     await expect(
-      page.getByRole("heading", { name: "Agent Config Object" }),
+      page.getByRole("heading", { name: "Agent Config" }),
     ).toBeVisible();
     await expect(
       page.locator('[data-testid="agent-config-card"]'),
@@ -50,14 +50,16 @@ test.describe("Agent Config Object", () => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 30000,
     });
   });
 
   test("properties object propagates to runtime requests", async ({ page }) => {
     const requestBodies: string[] = [];
-    await page.route("**/api/copilotkit-agent-config/**", async (route) => {
+    await page.route("**/api/copilotkit-agent-config**", async (route) => {
       const req = route.request();
       if (req.method() === "POST") {
         const body = req.postData() ?? "";
@@ -96,11 +98,23 @@ test.describe("Agent Config Object", () => {
   test("changing config between sends produces distinct request payloads", async ({
     page,
   }) => {
+    // Only capture agent/run POSTs — agent/stop requests arrive
+    // asynchronously and would pollute the "afterChange" slice.
     const requestBodies: string[] = [];
-    await page.route("**/api/copilotkit-agent-config/**", async (route) => {
+    await page.route("**/api/copilotkit-agent-config**", async (route) => {
       const req = route.request();
       if (req.method() === "POST") {
-        requestBodies.push(req.postData() ?? "");
+        const body = req.postData() ?? "";
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed.method === "agent/stop") {
+            await route.continue();
+            return;
+          }
+        } catch {
+          // non-JSON body — keep it
+        }
+        requestBodies.push(body);
       }
       await route.continue();
     });
@@ -110,9 +124,19 @@ test.describe("Agent Config Object", () => {
     // Send 1 with defaults
     await input.fill("First");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({
       timeout: 30000,
     });
+
+    // Wait for the chat to finish processing (data-copilot-running="false")
+    // before attempting the second send — some backends finalize the SSE
+    // stream slightly after the assistant message is rendered.
+    await expect(page.locator('[data-copilot-running="false"]')).toBeVisible({
+      timeout: 15000,
+    });
+
     const firstCount = requestBodies.length;
 
     // Change config

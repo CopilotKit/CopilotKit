@@ -3,8 +3,10 @@ title: Reasoning
 icon: "lucide/Brain"
 description: Surface the agent's thinking chain in the chat — default or fully custom.
 hideTOC: true
-snippet_cell: agentic-chat-reasoning
+snippet_cell: reasoning-custom
 ---
+
+<InlineDemo demo="reasoning-custom" />
 
 ## What is this?
 
@@ -18,8 +20,6 @@ agent's thinking.
 Reasoning isn't a custom-renderer plumb-in; it's a dedicated message type
 on the chat view. You can either accept the built-in rendering or override
 the `reasoningMessage` slot with your own component.
-
-<InlineDemo demo="agentic-chat-reasoning" />
 
 ## When should I use this?
 
@@ -45,14 +45,13 @@ No configuration is needed; if your model emits reasoning tokens, the card
 appears automatically:
 
 <Snippet
-  cell="reasoning-default-render"
+  cell="reasoning-default"
   region="default-reasoning-zero-config"
-  title="frontend/src/app/page.tsx — default reasoning"
 />
 
 Here's what the built-in card looks like while the model thinks through a multi-step problem:
 
-<InlineDemo demo="reasoning-default-render" />
+<InlineDemo demo="reasoning-default" />
 
 ## Custom reasoning rendering
 
@@ -62,7 +61,14 @@ For full control over the reasoning card, pass a component to the
 `messages` list, and `isRunning`, enough to decide whether this block is
 still streaming and whether it's the active trailing message:
 
-<Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
+<Tabs items={['page.tsx', 'reasoning-block.tsx']}>
+  <Tab value="page.tsx">
+    <Snippet region="reasoning-block-render" noCaption />
+  </Tab>
+  <Tab value="reasoning-block.tsx">
+    <Snippet file="src/app/demos/reasoning-custom/reasoning-block.tsx" noCaption />
+  </Tab>
+</Tabs>
 
 The `ReasoningBlock` (imported above) renders the reasoning as an
 amber-tagged inline banner, intentionally louder than the default card
@@ -75,7 +81,5 @@ component to match your product's tone.
   `{ header, contentView, toggle }` if you just want to tweak parts of the
   default card. See the reference docs for sub-slot props.
 </Callout>
-
-<FeatureIntegrations feature="agentic-chat-reasoning" />
 
 <IntegrationGrid path="generative-ui/reasoning" />

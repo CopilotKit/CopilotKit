@@ -53,6 +53,7 @@ def _install_stub_modules() -> None:
             def _decorator(self, *a, **k):
                 def _wrap(fn):
                     return fn
+
                 return _wrap
 
             get = post = put = delete = patch = _decorator
@@ -72,8 +73,10 @@ def _install_stub_modules() -> None:
         def _tool_decorator(func=None, **_kwargs):
             if callable(func):
                 return func
+
             def _wrap(f):
                 return f
+
             return _wrap
 
         m.tool = _tool_decorator  # type: ignore[attr-defined]

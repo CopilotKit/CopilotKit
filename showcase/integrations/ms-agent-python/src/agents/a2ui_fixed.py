@@ -11,6 +11,8 @@ Reference:
     showcase/integrations/langgraph-python/src/agents/a2ui_fixed.py
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -34,16 +36,12 @@ def _load_schema(path: Path) -> list[dict]:
         return json.load(f)
 
 
-# @region[backend-schema-json-load]
 FLIGHT_SCHEMA = _load_schema(_SCHEMAS_DIR / "flight_schema.json")
 BOOKED_SCHEMA = _load_schema(_SCHEMAS_DIR / "booked_schema.json")  # noqa: F841 — kept for parity with LangGraph reference
 # @endregion[backend-schema-json-load]
 
 
-# @region[backend-render-operations]
-def _build_a2ui_ops(
-    *, origin: str, destination: str, airline: str, price: str
-) -> dict:
+def _build_a2ui_ops(*, origin: str, destination: str, airline: str, price: str) -> dict:
     """Return the `a2ui_operations` payload for the flight card.
 
     Mirrors `a2ui.render(operations=[create_surface, update_components,
@@ -80,6 +78,8 @@ def _build_a2ui_ops(
         },
     ]
     return {"a2ui_operations": ops}
+
+
 # @endregion[backend-render-operations]
 
 
@@ -91,10 +91,16 @@ def _build_a2ui_ops(
     ),
 )
 def display_flight(
-    origin: Annotated[str, Field(description="3-letter origin airport code (e.g. 'SFO').")],
-    destination: Annotated[str, Field(description="3-letter destination airport code (e.g. 'JFK').")],
+    origin: Annotated[
+        str, Field(description="3-letter origin airport code (e.g. 'SFO').")
+    ],
+    destination: Annotated[
+        str, Field(description="3-letter destination airport code (e.g. 'JFK').")
+    ],
     airline: Annotated[str, Field(description="Airline name (e.g. 'United').")],
-    price: Annotated[str, Field(description="Price string including currency, e.g. '$289'.")],
+    price: Annotated[
+        str, Field(description="Price string including currency, e.g. '$289'.")
+    ],
 ) -> str:
     """Emit an `a2ui_operations` container describing the flight card."""
     return json.dumps(

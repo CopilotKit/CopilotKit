@@ -1,12 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -90,6 +90,24 @@ export class RunHandler {
    * `processAgentResult`.
    */
   private _runDepth = 0;
+
+  /**
+   * Tracks the threadId of the most recent `connectAgent` call so we
+   * can distinguish a fresh thread restore (different threadId than
+   * last time — chat is rebuilding state from scratch, must clear
+   * messages/state and ask the gateway for a full replay) from a
+   * same-thread churn re-connect (effect-dep churn or transient
+   * disconnect — local messages/state are still meaningful, must
+   * preserve them and let the gateway resume from
+   * `lastSeenEventId`).
+   *
+   * Tyler's bug fired because every `connectAgent` was treated as a
+   * fresh restore, which forced the gateway to replay the full
+   * thread history on every churn re-connect and amplified the
+   * downstream churn into duplicate `cpki_event_id` rows in the
+   * inspector and intermittent "Message not found" toasts.
+   */
+  private _lastConnectedThreadId: string | null = null;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -195,10 +213,32 @@ export class RunHandler {
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
-      // Detach any active run before connecting to avoid previous runs interfering
+      const incomingThreadId = agent.threadId ?? null;
+      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
+      this._lastConnectedThreadId = incomingThreadId;
+
+      // Detach any active run before connecting to avoid previous runs
+      // interfering. This stays unconditional — both fresh restores and
+      // churn re-connects need the previous socket torn down before a new
+      // one can open.
       await agent.detachActiveRun();
-      agent.setMessages([]);
-      agent.setState({});
+
+      // State reset + replay-cursor clear are gated on actually moving
+      // to a different thread. On same-thread churn, the local
+      // messages/state are still the right view of the thread, and the
+      // gateway can resume from `lastSeenEventId` instead of replaying
+      // the full history.
+      if (isFreshRestore) {
+        agent.setMessages([]);
+        agent.setState({});
+        const proxied = agent as { clearReplayCursor?: (id: string) => void };
+        if (
+          incomingThreadId &&
+          typeof proxied.clearReplayCursor === "function"
+        ) {
+          proxied.clearReplayCursor(incomingThreadId);
+        }
+      }
 
       if (agent instanceof HttpAgent) {
         agent.headers = {
@@ -206,23 +246,11 @@ export class RunHandler {
         };
       }
 
-      // Notify subscribers (e.g. the inspector) about the agent that is about
-      // to run. This is critical for per-thread clones that are not present in
-      // the agent registry and would otherwise be invisible to subscribers.
-      await this._internal.notifySubscribers(
-        (subscriber) =>
-          subscriber.onAgentRunStarted?.({
-            copilotkit: this.core,
-            agent,
-          }),
-        "Subscriber onAgentRunStarted error:",
-      );
-
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -288,24 +316,6 @@ export class RunHandler {
       await agent.detachActiveRun();
     }
 
-    // Ensure the state manager is subscribed to this agent (handles per-thread
-    // clones that are not in the registry and therefore not subscribed via
-    // onAgentsChanged). The composite-key logic in StateManager means this
-    // does not overwrite the registry agent's subscription.
-    this._internal.subscribeAgentToStateManager(agent);
-
-    // Notify subscribers (e.g. the inspector) about the agent that is about
-    // to run. This is critical for per-thread clones that are not present in
-    // the agent registry and would otherwise be invisible to subscribers.
-    await this._internal.notifySubscribers(
-      (subscriber) =>
-        subscriber.onAgentRunStarted?.({
-          copilotkit: this.core,
-          agent,
-        }),
-      "Subscriber onAgentRunStarted error:",
-    );
-
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
@@ -336,7 +346,7 @@ export class RunHandler {
             ...forwardedProps,
           },
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -436,7 +446,7 @@ export class RunHandler {
       return await this.runAgent({ agent });
     }
 
-    void this._internal.suggestionEngine.reloadSuggestions(agentId, agent);
+    void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
   }

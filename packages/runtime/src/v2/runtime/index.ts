@@ -19,6 +19,11 @@ export {
   type UpdateThreadRequest,
 } from "./intelligence-platform";
 
+// Re-export `@ai-sdk/mcp` stable types so consumers don't need to depend on
+// it directly to type their MCP wiring. `MCPClient` is the value users pass
+// into `mcpClients`; `MCPTransport` is the contract for custom transports.
+export type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
+
 // Export framework-agnostic fetch handler
 export { createCopilotRuntimeHandler } from "./core/fetch-handler";
 export type {

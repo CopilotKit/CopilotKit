@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-open",
+    "sourceFile": "d5-gen-ui-open.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open 3D axis visualization pill — emits generateSandboxedUi with an HTML+CSS payload that creates the iframe. The srcdoc length must be >= 100 chars for the assertion to pass.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_ui_open_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization...\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{border:1px solid #334155;border-radius:8px}\",\"html\":\"<div data-testid=\\\"ogui-3d-axis\\\"><canvas id=\\\"c\\\" width=\\\"300\\\" height=\\\"300\\\"></canvas><p style=\\\"color:#94a3b8;text-align:center;margin-top:8px\\\">3D Axis — Model Airplane</p></div>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');ctx.strokeStyle='#ef4444';ctx.beginPath();ctx.moveTo(150,150);ctx.lineTo(250,150);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(150,150);ctx.lineTo(150,50);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(150,150);ctx.lineTo(80,220);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='12px system-ui';ctx.fillText('X',255,155);ctx.fillText('Y',145,45);ctx.fillText('Z',65,230);})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_gen_ui_open_3d_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — X (red), Y (green), Z (blue) axes with a model airplane reference frame."
+      }
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / frontend-tools-async",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "auth check turn 1",
+        "turnIndex": 0,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Authenticated session is active. The runtime accepted your request because the Authorization header carried the demo bearer token."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fetch the async metric",
+        "turnIndex": 0,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "The async tool resolved with the requested metric. The frontend handler awaited completion before forwarding the result back to the agent — async-streaming behavior confirmed."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id. Comes BEFORE the tool-emitting fixture so iteration 2 (after the async handler returns) hits this branch instead of re-emitting query_notes. hasToolResult gates were dropped because they broke after the user clicked another tool-using pill earlier in the same thread.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "toolCallId": "call_d5_query_notes_project_planning_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first). turnIndex gate dropped — the multi-pill sequential e2e (frontend-tools-async.spec.ts:149) clicks earlier pills first, leaving prior tool/assistant turns in the thread, so this user message is no longer at turnIndex 0. The toolCallId-keyed follow-up fixture above still wins for iteration 2 (last message is tool with that id); this fixture only fires when last-message.role=user.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "toolCallId": "call_d5_query_notes_auth_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match. turnIndex gate dropped — multi-pill sequential e2e leaves prior turns in the thread before this pill is clicked, so the prompt is no longer at turnIndex 0. The toolCallId-keyed follow-up above still wins for iteration 2.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture. Locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "toolCallId": "call_d5_query_notes_reading_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call. turnIndex gate dropped — multi-pill sequential e2e leaves prior turns in the thread before this pill is clicked, so the prompt is no longer at turnIndex 0. The toolCallId-keyed follow-up above still wins for iteration 2.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "project planning",
+        "turnIndex": 0,
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "I searched your notes and found a few results.",
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": {
+              "keyword": "project planning"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

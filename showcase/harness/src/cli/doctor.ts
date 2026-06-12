@@ -9,14 +9,20 @@ const log = createLogger({ component: "doctor" });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHOWCASE_DIR = path.resolve(__dirname, "../../..");
-const COMPOSE_FILE = path.join(SHOWCASE_DIR, "docker-compose.local.yml");
-const PORTS_FILE = path.join(SHOWCASE_DIR, "shared/local-ports.json");
+const COMPOSE_FILE =
+  process.env.SHOWCASE_COMPOSE_FILE ||
+  path.join(SHOWCASE_DIR, "docker-compose.local.yml");
+const PORTS_FILE =
+  process.env.LOCAL_PORTS_FILE ||
+  path.join(SHOWCASE_DIR, "shared/local-ports.json");
 
-/** Well-known infra service ports. */
+/** Well-known infra service ports. Honor SHOWCASE_INFRA_PORT_OFFSET so
+ *  doctor reports against the isolated stack when --isolate is active. */
+const _INFRA_OFFSET = Number(process.env.SHOWCASE_INFRA_PORT_OFFSET) || 0;
 const INFRA_PORTS: Record<string, number> = {
-  aimock: 4010,
-  pocketbase: 8090,
-  dashboard: 3200,
+  aimock: 4010 + _INFRA_OFFSET,
+  pocketbase: 8090 + _INFRA_OFFSET,
+  dashboard: 3200 + _INFRA_OFFSET,
 };
 
 // ---------------------------------------------------------------------------

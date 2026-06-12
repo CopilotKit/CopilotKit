@@ -1,27 +1,22 @@
-import { NextRequest } from "next/server";
-import { data } from "../../data";
+import type { NextRequest } from "next/server";
+import * as store from "@/lib/store";
 
 export const PUT = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    // Handle pin or card limit change
+    const { id } = await params;
+    // Handle role/team change
     const body = await req.json();
     const { team, role } = body;
-    const index = data.team.findIndex((user) => user.id === params.id);
-    if (index !== -1) {
-      data.team[index] = {
-        ...data.team[index],
-        team: team ?? data.team[index].team,
-        role: role ?? data.team[index].role,
-      };
-      return new Response(JSON.stringify(data.team[index]), { status: 200 });
-    } else {
-      return new Response(JSON.stringify({ error: "Card not found" }), {
+    const updated = store.updateMember(id, { team, role });
+    if (!updated) {
+      return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404,
       });
     }
+    return new Response(JSON.stringify(updated), { status: 200 });
   } catch (error) {
     console.error("PUT Request error", error);
   }
@@ -29,18 +24,17 @@ export const PUT = async (
 
 export const DELETE = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
-    const index = data.team.findIndex((user) => user.id === params.id);
-    if (index !== -1) {
-      data.team.splice(index, 1);
-      return new Response(JSON.stringify(data.team), { status: 200 });
-    } else {
-      return new Response(JSON.stringify({ error: "Card not found" }), {
+    const { id } = await params;
+    const remaining = store.removeMember(id);
+    if (!remaining) {
+      return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404,
       });
     }
+    return new Response(JSON.stringify(remaining), { status: 200 });
   } catch (error) {
     console.error("DELETE Request error", error);
   }

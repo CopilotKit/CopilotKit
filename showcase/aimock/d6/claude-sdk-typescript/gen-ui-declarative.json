@@ -1,0 +1,123 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-declarative (A2UI pass-through)",
+    "_note": "claude-sdk-typescript's declarative-gen-ui route uses the runtime-injected `render_a2ui` tool (injectA2UITool defaults to true — see src/app/api/copilotkit-declarative-gen-ui/route.ts); the Claude pass-through agent calls it directly against the page-registered catalog. Fixtures therefore emit A2UI v0.9 `render_a2ui` payloads ({surfaceId, catalogId, components[]} with exactly one id='root' and `component` — NOT the legacy flat {type: ...} shape this file previously carried, which the renderer ignored and the declarative-* testids never mounted). Payload shapes mirror aimock/d6/langgraph-typescript/gen-ui-declarative.json's [render_a2ui mirror] fixtures; PieChart/BarChart `description` is REQUIRED by this family's catalog (declarative-gen-ui/a2ui/definitions.ts). Each pill needs two legs on the Anthropic /v1/messages shape: (a) userMessage-matched emit, (b) toolCallId-matched narration (the follow-up's last user message is a tool_result block with no text, so userMessage matchers skip it). chunkSize 9999 keeps each args payload in a single SSE chunk.",
+    "sourceFile": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22",
+    "updated": "2026-06-11"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — render_a2ui with root Card > Column > Metrics. Must mount declarative-card + declarative-metric testids.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,230\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_kpi_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — render_a2ui with root PieChart (description is a required prop in this catalog). Must mount declarative-pie-chart testid.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Regional sales distribution\",\"data\":[{\"label\":\"North America\",\"value\":42},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":10}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_pie_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Pie chart rendered showing sales distribution across four regions."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — render_a2ui with root BarChart (description required). Must mount declarative-bar-chart testid.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":340000},{\"label\":\"Q3\",\"value\":390000},{\"label\":\"Q4\",\"value\":450000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_bar_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Bar chart rendered showing quarterly revenue growth from Q1 through Q4."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — render_a2ui with root Card > Column > StatusBadges (StatusBadge props are text+variant in this catalog). Must mount declarative-status-badge testid.",
+      "match": {
+        "userMessage": "status report on system health",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System Health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded\",\"variant\":\"warning\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_declarative_status_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Status report rendered — API and database are healthy, background workers show degraded performance."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

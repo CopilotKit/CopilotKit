@@ -31,22 +31,6 @@ yarn install
 bun install
 ```
 
-2. Install Python dependencies for the ADK agent:
-
-```bash
-# Using npm (default)
-npm run install:agent
-
-# Using pnpm
-pnpm install:agent
-
-# Using yarn
-yarn install:agent
-
-# Using bun
-bun run install:agent
-```
-
 > **Note:** This will automatically setup a `.venv` (virtual environment) inside the `agent` directory.
 >
 > To activate the virtual environment manually, you can run:
@@ -55,13 +39,13 @@ bun run install:agent
 > source agent/.venv/bin/activate
 > ```
 
-3. Set up your Google API key:
+2. Set up your Google API key:
 
 ```bash
 export GOOGLE_API_KEY="your-google-api-key-here"
 ```
 
-4. Start the development server:
+3. Start the development server:
 
 ```bash
 # Using npm (default)

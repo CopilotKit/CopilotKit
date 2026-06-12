@@ -108,9 +108,7 @@ def _build_prefs_block(prefs: Optional[Preferences]) -> Optional[str]:
     """Compose a system block describing the user's current preferences."""
     if prefs is None:
         return None
-    has_any = bool(
-        prefs.name or prefs.tone or prefs.language or prefs.interests
-    )
+    has_any = bool(prefs.name or prefs.tone or prefs.language or prefs.interests)
     if not has_any:
         return None
     lines = ["The user has shared these preferences with you:"]
@@ -230,9 +228,7 @@ class SharedStateReadWriteFlow(Flow[AgentState]):
                     continue
 
                 try:
-                    args = json.loads(
-                        tool_call["function"]["arguments"] or "{}"
-                    )
+                    args = json.loads(tool_call["function"]["arguments"] or "{}")
                 except json.JSONDecodeError:
                     args = {}
                 notes = args.get("notes")
@@ -241,9 +237,7 @@ class SharedStateReadWriteFlow(Flow[AgentState]):
                 # Coerce every entry to a non-empty string — defensive
                 # against the model occasionally yielding non-string
                 # list entries.
-                cleaned = [
-                    str(n) for n in notes if n is not None and str(n)
-                ]
+                cleaned = [str(n) for n in notes if n is not None and str(n)]
                 self.state.notes = cleaned
                 notes_changed = True
 

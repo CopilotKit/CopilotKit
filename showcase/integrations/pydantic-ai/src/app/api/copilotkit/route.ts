@@ -41,6 +41,7 @@ const agentNames = [
   // Frontend tool demos
   "frontend-tools",
   "frontend-tools-async",
+  "threadid-frontend-tool-roundtrip",
   "hitl-in-app",
   "hitl-in-chat",
   // Generative UI demos
@@ -87,14 +88,24 @@ agents["hitl-in-chat"] = new HttpAgent({
 
 // Reasoning trio — both reasoning cells share the same backend agent
 // (custom-slot vs default-slot is a frontend-only distinction).
-agents["agentic-chat-reasoning"] = new HttpAgent({
+agents["reasoning-custom"] = new HttpAgent({
   url: `${AGENT_URL}/reasoning/`,
 });
-agents["reasoning-default-render"] = new HttpAgent({
+agents["reasoning-default"] = new HttpAgent({
   url: `${AGENT_URL}/reasoning/`,
 });
 agents["tool-rendering-reasoning-chain"] = new HttpAgent({
   url: `${AGENT_URL}/tool_rendering_reasoning_chain/`,
+});
+
+// Interrupt-adapted scheduling demos — both gen-ui-interrupt and
+// interrupt-headless share the same backend agent; only the frontend UX
+// differs (inline picker in chat vs. external popup).
+agents["gen-ui-interrupt"] = new HttpAgent({
+  url: `${AGENT_URL}/interrupt/`,
+});
+agents["interrupt-headless"] = new HttpAgent({
+  url: `${AGENT_URL}/interrupt/`,
 });
 
 console.log(

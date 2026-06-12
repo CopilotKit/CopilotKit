@@ -21,6 +21,7 @@ import pytest
 @pytest.fixture
 def hook_cls():
     from agents.agent import _ToolCallCapHook
+
     return _ToolCallCapHook
 
 
@@ -31,7 +32,9 @@ def _make_before_event():
 
 
 def _make_after_event(invocation_state=None):
-    return SimpleNamespace(invocation_state=invocation_state if invocation_state is not None else {})
+    return SimpleNamespace(
+        invocation_state=invocation_state if invocation_state is not None else {}
+    )
 
 
 def test_cap_fires_on_call_n_plus_one(hook_cls):

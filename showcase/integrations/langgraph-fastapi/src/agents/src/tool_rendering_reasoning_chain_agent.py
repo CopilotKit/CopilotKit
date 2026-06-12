@@ -1,12 +1,20 @@
-"""Tool Rendering (Reasoning Chain) — minimal deep agent with tools."""
+"""Tool Rendering (Reasoning Chain) — minimal deep agent with tools.
+
+Routes through a reasoning-capable OpenAI model via the Responses API
+so the chain of thought streams as AG-UI REASONING_MESSAGE_* events
+alongside the tool calls. See `reasoning_agent.py` for the rationale.
+"""
 
 from __future__ import annotations
 
+import os
 from random import choice, randint
 
 from deepagents import create_deep_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
+
+from src.agents.src._header_forwarding_middleware import HeaderForwardingMiddleware
 
 
 @tool
@@ -28,9 +36,27 @@ def search_flights(origin: str, destination: str) -> dict:
         "origin": origin,
         "destination": destination,
         "flights": [
-            {"airline": "United", "flight": "UA231", "depart": "08:15", "arrive": "16:45", "price_usd": 348},
-            {"airline": "Delta", "flight": "DL412", "depart": "11:20", "arrive": "19:55", "price_usd": 312},
-            {"airline": "JetBlue", "flight": "B6722", "depart": "17:05", "arrive": "01:30", "price_usd": 289},
+            {
+                "airline": "United",
+                "flight": "UA231",
+                "depart": "08:15",
+                "arrive": "16:45",
+                "price_usd": 348,
+            },
+            {
+                "airline": "Delta",
+                "flight": "DL412",
+                "depart": "11:20",
+                "arrive": "19:55",
+                "price_usd": 312,
+            },
+            {
+                "airline": "JetBlue",
+                "flight": "B6722",
+                "depart": "17:05",
+                "arrive": "01:30",
+                "price_usd": 289,
+            },
         ],
     }
 
@@ -56,10 +82,20 @@ SYSTEM_PROMPT = (
     "reason step-by-step and call 2+ tools in succession when relevant."
 )
 
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5-mini")
+
+# No full CopilotKitMiddleware — this demo exercises only reasoning-token
+# streaming alongside tool calls and doesn't consume frontend tools or app
+# context. We attach the minimal HeaderForwardingMiddleware so the inbound
+# ``x-aimock-context`` (and other ``x-*``) headers reach the outgoing
+# /v1/responses call. Mirrors langgraph-python's tool_rendering_reasoning_chain.
 graph = create_deep_agent(
     model=init_chat_model(
-        "openai:gpt-4o-mini", temperature=0, use_responses_api=False
+        f"openai:{REASONING_MODEL}",
+        use_responses_api=True,
+        reasoning={"effort": "low", "summary": "auto"},
     ),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,
+    middleware=[HeaderForwardingMiddleware()],
 )

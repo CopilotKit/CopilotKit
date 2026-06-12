@@ -1,0 +1,8 @@
+{
+    "pages": [
+        "in-app-agent-read",
+        "in-app-agent-write",
+        "state-inputs-outputs",
+        "predictive-state-updates"
+    ]
+}

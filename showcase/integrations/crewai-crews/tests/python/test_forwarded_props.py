@@ -94,7 +94,9 @@ _LENGTH_RULES = {
 
 def _build_agent_config_guidance(tone, expertise, response_length):
     tone_rule = _TONE_RULES.get(str(tone), _TONE_RULES["professional"])
-    expertise_rule = _EXPERTISE_RULES.get(str(expertise), _EXPERTISE_RULES["intermediate"])
+    expertise_rule = _EXPERTISE_RULES.get(
+        str(expertise), _EXPERTISE_RULES["intermediate"]
+    )
     length_rule = _LENGTH_RULES.get(str(response_length), _LENGTH_RULES["concise"])
     return (
         "Follow these style rules for your response to the user. "
@@ -220,25 +222,78 @@ def _stub_agent_server_deps():
         "byoc_hashbrown_agent",
         "byoc_json_render_agent",
         "declarative_gen_ui",
+        "gen_ui_agent",
+        "interrupt_crew",
         "mcp_apps_agent",
         "shared_state_read_write",
         "subagents",
+        "tool_rendering",
+        "reasoning_agent",
+        "_header_forwarding",
     ):
         sys.modules[f"agents.{name}"] = types.ModuleType(f"agents.{name}")
     setattr(sys.modules["agents.crew"], "LatestAiDevelopment", lambda: object())
     setattr(sys.modules["agents.a2ui_fixed"], "A2UIFixedSchema", lambda: object())
     setattr(sys.modules["agents.beautiful_chat"], "BeautifulChat", lambda: object())
-    setattr(sys.modules["agents.byoc_hashbrown_agent"], "ByocHashbrown", lambda: object())
-    setattr(sys.modules["agents.byoc_json_render_agent"], "ByocJsonRender", lambda: object())
-    setattr(sys.modules["agents.declarative_gen_ui"], "DeclarativeGenUI", lambda: object())
+    setattr(
+        sys.modules["agents.byoc_hashbrown_agent"], "ByocHashbrown", lambda: object()
+    )
+    setattr(
+        sys.modules["agents.byoc_json_render_agent"], "ByocJsonRender", lambda: object()
+    )
+    setattr(
+        sys.modules["agents.declarative_gen_ui"], "DeclarativeGenUI", lambda: object()
+    )
+    setattr(
+        sys.modules["agents.interrupt_crew"], "InterruptScheduling", lambda: object()
+    )
     setattr(sys.modules["agents.mcp_apps_agent"], "MCPApps", lambda: object())
     # Sentinel `Flow` instances for the raw-Flow endpoints (set_notes,
     # subagents). Real flows are CrewAI `Flow` subclasses; the stub only
     # needs to be a non-`None` value `add_crewai_flow_fastapi_endpoint`
     # accepts as its `flow` argument. `object()` works because the stub
     # endpoint mounter ignores the flow entirely.
-    setattr(sys.modules["agents.shared_state_read_write"], "shared_state_read_write_flow", object())
+    setattr(
+        sys.modules["agents.shared_state_read_write"],
+        "shared_state_read_write_flow",
+        object(),
+    )
     setattr(sys.modules["agents.subagents"], "subagents_flow", object())
+    setattr(sys.modules["agents.tool_rendering"], "tool_rendering_flow", object())
+    setattr(sys.modules["agents.gen_ui_agent"], "gen_ui_agent_flow", object())
+    # agent_server mounts the reasoning sub-app at import time via
+    # `app.mount("/reasoning", reasoning_app)`. `Starlette.mount` only STORES the
+    # app on a Mount route (it isn't invoked unless a request hits /reasoning,
+    # which these tests never do), so a bare sentinel is sufficient here — same
+    # rationale as the Flow sentinels above.
+    setattr(sys.modules["agents.reasoning_agent"], "reasoning_app", object())
+
+    # agent_server imports the header-forwarding helpers at top level and calls
+    # install_global_httpx_hook() at import time, then mounts
+    # HeaderForwardingHTTPMiddleware in the stack. Stub both: a no-arg no-op
+    # callable for the hook, and a BaseHTTPMiddleware subclass for the
+    # middleware. The real middleware's dispatch is a transparent pass-through
+    # (copies x-* headers onto a ContextVar, then `return await
+    # call_next(request)`), so the stub mirrors that pass-through — the bare
+    # BaseHTTPMiddleware.dispatch raises NotImplementedError and would break
+    # the real-agent_server streaming tests that exercise the mounted stack.
+    async def _passthrough_dispatch(self, request, call_next):
+        return await call_next(request)
+
+    setattr(
+        sys.modules["agents._header_forwarding"],
+        "HeaderForwardingHTTPMiddleware",
+        type(
+            "HeaderForwardingHTTPMiddleware",
+            (BaseHTTPMiddleware,),
+            {"dispatch": _passthrough_dispatch},
+        ),
+    )
+    setattr(
+        sys.modules["agents._header_forwarding"],
+        "install_global_httpx_hook",
+        lambda: None,
+    )
 
     # Drop any stale agent_server import — we want the next `import agent_server`
     # to re-run module-init against OUR stubs.
@@ -380,7 +435,9 @@ def test_real_agent_server_streams_post_root_without_runtimeerror():
             if line.startswith("data: ") and "inputs" in line:
                 state_payload = json.loads(line[len("data: ") :])
                 break
-        assert state_payload is not None, f"No STATE event with inputs found in: {text!r}"
+        assert state_payload is not None, (
+            f"No STATE event with inputs found in: {text!r}"
+        )
         assert state_payload["inputs"]["tone"] == "casual"
         # `agent_config_guidance` expands enums to prose rules — assert the
         # well-known prefix shape rather than the raw enum value.

@@ -56,16 +56,12 @@ def test_read_properties_accepts_valid_values():
 
 
 def test_read_properties_rejects_invalid_tone_to_default():
-    result = read_properties(
-        {"configurable": {"properties": {"tone": "sinister"}}}
-    )
+    result = read_properties({"configurable": {"properties": {"tone": "sinister"}}})
     assert result["tone"] == DEFAULT_TONE
 
 
 def test_read_properties_rejects_invalid_expertise_to_default():
-    result = read_properties(
-        {"configurable": {"properties": {"expertise": "ninja"}}}
-    )
+    result = read_properties({"configurable": {"properties": {"expertise": "ninja"}}})
     assert result["expertise"] == DEFAULT_EXPERTISE
 
 

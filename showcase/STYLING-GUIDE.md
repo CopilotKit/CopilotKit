@@ -47,11 +47,12 @@ CopilotKit v2 components use `cpk:` prefixed Tailwind classes internally. To ove
   border-radius: 0.75rem;
   border: 1px solid var(--copilot-kit-separator-color) !important;
 }
-
-.copilotKitChat {
-  background-color: #fff !important;
-}
 ```
+
+> Do NOT hardcode `.copilotKitChat { background-color: #fff !important; }` in
+> these overrides. It overrides demo-level theming (e.g. beautiful-chat's dark
+> mode toggle) and forces white in every theme. Let the v2 styles + per-demo
+> `ThemeProvider` handle chat backgrounds.
 
 ```tsx
 // layout.tsx

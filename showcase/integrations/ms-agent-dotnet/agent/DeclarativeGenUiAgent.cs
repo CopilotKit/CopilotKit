@@ -22,6 +22,7 @@ public class DeclarativeGenUiAgent
 {
     private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
 
+    private readonly IConfiguration _configuration;
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -32,6 +33,7 @@ public class DeclarativeGenUiAgent
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(jsonSerializerOptions);
 
+        _configuration = configuration;
         _logger = loggerFactory.CreateLogger<DeclarativeGenUiAgent>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
@@ -46,10 +48,7 @@ public class DeclarativeGenUiAgent
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent Create()
@@ -69,39 +68,26 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
     }
 
     [Description("Generate dynamic A2UI components using a secondary LLM call")]
-    private async Task<string> GenerateA2ui(
-        [Description("The user's request describing what UI to generate")] string userRequest,
+    private async Task<object> GenerateA2ui(
+        [Description("Conversation context to generate UI from.")] string context = "",
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(userRequest);
+        context ??= "";
 
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
-
-        var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        var systemPrompt = @"You are a UI generator. Given a user request, generate A2UI v0.9 components.
-You MUST respond with ONLY a JSON object (no markdown, no explanation) with this exact structure:
-{
-  ""surfaceId"": ""dynamic-surface"",
-  ""catalogId"": ""declarative-gen-ui-catalog"",
-  ""components"": [<A2UI v0.9 component array>],
-  ""data"": {<optional initial data>}
-}
-The root component must have id ""root"".
-Available components: Row, Column, Text, Card, Button, Badge, Table, Chart, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart, BarChart.";
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userRequest),
-        };
+        var userContent = string.IsNullOrWhiteSpace(context)
+            ? "KPI dashboard with 3-4 metrics, pie chart sales by region, bar chart quarterly revenue, status report."
+            : context;
+        _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         string? content;
         try
         {
-            var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
-            content = result.Text;
+            content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
+                _configuration,
+                "Generate a useful dashboard UI. Use catalogId='declarative-gen-ui-catalog'.",
+                userContent,
+                cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {

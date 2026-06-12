@@ -130,7 +130,7 @@ def _state_dict(state: dict[str, Any]) -> dict[str, Any]:
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:
     """Flatten AG-UI messages into Anthropic Messages-API shape (text only)."""
     messages: list[dict[str, Any]] = []
-    for msg in (input_data.messages or []):
+    for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
         if role not in ("user", "assistant"):
             continue
@@ -158,9 +158,7 @@ async def run_shared_state_read_write_agent(
     encoder = EventEncoder()
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
-    state = _state_dict(
-        input_data.state if isinstance(input_data.state, dict) else {}
-    )
+    state = _state_dict(input_data.state if isinstance(input_data.state, dict) else {})
 
     # @region[shared-state-prefs-injection]
     # Read UI-supplied preferences out of agent state every turn and
@@ -179,9 +177,7 @@ async def run_shared_state_read_write_agent(
     run_id = input_data.run_id or "run-1"
 
     yield encoder.encode(
-        RunStartedEvent(
-            type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
-        )
+        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
 
     # Echo the current state at the start so the UI sees the snapshot we
@@ -254,7 +250,10 @@ async def run_shared_state_read_write_agent(
                             )
                         )
 
-                elif etype in ("RawContentBlockStopEvent", "ParsedContentBlockStopEvent"):
+                elif etype in (
+                    "RawContentBlockStopEvent",
+                    "ParsedContentBlockStopEvent",
+                ):
                     if current_tool_id and current_tool_name:
                         yield encoder.encode(
                             ToolCallEndEvent(
@@ -340,13 +339,9 @@ async def run_shared_state_read_write_agent(
                 notes = tc["input"].get("notes") or []
                 if isinstance(notes, list):
                     state["notes"] = [str(n) for n in notes]
-                result_text = json.dumps(
-                    {"status": "ok", "count": len(state["notes"])}
-                )
+                result_text = json.dumps({"status": "ok", "count": len(state["notes"])})
                 yield encoder.encode(
-                    StateSnapshotEvent(
-                        type=EventType.STATE_SNAPSHOT, snapshot=state
-                    )
+                    StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=state)
                 )
             else:
                 result_text = json.dumps({"error": f"unknown tool {tc['name']}"})

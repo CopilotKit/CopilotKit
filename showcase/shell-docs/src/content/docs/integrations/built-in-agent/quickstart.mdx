@@ -4,14 +4,22 @@ description: Get started with CopilotKit's Built-in Agent in minutes.
 icon: "lucide/Play"
 hideTOC: true
 ---
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import {
+  WrenchIcon,
+  PlugIcon,
+  CpuIcon,
+  MonitorIcon,
+} from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<OpsPlatformCTA
+  variant="card"
+  title="Ship the Built-in Agent to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_built_in_agent_quickstart"
 />
 
 ## Prerequisites
@@ -25,6 +33,12 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    </Step>
+
     <Step>
         ### Create your frontend
 
@@ -93,7 +107,7 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-        import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
+        import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
         // ...
@@ -173,6 +187,16 @@ Before you begin, you'll need the following:
         ```
         What do you think about React?
         ```
+
+        <video
+          src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+          className="rounded-lg shadow-xl"
+          loop
+          playsInline
+          controls
+          autoPlay
+          muted
+        />
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">

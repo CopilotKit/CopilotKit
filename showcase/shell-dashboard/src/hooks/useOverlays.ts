@@ -22,7 +22,7 @@ const OPS_PROBE_PREFIX = "ops:probe=";
 
 /** Parse the current URL hash into tab + overlay set + optional probe ID. */
 function parseHash(): {
-  tab: "matrix" | "ops";
+  tab: "matrix" | "baseline" | "ops";
   overlays: OverlaySet | null;
   probeId: string | null;
 } {
@@ -34,6 +34,11 @@ function parseHash(): {
   if (raw.startsWith(OPS_PROBE_PREFIX)) {
     const probeId = decodeURIComponent(raw.slice(OPS_PROBE_PREFIX.length));
     return { tab: "ops", overlays: null, probeId: probeId || null };
+  }
+
+  // #baseline — switch to baseline tab
+  if (raw === "baseline") {
+    return { tab: "baseline", overlays: null, probeId: null };
   }
 
   // #ops — switch to ops tab
@@ -81,7 +86,7 @@ function parseHash(): {
  * replaceState (used for initial mount sync to avoid polluting history).
  */
 function writeHash(
-  tab: "matrix" | "ops",
+  tab: "matrix" | "baseline" | "ops",
   overlays?: OverlaySet,
   probeId?: string | null,
   push = false,
@@ -89,6 +94,10 @@ function writeHash(
   if (typeof window === "undefined") return;
   const method = push ? "pushState" : "replaceState";
 
+  if (tab === "baseline") {
+    window.history[method](null, "", "#baseline");
+    return;
+  }
   if (tab === "ops") {
     const hash = probeId
       ? `#${OPS_PROBE_PREFIX}${encodeURIComponent(probeId)}`
@@ -140,10 +149,10 @@ function saveToStorage(overlays: OverlaySet): void {
 
 export interface UseOverlaysReturn {
   overlays: OverlaySet;
-  activeTab: "matrix" | "ops";
+  activeTab: "matrix" | "baseline" | "ops";
   toggle: (overlay: Overlay) => void;
   applyPreset: (presetId: string) => void;
-  setTab: (tab: "matrix" | "ops") => void;
+  setTab: (tab: "matrix" | "baseline" | "ops") => void;
   activePreset: string | null;
   showFilters: boolean;
   has: (overlay: Overlay) => boolean;
@@ -157,7 +166,9 @@ export function useOverlays(): UseOverlaysReturn {
   const [overlays, setOverlays] = useState<OverlaySet>(
     () => new Set(DEFAULT_OVERLAYS) as OverlaySet,
   );
-  const [activeTab, setActiveTabRaw] = useState<"matrix" | "ops">("matrix");
+  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">(
+    "matrix",
+  );
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
@@ -234,10 +245,13 @@ export function useOverlays(): UseOverlaysReturn {
   );
 
   const setTab = useCallback(
-    (tab: "matrix" | "ops") => {
+    (tab: "matrix" | "baseline" | "ops") => {
       setActiveTabRaw(tab);
       setSelectedProbeIdRaw(null);
       writeHash(tab, overlays, null, true);
+      // Persist the current overlay set for symmetry with toggle/updateOverlays
+      // so the user's overlay selection survives across tab switches + reloads.
+      saveToStorage(overlays);
     },
     [overlays],
   );

@@ -15,6 +15,7 @@ Together this shows the canonical LangGraph-Python bidirectional shared
 state: frontend writes, backend reads AND writes, frontend re-renders.
 """
 
+import uuid
 from typing import Any, Awaitable, Callable, TypedDict
 
 from langchain.agents import AgentState as BaseAgentState, create_agent
@@ -65,6 +66,8 @@ def set_notes(notes: list[str], runtime: ToolRuntime) -> Command:
             "messages": [
                 ToolMessage(
                     content="Notes updated.",
+                    name="set_notes",
+                    id=str(uuid.uuid4()),
                     tool_call_id=runtime.tool_call_id,
                 )
             ],
@@ -114,9 +117,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         prefs_message = self._build_prefs_message(prefs)
         if prefs_message is None:
             return handler(request)
-        return handler(
-            request.override(messages=[prefs_message, *request.messages])
-        )
+        return handler(request.override(messages=[prefs_message, *request.messages]))
 
     async def awrap_model_call(
         self,
@@ -132,8 +133,9 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
         )
 
 
+# @region[shared-state-setup]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[set_notes],
     middleware=[CopilotKitMiddleware(), PreferencesInjectorMiddleware()],
     state_schema=AgentState,
@@ -147,3 +149,4 @@ graph = create_agent(
         "FULL updated list of short note strings (existing notes + new)."
     ),
 )
+# @endregion[shared-state-setup]

@@ -1,16 +1,23 @@
-# Headless Interrupt — Not Supported
+# Headless Interrupt (Strategy B — Promise-Based)
 
-## Why It's Not Supported
+Out-of-chat time-picker popup driven by `useFrontendTool` with an async
+handler. The popup appears in the app surface (left pane), outside the chat.
+Picking a slot resolves the tool call and the agent confirms in chat.
 
-This demo drives the same LangGraph `interrupt()` primitive as `gen-ui-interrupt` — just from a plain button grid instead of a chat-rendered card. The Claude Agent SDK has no equivalent graph-level pause/resume primitive, so this flow cannot be ported.
+## How It Works
 
-## What To Use Instead
+1. User asks to schedule a meeting via the chat (right pane)
+2. Backend scheduling agent calls `schedule_meeting` (a frontend tool)
+3. Frontend renders a `TimeSlotPopup` in the app surface (left pane)
+4. User picks a slot or cancels
+5. The Promise resolves, popup vanishes, agent confirms in chat
 
-For human-in-the-loop on this backend, see:
+## Backend
 
-- **`hitl`** — in-chat approval gate using a regular tool call.
-- **`hitl-in-app`** — out-of-chat approval modal driven by `useFrontendTool`.
+Shares the same scheduling agent as `gen-ui-interrupt` — the only difference
+is the frontend UX (external popup vs. inline chat card).
 
 ## Reference
 
-- [langgraph-python `interrupt-headless`](../../../../../langgraph-python/src/app/demos/interrupt-headless) — the canonical implementation, for context.
+- [ms-agent-python `interrupt-headless`](../../../../../ms-agent-python/src/app/demos/interrupt-headless) — the reference implementation.
+- [langgraph-python `interrupt-headless`](../../../../../langgraph-python/src/app/demos/interrupt-headless) — the canonical LangGraph version.

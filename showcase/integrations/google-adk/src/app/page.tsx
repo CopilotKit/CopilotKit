@@ -9,10 +9,6 @@ export default function Home() {
           <h3>Agentic Chat</h3>
           <p>Natural conversation with frontend tool execution</p>
         </a>
-        <a key="hitl" href="/demos/hitl" className="demo-card">
-          <h3>Human in the Loop</h3>
-          <p>User approves agent actions before execution</p>
-        </a>
         <a
           key="tool-rendering"
           href="/demos/tool-rendering"
@@ -40,14 +36,6 @@ export default function Home() {
         >
           <h3>Shared State (Reading)</h3>
           <p>Reading agent state from UI</p>
-        </a>
-        <a
-          key="shared-state-write"
-          href="/demos/shared-state-write"
-          className="demo-card"
-        >
-          <h3>Shared State (Writing)</h3>
-          <p>Writing to agent state from UI</p>
         </a>
         <a
           key="shared-state-streaming"

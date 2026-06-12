@@ -1,18 +1,19 @@
-"""gen-ui-agent - minimal deep agent with explicit state + state-editing tool.
+"""gen-ui-agent — minimal agent with explicit state + state-editing tool.
 
-The agent plans a task as a list of steps and walks each step pending ->
-in_progress -> completed, calling `set_steps` to publish state after each
-transition. The frontend hook `useCoAgentStateRender` reads `state.steps`
-and renders a progress card.
+The agent plans a task as 3 steps and walks each pending -> in_progress
+-> completed, calling `set_steps` after every transition. The frontend
+subscribes to `state.steps` via `useAgent` and renders a live progress
+card.
 """
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated, Any, Literal
 
 from copilotkit import CopilotKitMiddleware
-from deepagents import create_deep_agent
-from langchain.agents.middleware.types import AgentMiddleware, AgentState, OmitFromInput
+from langchain.agents import create_agent
+from langchain.agents.middleware.types import AgentState, OmitFromInput
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
@@ -46,32 +47,51 @@ def set_steps(
     return Command(
         update={
             "steps": steps,
-            "messages": [ToolMessage(f"Published {len(steps)} step(s).", tool_call_id=tool_call_id)],
+            "messages": [
+                ToolMessage(
+                    f"Published {len(steps)} step(s).",
+                    name="set_steps",
+                    id=str(uuid.uuid4()),
+                    tool_call_id=tool_call_id,
+                )
+            ],
         }
     )
 
 
-# `create_deep_agent` does not accept `state_schema=` directly; the only way to
-# extend the graph's state is via a middleware that declares `state_schema`.
-# This one-liner exists solely to register `GenUiAgentState.steps`.
-class _GenUiStateMiddleware(AgentMiddleware):
-    state_schema = GenUiAgentState
-
-
 SYSTEM_PROMPT = (
-    "You are an agentic planner. For each user request: (1) plan exactly 3 "
-    "concrete steps and call `set_steps` ONCE to publish them all with "
-    "status=pending; (2) for each step in order: call `set_steps` with that "
-    "step flipped to in_progress (all others unchanged); briefly simulate the "
-    "work; then call `set_steps` with that step flipped to completed. Finally "
-    "respond conversationally. Never call set_steps in parallel - always wait "
-    "for one call to return before the next. Do NOT use write_todos - use "
-    "set_steps only."
+    "You are an agentic planner. For each user request, follow this exact "
+    "sequence:\n"
+    "1. Plan exactly 3 concrete steps and call `set_steps` ONCE with all "
+    'three steps at status="pending".\n'
+    '2. Step 1: call `set_steps` with step 1 at status="in_progress", '
+    'then call `set_steps` again with step 1 at status="completed".\n'
+    '3. Step 2: call `set_steps` with step 2 at status="in_progress", '
+    'then call `set_steps` again with step 2 at status="completed".\n'
+    '4. Step 3: call `set_steps` with step 3 at status="in_progress", '
+    'then call `set_steps` again with step 3 at status="completed".\n'
+    "5. Send ONE final conversational assistant message summarizing the "
+    "plan, then stop. Do not call any more tools after step 3 is "
+    "completed.\n"
+    "\n"
+    "Rules: never call set_steps in parallel — always wait for one call to "
+    "return before the next. After all three steps are completed you MUST "
+    "send a final assistant message and terminate."
 )
 
-graph = create_deep_agent(
+
+# Uses `langchain.agents.create_agent` (not `deepagents.create_deep_agent`)
+# because `create_deep_agent`'s planner+sub-agent middleware ate enough
+# supersteps on this single-tool ReAct loop to repeatedly trip
+# LangGraph's default recursion limit. The ReAct loop here is two
+# supersteps per LLM/tool cycle (model node + tool node); the prompt
+# drives ~7 set_steps cycles + 1 final model turn, so nominal cost is
+# ~15 supersteps. `recursion_limit=50` gives ~3× headroom for retries
+# inside the LLM loop.
+graph = create_agent(
     model=init_chat_model("openai:gpt-4o-mini", temperature=0, use_responses_api=False),
     tools=[set_steps],
     system_prompt=SYSTEM_PROMPT,
-    middleware=[CopilotKitMiddleware(), _GenUiStateMiddleware()],
-).with_config({"recursion_limit": 200})
+    state_schema=GenUiAgentState,
+    middleware=[CopilotKitMiddleware()],
+).with_config({"recursion_limit": 50})

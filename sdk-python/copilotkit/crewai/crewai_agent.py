@@ -11,30 +11,31 @@ from pydantic import BaseModel
 from crewai import Crew, Flow
 from crewai.flow import start
 from crewai.cli.crew_chat import (
-  initialize_chat_llm as crew_chat_initialize_chat_llm,
-  generate_crew_chat_inputs as crew_chat_generate_crew_chat_inputs,
-  generate_crew_tool_schema as crew_chat_generate_crew_tool_schema,
-  build_system_message as crew_chat_build_system_message,
-  create_tool_function as crew_chat_create_tool_function
+    initialize_chat_llm as crew_chat_initialize_chat_llm,
+    generate_crew_chat_inputs as crew_chat_generate_crew_chat_inputs,
+    generate_crew_tool_schema as crew_chat_generate_crew_tool_schema,
+    build_system_message as crew_chat_build_system_message,
+    create_tool_function as crew_chat_create_tool_function,
 )
 from litellm import completion
 from copilotkit.agent import Agent
 from copilotkit.types import Message
 from copilotkit.action import ActionDict
 from copilotkit.protocol import (
-  emit_runtime_events,
-  agent_state_message,
+    emit_runtime_events,
+    agent_state_message,
 )
 from copilotkit.crewai.crewai_sdk import (
-  copilotkit_messages_to_crewai_flow,
-  crewai_flow_messages_to_copilotkit,
-  crewai_flow_async_runner,
-  copilotkit_stream,
-  copilotkit_exit,
-  logger
+    copilotkit_messages_to_crewai_flow,
+    crewai_flow_messages_to_copilotkit,
+    crewai_flow_async_runner,
+    copilotkit_stream,
+    copilotkit_exit,
+    logger,
 )
 
 from copilotkit.runloop import copilotkit_run, CopilotKitRunExecution
+
 
 class CopilotKitConfig(TypedDict):
     """
@@ -61,12 +62,15 @@ class CopilotKitConfig(TypedDict):
     merge_state : Callable
         This function lets you customize how CopilotKit merges the agent state.
     """
+
     merge_state: NotRequired[Callable]
+
 
 class CrewAIFlowExecutionState(TypedDict):
     """
     State for an execution of a CrewAI Flow agent
     """
+
     should_exit: bool
     node_name: str
     is_finished: bool
@@ -74,6 +78,7 @@ class CrewAIFlowExecutionState(TypedDict):
     predicted_state: Dict[str, Any]
     argument_buffer: str
     current_tool_call: Optional[str]
+
 
 class CrewAIAgent(Agent):
     """
@@ -85,8 +90,8 @@ class CrewAIAgent(Agent):
     pip install copilotkit[crewai]
     ```
 
-    Every agent must have the `name` and either `crew` or `flow` properties defined. An optional 
-    `description` can also be provided. This is used when CopilotKit is dynamically routing requests 
+    Every agent must have the `name` and either `crew` or `flow` properties defined. An optional
+    `description` can also be provided. This is used when CopilotKit is dynamically routing requests
     to the agent.
 
     ## Serving a Crew based agent
@@ -137,15 +142,16 @@ class CrewAIAgent(Agent):
         The CopilotKit config to use with the agent.
 
     """
+
     def __init__(
-            self,
-            *,
-            name: str,
-            description: Optional[str] = None,
-            crew: Optional[Crew] = None,
-            flow: Optional[Flow] = None,
-            copilotkit_config: Optional[CopilotKitConfig] = None,
-        ):
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+        crew: Optional[Crew] = None,
+        flow: Optional[Flow] = None,
+        copilotkit_config: Optional[CopilotKitConfig] = None,
+    ):
         super().__init__(
             name=name,
             description=description,
@@ -153,12 +159,11 @@ class CrewAIAgent(Agent):
         if (crew is None) == (flow is None):
             raise ValueError("Either crew or flow must be provided to CrewAIAgent")
 
-
         self.crew = crew
         self.flow = flow
         self.copilotkit_config = copilotkit_config or {}
 
-    def execute( # pylint: disable=too-many-arguments
+    def execute(  # pylint: disable=too-many-arguments
         self,
         *,
         state: dict,
@@ -176,7 +181,7 @@ class CrewAIAgent(Agent):
                 thread_id=thread_id,
                 actions=actions,
                 crew=crew,
-                **kwargs
+                **kwargs,
             )
 
         if self.flow:
@@ -187,12 +192,12 @@ class CrewAIAgent(Agent):
                 thread_id=thread_id,
                 actions=actions,
                 flow=flow,
-                **kwargs
+                **kwargs,
             )
 
         raise ValueError("Either crew or flow must be provided to CrewAIAgent")
 
-    def execute_crew( # pylint: disable=too-many-arguments,unused-argument
+    def execute_crew(  # pylint: disable=too-many-arguments,unused-argument
         self,
         *,
         state: dict,
@@ -202,13 +207,13 @@ class CrewAIAgent(Agent):
         actions: Optional[List[ActionDict]] = None,
         **kwargs,
     ):
-        """Execute a `Crew` based agent"""    
+        """Execute a `Crew` based agent"""
 
         flow = ChatWithCrewFlow(
             crew=crew,
             crew_name=self.name,
             thread_id=thread_id,
-            cache_key=f"crew_{id(self.crew)}"
+            cache_key=f"crew_{id(self.crew)}",
         )
 
         return self.execute_flow(
@@ -217,11 +222,10 @@ class CrewAIAgent(Agent):
             thread_id=thread_id,
             actions=actions,
             flow=flow,
-            **kwargs
+            **kwargs,
         )
 
-
-    async def execute_flow( # pylint: disable=too-many-arguments,unused-argument,too-many-locals
+    async def execute_flow(  # pylint: disable=too-many-arguments,unused-argument,too-many-locals
         self,
         *,
         state: dict,
@@ -238,8 +242,9 @@ class CrewAIAgent(Agent):
 
         run_id = str(uuid.uuid4())
 
-
-        merge_state = self.copilotkit_config.get("merge_state", crewai_flow_default_merge_state)
+        merge_state = self.copilotkit_config.get(
+            "merge_state", crewai_flow_default_merge_state
+        )
 
         crewai_flow_messages = copilotkit_messages_to_crewai_flow(messages)
 
@@ -248,7 +253,7 @@ class CrewAIAgent(Agent):
             messages=crewai_flow_messages,
             actions=actions or [],
             agent_name=self.name,
-            flow=flow
+            flow=flow,
         )
 
         execution: CopilotKitRunExecution = CopilotKitRunExecution(
@@ -262,16 +267,22 @@ class CrewAIAgent(Agent):
             predicted_state={},
             argument_buffer="",
             current_tool_call=None,
-            state=state
+            state=state,
         )
 
         async for event in copilotkit_run(
             fn=lambda: crewai_flow_async_runner(flow, deepcopy(state)),
-            execution=execution
+            execution=execution,
         ):
             yield event
 
-        state = {**(flow.state.model_dump() if isinstance(flow.state, BaseModel) else flow.state)}
+        state = {
+            **(
+                flow.state.model_dump()
+                if isinstance(flow.state, BaseModel)
+                else flow.state
+            )
+        }
         if "messages" in state:
             state["messages"] = crewai_flow_messages_to_copilotkit(state["messages"])
 
@@ -285,85 +296,85 @@ class CrewAIAgent(Agent):
                 active=False,
                 role="assistant",
                 state=json.dumps(filter_state(state, exclude_keys=["id"])),
-                running=not execution["should_exit"]
+                running=not execution["should_exit"],
             )
         )
-    
+
     async def get_state(
         self,
         *,
         thread_id: str,
     ):
-        if self.flow and self.flow._persistence: # pylint: disable=protected-access
+        if self.flow and self.flow._persistence:  # pylint: disable=protected-access
             try:
-                stored_state = self.flow._persistence.load_state(thread_id) # pylint: disable=protected-access
+                stored_state = self.flow._persistence.load_state(thread_id)  # pylint: disable=protected-access
                 messages = []
                 if "messages" in stored_state and stored_state["messages"]:
                     try:
-                        messages = crewai_flow_messages_to_copilotkit(stored_state["messages"])
-                    except Exception as e: # pylint: disable=broad-except
+                        messages = crewai_flow_messages_to_copilotkit(
+                            stored_state["messages"]
+                        )
+                    except Exception as e:  # pylint: disable=broad-except
                         # If conversion fails, we'll return empty messages
-                        logger.warning(f"Failed to convert messages from stored state: {str(e)}")
+                        logger.warning(
+                            f"Failed to convert messages from stored state: {str(e)}"
+                        )
                 return {
                     "threadId": thread_id,
                     "threadExists": True,
                     "state": stored_state,
-                    "messages": messages
+                    "messages": messages,
                 }
-            except Exception as e: # pylint: disable=broad-except
+            except Exception as e:  # pylint: disable=broad-except
                 logger.warning(f"Failed to load state for thread {thread_id}: {str(e)}")
 
         return {
             "threadId": thread_id,
             "threadExists": False,
             "state": {},
-            "messages": []
+            "messages": [],
         }
-
 
     def dict_repr(self):
         super_repr = super().dict_repr()
-        return {
-            **super_repr,
-            'type': 'crewai'
-        }
+        return {**super_repr, "type": "crewai"}
 
-def crewai_flow_default_merge_state( # pylint: disable=unused-argument, too-many-arguments
-        *,
-        state: dict,
-        flow: Flow,
-        messages: List[Any],
-        actions: List[Any],
-        agent_name: str,
-    ):
+
+def crewai_flow_default_merge_state(  # pylint: disable=unused-argument, too-many-arguments
+    *,
+    state: dict,
+    flow: Flow,
+    messages: List[Any],
+    actions: List[Any],
+    agent_name: str,
+):
     """Default merge state for CrewAI"""
     if len(messages) > 0:
         if "role" in messages[0] and messages[0]["role"] == "system":
             messages = messages[1:]
 
-
-    actions = [{
-        "type": "function",
-        "function": {
-            **action,
+    actions = [
+        {
+            "type": "function",
+            "function": {
+                **action,
+            },
         }
-    } for action in actions]
+        for action in actions
+    ]
 
-    new_state = {
-        **state,
-        "messages": messages,
-        "copilotkit": {
-            "actions": actions
-        }
-    }
+    new_state = {**state, "messages": messages, "copilotkit": {"actions": actions}}
 
     return new_state
 
 
-def filter_state(state: Dict[str, Any], exclude_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+def filter_state(
+    state: Dict[str, Any], exclude_keys: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """Filter out messages and id from the state"""
     exclude_keys = exclude_keys or ["messages", "id"]
     return {k: v for k, v in state.items() if k not in exclude_keys}
+
 
 CREW_EXIT_TOOL = {
     "type": "function",
@@ -380,16 +391,11 @@ CREW_EXIT_TOOL = {
 
 _CREW_INPUTS_CACHE = {}
 
+
 class ChatWithCrewFlow(Flow):
     """Chat with crew"""
 
-    def __init__(
-            self, *,
-            crew: Crew,
-            crew_name: str,
-            thread_id: str,
-            cache_key: str
-        ):
+    def __init__(self, *, crew: Crew, crew_name: str, thread_id: str, cache_key: str):
         super().__init__()
 
         self.crew = cast(Any, crew).crew()
@@ -403,15 +409,15 @@ class ChatWithCrewFlow(Flow):
 
         if cache_key not in _CREW_INPUTS_CACHE:
             self.crew_chat_inputs = crew_chat_generate_crew_chat_inputs(
-                self.crew,
-                self.crew_name,
-                self.chat_llm
+                self.crew, self.crew_name, self.chat_llm
             )
             _CREW_INPUTS_CACHE[cache_key] = self.crew_chat_inputs
         else:
             self.crew_chat_inputs = _CREW_INPUTS_CACHE[cache_key]
 
-        self.crew_tool_schema = crew_chat_generate_crew_tool_schema(self.crew_chat_inputs)
+        self.crew_tool_schema = crew_chat_generate_crew_tool_schema(
+            self.crew_chat_inputs
+        )
         self.system_message = crew_chat_build_system_message(self.crew_chat_inputs)
 
         super().__init__()
@@ -428,13 +434,16 @@ class ChatWithCrewFlow(Flow):
             {
                 "role": "system",
                 "content": system_message,
-                "id": self.thread_id + "-system"
+                "id": self.thread_id + "-system",
             },
-            *self.state["messages"]
+            *self.state["messages"],
         ]
 
-        tools = [action for action in self.state["copilotkit"]["actions"]
-                 if action["function"]["name"] != self.crew_name]
+        tools = [
+            action
+            for action in self.state["copilotkit"]["actions"]
+            if action["function"]["name"] != self.crew_name
+        ]
 
         tools += [self.crew_tool_schema, CREW_EXIT_TOOL]
 
@@ -444,7 +453,7 @@ class ChatWithCrewFlow(Flow):
                 messages=messages,
                 tools=tools,
                 parallel_tool_calls=False,
-                stream=True
+                stream=True,
             )
         )
 
@@ -467,34 +476,41 @@ class ChatWithCrewFlow(Flow):
                 else:
                     raise ValueError("Unexpected result type", type(result))
 
-                self.state["messages"].append({
-                    "role": "tool",
-                    "content": result,
-                    "tool_call_id": message["tool_calls"][0]["id"]
-                })
-            elif message["tool_calls"][0]["function"]["name"] == CREW_EXIT_TOOL["function"]["name"]:
+                self.state["messages"].append(
+                    {
+                        "role": "tool",
+                        "content": result,
+                        "tool_call_id": message["tool_calls"][0]["id"],
+                    }
+                )
+            elif (
+                message["tool_calls"][0]["function"]["name"]
+                == CREW_EXIT_TOOL["function"]["name"]
+            ):
                 await copilotkit_exit()
-                self.state["messages"].append({
-                    "role": "tool",
-                    "content": "Crew exited",
-                    "tool_call_id": message["tool_calls"][0]["id"]
-                })
+                self.state["messages"].append(
+                    {
+                        "role": "tool",
+                        "content": "Crew exited",
+                        "tool_call_id": message["tool_calls"][0]["id"],
+                    }
+                )
 
                 response = await copilotkit_stream(
-                    completion( # pylint: disable=too-many-arguments
+                    completion(  # pylint: disable=too-many-arguments
                         model=self.crew.chat_llm,
-                        messages = [
+                        messages=[
                             {
                                 "role": "system",
                                 "content": "Indicate to the user that the crew has exited",
-                                "id": self.thread_id + "-system"
+                                "id": self.thread_id + "-system",
                             },
-                            *self.state["messages"]
+                            *self.state["messages"],
                         ],
                         tools=tools,
                         parallel_tool_calls=False,
                         stream=True,
-                        tool_choice="none"
+                        tool_choice="none",
                     )
                 )
                 message = cast(Any, response).choices[0]["message"]

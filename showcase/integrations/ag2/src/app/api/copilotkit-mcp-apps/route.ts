@@ -21,6 +21,10 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
 
+const headlessCompleteAgent = new HttpAgent({
+  url: `${AGENT_URL}/headless-complete/`,
+});
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware to every registered agent: on each
@@ -29,7 +33,13 @@ const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
 // inline in the chat.
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { "mcp-apps": mcpAppsAgent },
+  agents: {
+    "mcp-apps": mcpAppsAgent,
+    // headless-complete shares this runtime because its cell also exercises
+    // MCP Apps rendering (via a hand-rolled `useRenderActivityMessage` in
+    // `use-rendered-messages.tsx`).
+    "headless-complete": headlessCompleteAgent,
+  },
   mcpApps: {
     servers: [
       {

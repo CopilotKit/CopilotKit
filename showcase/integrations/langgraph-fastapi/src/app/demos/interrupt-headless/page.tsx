@@ -9,6 +9,7 @@
 // not inside the chat. Picking a slot resolves the interrupt, the
 // popup vanishes, and the agent confirms back in chat.
 
+// @region[headless-useinterrupt-primitives]
 import React, { useEffect, useMemo, useState } from "react";
 import {
   CopilotKit,
@@ -17,27 +18,21 @@ import {
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
 type InterruptPayload = {
   topic?: string;
   attendee?: string;
+  slots?: TimeSlot[];
 };
 
 type InterruptEvent = {
   name: string;
   value: InterruptPayload;
 };
-
-type TimeSlot = { label: string; iso: string };
-
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
-];
 
 export default function InterruptHeadlessDemo() {
   return (
@@ -74,7 +69,6 @@ function Layout() {
   );
 }
 
-// @region[headless-useinterrupt-primitives]
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
   resolve: (response: unknown) => void;
@@ -88,9 +82,14 @@ function useHeadlessInterrupt(agentId: string): {
     const sub = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
+          // The AG-UI adapter JSON-stringifies interrupt values, so
+          // parse when the value arrives as a string.
+          const raw = event.value ?? {};
           local = {
             name: event.name,
-            value: (event.value ?? {}) as InterruptPayload,
+            value: (typeof raw === "string"
+              ? JSON.parse(raw)
+              : raw) as InterruptPayload,
           };
         }
       },
@@ -209,6 +208,14 @@ type TimeSlotPopupProps = {
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
+  // Prefer the slots from the interrupt payload — the backend
+  // (`interrupt_agent.py:_candidate_slots`) generates them relative to "now"
+  // so the picker always shows future times. Fall back to a fresh
+  // local-time generator only if the backend didn't supply any.
+  const slots =
+    payload.slots && payload.slots.length > 0
+      ? payload.slots
+      : generateFallbackSlots();
   return (
     <div
       role="dialog"
@@ -235,7 +242,7 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       )}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {DEFAULT_SLOTS.map((slot) => (
+        {slots.map((slot) => (
           <button
             key={slot.iso}
             type="button"

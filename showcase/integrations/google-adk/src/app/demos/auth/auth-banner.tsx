@@ -1,51 +1,58 @@
 "use client";
 
-import React from "react";
+interface AuthBannerProps {
+  authenticated: boolean;
+  onSignOut: () => void;
+  onSignIn: () => void;
+}
 
+/**
+ * Status strip rendered above <CopilotChat /> in both authenticated and
+ * post-sign-out states. The post-sign-out (amber) variant exists so the demo
+ * actually showcases what its name promises — the runtime rejecting an
+ * unauthenticated request — instead of bouncing the user back to the gate
+ * page where the rejection never happens.
+ *
+ * Pure presentational — owns no state itself. Testids are stable contract
+ * for QA + Playwright specs.
+ */
 export function AuthBanner({
   authenticated,
-  onSignIn,
   onSignOut,
-}: {
-  authenticated: boolean;
-  onSignIn: () => void;
-  onSignOut: () => void;
-}) {
+  onSignIn,
+}: AuthBannerProps) {
+  const classes = authenticated
+    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+    : "border-amber-300 bg-amber-50 text-amber-900";
+
   return (
     <div
       data-testid="auth-banner"
-      className={`flex items-center justify-between px-4 py-3 border-b ${
-        authenticated
-          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-          : "bg-amber-50 border-amber-200 text-amber-800"
-      }`}
+      data-authenticated={authenticated ? "true" : "false"}
+      className={`flex items-center justify-between gap-3 rounded-md border px-4 py-2 text-sm ${classes}`}
     >
-      <div className="flex items-center gap-2 text-sm">
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${
-            authenticated ? "bg-emerald-500" : "bg-amber-500"
-          }`}
-        />
+      <span data-testid="auth-status" className="font-medium">
         {authenticated
-          ? "Signed in — bearer token attached to every request."
-          : "Signed out — runtime returns 401 until you sign in."}
-      </div>
+          ? "✓ Signed in as demo user"
+          : "⚠ Signed out — the agent will reject your messages until you sign in."}
+      </span>
       {authenticated ? (
         <button
           type="button"
+          data-testid="auth-sign-out-button"
           onClick={onSignOut}
-          className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-100"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-400 bg-white px-3 text-xs font-medium text-emerald-800 shadow-sm hover:bg-emerald-100"
         >
           Sign out
         </button>
       ) : (
         <button
-          data-testid="auth-sign-in"
           type="button"
+          data-testid="auth-authenticate-button"
           onClick={onSignIn}
-          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-amber-400 bg-white px-3 text-xs font-medium text-amber-800 shadow-sm hover:bg-amber-100"
         >
-          Sign in (demo)
+          Sign in
         </button>
       )}
     </div>

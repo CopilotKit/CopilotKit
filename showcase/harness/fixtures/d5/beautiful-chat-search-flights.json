@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/beautiful-chat — Search Flights pill. A2UI fixed-schema. Two-stage matcher (false→true). Payload byte-equal to feature-parity's call_fp_search_flights_001 so FlightCard literal fingerprints match across both runners.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    }
+  ]
+}

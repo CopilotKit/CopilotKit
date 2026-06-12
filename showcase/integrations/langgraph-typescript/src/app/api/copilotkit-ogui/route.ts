@@ -16,12 +16,12 @@ const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 const openGenUiAgent = new LangGraphAgent({
-  deploymentUrl: LANGGRAPH_URL,
+  deploymentUrl: `${LANGGRAPH_URL}/`,
   graphId: "open_gen_ui",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 const openGenUiAdvancedAgent = new LangGraphAgent({
-  deploymentUrl: LANGGRAPH_URL,
+  deploymentUrl: `${LANGGRAPH_URL}/`,
   graphId: "open_gen_ui_advanced",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });

@@ -156,9 +156,7 @@ class UIGeneratorExecutor(AgentExecutor):
                         json_data = json.loads(json_string_cleaned)
 
                         if isinstance(json_data, list):
-                            logger.info(
-                                f"Found {len(json_data)} A2UI messages"
-                            )
+                            logger.info(f"Found {len(json_data)} A2UI messages")
                             for message in json_data:
                                 final_parts.append(create_a2ui_part(message))
                         else:

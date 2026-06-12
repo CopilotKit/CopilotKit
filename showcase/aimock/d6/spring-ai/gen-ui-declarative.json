@@ -1,0 +1,121 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / gen-ui-declarative",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-declarative pill 1: KPI dashboard — emits render_a2ui with Card + Metric components. hasToolResult:false on toolCalls.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_kpi_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"Card\",\"props\":{\"title\":\"Q4 KPI Dashboard\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Signups\",\"value\":\"8,421\",\"change\":\"+23%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 1: KPI dashboard — follow-up after tool result.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "KPI dashboard rendered above with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 2: pie chart — emits render_a2ui with PieChart component.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_pie_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia\",\"value\":20},{\"label\":\"Other\",\"value\":5}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 2: pie chart — follow-up.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Pie chart rendered above showing sales breakdown by region."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 3: bar chart — emits render_a2ui with BarChart component.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_bar_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":1800000},{\"label\":\"Q2\",\"value\":2100000},{\"label\":\"Q3\",\"value\":2300000},{\"label\":\"Q4\",\"value\":2400000}]}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 3: bar chart — follow-up.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Bar chart rendered above showing quarterly revenue growth."
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 4: status report — emits render_a2ui with StatusBadge component.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_status_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"props\":{\"service\":\"API\",\"status\":\"healthy\",\"uptime\":\"99.97%\"}},{\"type\":\"StatusBadge\",\"props\":{\"service\":\"Database\",\"status\":\"healthy\",\"uptime\":\"99.99%\"}},{\"type\":\"StatusBadge\",\"props\":{\"service\":\"Background Workers\",\"status\":\"degraded\",\"uptime\":\"98.2%\"}}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-declarative pill 4: status report — follow-up.",
+      "match": {
+        "userMessage": "status report on system health",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "System health report rendered above. API and database are healthy; background workers show slight degradation."
+      }
+    }
+  ]
+}

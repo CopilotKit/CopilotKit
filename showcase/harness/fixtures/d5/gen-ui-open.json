@@ -1,6 +1,90 @@
 {
-  "_comment": "D5 fixture for /demos/open-gen-ui and /demos/open-gen-ui-advanced. Multi-turn for the advanced flow; first turn covers basic open-shape, second covers an advanced multi-step flow. Substrings 'render an open gen-ui element' and 'continue the advanced gen-ui flow' are unique.",
+  "_comment": "D5 fixture for /demos/open-gen-ui and /demos/open-gen-ui-advanced. Pill-prompt fixtures emit deterministic generateSandboxedUi tool calls so iframe-presence assertions are stable; these MUST appear before the showcase-assistant 'hi' catch-all in feature-parity.json (d5-all.json loads first, so first-match-wins ordering is the priority lever). Each pill `userMessage` matches the verbatim short message string in `langgraph-python/src/app/demos/open-gen-ui/suggestions.ts` and `open-gen-ui-advanced/suggestions.ts`. Inline HTML is intentionally minimal — the assertion bar is iframe presence + non-empty srcdoc, not iframe DOM introspection (cross-origin blocked). Substrings 'render an open gen-ui element' and 'continue the advanced gen-ui flow' are unique narration entries kept for back-compat probes.",
   "fixtures": [
+    {
+      "match": { "userMessage": "3D axis visualization (model airplane)" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_3d_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "How a neural network works" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_neural_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Quicksort visualization" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_quicksort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Fourier: square wave from sines" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Calculator (calls evaluateExpression)" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Ping the host (calls notifyHost)" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_ping_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click…</div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "Inline expression evaluator" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_open_gen_ui_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\"}"
+          }
+        ]
+      }
+    },
     {
       "match": { "userMessage": "render an open gen-ui element" },
       "response": {

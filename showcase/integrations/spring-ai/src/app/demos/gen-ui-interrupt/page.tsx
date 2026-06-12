@@ -1,41 +1,81 @@
 "use client";
 
-import React from "react";
+// @region[frontend-useinterrupt-render]
+import {
+  CopilotKit,
+  CopilotChat,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
 
-export default function GenUiInterruptUnsupported() {
+export default function GenUiInterruptDemo() {
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        textAlign: "center",
-      }}
-    >
-      <div style={{ maxWidth: 560 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 12 }}>
-          Generative UI (Interrupt) — Not Supported by Spring AI
-        </h1>
-        <p style={{ color: "#555", lineHeight: 1.55, marginBottom: 16 }}>
-          Spring AI&apos;s <code>ChatClient</code> has no graph-interrupt
-          primitive analogous to LangGraph&apos;s <code>interrupt(...)</code>,
-          so the agent cannot suspend mid-run and hand a payload to the
-          frontend.
-        </p>
-        <p style={{ color: "#555", lineHeight: 1.55 }}>
-          See{" "}
-          <a
-            href="https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai/src/app/demos/gen-ui-interrupt/README.md"
-            style={{ color: "#2563eb", textDecoration: "underline" }}
-          >
-            this demo&apos;s README
-          </a>{" "}
-          for details, and the LangGraph Python integration for a working
-          implementation.
-        </p>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
       </div>
-    </div>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  useGenUiInterruptSuggestions();
+
+  // This framework has no LangGraph-style `interrupt()` primitive, so the
+  // LangGraph showcase's `useInterrupt({ renderInChat: true })` hook is
+  // silently dead here — it listens for AG-UI `interrupt` events that this
+  // backend never emits, leaving the chat stuck on the "[Scheduling...]"
+  // tool-call placeholder.
+  //
+  // The backend instead exposes `schedule_meeting` as a tool the model is
+  // instructed to call (Strategy B); the frontend registers a matching
+  // `useHumanInTheLoop` here, renders the picker inline, and resolves the
+  // call via `respond(...)`. UX matches LGP's interrupt-rendered card; the
+  // mechanism differs.
+  useHumanInTheLoop({
+    agentId: "gen-ui-interrupt",
+    name: "schedule_meeting",
+    description:
+      "Ask the user to pick a meeting time. The picker renders inline in " +
+      "the chat; the chosen slot is returned to the agent so it can confirm.",
+    parameters: z.object({
+      topic: z
+        .string()
+        .describe("What the meeting is about (e.g. 'Intro with sales')"),
+      attendee: z
+        .string()
+        .optional()
+        .describe("Who the meeting is with (e.g. 'Alice')"),
+    }),
+    render: ({ args, respond }: any) => {
+      // `TimePickerCard` here is the gen-ui-interrupt-specific variant
+      // (under `_components/`) that gates buttons on its own internal
+      // `picked`/`cancelled` state — it doesn't take a `status` prop like
+      // the hitl-in-chat version. That's fine: the buttons stay clickable
+      // until the user makes a choice and `respond(...)` resolves the
+      // tool call.
+      const topic = (args?.topic as string | undefined) ?? "a call";
+      const attendee = args?.attendee as string | undefined;
+      const slots = generateFallbackSlots();
+      return (
+        <TimePickerCard
+          topic={topic}
+          attendee={attendee}
+          slots={slots}
+          onSubmit={(result) => respond?.(result)}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-useinterrupt-render]
+
+  return (
+    <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />
   );
 }

@@ -12,10 +12,10 @@
 # example can live alongside the production demo without being wired
 # into the route. See: showcase/scripts/bundle-demo-content.ts.
 
+# @region[weather-tool-backend]
 from typing import Any
 
 
-# @region[weather-tool-backend]
 # Anthropic tool schema — passed via the `tools` parameter on
 # `client.messages.create(...)` / `.stream(...)`. Claude calls this
 # tool by name; the runtime dispatches to the matching handler below.
@@ -49,4 +49,6 @@ def get_weather(location: str) -> dict[str, Any]:
         "wind_speed": 10,
         "conditions": "Sunny",
     }
+
+
 # @endregion[weather-tool-backend]

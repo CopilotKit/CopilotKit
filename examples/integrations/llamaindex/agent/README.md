@@ -13,7 +13,7 @@ uv run dev
 ## Running the Frontend
 
 ```bash
-cd ../ui
+cd ..
 npm install
 npm run dev
 ```

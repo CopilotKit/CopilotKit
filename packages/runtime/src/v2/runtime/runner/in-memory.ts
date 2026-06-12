@@ -10,8 +10,9 @@ import {
   AbstractAgent,
   BaseEvent,
   EventType,
-  MessagesSnapshotEvent,
+  Message,
   RunStartedEvent,
+  StateSnapshotEvent,
   compactEvents,
 } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
@@ -19,9 +20,32 @@ import { finalizeRunEvents } from "@copilotkit/shared";
 interface HistoricRun {
   threadId: string;
   runId: string;
+  /** ID of the agent that executed this run. */
+  agentId: string;
   parentRunId: string | null;
   events: BaseEvent[];
+  /**
+   * Snapshot of all messages (input + generated) at the end of this run.
+   * Used by the local thread-messages fallback endpoint.
+   */
+  messages: Message[];
   createdAt: number;
+}
+
+/**
+ * Lightweight thread summary returned by {@link InMemoryAgentRunner.listThreads}.
+ * Shape matches the Intelligence platform's ThreadRecord so the same HTTP
+ * response envelope can be used for both backends.
+ */
+export interface InMemoryThread {
+  id: string;
+  name: string | null;
+  agentId: string;
+  organizationId: ""; // always empty in in-memory mode
+  createdById: ""; // always empty in in-memory mode
+  archived: false; // always false in in-memory mode
+  createdAt: string;
+  updatedAt: string;
 }
 
 class InMemoryEventStore {
@@ -52,50 +76,7 @@ class InMemoryEventStore {
   currentEvents: BaseEvent[] | null = null;
 }
 
-// Use a symbol key on globalThis to survive hot reloads in development
-const GLOBAL_STORE_KEY = Symbol.for("@copilotkit/runtime/in-memory-store");
-
-interface GlobalStoreData {
-  stores: Map<string, InMemoryEventStore>;
-  historicRunsBackup: Map<string, HistoricRun[]>;
-}
-
-function getGlobalStore(): Map<string, InMemoryEventStore> {
-  const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
-
-  if (!globalAny[GLOBAL_STORE_KEY]) {
-    globalAny[GLOBAL_STORE_KEY] = {
-      stores: new Map<string, InMemoryEventStore>(),
-      historicRunsBackup: new Map<string, HistoricRun[]>(),
-    };
-  }
-
-  const data = globalAny[GLOBAL_STORE_KEY];
-
-  // Restore historic runs from backup after hot reload
-  // (when stores map is empty but backup has data)
-  if (data.stores.size === 0 && data.historicRunsBackup.size > 0) {
-    for (const [threadId, historicRuns] of data.historicRunsBackup) {
-      const store = new InMemoryEventStore(threadId);
-      store.historicRuns = historicRuns;
-      data.stores.set(threadId, store);
-    }
-  }
-
-  return data.stores;
-}
-
-function backupHistoricRuns(
-  threadId: string,
-  historicRuns: HistoricRun[],
-): void {
-  const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
-  if (globalAny[GLOBAL_STORE_KEY]) {
-    globalAny[GLOBAL_STORE_KEY].historicRunsBackup.set(threadId, historicRuns);
-  }
-}
-
-const GLOBAL_STORE = getGlobalStore();
+const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
 
 export class InMemoryAgentRunner extends AgentRunner {
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
@@ -215,13 +196,15 @@ export class InMemoryAgentRunner extends AgentRunner {
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
+            agentId: request.agent.agentId ?? "default",
             parentRunId,
             events: compactedEvents,
+            // Snapshot all messages (input + generated) for the thread-messages endpoint
+            messages: Array.isArray(request.agent.messages)
+              ? [...request.agent.messages]
+              : [],
             createdAt: Date.now(),
           });
-
-          // Backup for hot reload survival
-          backupHistoricRuns(request.threadId, store.historicRuns);
         }
 
         // Complete the run
@@ -252,13 +235,14 @@ export class InMemoryAgentRunner extends AgentRunner {
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
+            agentId: request.agent.agentId ?? "default",
             parentRunId,
             events: compactedEvents,
+            messages: Array.isArray(request.agent.messages)
+              ? [...request.agent.messages]
+              : [],
             createdAt: Date.now(),
           });
-
-          // Backup for hot reload survival
-          backupHistoricRuns(request.threadId, store.historicRuns);
         }
 
         // Complete the run
@@ -377,5 +361,107 @@ export class InMemoryAgentRunner extends AgentRunner {
       store.isRunning = true;
       return Promise.resolve(false);
     }
+  }
+
+  /**
+   * Returns a summary of every thread that has been run through this runner.
+   *
+   * This powers the local-dev fallback for `GET /threads` when the Intelligence
+   * platform is not configured. Each entry mirrors the shape of a platform
+   * `ThreadRecord` so the HTTP handler can use the same response envelope.
+   */
+  listThreads(): InMemoryThread[] {
+    const threads: InMemoryThread[] = [];
+    for (const [threadId, store] of GLOBAL_STORE) {
+      if (store.historicRuns.length === 0) continue;
+      const firstRun = store.historicRuns[0]!;
+      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
+      threads.push({
+        id: threadId,
+        name: null,
+        agentId: lastRun.agentId,
+        organizationId: "",
+        createdById: "",
+        archived: false,
+        createdAt: new Date(firstRun.createdAt).toISOString(),
+        updatedAt: new Date(lastRun.createdAt).toISOString(),
+      });
+    }
+    // Most recently updated first
+    return threads.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  /**
+   * Returns all messages for a thread, using the snapshot captured at the end
+   * of the most recent run.
+   *
+   * This powers the local-dev fallback for `GET /threads/:threadId/messages`
+   * when the Intelligence platform is not configured. The returned `Message[]`
+   * objects come directly from the ag-ui agent, so their shape is compatible
+   * with the Intelligence platform's `ThreadMessage` type.
+   */
+  getThreadMessages(threadId: string): Message[] {
+    const store = GLOBAL_STORE.get(threadId);
+    if (!store || store.historicRuns.length === 0) return [];
+    // The last run's snapshot has the complete conversation history
+    return store.historicRuns[store.historicRuns.length - 1]!.messages;
+  }
+
+  /**
+   * Returns all AG-UI events for a thread, compacted across historic runs.
+   *
+   * Powers the local-dev fallback for `GET /threads/:threadId/events` when the
+   * Intelligence platform is not configured. The compaction logic matches
+   * the connection-replay path in {@link connect}, so the stream a
+   * late-joining inspector sees matches what this method returns.
+   */
+  getThreadEvents(threadId: string): BaseEvent[] {
+    const store = GLOBAL_STORE.get(threadId);
+    if (!store || store.historicRuns.length === 0) return [];
+    const all: BaseEvent[] = [];
+    for (const run of store.historicRuns) all.push(...run.events);
+    return compactEvents(all);
+  }
+
+  /**
+   * Returns the agent state snapshot for a thread.
+   *
+   * Derived from the last `STATE_SNAPSHOT` in the compacted event stream. The
+   * AG-UI `compactEvents` helper consolidates STATE_DELTA events and produces
+   * a single trailing STATE_SNAPSHOT when state changes exist, so this is a
+   * faithful view of state at the end of the most recent run.
+   *
+   * Returns `null` when the thread has never emitted a STATE_SNAPSHOT.
+   */
+  getThreadState(threadId: string): Record<string, unknown> | null {
+    const events = this.getThreadEvents(threadId);
+    // Walk backwards — the last snapshot wins.
+    for (let i = events.length - 1; i >= 0; i--) {
+      const event = events[i]!;
+      if (event.type === EventType.STATE_SNAPSHOT) {
+        const snapshot = (event as StateSnapshotEvent).snapshot;
+        if (snapshot && typeof snapshot === "object") {
+          return snapshot as Record<string, unknown>;
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Clears all in-memory thread history.
+   *
+   * Powers the local-dev fallback for `POST /threads/clear`, letting consumers
+   * (e.g. the demo's Clear button) reset to an empty thread list without
+   * restarting the runtime. Intentionally not exposed on the Intelligence
+   * platform path: there, thread history lives in a real database and must
+   * not be wiped this way.
+   */
+  clearThreads(): void {
+    GLOBAL_STORE.clear();
   }
 }

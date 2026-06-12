@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import uvicorn
 from ag_ui_crewai.endpoint import add_crewai_flow_fastapi_endpoint
@@ -6,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from src.agent import SampleAgentFlow
 
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 load_dotenv()
 
 app = FastAPI()

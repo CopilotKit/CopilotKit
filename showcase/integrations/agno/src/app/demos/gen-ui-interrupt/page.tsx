@@ -1,66 +1,81 @@
 "use client";
 
-/**
- * Gen UI Interrupt — NOT SUPPORTED for Agno.
- *
- * The canonical LangGraph version of this demo uses LangGraph's native
- * `interrupt()` graph primitive plus the `useInterrupt` hook to pause a
- * graph run mid-execution and surface a payload that the frontend renders
- * inline in the chat. The user picks a slot, the frontend resumes the run
- * via `copilotkit.runAgent({ forwardedProps: { command: { resume } } })`,
- * and the agent continues with the user-supplied value.
- *
- * Agno has no equivalent graph-level interrupt primitive — an Agno agent
- * runs to completion on each invocation and does not expose a pause /
- * resume API that can carry client-supplied state across a suspension.
- * This demo is therefore stubbed rather than ported.
- *
- * See `manifest.yaml` → `not_supported_features` and the README for
- * details and pointers to the closest available patterns.
- */
+// @region[frontend-useinterrupt-render]
+import {
+  CopilotKit,
+  CopilotChat,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
 
-import Link from "next/link";
-
-export default function GenUiInterruptUnsupportedPage() {
+export default function GenUiInterruptDemo() {
   return (
-    <div
-      data-testid="gen-ui-interrupt-unsupported"
-      className="flex min-h-screen w-full items-center justify-center bg-[#FAFAFC] px-6 py-12"
-    >
-      <div className="w-full max-w-xl rounded-2xl border border-[#DBDBE5] bg-white p-8 shadow-[0_10px_40px_-20px_rgba(1,5,7,0.18)]">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#DBDBE5] bg-[#FAFAFC] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
-          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#F2A2A2]" />
-          Not supported on Agno
-        </div>
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-[#010507]">
-          Gen UI Interrupt
-        </h1>
-        <p className="mb-4 text-sm leading-relaxed text-[#3A3A46]">
-          This demo relies on a graph-level <code>interrupt()</code> primitive
-          (LangGraph) that pauses a run mid-execution and resumes it with a
-          client-supplied value. Agno does not currently expose an equivalent
-          primitive, so the demo is documented but not runnable on this
-          integration.
-        </p>
-        <p className="mb-6 text-sm leading-relaxed text-[#3A3A46]">
-          The closest Agno-supported pattern for blocking on user input is{" "}
-          <Link
-            href="/demos/hitl-in-chat"
-            className="font-medium text-[#6366F1] underline-offset-2 hover:underline"
-          >
-            in-chat human-in-the-loop
-          </Link>{" "}
-          via <code>useHumanInTheLoop</code>, which renders a card inside the
-          chat and waits for the user to confirm before the agent proceeds.
-        </p>
-        <div className="text-xs text-[#57575B]">
-          See the canonical implementation in{" "}
-          <code>
-            showcase/integrations/langgraph-python/src/app/demos/gen-ui-interrupt
-          </code>
-          .
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
         </div>
       </div>
-    </div>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  useGenUiInterruptSuggestions();
+
+  // This framework has no LangGraph-style `interrupt()` primitive, so the
+  // LangGraph showcase's `useInterrupt({ renderInChat: true })` hook is
+  // silently dead here — it listens for AG-UI `interrupt` events that this
+  // backend never emits, leaving the chat stuck on the "[Scheduling...]"
+  // tool-call placeholder.
+  //
+  // The backend instead exposes `schedule_meeting` as a tool the model is
+  // instructed to call (Strategy B); the frontend registers a matching
+  // `useHumanInTheLoop` here, renders the picker inline, and resolves the
+  // call via `respond(...)`. UX matches LGP's interrupt-rendered card; the
+  // mechanism differs.
+  useHumanInTheLoop({
+    agentId: "gen-ui-interrupt",
+    name: "schedule_meeting",
+    description:
+      "Ask the user to pick a meeting time. The picker renders inline in " +
+      "the chat; the chosen slot is returned to the agent so it can confirm.",
+    parameters: z.object({
+      topic: z
+        .string()
+        .describe("What the meeting is about (e.g. 'Intro with sales')"),
+      attendee: z
+        .string()
+        .optional()
+        .describe("Who the meeting is with (e.g. 'Alice')"),
+    }),
+    render: ({ args, respond }: any) => {
+      // `TimePickerCard` here is the gen-ui-interrupt-specific variant
+      // (under `_components/`) that gates buttons on its own internal
+      // `picked`/`cancelled` state — it doesn't take a `status` prop like
+      // the hitl-in-chat version. That's fine: the buttons stay clickable
+      // until the user makes a choice and `respond(...)` resolves the
+      // tool call.
+      const topic = (args?.topic as string | undefined) ?? "a call";
+      const attendee = args?.attendee as string | undefined;
+      const slots = generateFallbackSlots();
+      return (
+        <TimePickerCard
+          topic={topic}
+          attendee={attendee}
+          slots={slots}
+          onSubmit={(result) => respond?.(result)}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-useinterrupt-render]
+
+  return (
+    <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />
   );
 }

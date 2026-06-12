@@ -40,12 +40,39 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // production parser walks the source file with the TypeScript API; pointing at
 // dist/graph.js still works because the parser reads whatever path we hand it,
 // but the runtime import lives in the same location so no tsx is required.
+// IMPORTANT: This must stay in sync with langgraph.json. Every graph
+// the Next.js API routes reference must be registered here, otherwise the
+// LangGraph server returns 404 on /runs/stream and the runtime surfaces
+// net::ERR_ABORTED to the browser.
 const graphSpec = {
   starterAgent: "./graph.ts:graph",
-  shared_state_read_write: "./shared-state-read-write.ts:graph",
-  subagents: "./subagents.ts:graph",
+  beautiful_chat: "./beautiful-chat.ts:graph",
+  headless_complete: "./headless-complete.ts:graph",
+  multimodal: "./multimodal.ts:graph",
+  agent_config_agent: "./agent-config.ts:graph",
+  "agentic-chat-reasoning": "./reasoning-agent.ts:graph",
+  "reasoning-default-render": "./reasoning-agent.ts:graph",
+  tool_rendering: "./tool-rendering.ts:graph",
+  "tool-rendering-default-catchall": "./tool-rendering.ts:graph",
+  "tool-rendering-custom-catchall": "./tool-rendering.ts:graph",
+  "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",
+  interrupt_agent: "./interrupt-agent.ts:graph",
+  a2ui_dynamic: "./a2ui-dynamic.ts:graph",
+  a2ui_fixed: "./a2ui-fixed.ts:graph",
+  mcp_apps: "./mcp-apps.ts:graph",
+  frontend_tools: "./frontend-tools.ts:graph",
+  frontend_tools_async: "./frontend-tools-async.ts:graph",
   hitl_in_app: "./hitl-in-app.ts:graph",
   hitl_in_chat: "./hitl-in-chat.ts:graph",
+  readonly_state_agent_context: "./readonly-state.ts:graph",
+  byoc_hashbrown: "./byoc-hashbrown.ts:graph",
+  byoc_json_render: "./byoc-json-render.ts:graph",
+  open_gen_ui: "./open-gen-ui.ts:graph",
+  open_gen_ui_advanced: "./open-gen-ui-advanced.ts:graph",
+  shared_state_read_write: "./shared-state-read-write.ts:graph",
+  shared_state_streaming: "./shared-state-streaming.ts:graph",
+  subagents: "./subagents.ts:graph",
+  gen_ui_agent: "./gen-ui-agent.ts:graph",
 };
 
 // Pre-warm schema cache before we accept traffic. This is what the official

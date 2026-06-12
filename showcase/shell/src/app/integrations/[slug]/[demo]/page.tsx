@@ -8,6 +8,8 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Demo, Integration } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import { resolveBackendUrl } from "@/lib/backend-url";
 
 type Tab = "preview" | "code" | "docs";
 
@@ -62,10 +64,14 @@ export default function DemoViewerPage() {
   }
 
   // Command-only demos (e.g. `langgraph-python::cli-start`) have no
-  // `route`, so there's no iframe URL to build. Surface that explicitly
-  // rather than rendering `${backend_url}undefined`.
+  // `route`, so iframeSrc stays null and the preview tab shows the CLI
+  // instructions instead of an iframe. For demos with a route, the
+  // backend host is derived at request time from the injected runtime
+  // config's host pattern — never the build-baked registry backend_url
+  // (see preview/page.tsx for rationale). This line only runs
+  // post-hydration, so the injected runtime config is present.
   const iframeSrc = demo.route
-    ? `${integration.backend_url}${demo.route}`
+    ? `${resolveBackendUrl(integration.slug, getRuntimeConfig().backendHostPattern)}${demo.route}`
     : null;
 
   const tabs: { id: Tab; label: string }[] = [
@@ -115,7 +121,7 @@ export default function DemoViewerPage() {
               src={iframeSrc}
               className="h-full w-full border-0 rounded-xl"
               title={`${demo.name} demo`}
-              allow="clipboard-read; clipboard-write"
+              allow="clipboard-read; clipboard-write; microphone"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           ) : (

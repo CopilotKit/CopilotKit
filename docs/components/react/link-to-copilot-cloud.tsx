@@ -23,7 +23,7 @@ export function LinkToCopilotCloud({
   }, []);
 
   // Build base URL without PostHog session ID to avoid hydration issues
-  const baseUrl = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
+  const baseUrl = new URL(`https://dashboard.operations.copilotkit.ai/sign-in`);
   baseUrl.searchParams.set("ref", "docs");
 
   if (subPath) {

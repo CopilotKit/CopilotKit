@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / hitl-in-chat",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": true,
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    }
+  ]
+}

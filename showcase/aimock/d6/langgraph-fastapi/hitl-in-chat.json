@@ -1,0 +1,146 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-fastapi / hitl-in-chat",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_sales_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_alice_001"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Schedule 1:1 with Alice — tool-emit fallback for multi-pill demo sessions. When this pill is clicked AFTER the Book-intro pill, the thread already carries that pill's schedule_meeting tool result, so hasToolResult is true and the hasToolResult:false fixture above is skipped → strict 503. This fixture drops the hasToolResult gate; the toolName gate still scopes it to the interrupt pills, and the toolCallId follow-up fixture above (last message = Alice tool result) still wins on the Alice follow-up turn, so emitting schedule_meeting here cannot loop.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_alice_001"
+          }
+        ]
+      }
+    }
+  ]
+}

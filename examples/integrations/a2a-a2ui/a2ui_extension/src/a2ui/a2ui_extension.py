@@ -31,6 +31,7 @@ INLINE_CATALOGS_KEY = "inlineCatalogs"
 
 STANDARD_CATALOG_ID = "https://raw.githubusercontent.com/google/A2UI/refs/heads/main/specification/0.8/json/standard_catalog_definition.json"
 
+
 def create_a2ui_part(a2ui_data: dict[str, Any]) -> Part:
     """Creates an A2A Part containing A2UI data.
 

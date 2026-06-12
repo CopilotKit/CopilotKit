@@ -2,15 +2,17 @@
 /**
  * DepthChip — colored chip showing achieved depth D0-D6.
  *
- * Color mapping:
- *   D5-D6 = emerald — deep multi-turn e2e + parity coverage
- *   D3-D4 = blue (accent) — meaningful e2e + interaction coverage
- *   D1-D2 = amber — basic health and agent checks
- *   D0    = gray — exists but no live probe data
+ * Color mapping (relative to max achievable depth):
+ *   depth >= maxDepth = emerald (green) — at ceiling for this cell
+ *   1-2 below max     = amber — close but not at ceiling
+ *   3+ below max      = red — significantly below ceiling
+ *   D0                = gray — exists but no live probe data
  *   unshipped = transparent + dashed border, displays "--"
  *   unsupported = slate border + slate fill, displays "🚫"
  *                 (architectural limit — framework cannot support feature)
  *   regression = red (danger)
+ *
+ * Fallback (no maxDepth): D4+ green, D2-D3 amber, D0-D1 red.
  */
 
 export interface DepthChipProps {
@@ -18,30 +20,138 @@ export interface DepthChipProps {
   status: "wired" | "stub" | "unshipped" | "unsupported";
   /** When true, chip renders in red regardless of depth. */
   regression?: boolean;
+  /**
+   * Maximum achievable depth for this cell. When provided, the chip turns
+   * green when `depth >= maxDepth` (i.e. at ceiling), amber when 1-2 levels
+   * below, and red when 3+ levels below. This lets cells whose probes only
+   * go to D4 show green at D4 instead of the old hardcoded amber.
+   */
+  maxDepth?: number;
+  /**
+   * Pre-computed color override. When provided, bypasses the internal
+   * `depthColorClass()` derivation entirely. Useful when the caller has
+   * already determined the correct color (e.g. green when achieved == ceiling).
+   */
+  chipColor?: "green" | "amber" | "red" | "gray";
+  /**
+   * Pool COMMUNICATION error (REQ-B). When set, the chip renders a DISTINCT
+   * "couldn't reach the pool" treatment — a purple/indigo fill with a "⚡"
+   * glyph — that is visually unlike green/amber/red/gray, so an operator can
+   * tell "the pool was unreachable" apart from "the test went red". The
+   * underlying depth/colour is intentionally suppressed in favour of the
+   * comm-error overlay; the descriptive tooltip is supplied via `commTooltip`.
+   */
+  unreachable?: boolean;
+  /**
+   * Pool RECLAIM-PENDING state (flap-band #70). When set, the job's lease
+   * lapsed and the control-plane RE-QUEUED it (back in flight). The sweep
+   * boundary cannot tell a real crash from an expected platform teardown, so
+   * this is NEUTRAL — a gray "⟳ pending" treatment, distinct from both the red
+   * `unreachable` overlay and a real probe colour, so a routine teardown never
+   * reads as a failure. `unreachable` takes precedence when both are set.
+   */
+  pending?: boolean;
+  /** Tooltip text for the unreachable / pending treatment (names the kind). */
+  commTooltip?: string;
 }
 
-/** Background color class by depth tier. */
-function depthColorClass(depth: number, regression?: boolean): string {
+/**
+ * Background color class by depth tier.
+ *
+ * When `maxDepth` is supplied the color is relative: green at ceiling,
+ * amber within 2 levels, red otherwise. Without `maxDepth` the fallback
+ * heuristic is: D4+ green, D2-D3 amber, D0-D1 red.
+ */
+export function depthColorClass(
+  depth: number,
+  regression?: boolean,
+  maxDepth?: number,
+): string {
   if (regression) {
     return "bg-[var(--danger)] text-white";
   }
-  switch (depth) {
-    case 5:
-    case 6:
+  if (depth === 0) {
+    return "bg-[var(--text-muted)]/20 text-[var(--text-muted)]";
+  }
+  if (maxDepth !== undefined) {
+    if (depth >= maxDepth) return "bg-emerald-600 text-white";
+    if (maxDepth - depth <= 2) return "bg-[var(--amber)] text-white";
+    return "bg-[var(--danger)] text-white";
+  }
+  // Fallback when maxDepth unknown
+  if (depth >= 4) return "bg-emerald-600 text-white";
+  if (depth >= 2) return "bg-[var(--amber)] text-white";
+  return "bg-[var(--danger)] text-white";
+}
+
+/**
+ * Map a pre-computed chip color to the corresponding CSS class string.
+ * Regression always wins (renders danger red).
+ */
+export function chipColorToClass(
+  color: "green" | "amber" | "red" | "gray",
+  regression?: boolean,
+): string {
+  if (regression) return "bg-[var(--danger)] text-white";
+  switch (color) {
+    case "green":
       return "bg-emerald-600 text-white";
-    case 3:
-    case 4:
-      return "bg-[var(--accent)] text-white";
-    case 1:
-    case 2:
+    case "amber":
       return "bg-[var(--amber)] text-white";
-    case 0:
-    default:
+    case "red":
+      return "bg-[var(--danger)] text-white";
+    case "gray":
       return "bg-[var(--text-muted)]/20 text-[var(--text-muted)]";
   }
 }
 
-export function DepthChip({ depth, status, regression }: DepthChipProps) {
+export function DepthChip({
+  depth,
+  status,
+  regression,
+  maxDepth,
+  chipColor,
+  unreachable,
+  pending,
+  commTooltip,
+}: DepthChipProps) {
+  // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
+  // a "couldn't reach the pool" state must never be mistaken for a red test.
+  // A distinct indigo fill + ⚡ glyph, resolved BEFORE the unshipped/unsupported
+  // branches so an unreachable cell is always loud.
+  if (unreachable) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="unreachable"
+        data-surface-state="unreachable"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-indigo-400/60 bg-indigo-500/20 text-indigo-300"
+        title={commTooltip ?? "pool unreachable — comm error"}
+      >
+        ⚡
+      </span>
+    );
+  }
+
+  // Reclaim-pending overlay (flap-band #70): the job's lease lapsed and was
+  // re-queued (back in flight). NEUTRAL — a gray fill + ⟳ glyph, distinct from
+  // the red `unreachable` overlay above, so an expected platform teardown never
+  // flaps the service red. Resolved before unshipped/unsupported so it always
+  // shows, but AFTER `unreachable` (a known crash outranks an ambiguous reclaim).
+  if (pending) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="pending"
+        data-surface-state="pending"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-[var(--text-muted)]/40 bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
+        title={commTooltip ?? "re-queued — pending re-run"}
+      >
+        ⟳
+      </span>
+    );
+  }
+
   if (status === "unshipped") {
     return (
       <span
@@ -71,7 +181,9 @@ export function DepthChip({ depth, status, regression }: DepthChipProps) {
     );
   }
 
-  const colorClass = depthColorClass(depth, regression);
+  const colorClass = chipColor
+    ? chipColorToClass(chipColor, regression)
+    : depthColorClass(depth, regression, maxDepth);
 
   return (
     <span

@@ -7,7 +7,7 @@
 # declared in the service's registry entry. One chromium per tick fans
 # out serially across all demos of all in-scope services.
 #
-# Rows emitted per driver invocation (see e2e-demos.ts):
+# Rows emitted per driver invocation (see e2e-readiness.ts):
 #   - Primary `e2e-demos:<slug>`           ProbeResult carrying the
 #                                          aggregate { total, passed,
 #                                          failed[], shape, backendUrl }
@@ -41,7 +41,7 @@
 # ── timeout_ms: 1_200_000 (20 min) ─────────────────────────────────────
 #
 # Outer driver-invocation cap. The driver subdivides internally with a
-# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — the
+# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-readiness.ts) — the
 # largest 38-demo service could exceed 15 min on cold starts, so the
 # outer cap is set to 20 min. The driver's internal hard-cap is
 # threaded from this YAML value at orchestrator boot (see
@@ -53,7 +53,7 @@
 # When the cap fires inside the driver, the driver itself iterates the
 # remaining demos and side-emits `errorClass: "abort"` /
 # `errorDesc: "timeout after 1200000ms"` rows for each — the per-demo
-# fan-out loop in `e2e-demos.ts` checks `abort.signal.aborted` at the
+# fan-out loop in `e2e-readiness.ts` checks `abort.signal.aborted` at the
 # top of every iteration and writes a red side-row before continuing
 # to the next demo. The dashboard keeps rendering red dots rather
 # than going gray, which is the right signal for operator triage
@@ -118,6 +118,13 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
+      # Harness service for .NET integration testing — not a demo service,
+      # deployed: true in manifest, but NOT probe-wired yet: no aimock fixtures
+      # and it shares the ms-agent-dotnet AsyncLocal bug. Excluded from every
+      # probe AND not rendered on the dashboard (see baseline-types.ts) so an
+      # unprobed service never shows stale red. Remove this exclusion only once
+      # it is fully probe-wired (aimock fixtures + the AsyncLocal fix).
+      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno

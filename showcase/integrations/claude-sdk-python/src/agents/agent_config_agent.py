@@ -51,9 +51,9 @@ def read_properties(forwarded_props: Any) -> dict[str, str]:
     # Prefer the nested shape (mirrors the langgraph-python convention
     # the dedicated route repacks into) but fall back to top-level keys
     # so the demo still works if a caller forwards properties directly.
-    nested = (
-        (forwarded_props.get("config") or {}).get("configurable") or {}
-    ).get("properties") or {}
+    nested = ((forwarded_props.get("config") or {}).get("configurable") or {}).get(
+        "properties"
+    ) or {}
     props = nested if isinstance(nested, dict) and nested else forwarded_props
 
     tone = props.get("tone", DEFAULT_TONE)
@@ -77,9 +77,7 @@ def read_properties(forwarded_props: Any) -> dict[str, str]:
 def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
     """Compose the system prompt from the three axes."""
     tone_rules = {
-        "professional": (
-            "Use neutral, precise language. No emoji. Short sentences."
-        ),
+        "professional": ("Use neutral, precise language. No emoji. Short sentences."),
         "casual": (
             "Use friendly, conversational language. Contractions OK. "
             "Light humor welcome."
@@ -93,15 +91,11 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
         "intermediate": (
             "Assume common terms are understood; explain specialized terms."
         ),
-        "expert": (
-            "Assume technical fluency. Use precise terminology. Skip basics."
-        ),
+        "expert": ("Assume technical fluency. Use precise terminology. Skip basics."),
     }
     length_rules = {
         "concise": "Respond in 1-3 sentences.",
-        "detailed": (
-            "Respond in multiple paragraphs with examples where relevant."
-        ),
+        "detailed": ("Respond in multiple paragraphs with examples where relevant."),
     }
     return (
         "You are a helpful assistant.\n\n"

@@ -1,8 +1,8 @@
 # Stage 1: Build Next.js frontend (mastra runs in-process inside Next.js)
 FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY . .
 # shared-tools/ is a symlink to ../../shared/typescript/tools — resolved at
 # build time by CI which copies the target into the build context. The

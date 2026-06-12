@@ -8,11 +8,12 @@ import React, {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
-import {
+import type {
   ActivityMessage,
   AssistantMessage,
   Message,
@@ -22,9 +23,14 @@ import {
 } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
-import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+import {
+  IntelligenceIndicator,
+  getIntelligenceTurnAnchors,
+} from "../intelligence-indicator";
+import type { IntelligenceIndicatorView } from "../intelligence-indicator";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -351,6 +357,7 @@ export type CopilotChatMessageViewProps = Omit<
       userMessage: typeof CopilotChatUserMessage;
       reasoningMessage: typeof CopilotChatReasoningMessage;
       cursor: typeof CopilotChatMessageView.Cursor;
+      intelligenceIndicator: typeof IntelligenceIndicatorView;
     },
     {
       isRunning?: boolean;
@@ -378,6 +385,7 @@ export function CopilotChatMessageView({
   userMessage,
   reasoningMessage,
   cursor,
+  intelligenceIndicator,
   isRunning = false,
   children,
   className,
@@ -392,18 +400,14 @@ export function CopilotChatMessageView({
   // Subscribe to state changes so custom message renderers re-render when state updates.
   useEffect(() => {
     if (!config?.agentId) return;
-    const registryAgent = copilotkit.getAgent(config.agentId);
-    // Prefer the per-thread clone so that state changes from the running agent
-    // (which is the clone, not the registry) trigger re-renders.
-    const agent =
-      getThreadClone(registryAgent, config.threadId) ?? registryAgent;
+    const agent = copilotkit.getAgent(config.agentId);
     if (!agent) return;
 
     const subscription = agent.subscribe({
       onStateChanged: forceUpdate,
     });
     return () => subscription.unsubscribe();
-  }, [config?.agentId, config?.threadId, copilotkit, forceUpdate]);
+  }, [config?.agentId, copilotkit, forceUpdate]);
 
   // Subscribe to interrupt element changes for in-chat rendering.
   const [interruptElement, setInterruptElement] =
@@ -536,6 +540,17 @@ export function CopilotChatMessageView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldVirtualize, firstMessageId]);
 
+  // Map each Intelligence-using turn's anchor message → stable turn id. One
+  // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
+  // moves with the anchor without remounting. `getIntelligenceTurnAnchors`
+  // only yields anchors for turns that invoked the knowledge-base tool, so
+  // non-Intelligence turns naturally produce an empty map (and the indicator
+  // itself also hard-gates on intelligence mode).
+  const intelligenceTurnAnchors = useMemo(
+    () => getIntelligenceTurnAnchors(deduplicatedMessages),
+    [deduplicatedMessages],
+  );
+
   // ---------------------------------------------------------------------------
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
@@ -604,6 +619,23 @@ export function CopilotChatMessageView({
           position="after"
           renderCustomMessage={renderCustomMessage}
           stateSnapshot={stateSnapshot}
+        />,
+      );
+    }
+
+    // Auto-mount the IntelligenceIndicator once per Intelligence-using turn,
+    // at that turn's anchor message (its first bash-using assistant), keyed by
+    // the stable turn id. Keying by turn (not message) means the indicator
+    // moves with the anchor across a hand-off without remounting, and past
+    // turns keep their own indicator.
+    const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
+    if (intelligenceTurnId !== undefined) {
+      elements.push(
+        <IntelligenceIndicator
+          key={`intelligence-${intelligenceTurnId}`}
+          message={message}
+          agentId={config?.agentId ?? DEFAULT_AGENT_ID}
+          intelligenceIndicator={intelligenceIndicator}
         />,
       );
     }

@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { z } from "zod";
+import type { AbstractAgent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
   MockReconnectableAgent,
@@ -17,9 +18,7 @@ import {
   CopilotKitProvider,
   useCopilotKit,
 } from "../../../providers";
-import type { AbstractAgent } from "@ag-ui/client";
 import { IntelligenceAgent } from "@copilotkit/core";
-import { getThreadClone } from "../../../hooks/use-agent";
 import { createA2UIMessageRenderer } from "../../../a2ui/A2UIMessageRenderer";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 import { CopilotChat } from "..";
@@ -306,18 +305,28 @@ describe("CopilotChat activity message rendering", () => {
     expect(capturedCopilotkit).toBeDefined();
   });
 
-  it("passes the per-thread clone (not the registry agent) to activity message renderers", async () => {
-    // Regression test for: A2UI button clicks firing runAgent on the registry
-    // agent instead of the per-thread clone that CopilotChat renders from.
-    // Caused by useRenderActivityMessage calling copilotkit.getAgent() directly
-    // instead of getThreadClone(registryAgent, threadId) ?? registryAgent.
-    const agent = new MockStepwiseAgent();
-    const agentId = "action-agent";
-    agent.agentId = agentId;
-    const threadId = "thread-for-action-test";
+  it("activity renderers receive the agent under the config agentId, not any other registered agent", async () => {
+    // Regression: the renderer's `agent` prop must come from
+    // `copilotkit.getAgent(config.agentId)` — the local registry id from
+    // CopilotChatConfigurationProvider — not from any other agent in the
+    // registry (e.g. a sibling chat's agent).
+    //
+    // The trap this catches is a refactor where the renderer pipeline keys
+    // on something other than `config.agentId` (e.g. for proxied
+    // registrations, accidentally keying on `proxy.runtimeAgentId`). The
+    // assertion shape — "two agents in the registry, the renderer must
+    // receive the one matching config.agentId" — is generic to that bug
+    // class. The proxy-routing-specific behavior (registering a
+    // ProxiedCopilotRuntimeAgent with `runtimeAgentId !== agentId` and
+    // verifying `getAgent(agentId)` returns the proxy, not the agent at
+    // runtimeAgentId) is covered by `core-register-proxied-agent.test.ts`
+    // at the registry level.
+    const localAgent = new MockStepwiseAgent();
+    localAgent.agentId = "chat-1";
+    const otherAgent = new MockStepwiseAgent();
+    otherAgent.agentId = "default";
 
     let capturedAgent: AbstractAgent | undefined;
-
     const activityRenderer: ReactActivityMessageRenderer<{ label: string }> = {
       activityType: "button-action",
       content: z.object({ label: z.string() }),
@@ -328,9 +337,9 @@ describe("CopilotChat activity message rendering", () => {
     };
 
     renderWithCopilotKit({
-      agents: { [agentId]: agent },
-      agentId,
-      threadId,
+      agents: { "chat-1": localAgent, default: otherAgent },
+      agentId: "chat-1",
+      threadId: "thread-for-action-test",
       renderActivityMessages: [activityRenderer],
     });
 
@@ -342,27 +351,22 @@ describe("CopilotChat activity message rendering", () => {
       expect(screen.getByText("show me buttons")).toBeDefined();
     });
 
-    agent.emit(runStartedEvent());
-    agent.emit(
+    localAgent.emit(runStartedEvent());
+    localAgent.emit(
       activitySnapshotEvent({
         messageId: testId("activity-action"),
         activityType: "button-action",
         content: { label: "Click Me" },
       }),
     );
-    agent.emit(runFinishedEvent());
+    localAgent.emit(runFinishedEvent());
 
     await waitFor(() => {
       expect(screen.getByTestId("action-button")).toBeDefined();
     });
 
-    // CopilotChat creates a per-thread clone via useAgent. The activity renderer
-    // must receive that clone so that handleAction → runAgent targets the same
-    // instance chat is rendering from.
-    const clone = getThreadClone(agent, threadId);
-    expect(clone).toBeDefined();
-    expect(capturedAgent).toBe(clone);
-    expect(capturedAgent).not.toBe(agent); // must NOT be the registry agent
+    expect(capturedAgent).toBe(localAgent);
+    expect(capturedAgent).not.toBe(otherAgent);
   });
 
   it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {

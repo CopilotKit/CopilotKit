@@ -40,7 +40,7 @@ function Demo() {
         </p>
         <StepsPanel steps={steps} />
       </div>
-      <div>
+      <div data-testid="copilot-message-list">
         <CopilotChat />
       </div>
     </main>
@@ -56,11 +56,15 @@ function StepsPanel({ steps }: { steps: Step[] }) {
     );
   }
   return (
-    <div className="border rounded p-3">
+    <div data-testid="agent-state-card" className="border rounded p-3">
       <div className="font-medium mb-2">Plan</div>
       <ol className="space-y-1 text-sm">
         {steps.map((s, i) => (
-          <li key={i} className="flex items-center gap-2">
+          <li
+            key={i}
+            data-testid="agent-step"
+            className="flex items-center gap-2"
+          >
             <span className="w-4">
               {s.status === "done"
                 ? "✓"

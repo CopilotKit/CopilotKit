@@ -30,9 +30,18 @@ const byocHashbrownAgent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
+const agents: Record<string, LangGraphAgent> = {
+  "byoc-hashbrown-demo": byocHashbrownAgent,
+  // Internal components (headless-chat, example-canvas) call `useAgent()` with
+  // no args, which defaults to agentId "default". Alias to the same graph so
+  // those component hooks resolve instead of throwing "Agent 'default' not
+  // found".
+  default: byocHashbrownAgent,
+};
+
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { "byoc-hashbrown-demo": byocHashbrownAgent },
+  agents,
 });
 
 export const POST = async (req: NextRequest) => {

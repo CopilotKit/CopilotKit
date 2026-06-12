@@ -1,4 +1,10 @@
-import { openai } from "@ai-sdk/openai";
+// Header-forwarding shim: the ag-ui/mastra adapter does not propagate
+// inbound x-* headers (e.g. x-aimock-context) to the Vercel AI SDK provider.
+// `@/mastra/_header_forwarding` re-exports `openai` with a fetch wrapper
+// that merges ALS-bound headers into every outbound LLM call. The
+// CopilotKit route is responsible for binding the per-request snapshot via
+// `withForwardedHeaders(req, () => handleRequest(req))`.
+import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
 import {
   weatherTool,
@@ -10,6 +16,7 @@ import {
   searchFlightsTool,
   generateA2uiTool,
   setNotesTool,
+  setStepsTool,
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
@@ -96,17 +103,42 @@ export const SubagentsAgentState = z.object({
 });
 // @endregion[subagents-state-schema]
 
+// @region[gen-ui-agent-state-schema]
+/**
+ * Shared-state schema for the Gen UI Agent demo.
+ *
+ * `steps` is WRITTEN by the agent (via the `set_steps` tool) and READ by
+ * the UI via `useAgent({ updates: [OnStateChanged] })`. Mastra includes
+ * the `steps` field in its working-memory schema, so after each run-cycle
+ * the AG-UI adapter emits a `STATE_SNAPSHOT` and the UI re-renders the
+ * progress card.
+ *
+ * Status transitions: pending -> in_progress -> completed.
+ */
+export const GenUiAgentState = z.object({
+  steps: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        status: z.enum(["pending", "in_progress", "completed"]),
+      }),
+    )
+    .default([]),
+});
+// @endregion[gen-ui-agent-state-schema]
+
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: {
-    weatherTool,
-    queryDataTool,
-    manageSalesTodosTool,
-    getSalesTodosTool,
-    scheduleMeetingTool,
-    searchFlightsTool,
-    generateA2uiTool,
+    get_weather: weatherTool,
+    query_data: queryDataTool,
+    manage_sales_todos: manageSalesTodosTool,
+    get_sales_todos: getSalesTodosTool,
+    schedule_meeting: scheduleMeetingTool,
+    search_flights: searchFlightsTool,
+    generate_a2ui: generateA2uiTool,
   },
   model: openai("gpt-4o"),
   instructions: "You are a helpful assistant.",
@@ -219,6 +251,57 @@ The \`set_notes\` tool persists the notes to working memory itself — you do NO
 });
 // @endregion[shared-state-rw-agent]
 
+// @region[gen-ui-agent]
+/**
+ * Mastra agent backing the Gen UI Agent demo.
+ *
+ * Mirrors the LangGraph (python + typescript) gen-ui-agent reference: the
+ * agent plans a task as 3 steps and walks each pending -> in_progress ->
+ * completed, calling `set_steps` after every transition. The frontend
+ * subscribes to `state.steps` via `useAgent` (v2) and renders a live
+ * progress card.
+ *
+ * State-emission mechanism: same pattern as `sharedStateReadWriteAgent` —
+ * the `set_steps` tool writes the new steps array to working memory via
+ * `writeStepsToWorkingMemory`, and the AG-UI Mastra adapter emits a
+ * `STATE_SNAPSHOT` after each run-cycle. The working-memory schema below
+ * pins `steps` into the snapshot so the UI sees `agent.state.steps`.
+ *
+ * Recursion budget: the prompt drives one initial set_steps + two per step
+ * (in_progress + completed) = 7 tool calls + 1 final assistant message, so
+ * the Mastra agent's internal step loop sees ~8 LLM turns. Mastra's default
+ * is well above that, so we don't override it here.
+ */
+export const genUiAgent = new Agent({
+  id: "gen-ui-agent",
+  name: "Gen UI Agent",
+  tools: { setStepsTool },
+  model: openai("gpt-4o-mini"),
+  instructions: `You are an agentic planner. For each user request, follow this exact sequence:
+1. Plan exactly 3 concrete steps and call \`set_steps\` ONCE with all three steps at status="pending".
+2. Step 1: call \`set_steps\` with step 1 at status="in_progress", then call \`set_steps\` again with step 1 at status="completed".
+3. Step 2: call \`set_steps\` with step 2 at status="in_progress", then call \`set_steps\` again with step 2 at status="completed".
+4. Step 3: call \`set_steps\` with step 3 at status="in_progress", then call \`set_steps\` again with step 3 at status="completed".
+5. Send ONE final conversational assistant message summarizing the plan, then stop. Do not call any more tools after step 3 is completed.
+
+Rules: never call set_steps in parallel — always wait for one call to return before the next. Always pass the FULL list of steps (with their current statuses) to set_steps; never a diff. After all three steps are completed you MUST send a final assistant message and terminate.
+
+The \`set_steps\` tool persists the steps to working memory itself — you do NOT need to also call \`updateWorkingMemory\`. Just call \`set_steps\` and the UI will update.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "gen-ui-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: GenUiAgentState,
+      },
+    },
+  }),
+});
+// @endregion[gen-ui-agent]
+
 // @region[subagents-supervisor]
 /**
  * Mastra agent backing the Sub-Agents demo.
@@ -312,6 +395,89 @@ Do NOT call \`read_me\`, do NOT iterate, do NOT make multiple calls. Ship on the
   }),
 });
 
+// @region[byoc-hashbrown-agent]
+/**
+ * Mastra agent backing the byoc-hashbrown demo.
+ *
+ * The demo page wraps CopilotChat in the HashBrownDashboard provider and
+ * overrides the assistant message slot with a renderer that consumes
+ * hashbrown-shaped structured output via `@hashbrownai/react`'s `useUiKit`
+ * + `useJsonParser`.
+ *
+ * The system prompt forces the model to emit a single JSON envelope
+ * `{ "ui": [ { <componentName>: { "props": { ... } } }, ... ] }` matching
+ * the schema consumed by `useSalesDashboardKit()` in the frontend renderer.
+ * Without this prompt the default weatherAgent produces plain text, which
+ * `useJsonParser` parses as `null` and the dashboard renders nothing.
+ */
+export const byocHashbrownAgent = new Agent({
+  id: "byoc-hashbrown-agent",
+  name: "BYOC Hashbrown Agent",
+  model: openai("gpt-4o-mini"),
+  instructions: `You are a sales analytics assistant that replies by emitting a single JSON
+object consumed by a streaming JSON parser on the frontend.
+
+ALWAYS respond with a single JSON object of the form:
+
+{
+  "ui": [
+    { <componentName>: { "props": { ... } } },
+    ...
+  ]
+}
+
+Do NOT wrap the response in code fences. Do NOT include any preface or
+explanation outside the JSON object. The response MUST be valid JSON.
+
+Available components and their prop schemas:
+
+- "metric": { "props": { "label": string, "value": string } }
+    A KPI card. \`value\` is a pre-formatted string like "$1.2M" or "248".
+
+- "pieChart": { "props": { "title": string, "data": string } }
+    A donut chart. \`data\` is a JSON-encoded STRING (embedded JSON) of an
+    array of {label, value} objects with at least 3 segments, e.g.
+    "data": "[{\\"label\\":\\"Enterprise\\",\\"value\\":600000}]".
+
+- "barChart": { "props": { "title": string, "data": string } }
+    A vertical bar chart. \`data\` is a JSON-encoded STRING of an array of
+    {label, value} objects with at least 3 bars, typically time-ordered.
+
+- "dealCard": { "props": { "title": string, "stage": string, "value": number } }
+    A single sales deal. \`stage\` MUST be one of: "prospect", "qualified",
+    "proposal", "negotiation", "closed-won", "closed-lost". \`value\` is a
+    raw number (no currency symbol or comma).
+
+- "Markdown": { "props": { "children": string } }
+    Short explanatory text. Use for section headings and brief summaries.
+    Standard markdown is supported in \`children\`.
+
+Rules:
+- Always produce plausible sample data when the user asks for a dashboard or
+  chart — do not refuse for lack of data.
+- Prefer 3-6 rows of data in charts; keep labels short.
+- Use "Markdown" for short headings or linking sentences between visual
+  components. Do not emit long prose.
+- Do not emit components that are not listed above.
+- \`data\` props on charts MUST be a JSON STRING — escape inner quotes.
+
+Example response (sales dashboard):
+{"ui":[{"Markdown":{"props":{"children":"## Q4 Sales Summary"}}},{"metric":{"props":{"label":"Total Revenue","value":"$1.2M"}}},{"metric":{"props":{"label":"New Customers","value":"248"}}},{"pieChart":{"props":{"title":"Revenue by Segment","data":"[{\\"label\\":\\"Enterprise\\",\\"value\\":600000},{\\"label\\":\\"SMB\\",\\"value\\":400000},{\\"label\\":\\"Startup\\",\\"value\\":200000}]"}}},{"barChart":{"props":{"title":"Monthly Revenue","data":"[{\\"label\\":\\"Oct\\",\\"value\\":350000},{\\"label\\":\\"Nov\\",\\"value\\":400000},{\\"label\\":\\"Dec\\",\\"value\\":450000}]"}}}]}`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "byoc-hashbrown-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[byoc-hashbrown-agent]
+
 /**
  * Vision-capable Mastra agent backing the Multimodal Attachments demo.
  *
@@ -321,6 +487,49 @@ Do NOT call \`read_me\`, do NOT iterate, do NOT make multiple calls. Ship on the
  * route) so the vision-tier cost is scoped to exactly the cell that
  * exercises it.
  */
+// @region[backend-interrupt-tool]
+// @region[interrupt-agent]
+/**
+ * Scheduling agent for the interrupt-adapted demos (gen-ui-interrupt,
+ * interrupt-headless).
+ *
+ * This agent powers the "Strategy B" adaptation of the LangGraph interrupt
+ * demos. LangGraph has a native `interrupt()` primitive with
+ * checkpoint/resume; Mastra does not. Instead, we register a frontend tool
+ * (`schedule_meeting`) via `useFrontendTool` with an async handler. The
+ * handler returns a Promise that only resolves once the user picks a time
+ * slot (or cancels), producing the same UX as `interrupt()`.
+ *
+ * The agent defines NO backend tools — `schedule_meeting` is satisfied
+ * entirely by the frontend. The system prompt directs the model to always
+ * call `schedule_meeting` when asked to book/schedule.
+ */
+export const interruptAgent = new Agent({
+  id: "interrupt-agent",
+  name: "Interrupt Agent",
+  tools: {},
+  model: openai("gpt-4o-mini"),
+  instructions: `You are a scheduling assistant. Whenever the user asks you to book a call or schedule a meeting, you MUST call the \`schedule_meeting\` tool. Pass a short \`topic\` describing the purpose of the meeting and, if known, an \`attendee\` describing who the meeting is with.
+
+The \`schedule_meeting\` tool is implemented on the client: it surfaces a time-picker UI to the user and returns the user's selection. After the tool returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
+
+Keep responses short and friendly. After you finish executing tools, always send a brief final assistant message summarizing what happened so the message persists.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "interrupt-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[interrupt-agent]
+// @endregion[backend-interrupt-tool]
+
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
   name: "Multimodal Agent",

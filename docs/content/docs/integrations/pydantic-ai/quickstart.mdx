@@ -40,18 +40,21 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your starting point</p>
-                <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Pydantic AI agent.
-                </p>
-            </div>
-        }
-    >
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_pydantic_ai_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing Pydantic AI agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
         <TailoredContentOption
             id="starter"
             title="Start from scratch"
@@ -61,8 +64,14 @@ Before you begin, you'll need the following:
                 ### Run our CLI
 
                 ```bash
-                npx copilotkit@latest create -f pydantic-ai
+                npx copilotkit@latest create
                 ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
+                - **Framework** — pick **Pydantic AI** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -311,6 +320,7 @@ Before you begin, you'll need the following:
             </Step>
         </TailoredContentOption>
     </TailoredContent>
+    </Step>
     <Step>
         ### 🎉 Start chatting!
 
@@ -370,3 +380,4 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+

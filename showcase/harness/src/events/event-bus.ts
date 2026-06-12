@@ -43,10 +43,16 @@ export interface DeployResultEvent {
  * structural errors (schema mismatch, bad credentials) — the former is
  * noise, the latter is an actionable ops signal.
  *
- * - `pb_auth_error`    — 401/403 from PocketBase; creds bad or token revoked.
+ * - `pb_auth_error`    — 401 from PocketBase; creds bad or token revoked.
  * - `pb_schema_error`  — 400 validation / missing column; schema drift.
- * - `pb_permission`    — 403 rule-level reject that isn't auth.
+ * - `pb_permission`    — 403 rule-level reject. Round-9 #7: the classifier
+ *                        (status-writer.ts classifyWriterError) routes ALL
+ *                        403s here and only 401s to `pb_auth_error` — the
+ *                        old "401/403 → auth, non-auth 403 → permission"
+ *                        wording described a split the code never made.
  * - `pb_rate_limited`  — 429 after exhausting retries; transient.
+ * - `pb_not_found`     — 404; the target row vanished (e.g. deleted between
+ *                        a read and a field-scoped update — TOCTOU, A3).
  * - `pb_server_error`  — 5xx; transient unless sustained.
  * - `network_error`    — fetch threw (ECONN, AbortError, DNS).
  * - `unknown`          — couldn't classify.
@@ -56,6 +62,7 @@ export type WriterFailureReason =
   | "pb_schema_error"
   | "pb_permission"
   | "pb_rate_limited"
+  | "pb_not_found"
   | "pb_server_error"
   | "network_error"
   | "unknown";

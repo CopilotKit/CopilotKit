@@ -1,5 +1,5 @@
 # Docker Compose stack for e2e smoke testing with aimock.
-# Mirrors the user experience: Next.js frontend + FastAPI agent + aimock as LLM.
+# Mirrors the user experience: Next.js frontend + langgraph dev agent + aimock as LLM.
 # Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
@@ -16,7 +16,6 @@ services:
     environment:
       - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1
-      - PORT=8123
     depends_on:
       aimock:
         condition: service_started
@@ -26,7 +25,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import socket; socket.create_connection(('localhost', 8123), 2)",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8123/health')",
         ]
       interval: 5s
       timeout: 5s
@@ -38,7 +37,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.app
     environment:
-      - AGENT_URL=http://agent:8123
+      - LANGGRAPH_DEPLOYMENT_URL=http://agent:8123
     depends_on:
       agent:
         condition: service_healthy
@@ -62,7 +61,7 @@ services:
       - ../../../showcase/tests:/tests
       - test-results:/tests/test-results
     environment:
-      - STARTER=${STARTER:-langgraph-fastapi}
+      - STARTER=${STARTER:-langgraph-python}
       - STARTER_URL=http://app:3000
     depends_on:
       app:

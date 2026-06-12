@@ -1,0 +1,160 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / frontend-tools-async",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "auth check turn 1",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Authenticated session is active. The runtime accepted your request because the Authorization header carried the demo bearer token."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fetch the async metric",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The async tool resolved with the requested metric. The frontend handler awaited completion before forwarding the result back to the agent — async-streaming behavior confirmed."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id. Comes BEFORE the tool-emitting fixture so iteration 2 (after the async handler returns) hits this branch instead of re-emitting query_notes. hasToolResult gates were dropped because they broke after the user clicked another tool-using pill earlier in the same thread.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "toolCallId": "call_d5_query_notes_project_planning_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "project-planning pill — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the `call_d5_query_notes_project_planning_001` toolCallId chain above never matches the follow-up turn. Anchored on hasToolResult:true so it only fires AFTER query_notes has run (no tool-emit loop) and never swallows the first turn. Must precede the turnIndex:0 tool-emit fixture below.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "project-planning pill — first-turn tool-emit fallback for multi-pill demo sessions where a PRIOR pill already left an assistant message in the thread, so turnIndex is not 0 and the fixture above is skipped. Anchored on hasToolResult:false so it only emits query_notes BEFORE any tool has run; the hasToolResult:true content fixture above handles the follow-up turn, so no loop.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "toolCallId": "call_d5_query_notes_auth_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill, follow-up content keyed on the prior tool's id. Must come BEFORE the tool-emitting fixture. Locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "toolCallId": "call_d5_query_notes_reading_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "project planning",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "I searched your notes and found a few results.",
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": {
+              "keyword": "project planning"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

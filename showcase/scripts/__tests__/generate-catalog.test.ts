@@ -60,6 +60,7 @@ describe("Catalog Generator", () => {
 
     // metadata must have exactly the CatalogMetadata keys
     expect(Object.keys(catalog.metadata).sort()).toEqual([
+      "docs_only",
       "generated_at",
       "reference",
       "stub",
@@ -94,7 +95,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 737 cells (720 integrated + 17 starters)", () => {
+  it("cross-join produces 874 cells (46 features x 19 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -108,13 +109,22 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    expect(integrated.length).toBe(720); // 40 features x 18 integrations
+    // 46 features × 19 integrations = 874 cells. The catalog emits cells
+    // uniformly for all (integration × feature) pairs; deprecated-feature
+    // visibility is controlled at the dashboard layer via the "Show
+    // deprecated" toggle in feature-grid.tsx so the catalog stays
+    // shape-stable. The 46 includes 2 byoc legacy IDs (`byoc-hashbrown`,
+    // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
+    // that langgraph-python uses for the visible URL slugs.
+    expect(integrated.length).toBe(874);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(720);
-    expect(catalog.metadata.total_cells).toBe(720);
+    expect(catalog.cells.length).toBe(874);
+    // total_cells excludes docs-only features (currently 1 feature x 19 integrations = 19)
+    expect(catalog.metadata.total_cells).toBe(855);
+    expect(catalog.metadata.docs_only).toBe(19);
   });
 
-  it("LGP has 40 cells: 37 wired + 1 stub + 2 unshipped", () => {
+  it("LGP has 46 cells: 36 wired + 1 stub + 7 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -123,16 +133,32 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    expect(lgpCells.length).toBe(40); // One cell per feature
+    // 46 = 37 LGP-declared features + 2 quarantined interrupt features
+    // (gen-ui-interrupt / interrupt-headless, now in
+    // `not_supported_features`) + 4 deprecated features + 2 legacy
+    // `byoc-*` aliases (LGP declares `declarative-{hashbrown,json-render}`
+    // for the visible URL slugs while every other integration still
+    // declares the legacy `byoc-*` IDs; the catalog emits cells for both
+    // since both are in the registry, and the LGP cells for the legacy
+    // IDs are `unshipped` because LGP's manifest only declares the
+    // renamed form) + 1 unshipped for `threadid-frontend-tool-roundtrip`
+    // (built-in-agent-only feature; LGP doesn't declare it). Dashboard's
+    // "Show deprecated" toggle hides deprecated rows by default.
+    expect(lgpCells.length).toBe(46);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
+    const unsupported = lgpCells.filter((c: any) => c.status === "unsupported");
 
-    // LGP has 40 features: 39 wired + 1 stub (cli-start) + 0 unshipped
-    expect(wired.length).toBe(39);
+    // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
+    // (both previously `wired`) into `not_supported_features`, so they now
+    // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
+    // unshipped rises 6 -> 7 with the addition of threadid-frontend-tool-roundtrip.
+    expect(wired.length).toBe(36);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(0);
+    expect(unshipped.length).toBe(7);
+    expect(unsupported.length).toBe(2);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -189,22 +215,32 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("metadata counts are correct", () => {
+  it("metadata counts are correct (docs-only excluded from breakdown)", () => {
     runGenerator();
     const catalog = readCatalog();
 
     expect(catalog.metadata).toBeDefined();
-    expect(catalog.metadata.total_cells).toBe(720);
+    // total_cells excludes docs-only features
+    expect(catalog.metadata.total_cells).toBe(855);
 
-    // 18 integrations x 40 features = 720 total cells (starters removed).
+    // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
       catalog.metadata.wired +
         catalog.metadata.stub +
         catalog.metadata.unshipped +
         catalog.metadata.unsupported,
-    ).toBe(720);
+    ).toBe(catalog.metadata.total_cells);
+    // docs_only + headline counts = total cells in the array
+    expect(
+      catalog.metadata.wired +
+        catalog.metadata.stub +
+        catalog.metadata.unshipped +
+        catalog.metadata.unsupported +
+        catalog.metadata.docs_only,
+    ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
+    expect(catalog.metadata.docs_only).toBe(19);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {
@@ -285,7 +321,7 @@ describe("Catalog Generator", () => {
     );
     expect(lgpAgenticChat).toBeDefined();
     expect(lgpAgenticChat.integration_name).toBe("LangGraph (Python)");
-    expect(lgpAgenticChat.feature_name).toBe("Pre-Built CopilotChat");
+    expect(lgpAgenticChat.feature_name).toBe("Pre-Built: CopilotChat");
     expect(lgpAgenticChat.category_name).toBe("Chat & UI");
 
     // All integrated cells must have non-null display names

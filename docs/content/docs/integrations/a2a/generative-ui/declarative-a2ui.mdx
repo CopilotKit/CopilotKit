@@ -58,11 +58,11 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       ...
       ---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
       [
-        {{ "beginRendering": {{ "surfaceId": "default", "root": "root-column", "styles": {{ "primaryColor": "#FF0000", "font": "Roboto" }} }} }},
-        {{ "surfaceUpdate": {{
+        {{ "createSurface": {{ "surfaceId": "default", "catalogId": "https://a2ui.org/specification/v0_9/basic_catalog.json", "styles": {{ "primaryColor": "#FF0000", "font": "Roboto" }} }} }},
+        {{ "updateComponents": {{
           "surfaceId": "default",
           "components": [
-            {{ "id": "root-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
+            {{ "id": "root", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
             {{ "id": "title-heading", "component": {{ "Text": {{ "usageHint": "h1", "text": {{ "literalString": "Top Restaurants" }} }} }} }},
             {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
             {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
@@ -77,7 +77,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
             {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
           ]
         }} }},
-        {{ "dataModelUpdate": {{
+        {{ "updateDataModel": {{
           "surfaceId": "default",
           "path": "/",
           "contents": [
@@ -109,9 +109,9 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
     Widgets are defined for the agent using examples of the json arrays they should output, wrapped in a comment block.
     - A comment indicating the start of the example
-    - beginRendering: The start of the widget's rendering
-    - surfaceUpdate: An example of the json structure for the widget
-    - dataModelUpdate: an example of the data that will be used to populate the widget
+    - createSurface: Initializes the surface with its catalog (and optional styles/theme). Must come first.
+    - updateComponents: The component tree for the widget. Exactly one component must have `id: "root"`.
+    - updateDataModel: The data used to populate the widget
     - A comment indicating the end of the example
 
     In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,

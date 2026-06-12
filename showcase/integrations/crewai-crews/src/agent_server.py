@@ -28,13 +28,25 @@ configure_aimock()
 # `_cached_flow` + `asyncio.Lock` inside `add_crewai_crew_fastapi_endpoint`.
 # Any LLM hiccup now surfaces as a 5xx on the first request instead of a
 # startup crash, which is the correct failure mode for a runtime outage and
-# is what the shim was reaching for. With the requirements.txt pin bumped to
-# `>=0.2.0,<0.3.0`, the shim is dead code and has been removed.
+# is what the shim was reaching for. With the ag-ui-crewai pin in
+# requirements.txt at the deferred-construction version, the shim is dead
+# code and has been removed.
 
 import asyncio
 import json
 import sys
 from typing import Any
+
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# (and before crewai / litellm / openai) imports. CrewAI / litellm
+# construct httpx clients per-call; this patch ensures every new client
+# auto-attaches the forwarded-header hook on construction.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
 
 from ag_ui_crewai.endpoint import (
     add_crewai_crew_fastapi_endpoint,
@@ -51,8 +63,12 @@ from agents.byoc_hashbrown_agent import ByocHashbrown
 from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
 from agents.mcp_apps_agent import MCPApps
+from agents.interrupt_crew import InterruptScheduling
+from agents.gen_ui_agent import gen_ui_agent_flow
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
+from agents.reasoning_agent import reasoning_app
+
 try:
     from agents.tool_rendering import tool_rendering_flow
 except ImportError:
@@ -99,12 +115,9 @@ class HealthMiddleware(BaseHTTPMiddleware):
 _AGENT_CONFIG_KEYS = ("tone", "expertise", "responseLength")
 
 _TONE_RULES = {
-    "professional": (
-        "Use neutral, precise language. No emoji. Short sentences."
-    ),
+    "professional": ("Use neutral, precise language. No emoji. Short sentences."),
     "casual": (
-        "Use friendly, conversational language. Contractions OK. "
-        "Light humor welcome."
+        "Use friendly, conversational language. Contractions OK. Light humor welcome."
     ),
     "enthusiastic": (
         "Use upbeat, energetic language. Exclamation points OK. Emoji OK."
@@ -112,18 +125,12 @@ _TONE_RULES = {
 }
 _EXPERTISE_RULES = {
     "beginner": "Assume no prior knowledge. Define jargon. Use analogies.",
-    "intermediate": (
-        "Assume common terms are understood; explain specialized terms."
-    ),
-    "expert": (
-        "Assume technical fluency. Use precise terminology. Skip basics."
-    ),
+    "intermediate": ("Assume common terms are understood; explain specialized terms."),
+    "expert": ("Assume technical fluency. Use precise terminology. Skip basics."),
 }
 _LENGTH_RULES = {
     "concise": "Respond in 1-3 sentences.",
-    "detailed": (
-        "Respond in multiple paragraphs with examples where relevant."
-    ),
+    "detailed": ("Respond in multiple paragraphs with examples where relevant."),
 }
 
 
@@ -141,9 +148,7 @@ def _build_agent_config_guidance(
     expertise_rule = _EXPERTISE_RULES.get(
         str(expertise), _EXPERTISE_RULES["intermediate"]
     )
-    length_rule = _LENGTH_RULES.get(
-        str(response_length), _LENGTH_RULES["concise"]
-    )
+    length_rule = _LENGTH_RULES.get(str(response_length), _LENGTH_RULES["concise"])
     return (
         "Follow these style rules for your response to the user. "
         f"TONE: {tone_rule} "
@@ -334,9 +339,7 @@ class ForwardedPropsASGIMiddleware:
         # from `receive`, not from content-length, so this is safe and
         # avoids tripping any downstream length-validating layer.
         if new_raw is not raw:
-            new_headers = [
-                (k, v) for k, v in headers if k.lower() != b"content-length"
-            ]
+            new_headers = [(k, v) for k, v in headers if k.lower() != b"content-length"]
             new_headers.append((b"content-length", str(len(new_raw)).encode()))
             scope = dict(scope)
             scope["headers"] = new_headers
@@ -390,6 +393,12 @@ class ForwardedPropsASGIMiddleware:
 app.add_middleware(HealthMiddleware)
 app.add_middleware(ForwardedPropsASGIMiddleware)
 
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
+
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
 # (or :8123 inside a generated starter container) and is reached ONLY by the
@@ -428,8 +437,18 @@ add_crewai_flow_fastapi_endpoint(
     app, shared_state_read_write_flow, "/shared-state-read-write"
 )
 add_crewai_flow_fastapi_endpoint(app, subagents_flow, "/subagents")
+add_crewai_flow_fastapi_endpoint(app, gen_ui_agent_flow, "/gen-ui-agent")
 if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
+
+add_crewai_crew_fastapi_endpoint(app, InterruptScheduling(), "/interrupt-adapted")
+
+# Reasoning-aware route. CrewAI's stock ChatWithCrewFlow emits no
+# REASONING_MESSAGE_* events (and the litellm adapter drops the model's
+# reasoning_content channel), so the reasoning-custom / reasoning-default
+# cells use this custom sub-app instead. Mounted BEFORE the shared "/"
+# catch-all so its route is not shadowed. Mirrors ag2's /reasoning mount.
+app.mount("/reasoning", reasoning_app)
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 

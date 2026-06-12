@@ -19,8 +19,8 @@
 // external popup — equivalent UX, different mechanism.
 
 import React, { useRef, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
   useFrontendTool,

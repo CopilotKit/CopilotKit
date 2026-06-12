@@ -25,7 +25,7 @@
 - [ ] Verify the default ingredients are displayed:
   - [ ] Carrots (3 large, grated) with carrot emoji
   - [ ] All-Purpose Flour (2 cups) with wheat emoji
-- [ ] Verify the default instruction is displayed: "Preheat oven to 350 F"
+- [ ] Verify the default instruction is displayed: "Preheat oven to 350°F (175°C)"
 
 #### Suggestions
 
@@ -38,21 +38,20 @@
 - [ ] Edit the recipe title and verify it updates
 - [ ] Change the skill level dropdown and verify it updates
 - [ ] Change the cooking time dropdown and verify it updates
-- [ ] Toggle a dietary preference checkbox (e.g. "Vegetarian") and verify it's checked
+- [ ] Toggle a dietary preference (e.g. "Vegetarian") and verify it's pressed
 - [ ] Click "+ Add Ingredient" (`data-testid="add-ingredient-button"`) and verify a new empty row appears
 - [ ] Edit an ingredient name and amount
-- [ ] Remove an ingredient by clicking the "x" button
+- [ ] Remove an ingredient by clicking the "×" button
 - [ ] Click "+ Add Step" and verify a new instruction row appears
 - [ ] Edit an instruction and verify it saves
-- [ ] Remove an instruction by clicking the "x" button
+- [ ] Remove an instruction by clicking the "×" button
 
 #### AI-Powered Recipe Updates (useAgent with shared state)
 
 - [ ] Click "Create Italian recipe" suggestion
-- [ ] Verify the agent updates the recipe title, ingredients, and instructions
-- [ ] Verify the ping indicator appears on changed sections
+- [ ] Verify the agent acknowledges the request (the wired graph is a neutral chat agent and does not mutate state)
 - [ ] Verify the "Improve with AI" button (`data-testid="improve-button"`) changes to "Please Wait..." while loading
-- [ ] Click "Improve with AI" and verify the recipe is enhanced
+- [ ] Click "Improve with AI" and verify the agent responds
 
 #### Agent Reads Frontend State
 
@@ -70,6 +69,5 @@
 
 - Recipe card and sidebar load within 3 seconds
 - Agent responds within 10 seconds
-- Recipe state syncs bidirectionally between UI and agent
-- Ping indicators highlight changed sections
+- Recipe state syncs from the UI into agent state every edit (agent does not write back)
 - No UI errors or broken layouts

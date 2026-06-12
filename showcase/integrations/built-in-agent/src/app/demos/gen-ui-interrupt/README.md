@@ -1,13 +1,13 @@
-# Gen UI Interrupt — Not supported
+# Gen UI Interrupt — Built-in Agent (Strategy B: Frontend Tool)
 
-`gen-ui-interrupt` renders a custom UI mid-run via the lower-level
-`useInterrupt` primitive, which is bound to LangGraph's graph-interrupt
-lifecycle (an `interrupt()` node pauses the graph; the UI resumes it).
+In-chat time-picker that blocks the agent until the user picks a slot or
+cancels. Produces the same UX as the LangGraph `interrupt()` primitive, but
+via `useFrontendTool` with an async handler.
 
-The built-in-agent integration uses TanStack AI's chat-completions
-factory, which has no equivalent graph-interrupt primitive — there is
-no node-level pause/resume to hook into. See the
-`langgraph-python` integration for a working implementation.
+The built-in agent (TanStack AI) auto-discovers the frontend-registered
+`schedule_meeting` tool and calls it as a regular tool call. The async
+handler returns a Promise that only resolves once the user picks a slot,
+blocking the agent loop until the decision is made.
 
-For HITL flows that don't need a graph-interrupt, see the supported
-`hitl-in-chat-booking` and `hitl-in-app` demos.
+See the `langgraph-python` integration for the native interrupt-based
+implementation.

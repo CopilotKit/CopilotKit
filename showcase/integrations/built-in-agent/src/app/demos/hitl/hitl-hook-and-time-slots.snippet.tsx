@@ -8,6 +8,8 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+// @region[hitl-hook]
+// @region[time-slots]
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -29,7 +31,6 @@ type BookCallRenderProps = {
   respond?: (result: unknown) => void;
 };
 
-// @region[time-slots]
 const DEFAULT_SLOTS: TimeSlot[] = [
   { label: "Tomorrow 10:00 AM", iso: "2026-04-30T10:00:00-07:00" },
   { label: "Tomorrow 2:00 PM", iso: "2026-04-30T14:00:00-07:00" },
@@ -39,7 +40,6 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 // @endregion[time-slots]
 
 export function HitlBookingHook() {
-  // @region[hitl-hook]
   useHumanInTheLoop({
     name: "book_call",
     description:

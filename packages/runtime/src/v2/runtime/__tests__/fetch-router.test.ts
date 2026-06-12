@@ -55,6 +55,11 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "threads/list" });
     });
 
+    it("matches POST /annotate", () => {
+      const result = matchRoute("/api/copilotkit/annotate", basePath);
+      expect(result).toEqual({ method: "annotate" });
+    });
+
     it("matches POST /threads/subscribe", () => {
       const result = matchRoute("/api/copilotkit/threads/subscribe", basePath);
       expect(result).toEqual({ method: "threads/subscribe" });
@@ -87,6 +92,52 @@ describe("fetch-router", () => {
       expect(result).toEqual({
         method: "threads/messages",
         threadId: "thread-abc",
+      });
+    });
+
+    it("matches GET /threads/:threadId/events", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/events",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/events",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches GET /threads/:threadId/events with URL-encoded threadId", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread%2F123/events",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/events",
+        threadId: "thread/123",
+      });
+    });
+
+    it("matches GET /threads/:threadId/state", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/state",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/state",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches POST /threads/clear (and does not collide with threads/update)", () => {
+      // Critical: the threads/update route also matches /threads/:threadId,
+      // so we must verify that "/threads/clear" never falls through to that
+      // arm with threadId="clear". The router has explicit guards (the
+      // segment[len-1] !== "clear" check) — this test pins them.
+      const result = matchRoute("/api/copilotkit/threads/clear", basePath);
+      expect(result).toEqual({ method: "threads/clear" });
+      expect(result).not.toEqual({
+        method: "threads/update",
+        threadId: "clear",
       });
     });
 
@@ -183,6 +234,11 @@ describe("fetch-router", () => {
     it("matches /threads suffix", () => {
       const result = matchRoute("/anything/threads");
       expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches /annotate suffix", () => {
+      const result = matchRoute("/anything/annotate");
+      expect(result).toEqual({ method: "annotate" });
     });
 
     it("matches /threads/subscribe suffix", () => {

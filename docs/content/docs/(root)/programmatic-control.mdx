@@ -34,6 +34,14 @@ Programmatic control lets you run agents outside of a chat UI — trigger agent 
   </Tab>
 </Tabs>
 
+<Callout type="info">
+Note: If you are not using CopilotKit Cloud public access/license key, then you need to pass your agentId to useAgent() hook.
+```ts
+const { agent } = useAgent({agentId: "myAgent"})
+````
+
+</Callout>
+
 You can also execute individual tools programmatically — no LLM turn needed:
 
 <Tabs items={['tool-button.tsx']}>

@@ -113,10 +113,17 @@ function ParityCategorySection({
       {isOpen &&
         cat.features.map((feature) => {
           const refCell = cellIndex.get(`${referenceSlug}/${feature.id}`);
-          const refStatus = refCell?.status ?? "unshipped";
           const refDepth: DepthResult = refCell
             ? deriveDepth(refCell, liveStatus)
-            : { achieved: 0, isRegression: false };
+            : {
+                achieved: 0,
+                maxPossible: 0,
+                isRegression: false,
+                unsupported: false,
+              };
+          const refStatus = refDepth.unsupported
+            ? "unsupported"
+            : (refCell?.status ?? "unshipped");
 
           return (
             <tr
@@ -132,15 +139,22 @@ function ParityCategorySection({
                 <DepthChip
                   depth={refDepth.achieved}
                   status={refStatus}
-                  regression={refDepth.isRegression}
+                  maxDepth={refDepth.maxPossible}
                 />
               </td>
               {nonRefIntegrations.map((int) => {
                 const cell = cellIndex.get(`${int.slug}/${feature.id}`);
-                const cellStatus = cell?.status ?? "unshipped";
                 const depth: DepthResult = cell
                   ? deriveDepth(cell, liveStatus)
-                  : { achieved: 0, isRegression: false };
+                  : {
+                      achieved: 0,
+                      maxPossible: 0,
+                      isRegression: false,
+                      unsupported: false,
+                    };
+                const cellStatus = depth.unsupported
+                  ? "unsupported"
+                  : (cell?.status ?? "unshipped");
 
                 return (
                   <td
@@ -150,7 +164,7 @@ function ParityCategorySection({
                     <DepthChip
                       depth={depth.achieved}
                       status={cellStatus}
-                      regression={depth.isRegression}
+                      maxDepth={depth.maxPossible}
                     />
                   </td>
                 );

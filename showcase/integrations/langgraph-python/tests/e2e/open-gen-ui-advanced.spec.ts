@@ -3,35 +3,64 @@ import { test, expect } from "@playwright/test";
 // QA reference: qa/open-gen-ui-advanced.md
 // Demo source: src/app/demos/open-gen-ui-advanced/{page.tsx,
 //   sandbox-functions.ts, suggestions.ts}
+// Aimock fixture: showcase/aimock/d5-all.json (entries keyed by the
+//                 verbatim suggestion `message` strings)
 //
-// Advanced Open-Gen-UI: the sandboxed iframe can call two host-side
-// sandbox functions via Websandbox.connection.remote.*:
-//   - evaluateExpression({ expression }) → console.log
-//       "[open-gen-ui/advanced] evaluateExpression <expr> = <value>"
-//   - notifyHost({ message })             → console.log
-//       "[open-gen-ui/advanced] notifyHost: <message>"
-// Both handlers live in sandbox-functions.ts (host page).
+// Advanced Open-Gen-UI: each prompt triggers a deterministic
+// `generateSandboxedUi` tool call whose `jsFunctions` wires in-iframe
+// click handlers to the two host-side sandbox functions registered in
+// `sandbox-functions.ts` via `Websandbox.connection.remote.*`.
 //
-// We assert on:
-//   1) page load + 3 suggestion pills render
-//   2) typed "hi" prompt mounts an iframe with sandbox="allow-scripts"
-//      (no allow-forms, no allow-same-origin)
-//   3) clicking the Calculator / Ping suggestions eventually mounts an
-//      iframe (end-to-end round-trip is skipped — see W8 note).
+// Two layers of assertions:
+//   1. SMOKE — each prompt produces an iframe with a non-empty `srcdoc`.
+//      Confirms the open-gen-ui pipeline mounted SOMETHING.
+//   2. ROUND-TRIP — driving the iframe's buttons fires the host-side
+//      handler (observed via the handler's `console.log`) AND updates
+//      the iframe's output element with the host response. Confirms
+//      the fixture's `jsFunctions` is wired correctly. Catches the
+//      regression where a fixture ships HTML+CSS only and every button
+//      becomes a silent no-op.
 //
-// Driving buttons INSIDE the sandboxed iframe is not reliable: the
-// iframe is srcdoc-loaded with sandbox="allow-scripts" only, which in
-// Playwright often blocks same-origin frame access, and the generated
-// HTML layout varies between LLM runs. We therefore skip the deep
-// "click a digit and assert console.log" flow and keep a mount-level
-// assertion that the advanced demo wires the sandbox attribute
-// correctly. Un-skip when a stable post-mount testid is added.
+// Iframe driving works because the fixture HTML is deterministic
+// (stable `#hi`, `#in`, `#go`, `#eq`, `#d`, `#out` selectors) and
+// Playwright `frameLocator` can interact with `sandbox="allow-scripts"`
+// iframes via CDP regardless of the null origin.
+//
+// Composer drive note: we send the prompt by filling the textarea and
+// pressing Enter rather than clicking a suggestion pill. The demo has
+// two chip surfaces (EmptyState vs SuggestionBar) whose mount depends
+// on `messages.length`, which makes pill clicks timing-flaky — see
+// commit 15db0bbf3 (gen-ui-headless-complete: drive via textarea, not
+// chip click). Chip-click and textarea-Enter dispatch the same
+// `runAgent`, so the fixture matcher catches either route and the
+// textarea is always present.
+//
+// Aimock priority note: each pill `message` string is a verbatim short
+// label that matches a high-priority entry in `d5-all.json`. d5-all.json
+// loads BEFORE feature-parity.json, so its first-match-wins ordering
+// beats the broad `userMessage: "hi"` catch-all in feature-parity.json
+// that would otherwise return the showcase-assistant boilerplate
+// greeting. Keep pill message strings in `suggestions.ts` aligned with
+// the fixture keys.
+
+// Verbatim `message` values from src/app/demos/open-gen-ui-advanced/suggestions.ts.
+const PROMPTS = {
+  calculator: "Calculator (calls evaluateExpression)",
+  ping: "Ping the host (calls notifyHost)",
+  inlineEval: "Inline expression evaluator",
+};
 
 test.describe("Open Generative UI (advanced)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/open-gen-ui-advanced");
+    // Wait for React hydration: without this the textarea's keydown
+    // handler may not yet be attached when fill+Enter runs, so the
+    // Enter press becomes a no-op and the iframe never mounts.
+    await page
+      .waitForLoadState("networkidle", { timeout: 15_000 })
+      .catch(() => {});
   });
 
   test("page loads with chat composer and 3 suggestion pills", async ({
@@ -43,8 +72,8 @@ test.describe("Open Generative UI (advanced)", () => {
 
     // Suggestion titles are verbatim from openGenUiSuggestions.
     const expected = [
-      "Calculator (calls evaluateExpression)",
-      "Ping the host (calls notifyHost)",
+      "Calculator",
+      "Ping the host",
       "Inline expression evaluator",
     ];
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -55,74 +84,146 @@ test.describe("Open Generative UI (advanced)", () => {
     }
   });
 
-  // SKIP: same Railway latency as the minimal open-gen-ui demo — the
-  // LLM authors full HTML/CSS/JS for an interactive sandboxed UI, which
-  // consistently exceeds a 120s timeout. The suggestion-pill render +
-  // sandbox-attribute intent are documented in the assertion body; the
-  // round-trip end-to-end cannot be asserted until a post-mount testid
-  // is added. See W8-OGUI-2.
-  test.skip('Ping suggestion mounts a sandbox="allow-scripts" iframe', async ({
-    page,
-  }) => {
-    const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
-      })
-      .first();
-    await expect(suggestion).toBeVisible({ timeout: 15_000 });
-    await suggestion.click();
+  const sendPromptAndAwaitIframe = async (
+    page: import("@playwright/test").Page,
+    prompt: string,
+  ) => {
+    // Use the stable testid (not getByPlaceholder): the chat composer's
+    // textarea wires onKeyDown only after React hydration, and the
+    // testid locator + an explicit click force focus + handler attach
+    // before fill, preventing a flaky Enter-as-no-op race.
+    const textarea = page.locator('[data-testid="copilot-chat-textarea"]');
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
+    await textarea.click();
+    await textarea.fill(prompt);
+    await textarea.press("Enter");
 
     const iframe = page.locator('iframe[sandbox*="allow-scripts"]').first();
-    await expect(iframe).toBeVisible({ timeout: 120_000 });
-
-    const sandbox = await iframe.getAttribute("sandbox");
-    expect(sandbox).toContain("allow-scripts");
-    expect(sandbox).not.toContain("allow-forms");
-    expect(sandbox).not.toContain("allow-same-origin");
-  });
-
-  // SKIP: this test exercises the sandbox→host round-trip by clicking
-  // the "Ping the host (calls notifyHost)" suggestion, waiting for the
-  // iframe to mount, then looking for the distinctive host-side
-  // console.log ("[open-gen-ui/advanced] notifyHost: ..."). Two
-  // blockers on Railway: (a) LLM iframe authoring can take 60–120s and
-  // sometimes times out, (b) interacting with buttons inside the
-  // allow-scripts-only iframe is not reliable via Playwright's
-  // contentFrame. Un-skip once a post-mount testid or a console-log
-  // fixture is available. See W8-OGUI-2.
-  test.skip("notifyHost round-trip logs the expected console message", async ({
-    page,
-  }) => {
-    const logs: string[] = [];
-    page.on("console", (msg) => logs.push(msg.text()));
-
-    const suggestion = page
-      .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
-      })
-      .first();
-    await expect(suggestion).toBeVisible({ timeout: 15_000 });
-    await suggestion.click();
-
-    await expect(
-      page.locator('iframe[sandbox*="allow-scripts"]').first(),
-    ).toBeVisible({ timeout: 120_000 });
-
-    // Attempt to drive the "Say hi to the host" button inside the iframe.
-    const frame = await page
-      .locator('iframe[sandbox*="allow-scripts"]')
-      .first()
-      .contentFrame();
-    if (frame) {
-      await frame.getByRole("button").first().click({ timeout: 10_000 });
-    }
+    await expect(iframe).toBeVisible({ timeout: 60_000 });
 
     await expect
       .poll(
-        () =>
-          logs.some((l) => l.includes("[open-gen-ui/advanced] notifyHost:")),
+        async () => {
+          const srcdoc = await iframe.getAttribute("srcdoc");
+          if (srcdoc && srcdoc.length > 0) return true;
+          const src = await iframe.getAttribute("src");
+          if (src && src.length > 0) return true;
+          return false;
+        },
         { timeout: 30_000 },
       )
       .toBe(true);
+  };
+
+  test("Inline expression evaluator prompt renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await sendPromptAndAwaitIframe(page, PROMPTS.inlineEval);
+  });
+
+  test("Calculator prompt renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await sendPromptAndAwaitIframe(page, PROMPTS.calculator);
+  });
+
+  test("Ping the host prompt renders a sandboxed iframe with non-empty source", async ({
+    page,
+  }) => {
+    await sendPromptAndAwaitIframe(page, PROMPTS.ping);
+  });
+
+  // ── Round-trip tests ────────────────────────────────────────────────
+  //
+  // Drive the in-iframe controls and assert the host-side sandbox-function
+  // handler ran. The handlers in `sandbox-functions.ts` log to the host
+  // console with a stable `[open-gen-ui/advanced]` prefix; Playwright's
+  // `page.on('console')` catches those even though the call originates
+  // inside the sandboxed iframe (the handler runs on the host page).
+
+  const captureHostHandlerLogs = (
+    page: import("@playwright/test").Page,
+    needle: string,
+  ): string[] => {
+    const logs: string[] = [];
+    page.on("console", (msg) => {
+      const text = msg.text();
+      if (text.includes("[open-gen-ui/advanced]") && text.includes(needle)) {
+        logs.push(text);
+      }
+    });
+    return logs;
+  };
+
+  test("Ping the host prompt: in-iframe click fires host notifyHost handler", async ({
+    page,
+  }) => {
+    const hostLogs = captureHostHandlerLogs(page, "notifyHost");
+
+    await sendPromptAndAwaitIframe(page, PROMPTS.ping);
+
+    const frame = page.frameLocator('iframe[sandbox*="allow-scripts"]').first();
+    await frame.locator("#hi").click();
+
+    await expect
+      .poll(() => hostLogs.length, { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    expect(hostLogs.some((l) => l.includes("Hello from sandbox"))).toBe(true);
+
+    // Iframe output element must reflect the host's `receivedAt` reply.
+    await expect(frame.locator("#out")).toContainText("host replied at", {
+      timeout: 10_000,
+    });
+  });
+
+  test("Inline expression evaluator prompt: typing + clicking Evaluate fires host evaluateExpression handler", async ({
+    page,
+  }) => {
+    const hostLogs = captureHostHandlerLogs(page, "evaluateExpression");
+
+    await sendPromptAndAwaitIframe(page, PROMPTS.inlineEval);
+
+    const frame = page.frameLocator('iframe[sandbox*="allow-scripts"]').first();
+    // `fill()` silently no-ops inside sandbox="allow-scripts" iframes on
+    // some Playwright/Chromium combos (null origin blocks the set-value
+    // protocol message). `pressSequentially` sends individual key events
+    // that always reach the input regardless of sandbox restrictions.
+    const input = frame.locator("#in");
+    await input.click();
+    await input.pressSequentially("2+2");
+    await frame.locator("#go").click();
+
+    await expect
+      .poll(() => hostLogs.length, { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    // Handler logs `evaluateExpression <expr> = <value>` — verify the value.
+    expect(hostLogs.some((l) => /=\s*4\b/.test(l))).toBe(true);
+
+    await expect(frame.locator("#out")).toContainText("= 4", {
+      timeout: 10_000,
+    });
+  });
+
+  test("Calculator prompt: digit + operator + '=' fires host evaluateExpression handler", async ({
+    page,
+  }) => {
+    const hostLogs = captureHostHandlerLogs(page, "evaluateExpression");
+
+    await sendPromptAndAwaitIframe(page, PROMPTS.calculator);
+
+    const frame = page.frameLocator('iframe[sandbox*="allow-scripts"]').first();
+    // Build `2+3` then evaluate. Each digit/operator is a separate
+    // <button>; `=` has id="eq".
+    await frame.getByRole("button", { name: "2", exact: true }).click();
+    await frame.getByRole("button", { name: "+", exact: true }).click();
+    await frame.getByRole("button", { name: "3", exact: true }).click();
+    await frame.locator("#eq").click();
+
+    await expect
+      .poll(() => hostLogs.length, { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    expect(hostLogs.some((l) => /=\s*5\b/.test(l))).toBe(true);
+
+    await expect(frame.locator("#d")).toHaveText("5", { timeout: 10_000 });
   });
 });

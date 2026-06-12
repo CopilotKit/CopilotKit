@@ -73,6 +73,9 @@ const agentNames = [
   "open-gen-ui-advanced",
   // Polished chat shell (simplified port — wave 2 follow-up)
   "beautiful-chat",
+  // Interrupt demos (Strategy B — frontend-tool async handler)
+  "gen-ui-interrupt",
+  "interrupt-headless",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

@@ -3,6 +3,8 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Integration, Demo } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import { resolveBackendUrl } from "@/lib/backend-url";
 
 export default function StandalonePreviewPage() {
   const params = useParams<{ slug: string; demo: string }>();
@@ -56,12 +58,17 @@ export default function StandalonePreviewPage() {
     );
   }
 
-  let localBackends: Record<string, string> = {};
-  try {
-    const raw = process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
-    if (raw) localBackends = JSON.parse(raw);
-  } catch {}
-  const base = localBackends[integration.slug] ?? integration.backend_url;
+  // Derive the backend host at runtime from the injected config —
+  // never from registry.json's backend_url, which is baked at Docker
+  // build time (a staging shell would iframe PROD backends).
+  // resolveBackendUrl keeps the NEXT_PUBLIC_LOCAL_BACKENDS local-dev
+  // override. Safe to read here: this point is only reachable
+  // post-hydration (registry loads in useEffect), so the real
+  // window.__SHOWCASE_CONFIG__ is present.
+  const base = resolveBackendUrl(
+    integration.slug,
+    getRuntimeConfig().backendHostPattern,
+  );
   const src = `${base}${demo.route}`;
 
   return (
@@ -70,7 +77,7 @@ export default function StandalonePreviewPage() {
         src={src}
         className="h-full w-full border-0"
         title={`${integration.name} — ${demo.name}`}
-        allow="clipboard-read; clipboard-write"
+        allow="clipboard-read; clipboard-write; microphone"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
     </div>

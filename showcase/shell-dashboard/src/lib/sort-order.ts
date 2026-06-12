@@ -1,23 +1,44 @@
+// Column order: matches Coverage tab (1-18), then Baseline-only extras (19-25).
+// Slug aliases (langchain↔langgraph, maf↔ms-agent, crewai↔crewai-crews) ensure
+// both tabs sort identically regardless of which slug variant is used.
 export const sortOrder: Record<string, number> = {
-  "langgraph-python": 10,
-  "langgraph-typescript": 11,
-  "langgraph-fastapi": 12,
+  // Coverage columns (1-18)
+  "langgraph-python": 1,
+  "langchain-python": 1,
+  "langgraph-typescript": 2,
+  "langchain-typescript": 2,
+  "langgraph-fastapi": 3,
+  "langchain-fastapi": 3,
+  "google-adk": 4,
+  "ms-agent-python": 5,
+  "maf-python": 5,
+  "ms-agent-dotnet": 6,
+  "maf-dotnet": 6,
+  // ms-agent-harness-dotnet is NOT a rendered partner column (deployed but not
+  // probe-wired — see the note in baseline-types.ts BASELINE_PARTNERS). The 6.5
+  // slot is retained so the column sorts correctly if/when it is fully
+  // probe-wired and re-added to BASELINE_PARTNERS.
+  "ms-agent-harness-dotnet": 6.5,
+  strands: 7,
+  mastra: 8,
+  "crewai-crews": 9,
+  crewai: 9,
+  "pydantic-ai": 10,
+  "claude-sdk-python": 11,
+  "claude-sdk-typescript": 12,
+  agno: 13,
+  ag2: 14,
+  llamaindex: 15,
+  "spring-ai": 16,
+  langroid: 17,
+  "built-in-agent": 18,
 
-  "google-adk": 30,
-  "ms-agent-python": 31,
-  "ms-agent-dotnet": 32,
-  strands: 33,
-
-  mastra: 60,
-  "crewai-crews": 61,
-  "pydantic-ai": 62,
-  "claude-sdk-python": 63,
-  "claude-sdk-typescript": 64,
-  agno: 65,
-  ag2: 66,
-  llamaindex: 67,
-  langroid: 68,
-  "spring-ai": 69,
-
-  "built-in-agent": 900,
+  // Baseline-only columns (19-25) — order matches Notion view
+  "aws-fast-langgraph": 19,
+  "aws-fast-strands": 20,
+  "deep-agents": 21,
+  "oracle-open-agent-spec": 22,
+  "openai-agents-sdk": 23,
+  n8n: 24,
+  cloudflare: 25,
 };

@@ -44,11 +44,15 @@ def _do_internet_search(query: str, max_results: int = 5) -> list[dict[str, Any]
         # Format results for agent consumption
         formatted_results = []
         for r in results.get("results", []):
-            formatted_results.append({
-                "url": r.get("url", ""),
-                "title": r.get("title", ""),
-                "content": (r.get("content") or "")[:3000],  # Truncate to 3000 chars
-            })
+            formatted_results.append(
+                {
+                    "url": r.get("url", ""),
+                    "title": r.get("title", ""),
+                    "content": (r.get("content") or "")[
+                        :3000
+                    ],  # Truncate to 3000 chars
+                }
+            )
 
         print(f"[TOOL] internet_search: found {len(formatted_results)} results")
         return formatted_results
@@ -147,9 +151,7 @@ Rules:
         )
 
         # Run in isolated thread context - no callback inheritance possible
-        result = research_agent.invoke({
-            "messages": [HumanMessage(content=query)]
-        })
+        result = research_agent.invoke({"messages": [HumanMessage(content=query)]})
 
         summary = result["messages"][-1].content
 
@@ -159,9 +161,10 @@ Rules:
                 "url": r["url"],
                 "title": r.get("title", ""),
                 "content": r.get("content", "")[:3000],  # Include content preview
-                "status": "found"
+                "status": "found",
             }
-            for r in search_results if "url" in r and not r.get("error")
+            for r in search_results
+            if "url" in r and not r.get("error")
         ]
 
         return {"summary": summary, "sources": sources}

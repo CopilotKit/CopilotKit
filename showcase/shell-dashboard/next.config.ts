@@ -4,36 +4,24 @@ import type { NextConfig } from "next";
  * Next.js config for the dashboard shell.
  *
  * The Status tab calls the showcase-harness HTTP API at the relative path
- * `/api/ops/*`. There is no /api/ops route handler in this app — the path
- * is a deterministic same-origin proxy that this rewrite forwards to the
- * real showcase-harness service. Going same-origin sidesteps two production
- * blockers:
- *   1. showcase-harness has no CORS allowlist for cross-origin browser calls.
- *   2. We don't want the ops base URL inlined into the client bundle (it
- *      would also force `NEXT_PUBLIC_*` exposure semantics).
+ * `/api/ops/*`. That path is served at REQUEST time by the Route Handler at
+ * `src/app/api/ops/[...path]/route.ts`, which reads `OPS_BASE_URL` from the
+ * live process env and proxies to `${OPS_BASE_URL}/api/*`.
  *
- * `OPS_BASE_URL` is required at build/start. Without it the rewrite cannot
- * be constructed and the dashboard would silently render "All probes idle"
- * because every `/api/ops/probes` call would 404 against this app.
+ * It used to be a `rewrites()` entry, but `next build` freezes `rewrites()`
+ * into the prebuilt Docker image — so the placeholder `OPS_BASE_URL` baked at
+ * build time was frozen too, and every deploy proxied to a dead host
+ * regardless of its runtime env. Moving the proxy into a Route Handler makes
+ * `OPS_BASE_URL` runtime-resolved: the single shared image serves each
+ * environment's own harness URL with no rebuild. As a result this config no
+ * longer reads `OPS_BASE_URL` and `next build` no longer depends on it.
+ *
+ * Going same-origin (vs. a direct cross-origin browser call) sidesteps two
+ * production blockers that remain relevant to the Route Handler too:
+ *   1. showcase-harness has no CORS allowlist for cross-origin browser calls.
+ *   2. The ops base URL stays out of the client bundle (no `NEXT_PUBLIC_*`
+ *      exposure).
  */
-const nextConfig: NextConfig = {
-  async rewrites() {
-    const opsBase = process.env.OPS_BASE_URL;
-    if (!opsBase) {
-      throw new Error(
-        "OPS_BASE_URL must be set — see showcase/RAILWAY.md " +
-          "(without it, /api/ops/* requests cannot proxy to showcase-harness)",
-      );
-    }
-    // Strip trailing slashes so we never produce `https://host//api/...`
-    // (some servers reject the double slash). Mirrors the same
-    // normalization in `src/lib/ops-api.ts:resolveBaseUrl` so the
-    // server-side rewrite and client-side fetch agree on the URL shape.
-    const normalized = opsBase.replace(/\/+$/, "");
-    return [
-      { source: "/api/ops/:path*", destination: `${normalized}/api/:path*` },
-    ];
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

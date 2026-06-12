@@ -8,6 +8,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { mastra } from "@/mastra";
+// `withForwardedHeaders` binds inbound x-* headers (e.g. x-aimock-context)
+// into an AsyncLocalStorage scope so the wrapped @ai-sdk/openai provider's
+// fetch can re-attach them on outbound LLM calls. Required because the
+// @ag-ui/mastra adapter does not forward inbound headers to Vercel AI SDK.
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 // We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
 // themselves — the CopilotKit runtime only brokers AG-UI events between
@@ -72,6 +77,8 @@ export const demoAgentNames = [
   "a2ui-fixed-schema",
   "headless-complete",
   "tool-rendering-reasoning-chain",
+  "gen-ui-interrupt",
+  "interrupt-headless",
 ] as const;
 
 // Per-demo override map: any demo alias listed here resolves to a dedicated
@@ -81,7 +88,10 @@ export const demoAgentNames = [
 const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "headless-complete": "headlessCompleteAgent",
   "shared-state-read-write": "sharedStateReadWriteAgent",
+  "gen-ui-agent": "genUiAgent",
   subagents: "subagentsSupervisorAgent",
+  "gen-ui-interrupt": "interruptAgent",
+  "interrupt-headless": "interruptAgent",
 };
 
 export type DemoAgentName = (typeof demoAgentNames)[number];
@@ -99,9 +109,12 @@ export type LocalMastraAgentName =
   | "weatherAgent"
   | "headlessCompleteAgent"
   | "sharedStateReadWriteAgent"
+  | "genUiAgent"
   | "subagentsSupervisorAgent"
+  | "interruptAgent"
   | "multimodalAgent"
-  | "mcpAppsAgent";
+  | "mcpAppsAgent"
+  | "byocHashbrownAgent";
 
 export type BuiltAgents = Record<
   DemoAgentName | LocalMastraAgentName,
@@ -149,9 +162,19 @@ export function buildAgents(
       "sharedStateReadWriteAgent missing from Mastra config — required for shared-state-read-write demo alias",
     );
   }
+  if (!baseLocalAgents.genUiAgent) {
+    throw new Error(
+      "genUiAgent missing from Mastra config — required for gen-ui-agent demo alias",
+    );
+  }
   if (!baseLocalAgents.subagentsSupervisorAgent) {
     throw new Error(
       "subagentsSupervisorAgent missing from Mastra config — required for subagents demo alias",
+    );
+  }
+  if (!baseLocalAgents.interruptAgent) {
+    throw new Error(
+      "interruptAgent missing from Mastra config — required for gen-ui-interrupt/interrupt-headless demos",
     );
   }
   if (!baseLocalAgents.multimodalAgent) {
@@ -162,6 +185,11 @@ export function buildAgents(
   if (!baseLocalAgents.mcpAppsAgent) {
     throw new Error(
       "mcpAppsAgent missing from Mastra config — required for /demos/mcp-apps",
+    );
+  }
+  if (!baseLocalAgents.byocHashbrownAgent) {
+    throw new Error(
+      "byocHashbrownAgent missing from Mastra config — required for /demos/byoc-hashbrown",
     );
   }
   const headlessCompleteAgentInstance = getLocalAgent({
@@ -182,6 +210,14 @@ export function buildAgents(
       "getLocalAgent returned null for sharedStateReadWriteAgent",
     );
   }
+  const genUiAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "genUiAgent",
+    resourceId: "mastra-genUiAgent",
+  });
+  if (!genUiAgentInstance) {
+    throw new Error("getLocalAgent returned null for genUiAgent");
+  }
   const subagentsSupervisorAgentInstance = getLocalAgent({
     mastra: mastraInstance,
     agentId: "subagentsSupervisorAgent",
@@ -189,6 +225,14 @@ export function buildAgents(
   });
   if (!subagentsSupervisorAgentInstance) {
     throw new Error("getLocalAgent returned null for subagentsSupervisorAgent");
+  }
+  const interruptAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "interruptAgent",
+    resourceId: "mastra-interruptAgent",
+  });
+  if (!interruptAgentInstance) {
+    throw new Error("getLocalAgent returned null for interruptAgent");
   }
   const multimodalAgentInstance = getLocalAgent({
     mastra: mastraInstance,
@@ -206,13 +250,24 @@ export function buildAgents(
   if (!mcpAppsAgentInstance) {
     throw new Error("getLocalAgent returned null for mcpAppsAgent");
   }
+  const byocHashbrownAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "byocHashbrownAgent",
+    resourceId: "mastra-byocHashbrownAgent",
+  });
+  if (!byocHashbrownAgentInstance) {
+    throw new Error("getLocalAgent returned null for byocHashbrownAgent");
+  }
   const localAgents = {
     weatherAgent: baseLocalAgents.weatherAgent,
     headlessCompleteAgent: headlessCompleteAgentInstance,
     sharedStateReadWriteAgent: sharedStateRWAgentInstance,
+    genUiAgent: genUiAgentInstance,
     subagentsSupervisorAgent: subagentsSupervisorAgentInstance,
+    interruptAgent: interruptAgentInstance,
     multimodalAgent: multimodalAgentInstance,
     mcpAppsAgent: mcpAppsAgentInstance,
+    byocHashbrownAgent: byocHashbrownAgentInstance,
   };
 
   // Guard against silent shadowing: if Mastra ever registers a local agent
@@ -252,12 +307,15 @@ export function buildAgents(
     "sharedStateReadWriteAgent",
     "mastra-sharedStateReadWriteAgent",
   );
+  resourceIdByAgent.set("genUiAgent", "mastra-genUiAgent");
   resourceIdByAgent.set(
     "subagentsSupervisorAgent",
     "mastra-subagentsSupervisorAgent",
   );
+  resourceIdByAgent.set("interruptAgent", "mastra-interruptAgent");
   resourceIdByAgent.set("multimodalAgent", "mastra-multimodalAgent");
   resourceIdByAgent.set("mcpAppsAgent", "mastra-mcpAppsAgent");
+  resourceIdByAgent.set("byocHashbrownAgent", "mastra-byocHashbrownAgent");
 
   const demoAliases: Record<
     string,
@@ -421,45 +479,49 @@ function wrapStreamingResponse(response: Response): Response {
 //      handleRequest leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
-export const POST = async (req: NextRequest) => {
-  let response: Response | undefined;
-  try {
-    const runtime = new CopilotRuntime({
-      agents: getAgents(),
-    });
-
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      runtime,
-      serviceAdapter,
-      endpoint: "/api/copilotkit",
-    });
-
-    response = await handleRequest(req);
-  } catch (err) {
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-
-  try {
-    return wrapStreamingResponse(response);
-  } catch (err) {
-    // `wrapStreamingResponse` threw synchronously (e.g. malformed
-    // `response.headers`). The upstream ReadableStream has been produced
-    // but nobody is going to consume it — cancel it explicitly to release
-    // whatever resources the runtime holds open behind the body. Swallow
-    // errors from cancel itself; we're already on the 500 path.
+export const POST = async (req: NextRequest) =>
+  // Bind inbound x-* headers into ALS for the duration of this request so
+  // the wrapped @ai-sdk/openai provider's fetch can attach them on every
+  // outbound LLM call (e.g. x-aimock-context for aimock fixture matching).
+  withForwardedHeaders(req, async () => {
+    let response: Response | undefined;
     try {
-      await response.body?.cancel();
-    } catch {
-      // best-effort cleanup; the primary error is already being logged below
+      const runtime = new CopilotRuntime({
+        agents: getAgents(),
+      });
+
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+
+      response = await handleRequest(req);
+    } catch (err) {
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
     }
-    const errorId = logRouteError(err, "setup");
-    return NextResponse.json(
-      { error: "internal runtime error", errorId },
-      { status: 500 },
-    );
-  }
-};
+
+    try {
+      return wrapStreamingResponse(response);
+    } catch (err) {
+      // `wrapStreamingResponse` threw synchronously (e.g. malformed
+      // `response.headers`). The upstream ReadableStream has been produced
+      // but nobody is going to consume it — cancel it explicitly to release
+      // whatever resources the runtime holds open behind the body. Swallow
+      // errors from cancel itself; we're already on the 500 path.
+      try {
+        await response.body?.cancel();
+      } catch {
+        // best-effort cleanup; the primary error is already being logged below
+      }
+      const errorId = logRouteError(err, "setup");
+      return NextResponse.json(
+        { error: "internal runtime error", errorId },
+        { status: 500 },
+      );
+    }
+  });

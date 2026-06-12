@@ -5,8 +5,8 @@
 
 export const CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog";
 
-export const RENDER_A2UI_TOOL_SCHEMA = {
-  name: "render_a2ui",
+export const DESIGN_A2UI_SURFACE_TOOL_SCHEMA = {
+  name: "_design_a2ui_surface",
   description: "Render a dynamic A2UI v0.9 surface.",
   parameters: {
     type: "object",
@@ -34,7 +34,7 @@ export interface GenerateA2UIInput {
 
 export interface GenerateA2UIResult {
   systemPrompt: string;
-  toolSchema: typeof RENDER_A2UI_TOOL_SCHEMA;
+  toolSchema: typeof DESIGN_A2UI_SURFACE_TOOL_SCHEMA;
   toolChoice: string;
   messages: Array<Record<string, unknown>>;
   catalogId: string;
@@ -53,8 +53,8 @@ export function generateA2uiImpl(input: GenerateA2UIInput): GenerateA2UIResult {
 
   return {
     systemPrompt: contextText,
-    toolSchema: RENDER_A2UI_TOOL_SCHEMA,
-    toolChoice: "render_a2ui",
+    toolSchema: DESIGN_A2UI_SURFACE_TOOL_SCHEMA,
+    toolChoice: "_design_a2ui_surface",
     messages: input.messages,
     catalogId: CUSTOM_CATALOG_ID,
   };

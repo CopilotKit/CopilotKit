@@ -3,9 +3,6 @@ package com.copilotkit.showcase.springai;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import com.copilotkit.showcase.springai.tools.DisplayFlightTool;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,14 +44,9 @@ public class A2uiFixedSchemaController {
     }
 
     private StreamingToolAgent buildAgent() {
-        ChatMemory memory = MessageWindowChatMemory.builder()
-                .chatMemoryRepository(new InMemoryChatMemoryRepository())
-                .maxMessages(10)
-                .build();
         return StreamingToolAgent.builder()
                 .agentId("a2ui-fixed-schema")
                 .chatModel(chatModel)
-                .chatMemory(memory)
                 .systemMessage("""
                         You are a flight-search assistant. When the user asks about a flight,
                         call the display_flight tool with the origin airport code, destination

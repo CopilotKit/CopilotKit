@@ -3,14 +3,21 @@ title: "Observability"
 description: "Monitor your CopilotKit application with comprehensive observability hooks. Understand user interactions, chat events, and system errors."
 icon: "lucide/Activity"
 ---
-
 Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions, and runtime errors. Send these signals straight to your existing stack, including Sentry, Datadog, New Relic, and OpenTelemetry, or route them to your analytics pipeline. The hooks expose stable schemas and IDs so you can join agent events with app telemetry, trace sessions end to end, and alert on failures in real time. Works with Copilot Cloud via `publicApiKey`, or self‑hosted via `publicLicenseKey`.
+
+<OpsPlatformCTA
+  variant="card"
+  title="Observability requires an Enterprise Intelligence Platform license key"
+  body="Sign up for a free account to get a publicLicenseKey and start monitoring your agents."
+  ctaLabel="Create a free account"
+  surface="docs_premium_observability"
+/>
 
 ## Quick Start
 
 <Callout type="info">
-  All observability hooks require a `publicLicenseKey` or `publicAPIkey` - Get
-  yours free at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+  All observability hooks require a `publicLicenseKey` or `publicAPIkey` - Get yours free at
+  [https://dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai)
 </Callout>
 
 <Steps>
@@ -22,7 +29,7 @@ Track user interactions and chat events with comprehensive observability hooks:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -69,7 +76,7 @@ export default function App() {
 Monitor system errors and performance with error observability hooks:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -96,7 +103,6 @@ export default function App() {
   );
 }
 ```
-
 </Step>
 </Steps>
 
@@ -174,13 +180,13 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 
 **Requirements:**
 
-- ✅ Requires a `publicLicenseKey` (when self-hosting) or `publicApiKey` from [Copilot Cloud](https://cloud.copilotkit.ai)
+- ✅ Requires a `publicLicenseKey` (when self-hosting) or `publicApiKey` from [Copilot Cloud](https://dashboard.operations.copilotkit.ai)
 - ✅ Works with `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, and all pre-built components
 
 <Callout type="warn">
-  **Important:** Observability hooks will **not trigger** without a valid key.
-  This is a security feature to ensure observability hooks only work in
-  authorized applications.
+  **Important:** Observability hooks will **not trigger** without a valid
+  key. This is a security feature to ensure observability hooks only
+  work in authorized applications.
 </Callout>
 
 ## Error Event Structure
@@ -447,7 +453,7 @@ import * as Sentry from "@sentry/react";
 
 To use observability hooks (event hooks and error observability), you'll need a CopilotKit Premium account:
 
-1. **Sign up for free** at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+1. **Sign up for free** at [https://dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai)
 2. **Get your public license key (for self-hosting), or public API key** from the dashboard
 3. **Add it to your environment variables**:
    ```bash
@@ -457,11 +463,11 @@ To use observability hooks (event hooks and error observability), you'll need a 
    ```
 4. **Use it in your CopilotKit provider**:
    ```tsx
-   <CopilotKit
-     publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
-     // OR
-     publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
-   >
+   <CopilotKit 
+      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+      // OR
+      publicApiKey={process.env.NEXT_PUBLIC_COPILOTKIT_API_KEY}
+      >
      <CopilotChat
        observabilityHooks={{
          onMessageSent: (message) => console.log("Message:", message),

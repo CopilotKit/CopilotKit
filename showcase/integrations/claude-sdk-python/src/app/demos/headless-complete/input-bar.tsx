@@ -19,7 +19,7 @@ export function InputBar({
 }: {
   value: string;
   onChange: (v: string) => void;
-  onSubmit: () => void;
+  onSubmit: (override?: string) => void;
   onStop: () => void;
   isRunning: boolean;
   canStop: boolean;
@@ -35,6 +35,7 @@ export function InputBar({
 
   return (
     <form
+      data-testid="headless-composer"
       className="border-t border-[#E9E9EF] p-3 flex gap-2 items-end bg-white"
       onSubmit={(e) => {
         e.preventDefault();

@@ -4,6 +4,7 @@ CrewAI tools wrapping shared showcase implementations.
 Provides weather, query data, and schedule meeting tools for the crew.
 """
 
+# @region[weather-tool-backend]
 import json
 
 from crewai.tools import BaseTool
@@ -20,25 +21,32 @@ from tools import (
 from typing import Any, List
 
 
-# @region[weather-tool-backend]
 class GetWeatherInput(BaseModel):
     """Input schema for GetWeatherTool."""
+
     location: str = Field(..., description="The location to get weather for.")
 
 
 class GetWeatherTool(BaseTool):
     name: str = "get_weather"
-    description: str = "Get current weather for a location. Ensure location is fully spelled out."
+    description: str = (
+        "Get current weather for a location. Ensure location is fully spelled out."
+    )
     args_schema: Type[BaseModel] = GetWeatherInput
 
     def _run(self, location: str) -> str:
         return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
 class QueryDataInput(BaseModel):
     """Input schema for QueryDataTool."""
-    query: str = Field(..., description="The query to run against the financial database.")
+
+    query: str = Field(
+        ..., description="The query to run against the financial database."
+    )
 
 
 class QueryDataTool(BaseTool):
@@ -52,13 +60,16 @@ class QueryDataTool(BaseTool):
 
 class ScheduleMeetingInput(BaseModel):
     """Input schema for ScheduleMeetingTool."""
+
     reason: str = Field(..., description="Reason for scheduling the meeting.")
     duration_minutes: int = Field(30, description="Duration of the meeting in minutes.")
 
 
 class ScheduleMeetingTool(BaseTool):
     name: str = "schedule_meeting"
-    description: str = "Schedule a meeting with user approval. Returns available time slots."
+    description: str = (
+        "Schedule a meeting with user approval. Returns available time slots."
+    )
     args_schema: Type[BaseModel] = ScheduleMeetingInput
 
     def _run(self, reason: str, duration_minutes: int = 30) -> str:
@@ -67,7 +78,10 @@ class ScheduleMeetingTool(BaseTool):
 
 class SearchFlightsInput(BaseModel):
     """Input schema for SearchFlightsTool."""
-    flights: List[dict] = Field(..., description="List of flight objects to search/display.")
+
+    flights: List[dict] = Field(
+        ..., description="List of flight objects to search/display."
+    )
 
 
 class SearchFlightsTool(BaseTool):
@@ -86,6 +100,7 @@ class SearchFlightsTool(BaseTool):
 
 class GenerateA2uiInput(BaseModel):
     """Input schema for GenerateA2uiTool."""
+
     context: str = Field(..., description="Conversation context to generate UI for.")
 
 
@@ -122,8 +137,14 @@ class GenerateA2uiTool(BaseTool):
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=[
-                {"role": "system", "content": context or "Generate a useful dashboard UI."},
-                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+                {
+                    "role": "system",
+                    "content": context or "Generate a useful dashboard UI.",
+                },
+                {
+                    "role": "user",
+                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                },
             ],
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

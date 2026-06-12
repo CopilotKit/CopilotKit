@@ -23,7 +23,7 @@ import { fileURLToPath } from "url";
 // -----------------------------------------------------------------------------
 
 export interface Fixture {
-  match: { userMessage?: string };
+  match: { userMessage?: string; toolName?: string };
   response: {
     toolCalls?: Array<{ name: string; arguments?: string }>;
     content?: string;
@@ -76,6 +76,13 @@ export function validate(
       if (!matchedSuggestion) continue;
 
       const registered = new Set(demo.tools);
+
+      // If the fixture match has a toolName constraint, aimock only fires
+      // this fixture for agents that register that tool. Skip demos that
+      // don't have it — they'll never see this fixture at runtime.
+      if (fixture.match.toolName && !registered.has(fixture.match.toolName))
+        continue;
+
       // Wildcard renderers (useDefaultRenderTool — represented as "*" in
       // the tool set) match every fixture tool — skip all checks for this demo.
       if (registered.has("*")) continue;

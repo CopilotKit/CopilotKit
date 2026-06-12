@@ -1,9 +1,12 @@
 /**
  * D5 — gen-UI shared helpers.
  *
- * Shared between `d5-gen-ui-headless.ts` (frontend-defined `show_card`)
- * and `d5-gen-ui-custom.ts` (frontend-defined `render_pie_chart`). Both
- * scripts:
+ * Used by `d5-gen-ui-custom.ts` (frontend-defined `render_pie_chart`).
+ * The headless tier no longer shares these helpers — `headless-simple`
+ * was downsized to text-only post-refactor; `headless-complete` has
+ * its own probe that asserts on its specific tool cards.
+ *
+ * The remaining caller:
  *   1. Wait for a custom-rendered component to appear in the DOM (NOT
  *      just the assistant's text bubble — gen-UI's whole point is that
  *      the tool call materialises into bespoke React).
@@ -12,8 +15,8 @@
  *      further and asserts the exact shape (e.g. an SVG donut chart for
  *      `render_pie_chart`).
  *
- * Why a leading-underscore filename? The D5 driver's script loader
- * (`drivers/e2e-deep.ts → defaultScriptLoader`) matches files against
+ * Why a leading-underscore filename? The D5 script loader
+ * (`drivers/d6-all-pills.ts → defaultScriptLoader`) matches files against
  * `^d5-.*\.(js|ts)$`. Files prefixed with `_` (or any non-`d5-` prefix)
  * are skipped, so this helper file co-exists in `scripts/` without the
  * loader trying to import it as a script.

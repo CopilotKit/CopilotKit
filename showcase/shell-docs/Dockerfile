@@ -1,17 +1,16 @@
 FROM node:20-slim AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
-# NEXT_PUBLIC_BASE_URL is required at `next build` time (see next.config.ts).
-ARG NEXT_PUBLIC_BASE_URL
-ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 WORKDIR /app
 
 # Copy only what shell-docs + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell-docs/package.json ./shell-docs/package.json
+COPY showcase/shell-docs/package-lock.json ./shell-docs/package-lock.json
 
 # Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell-docs && npm install --silent
+RUN cd scripts && npm ci --silent && cd ../shell-docs && npm ci --silent
 
 # Copy source
 COPY showcase/shared/ ./shared/
@@ -26,11 +25,14 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 # Generate registry + content, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-setup-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell-docs && npx next build
 
 FROM node:20-slim AS runner
 WORKDIR /app
+ARG COMMIT_SHA=unknown
+ARG BRANCH=unknown
 ENV NODE_ENV=production
 ENV PORT=10000
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

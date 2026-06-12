@@ -14,6 +14,8 @@ the canonical Agno multi-agent pattern, surfaced to the frontend via
 shared state.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import logging
@@ -37,7 +39,6 @@ logger = logging.getLogger(__name__)
 _SUB_MODEL_ID = "gpt-4o-mini"
 
 
-# @region[subagent-setup]
 # Each sub-agent is a full Agno `Agent(...)` with its own system prompt.
 # They don't share memory or tools with the supervisor — the supervisor
 # only sees their final text response, which is returned via the
@@ -188,7 +189,6 @@ def _delegate(
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each function is a tool exposed to the supervisor agent. The supervisor
 # LLM "calls" these to delegate work; each call synchronously runs the
 # matching sub-agent, records the delegation into shared state, and
@@ -236,6 +236,8 @@ def critique_agent(run_context: RunContext, task: str) -> dict[str, Any]:
         sub_agent=_critique_agent,
         task=task,
     )
+
+
 # @endregion[supervisor-delegation-tools]
 
 

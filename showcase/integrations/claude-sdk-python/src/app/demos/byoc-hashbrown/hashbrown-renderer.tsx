@@ -277,8 +277,19 @@ const AssistantMessageRenderer = memo(function AssistantMessageRenderer({
 
   if (!value) return null;
 
+  // The CopilotChat default assistantMessage slot renders a wrapper with
+  // `data-testid="copilot-assistant-message"` — used by the harness'
+  // `e2e-deep` conversation runner to count settled responses. Overriding
+  // the slot drops that testid, so any tooling that waits for "an
+  // assistant message landed" never sees a count change. Re-attaching it
+  // here keeps the slot override behaviorally identical to the default
+  // for response-detection purposes.
   return (
-    <div className="mt-2 flex w-full justify-start">
+    <div
+      data-testid="copilot-assistant-message"
+      data-message-role="assistant"
+      className="mt-2 flex w-full justify-start"
+    >
       <div className="w-full px-1 py-1">{kit.render(value)}</div>
     </div>
   );

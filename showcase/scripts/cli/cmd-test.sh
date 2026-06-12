@@ -11,42 +11,79 @@ Usage: showcase test <slug> [options]
 Run probe tests against a showcase service (via Docker containers).
 
 Options:
-  --d5             Run D5 (e2e-deep) probes only
+  --d6             Run D6 (e2e-full) probes only (via fleet control-plane)
+  --d5             Run D5 (e2e-deep) probes only (via fleet control-plane)
   --d4             Run D4 probes only
+  --direct         Legacy/debug: run d5/d6 via the in-process driver
+                   instead of the fleet control-plane (producer->queue->worker)
   --smoke          Run smoke probes only
   --verbose        Verbose test output
   --headed         Run Playwright in headed (visible) mode
   --repeat <n>     Run N times
-  --keep           Don't stop auto-started packages after test
+  --keep           Don't stop auto-started packages after test; with --isolate,
+                   also leaves the isolated stack standing (teardown command
+                   printed at exit)
   --live           Write results to PocketBase for dashboard
   --rebuild        Force Docker rebuild before running
   --cycle          On failure, auto-dump aimock logs from the test window
+  --isolate [name] Run in an isolated compose project with offset ports
+                   (default name: showcase-iso<slot>). Allows parallel test runs.
 
 Examples:
+  showcase test mastra --d6 --verbose         # D6 probes (full matrix) with verbose output
   showcase test mastra --d5 --verbose         # D5 probes with verbose output
   showcase test mastra --d5 --cycle           # D5 + aimock logs on failure
   showcase test langgraph-python              # all tests for a slug
   showcase test mastra --d5 --headed          # watch the browser
+  showcase test agno --d5 --isolate           # isolated run (auto-named)
+  showcase test agno --d5 --isolate d5verify  # isolated with explicit name
 HELP
 }
 
 cmd_test() {
   local slug=""
   local cycle=""
+  local isolate_name=""
+  local use_isolate=false
   local harness_args=()
 
   # Parse arguments — pass most through to the harness CLI
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --d6)      harness_args+=(--d6);      shift ;;
       --d5)      harness_args+=(--d5);      shift ;;
       --d4)      harness_args+=(--d4);      shift ;;
       --smoke)   harness_args+=(--smoke);   shift ;;
       --verbose) harness_args+=(--verbose); shift ;;
       --headed)  harness_args+=(--headed);  shift ;;
-      --keep)    harness_args+=(--keep);    shift ;;
+      --keep)    ISOLATE_KEEP=true; harness_args+=(--keep); shift ;;
       --live)    harness_args+=(--live);    shift ;;
       --rebuild) harness_args+=(--rebuild); shift ;;
+      --direct)  harness_args+=(--direct);  shift ;;
       --cycle)   cycle=1;                   shift ;;
+      --isolate)
+        use_isolate=true
+        shift
+        # Optional name argument: consume next arg if it doesn't start with --
+        # and doesn't look like a slug (no slug would be set yet if it appears
+        # after --isolate, but we peek to see if it's a plain name token).
+        if [[ $# -gt 0 ]] && [[ "$1" != --* ]]; then
+          # If slug is already set, this is the isolate name.
+          # If slug is NOT set, we need to distinguish: is this a slug or a name?
+          # Convention: if slug is empty and the next arg after this one is also
+          # not a flag, then this arg is the isolate name. Otherwise treat as slug.
+          if [[ -n "$slug" ]]; then
+            isolate_name="$1"
+            shift
+          else
+            # Peek ahead: if there's another non-flag arg after this, this is the name
+            # Otherwise this could be either — but since --isolate usually comes after
+            # the slug, and the slug is still empty, this is likely the slug, not the name.
+            # Leave it for the default slug handler below.
+            :
+          fi
+        fi
+        ;;
       --repeat)
         shift
         harness_args+=(--repeat "${1:?--repeat requires a value}")
@@ -72,17 +109,41 @@ cmd_test() {
 
   need_slug "$slug"
 
+  # Apply isolation if requested (must happen before any compose commands).
+  # Register the trap BEFORE apply_isolation so cleanup runs even if the
+  # function itself crashes partway through. restore_isolation reads the
+  # ISOLATE_KEEP global (set above when --keep is parsed). It MUST be a global,
+  # not a local: on the normal path cmd_test returns and its locals unwind
+  # before the EXIT trap fires at top-level script exit, so a function-local
+  # flag would silently read as false there (a local is only visible to the
+  # trap when `die` exits from inside cmd_test itself). Under --keep,
+  # restore_isolation leaves the stack standing and prints a survival notice
+  # instead of tearing down, so the slot's live containers keep it from being
+  # reaped.
+  if $use_isolate; then
+    trap restore_isolation EXIT
+    apply_isolation "${isolate_name:-}"
+    if $ISOLATE_KEEP; then
+      info "--keep set: isolated stack will be left standing after the run (teardown command printed at exit)"
+    fi
+  fi
+
   # Build the filter description for the info line
   local filter_desc=""
-  for arg in "${harness_args[@]}"; do
+  for arg in ${harness_args[@]+"${harness_args[@]}"}; do
     case "$arg" in
-      --d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
+      --d6|--d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
     esac
   done
 
   # If --cycle, record aimock log position before the test
   local pre_test_ts=""
-  local aimock_container="showcase-aimock"
+  local aimock_container
+  if $use_isolate && [[ -n "$ISOLATE_NAME" ]]; then
+    aimock_container="${ISOLATE_NAME}-aimock"
+  else
+    aimock_container="showcase-aimock"
+  fi
   if [[ -n "$cycle" ]]; then
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${aimock_container}$"; then
       pre_test_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -95,7 +156,7 @@ cmd_test() {
   date -u +%Y-%m-%dT%H:%M:%SZ > "$SHOWCASE_ROOT/.last-test-ts"
 
   local test_exit=0
-  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" "${harness_args[@]}" \
+  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" ${harness_args[@]+"${harness_args[@]}"} \
     || test_exit=$?
 
   # --cycle: dump aimock log delta on failure

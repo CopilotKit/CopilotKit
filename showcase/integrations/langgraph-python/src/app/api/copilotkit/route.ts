@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -15,11 +16,20 @@ console.log(
   `[copilotkit/route] LANGSMITH_API_KEY: ${process.env.LANGSMITH_API_KEY ? "set" : "not set"}`,
 );
 
-function createAgent(graphId: string = "sample_agent") {
+function createAgent(
+  graphId: string = "sample_agent",
+  options: { recursionLimit?: number } = {},
+) {
+  // LangGraph's `recursion_limit` defaults to 25 (langchain_core), and
+  // `with_config` in Python doesn't propagate when the graph is invoked via
+  // the langgraph server's runs API — the wrapper isn't visible to the
+  // assistant config. Bake the limit into `assistantConfig` here so it
+  // travels with every run we kick off through this route.
   return new LangGraphAgent({
     deploymentUrl: LANGGRAPH_URL,
     graphId,
     langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+    assistantConfig: { recursion_limit: options.recursionLimit ?? 100 },
   });
 }
 
@@ -64,6 +74,7 @@ agents["subagents"] = createAgent("subagents");
 // split out of main.py so main.py stays a pure default).
 agents["agentic_chat"] = createAgent("agentic_chat");
 agents["frontend_tools"] = createAgent("frontend_tools");
+agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools");
 // Frontend Tools (Async) — dedicated cell demonstrating an async useFrontendTool
 // handler (simulated client-side notes DB query). Backend has no tools; the
 // frontend registers `query_notes` via useFrontendTool and the agent awaits
@@ -72,9 +83,12 @@ agents["frontend-tools-async"] = createAgent("frontend_tools_async");
 agents["gen-ui-agent"] = createAgent("gen_ui_agent");
 // Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
 agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
-// Reasoning variants.
-agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
-agents["reasoning-default-render"] = createAgent("reasoning_agent");
+// Reasoning variants. The Custom demo (`reasoning-custom`) and the
+// Default demo (`reasoning-default`) both share the same backend graph;
+// the only difference is whether the frontend overrides the
+// `messageView.reasoningMessage` slot.
+agents["reasoning-custom"] = createAgent("reasoning_agent");
+agents["reasoning-default"] = createAgent("reasoning_agent");
 // Interrupt variants.
 agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
 agents["interrupt-headless"] = createAgent("interrupt_agent");
@@ -111,10 +125,11 @@ export const POST = async (req: NextRequest) => {
         // (declarative-gen-ui and a2ui-fixed-schema) each live on their own
         // dedicated runtime endpoint (/api/copilotkit-declarative-gen-ui and
         // /api/copilotkit-a2ui-fixed-schema respectively), mirroring the
-        // beautiful-chat topology. Each of those runtimes configures
-        // `a2ui.injectA2UITool: false` because the backend graphs own their
-        // own A2UI-rendering tools explicitly (matching the canonical
-        // reference at examples/integrations/langgraph-python).
+        // beautiful-chat topology. The dynamic-schema cells
+        // (declarative-gen-ui, beautiful-chat) set `a2ui.injectA2UITool: true`
+        // so the runtime injects `generate_a2ui` and the agent's
+        // CopilotKitMiddleware auto-executes it; the fixed-schema cell sets
+        // `false` because that agent owns its `display_flight` tool explicitly.
         // OpenGenerativeUI lives in /api/copilotkit-ogui for the same reason.
         // MCP Apps is in /api/copilotkit-mcp-apps.
       }),

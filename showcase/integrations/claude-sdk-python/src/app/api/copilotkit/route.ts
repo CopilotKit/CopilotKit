@@ -57,6 +57,9 @@ const dedicatedAgentPaths: Record<string, string> = {
   "reasoning-default-render": "/reasoning",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
   "hitl-in-chat": "/hitl-in-chat",
+  "hitl-in-chat-booking": "/hitl-in-chat",
+  "gen-ui-interrupt": "/interrupt-adapted",
+  "interrupt-headless": "/interrupt-adapted",
 };
 
 const agents: Record<string, AbstractAgent> = {};

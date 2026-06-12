@@ -1,6 +1,13 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
 const SYSTEM_PROMPT = `\
 You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -89,26 +96,72 @@ Respond with the JSON object only.
 `;
 
 /**
- * Built-in agent for the BYOC json-render demo. Forces JSON-object output
- * via the OpenAI `response_format` option so `<Renderer />` can rely on
- * receiving a single parseable spec object.
+ * Convert a TanStack AI stream to AG-UI events for a tool-free agent.
+ *
+ * Uses `type: "custom"` instead of `type: "tanstack"` to bypass the
+ * runtime's `convertTanStackStream` which has a `runFinished` flag
+ * (PR #4476) that blocks events after the first RUN_FINISHED.
+ */
+async function* convertStream(
+  stream: AsyncIterable<unknown>,
+  abortSignal: AbortSignal,
+): AsyncGenerator<BaseEvent> {
+  const messageId = crypto.randomUUID();
+
+  for await (const chunk of stream) {
+    if (abortSignal.aborted) break;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = chunk as any;
+    const type = raw.type as string;
+
+    if (type === "RUN_FINISHED") continue;
+
+    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
+      yield {
+        type: EventType.TEXT_MESSAGE_CHUNK,
+        role: "assistant",
+        messageId,
+        delta: raw.delta as string,
+      };
+    }
+  }
+}
+
+/**
+ * Built-in agent for the BYOC json-render demo. Uses a system prompt that
+ * instructs the model to emit only valid JSON matching the json-render
+ * flat-element-map schema.
+ *
+ * Uses `type: "custom"` with a dedicated stream converter to avoid the
+ * runtime's `convertTanStackStream` runFinished-flag issue, matching the
+ * pattern used by the main built-in-agent factory (tanstack-factory.ts).
+ *
+ * NOTE: `response_format: { type: "json_object" }` was removed from
+ * modelOptions because TanStack AI's OpenAI adapter v0.8.x uses the
+ * Responses API (`client.responses.create()`), not the Chat Completions
+ * API. The Responses API does not support `response_format` — it uses
+ * `text.format` instead. The system prompt already enforces JSON-only
+ * output.
  */
 export function createByocJsonRenderAgent() {
   return new BuiltInAgent({
-    type: "tanstack",
-    factory: ({ input, abortController }) => {
+    type: "custom",
+    factory: async ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
-      return chat({
-        adapter: openaiText("gpt-4o-mini"),
+
+      const stream = chat({
+        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
         modelOptions: {
-          response_format: { type: "json_object" },
           temperature: 0.2,
         },
         abortController,
       });
+
+      return convertStream(stream, abortController.signal);
     },
   });
 }

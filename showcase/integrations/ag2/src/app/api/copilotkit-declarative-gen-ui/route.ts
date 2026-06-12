@@ -1,12 +1,10 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// cell. Splitting into its own endpoint (mirroring beautiful-chat in the
-// langgraph-python reference) lets us set `a2ui.injectA2UITool: false` —
-// the backend AG2 agent owns the `generate_a2ui` tool itself, so double-binding
-// from the runtime would duplicate the tool slot and confuse the LLM.
-//
-// Reference:
-// - showcase/integrations/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts
-// - src/agents/a2ui_dynamic.py (the AG2 backend)
+// cell. Mirrors the working claude-sdk-typescript reference pattern: the
+// backend is the default pass-through ConversableAgent, and the runtime
+// auto-injects the `render_a2ui` tool (injectA2UITool defaults to true).
+// The A2UI middleware serialises the registered client catalog into
+// `copilotkit.context` and detects `a2ui_operations` in the tool result,
+// streaming rendered surfaces to the frontend.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -18,23 +16,12 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const declarativeGenUiAgent = new HttpAgent({
-  url: `${AGENT_URL}/declarative-gen-ui/`,
-});
-
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: {
-    // The backend agent owns `generate_a2ui` explicitly (see
-    // src/agents/a2ui_dynamic.py), so the runtime MUST NOT auto-inject its
-    // own A2UI tool on top. The A2UI middleware still runs — it serialises
-    // the registered client catalog into the agent's `copilotkit.context` so
-    // the secondary LLM inside `generate_a2ui` knows which components to emit
-    // — and it still detects the `a2ui_operations` container in the tool
-    // result and streams rendered surfaces to the frontend.
-    injectA2UITool: false,
-  },
+  agents: { "declarative-gen-ui": new HttpAgent({ url: `${AGENT_URL}/` }) },
+  // `injectA2UITool` defaults to true — the runtime injects the A2UI tool
+  // and the default ConversableAgent receives it via AG-UI, matching the
+  // working claude-sdk-typescript reference pattern.
 });
 
 export const POST = async (req: NextRequest) => {

@@ -32,6 +32,25 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. PydanticAI's ``OpenAIResponsesModel`` constructs its httpx
+# client at agent-module import time.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+# PydanticAI dispatches SYNC tools (e.g. the declarative gen-ui
+# `generate_a2ui` tool, which makes a secondary OpenAI call) onto the
+# default ThreadPoolExecutor via loop.run_in_executor(...), which does NOT
+# propagate ContextVars to the worker thread. Without this, the
+# forwarded-header ContextVar set on the inbound request task is empty by
+# the time the secondary call's outbound httpx hook fires, and aimock
+# can't match the right fixture for the request.
+install_executor_contextvar_propagation()
+
 from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent
 from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
@@ -59,6 +78,7 @@ from agents.tool_rendering_reasoning_chain_agent import (
 )
 from agents.mcp_apps_agent import agent as mcp_apps_agent
 from agents.hitl_in_chat_agent import agent as hitl_in_chat_agent
+from agents.interrupt_agent import agent as interrupt_agent
 
 load_dotenv()
 
@@ -79,6 +99,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(HealthMiddleware)
+
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -149,6 +175,11 @@ app.mount("/mcp_apps", mcp_apps_agent.to_ag_ui())
 # The agent has no backend tools; the AG-UI bridge surfaces the
 # frontend-registered tool to the model on each run.
 app.mount("/hitl_in_chat", hitl_in_chat_agent.to_ag_ui())
+
+# ── Interrupt-adapted — scheduling demos (gen-ui-interrupt, interrupt-headless)
+# The `schedule_meeting` tool is defined on the frontend via `useFrontendTool`;
+# the backend agent has no tools and delegates entirely to the client.
+app.mount("/interrupt", interrupt_agent.to_ag_ui())
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────
 # Mounted LAST so the sub-path mounts above win for their specific paths.

@@ -64,6 +64,7 @@ interface EvalOptions {
   slug?: string;
   tier?: string;
   failFast?: boolean; // commander negates --no-fail-fast to failFast: false
+  ci?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,10 @@ export function registerEvalCommand(program: Command): void {
     .option("--slug <slugs>", "override scope (comma-separated)")
     .option("--tier <n>", "run only tiers 1 through N")
     .option("--no-fail-fast", "don't stop on Tier 1 failure")
+    .option(
+      "--ci",
+      "CI mode — skip Docker lifecycle, assume services already running",
+    )
     .action(async (opts: EvalOptions) => {
       await runEval(opts);
     });
@@ -338,46 +343,53 @@ export async function runEval(opts: EvalOptions): Promise<void> {
   }
 
   // -- 5. Build + start services ---------------------------------------------
-  const slugsToStart = [...scopeResult.slugs];
-  // Always ensure aimock is running
-  if (!slugsToStart.includes("aimock")) {
-    slugsToStart.push("aimock");
-  }
+  let autoStarted: string[] = [];
 
-  const autoStarted: string[] = [];
-  for (const slug of slugsToStart) {
-    const running = await isRunning(slug);
-    if (!running) {
-      autoStarted.push(slug);
+  if (opts.ci) {
+    log.info("CI mode — skipping Docker lifecycle, assuming services running");
+  } else {
+    const slugsToStart = [...scopeResult.slugs];
+    // Always ensure aimock is running
+    if (!slugsToStart.includes("aimock")) {
+      slugsToStart.push("aimock");
     }
-  }
 
-  if (autoStarted.length > 0) {
-    if (!opts.json) {
-      console.log(
-        `  \x1b[36mStarting services:\x1b[0m ${autoStarted.join(", ")}`,
-      );
+    for (const slug of slugsToStart) {
+      const running = await isRunning(slug);
+      if (!running) {
+        autoStarted.push(slug);
+      }
     }
-    // up() includes health checks internally
-    await up(autoStarted);
-    if (!opts.json) {
-      console.log("  \x1b[32mAll services healthy\x1b[0m\n");
+
+    if (autoStarted.length > 0) {
+      if (!opts.json) {
+        console.log(
+          `  \x1b[36mStarting services:\x1b[0m ${autoStarted.join(", ")}`,
+        );
+      }
+      // up() includes health checks internally
+      await up(autoStarted);
+      if (!opts.json) {
+        console.log("  \x1b[32mAll services healthy\x1b[0m\n");
+      }
     }
   }
 
   // -- 6-7. Run tiered tests -------------------------------------------------
-  const healthySlugs = scopeResult.slugs.filter((s) => {
-    try {
-      const result = execFileSync(
-        "docker",
-        ["inspect", "--format={{.State.Health.Status}}", `showcase-${s}`],
-        { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-      ).trim();
-      return result === "healthy";
-    } catch {
-      return false;
-    }
-  });
+  const healthySlugs = opts.ci
+    ? [...scopeResult.slugs]
+    : scopeResult.slugs.filter((s) => {
+        try {
+          const result = execFileSync(
+            "docker",
+            ["inspect", "--format={{.State.Health.Status}}", `showcase-${s}`],
+            { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+          ).trim();
+          return result === "healthy";
+        } catch {
+          return false;
+        }
+      });
 
   let tieredResult: TieredRunResult;
 

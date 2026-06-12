@@ -1,27 +1,52 @@
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import {
-  logger,
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type {
   RuntimeInfo,
   AgentDescription,
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+} from "@copilotkit/shared";
+import {
+  logger,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
   resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
-import type { CopilotKitCore } from "./core";
+import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotKitCoreFriendsAccess,
 } from "./core";
-import { CopilotRuntimeTransport } from "../types";
+import type { CopilotRuntimeTransport } from "../types";
 
 export interface CopilotKitCoreAddAgentParams {
   id: string;
   agent: AbstractAgent;
+}
+
+/**
+ * Parameters for registering a proxied agent against an existing runtime agent.
+ */
+export interface CopilotKitCoreRegisterProxiedAgentParams {
+  /**
+   * The local registry id under which the proxy is registered. Used by
+   * `useAgent`, state-manager subscriptions, and all subscriber bookkeeping.
+   * Must not collide with any existing local or runtime-discovered agent id.
+   */
+  agentId: string;
+  /**
+   * The id of the runtime agent that this proxy routes outbound HTTP requests
+   * to. Invisible to subscribers — only affects URL paths and single-route
+   * envelopes.
+   */
+  runtimeAgentId: string;
+}
+
+export interface CopilotKitCoreRegisterProxiedAgentResult {
+  agent: ProxiedCopilotRuntimeAgent;
+  unregister: () => void;
 }
 
 /**
@@ -38,12 +63,20 @@ export class AgentRegistry {
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "auto";
+  // The transport MODE last requested via `setRuntimeTransport` (e.g. "auto").
+  // Distinct from `_runtimeTransport`, which auto-detect overwrites with the
+  // RESOLVED value ("rest"/"single"). The idempotency guard compares against
+  // this so re-applying the same mode (the provider effect re-applies "auto"
+  // on every render) is a no-op instead of re-running the /info handshake.
+  private _requestedTransport: CopilotRuntimeTransport = "auto";
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _a2uiEnabled: boolean = false;
+  private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
+  private _telemetryDisabled: boolean = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -86,12 +119,24 @@ export class AgentRegistry {
     return this._a2uiEnabled;
   }
 
+  /**
+   * Agent ids the runtime applies A2UI to (#5369). `undefined` means A2UI
+   * applies to every agent — or is disabled entirely; check `a2uiEnabled`.
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this._a2uiAgents;
+  }
+
   get openGenerativeUIEnabled(): boolean {
     return this._openGenerativeUIEnabled;
   }
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this._licenseStatus;
+  }
+
+  get telemetryDisabled(): boolean {
+    return this._telemetryDisabled;
   }
 
   /**
@@ -121,10 +166,15 @@ export class AgentRegistry {
   }
 
   setRuntimeTransport(runtimeTransport: CopilotRuntimeTransport): void {
-    if (this._runtimeTransport === runtimeTransport) {
+    // Guard on the requested MODE, not the resolved value: after auto-detect
+    // writes `_runtimeTransport = "rest"`, re-applying the same requested
+    // "auto" must not be treated as a change (otherwise every provider
+    // re-render re-runs the /info handshake and rebuilds agents).
+    if (this._requestedTransport === runtimeTransport) {
       return;
     }
 
+    this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
     void this.updateRuntimeConnection();
   }
@@ -165,6 +215,72 @@ export class AgentRegistry {
     delete this.localAgents[id];
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     void this.notifyAgentsChanged();
+  }
+
+  /**
+   * Register a proxied agent that routes outbound runtime requests to an
+   * existing runtime agent (`runtimeAgentId`) while exposing a distinct local
+   * registry id (`agentId`). Throws if `agentId` is already taken by either a
+   * local or runtime-discovered agent.
+   *
+   * Use this to mount multiple frontend agents against a single runtime
+   * agent (e.g. a chat-1 / chat-2 pair both proxying to "default") without
+   * implicit per-thread cloning. The returned `unregister` removes the proxy
+   * from the registry and emits `onAgentsChanged`.
+   */
+  registerProxiedAgent({
+    agentId,
+    runtimeAgentId,
+  }: CopilotKitCoreRegisterProxiedAgentParams): CopilotKitCoreRegisterProxiedAgentResult {
+    // Use hasOwnProperty rather than `in`: `in` walks the prototype chain,
+    // so an agentId of "__proto__", "constructor", "toString" etc. would
+    // falsely test as already-registered.
+    if (Object.prototype.hasOwnProperty.call(this._agents, agentId)) {
+      throw new Error(
+        `CopilotKitCore.registerProxiedAgent: agentId "${agentId}" is already registered. ` +
+          `Pick a different agentId, or unregister the existing agent first.`,
+      );
+    }
+
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const debug = friends.debug;
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: this._runtimeUrl,
+      agentId,
+      runtimeAgentId,
+      transport: this._runtimeTransport,
+      credentials: friends.credentials,
+      // If runtime info has already synced, mirror its mode/intelligence so
+      // the proxy doesn't have to re-resolve. Otherwise stay "pending" until
+      // /info lands.
+      runtimeMode: this._runtimeUrl
+        ? this._runtimeConnectionStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Connected
+          ? this._runtimeMode
+          : "pending"
+        : RUNTIME_MODE_SSE,
+      intelligence: this._intelligence,
+      debug: debug ? resolveDebugConfig(debug) : undefined,
+    });
+    this.applyHeadersToAgent(agent);
+
+    this.localAgents[agentId] = agent;
+    this._agents = { ...this.localAgents, ...this.remoteAgents };
+    void this.notifyAgentsChanged();
+
+    return {
+      agent,
+      unregister: () => {
+        // Only unregister if the same instance is still in place — guards
+        // against double-unregister or against unregistering after a
+        // subsequent register replaced the slot.
+        if (this.localAgents[agentId] === agent) {
+          delete this.localAgents[agentId];
+          this._agents = { ...this.localAgents, ...this.remoteAgents };
+          void this.notifyAgentsChanged();
+        }
+      },
+    };
   }
 
   /**
@@ -247,6 +363,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
@@ -309,10 +426,14 @@ export class AgentRegistry {
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
-      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
+      const a2uiInfo = runtimeInfoResponse.a2ui;
+      this._a2uiEnabled =
+        a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
+      this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
+      this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
@@ -326,6 +447,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._a2uiEnabled = false;
+      this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;

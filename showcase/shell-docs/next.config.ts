@@ -1,54 +1,80 @@
 import type { NextConfig } from "next";
 
-// NEXT_PUBLIC_BASE_URL is inlined automatically by Next.js at build time
-// because of the NEXT_PUBLIC_ prefix. Do NOT re-declare it in an `env` block —
-// doing so bakes the build-time value into server code and overrides runtime env.
-//
-// Fail fast during an actual `next build` if the variable is missing, so we
-// never ship broken absolute URLs. Other invocations that also load this
-// config (e.g. `next lint`, `next dev`) only warn, because failing them on a
-// missing value would be noise — consumers are expected to handle the dev
-// fallback themselves (e.g. `process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3003"`).
-//
-// Use NEXT_PHASE — the Next.js-canonical signal for production builds —
-// rather than sniffing process.argv, which is fragile (e.g. broken under
-// wrappers, turbo runs, or when invoked programmatically).
-const isNextBuild = process.env.NEXT_PHASE === "phase-production-build";
-
-if (!process.env.NEXT_PUBLIC_BASE_URL) {
-  if (isNextBuild) {
-    throw new Error(
-      "NEXT_PUBLIC_BASE_URL is required for `next build` of showcase/shell-docs. " +
-        "Set it in the environment (e.g. https://your-domain.example) before running the build.",
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[shell-docs] NEXT_PUBLIC_BASE_URL is not set; consumers should fall back to a sensible dev default (e.g. http://localhost:3003).",
-  );
-}
-
-// NEXT_PUBLIC_SHELL_URL points at the shell (showcase) host, which owns
-// `/integrations` and `/matrix` — the live integration explorer and
-// feature-matrix pages. Components use it directly in cross-host hrefs
-// (e.g. the top-nav "Integrations" link). Same validation pattern as
-// NEXT_PUBLIC_BASE_URL above: fail at `next build` if missing; warn in dev.
-if (!process.env.NEXT_PUBLIC_SHELL_URL) {
-  if (isNextBuild) {
-    throw new Error(
-      "NEXT_PUBLIC_SHELL_URL is required for `next build` of showcase/shell-docs. " +
-        "Set it to the shell host before running the build.",
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[shell-docs] NEXT_PUBLIC_SHELL_URL is not set; consumers should fall back to a sensible dev default (e.g. http://localhost:3000).",
-  );
-}
+// NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_SHELL_URL are read at REQUEST
+// time by the server `getRuntimeConfig()` reader and injected into the
+// client via `window.__SHOWCASE_CONFIG__` from the root layout. They
+// are NOT build-time inputs — a single built artifact can serve staging
+// and prod by changing the Railway env vars. Any previous build-time
+// validation that threw on unset env vars would prevent that exact
+// deploy pattern. Missing values are surfaced loudly at runtime via
+// `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
+  images: {
+    // Bypass the Next.js image optimizer (`/_next/image`). The optimizer
+    // requires `sharp` at runtime, which is missing from the Railway image
+    // and breaks all `<Image>` rendering site-wide. Our CDN
+    // (`cdn.copilotkit.ai`, CloudFront/S3) ignores `?fm=webp` and serves
+    // PNG regardless, so the optimizer added no format-conversion value
+    // for CDN-hosted images. With `unoptimized`, `<Image>` renders as a
+    // plain `<img>` pointing at the source URL — visually identical for
+    // users, no sharp dependency required.
+    unoptimized: true,
+    // Asset CDN for framework intro-page media (banner videos, architecture
+    // diagrams, supported-feature thumbnails, framework icons). Hosts every
+    // image/video referenced by `src/data/frameworks/*.ts` and any future
+    // marketing surface that pulls from the shared CDN. Kept here for
+    // documentation and to remain valid if the optimizer is re-enabled.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.copilotkit.ai",
+      },
+    ],
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        // PostHog reverse proxy — routes analytics through this host so
+        // requests bypass ad blockers / tracking-protection that target
+        // the *.i.posthog.com hostname directly. Mirrors docs/.
+        {
+          source: "/ingest/static/:path*",
+          destination: "https://eu-assets.i.posthog.com/static/:path*",
+        },
+        {
+          source: "/ingest/:path*",
+          destination: "https://eu.i.posthog.com/:path*",
+        },
+        // Fumadocs LLM page-actions feature: every docs page is also
+        // reachable as `<path>.mdx` so LLMCopyButton/ViewOptionsPopover
+        // (and external crawlers) can fetch the raw MDX source. The
+        // route handler at `app/llms-mdx/[[...slug]]/route.ts` reuses
+        // `loadDoc()` to resolve the same content tree the page uses.
+        {
+          source: "/:path*.mdx",
+          destination: "/llms-mdx/:path*",
+        },
+        {
+          source: "/:path*.md",
+          destination: "/llms-mdx/:path*",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async redirects() {
     return [
+      {
+        // Built-in agent is the default framework, so its overview page
+        // is the docs root. Avoid surfacing a redundant "Introduction"
+        // entry inside the built-in-agent sidebar by canonicalizing the
+        // bare /built-in-agent URL to the root overview.
+        source: "/built-in-agent",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/frontend-actions",
         destination: "/frontend-tools",
@@ -74,19 +100,30 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
+      // Quickstart needs a real backing page when hit without a stored
+      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
+      // when a framework is selected; users who land here cold (or who
+      // explicitly picked the bare CopilotKit / Built-in Agent view)
+      // get the Built-in Agent quickstart by default. 308 keeps the
+      // sidebar's `/quickstart` href intact while always sending the
+      // user to a real guide.
       {
         source: "/quickstart",
-        destination: "/",
+        destination: "/built-in-agent/quickstart",
         permanent: true,
       },
 
-      // /unselected/* tree retired. Most files were either canonical at
-      // root or duplicated content from `integrations/built-in-agent/`.
-      // Per-path redirects below handle the BIA-canonical mappings; the
-      // catch-all at the bottom funnels everything else to root (where
-      // either the canonical version now lives or the soft-default
-      // serves the right framework view).
-      { source: "/unselected", destination: "/", permanent: true },
+      // /unselected/* tree retired. Files moved to integrations/built-in-agent/
+      // (BIA replaced the old "unselected" slot as the default integration).
+      // Per-path entries below cover BIA-canonical mappings (direct moves +
+      // slug renames from SUBPATH_RENAMES in seo-redirects.ts); the catch-all
+      // at the bottom routes everything else into /built-in-agent/ to preserve
+      // SEO equity, since these legacy URLs historically served BIA content.
+      {
+        source: "/unselected",
+        destination: "/built-in-agent",
+        permanent: true,
+      },
       {
         source: "/unselected/quickstart",
         destination: "/built-in-agent/quickstart",
@@ -134,6 +171,21 @@ const nextConfig: NextConfig = {
         destination: "/backend/copilot-runtime",
         permanent: true,
       },
+      // custom-agent: consolidate two divergent shell-docs copies onto the
+      // structurally-complete backend/custom-agent.mdx (508 lines, matches
+      // upstream snippet). The integrations/built-in-agent/custom-agent.mdx
+      // copy (240 lines, missing 5 sections) was retired; redirect both
+      // historical paths.
+      {
+        source: "/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
+      {
+        source: "/integrations/built-in-agent/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
       // troubleshooting/migrate-to-* in unselected → existing
       // /migrate/* canonical (already redirected at the
       // /troubleshooting/migrate-to-* level).
@@ -178,12 +230,89 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
-      // Catch-all: any remaining /unselected/* path lands on its
-      // canonical root equivalent (Cat A files: coding-agents,
-      // custom-look-and-feel/*, frontend-tools, etc.).
+      // Slug-rename entries (mirror SUBPATH_RENAMES in seo-redirects.ts).
+      // These MUST come before the catch-all so the rename wins. Each
+      // historical slug under /unselected/ has been renamed under
+      // /built-in-agent/; e.g. agentic-chat-ui → prebuilt-components.
+      {
+        source: "/unselected/agentic-chat-ui",
+        destination: "/built-in-agent/prebuilt-components",
+        permanent: true,
+      },
+      {
+        source: "/unselected/use-agent-hook",
+        destination: "/built-in-agent/programmatic-control",
+        permanent: true,
+      },
+      {
+        source: "/unselected/frontend-actions",
+        destination: "/built-in-agent/frontend-tools",
+        permanent: true,
+      },
+      {
+        source: "/unselected/vibe-coding-mcp",
+        destination: "/built-in-agent/coding-agents",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/agentic",
+        destination:
+          "/built-in-agent/generative-ui/your-components/display-only",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/backend-tools",
+        destination: "/built-in-agent/generative-ui/tool-rendering",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/frontend-tools",
+        destination: "/built-in-agent/frontend-tools",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/render-only",
+        destination:
+          "/built-in-agent/generative-ui/your-components/display-only",
+        permanent: true,
+      },
+      {
+        source: "/unselected/generative-ui/tool-based",
+        destination: "/built-in-agent/generative-ui/tool-rendering",
+        permanent: true,
+      },
+      {
+        source: "/unselected/custom-look-and-feel/bring-your-own-components",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source:
+          "/unselected/custom-look-and-feel/customize-built-in-ui-components",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source: "/unselected/custom-look-and-feel/markdown-rendering",
+        destination: "/built-in-agent/custom-look-and-feel/slots",
+        permanent: true,
+      },
+      {
+        source: "/unselected/guide",
+        destination: "/built-in-agent/guides",
+        permanent: true,
+      },
+      {
+        source: "/unselected/mcp",
+        destination: "/built-in-agent/coding-agents",
+        permanent: true,
+      },
+      // Catch-all: route remaining /unselected/* paths into /built-in-agent/.
+      // BIA is the canonical owner of the legacy unselected/ content tree;
+      // matches P1×unselected in seo-redirects.ts.
       {
         source: "/unselected/:path*",
-        destination: "/:path*",
+        destination: "/built-in-agent/:path*",
         permanent: true,
       },
 
@@ -260,7 +389,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/tutorials/multi-conversation-chat",
-        destination: "/tutorials/multi-conversation-chat",
+        destination: "/",
         permanent: true,
       },
       {
@@ -334,11 +463,11 @@ const nextConfig: NextConfig = {
         destination: "/coding-agents",
         permanent: false,
       },
-      // Orphaned broken stub.
+      // Old guide now belongs in the v2 hook reference.
       {
         source: "/copilot-suggestions",
-        destination: "/",
-        permanent: false,
+        destination: "/reference/v2/hooks/useSuggestions",
+        permanent: true,
       },
       // AI-slop placeholder pulled from nav until properly authored;
       // file stays on disk for rewrite.
@@ -347,14 +476,6 @@ const nextConfig: NextConfig = {
         destination: "/generative-ui",
         permanent: false,
       },
-      // ~1-year-old migration target, no longer a meaningful jump-off
-      // point.
-      {
-        source: "/migrate/1.10.X",
-        destination: "/migrate",
-        permanent: false,
-      },
-
       // ag-ui-middleware moved into the agentic-protocols group so it
       // appears in the sidebar under AG-UI rather than as an orphan
       // root page. 302 (not 301) since the new home is recent and we
@@ -363,6 +484,22 @@ const nextConfig: NextConfig = {
       {
         source: "/ag-ui-middleware",
         destination: "/agentic-protocols/ag-ui-middleware",
+        permanent: false,
+      },
+
+      // Root `/generative-ui/your-components/*` pages do not exist in
+      // the unscoped docs tree, so keep those bare redirects. Do not
+      // redirect `/:framework/generative-ui/your-components/*`: several
+      // framework-scoped docs, including Built-in Agent, are authored at
+      // those paths and should render directly.
+      {
+        source: "/generative-ui/your-components/display-only",
+        destination: "/generative-ui/tool-based",
+        permanent: false,
+      },
+      {
+        source: "/generative-ui/your-components/interactive",
+        destination: "/human-in-the-loop",
         permanent: false,
       },
     ];

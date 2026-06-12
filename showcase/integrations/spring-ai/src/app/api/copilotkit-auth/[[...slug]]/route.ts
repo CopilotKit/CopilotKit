@@ -21,7 +21,7 @@ const authDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
 const runtime = new CopilotRuntime({
   // @ts-ignore - agents type shape as in main route
   agents: {
-    auth: authDemoAgent,
+    "auth-demo": authDemoAgent,
     default: authDemoAgent,
   },
 });

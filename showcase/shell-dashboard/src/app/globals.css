@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* ── Light theme (default) ────────────────────────────────────────── */
 :root {
   --bg: #ffffff;
   --bg-surface: #ffffff;
@@ -15,6 +16,44 @@
   --ok: #059669;
   --amber: #d97706;
   --danger: #dc2626;
+}
+
+/* ── Dark theme ───────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0f1117;
+  --bg-surface: #1a1d27;
+  --bg-muted: #22252f;
+  --bg-hover: #2a2d3a;
+  --border: #2e3140;
+  --border-strong: #3d4155;
+  --text: #e4e6ed;
+  --text-secondary: #a0a6b6;
+  --text-muted: #6b7280;
+  --accent: #5b8def;
+  --accent-hover: #4a7de8;
+  --ok: #34d399;
+  --amber: #fbbf24;
+  --danger: #f87171;
+}
+
+/* ── System-auto: dark when no explicit theme set ─────────────────── */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --bg: #0f1117;
+    --bg-surface: #1a1d27;
+    --bg-muted: #22252f;
+    --bg-hover: #2a2d3a;
+    --border: #2e3140;
+    --border-strong: #3d4155;
+    --text: #e4e6ed;
+    --text-secondary: #a0a6b6;
+    --text-muted: #6b7280;
+    --accent: #5b8def;
+    --accent-hover: #4a7de8;
+    --ok: #34d399;
+    --amber: #fbbf24;
+    --danger: #f87171;
+  }
 }
 
 * {
@@ -39,4 +78,42 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+
+/* Row hover highlight — overrides inline backgroundColor on sticky cells
+   so the entire row (including the frozen feature-name column) highlights
+   on hover. Used by both Coverage and Baseline grids. */
+tr.grid-row:hover > td {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Fast tooltips — 200ms delay (native title is ~400ms and not configurable).
+   Apply data-tip="text" to any element. */
+[data-tip] {
+  position: relative;
+}
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: pre;
+  color: var(--text);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 60;
+}
+[data-tip]:hover::after {
+  opacity: 1;
+  transition-delay: 0.2s;
 }

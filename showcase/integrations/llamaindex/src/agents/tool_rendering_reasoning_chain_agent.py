@@ -6,18 +6,33 @@ succession when relevant. The frontend renders the reasoning tokens via a
 custom `reasoningMessage` slot and paints `get_weather` / `search_flights`
 with rich cards, with every other tool falling back to a branded catch-all.
 
-Mirrors `langgraph-python/src/agents/tool_rendering_reasoning_chain_agent.py`.
-"""
+Mirrors `langgraph-python/src/agents/tool_rendering_reasoning_chain_agent.py`,
+including its reasoning-capable model routed through the OpenAI Responses API
+(`init_chat_model("openai:<reasoning-model>", use_responses_api=True,
+reasoning={"effort": "medium", "summary": "detailed"})`). A reasoning model on
+the Responses API streams `response.reasoning_summary_text.delta` items; a
+non-reasoning chat-completions model emits no reasoning channel against real
+OpenAI, so this cell would only light up under aimock without the switch.
+(LlamaIndex defaults to `gpt-5`, not langgraph's `gpt-5.4`; see
+reasoning_agent.py for the LlamaIndex 0.5.6 model-name constraint.)
 
-from __future__ import annotations
+Uses ``get_reasoning_ag_ui_workflow_router`` (a thin in-package extension of
+the stock ``get_ag_ui_workflow_router``) so the model's reasoning summary
+deltas surface as AG-UI ``REASONING_MESSAGE_*`` events. The stock router
+reads only assistant text and silently drops reasoning; see
+``_reasoning_router.py`` for the three framework gaps it closes (and how
+``_extract_reasoning_delta`` reads the Responses-API summary delta off
+``resp.raw``).
+"""
 
 import json
 import os
 from random import choice, randint
 from typing import Annotated
 
-from llama_index.llms.openai import OpenAI
-from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+from llama_index.llms.openai import OpenAIResponses
+
+from agents._reasoning_router import get_reasoning_ag_ui_workflow_router
 
 
 async def get_weather(
@@ -45,9 +60,27 @@ async def search_flights(
             "origin": origin,
             "destination": destination,
             "flights": [
-                {"airline": "United", "flight": "UA231", "depart": "08:15", "arrive": "16:45", "price_usd": 348},
-                {"airline": "Delta", "flight": "DL412", "depart": "11:20", "arrive": "19:55", "price_usd": 312},
-                {"airline": "JetBlue", "flight": "B6722", "depart": "17:05", "arrive": "01:30", "price_usd": 289},
+                {
+                    "airline": "United",
+                    "flight": "UA231",
+                    "depart": "08:15",
+                    "arrive": "16:45",
+                    "price_usd": 348,
+                },
+                {
+                    "airline": "Delta",
+                    "flight": "DL412",
+                    "depart": "11:20",
+                    "arrive": "19:55",
+                    "price_usd": 312,
+                },
+                {
+                    "airline": "JetBlue",
+                    "flight": "B6722",
+                    "depart": "17:05",
+                    "arrive": "01:30",
+                    "price_usd": 289,
+                },
             ],
         }
     )
@@ -80,12 +113,25 @@ SYSTEM_PROMPT = (
 )
 
 
+# Reasoning-capable model routed through the OpenAI Responses API. Default
+# `gpt-5` (a native reasoning model LlamaIndex 0.5.6 recognizes); override via
+# OPENAI_REASONING_MODEL. See reasoning_agent.py for the model-name constraint
+# and why the reasoning params are passed through both reasoning_options and
+# additional_kwargs.
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5")
+_REASONING_PARAMS = {"effort": "medium", "summary": "detailed"}
+
 _openai_kwargs = {}
 if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
-tool_rendering_reasoning_chain_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
+tool_rendering_reasoning_chain_router = get_reasoning_ag_ui_workflow_router(
+    llm=OpenAIResponses(
+        model=REASONING_MODEL,
+        reasoning_options=_REASONING_PARAMS,
+        additional_kwargs={"reasoning": _REASONING_PARAMS},
+        **_openai_kwargs,
+    ),
     frontend_tools=[],
     backend_tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,

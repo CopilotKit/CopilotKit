@@ -1,34 +1,34 @@
-import {
+import type {
   MaybePromise,
   NonEmptyRecord,
   RuntimeMode,
+} from "@copilotkit/shared";
+import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
-import {
-  createLicenseChecker,
-  type LicenseChecker,
-} from "@copilotkit/license-verifier";
-import {
-  type ResolvedDebugConfig,
-  resolveDebugConfig,
-  type DebugConfig,
-} from "@copilotkit/shared";
-import { AbstractAgent } from "@ag-ui/client";
+import { createLicenseChecker } from "@copilotkit/license-verifier";
+import type { LicenseChecker } from "@copilotkit/license-verifier";
+import { resolveDebugConfig } from "@copilotkit/shared";
+import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
+import type { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
-import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
+import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import pkg from "../../../../package.json";
 import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
-import { createLogger, type CopilotRuntimeLogger } from "../../../lib/logger";
-import { TranscriptionService } from "../transcription-service/transcription-service";
+import { createLogger } from "../../../lib/logger";
+import type { CopilotRuntimeLogger } from "../../../lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
+import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus } from "./debug-event-bus";
-import { AgentRunner } from "../runner/agent-runner";
+import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotKitIntelligence } from "../intelligence-platform";
+import type { CopilotKitIntelligence } from "../intelligence-platform";
+import telemetry from "../telemetry/telemetry-client";
 
 export const VERSION = pkg.version;
 
@@ -56,7 +56,16 @@ interface CopilotRuntimeMiddlewares {
    * Auto-apply A2UIMiddleware to agents at run time.
    * Pass an object to enable and customise behaviour, or omit to disable.
    */
-  a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
+  a2ui?: BaseCopilotRuntimeMiddlewareOptions &
+    A2UIMiddlewareConfig & {
+      /**
+       * Explicit on/off switch. Omit (or set `true`) to enable; set `false`
+       * to disable A2UI for this runtime while keeping the rest of the config
+       * (e.g. a `schema`/`catalog`) in place. A bare `a2ui: {}` stays enabled
+       * for backwards compatibility.
+       */
+      enabled?: boolean;
+    };
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
@@ -229,6 +238,8 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    logRuntimeTelemetryDisclosure();
+
     const {
       agents,
       transcriptionService,
@@ -303,7 +314,16 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    this.licenseChecker = createLicenseChecker(options.licenseToken);
+    // Match license-verifier's env fallback so telemetry attribution
+    // resolves the same way as feature gating — otherwise customers who
+    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
+    // anonymous telemetry.
+    const licenseToken =
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    this.licenseChecker = createLicenseChecker(licenseToken);
+    if (licenseToken) {
+      telemetry.setLicenseToken(licenseToken);
+    }
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
@@ -326,6 +346,22 @@ export function isIntelligenceRuntime(
   runtime: CopilotRuntimeLike,
 ): runtime is CopilotIntelligenceRuntimeLike {
   return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
+}
+
+/**
+ * Single source of truth for "is A2UI on for this runtime?". Both the run path
+ * (which applies `A2UIMiddleware`) and the `/info` response (which tells the
+ * client whether to mount the A2UI renderer + catalog context) MUST go through
+ * this, so they can never disagree — the divergence between them was the root
+ * of CopilotKit/CopilotKit#5369.
+ *
+ * Backwards compatible: any config object is enabled (matching the historical
+ * `!!runtime.a2ui`); only an explicit `enabled: false` turns it off.
+ */
+export function isA2UIEnabled(
+  a2ui: CopilotRuntimeOptions["a2ui"],
+): a2ui is NonNullable<CopilotRuntimeOptions["a2ui"]> {
+  return !!a2ui && a2ui.enabled !== false;
 }
 
 /**

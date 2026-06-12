@@ -5,8 +5,7 @@
  */
 
 import { useState } from "react";
-
-type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
 
 export interface AdaptiveLegendProps {
   overlays: Set<Overlay>;
@@ -39,8 +38,10 @@ function LinksLegend() {
 function DepthLegend() {
   return (
     <LegendItem>
-      <span className="font-semibold text-[var(--text-secondary)]">D0-D4</span>
-      integration wiring depth (D0 = listed, D4 = full tool rendering)
+      <span className="font-semibold text-[var(--text-secondary)]">
+        L1-L4 Strip
+      </span>
+      per-integration health levels shown in column header
     </LegendItem>
   );
 }
@@ -48,16 +49,14 @@ function DepthLegend() {
 function HealthLegend() {
   return (
     <>
-      {/* Depth/level explanations grouped first */}
-      <LegendItem>
-        <span className="font-semibold text-[var(--text-secondary)]">
-          L1-L4 Strip
-        </span>
-        per-integration health levels shown in column header
-      </LegendItem>
+      {/* Depth explanations in ascending order */}
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D2</span>
         API: responds to a basic CopilotKit API call
+      </LegendItem>
+      <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">D3</span>
+        E2E (Demo): demo page loads and round-trips in a browser
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D4</span>
@@ -67,6 +66,11 @@ function HealthLegend() {
         <span className="font-semibold text-[var(--text-secondary)]">D5</span>
         Conversation (CV): multi-turn scripted dialogue with tool calls and
         content assertions
+      </LegendItem>
+      <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">D6</span>
+        Parity (Reference): full all-pills run verified against the reference
+        integration
       </LegendItem>
       {/* Regression indicator */}
       <LegendItem>
@@ -78,13 +82,19 @@ function HealthLegend() {
         <span className="text-[var(--ok)]">D4 ✓</span>/
         <span className="text-[var(--amber)]">~</span>/
         <span className="text-[var(--danger)]">✗</span>
-        round-trip check (green &lt;6h / amber stale / red fail)
+        round-trip check (green &lt;1h / amber stale / red fail)
       </LegendItem>
       <LegendItem>
         <span className="text-[var(--ok)]">D5</span>/
         <span className="text-[var(--amber)]">D5</span>/
         <span className="text-[var(--danger)]">D5</span>
         conversation check (green pass / amber stale / red fail)
+      </LegendItem>
+      <LegendItem>
+        <span className="text-[var(--ok)]">D6</span>/
+        <span className="text-[var(--amber)]">D6</span>/
+        <span className="text-[var(--danger)]">D6</span>
+        parity check (green pass / amber stale / red fail)
       </LegendItem>
       {/* Status symbols */}
       <LegendItem>

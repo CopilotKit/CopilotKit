@@ -15,4 +15,4 @@ RUN npm install
 
 EXPOSE 8123
 
-CMD ["npx", "@langchain/langgraph-cli", "dev", "--host", "0.0.0.0", "--port", "8123", "--no-browser"]
+CMD ["npx", "@langchain/langgraph-cli@1.2.1", "dev", "--host", "0.0.0.0", "--port", "8123", "--no-browser"]

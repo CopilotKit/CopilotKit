@@ -4,9 +4,12 @@ import {
   weatherAgent,
   headlessCompleteAgent,
   sharedStateReadWriteAgent,
+  genUiAgent,
   subagentsSupervisorAgent,
+  interruptAgent,
   multimodalAgent,
   mcpAppsAgent,
+  byocHashbrownAgent,
 } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 
@@ -17,9 +20,12 @@ export const mastra = new Mastra({
     weatherAgent,
     headlessCompleteAgent,
     sharedStateReadWriteAgent,
+    genUiAgent,
     subagentsSupervisorAgent,
+    interruptAgent,
     multimodalAgent,
     mcpAppsAgent,
+    byocHashbrownAgent,
   },
   storage: new LibSQLStore({
     id: "mastra-storage",

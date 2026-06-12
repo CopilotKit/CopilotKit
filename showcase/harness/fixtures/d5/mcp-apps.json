@@ -1,0 +1,58 @@
+{
+  "_comment": "D5 fixture for /demos/mcp-apps (LangGraph Python). The MCP-apps demo wires `mcpApps.servers` to https://mcp.excalidraw.com — at request time the runtime's MCP Apps middleware injects the remote MCP server's tools into the agent. When the agent calls one of those tools (here: `create_view`), the middleware fetches the associated UI resource from the MCP server and emits an activity event that the built-in `MCPAppsActivityRenderer` mounts as a sandboxed iframe. The probe (`d5-mcp-apps.ts`) asserts on iframe presence (`[data-testid=\"mcp-app-iframe\"]` or `iframe[sandbox]`). For the test stack to drive that pipeline end-to-end the container must reach mcp.excalidraw.com — the showcase Docker network has outbound internet by default, so this fixture is sufficient. `content` is non-empty (load-bearing) so aimock's Responses-API dispatch routes through `buildContentWithToolCallsResponse` rather than the toolCall-only path that strips reasoning + tool wiring (same constraint as `tool-rendering-reasoning-chain.json`).",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a sketch of a client/server/database architecture. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Sketching a client → server → database diagram in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":260,\"y\":40,\"text\":\"System Diagram\",\"fontSize\":24},{\"id\":\"client\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Client\",\"fontSize\":18}},{\"id\":\"server\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Server\",\"fontSize\":18}},{\"id\":\"database\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Database\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Open Excalidraw and sketch a system diagram",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Sketched a three-box system diagram (Client → Server → Database). Tap the iframe to open it in Excalidraw."
+      }
+    },
+    {
+      "_comment": "Mirror of d5-all.json's mcp-apps suggestion pill #1 (\"Draw a flowchart\"). Keyed on the distinctive substring \"draw a simple flowchart\" so a generic feature-parity fixture (e.g. `{userMessage: \"steps\"}`) doesn't absorb the verbatim pill prompt and break the iframe.",
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "toolName": "create_view"
+      },
+      "response": {
+        "reasoning": "The user wants a simple three-step flowchart. I'll call create_view once with three labelled rectangles connected by arrows and a title, framed by a cameraUpdate.",
+        "content": "Drawing a simple three-step flowchart in Excalidraw.",
+        "toolCalls": [
+          {
+            "id": "call_d5_mcp_apps_create_view_flowchart_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":[{\"id\":\"title\",\"type\":\"text\",\"x\":300,\"y\":40,\"text\":\"Flowchart\",\"fontSize\":24},{\"id\":\"step1\",\"type\":\"rectangle\",\"x\":80,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Start\",\"fontSize\":18}},{\"id\":\"step2\",\"type\":\"rectangle\",\"x\":320,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"Process\",\"fontSize\":18}},{\"id\":\"step3\",\"type\":\"rectangle\",\"x\":560,\"y\":160,\"width\":160,\"height\":70,\"label\":{\"text\":\"End\",\"fontSize\":18}},{\"id\":\"a1\",\"type\":\"arrow\",\"x\":240,\"y\":195,\"endX\":320,\"endY\":195},{\"id\":\"a2\",\"type\":\"arrow\",\"x\":480,\"y\":195,\"endX\":560,\"endY\":195},{\"id\":\"camera\",\"type\":\"cameraUpdate\",\"x\":40,\"y\":0,\"width\":800,\"height\":600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "draw a simple flowchart",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Drew a three-step flowchart (Start → Process → End). Tap the iframe to open it in Excalidraw."
+      }
+    }
+  ]
+}

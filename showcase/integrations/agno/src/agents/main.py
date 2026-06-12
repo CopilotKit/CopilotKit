@@ -1,5 +1,6 @@
 """Agno Sales Pipeline Agent with shared tools for showcase demos."""
 
+# @region[weather-tool-backend]
 import json
 
 from agno.agent.agent import Agent
@@ -20,7 +21,6 @@ from tools.types import Flight
 load_dotenv()
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """
@@ -33,6 +33,8 @@ def get_weather(location: str):
         str: Weather data as JSON.
     """
     return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -220,12 +222,17 @@ def generate_a2ui(context: str):
         model="gpt-4.1",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            },
         ],
-        tools=[{
-            "type": "function",
-            "function": RENDER_A2UI_TOOL_SCHEMA,
-        }],
+        tools=[
+            {
+                "type": "function",
+                "function": RENDER_A2UI_TOOL_SCHEMA,
+            }
+        ],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
     )
 

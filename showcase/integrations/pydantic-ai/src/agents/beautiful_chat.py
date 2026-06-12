@@ -38,6 +38,7 @@ from tools import build_a2ui_operations_from_tool_call
 
 # ── Shared state schema ──────────────────────────────────────────────
 
+
 class Todo(TypedDict):
     id: str
     title: str
@@ -101,6 +102,7 @@ agent = Agent(
 
 # ── Todo tools ──────────────────────────────────────────────────────
 
+
 @agent.tool
 async def manage_todos(
     ctx: RunContext[StateDeps[BeautifulChatState]],
@@ -126,10 +128,9 @@ def get_todos(ctx: RunContext[StateDeps[BeautifulChatState]]) -> str:
 
 # ── Query tool ──────────────────────────────────────────────────────
 
+
 @agent.tool
-def query_data(
-    ctx: RunContext[StateDeps[BeautifulChatState]], query: str
-) -> str:
+def query_data(ctx: RunContext[StateDeps[BeautifulChatState]], query: str) -> str:
     """Query the database, takes natural language.
 
     Always call before showing a chart or graph. Returns the raw rows
@@ -140,6 +141,7 @@ def query_data(
 
 
 # ── Fixed-schema flights tool ───────────────────────────────────────
+
 
 class Flight(TypedDict):
     id: str
@@ -195,6 +197,7 @@ def search_flights(
 
 # ── Dynamic-schema dashboard tool ───────────────────────────────────
 
+
 @agent.tool
 def generate_a2ui(ctx: RunContext[StateDeps[BeautifulChatState]]) -> str:
     """Generate dynamic A2UI components based on the conversation.
@@ -209,7 +212,7 @@ def generate_a2ui(ctx: RunContext[StateDeps[BeautifulChatState]]) -> str:
     context_entries: list[dict] = []
     if copilotkit_state:
         if hasattr(copilotkit_state, "messages"):
-            for msg in (copilotkit_state.messages or []):
+            for msg in copilotkit_state.messages or []:
                 role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                 if role in ("user", "assistant"):
                     content = ""

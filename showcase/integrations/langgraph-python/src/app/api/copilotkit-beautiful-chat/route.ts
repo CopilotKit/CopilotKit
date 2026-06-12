@@ -31,26 +31,17 @@ const beautifulChatAgent = new LangGraphAgent({
 });
 
 const agents: Record<string, LangGraphAgent> = {
-  // The page's <CopilotKit agent="beautiful-chat"> resolves here.
   "beautiful-chat": beautifulChatAgent,
-  // Internal components (headless-chat, example-canvas) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // graph so those component hooks resolve instead of throwing
-  // "Agent 'default' not found". This matches the canonical's
-  // `agents: { default: defaultAgent }` shape.
-  default: beautifulChatAgent,
 };
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
-  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
+  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
   a2ui: {
-    // The backend graph has its own `generate_a2ui` tool, so we must NOT
-    // inject the runtime's default A2UI tool on top (that would double-bind
-    // the tool slot and confuse the LLM).
-    injectA2UITool: false,
+    // Inject the dynamic `generate_a2ui` tool into the agent
+    injectA2UITool: true,
   },
   mcpApps: {
     servers: [

@@ -18,8 +18,11 @@
     "importHelpers": true,
     "types": ["node"],
     "paths": {
-      "@copilotkit/core": ["../core/src/index.ts"],
-      "@copilotkit/shared": ["../shared/src/index.ts"]
+      "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
+      "@copilotkit/shared": [
+        "../shared/dist/index.d.mts",
+        "../shared/src/index.ts"
+      ]
     }
   },
   "include": ["src/**/*"],

@@ -18,8 +18,9 @@ from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
 
+# @region[agent-context-setup]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-5.4"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=(
@@ -31,3 +32,4 @@ graph = create_agent(
         "recent activity when it helps you answer. Keep responses short."
     ),
 )
+# @endregion[agent-context-setup]

@@ -1,6 +1,6 @@
+import type { CopilotKitError } from "@copilotkit/shared";
 import {
   Severity,
-  CopilotKitError,
   ErrorVisibility,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
@@ -195,7 +195,7 @@ export function UsageBanner({
         `}
       </style>
 
-      <div className="usage-banner">
+      <div className="usage-banner" data-testid="copilot-error-banner">
         <div className="banner-content">
           <div className="banner-message">{message}</div>
           {actions?.primary && (
@@ -223,7 +223,7 @@ export const getErrorActions = (error: CopilotKitError) => {
           label: "Show me how",
           onClick: () =>
             window.open(
-              "https://docs.copilotkit.ai/premium#how-do-i-get-access-to-premium-features",
+              "https://docs.copilotkit.ai/premium/overview#getting-access",
               "_blank",
               "noopener,noreferrer",
             ),
@@ -235,7 +235,7 @@ export const getErrorActions = (error: CopilotKitError) => {
           label: "Upgrade",
           onClick: () =>
             window.open(
-              "https://cloud.copilotkit.ai",
+              "https://dashboard.operations.copilotkit.ai",
               "_blank",
               "noopener,noreferrer",
             ),

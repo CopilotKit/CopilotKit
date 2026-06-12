@@ -8,6 +8,8 @@
 //
 // Mirrors the convention from `tool-rendering/render-flight-tool.snippet.tsx`.
 
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 declare const a2ui: {
   createSurface: (id: string, opts: { catalogId: string }) => unknown;
   updateComponents: (id: string, schema: unknown) => unknown;
@@ -17,7 +19,6 @@ declare const a2ui: {
 const SURFACE_ID = "flight-fixed-schema";
 const CATALOG_ID = "flight-catalog";
 
-// @region[backend-schema-json-load]
 // In the schema-inline pattern, the schema is declared as a typed literal
 // in source rather than loaded from JSON at startup. Same shape as the
 // schema-loading variant; just no file I/O.
@@ -51,7 +52,6 @@ export function emitRenderOperations(args: {
   airline: string;
   price: number;
 }) {
-  // @region[backend-render-operations]
   // The a2ui middleware detects the `a2ui_operations` container in this
   // tool result and forwards the ops to the frontend renderer. The
   // frontend catalog resolves component names to local React components.

@@ -63,6 +63,9 @@ type _BuiltAgentsKeys = Assert<
     | "headlessCompleteAgent"
     | "sharedStateReadWriteAgent"
     | "subagentsSupervisorAgent"
+    | "interruptAgent"
+    | "multimodalAgent"
+    | "mcpAppsAgent"
   >
 >;
 
@@ -81,6 +84,9 @@ const _badKey: BuiltAgents = {
   headlessCompleteAgent: {} as _AgentValue,
   sharedStateReadWriteAgent: {} as _AgentValue,
   subagentsSupervisorAgent: {} as _AgentValue,
+  interruptAgent: {} as _AgentValue,
+  multimodalAgent: {} as _AgentValue,
+  mcpAppsAgent: {} as _AgentValue,
   // Demo agent alias keys (DemoAgentName). Must enumerate every entry in
   // `demoAgentNames` — `BuiltAgents` is `Record<DemoAgentName | LocalMastraAgentName, _>`,
   // a non-partial Record where every key is required.
@@ -112,6 +118,9 @@ const _badKey: BuiltAgents = {
   "declarative-gen-ui": {} as _AgentValue,
   "a2ui-fixed-schema": {} as _AgentValue,
   "headless-complete": {} as _AgentValue,
+  "tool-rendering-reasoning-chain": {} as _AgentValue,
+  "gen-ui-interrupt": {} as _AgentValue,
+  "interrupt-headless": {} as _AgentValue,
 };
 
 describe("BuiltAgents type narrowing", () => {

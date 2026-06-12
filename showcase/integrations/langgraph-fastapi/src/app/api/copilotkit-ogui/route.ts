@@ -31,6 +31,10 @@ const openGenUiAdvancedAgent = new LangGraphAgent({
 const agents: Record<string, LangGraphAgent> = {
   "open-gen-ui": openGenUiAgent,
   "open-gen-ui-advanced": openGenUiAdvancedAgent,
+  // Internal components (headless-chat, example-canvas) call `useAgent()` with
+  // no args, which defaults to agentId "default". Alias so those hooks resolve
+  // instead of throwing "Agent 'default' not found".
+  default: openGenUiAgent,
 };
 
 export const POST = async (req: NextRequest) => {

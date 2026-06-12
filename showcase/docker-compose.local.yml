@@ -9,10 +9,11 @@ x-integration-defaults: &integration-defaults
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
     - ANTHROPIC_BASE_URL=http://aimock:4010
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
-    - GOOGLE_GEMINI_BASE_URL=http://aimock:4010
+    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
     - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
     - AIMOCK_URL=http://aimock:4010
     - GitHubToken=${GitHubToken:-gh-mock-local-dev}
+    - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
   depends_on:
     aimock:
       condition: service_healthy
@@ -25,6 +26,27 @@ x-integration-defaults: &integration-defaults
     start_period: 15s
 
 services:
+  ###########################################################################
+  # WARNING: DEV ONLY — DO NOT USE FROM CI/TESTS.
+  #
+  # This aimock service runs WITHOUT `--proxy-only` (see `command:` below): a
+  # request with no matching fixture FAILS LOUDLY rather than falling through
+  # to a real provider, so a fixture gap surfaces immediately and no real
+  # provider tokens are ever billed. The provider URLs in `command:` only tell
+  # aimock which provider a request targets; without `--proxy-only` no traffic
+  # leaves the container.
+  #
+  # (Proxy-only mode — where unmatched requests FALL THROUGH to real
+  # OpenAI / Anthropic / Gemini via the .env API keys — is the INTERACTIVE
+  # fixture-capture workflow and is DANGEROUS in any automated context: a
+  # missing fixture would produce a real LLM response, a green check that is a
+  # false positive, and a real provider bill. This compose file deliberately
+  # does NOT enable it.)
+  #
+  # Still DEV-ONLY: the volume-mounted fixtures + always-on infra profile are
+  # for interactive local work, not a deterministic CI image. Do NOT wire this
+  # compose file into CI, e2e suites, or any non-interactive test pipeline.
+  ###########################################################################
   aimock:
     # Local aimock so the 17 integration containers can hit a stable LLM mock
     # on the compose network at http://aimock:4010 instead of the prod Railway
@@ -43,21 +65,49 @@ services:
     profiles: ["infra", "all"]
     restart: unless-stopped
     volumes:
-      - ./aimock/d5-all.json:/showcase-fixtures/d5-all.json:ro
-      - ./aimock/smoke.json:/showcase-fixtures/smoke.json:ro
-      - ./aimock/feature-parity.json:/showcase-fixtures/feature-parity.json:ro
-    command:
-      [
+      # Directory mounts — each depth/shared dir is mounted wholesale so new
+      # fixture files are picked up without editing this file.
+      - ./aimock/shared:/showcase-fixtures/shared:ro
+      - ./aimock/d4:/showcase-fixtures/d4:ro
+      - ./aimock/d5-recorded:/showcase-fixtures/d5-recorded:ro
+      - ./aimock/d6:/showcase-fixtures/d6:ro
+    # In test mode aimock must NOT proxy to real providers — unmatched
+    # requests should fail so fixture gaps are caught immediately instead
+    # of silently falling through to real OpenAI/Anthropic/Gemini.
+    # Provider URLs are still declared so aimock knows which provider a
+    # request targets, but without --proxy-only no traffic leaves the
+    # container.
+    command: [
         "--port",
         "4010",
         "--host",
         "0.0.0.0",
+        "--provider-openai",
+        "https://api.openai.com",
+        "--provider-anthropic",
+        "https://api.anthropic.com",
+        "--provider-gemini",
+        "https://generativelanguage.googleapis.com",
+        # Natural-feel streaming so demos look like a real LLM rather than
+        # an instant dump. 8 chars/chunk × 60 ms = ~130 chars/sec ≈ 30-40
+        # tokens/sec, the lower end of Gemini 2.5-flash's real streaming
+        # rate. Total wall-clock for a 500-char response is ~4s, well
+        # inside the 30s default test timeout. Tune here if specific
+        # demos feel sluggish; CI doc-tests intentionally don't slow.
+        "--chunk-size",
+        "8",
+        "--latency",
+        "60",
+        # Directory-based fixture loading (one --fixtures per directory)
         "--fixtures",
-        "/showcase-fixtures/d5-all.json",
+        "/showcase-fixtures/shared",
         "--fixtures",
-        "/showcase-fixtures/smoke.json",
+        "/showcase-fixtures/d4",
         "--fixtures",
-        "/showcase-fixtures/feature-parity.json",
+        "/showcase-fixtures/d5-recorded",
+        "--fixtures",
+        "/showcase-fixtures/d6",
+        "--validate-on-load",
       ]
     healthcheck:
       test:
@@ -77,7 +127,7 @@ services:
     image: showcase-pocketbase:local
     container_name: showcase-pocketbase
     environment:
-      - POCKETBASE_SUPERUSER_EMAIL=admin@localhost
+      - POCKETBASE_SUPERUSER_EMAIL=admin@example.com
       - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
     ports:
       - "8090:8090"
@@ -94,11 +144,42 @@ services:
       start_period: 10s
 
   dashboard:
-    build: ./shell-dashboard
+    build:
+      context: ../
+      dockerfile: showcase/shell-dashboard/Dockerfile
+      args:
+        # PocketBase URL the browser hits at runtime — pinned to the host
+        # binding so the user's browser (not the container) can resolve it.
+        NEXT_PUBLIC_POCKETBASE_URL: http://localhost:8090
+        # Showcase shell URL the dashboard links to for Demo / Code /
+        # docs-shell jumps. Points at the langgraph-python integration's
+        # host port for now (no shared "shell" service in the local stack).
+        NEXT_PUBLIC_SHELL_URL: http://localhost:3100
+        # Ops proxy target for the dashboard's /api/ops/* Route Handler
+        # (shell-dashboard/src/app/api/ops/[...path]/route.ts), which
+        # forwards /api/ops/probes -> ${OPS_BASE_URL}/api/probes. It MUST
+        # point at the showcase-harness HTTP origin (the service that serves
+        # /api/probes), reached over the compose network by its container
+        # name on the harness's internal port 8080 (harness/Dockerfile
+        # EXPOSEs 8080; orchestrator.ts binds PORT ?? 8080). Mirrors staging,
+        # where the dashboard's OPS_BASE_URL points at the harness origin.
+        # Run the harness on this compose network (container_name:
+        # showcase-harness) for the Ops tab's live-probe grid to resolve;
+        # without it the proxy returns 502 (unreachable upstream) rather than
+        # the previous self-referential 500. NOTE: OPS_BASE_URL is read at
+        # REQUEST time by the Route Handler, so it does not need to resolve
+        # at build time — this build arg only seeds the runtime default.
+        OPS_BASE_URL: http://showcase-harness:8080
     image: showcase-dashboard:local
     container_name: showcase-dashboard
     environment:
-      - POCKETBASE_URL=http://pocketbase:8090
+      # The dashboard injects POCKETBASE_URL into window.__SHOWCASE_CONFIG__ and
+      # the live-status subscription fetches it FROM THE BROWSER (the host),
+      # which cannot resolve the compose-internal hostname `pocketbase`. Use the
+      # host-published binding so the browser-side live grid actually loads (this
+      # matches the NEXT_PUBLIC_POCKETBASE_URL build arg). Mirrors staging, where
+      # this points at PocketBase's public domain, not its private hostname.
+      - POCKETBASE_URL=http://localhost:8090
       - SHOWCASE_LOCAL=1
     ports:
       - "3200:10000"
@@ -119,6 +200,156 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  ###########################################################################
+  # POOL FLEET — control-plane + worker(s), ONE image, role-selected by env.
+  #
+  # PARITY GOAL: the local docker stack runs the SAME topology as prod. At
+  # N=1 that is a control-plane container PLUS one worker container talking
+  # over the same protocol prod uses — NOT an in-process pool shortcut. The
+  # only thing that changes between local and staging/prod is
+  # HARNESS_POOL_COUNT (local=1, staging/prod=2) and the number of worker
+  # replicas brought up; the images, env contract, and wiring are identical.
+  #
+  # ONE IMAGE, TWO ROLES: both services build/run showcase/harness/Dockerfile.
+  # The role is selected at runtime via HARNESS_ROLE:
+  #   - control-plane: scheduler/queue/aggregator + HTTP API (/api/probes,
+  #     /health). Runs NO Chromium.
+  #   - worker:        runs the BrowserPool (Chromium) and pulls work from the
+  #     PocketBase-backed queue. Reachable on the private compose network.
+  #
+  # ROLE-SELECT DISPATCH (live): the harness entrypoint branches on
+  # HARNESS_ROLE — bootFleet dispatches to the control-plane or worker role
+  # based on the env value, so both services boot the correct role purely
+  # from the env below with no per-service `command:` override. This compose
+  # PASSES HARNESS_ROLE / HARNESS_POOL_COUNT and wires both services for
+  # their roles; no compose-level bypass is needed.
+  ###########################################################################
+  harness-control-plane:
+    build:
+      context: ../
+      dockerfile: showcase/harness/Dockerfile
+    image: showcase-harness:local
+    # container_name preserved as `showcase-harness` so the dashboard's
+    # OPS_BASE_URL (http://showcase-harness:8080, see the `dashboard` build
+    # arg above) resolves the control-plane's HTTP origin over the compose
+    # network — the control-plane is the service that serves /api/probes.
+    container_name: showcase-harness
+    env_file: .env
+    environment:
+      # Role-select contract (consumed by the image entrypoint's bootFleet
+      # role dispatch; see the header note above).
+      - HARNESS_ROLE=control-plane
+      # Fleet size driver. Local=1 worker; staging/prod set this to 2 (and
+      # bring up matching worker replicas). The control-plane reads this to
+      # know how many workers to expect in the pool.
+      - HARNESS_POOL_COUNT=${HARNESS_POOL_COUNT:-1}
+      # Control-plane needs PocketBase (the work queue + status store) but
+      # runs no Chromium, so it does not need demo reachability for browsing.
+      - POCKETBASE_URL=http://pocketbase:8090
+      - POCKETBASE_SUPERUSER_EMAIL=admin@example.com
+      - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
+      # LOCAL SERVICE CATALOG (parity seam). The control-plane enumerates the
+      # showcase service set via the railway-services discovery source; locally
+      # there are no Railway creds, so LOCAL_SERVICES_JSON injects the IDENTICAL
+      # RailwayServiceInfo[] shape (only the URLs differ — local container host
+      # vs Railway public domain). Without it the enumerator queries Railway and
+      # the local N=1 run enqueues nothing. The demos[] is load-bearing: it
+      # drives the d6 feature matrix (demosToFeatureTypes). Scoped here to the
+      # langgraph-python demo's agentic-chat cell for a fast N=1 ramp; add
+      # entries to widen the local fleet.
+      - >-
+        LOCAL_SERVICES_JSON=[{"name":"showcase-langgraph-python","publicUrl":"http://langgraph-python:10000","demos":["agentic-chat"]}]
+      # Producer cron cadence. Default is hourly-at-:40 (prod rhythm). Locally we
+      # drive the SAME enqueue path every minute so an N=1 run doesn't wait up to
+      # an hour for the first tick.
+      - FLEET_PRODUCER_CRON=* * * * *
+      # Heartbeat staleness window fleet-health uses to declare a worker dead and
+      # reclaim its in-flight jobs (REQ-B). Defaults to 180s (prod); locally we
+      # shrink it so a killed worker is detected in seconds during a demo/test.
+      - WORKER_STALE_AFTER_MS=${WORKER_STALE_AFTER_MS:-20000}
+      # LLM mock wiring (parity with the integration defaults) so any
+      # control-plane-side probe that touches an LLM hits aimock, not a real
+      # provider.
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - AIMOCK_URL=http://aimock:4010
+      - PORT=8080
+    ports:
+      # Host-exposed so the dashboard's /api/ops/* proxy and local curls can
+      # reach the control-plane HTTP API. 8081 host → 8080 container (8080 is
+      # the harness/Dockerfile EXPOSE + orchestrator default).
+      - "8081:8080"
+    depends_on:
+      aimock:
+        condition: service_healthy
+      pocketbase:
+        condition: service_healthy
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:8080/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  harness-pool-worker:
+    build:
+      context: ../
+      dockerfile: showcase/harness/Dockerfile
+    image: showcase-harness:local
+    # NO fixed container_name: the worker is the scalable unit of the fleet
+    # (`--scale harness-pool-worker=N`, N from HARNESS_POOL_COUNT). A fixed
+    # container_name would make Docker refuse to create the 2nd+ replica
+    # ("Conflict. The container name is already in use"). Compose auto-names
+    # replicas `<project>-harness-pool-worker-1`, `-2`, … instead.
+    env_file: .env
+    environment:
+      # Same image, worker role. Runs the BrowserPool (Chromium) and pulls
+      # work from the PB-backed queue — the pull-queue model means the worker
+      # mainly needs PocketBase + demo-network reachability, not an inbound
+      # control-plane connection.
+      - HARNESS_ROLE=worker
+      - HARNESS_POOL_COUNT=${HARNESS_POOL_COUNT:-1}
+      - POCKETBASE_URL=http://pocketbase:8090
+      - POCKETBASE_SUPERUSER_EMAIL=admin@example.com
+      - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
+      # Self-register heartbeat cadence. Defaults to 75s (prod); locally we beat
+      # faster so fleet-health's (shrunk) staleness window is meaningful when a
+      # worker is killed mid-run during a demo/test (REQ-B).
+      - WORKER_HEARTBEAT_MS=${WORKER_HEARTBEAT_MS:-5000}
+      # The worker drives Chromium against the demo services and any LLM
+      # calls those demos make resolve through aimock on the compose network.
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - AIMOCK_URL=http://aimock:4010
+      - PORT=8080
+    depends_on:
+      aimock:
+        condition: service_healthy
+      pocketbase:
+        condition: service_healthy
+    profiles: ["infra", "all"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:8080/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   langgraph-python:
     <<: *integration-defaults
@@ -301,6 +532,17 @@ services:
     profiles: ["ms-agent-dotnet", "all"]
     volumes:
       - ./integrations/ms-agent-dotnet/src:/app/src
+
+  ms-agent-harness-dotnet:
+    <<: *integration-defaults
+    build: ./integrations/ms-agent-harness-dotnet
+    image: showcase-ms-agent-harness-dotnet:local
+    container_name: showcase-ms-agent-harness-dotnet
+    ports:
+      - "3118:10000"
+    profiles: ["ms-agent-harness-dotnet", "all"]
+    volumes:
+      - ./integrations/ms-agent-harness-dotnet/src:/app/src
 
   spring-ai:
     <<: *integration-defaults

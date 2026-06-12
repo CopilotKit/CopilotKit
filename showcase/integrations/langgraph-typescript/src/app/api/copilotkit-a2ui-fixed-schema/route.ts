@@ -14,7 +14,7 @@ const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 const a2uiFixedSchemaAgent = new LangGraphAgent({
-  deploymentUrl: LANGGRAPH_URL,
+  deploymentUrl: `${LANGGRAPH_URL}/`,
   graphId: "a2ui_fixed",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });

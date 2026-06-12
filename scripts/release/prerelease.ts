@@ -1,23 +1,20 @@
 /**
- * Publish a prerelease (no git commits, no PRs).
+ * Publish a prerelease to npm (publish-only, no build/test/bump).
  *
- * Takes the current version for the given scope and appends a canary suffix.
- * If --suffix is provided (e.g. "fix-user-issue"), the version becomes
- * 1.55.2-canary.fix-user-issue. Otherwise it uses a unix timestamp.
+ * Version bumping is handled by bump-prerelease.ts in the secrets-free CI
+ * build job. Build and test also run there. This script receives pre-built,
+ * correctly-versioned artifacts and only performs the npm publish step.
  *
  * Always publishes with the "canary" dist-tag.
  *
- * Usage: tsx scripts/release/prerelease.ts --scope <monorepo|cli|angular> [--suffix <label>] [--dry-run]
+ * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json> [--dry-run]
  */
 
 import { spawnSync } from "child_process";
-import {
-  getCurrentVersion,
-  computePrereleaseVersion,
-  bumpPackages,
-  getPackagesForScope,
-} from "./lib/versions.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
+import { getPackagesForScope } from "./lib/versions.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -31,13 +28,12 @@ function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   return result;
 }
 
-const VALID_SCOPES = ["monorepo", "cli", "angular"];
+// Valid scopes come from release.config.json — the single source of truth.
+const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
-  const suffixIdx = argv.indexOf("--suffix");
-  const suffix = suffixIdx !== -1 ? argv[suffixIdx + 1] : undefined;
   const scopeIdx = argv.indexOf("--scope");
   const scope = (
     scopeIdx !== -1 ? argv[scopeIdx + 1] : null
@@ -45,55 +41,82 @@ function main() {
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
     console.error(
-      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--suffix <label>] [--dry-run]`,
+      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--dry-run]`,
     );
     process.exit(1);
   }
 
   const config = loadConfig();
   const distTag = config.prereleaseTag;
-  const currentVersion = getCurrentVersion(scope);
-  const prereleaseVersion = computePrereleaseVersion(currentVersion, suffix);
+
+  // Read the version from package.json — already bumped by bump-prerelease.ts
+  // in the CI build job.
+  const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
+  const publishVersion = packages[0].pkg.version;
+  if (!publishVersion) {
+    console.error(
+      `Package ${packages[0].name} has no version field; refusing to publish.`,
+    );
+    process.exit(1);
+  }
   console.log(`Scope: ${scope}`);
-  console.log(`Current version: ${currentVersion}`);
-  console.log(`Prerelease version: ${prereleaseVersion}`);
+  console.log(`Publishing version: ${publishVersion}`);
   console.log(`Dist tag: ${distTag}`);
 
   if (dryRun) {
-    console.log("\n[DRY RUN] Would bump these packages:");
-    for (const p of getPackagesForScope(scope)) {
-      console.log(`  ${p.name}: ${p.pkg.version} -> ${prereleaseVersion}`);
+    console.log("\n[DRY RUN] Would publish these packages:");
+    for (const p of packages) {
+      console.log(`  ${p.name}@${p.pkg.version}`);
     }
+    // Emitting in dry-run is safe — the publish workflow gates both the
+    // publish step and the verify guard on `inputs.dry-run != true`, so this
+    // only serves local/e2e verification of the output contract.
+    emitGithubOutputs({ version: publishVersion, scope });
     console.log("\n[DRY RUN] Exiting.");
     return;
   }
 
-  // Bump versions in working directory (no commit)
-  const updated = bumpPackages(scope, prereleaseVersion);
-  console.log(`\nBumped ${updated.length} packages to ${prereleaseVersion}`);
+  // NOTE: Version bumping is handled by bump-prerelease.ts in the CI build
+  // job (no secrets). Build and test also run there.
+  // The publish job receives pre-built artifacts via download-artifact.
+  // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
+  // of the build process tree.
 
-  // Build all packages
-  console.log("\nBuilding packages...");
-  run("pnpm", ["run", "build"]);
-
-  // Run tests before publishing
-  console.log("\nRunning tests...");
-  run("pnpm", ["run", "test"]);
-
-  // Publish each package
+  // Publish each package via pnpm pack + npx npm@11 (OIDC-aware)
   console.log("\nPublishing packages...");
-  for (const p of getPackagesForScope(scope)) {
+  for (const p of packages) {
     console.log(
-      `  Publishing ${p.name}@${prereleaseVersion} with tag ${distTag}...`,
+      `  Publishing ${p.name}@${p.pkg.version} with tag ${distTag}...`,
     );
+    run("pnpm", ["pack"], { cwd: p.dir });
+    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
     run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", distTag, "--access", "public"],
+      "npx",
+      [
+        "--yes",
+        "npm@11.15.0",
+        "publish",
+        tarball,
+        "--tag",
+        distTag,
+        "--access",
+        "public",
+      ],
       { cwd: p.dir },
     );
   }
 
-  console.log(`\nPrerelease published: ${prereleaseVersion} (tag: ${distTag})`);
+  // The workflow's "Verify publish step emitted version" guard and the
+  // prerelease summary read these from steps.publish.outputs.
+  emitGithubOutputs({ version: publishVersion, scope });
+
+  console.log(`\nPrerelease published: ${publishVersion} (tag: ${distTag})`);
 }
 
 main();

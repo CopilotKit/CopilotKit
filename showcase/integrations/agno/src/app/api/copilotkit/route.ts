@@ -33,6 +33,14 @@ function createSubagentsAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/subagents/agui` });
 }
 
+// gen-ui-agent: agent owns its own state schema (`steps`) and mutates it
+// via the `set_steps` tool. Needs the state-aware AGUI router so the
+// frontend's `useAgent({ updates: [OnStateChanged] })` receives the
+// StateSnapshotEvent each run — stock Agno AGUI does not emit one.
+function createGenUiAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent/agui` });
+}
+
 // Main agent backs most demos. The Next.js runtime aliases the single
 // Agno `main` agent under every demo cell name so per-cell frontend
 // tool/component registrations scope correctly.
@@ -45,7 +53,6 @@ const mainAgentNames = [
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -62,6 +69,16 @@ const mainAgentNames = [
   "agent-config",
 ];
 
+// Interrupt-adapted demos: gen-ui-interrupt and interrupt-headless share
+// the same Agno scheduling agent at /interrupt-adapted/agui. The agent has
+// tools=[]; `schedule_meeting` is provided by the frontend via
+// `useFrontendTool` with an async Promise handler.
+function createInterruptAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/interrupt-adapted/agui` });
+}
+
+const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
+
 // Reasoning agent names — backed by the reasoning-enabled Agno agent at
 // /reasoning/agui. Emits AG-UI REASONING_MESSAGE_* events that the
 // frontend renders via CopilotChatReasoningMessage (or a custom slot).
@@ -69,11 +86,16 @@ const reasoningAgentNames = [
   "agentic-chat-reasoning",
   "reasoning-default-render",
   "tool-rendering-reasoning-chain",
+  "reasoning-default",
+  "reasoning-custom",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of mainAgentNames) {
   agents[name] = createMainAgent();
+}
+for (const name of interruptAgentNames) {
+  agents[name] = createInterruptAgent();
 }
 for (const name of reasoningAgentNames) {
   agents[name] = createReasoningAgent();
@@ -81,6 +103,10 @@ for (const name of reasoningAgentNames) {
 // Bidirectional shared-state agent — UI writes preferences, agent writes
 // notes back via set_notes and the custom AGUI router emits a
 // StateSnapshotEvent that the frontend's useAgent picks up.
+// gen-ui-agent — owns its own `steps` state schema and mutates it via the
+// `set_steps` tool. Routes to the state-aware AGUI handler that emits a
+// StateSnapshotEvent each run so the frontend's progress card updates.
+agents["gen-ui-agent"] = createGenUiAgent();
 agents["shared-state-read-write"] = createSharedStateRWAgent();
 // Sub-agents supervisor — appends to state["delegations"] every time a
 // research / writing / critique sub-agent is delegated to. Same custom
@@ -102,7 +128,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
     });

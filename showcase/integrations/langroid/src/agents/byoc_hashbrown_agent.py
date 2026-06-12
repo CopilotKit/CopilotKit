@@ -135,17 +135,17 @@ def _flatten_user_messages(messages: Any) -> list[dict[str, Any]]:
         return out
     for msg in messages:
         role = (
-            getattr(msg, "role", None)
-            if not isinstance(msg, dict)
-            else msg.get("role")
+            getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
         )
         content = (
             getattr(msg, "content", None)
             if not isinstance(msg, dict)
             else msg.get("content")
         )
-        if isinstance(role, str) and role in ("user", "assistant") and isinstance(
-            content, str
+        if (
+            isinstance(role, str)
+            and role in ("user", "assistant")
+            and isinstance(content, str)
         ):
             out.append({"role": role, "content": content})
     return out
@@ -269,9 +269,7 @@ async def _run_byoc(
             return
 
         yield _sse_line(
-            TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END, message_id=message_id
-            )
+            TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
         )
         yield _sse_line(
             RunFinishedEvent(

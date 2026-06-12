@@ -1,20 +1,27 @@
-# Gen UI Interrupt — Not Supported
+# Gen UI Interrupt (Strategy B — Promise-Based)
 
-## Why It's Not Supported
+Inline time-picker rendered in the chat via `useFrontendTool` with an async
+handler. The handler returns a Promise that resolves only when the user picks a
+slot or cancels — equivalent UX to LangGraph's native `interrupt()` primitive,
+adapted for the Claude Agent SDK which has no graph-level pause/resume.
 
-The langgraph `useInterrupt` flow depends on the LangGraph runtime's built-in `interrupt()` primitive — a graph-level pause/resume protocol with thread-scoped checkpointing and `Command(resume=...)` semantics.
+## How It Works
 
-The Claude Agent SDK's Anthropic Messages stream has no equivalent. There is no graph, no checkpointer, and no resume primitive — so there's nothing to map `useInterrupt` onto.
+1. User asks to book a meeting
+2. Backend scheduling agent calls `schedule_meeting` (a frontend tool)
+3. Frontend renders `TimePickerCard` inline in the chat
+4. User picks a slot or cancels
+5. The Promise resolves with the result, which flows back to the agent
+6. Agent confirms the booking in chat
 
-## What To Use Instead
+## Backend
 
-For human-in-the-loop on this backend, see:
-
-- **`hitl`** — in-chat approval gate using a regular tool call. The agent proposes steps, the user approves/rejects in chat, and the same tool call resolves with the user's decision.
-- **`hitl-in-app`** — out-of-chat approval modal driven by `useFrontendTool` with an async handler.
-
-Both model approval gating without requiring a graph-level interrupt primitive.
+The Python backend at `src/agents/interrupt_agent.py` defines only a system
+prompt and `tools=[]` — the `schedule_meeting` tool is registered entirely on
+the frontend. AG-UI forwards the frontend tool definition to Claude, and the
+tool call lifecycle resolves the user's choice back through CopilotKit.
 
 ## Reference
 
-- [langgraph-python `gen-ui-interrupt`](../../../../../langgraph-python/src/app/demos/gen-ui-interrupt) — the canonical implementation, for context.
+- [ms-agent-python `gen-ui-interrupt`](../../../../../ms-agent-python/src/app/demos/gen-ui-interrupt) — the reference implementation this port is based on.
+- [langgraph-python `gen-ui-interrupt`](../../../../../langgraph-python/src/app/demos/gen-ui-interrupt) — the canonical LangGraph version using native `interrupt()`.

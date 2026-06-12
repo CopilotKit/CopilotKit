@@ -37,7 +37,9 @@ _original_before_agent = CopilotKitMiddleware.before_agent
 
 def _patched_before_agent(self: Any, state: Any, runtime: Any) -> Any:
     _orig_dumps = json.dumps
-    json.dumps = lambda *a, **kw: _orig_dumps(*a, cls=_PydanticEncoder, **{k: v for k, v in kw.items() if k != "cls"})
+    json.dumps = lambda *a, **kw: _orig_dumps(
+        *a, cls=_PydanticEncoder, **{k: v for k, v in kw.items() if k != "cls"}
+    )
     try:
         return _original_before_agent(self, state, runtime)
     finally:

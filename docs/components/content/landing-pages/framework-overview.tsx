@@ -43,6 +43,8 @@ export interface FrameworkOverviewProps {
   initCommand: string;
   featuresLink: string;
   supportedFeatures?: FrameworkFeature[];
+  /** Optional content rendered immediately after the supported features section. */
+  afterFeatures?: ReactNode;
   architectureImage?: string;
   architectureVideo?: string;
   liveDemos: LiveDemo[];
@@ -61,6 +63,7 @@ export function FrameworkOverview({
   initCommand,
   featuresLink,
   supportedFeatures = [],
+  afterFeatures,
   architectureImage,
   architectureVideo,
   liveDemos,
@@ -269,6 +272,10 @@ export function FrameworkOverview({
               ))}
             </div>
           </section>
+        )}
+
+        {afterFeatures && (
+          <section className="mb-12 sm:mb-24 px-4">{afterFeatures}</section>
         )}
 
         {/* Architecture */}

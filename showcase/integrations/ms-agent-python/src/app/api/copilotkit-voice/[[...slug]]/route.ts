@@ -1,80 +1,75 @@
-// Dedicated runtime for the Voice demo.
+// Dedicated runtime for the /demos/voice cell (MS Agent Python).
 //
-// The voice demo is the only cell that needs `transcriptionService` mounted
-// on its runtime — the presence of that service is what flips
-// `audioFileTranscriptionEnabled: true` on the runtime-info response, which
-// in turn makes the CopilotChat composer render its mic button. Mounting
-// transcription on the shared `/api/copilotkit` route would make every other
-// demo's chat grow a mic button too. Scoping it to this per-demo route keeps
-// the mic UI exactly where the spec promises it.
+// Goals
+// -----
+// 1. Advertise `audioFileTranscriptionEnabled: true` on `/info` so the chat
+//    composer renders the mic button.
+// 2. Handle `POST /transcribe` by invoking an OpenAI-backed
+//    `TranscriptionServiceOpenAI` (from `@copilotkit/voice`).
+// 3. Return a deterministic 4xx when `OPENAI_API_KEY` is not configured.
 //
-// The underlying agent is the shared MS Agent Framework agent at the backend
-// root path (`/`); voice is an input-modality concern, not an agent-behavior
-// concern, so we reuse the existing backend.
-//
-// Two non-obvious things this file does:
-//
-// 1. It bypasses the V1 `CopilotRuntime` wrapper's silent drop of
-//    `transcriptionService` by writing the service onto the V2 runtime
-//    instance directly. `transcriptionService` is `Omit`ed from the V1
-//    constructor type and the constructor does not forward it to V2.
-//    Until that is unblocked upstream, per-demo routes that need
-//    transcription must reach through `.instance`.
-//
-// 2. It always mounts a transcription service (so `/info` advertises the
-//    mic-capable state and the composer renders the mic button) but makes
-//    the service return a deterministic, human-readable error when
-//    OPENAI_API_KEY is not set. That keeps the frontend affordance visible
-//    while failing loudly with 401 instead of silently 503-ing.
-//
-// References:
-// - packages/voice/src/transcription/transcription-service-openai.ts
-// - packages/runtime/src/v2/runtime/handlers/handle-transcribe.ts
-// - packages/runtime/src/v2/runtime/handlers/get-runtime-info.ts
+// Wires the V2 `CopilotRuntime` directly because the V1 wrapper drops the
+// `transcriptionService` option. V2 URL-routes on `/info`, `/agent/:id/run`,
+// `/transcribe`, etc., so the route lives at `[[...slug]]/route.ts`.
 
+// @region[voice-runtime]
+// @region[transcription-service-guard]
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { TranscriptionService } from "@copilotkit/runtime/v2";
+  TranscriptionService,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
-}
+// Point at the tool-free /voice endpoint so aimock returns a direct text
+// response instead of a tool call that the agent can't summarize.
+//
+// No trailing slash on the URL. FastAPI mounts this agent at `/voice`
+// exactly (via `add_agent_framework_fastapi_endpoint(path="/voice")` in
+// agent_server.py); posting to `/voice/` triggers FastAPI's
+// redirect-to-canonical 307, which kills the streaming SSE response and
+// surfaces as `fetch failed` / `INCOMPLETE_STREAM` in the runtime.
+const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice` });
 
 /**
  * Transcription service wrapper that reports a clean, typed auth error when
- * OPENAI_API_KEY is not configured.
+ * OPENAI_API_KEY is not configured. When the key is present we delegate to
+ * the real OpenAI-backed service; any upstream Whisper error keeps its
+ * natural categorization.
  *
- * The runtime's `handleTranscribe` categorizes error messages by substring
- * match — a message containing "api key" or "unauthorized" maps to
- * `AUTH_FAILED` (HTTP 401). Throwing here with a deterministic message
- * funnels the missing-key case into that 4xx path instead of leaking an
- * opaque 500/503.
+ * Note: We pin `baseURL` to real OpenAI (or `OPENAI_TRANSCRIPTION_BASE_URL`
+ * when explicitly set) instead of falling through to `OPENAI_BASE_URL`. In
+ * local docker / Railway preview environments `OPENAI_BASE_URL` points at
+ * aimock so LLM completions stay deterministic, but aimock has a catchall
+ * `endpoint: "transcription"` fixture that would otherwise intercept every
+ * real mic recording and return the canned "What is the weather in Tokyo?"
+ * phrase regardless of what the user actually said — and on production
+ * aimock's transcription proxy returns a 502 "Invalid file format" before
+ * any phrase reaches the user. The sample-audio button is the deterministic
+ * affordance (synchronous text injection); the mic is the only path that
+ * should exercise real Whisper.
+ *
+ * Mirrors langgraph-python's voice route exactly.
  */
-// @region[transcription-service-guard]
 class GuardedOpenAITranscriptionService extends TranscriptionService {
   private delegate: TranscriptionServiceOpenAI | null;
 
   constructor() {
     super();
     const apiKey = process.env.OPENAI_API_KEY;
-    if (apiKey) {
-      this.delegate = new TranscriptionServiceOpenAI({
-        openai: new OpenAI({ apiKey }),
-      });
-    } else {
-      this.delegate = null;
-    }
+    const baseURL =
+      process.env.OPENAI_TRANSCRIPTION_BASE_URL ?? "https://api.openai.com/v1";
+    this.delegate = apiKey
+      ? new TranscriptionServiceOpenAI({
+          openai: new OpenAI({ apiKey, baseURL }),
+        })
+      : null;
   }
 
   async transcribeFile(options: TranscribeFileOptions): Promise<string> {
@@ -89,60 +84,30 @@ class GuardedOpenAITranscriptionService extends TranscriptionService {
 }
 // @endregion[transcription-service-guard]
 
-// Construct the runtime + transcription service lazily on first request so
-// the Next.js build step can complete even when OPENAI_API_KEY is not set.
-// Whisper calls only fire at runtime where the env var is set (or, if it
-// isn't, the guarded service returns a deterministic 4xx).
-let cachedRuntime: CopilotRuntime | null = null;
-function getRuntime(): CopilotRuntime {
-  if (cachedRuntime) return cachedRuntime;
+let cachedHandler: ((req: Request) => Promise<Response>) | null = null;
+function getHandler(): (req: Request) => Promise<Response> {
+  if (cachedHandler) return cachedHandler;
 
-  const agents: Record<string, AbstractAgent> = {
-    // The page mounts <CopilotKit agent="voice-demo">; resolve to the
-    // shared backend agent.
-    "voice-demo": createAgent(),
-    // useAgent() with no args defaults to "default"; alias so any internal
-    // default-agent lookups resolve against the same agent.
-    default: createAgent(),
-  };
-
-  // @region[voice-runtime]
   const runtime = new CopilotRuntime({
     // @ts-ignore -- Published CopilotRuntime agents type wraps Record in
-    // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed
-    // in source, pending release.
-    agents,
+    // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
+    // source, pending release.
+    agents: {
+      "voice-demo": voiceDemoAgent,
+      default: voiceDemoAgent,
+    },
+    transcriptionService: new GuardedOpenAITranscriptionService(),
   });
 
-  // V1 CopilotRuntime's constructor drops `transcriptionService` on the floor.
-  // Write it onto the V2 runtime instance directly so `/info` advertises
-  // `audioFileTranscriptionEnabled: true` and `POST {method: "transcribe"}`
-  // has a service to invoke.
-  const v2Instance = runtime.instance as unknown as {
-    transcriptionService?: TranscriptionService;
-  };
-  v2Instance.transcriptionService = new GuardedOpenAITranscriptionService();
-
-  cachedRuntime = runtime;
-  return cachedRuntime;
+  cachedHandler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit-voice",
+  });
+  return cachedHandler;
 }
 
-export const POST = async (req: NextRequest) => {
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-voice",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime: getRuntime(),
-    });
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
-  }
-};
-
-export const GET = POST;
+export const POST = (req: NextRequest) => getHandler()(req);
+export const GET = (req: NextRequest) => getHandler()(req);
+export const PUT = (req: NextRequest) => getHandler()(req);
+export const DELETE = (req: NextRequest) => getHandler()(req);
 // @endregion[voice-runtime]

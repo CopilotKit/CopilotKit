@@ -56,17 +56,19 @@ jobs:
         # it for checkout + push. Mirrors the pattern in
         # CopilotKit/internal-skills's sync-versions.yml.
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: "1108748"
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Ensure preview release exists
         env:
@@ -79,12 +81,12 @@ jobs:
             --latest=false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -113,34 +115,44 @@ jobs:
           npx tsx generate-registry.ts
 
       - name: Capture previews
+        env:
+          INPUT_SLUG: ${{ inputs.slug }}
+          INPUT_DEMO: ${{ inputs.demo }}
+          EVENT_NAME: ${{ github.event_name }}
+          DETECTED_SLUGS: ${{ steps.detect.outputs.slugs }}
         run: |
-          ARGS=""
+          # Build the args as an array (not a space-joined string) so a
+          # slug or demo value containing whitespace or shell metacharacters
+          # stays a single argument rather than being re-tokenized by the shell.
+          ARGS=()
           # Use input slug/demo if provided (manual dispatch)
-          if [ -n "${{ inputs.slug }}" ]; then
-            ARGS="$ARGS --slug ${{ inputs.slug }}"
+          if [ -n "$INPUT_SLUG" ]; then
+            ARGS+=(--slug "$INPUT_SLUG")
           fi
-          if [ -n "${{ inputs.demo }}" ]; then
-            ARGS="$ARGS --demo ${{ inputs.demo }}"
+          if [ -n "$INPUT_DEMO" ]; then
+            ARGS+=(--demo "$INPUT_DEMO")
           fi
           # Use detected slugs for push events (capture only changed)
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.detect.outputs.slugs }}" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$DETECTED_SLUGS" ]; then
             # Capture each changed slug
-            IFS=',' read -ra SLUGS <<< "${{ steps.detect.outputs.slugs }}"
+            IFS=',' read -ra SLUGS <<< "$DETECTED_SLUGS"
             for slug in "${SLUGS[@]}"; do
               npx tsx showcase/scripts/capture-previews.ts --slug "$slug" || true
             done
           else
-            npx tsx showcase/scripts/capture-previews.ts $ARGS || true
+            npx tsx showcase/scripts/capture-previews.ts "${ARGS[@]}" || true
           fi
+
+      - name: Configure git for push
+        run: |
+          git config user.name "devops-bot[bot]"
+          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
+          git config --local url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Commit registry updates
         run: |
-          # Commit as the devops-bot installation. The `<app-id>+<slug>[bot]`
-          # email is the conventional GitHub App noreply form; paired with
-          # the app-token used for checkout, the push lands on protected
-          # main via the bot's PROTECT_OUR_MAIN bypass.
-          git config user.name "devops-bot[bot]"
-          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
           cd showcase/shell/src/data
           if git diff --quiet registry.json; then
             echo "No registry changes"
@@ -250,7 +262,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

@@ -1,40 +1,43 @@
 "use client";
 
 import React from "react";
+import {
+  CopilotKit,
+  useAgent,
+  UseAgentUpdate,
+} from "@copilotkit/react-core/v2";
 
-export default function SharedStateStreamingUnsupported() {
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateStreamingSuggestions } from "./suggestions";
+
+interface StreamingAgentState {
+  document?: string;
+}
+
+export default function SharedStateStreamingDemo() {
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        textAlign: "center",
-      }}
-    >
-      <div style={{ maxWidth: 560 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 12 }}>
-          Shared State Streaming — Not Supported by Spring AI
-        </h1>
-        <p style={{ color: "#555", lineHeight: 1.55, marginBottom: 16 }}>
-          The ag-ui Spring AI adapter has no mid-stream state-delta API
-          analogous to <code>copilotkit_emit_state</code>, so the agent cannot
-          push partial state snapshots between tokens.
-        </p>
-        <p style={{ color: "#555", lineHeight: 1.55 }}>
-          See{" "}
-          <a
-            href="https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai/src/app/demos/shared-state-streaming/README.md"
-            style={{ color: "#2563eb", textDecoration: "underline" }}
-          >
-            this demo&apos;s README
-          </a>{" "}
-          for details, and the LangGraph Python integration for a working
-          implementation.
-        </p>
-      </div>
-    </div>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
+      <DemoContent />
+    </CopilotKit>
   );
+}
+
+function DemoContent() {
+  // @region[frontend-use-coagent-state]
+  // Subscribe to BOTH state changes and run-status changes. The former
+  // drives the per-token document rerender; the latter toggles the
+  // "LIVE" badge when the agent starts / stops.
+  const { agent } = useAgent({
+    agentId: "shared-state-streaming",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  // @endregion[frontend-use-coagent-state]
+
+  useSharedStateStreamingSuggestions();
+
+  const agentState = agent.state as StreamingAgentState | undefined;
+  const document = agentState?.document ?? "";
+  const isRunning = agent.isRunning;
+
+  return <DemoLayout document={document} isStreaming={isRunning} />;
 }

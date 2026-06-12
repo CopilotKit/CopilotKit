@@ -121,6 +121,9 @@ describe("buildAgents", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     const seen: string[] = [];
     mockedGetLocalAgent.mockImplementation(({ resourceId }) => {
@@ -144,6 +147,9 @@ describe("buildAgents", () => {
       "mastra-headlessCompleteAgent",
       "mastra-sharedStateReadWriteAgent",
       "mastra-subagentsSupervisorAgent",
+      "mastra-interruptAgent",
+      "mastra-multimodalAgent",
+      "mastra-mcpAppsAgent",
     ];
     expect(new Set(seen).size).toBe(seen.length);
     expect(seen.sort()).toEqual([...expected].sort());
@@ -164,6 +170,9 @@ describe("buildAgents", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) => {
       if (resourceId === "mastra-agentic_chat") {
@@ -221,6 +230,9 @@ describe("buildAgents", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -247,6 +259,9 @@ describe("agent cache memoization", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -279,6 +294,9 @@ describe("agent cache memoization", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -316,6 +334,9 @@ describe("agent cache memoization", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -359,6 +380,9 @@ describe("POST happy path", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -465,6 +489,9 @@ describe("POST error handling", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -554,6 +581,9 @@ describe("POST error handling", () => {
         "subagents-supervisor",
         "mastra-subagentsSupervisorAgent",
       ),
+      interruptAgent: makeAgent("interrupt", "mastra-interruptAgent"),
+      multimodalAgent: makeAgent("multimodal", "mastra-multimodalAgent"),
+      mcpAppsAgent: makeAgent("mcp-apps", "mastra-mcpAppsAgent"),
     });
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),

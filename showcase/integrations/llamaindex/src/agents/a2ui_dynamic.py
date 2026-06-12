@@ -18,8 +18,6 @@ Pairs with the dedicated runtime route
 `a2ui.injectA2UITool: false` so the runtime does not double-bind the tool.
 """
 
-from __future__ import annotations
-
 import json
 import os
 from typing import Annotated

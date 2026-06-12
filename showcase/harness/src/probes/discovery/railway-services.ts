@@ -89,6 +89,25 @@ export interface RailwayServiceInfo {
    * that don't care about demos can simply ignore the field.
    */
   demos: readonly string[];
+  /**
+   * Features the integration's framework architecturally cannot support
+   * (`not_supported_features` from `registry.json`/manifest). Empty when
+   * the slug is missing from the registry, the registry is unreadable,
+   * or the manifest omits `not_supported_features`. The D6 driver reads
+   * this to reclassify probe failures on those features as
+   * `skipped-incapable` rather than counting them as red.
+   */
+  notSupportedFeatures: readonly string[];
+  /**
+   * ISO-8601 timestamp of the latest deployment's creation, sourced from
+   * Railway's `latestDeployment.createdAt`. Downstream drivers (e2e-deep)
+   * use this to skip services that deployed very recently (deploy-churn
+   * grace window) so a rolling deploy doesn't produce false-red probe
+   * ticks.
+   *
+   * Empty string when no deployment exists or the field is absent.
+   */
+  deployedAt: string;
 }
 
 /**
@@ -219,7 +238,7 @@ const ConfigSchema = z
   })
   .passthrough();
 
-const ENDPOINT = "https://backboard.railway.com/graphql/v2";
+const ENDPOINT = "https://backboard.railway.app/graphql/v2";
 
 // Zod shapes for the GraphQL responses. Kept in-file (not exported) so the
 // schema errors carry consistent paths in their messages.
@@ -257,6 +276,10 @@ const ProjectServicesSchema = z.object({
                         // extract `imageDigest` in the service-building
                         // loop below.
                         meta: z.record(z.unknown()).nullable().optional(),
+                        // ISO-8601 timestamp of when the deployment was
+                        // created. Used by downstream drivers (e2e-deep)
+                        // to implement deploy-churn grace windows.
+                        createdAt: z.string().optional(),
                       })
                       .nullable()
                       .optional(),
@@ -276,23 +299,40 @@ const VariablesSchema = z.object({
 });
 
 /**
- * Read `registry.json` and build a `slug -> demos[].id[]` map. Mirrors
- * the parsing logic in `drivers/e2e-readiness.ts`'s `defaultDemosResolver`
- * so behaviour stays consistent across the two readers — the discovery
- * source feeds the invoker's pre-dispatch sort while the driver's
- * resolver feeds the per-service fan-out at execute time.
+ * Per-integration discovery data sourced from `registry.json`.
+ *
+ * `demos` are the demo IDs (filtered to those with a route); consumed
+ * by the invoker's pre-dispatch sort and downstream drivers.
+ * `notSupportedFeatures` is the integration's manifest
+ * `not_supported_features` set; consumed by the D6 driver to
+ * reclassify probe failures on those features as `skipped-incapable`
+ * rather than red.
+ */
+interface RegistryIntegrationInfo {
+  demos: string[];
+  notSupportedFeatures: string[];
+}
+
+/**
+ * Read `registry.json` and build a `slug -> {demos, notSupportedFeatures}`
+ * map. Mirrors the parsing logic in `drivers/e2e-readiness.ts`'s
+ * `defaultDemosResolver` so behaviour stays consistent across the two
+ * readers — the discovery source feeds the invoker's pre-dispatch sort
+ * + downstream NSF reclassification, while the driver's resolver feeds
+ * the per-service fan-out at execute time.
  *
  * Path resolution: honours `env.REGISTRY_JSON_PATH` for tests/dev,
  * falling back to the production runtime path `/app/data/registry.json`
  * (mirrors the driver's default). Read failures are non-fatal: we log
  * `discovery.railway-services.registry-read-failed` once and return an
- * empty Map so every service emits with `demos: []`. A missing registry
- * must NEVER abort the tick — sibling probes (smoke, image-drift, ...)
- * still need their service list even when the registry isn't mounted.
+ * empty Map so every service emits with `demos: []` /
+ * `notSupportedFeatures: []`. A missing registry must NEVER abort the
+ * tick — sibling probes (smoke, image-drift, ...) still need their
+ * service list even when the registry isn't mounted.
  */
 async function loadDemosMap(
   ctx: DiscoveryContext,
-): Promise<Map<string, string[]>> {
+): Promise<Map<string, RegistryIntegrationInfo>> {
   const override = ctx.env.REGISTRY_JSON_PATH;
   // Production fallback path. Previously wrapped in `path.resolve()`,
   // which is a no-op for an absolute path; dropped the wrap to keep
@@ -375,9 +415,10 @@ async function loadDemosMap(
     integrations?: Array<{
       slug?: string;
       demos?: Array<{ id?: string; route?: string }>;
+      not_supported_features?: unknown;
     }>;
   };
-  const map = new Map<string, string[]>();
+  const map = new Map<string, RegistryIntegrationInfo>();
   for (const it of parsed.integrations ?? []) {
     if (!it.slug) continue;
     const demos: string[] = [];
@@ -385,7 +426,13 @@ async function loadDemosMap(
       if (typeof d.id === "string" && typeof d.route === "string")
         demos.push(d.id);
     }
-    map.set(it.slug, demos);
+    const nsf: string[] = [];
+    if (Array.isArray(it.not_supported_features)) {
+      for (const f of it.not_supported_features) {
+        if (typeof f === "string") nsf.push(f);
+      }
+    }
+    map.set(it.slug, { demos, notSupportedFeatures: nsf });
   }
   return map;
 }
@@ -401,6 +448,98 @@ function deriveSlugFromServiceName(name: string): string {
   return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
 }
 
+/**
+ * Static local-injection schema for `LOCAL_SERVICES_JSON`. The local D6 gate
+ * (and any non-Railway driver) feeds the IDENTICAL `RailwayServiceInfo[]`
+ * shape to the probe path without querying Railway — only the URLs differ
+ * (local container hostnames vs Railway public domains). Required fields:
+ * `name` (e.g. `showcase-langgraph-python`) and `publicUrl` (the live URL the
+ * specs navigate against, e.g. `http://langgraph-python:10000`). Every other
+ * `RailwayServiceInfo` field defaults so an operator only has to supply the
+ * two that actually vary by environment.
+ *
+ * `shape` is recomputed from `name` via `classifyShape` (single source of
+ * truth) so an injected record can never disagree with the classifier the
+ * Railway path uses.
+ *
+ * `demos` is load-bearing: the d6-all-pills driver derives its feature matrix
+ * via `demosToFeatureTypes(input.demos ?? [])`, so an injected record with an
+ * empty/missing `demos` array short-circuits the driver to a zero-cell
+ * false-green. Callers that want a real Playwright run MUST supply the demo
+ * IDs for the integration here.
+ */
+const LocalServiceSchema = z
+  .object({
+    name: z.string().min(1),
+    publicUrl: z.string().url(),
+    imageRef: z.string().optional(),
+    env: z.record(z.string()).optional(),
+    deployedDigest: z.string().optional(),
+    demos: z.array(z.string()).optional(),
+    notSupportedFeatures: z.array(z.string()).optional(),
+    deployedAt: z.string().optional(),
+  })
+  .passthrough();
+
+const LocalServicesSchema = z.array(LocalServiceSchema);
+
+/**
+ * Build the full `RailwayServiceInfo[]` from `LOCAL_SERVICES_JSON`, applying
+ * the SAME `namePrefix` / `nameExcludes` filter the Railway path applies so a
+ * probe's discovery filter behaves identically against injected records.
+ * Throws `DiscoverySourceSchemaError` (same taxonomy as a Railway shape
+ * failure) when the JSON is malformed, so the invoker surfaces a single keyed
+ * synthetic error rather than a silent empty roster.
+ */
+function buildLocalServices(
+  ctx: DiscoveryContext,
+  raw: string,
+  filter: z.infer<typeof ConfigSchema>,
+): RailwayServiceInfo[] {
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(raw);
+  } catch (err) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `LOCAL_SERVICES_JSON was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      undefined,
+      err,
+    );
+  }
+  const parsed = LocalServicesSchema.safeParse(parsedUnknown);
+  if (!parsed.success) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `LOCAL_SERVICES_JSON did not match expected shape: ${parsed.error.message}`,
+      undefined,
+      parsed.error,
+    );
+  }
+  const excludeSet = new Set(filter.nameExcludes ?? []);
+  const out: RailwayServiceInfo[] = [];
+  for (const svc of parsed.data) {
+    if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) continue;
+    if (excludeSet.has(svc.name)) continue;
+    out.push({
+      name: svc.name,
+      imageRef: svc.imageRef ?? "",
+      publicUrl: svc.publicUrl,
+      env: svc.env ?? {},
+      shape: classifyShape(svc.name, { logger: ctx.logger }),
+      deployedDigest: svc.deployedDigest ?? "",
+      demos: svc.demos ?? [],
+      notSupportedFeatures: svc.notSupportedFeatures ?? [],
+      deployedAt: svc.deployedAt ?? "",
+    });
+  }
+  ctx.logger.info("discovery.railway-services.local-injection", {
+    count: out.length,
+    names: out.map((s) => s.name),
+  });
+  return out;
+}
+
 export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
@@ -409,6 +548,20 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // see ConfigSchema docstring above for why this is flat, not a
     // `{filter: {...}}` wrapper.
     const filter = ConfigSchema.parse(rawConfig ?? {});
+
+    // Local-injection seam: when `LOCAL_SERVICES_JSON` is set, feed the
+    // IDENTICAL RailwayServiceInfo[] shape from a static list instead of
+    // querying Railway. This lets the local D6 gate exercise the EXACT probe
+    // code path the cron/staging entrypoint uses — only the service URLs
+    // differ (local container hostnames vs Railway public domains). Nothing
+    // downstream (invoker, driver, rollup) can tell the records came from a
+    // static list. Railway creds are NOT consulted on this path. An empty
+    // string is treated as unset so an exported-but-empty env var falls back
+    // to the Railway path rather than failing as malformed JSON.
+    const localServicesJson = ctx.env.LOCAL_SERVICES_JSON;
+    if (localServicesJson) {
+      return buildLocalServices(ctx, localServicesJson, filter);
+    }
 
     // Load registry-derived demos map once per enumerate(). The map is
     // the source of truth for the invoker's `e2e_demos` shortest-first
@@ -465,7 +618,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
                   environmentId
                   source { image }
                   domains { serviceDomains { domain } }
-                  latestDeployment { meta }
+                  latestDeployment { meta createdAt }
                 } }
               }
             } }
@@ -539,6 +692,8 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       const imageRef = instance?.node.source?.image ?? "";
       const rawDigest = instance?.node.latestDeployment?.meta?.["imageDigest"];
       const deployedDigest = typeof rawDigest === "string" ? rawDigest : "";
+      const rawDeployedAt = instance?.node.latestDeployment?.createdAt;
+      const deployedAt = typeof rawDeployedAt === "string" ? rawDeployedAt : "";
       const domain =
         instance?.node.domains?.serviceDomains?.[0]?.domain ?? null;
       const publicUrl = domain ? `https://${domain}` : "";
@@ -577,6 +732,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         });
       }
 
+      const registryInfo = demosMap.get(deriveSlugFromServiceName(svc.name));
       return {
         name: svc.name,
         imageRef,
@@ -584,7 +740,9 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         env,
         shape: classifyShape(svc.name, { logger: ctx.logger }),
         deployedDigest,
-        demos: demosMap.get(deriveSlugFromServiceName(svc.name)) ?? [],
+        demos: registryInfo?.demos ?? [],
+        notSupportedFeatures: registryInfo?.notSupportedFeatures ?? [],
+        deployedAt,
       };
     }
 

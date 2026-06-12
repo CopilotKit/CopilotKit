@@ -1,7 +1,7 @@
 import registryData from "@/data/registry.json";
 import { sortOrder } from "./sort-order";
 
-export type FeatureKind = "primary" | "testing";
+export type FeatureKind = "primary" | "testing" | "docs-only";
 
 export interface Feature {
   id: string;
@@ -11,6 +11,14 @@ export interface Feature {
   kind?: FeatureKind;
   og_docs_url?: string;
   shell_docs_path?: string;
+  /**
+   * `true` when the feature represents a legacy/replaced pattern that the
+   * gold-standard integration (LangGraph Python) intentionally does NOT
+   * implement. Other integrations may still serve the legacy demo, but
+   * the dashboard hides deprecated rows behind a "Show deprecated" toggle
+   * so the default gold-standard view stays clean.
+   */
+  deprecated?: boolean;
 }
 
 export interface FeatureCategory {

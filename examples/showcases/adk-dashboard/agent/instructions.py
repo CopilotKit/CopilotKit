@@ -2,6 +2,7 @@ from google.adk.agents.readonly_context import ReadonlyContext
 import json
 from datetime import datetime
 
+
 # This is an InstructionProvider
 def instruction_provider(context: ReadonlyContext) -> str:
     return f"""
