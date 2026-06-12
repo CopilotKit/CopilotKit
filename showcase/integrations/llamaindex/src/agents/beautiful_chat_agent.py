@@ -9,9 +9,13 @@ Mirrors `langgraph-python/src/agents/beautiful_chat.py` but in simplified
 form (the LangGraph version bundles a full A2UI catalog, MCP wiring, and
 shared-state todos; this LlamaIndex port keeps the surface focused on the
 "polished agentic chat starter" use case).
-"""
 
-from __future__ import annotations
+NOTE: deliberately NO ``from __future__ import annotations`` here. The
+future import stringifies ``get_weather``'s annotations; pydantic's
+signature-derived tool model then fails to resolve ``Annotated`` at
+schema-build time ("`get_weather` is not fully defined… call
+`get_weather.model_rebuild()`"), erroring every run of this agent.
+"""
 
 import json
 import os

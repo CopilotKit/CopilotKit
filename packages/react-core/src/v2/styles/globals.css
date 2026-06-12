@@ -1,7 +1,6 @@
 @import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx}";
-@source "../../../../node_modules/streamdown/dist/index.js";
 
 @import "tw-animate-css";
 
@@ -178,6 +177,135 @@
 
 [data-copilotkit] div[data-streamdown="code-block"] > pre {
   @apply cpk:mt-0 cpk:mb-0;
+}
+
+@layer components {
+  [data-copilotkit] [data-streamdown="ordered-list"] {
+    @apply cpk:list-inside cpk:list-decimal cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="unordered-list"] {
+    @apply cpk:list-inside cpk:list-disc cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] {
+    @apply cpk:py-1;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] > p {
+    @apply cpk:inline;
+  }
+
+  [data-copilotkit] [data-streamdown="horizontal-rule"] {
+    @apply cpk:my-6 cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="strong"] {
+    @apply cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="link"] {
+    @apply cpk:font-medium cpk:text-primary cpk:underline;
+    overflow-wrap: anywhere;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-1"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-3xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-2"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-2xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-3"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-4"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-lg cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-5"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-base cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-6"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] {
+    @apply cpk:my-4 cpk:flex cpk:flex-col cpk:space-y-2;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] > div:last-child {
+    @apply cpk:overflow-x-auto;
+  }
+
+  [data-copilotkit] [data-streamdown="table"] {
+    @apply cpk:w-full cpk:border-collapse cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header"] {
+    @apply cpk:bg-muted/80;
+  }
+
+  [data-copilotkit] [data-streamdown="table-body"] {
+    @apply cpk:divide-y cpk:divide-border cpk:bg-muted/40;
+  }
+
+  [data-copilotkit] [data-streamdown="table-row"] {
+    @apply cpk:border-b cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header-cell"] {
+    @apply cpk:whitespace-nowrap cpk:px-4 cpk:py-2 cpk:text-left cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-cell"] {
+    @apply cpk:px-4 cpk:py-2 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="blockquote"] {
+    @apply cpk:my-4 cpk:border-l-4 cpk:border-muted-foreground/30 cpk:pl-4 cpk:text-muted-foreground cpk:italic;
+  }
+
+  [data-copilotkit] [data-streamdown="inline-code"] {
+    @apply cpk:rounded cpk:bg-muted cpk:px-1.5 cpk:py-0.5 cpk:font-mono cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="image-wrapper"] {
+    @apply cpk:relative cpk:my-4 cpk:inline-block;
+  }
+
+  [data-copilotkit] [data-streamdown="image"] {
+    @apply cpk:max-w-full cpk:rounded-lg;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block"] {
+    @apply cpk:my-4 cpk:w-full cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-header"] {
+    @apply cpk:flex cpk:items-center cpk:justify-between cpk:bg-muted/80 cpk:p-3 cpk:text-xs cpk:text-muted-foreground;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-body"] {
+    @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-copy-button"],
+  [data-copilotkit] [data-streamdown="code-block-download-button"] {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
+  [data-copilotkit] [data-streamdown="mermaid-block"] {
+    @apply cpk:relative cpk:my-4 cpk:h-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-4;
+  }
+
+  [data-copilotkit] [data-streamdown="subscript"],
+  [data-copilotkit] [data-streamdown="superscript"] {
+    @apply cpk:text-sm;
+  }
 }
 
 /* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */

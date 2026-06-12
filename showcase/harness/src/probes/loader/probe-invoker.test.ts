@@ -24,7 +24,12 @@ function mkWriter(): {
         transition: "first",
         firstFailureAt: null,
         failCount: 0,
+        persisted: true,
       };
+    },
+    // H1 overlay path — unused by the invoker; present to satisfy StatusWriter.
+    async writeOverlay() {
+      return { applied: false, state: null };
     },
   };
   return { writer, writes };
@@ -1456,7 +1461,11 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     await buildProbeInvoker(cfg, {
@@ -2862,7 +2871,11 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     const updates: Array<{ id: string }> = [];

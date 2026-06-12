@@ -5,14 +5,26 @@ import { execFileSync } from "child_process";
 import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
-// `generate-registry.ts` writes to showcase/shell/src/data/registry.json AND
-// showcase/shell/src/data/constraints.json. Without this, every test run
-// leaks regenerated JSON into the working tree. Snapshot in beforeAll;
-// restore after each test and at the end of the suite. Assumes vitest's
-// `fileParallelism: false` config.
+// `generate-registry.ts` multi-emits registry.json + catalog.json into
+// EVERY shell's src/data plus the shell-only constraints.json. Without
+// this, every test run leaks regenerated JSON into the working tree —
+// catalog.json drifts on every run (its metadata carries a generated_at
+// timestamp), so the full write set must be snapshotted, not just the
+// shell registry/constraints pair. Snapshot in beforeAll; restore after
+// each test and at the end of the suite. This suite is the ONLY one that
+// snapshots these paths — test-cleanup.ts's disjointness contract under
+// the `fileParallelism: true` config requires suites' snapshot targets
+// never overlap (the pattern suite runs against a per-suite tmpdir
+// harness instead — see generate-registry-pattern.test.ts, SU7-F3).
+const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),
+  path.join(SHELL_DATA_DIR, "catalog.json"),
   path.join(SHELL_DATA_DIR, "constraints.json"),
+  ...["shell-docs", "shell-dojo", "shell-dashboard"].flatMap((pkg) => [
+    path.join(SHOWCASE_ROOT, pkg, "src", "data", "registry.json"),
+    path.join(SHOWCASE_ROOT, pkg, "src", "data", "catalog.json"),
+  ]),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 
@@ -29,13 +41,21 @@ function runGenerator(): string {
 
 beforeAll(() => {
   // Generate the data files (they're gitignored, so they may not exist).
+  // Running the DEFAULT generator before snapshotting also heals any
+  // drift a previously crashed run left behind — the baseline is always
+  // fresh default output, never leaked override artifacts (SU7-F3).
   runGenerator();
   dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
+  // Every file in the write set must have been captured — a missing
+  // entry means the generator's outputs and DATA_FILES have drifted
+  // apart, and the un-snapshotted file would leak mutations into the
+  // working tree with no restore (SU7-F3).
+  const missing = DATA_FILES.filter((p) => !dataRestorer.snapshotMap.has(p));
+  if (missing.length > 0) {
     throw new Error(
-      `generate-registry.test.ts: data snapshot is empty. Expected generated` +
-        ` files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
+      `generate-registry.test.ts: snapshot is missing generated files —` +
+        ` DATA_FILES has drifted from the generator's write set:\n` +
+        missing.map((p) => `  ${p}`).join("\n"),
     );
   }
 });

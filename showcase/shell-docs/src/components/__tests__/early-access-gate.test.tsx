@@ -5,10 +5,14 @@ import { EarlyAccessGate } from "../early-access-gate";
 import { EARLY_ACCESS_GATES, getEarlyAccessGate } from "@/lib/early-access";
 
 describe("early-access config", () => {
-  it("registers the slack gate with the shared password", () => {
+  it("registers early-access gates with the shared password", () => {
     expect(EARLY_ACCESS_GATES.slack.password).toBe("earlyaccess");
     expect(EARLY_ACCESS_GATES.slack.storageKey).toBe(
       "shell-docs-early-access:slack",
+    );
+    expect(EARLY_ACCESS_GATES.teams.password).toBe("earlyaccess");
+    expect(EARLY_ACCESS_GATES.teams.storageKey).toBe(
+      "shell-docs-early-access:microsoft-teams",
     );
   });
 
@@ -16,10 +20,21 @@ describe("early-access config", () => {
     expect(EARLY_ACCESS_GATES.slack.requestUrl).toBe(
       "https://go.copilotkit.ai/beyond-the-web-form",
     );
+    expect(EARLY_ACCESS_GATES.teams.requestUrl).toBe(
+      "https://go.copilotkit.ai/beyond-the-web-form",
+    );
+  });
+
+  it("registers Microsoft Teams gate preview images", () => {
+    expect(EARLY_ACCESS_GATES.teams.image).toMatchObject({
+      lightSrc: "/images/teams-preview-light.png",
+      darkSrc: "/images/teams-preview-dark.png",
+    });
   });
 
   it("resolves known ids and rejects unknown ones", () => {
     expect(getEarlyAccessGate("slack")).toBe(EARLY_ACCESS_GATES.slack);
+    expect(getEarlyAccessGate("teams")).toBe(EARLY_ACCESS_GATES.teams);
     expect(getEarlyAccessGate("nope")).toBeNull();
     expect(getEarlyAccessGate(undefined)).toBeNull();
   });

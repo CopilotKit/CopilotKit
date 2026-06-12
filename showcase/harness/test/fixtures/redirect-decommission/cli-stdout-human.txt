@@ -1,8 +1,8 @@
 === SEO Redirect Decommission Report (last 30 days) ===
-Total redirects defined: 390
+Total redirects defined: 388
 Total hits: 12,537
 Redirects with hits: 13
-Zero-hit candidates: 377
+Zero-hit candidates: 375
 
 Top 10 most-hit redirects:
   D1                        5,432 hits
@@ -76,7 +76,7 @@ Decommission candidates (zero hits):
   F10                       /langgraph/generative-ui/interactive/client-side → /langgraph-python/generative-ui/your-components/interactive
   F11                       /langgraph/human-in-the-loop/node-flow → /langgraph-python/human-in-the-loop/interrupt-flow
   F12                       /langgraph/human-in-the-loop/prebuilt-agents → /langgraph-python/prebuilt-components
-  F13                       /aws-strands/human-in-the-loop → /human-in-the-loop
+  F13                       /aws-strands/human-in-the-loop → /strands/human-in-the-loop
   F14                       /adk/shared-state/state-inputs-outputs → /google-adk/shared-state/workflow-execution
   F15                       /langgraph/shared-state/state-inputs-outputs → /langgraph-python/shared-state/workflow-execution
   F16                       /llamaindex/shared-state/state-inputs-outputs → /llamaindex/shared-state/workflow-execution
@@ -157,9 +157,7 @@ Decommission candidates (zero hits):
   R12                       /coding-agent-setup → /coding-agents
   R13                       /copilot-suggestions → /prebuilt-components
   R14                       /direct-to-llm → /built-in-agent
-  R15                       /integrations/built-in-agent → /built-in-agent
   R16                       /direct-to-llm/:path* → /built-in-agent/:path*
-  R17                       /integrations/built-in-agent/:path* → /built-in-agent/:path*
   R18                       /mcp → /coding-agents
   R19                       /vibe-coding-mcp → /coding-agents
   R20                       /agentic-protocols → /agentic-protocols

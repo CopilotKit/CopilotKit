@@ -2,9 +2,23 @@
  * Unit tests for CellDrilldown — per-cell dimension detail panel.
  */
 import { describe, it, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
-import { CellDrilldown } from "../cell-drilldown";
-import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
+import { render, fireEvent, within } from "@testing-library/react";
+import { CellDrilldown, familyStalenessAnnotation } from "../cell-drilldown";
+import { buildCellModel } from "@/lib/cell-model";
+import type { BadgeRender, LiveStatusMap, StatusRow } from "@/lib/live-status";
+import { WorkerRunsProvider } from "@/lib/worker-runs-context";
+import type { WorkerRunsStatus } from "@/hooks/use-worker-runs";
+import type { WorkerFamilySummary, WorkerRunBatch } from "@/lib/ops-api";
+
+// The `row()` helper's hardcoded 2026-04-20 timestamps are STALE against the
+// health (45m) / e2e (6h) / d4 (1h) windows, and CellDrilldown calls
+// resolveCell with NO `now` (real Date.now() applies). Tests that need rows
+// to resolve FRESH must override observed_at/transitioned_at with this.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+const FRESH = {
+  observed_at: FRESH_OBSERVED_AT,
+  transitioned_at: FRESH_OBSERVED_AT,
+} as const;
 
 function row(
   key: string,
@@ -33,12 +47,14 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
 }
 
 describe("CellDrilldown", () => {
-  it("renders all 5 badge dimensions", () => {
+  it("renders all 7 badge dimensions", () => {
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("e2e:lgp/agentic-chat", "e2e", "green"),
-      row("smoke:lgp", "smoke", "green"),
-      row("agent:lgp", "agent", "green"),
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("smoke:lgp", "smoke", "green", { ...FRESH }),
+      row("agent:lgp", "agent", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "green", { ...FRESH }),
     ]);
     const { getByTestId, getByText } = render(
       <CellDrilldown
@@ -51,11 +67,136 @@ describe("CellDrilldown", () => {
       />,
     );
     expect(getByTestId("cell-drilldown")).toBeDefined();
+    expect(getByText("Parity (Reference)")).toBeDefined();
+    expect(getByText("CV (Conversation)")).toBeDefined();
+    // `RT (Round Trip)` is now the D4 (chat+tools round-trip) row …
+    expect(getByText("RT (Round Trip)")).toBeDefined();
+    // … and the e2e row carries the de-crossed `E2E (Demo)` label.
+    expect(getByText("E2E (Demo)")).toBeDefined();
     expect(getByText("API (Agent)")).toBeDefined();
     expect(getByText("Health")).toBeDefined();
-    expect(getByText("RT (Round Trip)")).toBeDefined();
     expect(getByText("Smoke")).toBeDefined();
-    expect(getByText("CV (Conversation)")).toBeDefined();
+  });
+
+  it("renders a red RT (Round Trip) row for a red D4 fold while the service line stays green (headline drilldown-parity bug)", () => {
+    // The dimension that turns the pill red (D4: red tools round-trip) must
+    // be VISIBLE in the popup. Pre-fix the popup had no D4 row at all, so a
+    // pill-red cell showed nothing non-green to explain itself.
+    const live = mapOf([
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "red", { ...FRESH }),
+    ]);
+    const { getByTestId, getByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    // The d4 row owns the `RT (Round Trip)` label (and so its derived testid).
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(rtBadge.textContent).toContain("RT (Round Trip)");
+    expect(rtBadge.textContent).toContain("✗");
+    // The service-scoped line (health + e2e) is still green — honest scope.
+    expect(getByText("green")).toBeDefined();
+    // Cross-resolver pin: the SAME map makes the pill red via buildCellModel's
+    // D1-D4 gate — so a pill-red cause now always has a visible non-green row.
+    expect(
+      buildCellModel(live, {
+        slug: "lgp",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: true,
+      }).chipColor,
+    ).toBe("red");
+  });
+
+  it("renders strikethrough n/a on the RT (Round Trip) row when chat/tools rows are absent", () => {
+    const live = mapOf([
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+    ]);
+    const { getByTestId } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(rtBadge.textContent).toContain("RT (Round Trip)");
+    expect(rtBadge.textContent).toContain("n/a");
+    expect(rtBadge.querySelector(".line-through")).not.toBeNull();
+  });
+
+  it("labels the rollup line with its honest scope — Service (health + e2e), not Rollup", () => {
+    const { getByText, queryByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={new Map()}
+        onClose={() => {}}
+      />,
+    );
+    expect(getByText("Service (health + e2e)")).toBeDefined();
+    expect(queryByText("Rollup")).toBeNull();
+  });
+
+  it("de-crosses the e2e label: E2E (Demo) renders and exactly ONE row is labelled RT (Round Trip)", () => {
+    const live = mapOf([
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "green", { ...FRESH }),
+    ]);
+    const { getByText, getAllByText } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    expect(getByText("E2E (Demo)")).toBeDefined();
+    expect(getAllByText("RT (Round Trip)").length).toBe(1);
+  });
+
+  it("shows fail count and extracted Error field on a red RT (Round Trip) / D4 row", () => {
+    const live = mapOf([
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "red", {
+        ...FRESH,
+        fail_count: 3,
+        first_failure_at: "2026-04-19T10:00:00Z",
+        signal: { error: "boom" },
+      }),
+    ]);
+    const { getByTestId } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    const rtBadge = getByTestId("drilldown-badge-rt--round-trip-");
+    expect(within(rtBadge).getByTestId("fail-count").textContent).toBe("3");
+    expect(within(rtBadge).getByTestId("signal-field-error").textContent).toBe(
+      "boom",
+    );
   });
 
   it("shows integration and feature name in header", () => {
@@ -178,9 +319,11 @@ describe("CellDrilldown", () => {
   });
 
   it("does not show failure details for green badges", () => {
+    // FRESH is required: without it these rows resolve amber-stale (see header
+    // invariant) and the "green badges" premise silently breaks.
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("e2e:lgp/agentic-chat", "e2e", "green"),
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
     ]);
     const { queryAllByTestId } = render(
       <CellDrilldown
@@ -274,5 +417,229 @@ describe("CellDrilldown", () => {
     const dialog = getByTestId("cell-drilldown");
     expect(dialog.className).toContain("w-[480px]");
     expect(dialog.className).not.toContain("w-72");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  §7.2 family staleness annotation                                   */
+/* ------------------------------------------------------------------ */
+
+function makeBatch(overrides: Partial<WorkerRunBatch> = {}): WorkerRunBatch {
+  return {
+    runId: "r1",
+    triggered: false,
+    enqueuedAt: new Date(Date.now() - 90 * 60_000).toISOString(),
+    finishedAt: new Date(Date.now() - 80 * 60_000).toISOString(),
+    durationMs: 600_000,
+    outcome: "failed",
+    jobs: { total: 1, done: 0, failed: 1, reclaimed: 0 },
+    cells: null,
+    redsIntroduced: null,
+    redsCleared: null,
+    errorSummary: null,
+    commErrorKinds: [],
+    ...overrides,
+  };
+}
+
+function makeFamily(
+  overrides: Partial<WorkerFamilySummary> = {},
+): WorkerFamilySummary {
+  return {
+    family: "d6",
+    label: "D6 all-pills",
+    probeKeyPrefix: "d6",
+    schedule: "40 * * * *",
+    periodMs: 3_600_000,
+    nextRunAt: null,
+    lastRun: makeBatch(),
+    inflight: null,
+    lastSuccessAt: new Date(Date.now() - 8 * 3_600_000).toISOString(),
+    ...overrides,
+  };
+}
+
+function okWorkerRuns(families: WorkerFamilySummary[]): WorkerRunsStatus {
+  return {
+    status: "ok",
+    data: { families, workers: [] },
+    fetchedAt: Date.now(),
+  };
+}
+
+describe("CellDrilldown §7.2 family annotation", () => {
+  it("appends 'Family last succeeded <relative> · last attempt <relative> (<outcome>)' for a stale-degraded row whose key prefix maps via payload probeKeyPrefix", () => {
+    // A green d6 row observed 7 h ago: past the 6 h E2E window, so the
+    // cell's EXISTING stale check downgrades it to amber/degraded with
+    // fail_count 0 — the exact shape §7.2 annotates.
+    const old = new Date(Date.now() - 7 * 3_600_000).toISOString();
+    const live = mapOf([
+      row("d6:lgp/agentic-chat", "d6", "green", {
+        observed_at: old,
+        transitioned_at: old,
+      }),
+    ]);
+    const { getByTestId } = render(
+      <WorkerRunsProvider value={okWorkerRuns([makeFamily()])}>
+        <CellDrilldown
+          slug="lgp"
+          featureId="agentic-chat"
+          integrationName="LangGraph Python"
+          featureName="Agentic Chat"
+          liveStatus={live}
+          onClose={() => {}}
+        />
+      </WorkerRunsProvider>,
+    );
+    const annotation = getByTestId("family-annotation");
+    expect(annotation.textContent).toMatch(
+      /^Family last succeeded .+ · last attempt .+ \(failed\)$/,
+    );
+  });
+
+  it("does NOT annotate a genuine failure (fresh red row) even when its family maps", () => {
+    const live = mapOf([
+      row("d6:lgp/agentic-chat", "d6", "red", {
+        fail_count: 3,
+        first_failure_at: "2026-06-10T00:00:00Z",
+        observed_at: new Date().toISOString(),
+        transitioned_at: new Date().toISOString(),
+      }),
+    ]);
+    const { queryAllByTestId } = render(
+      <WorkerRunsProvider value={okWorkerRuns([makeFamily()])}>
+        <CellDrilldown
+          slug="lgp"
+          featureId="agentic-chat"
+          integrationName="LangGraph Python"
+          featureName="Agentic Chat"
+          liveStatus={live}
+          onClose={() => {}}
+        />
+      </WorkerRunsProvider>,
+    );
+    expect(queryAllByTestId("family-annotation").length).toBe(0);
+  });
+
+  it("d4 rows annotate under their own 1h gate — the annotation piggybacks the cell's existing stale verdict and applies NO threshold of its own", () => {
+    const now = Date.now();
+    // A d4/e2e-smoke row already downgraded by ITS OWN gate
+    // (D4_STALE_AFTER_MS, 1 h — applied upstream by the cell model):
+    // amber/degraded, fail_count 0.
+    const observed = new Date(now - 65 * 60_000).toISOString();
+    const d4Row: StatusRow = {
+      id: "d4-1",
+      key: "d4:lgp",
+      dimension: "d4",
+      state: "degraded",
+      signal: null,
+      observed_at: observed,
+      transitioned_at: observed,
+      fail_count: 0,
+      first_failure_at: null,
+    };
+    const badge: BadgeRender = {
+      tone: "amber",
+      label: "~",
+      tooltip: "",
+      row: d4Row,
+    };
+    // e2e-smoke family (probeKeyPrefix "d4", 15 min period) that is NOT
+    // 2-period silent (last success 20 min ago < 30 min): the annotation
+    // must STILL append, because the only gate is the cell's own existing
+    // stale verdict — §7.2 "it never substitutes a different threshold".
+    const smoke = makeFamily({
+      family: "e2e-smoke",
+      label: "E2E smoke",
+      probeKeyPrefix: "d4",
+      schedule: "*/15 * * * *",
+      periodMs: 900_000,
+      lastSuccessAt: new Date(now - 20 * 60_000).toISOString(),
+      lastRun: makeBatch({
+        outcome: "completed",
+        enqueuedAt: new Date(now - 25 * 60_000).toISOString(),
+        finishedAt: new Date(now - 20 * 60_000).toISOString(),
+      }),
+    });
+    const annotation = familyStalenessAnnotation(badge, [smoke], now);
+    expect(annotation).toMatch(
+      /^Family last succeeded .+ · last attempt .+ \(completed\)$/,
+    );
+    // A FRESH (non-degraded) d4 row never annotates, even when the family
+    // IS silent — the cell's own verdict governs.
+    const freshBadge: BadgeRender = {
+      tone: "green",
+      label: "✓",
+      tooltip: "",
+      row: { ...d4Row, state: "green" },
+    };
+    const silentSmoke = makeFamily({
+      ...smoke,
+      lastSuccessAt: new Date(now - 3 * 3_600_000).toISOString(),
+    });
+    expect(familyStalenessAnnotation(freshBadge, [silentSmoke], now)).toBe(
+      null,
+    );
+  });
+
+  it("annotation uses the inflight batch as last attempt when one exists (stalled rendered verbatim)", () => {
+    const now = Date.now();
+    const badge: BadgeRender = {
+      tone: "amber",
+      label: "~",
+      tooltip: "",
+      row: {
+        id: "d6-1",
+        key: "d6:lgp/agentic-chat",
+        dimension: "d6",
+        state: "degraded",
+        signal: null,
+        observed_at: new Date(now - 7 * 3_600_000).toISOString(),
+        transitioned_at: new Date(now - 7 * 3_600_000).toISOString(),
+        fail_count: 0,
+        first_failure_at: null,
+      },
+    };
+    const family = makeFamily({
+      inflight: {
+        runId: "r2",
+        triggered: false,
+        enqueuedAt: new Date(now - 2 * 3_600_000).toISOString(),
+        elapsedMs: 2 * 3_600_000,
+        stalled: true,
+        jobs: { pending: 1, claimed: 0, running: 0, done: 0, failed: 0 },
+      },
+    });
+    expect(familyStalenessAnnotation(badge, [family], now)).toMatch(
+      /· last attempt .+ \(stalled\)$/,
+    );
+  });
+
+  it("returns null for a zero-batch family and for an unmapped key prefix", () => {
+    const now = Date.now();
+    const badge: BadgeRender = {
+      tone: "amber",
+      label: "~",
+      tooltip: "",
+      row: {
+        id: "d6-2",
+        key: "d6:lgp/agentic-chat",
+        dimension: "d6",
+        state: "degraded",
+        signal: null,
+        observed_at: new Date(now - 7 * 3_600_000).toISOString(),
+        transitioned_at: new Date(now - 7 * 3_600_000).toISOString(),
+        fail_count: 0,
+        first_failure_at: null,
+      },
+    };
+    const zeroBatch = makeFamily({
+      lastRun: null,
+      inflight: null,
+      lastSuccessAt: null,
+    });
+    expect(familyStalenessAnnotation(badge, [zeroBatch], now)).toBe(null);
+    const unmapped = makeFamily({ probeKeyPrefix: "d5-single-pill-e2e" });
+    expect(familyStalenessAnnotation(badge, [unmapped], now)).toBe(null);
   });
 });

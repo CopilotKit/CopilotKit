@@ -89,26 +89,41 @@ DISPLAY_FLIGHT_TOOL = {
 def _display_flight_operations(
     origin: str, destination: str, airline: str, price: str
 ) -> dict[str, Any]:
+    # A2UI v0.9 message shape — each operation is wrapped in a versioned
+    # container keyed by the operation name (createSurface, updateComponents,
+    # updateDataModel). The runtime A2UI middleware + react-core renderer
+    # (packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx) read these
+    # keys directly; the legacy snake_case `{type: "create_surface", ...}`
+    # shape is silently dropped, leaving the flight card unrendered.
+    # Mirrors `copilotkit.a2ui.render(...)` used by langgraph-python's
+    # display_flight tool (sdk-python/copilotkit/a2ui.py).
     return {
         "a2ui_operations": [
             {
-                "type": "create_surface",
-                "surfaceId": SURFACE_ID,
-                "catalogId": CATALOG_ID,
+                "version": "v0.9",
+                "createSurface": {
+                    "surfaceId": SURFACE_ID,
+                    "catalogId": CATALOG_ID,
+                },
             },
             {
-                "type": "update_components",
-                "surfaceId": SURFACE_ID,
-                "components": FLIGHT_SCHEMA,
+                "version": "v0.9",
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": FLIGHT_SCHEMA,
+                },
             },
             {
-                "type": "update_data_model",
-                "surfaceId": SURFACE_ID,
-                "data": {
-                    "origin": origin,
-                    "destination": destination,
-                    "airline": airline,
-                    "price": price,
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": SURFACE_ID,
+                    "path": "/",
+                    "value": {
+                        "origin": origin,
+                        "destination": destination,
+                        "airline": airline,
+                        "price": price,
+                    },
                 },
             },
         ]
