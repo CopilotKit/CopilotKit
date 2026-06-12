@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../context";
+import { INTELLIGENCE_LEARNING_CONTAINERS_KEY } from "../../providers/CopilotKitProvider";
 import { useLearnFromUserAction } from "../use-learn-from-user-action";
 
 vi.mock("../../context", () => ({
@@ -56,8 +57,20 @@ const installCopilotKit = (
   overrides: {
     runtimeUrl?: string | null;
     headers?: Record<string, string>;
+    learningContainers?: string[] | null;
   } = {},
 ) => {
+  const properties: Record<string, unknown> = {};
+  if (overrides.learningContainers !== undefined) {
+    if (overrides.learningContainers !== null) {
+      properties[INTELLIGENCE_LEARNING_CONTAINERS_KEY] =
+        overrides.learningContainers;
+    }
+    // null → omit key entirely, so the hook's default ("project") applies
+  } else {
+    // Default: provider always injects the key with ["project"]
+    properties[INTELLIGENCE_LEARNING_CONTAINERS_KEY] = ["project"];
+  }
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl:
@@ -65,6 +78,7 @@ const installCopilotKit = (
           ? "https://bff.example.com/api/copilotkit"
           : overrides.runtimeUrl,
       headers: overrides.headers,
+      properties,
     },
   });
 };
@@ -285,5 +299,51 @@ describe("useLearnFromUserAction", () => {
     });
 
     expect(calls[0]!.body!.occurredAt).toBe("2024-01-01T00:00:00Z");
+  });
+
+  it("includes intended from the provider-global learning containers in the request body", async () => {
+    installCopilotKit({ learningContainers: ["org", "project"] });
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t", title: "x" });
+
+    expect(calls[0]!.body!.intended).toEqual(["org", "project"]);
+  });
+
+  it("defaults intended to ['project'] when the provider-global key is absent", async () => {
+    // Pass learningContainers: null → key omitted from mock properties
+    installCopilotKit({ learningContainers: null });
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t", title: "x" });
+
+    expect(calls[0]!.body!.intended).toEqual(["project"]);
+  });
+
+  it("defaults intended to ['project'] when properties is an empty object", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "https://bff.example.com/api/copilotkit",
+        headers: undefined,
+        properties: {},
+      },
+    });
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t", title: "x" });
+
+    expect(calls[0]!.body!.intended).toEqual(["project"]);
   });
 });

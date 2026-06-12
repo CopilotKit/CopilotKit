@@ -61,8 +61,12 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
  * Reserved `forwardedProps` key carrying the client's intended learning
  * containers for CopilotKit Intelligence self-learning events. Must stay
  * byte-identical to the key Intelligence reads on the receiving side.
+ *
+ * Exported so that hooks that need to read the value from
+ * `copilotkit.properties` (e.g. `useLearnFromUserAction`) can do so without
+ * scattering the literal string.
  */
-const INTELLIGENCE_LEARNING_CONTAINERS_KEY =
+export const INTELLIGENCE_LEARNING_CONTAINERS_KEY =
   "__copilotkit_intelligence_learning_containers__";
 /** Default learning container when none is configured on the provider. */
 const DEFAULT_LEARNING_CONTAINERS: readonly string[] = ["project"];
