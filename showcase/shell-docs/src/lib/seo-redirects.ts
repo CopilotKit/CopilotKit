@@ -69,6 +69,18 @@ function canonicalSlug(legacy: string): string {
   return SLUG_RENAMES[legacy] ?? legacy;
 }
 
+function destinationPrefix(canonicalFramework: string): string {
+  return canonicalFramework === "built-in-agent"
+    ? ""
+    : `/${canonicalFramework}`;
+}
+
+function destinationPath(canonicalFramework: string, pathSuffix = ""): string {
+  const prefix = destinationPrefix(canonicalFramework);
+  if (!pathSuffix) return prefix || "/";
+  return `${prefix}/${pathSuffix}`;
+}
+
 /**
  * Canonical (post-cutover) framework slugs served by shell-docs. Used for
  * wildcard rules that match the current URL surface rather than legacy
@@ -172,12 +184,12 @@ function generateFrameworkRenames(): RedirectEntry[] {
       entries.push({
         id: `S13w×${fw}`,
         source: `/${fw}/concepts/:path*`,
-        destination: `/${fwDest}`,
+        destination: destinationPath(fwDest),
       });
       entries.push({
         id: `S13e×${fw}`,
         source: `/${fw}/concepts`,
-        destination: `/${fwDest}`,
+        destination: destinationPath(fwDest),
       });
     }
 
@@ -185,7 +197,7 @@ function generateFrameworkRenames(): RedirectEntry[] {
       entries.push({
         id: `${rename.specId}×${fw}`,
         source: `/${fw}/${rename.from}`,
-        destination: `/${fwDest}/${rename.to}`,
+        destination: destinationPath(fwDest, rename.to),
       });
     }
   }
@@ -208,7 +220,7 @@ const CODING_AGENTS_RENAMES: RedirectEntry[] = [
   ...[...new Set(FRAMEWORKS.map(canonicalSlug))].map((fw) => ({
     id: `CA×${fw}`,
     source: `/${fw}/coding-agents`,
-    destination: `/${fw}/build-with-agents`,
+    destination: destinationPath(fw, "build-with-agents"),
   })),
 ];
 
@@ -792,7 +804,7 @@ const DOCS_INTEGRATIONS_RENAMES: RedirectEntry[] = FRAMEWORKS.flatMap((fw) => {
   const fwDest = canonicalSlug(fw);
   // The unselected/ tree's canonical owner (Built-in Agent) is served
   // at the root surface, so its destinations carry no framework prefix.
-  const destPrefix = fwDest === "built-in-agent" ? "" : `/${fwDest}`;
+  const destPrefix = destinationPrefix(fwDest);
   return [
     {
       id: `DI-wild×${fw}`,
@@ -802,7 +814,7 @@ const DOCS_INTEGRATIONS_RENAMES: RedirectEntry[] = FRAMEWORKS.flatMap((fw) => {
     {
       id: `DI-root×${fw}`,
       source: `/docs/integrations/${fw}`,
-      destination: destPrefix || "/",
+      destination: destinationPath(fwDest),
     },
   ];
 });
@@ -915,12 +927,12 @@ const SLUG_RENAME_REDIRECTS: RedirectEntry[] = Object.entries(
   {
     id: `SR-wild×${oldSlug}`,
     source: `/${oldSlug}/:path*`,
-    destination: `/${newSlug}/:path*`,
+    destination: `${destinationPrefix(newSlug)}/:path*`,
   },
   {
     id: `SR-root×${oldSlug}`,
     source: `/${oldSlug}`,
-    destination: `/${newSlug}`,
+    destination: destinationPath(newSlug),
   },
 ]);
 
@@ -972,7 +984,7 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   ...CANONICAL_FRAMEWORKS.map((fw) => ({
     id: `T1×${fw}`,
     source: `/${fw}/tutorials/:path*`,
-    destination: `/${fw}/quickstart`,
+    destination: destinationPath(fw, "quickstart"),
   })),
   {
     id: "T1-unscoped-wild",
@@ -996,12 +1008,12 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
     id: `P1×${fw}`,
     source: `/${fw}/:path*`,
-    destination: `/${canonicalSlug(fw)}/:path*`,
+    destination: `${destinationPrefix(canonicalSlug(fw))}/:path*`,
   })),
   ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
     id: `P2×${fw}`,
     source: `/${fw}`,
-    destination: `/${canonicalSlug(fw)}`,
+    destination: destinationPath(canonicalSlug(fw)),
   })),
   // /docs/* generic catch-all (must come AFTER /docs/integrations/* so
   // the more specific /docs/integrations entries match first).

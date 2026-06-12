@@ -74,20 +74,41 @@ describe("seoRedirects", () => {
     expect(captured).toEqual([]);
   });
 
-  it("points no live destination at the retired /built-in-agent prefix", () => {
-    // /built-in-agent/* 308s back to /* (next.config.ts), so middleware
-    // destinations under that prefix would force a redirect chain (or a
-    // loop when the source is the bare root form). Sources under
-    // /built-in-agent/* or /unselected/* are unreachable (next.config
-    // intercepts them first), so generated legacy entries are exempt.
-    const live = seoRedirects.filter(
-      (entry) =>
-        !entry.source.startsWith("/built-in-agent") &&
-        !entry.source.startsWith("/unselected"),
-    );
-    const stale = live.filter((entry) =>
+  it("points no destination at the retired /built-in-agent prefix", () => {
+    // /built-in-agent/* redirects back to /*, so middleware
+    // destinations under that prefix force a redirect chain. Even
+    // legacy /unselected/* sources should now land on the root BIA
+    // surface directly.
+    const stale = seoRedirects.filter((entry) =>
       entry.destination.startsWith("/built-in-agent"),
     );
     expect(stale).toEqual([]);
+  });
+
+  it("redirects unselected legacy paths directly to root Built-in Agent URLs", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "S3×unselected",
+          source: "/unselected/frontend-actions",
+          destination: "/frontend-tools",
+        },
+        {
+          id: "SR-wild×unselected",
+          source: "/unselected/:path*",
+          destination: "/:path*",
+        },
+        {
+          id: "P2×unselected",
+          source: "/unselected",
+          destination: "/",
+        },
+        {
+          id: "T1×built-in-agent",
+          source: "/built-in-agent/tutorials/:path*",
+          destination: "/quickstart",
+        },
+      ]),
+    );
   });
 });

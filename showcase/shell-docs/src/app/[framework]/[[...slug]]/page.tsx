@@ -55,7 +55,7 @@ import {
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
-import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
+import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
 import path from "path";
