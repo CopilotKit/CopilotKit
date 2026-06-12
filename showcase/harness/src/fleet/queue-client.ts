@@ -64,6 +64,7 @@ import type {
   FleetQueueClient,
   JobLease,
   PoolCommError,
+  PruneAgedResult,
   ReportJobInput,
   ServiceJobMeta,
   ServiceJobPayload,
@@ -96,6 +97,30 @@ const CLAIM_CANDIDATE_PAGE = 50;
  * count if probe_key shapes ever proliferate unexpectedly.
  */
 const MAX_PENDING_FAMILIES = 16;
+
+/**
+ * §4.2 retention windows for `pruneAged` (exported — the integration test and
+ * the fleet-runs route tests reference them):
+ *
+ *   - TERMINAL (14 days): delete `done`/`failed` rows older than this,
+ *     deliberately REGARDLESS of `result_processed` — the latch gates the
+ *     aggregator's consume-once semantics, not retention. A poison result the
+ *     aggregator can never process (`result_processed` stuck false) would
+ *     otherwise pin its row forever; at 14 days — thousands of aggregation
+ *     cycles past the batch — the consume-once question is moot.
+ *   - ZOMBIE (48 hours): delete NON-terminal rows older than this. Nothing
+ *     else ever reaps abandoned `pending`/`claimed`/`running` rows —
+ *     `sweepExpired` scans only `claimed|running` (a `pending` row has no
+ *     lease to expire) and the terminal leg touches only terminal rows. 48 h
+ *     is far beyond the longest legitimate run AND the dashboard's
+ *     stalled-classification window, so a stalled batch keeps its full
+ *     diagnostic visibility window before its zombie rows are reaped.
+ *
+ * Both legs cut on `created` (stamped once, renewal-immune), never `updated`
+ * (a wedged-but-renewing worker bumps `updated` on every lease renewal).
+ */
+export const PRUNE_TERMINAL_MAX_AGE_MS = 14 * 24 * 3600_000;
+export const PRUNE_ZOMBIE_MAX_AGE_MS = 48 * 3600_000;
 
 /**
  * Bounded retries for the post-release result write in `report()`. The release
@@ -947,6 +972,11 @@ export function createFleetQueueClient(
       // A fresh job is `pending` with no owner and no lease. `probe_key` is the
       // join key (== payload.probeKey, the d6 aggregate row key); the work
       // rides in the `payload` JSON column for the worker to read post-claim.
+      // §4.2 run-metadata denormalization (migration 1779990200): `run_id` is
+      // copied out of `payload.meta.runId` so the run-view projection can
+      // group a batch with an indexed filter instead of a JSON-path scan, and
+      // `family` carries the producer's §5.1 registry id for indexed
+      // per-family listing (absent → written empty, matching pre-P2 rows).
       const record = await pb.create<ProbeJobRecord>(PROBE_JOBS_COLLECTION, {
         probe_key: payload.probeKey,
         status: "pending",
@@ -954,6 +984,8 @@ export function createFleetQueueClient(
         lease_expires_at: null,
         version: 0,
         payload,
+        run_id: payload.meta.runId,
+        family: input.family ?? "",
       });
       logger.debug("queue-client.enqueued", {
         jobId: record.id,
@@ -1661,6 +1693,38 @@ export function createFleetQueueClient(
       });
       sweepInFlight = sweep;
       return sweep;
+    },
+
+    async pruneAged(nowMs: number): Promise<PruneAgedResult> {
+      // §4.2 retention, two legs over `created` cutoffs (see the window
+      // constants' WHY above). Idempotent record-level deletes — single-owner
+      // by the d6 producer's family gate (job-producer), not by this client,
+      // so a concurrent/missed pass is harmless. Date-literal style mirrors
+      // `sweepStaleRuns` (run-history.ts): ISO string in a quoted PB filter.
+      const terminalCutoff = new Date(
+        nowMs - PRUNE_TERMINAL_MAX_AGE_MS,
+      ).toISOString();
+      const zombieCutoff = new Date(
+        nowMs - PRUNE_ZOMBIE_MAX_AGE_MS,
+      ).toISOString();
+      // Terminal leg: deliberately NO `result_processed` clause — the latch
+      // gates aggregation, not retention (a stuck-false poison row is reaped
+      // like any other terminal row at this age).
+      const terminal = await pb.deleteByFilter(
+        PROBE_JOBS_COLLECTION,
+        `(status = "done" || status = "failed") && created < "${terminalCutoff}"`,
+      );
+      // Zombie leg: every non-terminal state — `pending` rows have no lease
+      // for sweepExpired to reclaim, so this is their ONLY reaper. `created`
+      // (not `updated`) keeps the cutoff renewal-immune.
+      const zombie = await pb.deleteByFilter(
+        PROBE_JOBS_COLLECTION,
+        `(status = "pending" || status = "claimed" || status = "running") && created < "${zombieCutoff}"`,
+      );
+      if (terminal > 0 || zombie > 0) {
+        logger.info("queue-client.pruned-aged", { terminal, zombie });
+      }
+      return { terminal, zombie };
     },
   };
 

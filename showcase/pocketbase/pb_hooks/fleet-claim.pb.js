@@ -133,6 +133,12 @@ routerAdd(
         const reclaimable =
           status === "pending" ||
           (RUNNING_STATES.indexOf(status) !== -1 && leaseExpired(rec));
+        // Run-metadata (§4.2): capture WHICH branch won BEFORE mutating the
+        // record. An expired-lease steal (claimed/running + lease elapsed) is
+        // one of the two reclaim choke points and must bump reclaim_count; a
+        // plain pending claim must not.
+        const wasExpiredSteal =
+          RUNNING_STATES.indexOf(status) !== -1 && leaseExpired(rec);
         if (!reclaimable) {
           // TIMEOUT-AFTER-COMMIT IDEMPOTENCY: a claim that COMMITTED whose
           // response was lost is retried by the SAME worker — the row is now
@@ -159,6 +165,13 @@ routerAdd(
         rec.set("claimed_by", workerId);
         rec.set("lease_expires_at", leaseExpiryIso(leaseSeconds));
         rec.set("version", (rec.get("version") || 0) + 1);
+        // claimed_at is stamped on EVERY winning claim — it deliberately
+        // restamps on a re-claim/steal, so the derived queue latency
+        // (claimed_at − created) measures the LAST claim (§5.2.1 corollary).
+        rec.set("claimed_at", new Date().toISOString());
+        if (wasExpiredSteal) {
+          rec.set("reclaim_count", (rec.get("reclaim_count") || 0) + 1);
+        }
         txDao.saveRecord(rec);
         claimed = true;
         view = jobView(rec);
@@ -459,6 +472,17 @@ routerAdd(
           // that out-lived its family's expiry window gets an actual re-run
           // instead of being claim-deleted off its original `created` age.
           rec.set("claimed_by", "");
+          // Run-metadata (§4.2): the sweeper re-queue is the second reclaim
+          // choke point (the first is the claim CAS's expired-lease steal) —
+          // bump the durable per-job reclaim tally. finished_at deliberately
+          // stays untouched (null until a TERMINAL release): a re-queued job
+          // has not finished.
+          rec.set("reclaim_count", (rec.get("reclaim_count") || 0) + 1);
+        } else {
+          // Run-metadata (§4.2): terminal release (done|failed) stamps the
+          // finish time so run duration (finished_at − claimed_at) is readable
+          // without parsing the `result` JSON.
+          rec.set("finished_at", new Date().toISOString());
         }
         rec.set("version", (rec.get("version") || 0) + 1);
         txDao.saveRecord(rec);

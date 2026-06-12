@@ -117,6 +117,9 @@ import {
   createControlPlane,
   DEFAULT_PRODUCER_CRON,
   FLEET_PRODUCER_SCHEDULE_ID,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
 } from "./fleet/control-plane/control-plane.js";
 import type {
   ControlPlane,
@@ -128,6 +131,8 @@ import type {
   ServiceEnumerator,
   JobProducer,
 } from "./fleet/control-plane/job-producer.js";
+import { createMemoizedFamilySummary } from "./fleet/control-plane/run-view.js";
+import { createFamilySilenceMonitor } from "./fleet/control-plane/family-silence-monitor.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -1304,10 +1309,32 @@ export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
 export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
 export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
 
-/** Scheduler entry ids for the three non-d6 browser-family producers. */
-export const FLEET_PRODUCER_SMOKE_SCHEDULE_ID = "fleet-producer-e2e-smoke";
-export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
-export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
+/**
+ * Scheduler entry ids for the three non-d6 browser-family producers. Homed in
+ * `control-plane.ts` beside `FLEET_PRODUCER_SCHEDULE_ID` (§5.1 — `run-view.ts`
+ * consumes them without importing this module); re-exported here because
+ * existing import sites (tests included) reach them via `orchestrator.js`.
+ */
+export {
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+} from "./fleet/control-plane/control-plane.js";
+
+/**
+ * §4.2 family ids `runControlPlane` stamps onto its four producers — the
+ * single const all four `buildJobProducer` call sites read, keyed by the same
+ * producer handles `buildProducerSchedules` takes. Values are §5.1 registry
+ * family ids; the drift-lock test pins them set-equal to
+ * `FLEET_FAMILIES[*].family` so a producer can never enqueue jobs invisible
+ * to the /api/runs projection (nor a registry family go eternally silent).
+ */
+export const PRODUCER_FAMILY_WIRING = {
+  d6: "d6",
+  smoke: "e2e-smoke",
+  demos: "e2e-demos",
+  deep: "d5",
+} as const;
 
 /**
  * Nominal production period per probe FAMILY (the probe_key prefix each
@@ -2410,11 +2437,16 @@ export async function runControlPlane(
   // reclaimed job so the dashboard surfaces the pool outage. The restart hook is
   // best-effort and env-guarded (Railway serviceInstanceRedeploy in staging);
   // locally it stays a no-op so N=1 docker needs no Railway wiring.
+  // Boot-resolved heartbeat window — hoisted to a local because BOTH the
+  // fleet-health monitor and the §5.2 run-view projection (fleet-runs routes +
+  // §9 family-silence monitor below) must judge worker staleness against the
+  // SAME window, never the DEFAULT_ constant.
+  const workerStaleAfterMs = resolveWorkerStaleAfterMs();
   const fleetHealth = createFleetHealthMonitor({
     pb,
     claim,
     logger,
-    staleAfterMs: resolveWorkerStaleAfterMs(),
+    staleAfterMs: workerStaleAfterMs,
     gcAfterMs: resolveWorkerGcAfterMs(),
     restartWorker: resolveWorkerRestartHook(logger),
   });
@@ -2529,6 +2561,9 @@ export async function runControlPlane(
     queue,
     enumerate,
     logger,
+    // §4.2: the family id stamped onto every EnqueueJobInput this producer
+    // builds (and the prune-ownership key — the d6 producer owns pruneAged).
+    family: PRODUCER_FAMILY_WIRING.d6,
     onSweepCommErrors,
     // #72 PRE-DISPATCH WARM-UP: fire a fire-and-forget GET <backendUrl>/health
     // at every enumerated d6 backend before its pills run, so a cold
@@ -2547,18 +2582,21 @@ export async function runControlPlane(
     queue,
     enumerate: enumerateSmoke,
     logger,
+    family: PRODUCER_FAMILY_WIRING.smoke,
     onSweepCommErrors,
   });
   const demosProducer = buildJobProducer({
     queue,
     enumerate: enumerateDemos,
     logger,
+    family: PRODUCER_FAMILY_WIRING.demos,
     onSweepCommErrors,
   });
   const deepProducer = buildJobProducer({
     queue,
     enumerate: enumerateDeep,
     logger,
+    family: PRODUCER_FAMILY_WIRING.deep,
     onSweepCommErrors,
   });
 
@@ -2584,6 +2622,46 @@ export async function runControlPlane(
     ...(producerCron ? { d6Cron: producerCron } : {}),
   });
 
+  // §5.2 shared-instance seam: ONE memoized family-summary projection,
+  // injected into BOTH the /api/runs routes (buildServer below) and the §9
+  // family-silence monitor — "the monitor shares the route's memo" is true by
+  // construction, bounding PB load at ~one fan-out per TTL regardless of
+  // viewer count.
+  const familySummary = createMemoizedFamilySummary({
+    pb,
+    scheduler,
+    schedules,
+    workerStaleAfterMs,
+    logger,
+  });
+
+  // §9 family-silence monitor: the Slack alerting hook for the one incident
+  // class the status-row alert engine is structurally blind to (a silent
+  // family produces NO row transitions). Ticks off the control-plane's
+  // fleet-health interval (familySilence dep below) — it owns no timer of its
+  // own, so there is nothing extra to tear down on stop/bind-failure paths.
+  // The oss_alerts webhook resolves from SLACK_WEBHOOK_OSS_ALERTS at send
+  // time; when unset the target logs `slack-webhook.env-unset` and throws,
+  // which the monitor swallows per its post-failure discipline — alerting
+  // ships disabled, the monitor still evaluates (so /health's
+  // fleetRuns.lastEvaluatedAt stays live).
+  const alertStateStore = createAlertStateStore(pb);
+  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  const familySilence = createFamilySilenceMonitor({
+    summary: familySummary,
+    schedules,
+    alertStore: alertStateStore,
+    postAlert: async (text: string): Promise<void> => {
+      await ossAlertsTarget.send(
+        { payload: { text }, contentType: "application/json" },
+        { kind: "slack_webhook", webhook: "oss_alerts" },
+      );
+    },
+    // Boot grace (1× resolved period per family) anchored at construction.
+    bootAtMs: Date.now(),
+    logger,
+  });
+
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the
   // dashboard through the proper module seams (the control-plane runs the
@@ -2602,6 +2680,9 @@ export async function runControlPlane(
     logger,
     aggregator,
     fleetHealth,
+    // §9: the family-silence monitor rides the fleet-health interval — the
+    // control-plane fire-and-forgets `familySilence.tick(now)` each cycle.
+    familySilence,
     resolveSweepAggregateKey,
     resolvePriorState,
   });
@@ -2901,6 +2982,22 @@ export async function runControlPlane(
     schedulerIsStopped: () => scheduler.isStopped(),
     bus,
     probes: probesDeps,
+    // §5.2 unconditional CP mount: unlike `probes` (token-gated), the
+    // read-only fleet-runs routes are ALWAYS supplied on the control-plane
+    // role — `summary` is the §5.2 shared memo instance the §9 monitor also
+    // reads, so a dashboard poll and a monitor evaluation inside the same TTL
+    // share one PB fan-out.
+    fleetRuns: {
+      summary: familySummary,
+      pb,
+      schedules,
+      scheduler,
+      workerStaleAfterMs,
+      logger,
+    },
+    // §9 compensating control: stamp the monitor's last evaluation cycle into
+    // /health so an external poll can detect a wedged monitor.
+    fleetRunsLastEvaluatedAt: () => familySilence.lastEvaluatedAt(),
   });
 
   scheduler.start();

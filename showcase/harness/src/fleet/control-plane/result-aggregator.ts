@@ -450,17 +450,20 @@ export function createResultAggregator(
       //     crashing has those rows RE-written here (re-bumping fail_count,
       //     re-appending status_history, re-emitting status.changed for
       //     them) — accepted as the cost of not minting a duplicate run row.
-      // findByJobId failing must not wedge aggregation, so we treat a lookup
-      // error as "no prior row" and proceed (at-least-once, same as before).
-      // AMBIGUITY NOTE (B5 round 7): proceeding past a FAILED lookup means
-      // runWriter.start below mints a fresh jobId-stamped run row even when a
-      // prior row for this jobId actually exists (the lookup just couldn't
-      // see it) — leaving TWO rows stamped with the same jobId. A later
-      // findByJobId resolves newest-first, so the dedup gate still
-      // short-circuits correctly once either row is terminal, but the
-      // returned runRowId / run-history association for this jobId is
-      // ambiguous (either row may be reported, and the older one may linger
-      // `running` until the boot-time stale-run sweep closes it).
+      // findByJobId failing must not wedge aggregation, but it MUST NOT be
+      // treated as "no prior row" either: under a transient PB read error we
+      // genuinely don't know whether a prior run row already exists, and
+      // optimistically minting a new one would duplicate the probe_runs row on
+      // a retry tick. So we distinguish:
+      //   - throw          → UNCERTAIN. Skip the `runWriter.start` mint
+      //                      altogether (resumeRunRowId stays null, dedupLookupFailed
+      //                      latches true) so we don't fabricate a duplicate row.
+      //                      Status writes still happen — they're idempotent via
+      //                      the status-writer state machine. The run-history
+      //                      row will be reconciled on a subsequent successful
+      //                      tick once PB recovers.
+      //   - returned null  → genuinely no prior row → mint normally.
+      //   - returned row   → dedup-skip (terminal) / resume (non-terminal).
       //
       // HONESTY: this gate only reaches as far as runWriter.start (below,
       // BEST-EFFORT) managed to stamp this jobId on a run row. When start
@@ -475,6 +478,7 @@ export function createResultAggregator(
       // this lookup before either stamps a run row, and both replay the full
       // write path (the same duplication the gate exists to prevent).
       let resumeRunRowId: string | null = null;
+      let dedupLookupFailed = false;
       try {
         const prior = await runWriter.findByJobId(result.jobId);
         if (prior && prior.terminal) {
@@ -496,6 +500,7 @@ export function createResultAggregator(
         if (prior) resumeRunRowId = prior.id;
       } catch (err) {
         const info = errorInfo(err);
+        dedupLookupFailed = true;
         logger.warn("fleet.aggregator.dedup-lookup-failed", {
           probeKey: result.aggregateKey,
           jobId: result.jobId,
@@ -641,7 +646,11 @@ export function createResultAggregator(
           consequence:
             "skipping run-history start — a blank/whitespace aggregateKey would mint a phantom probe_runs row keyed probeId ''; with no jobId-stamped run row the per-jobId dedup gate is DISARMED for this job (same exposure as a failed start)",
         });
-      } else if (!runRowId) {
+      } else if (!runRowId && !dedupLookupFailed) {
+        // Only mint a fresh run-history row when the dedup lookup CONFIRMED no
+        // prior row. Under `dedupLookupFailed` we don't know, and minting would
+        // risk duplicating a row that already exists; status writes still
+        // happen below and a subsequent successful tick will reconcile.
         try {
           const created = await runWriter.start({
             // G2r8: trimmed — run-history is keyed by the canonical probeId
@@ -677,6 +686,13 @@ export function createResultAggregator(
       // history-only no-data ("error") write — F2.1: a missing key gets NO
       // fabricated status row; the no-drop guarantee is HISTORY persistence
       // (same fallback as aggregateCommError).
+      //
+      // Per-row try/catch on the durable write paths: a single bad row (e.g.
+      // transient PB error on one side row) must NOT abort the whole batch
+      // before `runWriter.finish` below, which would leave a `running`
+      // probe_runs row that only `sweepStaleRuns` could clean up. Log the
+      // failure on the established error path and keep iterating so the
+      // remaining rows + the run-history finish still land.
       const statusOutcomes: WriteOutcome[] = [];
       const overlayOutcomes: OverlayWriteOutcome[] = [];
       const outageSkippedKeys: string[] = [];
@@ -979,8 +995,36 @@ export function createResultAggregator(
           );
           continue;
         }
-        const outcome = await statusWriter.write(pr);
-        statusOutcomes.push(outcome);
+        try {
+          const outcome = await statusWriter.write(pr);
+          statusOutcomes.push(outcome);
+        } catch (err) {
+          logger.error("fleet.aggregator.status-write-failed", {
+            probeKey: result.aggregateKey,
+            jobId: result.jobId,
+            rowKey: pr.key,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      // §4.2 reds counters: durable State transitions only, across the
+      // aggregate + cell outcomes collected above. An error tick
+      // (`newState === "error"`) is a measurement failure — the prior
+      // durable colour rides on `errorStatePrev` — so it neither introduced
+      // nor cleared a red and is excluded from both counters. A missing
+      // outcome (a writer that resolved without one — seen from doMock'd
+      // writers in tests) likewise contributes nothing.
+      let redsIntroduced = 0;
+      let redsCleared = 0;
+      for (const o of statusOutcomes) {
+        if (!o || o.newState === "error") continue;
+        if (o.previousState === "green" && o.newState === "red") {
+          redsIntroduced += 1;
+        }
+        if (o.previousState === "red" && o.newState === "green") {
+          redsCleared += 1;
+        }
       }
 
       // Persist the rollup. `terminalJobStatus` maps green→done / anything
@@ -994,7 +1038,11 @@ export function createResultAggregator(
             id: runRowId,
             finishedAt: now(),
             state: runState,
-            summary: runSummaryForServiceJobResult(result),
+            summary: {
+              ...runSummaryForServiceJobResult(result),
+              redsIntroduced,
+              redsCleared,
+            },
           });
         } catch (err) {
           const info = errorInfo(err);

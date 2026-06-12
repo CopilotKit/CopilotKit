@@ -61,6 +61,19 @@ import type { FleetHealthMonitor } from "./fleet-health.js";
 export const FLEET_PRODUCER_SCHEDULE_ID = "fleet-job-producer";
 
 /**
+ * Scheduler entry ids for the three non-d6 browser-family producers. Homed
+ * HERE (beside `FLEET_PRODUCER_SCHEDULE_ID`) rather than in `orchestrator.ts`
+ * so the §5.1 family registry (`run-view.ts`, inside `fleet/control-plane/`)
+ * can import all four ids from one cycle-free home — `orchestrator.ts` already
+ * imports from this module, so the registry importing FROM orchestrator would
+ * close an import cycle. The cron constants stay in `orchestrator.ts` (the
+ * registry deliberately carries no cron literals; resolution is runtime).
+ */
+export const FLEET_PRODUCER_SMOKE_SCHEDULE_ID = "fleet-producer-e2e-smoke";
+export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
+export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
+
+/**
  * Cron cadence the producer runs on by default. Hourly at :40 mirrors the
  * legacy in-process `d6-all-pills-e2e` probe cadence (config/probes/
  * d6-all-pills-e2e.yml) so the fleet run rhythm matches what it replaces.
@@ -153,6 +166,15 @@ export interface ControlPlaneDeps {
   /** Fleet-health poll interval (ms). Default `DEFAULT_FLEET_HEALTH_INTERVAL_MS`. */
   fleetHealthIntervalMs?: number;
   /**
+   * The §9 family-silence monitor's tick seam. When supplied, the fleet-health
+   * interval handler ADDITIONALLY fire-and-forgets `tick(now)` each cycle —
+   * the tick is the monitor's cheap in-memory gate (actual evaluation runs at
+   * most once per family per resolved period, inside the monitor). A tick
+   * rejection is logged and never blocks health reclaim. Optional — omit to
+   * leave silence monitoring unattached (worker role, legacy tests).
+   */
+  familySilence?: { tick(nowMs: number): Promise<void> };
+  /**
    * Resolve a swept `PoolCommError` to its `d6:<slug>` dashboard key (REQ-B).
    * Required for the producer-sweep surfacing leg (a bare swept error lacks the
    * key); omit when the producer does not forward swept errors here.
@@ -206,6 +228,13 @@ export function buildJobProducer(deps: {
   enumerate: ServiceEnumerator;
   logger: Logger;
   /**
+   * The producing family's id (§5.1 registry; §4.2 prune-ownership key).
+   * Forwarded verbatim to `createJobProducer` — this wrapper re-declares every
+   * dep it forwards, so the explicit field here is load-bearing: omitting it
+   * would silently drop the option.
+   */
+  family: string;
+  /**
    * Sink the producer forwards its lease-sweep comm errors to (REQ-B). The
    * wiring slot passes `controlPlane.surfaceSweepCommErrors` so a swept
    * (crashed/lease-expired) job's "unreachable" overlay reaches the dashboard.
@@ -224,6 +253,7 @@ export function buildJobProducer(deps: {
     queue: deps.queue,
     enumerate: deps.enumerate,
     logger: deps.logger,
+    family: deps.family,
     ...(deps.onSweepCommErrors
       ? { onSweepCommErrors: deps.onSweepCommErrors }
       : {}),
@@ -282,6 +312,7 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
   const {
     aggregator,
     fleetHealth,
+    familySilence,
     resolveSweepAggregateKey,
     resolvePriorState,
   } = deps;
@@ -494,10 +525,24 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
       }, consumerIntervalMs);
       // When a fleet-health monitor is injected, run it on its OWN interval
       // (finer than cron) so a dead worker's jobs are reclaimed promptly and
-      // its "unreachable" overlay reaches the dashboard (REQ-B).
-      if (fleetHealth) {
+      // its "unreachable" overlay reaches the dashboard (REQ-B). The §9
+      // family-silence monitor rides the SAME interval (its tick is a cheap
+      // in-memory gate), so the timer also starts when only it is supplied.
+      if (fleetHealth || familySilence) {
         fleetHealthTimer = setIntervalFn(() => {
           void runFleetHealthCycle();
+          if (familySilence) {
+            // Fire-and-forget: a silence-monitor failure (or sync throw) must
+            // never block or wedge health reclaim — log and let the next
+            // interval tick retry.
+            void Promise.resolve()
+              .then(() => familySilence.tick(Date.now()))
+              .catch((err) => {
+                logger.warn("fleet.control-plane.family-silence-tick-failed", {
+                  err: err instanceof Error ? err.message : String(err),
+                });
+              });
+          }
         }, fleetHealthIntervalMs);
       }
       logger.info("fleet.control-plane.started", {
@@ -507,6 +552,7 @@ export function createControlPlane(deps: ControlPlaneDeps): ControlPlane {
         })),
         consumerIntervalMs,
         fleetHealth: fleetHealth !== undefined,
+        familySilence: familySilence !== undefined,
       });
     },
 

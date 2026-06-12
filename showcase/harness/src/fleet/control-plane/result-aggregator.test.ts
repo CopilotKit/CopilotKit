@@ -173,6 +173,43 @@ function makeErrorRoutingFakeStatusWriter(): {
   return { writer, statusRows, writes, overlays };
 }
 
+/**
+ * A fake whose `WriteOutcome.previousState`/`newState` are canned per key, so
+ * tests can exercise specific durable-State transitions (green→red, red→green)
+ * and error ticks (`newState: "error"`) — the §4.2 reds-counter inputs. Keys
+ * without a canned outcome fall back to `makeFakeStatusWriter` behavior.
+ */
+function makeCannedTransitionStatusWriter(
+  outcomesByKey: Record<
+    string,
+    Pick<WriteOutcome, "previousState" | "newState">
+  >,
+): { writer: StatusWriter; writes: RecordedWrite[] } {
+  const writes: RecordedWrite[] = [];
+  const writer: StatusWriter = {
+    async write(result) {
+      writes.push({ result });
+      const canned = outcomesByKey[result.key];
+      const outcome: WriteOutcome = {
+        previousState:
+          canned?.previousState !== undefined ? canned.previousState : null,
+        newState:
+          canned?.newState ??
+          (result.state === "error" ? "error" : result.state),
+        transition: canned?.newState === "error" ? "error" : "first",
+        firstFailureAt: null,
+        failCount: 0,
+        persisted: true,
+      };
+      return outcome;
+    },
+    async writeOverlay() {
+      return { applied: false, state: null };
+    },
+  };
+  return { writer, writes };
+}
+
 interface RunWriterCalls {
   start: {
     probeId: string;
@@ -347,7 +384,15 @@ describe("createResultAggregator", () => {
     const finish = runFake.calls.finish[0];
     expect(finish.id).toBe("run-row-1");
     expect(finish.state).toBe("failed");
-    expect(finish.summary).toEqual({ total: 2, passed: 1, failed: 1 });
+    expect(finish.summary).toEqual({
+      total: 2,
+      passed: 1,
+      failed: 1,
+      // §4.2 counters ride every fleet-aggregated summary (0 when the fake
+      // writer reports no green→red / red→green durable transitions).
+      redsIntroduced: 0,
+      redsCleared: 0,
+    });
   });
 
   it("marks the run completed when the aggregate state is green", async () => {
@@ -372,6 +417,8 @@ describe("createResultAggregator", () => {
       total: 1,
       passed: 1,
       failed: 0,
+      redsIntroduced: 0,
+      redsCleared: 0,
     });
   });
 
@@ -2757,7 +2804,7 @@ describe("createResultAggregator", () => {
 
   // ── B6: contract pins — documented ERROR CONTRACTs + loud-throw guards ───
   describe("[B6] documented error contracts", () => {
-    it("aggregate() ERROR CONTRACT: rejects on the FIRST status write that throws — remaining writes not attempted, finish skipped", async () => {
+    it("aggregate() per-row try/catch: a thrown status write is logged and the batch CONTINUES — finish still runs", async () => {
       const writes: RecordedWrite[] = [];
       let writeCalls = 0;
       const throwingWriter: StatusWriter = {
@@ -2786,18 +2833,17 @@ describe("createResultAggregator", () => {
       });
 
       // Default fixture projects 3 rows (primary + 2 cells); the SECOND
-      // write throws.
-      await expect(agg.aggregate(makeResult())).rejects.toThrow(
-        "PB write blip",
-      );
-      // The first write landed, the second threw, the THIRD was never
-      // attempted.
-      expect(writeCalls).toBe(2);
-      expect(writes.map((w) => w.result.key)).toEqual(["d6:langgraph-python"]);
-      // finish is SKIPPED — the run row stays `running` for the boot-time
-      // stale-run sweep (start DID run, bracketing the writes).
+      // write throws — per-row try/catch swallows it and the third still runs.
+      // The run-history finish still lands (no `running` row left for the
+      // boot-time stale-run sweep).
+      await agg.aggregate(makeResult());
+      expect(writeCalls).toBe(3);
+      expect(writes.map((w) => w.result.key)).toEqual([
+        "d6:langgraph-python",
+        "d6:langgraph-python/human-in-the-loop",
+      ]);
       expect(runFake.calls.start).toHaveLength(1);
-      expect(runFake.calls.finish).toHaveLength(0);
+      expect(runFake.calls.finish).toHaveLength(1);
     });
 
     it("aggregateCommError ERROR CONTRACT: an aggregate-key fallback write that throws rejects — the cell key is not attempted", async () => {
@@ -2835,7 +2881,7 @@ describe("createResultAggregator", () => {
       expect(writeCalls).toBe(1);
     });
 
-    it("findByJobId-throw branch: warns and PROCEEDS without dedup (full write path still runs)", async () => {
+    it("findByJobId-throw branch: warns and SKIPS run-row mint (status writes still run, no run-history row)", async () => {
       runFake.writer.findByJobId = async () => {
         throw new Error("lookup blip");
       };
@@ -2843,12 +2889,16 @@ describe("createResultAggregator", () => {
 
       const outcome = await agg.aggregate(makeResult());
 
-      // The lookup failure was swallowed: aggregation ran in full.
+      // The lookup throw is UNCERTAIN: aggregation proceeds with the status
+      // writes (idempotent via the writer state machine) but does NOT mint a
+      // fresh run-history row — minting could duplicate a row that already
+      // exists (which the failed lookup couldn't see). A subsequent successful
+      // tick reconciles the run-history row.
       expect(outcome.skipped).toBe(false);
       expect(statusFake.writes).toHaveLength(3);
-      expect(runFake.calls.start).toHaveLength(1);
-      expect(runFake.calls.finish).toHaveLength(1);
-      expect(outcome.runRowId).toBe("run-row-1");
+      expect(runFake.calls.start).toHaveLength(0);
+      expect(runFake.calls.finish).toHaveLength(0);
+      expect(outcome.runRowId).toBeNull();
     });
 
     it("runWriter.start-throw branch: runRowId null, finish skipped, aggregation continues", async () => {
@@ -3015,6 +3065,138 @@ describe("createResultAggregator", () => {
       ).toHaveLength(2);
       // The drift itself is still surfaced.
       expect(outcome.droppedCommError).toBe(true);
+    });
+  });
+
+  // ── §4.2: reds counters persisted into probe_runs.summary ────────────────
+  describe("reds counters (redsIntroduced/redsCleared into probe_runs.summary)", () => {
+    function makeAggregatorWith(
+      outcomesByKey: Record<
+        string,
+        Pick<WriteOutcome, "previousState" | "newState">
+      >,
+    ) {
+      const fake = makeCannedTransitionStatusWriter(outcomesByKey);
+      const agg = createResultAggregator({
+        statusWriter: fake.writer,
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => now,
+      });
+      return agg;
+    }
+
+    it("aggregate counts green→red WriteOutcome transitions into summary.redsIntroduced", async () => {
+      const agg = makeAggregatorWith({
+        "d6:langgraph-python": { previousState: "green", newState: "red" },
+        "d6:langgraph-python/shared-state": {
+          previousState: "green",
+          newState: "red",
+        },
+        "d6:langgraph-python/human-in-the-loop": {
+          previousState: "green",
+          newState: "green",
+        },
+      });
+      await agg.aggregate(makeResult());
+
+      expect(runFake.calls.finish).toHaveLength(1);
+      expect(runFake.calls.finish[0].summary?.redsIntroduced).toBe(2);
+      expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
+    });
+
+    it("aggregate counts red→green transitions into summary.redsCleared", async () => {
+      const agg = makeAggregatorWith({
+        "d6:langgraph-python": { previousState: "red", newState: "green" },
+        "d6:langgraph-python/shared-state": {
+          previousState: "red",
+          newState: "green",
+        },
+        "d6:langgraph-python/human-in-the-loop": {
+          previousState: "red",
+          newState: "red",
+        },
+      });
+      await agg.aggregate(makeResult());
+
+      expect(runFake.calls.finish).toHaveLength(1);
+      expect(runFake.calls.finish[0].summary?.redsCleared).toBe(2);
+      expect(runFake.calls.finish[0].summary?.redsIntroduced).toBe(0);
+    });
+
+    it('error-tick outcomes (newState === "error") are excluded from both counters', async () => {
+      // §4.2: an error tick is a measurement failure — the prior durable
+      // colour rides on errorStatePrev, and the tick neither introduced nor
+      // cleared a red. A green→error cell must NOT count as introduced, a
+      // red→error cell must NOT count as cleared; the one real green→red
+      // transition still counts.
+      const agg = makeAggregatorWith({
+        "d6:langgraph-python": { previousState: "green", newState: "red" },
+        "d6:langgraph-python/shared-state": {
+          previousState: "green",
+          newState: "error",
+        },
+        "d6:langgraph-python/human-in-the-loop": {
+          previousState: "red",
+          newState: "error",
+        },
+      });
+      await agg.aggregate(makeResult());
+
+      expect(runFake.calls.finish).toHaveLength(1);
+      expect(runFake.calls.finish[0].summary?.redsIntroduced).toBe(1);
+      expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
+    });
+
+    it("a writer that resolves without an outcome contributes nothing (no crash)", async () => {
+      // orchestrator.test.ts doMock's the status-writer with a write() that
+      // returns undefined; the counter pass must tolerate a missing outcome
+      // (contributes to neither counter) instead of dereferencing it.
+      const writer: StatusWriter = {
+        write: (async () => undefined) as unknown as StatusWriter["write"],
+        writeOverlay: (async () => ({
+          applied: false,
+          state: null,
+        })) as unknown as StatusWriter["writeOverlay"],
+      };
+      const agg = createResultAggregator({
+        statusWriter: writer,
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => now,
+      });
+      await agg.aggregate(makeResult());
+
+      expect(runFake.calls.finish).toHaveLength(1);
+      expect(runFake.calls.finish[0].summary?.redsIntroduced).toBe(0);
+      expect(runFake.calls.finish[0].summary?.redsCleared).toBe(0);
+    });
+
+    it("the finished probe_runs row's summary carries both counters", async () => {
+      const agg = makeAggregatorWith({
+        "d6:langgraph-python": { previousState: "green", newState: "red" },
+        "d6:langgraph-python/shared-state": {
+          previousState: "red",
+          newState: "green",
+        },
+        "d6:langgraph-python/human-in-the-loop": {
+          previousState: null,
+          newState: "green",
+        },
+      });
+      await agg.aggregate(makeResult());
+
+      expect(runFake.calls.finish).toHaveLength(1);
+      // The full finished summary: rollup fields AND both counters,
+      // explicitly present (0-valued counters serialize as 0, not absent —
+      // only pre-P2 rows lack the fields).
+      expect(runFake.calls.finish[0].summary).toEqual({
+        total: 2,
+        passed: 1,
+        failed: 1,
+        redsIntroduced: 1,
+        redsCleared: 1,
+      });
     });
   });
 

@@ -685,6 +685,21 @@ export function isWorkerStale(
   return nowMs - beatMs > staleAfterMs;
 }
 
+/** Derive a worker's liveness from its heartbeat age. */
+export function deriveHealth(
+  lastHeartbeatAt: string,
+  nowMs: number,
+  staleAfterMs: number,
+): WorkerHealthState {
+  // OFFLINE is a stronger stale: heartbeat older than 2x the window. We don't
+  // act differently on stale vs offline (both reclaim), but the distinction is
+  // surfaced in logs so an operator can tell a briefly-missed-beat worker from
+  // a long-dead one.
+  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs * 2)) return "offline";
+  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs)) return "stale";
+  return "online";
+}
+
 /**
  * Build a `WorkerCapacity` from a `BrowserPoolBudget` (S6). Thin, explicit
  * field copy so the registration/heartbeat path never accidentally widens with
@@ -715,6 +730,14 @@ export function workerCapacityFromBudget(
 export interface EnqueueJobInput {
   /** The per-service payload to run. */
   payload: ServiceJobPayload;
+  /**
+   * The producing family's id — a `FLEET_FAMILIES[*].family` value from the
+   * §5.1 registry (`control-plane/run-view.ts`), stamped by the producer's
+   * `JobProducerOptions.family` onto every input it builds. The queue-client
+   * denormalizes it into the `probe_jobs.family` column for indexed per-family
+   * listing; absent → column written empty (pre-P2 row parity).
+   */
+  family?: string;
 }
 
 /** A lease handle a worker holds while running a claimed job. */
@@ -758,6 +781,14 @@ export interface ReportJobInput {
   workerId: string;
   /** The per-service result, OR a comm-error-only terminal report. */
   result: ServiceJobResult;
+}
+
+/** Per-leg deletion counts from one `FleetQueueClient.pruneAged` pass. */
+export interface PruneAgedResult {
+  /** Terminal (`done`/`failed`) rows deleted (older than terminalMaxAgeMs). */
+  terminal: number;
+  /** Non-terminal zombie rows deleted (older than zombieMaxAgeMs). */
+  zombie: number;
 }
 
 /** Outcome of sweeping expired leases (dead-worker reclamation). */
@@ -849,6 +880,10 @@ export interface FleetQueueClient {
    * means "not yet finished", not the `pending` status.)
    */
   countPendingForFamily(family: string): Promise<number>;
+  /** §4.2 retention: delete terminal rows older than terminalMaxAgeMs and
+   *  non-terminal (zombie) rows older than zombieMaxAgeMs, both by `created`.
+   *  Idempotent; single-owner by producer-side family gate. */
+  pruneAged(nowMs: number): Promise<PruneAgedResult>;
 }
 
 /**

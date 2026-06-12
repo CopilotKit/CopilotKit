@@ -141,6 +141,9 @@ function makeQueue(claims: ClaimedJob[]): RecordingQueue {
     async countPendingForFamily(): Promise<number> {
       throw new Error("countPendingForFamily not used by worker");
     },
+    async pruneAged() {
+      return { terminal: 0, zombie: 0 };
+    },
   };
 }
 
