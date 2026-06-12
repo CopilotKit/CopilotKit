@@ -26,7 +26,14 @@ function createReasoningAgent() {
 const agents: Record<string, AbstractAgent> = {
   "reasoning-default": createReasoningAgent(),
   "reasoning-custom": createReasoningAgent(),
-  "tool-rendering-reasoning-chain": createReasoningAgent(),
+  // Reasoning-chain owns its tools backend-side (get_stock_price,
+  // roll_dice, search_flights, get_weather) — the page registers
+  // render-only hooks, so the plain /reasoning pass-through stalled the
+  // chain after the first call (no tool result ever came back). The
+  // dedicated endpoint runs the agentic loop with extended thinking.
+  "tool-rendering-reasoning-chain": new HttpAgent({
+    url: `${AGENT_URL}/tool-rendering-reasoning-chain`,
+  }),
   default: createReasoningAgent(),
 };
 

@@ -59,6 +59,17 @@ export const DISPLAY_FLIGHT_TOOL_SCHEMA: Anthropic.Tool = {
 /**
  * Build the `a2ui_operations` payload the A2UI runtime middleware
  * detects in tool results and forwards to the frontend renderer.
+ *
+ * Ops MUST use the v0.9 NESTED operation shape
+ * (`{ version, createSurface: {...} }` / `updateComponents` /
+ * `updateDataModel`) that `@ag-ui/a2ui-middleware`'s
+ * `getOperationSurfaceId` and the React A2UI renderer walk. The legacy
+ * flat shape (`{ type: "create_surface", surfaceId, ... }`) looks
+ * plausible but the middleware's matcher never recognizes it — every op
+ * lands on the fallback "default" surface and the renderer never
+ * receives the schema, so the `a2ui-fixed-card` never mounts. See the
+ * identical fix note in `showcase/shared/python/tools/generate_a2ui.py`
+ * (`build_a2ui_operations_from_tool_call`).
  */
 export function buildDisplayFlightOperations(input: {
   origin: string;
@@ -69,19 +80,26 @@ export function buildDisplayFlightOperations(input: {
   return {
     a2ui_operations: [
       {
-        type: "create_surface",
-        surfaceId: A2UI_FIXED_SURFACE_ID,
-        catalogId: A2UI_FIXED_CATALOG_ID,
+        version: "v0.9",
+        createSurface: {
+          surfaceId: A2UI_FIXED_SURFACE_ID,
+          catalogId: A2UI_FIXED_CATALOG_ID,
+        },
       },
       {
-        type: "update_components",
-        surfaceId: A2UI_FIXED_SURFACE_ID,
-        components: FLIGHT_SCHEMA,
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: A2UI_FIXED_SURFACE_ID,
+          components: FLIGHT_SCHEMA,
+        },
       },
       {
-        type: "update_data_model",
-        surfaceId: A2UI_FIXED_SURFACE_ID,
-        data: input,
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId: A2UI_FIXED_SURFACE_ID,
+          path: "/",
+          value: input,
+        },
       },
     ],
   };
