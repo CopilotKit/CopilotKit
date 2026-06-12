@@ -173,6 +173,7 @@ Turns 1 (weather) and 2 (stock) pass under this architecture because they don't 
 LGP works because LGP runs these tools INSIDE the Python agent and emits them as AG-UI events directly — no TanStack reprompt cycle. The mismatch is architectural.
 
 Fix options (all outside this PR's scope):
+
 - (a) Exclude these tools from BIA's default agent server-tool list for the headless-complete demo
 - (b) Harden aimock matcher precedence so `toolCallId` narration always wins when a tool result is the last message
 - (c) Tighten BIA fixture matchers (e.g. require absence of a matching tool result in history before firing the userMessage fixture)
