@@ -84,6 +84,7 @@ import {
   PROBE_JOBS_COLLECTION,
 } from "./fleet/queue-client.js";
 import { WORKERS_COLLECTION } from "./fleet/contracts.js";
+import type { PoolCommError } from "./fleet/contracts.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
 import {
   createPayloadToInput,
