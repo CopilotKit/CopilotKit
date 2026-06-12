@@ -69,7 +69,7 @@ jobs:
     steps:
       - name: Check commenter has write access
         id: auth
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
@@ -159,7 +159,7 @@ jobs:
 
       - name: Resolve PR HEAD ref
         id: pr-ref
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -175,7 +175,7 @@ jobs:
             core.setOutput('pr_number', pr.number);
 
       - name: React with rocket emoji
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             await github.rest.reactions.createForIssueComment({
@@ -186,7 +186,7 @@ jobs:
             });
 
       - name: Post running status comment
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LEVEL: ${{ steps.parse.outputs.level }}
           SCOPE_DISPLAY: ${{ steps.parse.outputs.scope_display }}
@@ -229,7 +229,7 @@ jobs:
     steps:
       - name: Resolve PR HEAD SHA
         id: resolve
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const pr = await github.rest.pulls.get({
@@ -268,7 +268,7 @@ jobs:
 
     steps:
       - name: Checkout PR HEAD
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ env.PR_SHA }}
           fetch-depth: 0
@@ -361,7 +361,7 @@ jobs:
 
     steps:
       - name: Post eval results to PR
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           EVAL_STATUS: ${{ needs.eval.result }}
           RESULT_JSON: ${{ needs.eval.outputs.result_json }}
@@ -558,7 +558,7 @@ jobs:
 
       - name: Update Check Run with results
         if: needs.dispatch-gate.outputs.check_run_id != ''
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.bot-token.outputs.token }}
           script: |

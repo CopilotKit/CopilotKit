@@ -27,7 +27,7 @@ jobs:
       issues: write
     steps:
       - name: Post initial comment
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
         with:
@@ -91,7 +91,7 @@ jobs:
     steps:
       - name: Verify checkbox transition and permissions
         id: verify
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             // Check that the sender has write access (not an external collaborator or random user)
@@ -131,7 +131,7 @@ jobs:
 
       - name: Update comment to generating state
         if: steps.verify.outputs.should_run == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
         with:
@@ -153,7 +153,7 @@ jobs:
       - name: Get PR details
         if: steps.verify.outputs.should_run == 'true'
         id: pr
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const pr = await github.rest.pulls.get({
@@ -170,7 +170,7 @@ jobs:
 
       - name: Checkout repo
         if: steps.verify.outputs.should_run == 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
           fetch-depth: 0
@@ -326,7 +326,7 @@ jobs:
 
       - name: Update comment with results
         if: steps.verify.outputs.should_run == 'true' && always() && steps.extract.outcome == 'success'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
@@ -358,7 +358,7 @@ jobs:
 
       - name: Update comment on failure
         if: steps.verify.outputs.should_run == 'true' && always() && steps.extract.outcome != 'success'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMENT_ID: ${{ steps.verify.outputs.comment_id }}
         with:

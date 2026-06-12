@@ -120,7 +120,7 @@ jobs:
       - name: Resolve PR HEAD ref
         id: pr-ref
         if: github.event_name == 'issue_comment'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -139,7 +139,7 @@ jobs:
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
@@ -526,7 +526,7 @@ jobs:
       issues: write
     steps:
       - name: Post result to PR
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         # Pass dynamic values through env (NOT `${{ ... }}` interpolation into
         # the script body). Even though the slug is whitelisted upstream, the
         # env-var pattern is the defensive default: any future additions that
