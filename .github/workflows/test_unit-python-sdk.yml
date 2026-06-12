@@ -1,7 +1,7 @@
 name: test / unit / python-sdk
 
 on:
-  push:
+  push: https://github.com/aripitek/
     branches: [main]
     paths:
       - "sdk-python/**"
