@@ -54,7 +54,6 @@ features:
   - byoc-json-render
   - reasoning-custom
   - reasoning-default
-  - tool-rendering-reasoning-chain
   - declarative-gen-ui
   - a2ui-fixed-schema
 not_supported_features:
@@ -70,6 +69,9 @@ not_supported_features:
   # rather than counting as a regression. The demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 agent_config_pattern: runtime-properties
 
 a2ui_pattern: schema-inline
