@@ -35,7 +35,7 @@ export class SanitizingHttpAgent extends HttpAgent {
 
   run(input: RunAgentInput): Observable<BaseEvent> {
     return parseSSEStream(
-      runHttpRequest(this.url, this.requestInit(input)),
+      runHttpRequest(() => this.fetch(this.url, this.requestInit(input))),
       this.debugLogger,
     ).pipe(map((event: unknown) => coerceNullStrings(event) as BaseEvent));
   }
