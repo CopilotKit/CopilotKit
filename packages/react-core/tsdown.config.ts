@@ -24,6 +24,13 @@ export default defineConfig([
       "rxjs",
       /\.css$/,
     ],
+    // NOTE: streamdown and @streamdown/{code,math,mermaid} are ESM-only, so a
+    // static import would be emitted as require() in the CJS build and throw
+    // ERR_PACKAGE_PATH_NOT_EXPORTED on Node. They are instead loaded via a
+    // dynamic import() inside the React.lazy factory in LazyStreamdown.tsx,
+    // which rolldown preserves as a native import() in CJS (safe for ESM-only
+    // packages) and keeps code-split. See dev-docs/streamdown-cdn.md "CJS
+    // safety (ESM-only deps)".
     exports: {
       customExports: (exports) => ({
         ...exports,
@@ -183,6 +190,14 @@ export default defineConfig([
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
         "katex/dist/katex.min.css": "katexCss",
         streamdown: "streamdown",
+        // streamdown v2 ships code/math/mermaid as separate opt-in plugin
+        // packages. UMD consumers loading react-core via unpkg/jsdelivr must
+        // also load these (or globals stay undefined and chat rendering
+        // misses syntax highlighting / math / diagrams). See
+        // dev-docs/streamdown-cdn.md for the runtime-loading model.
+        "@streamdown/code": "StreamdownCode",
+        "@streamdown/math": "StreamdownMath",
+        "@streamdown/mermaid": "StreamdownMermaid",
         "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",

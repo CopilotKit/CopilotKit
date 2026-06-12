@@ -1,4 +1,4 @@
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useEffect, useRef, useState } from "react";
 import {
   Copy,
@@ -20,8 +20,10 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { useKatexStyles } from "../../hooks/useKatexStyles";
-import { WithSlots, renderSlot } from "../../lib/slots";
-import { Streamdown } from "streamdown";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
+import { LazyStreamdown } from "./LazyStreamdown";
+import type { LazyStreamdownProps } from "./LazyStreamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
@@ -71,7 +73,7 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
-  useKatexStyles();
+  useKatexStyles(message.content || "");
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
@@ -209,13 +211,13 @@ export function CopilotChatAssistantMessage({
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
-    Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
+    Omit<LazyStreamdownProps, "children"> & {
       content: string;
     }
   > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
+    <LazyStreamdown className={className} {...props}>
       {content ?? ""}
-    </Streamdown>
+    </LazyStreamdown>
   );
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({

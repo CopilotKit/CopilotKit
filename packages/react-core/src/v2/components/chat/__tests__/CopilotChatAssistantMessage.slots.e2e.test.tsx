@@ -1,10 +1,10 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -27,7 +27,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
   // ============================================================================
   describe("1. Tailwind Class Slot Override", () => {
     describe("markdownRenderer slot", () => {
-      it("should apply tailwind class string to markdownRenderer", () => {
+      it("should apply tailwind class string to markdownRenderer", async () => {
         const message = createAssistantMessage("Hello world");
         const { container } = render(
           <TestWrapper>
@@ -38,9 +38,19 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const markdown = container.querySelector(".bg-blue-100");
-        expect(markdown).toBeDefined();
-        expect(markdown?.classList.contains("rounded-lg")).toBe(true);
+        // Streamdown is lazy-loaded behind Suspense, so the markdown element
+        // appears after the chunk resolves rather than on the first render. The
+        // lazy factory dynamically imports streamdown + its code/math/mermaid
+        // plugins, which can take longer than the default 1s waitFor on slower
+        // CI runners — use the same 5s budget as LazyStreamdown.test.tsx.
+        await waitFor(
+          () => {
+            const markdown = container.querySelector(".bg-blue-100");
+            expect(markdown).not.toBeNull();
+            expect(markdown?.classList.contains("rounded-lg")).toBe(true);
+          },
+          { timeout: 5000 },
+        );
       });
     });
 
