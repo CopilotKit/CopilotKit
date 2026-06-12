@@ -17,7 +17,8 @@
 // - src/app/api/copilotkit-declarative-gen-ui/route.ts (a2ui scoping pattern)
 // - src/app/api/copilotkit-ogui/route.ts (openGenerativeUI scoping pattern)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -41,6 +42,10 @@ const runtime = new CopilotRuntime({
   // a second A2UI tool on top.
   a2ui: {
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   // Turn on Open Generative UI for this agent. The runtime middleware
   // injects `generateSandboxedUi` as a frontend tool the LLM can call,
