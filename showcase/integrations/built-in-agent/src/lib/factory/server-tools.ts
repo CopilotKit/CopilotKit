@@ -108,8 +108,8 @@ export const getStockPriceTool = toolDefinition({
   };
 });
 
-export const rollDiceTool = toolDefinition({
-  name: "roll_dice",
+export const rollD20Tool = toolDefinition({
+  name: "roll_d20",
   description: "Roll a single die with the given number of sides.",
   inputSchema: z.object({
     sides: z.number().int().min(2).default(6),
@@ -143,6 +143,6 @@ export const baseServerTools = [
   getWeatherTool,
   searchFlightsTool,
   getStockPriceTool,
-  rollDiceTool,
+  rollD20Tool,
   setNotesTool,
 ] as const;
