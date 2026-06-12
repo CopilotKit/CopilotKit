@@ -164,21 +164,13 @@ layer.
   integration.
 - Action: tracked in follow-up PR against `packages/react-core`.
 
-### headless-complete turns 3+4 (highlight_note, revenue_chart) — server-tool reprompt loop
+### headless-complete server-tool reprompt loop — resolved via sequenceIndex gating
 
-BIA registers `get_weather` / `get_stock_price` / `get_revenue_chart` / `highlight_note` as **server-executed** tools via TanStack's `chat()` engine. After the LLM returns a tool call, TanStack runs the server tool and reprompts the LLM with the result. The aimock fixture's userMessage-keyed toolcall entries fire again on each reprompt (the original user pill text remains in conversation history), so the loop never converges: server executes → tool result returned → LLM reprompted → fixture fires again → repeat until the harness's 60s window expires.
+BIA registers `get_weather` / `get_stock_price` / `get_revenue_chart` / `highlight_note` as **server-executed** tools via TanStack's `chat()` engine. After the LLM returns a tool call, TanStack runs the server tool and reprompts the LLM with the result; the original user pill text remains in conversation history, so userMessage-keyed toolcall fixtures would naively fire on every reprompt and the loop never converges. BIA's `/v1/responses` endpoint also rewrites assistant `tool_call_id`s to runtime-generated `fc-…` values, breaking the toolCallId-keyed narration fallback that works on non-rewriting backends.
 
-Turns 1 (weather) and 2 (stock) pass under this architecture because they don't accumulate enough reprompts to balloon the assistant message count before assertion. Turns 3 (highlight_note) and 4 (revenue_chart) hit message counts of 70+ within the timeout window.
+Resolution (#5427 follow-up): `d6/built-in-agent/gen-ui-headless-complete.json` now structures each pill as a `(sequenceIndex:0 emitter, narration fallback)` pair. The emitter matches the FIRST request for the pill prompt (counter starts at 0) and emits the tool call; subsequent BIA reprompt iterations fall through the now-exhausted emitter to the narration fallback (no tool call), so the loop converges. `sequenceIndex` is chosen over `hasToolResult:false` because `hasToolResult` is computed across the entire thread — any earlier pill's tool result would permanently disable a `hasToolResult:false` emitter, breaking multi-turn sessions.
 
-LGP works because LGP runs these tools INSIDE the Python agent and emits them as AG-UI events directly — no TanStack reprompt cycle. The mismatch is architectural.
-
-Fix options (all outside this PR's scope):
-
-- (a) Exclude these tools from BIA's default agent server-tool list for the headless-complete demo
-- (b) Harden aimock matcher precedence so `toolCallId` narration always wins when a tool result is the last message
-- (c) Tighten BIA fixture matchers (e.g. require absence of a matching tool result in history before firing the userMessage fixture)
-
-Tracked separately.
+This pattern is BIA-specific because LGP runs these tools INSIDE the Python agent and emits them as AG-UI events directly — no TanStack reprompt cycle — so LGP's `gen-ui-headless-complete.json` retains the simpler userMessage-only emitter pattern.
 
 ## Doc maintenance
 
