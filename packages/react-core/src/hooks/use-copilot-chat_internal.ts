@@ -7,9 +7,9 @@ import React, {
   createElement,
 } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { SystemMessageFunction } from "../types";
+import type { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
@@ -21,20 +21,13 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "../v2";
-import {
-  Suggestion,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import type { AbstractAgent } from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { CoAgentStateRenderBridge } from "./use-coagent-state-render-bridge";
+import type { CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
@@ -333,6 +326,7 @@ export function useCopilotChatInternal({
   const { copilotkit } = useCopilotKit();
   const { threadId, agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
+  const resolvedThreadId = existingConfig?.threadId ?? threadId;
   const [agentAvailable, setAgentAvailable] = useState(false);
 
   // Apply priority: props > existing config > defaults
@@ -358,6 +352,9 @@ export function useCopilotChatInternal({
     const connectAbortController = new AbortController();
     if (agent instanceof HttpAgent) {
       agent.abortController = connectAbortController;
+    }
+    if (resolvedThreadId) {
+      agent.threadId = resolvedThreadId;
     }
 
     const connect = async (agent: AbstractAgent) => {
@@ -399,7 +396,7 @@ export function useCopilotChatInternal({
       agent?.detachActiveRun();
     };
   }, [
-    existingConfig?.threadId,
+    resolvedThreadId,
     agent,
     copilotkit,
     copilotkit.runtimeConnectionStatus,
@@ -500,6 +497,9 @@ export function useCopilotChatInternal({
       }
 
       agent?.setMessages(historyCutoff);
+      if (resolvedThreadId) {
+        agent.threadId = resolvedThreadId;
+      }
 
       if (agent) {
         try {
@@ -546,6 +546,9 @@ export function useCopilotChatInternal({
       }
 
       agent?.addMessage(message);
+      if (resolvedThreadId) {
+        agent.threadId = resolvedThreadId;
+      }
       if (followUp) {
         try {
           await copilotkit.runAgent({ agent });
@@ -555,7 +558,7 @@ export function useCopilotChatInternal({
         }
       }
     },
-    [agent, copilotkit, resolvedAgentId, onSubmitMessage],
+    [agent, copilotkit, resolvedAgentId, onSubmitMessage, resolvedThreadId],
   );
 
   const latestAppendFunc = useAsyncCallback(
@@ -609,7 +612,7 @@ export function useCopilotChatInternal({
     copilotkit,
     agent,
     agentId: resolvedAgentId,
-    threadId: existingConfig?.threadId ?? threadId,
+    threadId: resolvedThreadId,
   });
   const allMessages = agent?.messages ?? [];
   const resolvedMessages = useMemo(() => {
