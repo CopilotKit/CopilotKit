@@ -6,6 +6,7 @@ import {
   ToolCall,
   ToolMessage,
 } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 import {
   FrontendToolConfig,
@@ -37,7 +38,6 @@ type ToolCallHandler =
 
 @Component({
   selector: "copilot-render-tool-calls",
-  standalone: true,
   imports: [NgComponentOutlet],
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
@@ -50,7 +50,7 @@ type ToolCallHandler =
         <ng-container
           *ngComponentOutlet="
             renderConfig.config.component;
-            inputs: { toolCall: buildToolCall(toolCall) }
+            inputs: buildRendererInputs(toolCall, renderConfig)
           "
         />
       }
@@ -75,6 +75,7 @@ export class RenderToolCalls {
   readonly message = input.required<AssistantMessage>();
   readonly messages = input.required<Message[]>();
   readonly isLoading = input<boolean>(false);
+  readonly agentId = input<string | undefined>();
 
   protected pickRenderer(name: string): ToolCallHandler | undefined {
     type AssistantMessageWithAgent = AssistantMessage & {
@@ -127,23 +128,60 @@ export class RenderToolCalls {
 
     if (message) {
       return {
+        name: toolCall.function.name,
         args,
         status: "complete",
         result: message.content,
       };
     } else if (this.isLoading()) {
       return {
+        name: toolCall.function.name,
         args,
         status: "in-progress",
         result: undefined,
       };
     } else {
       return {
+        name: toolCall.function.name,
         args,
         status: "executing",
         result: undefined,
       };
     }
+  }
+
+  protected buildRendererInputs<Args extends Record<string, unknown>>(
+    toolCall: ToolCall,
+    handler: RendererToolCallHandler | ClientToolCallHandler,
+  ): {
+    toolCall: AngularToolCall<Args>;
+    agent?: AbstractAgent;
+  } {
+    const inputs: {
+      toolCall: AngularToolCall<Args>;
+      agent?: AbstractAgent;
+    } = {
+      toolCall: this.buildToolCall<Args>(toolCall),
+    };
+
+    const shouldPassAgent =
+      "passAgent" in handler.config && handler.config.passAgent === true;
+
+    if (!shouldPassAgent) {
+      return inputs;
+    }
+
+    const agentId = this.agentId() ?? this.#messageAgentId();
+    if (!agentId) {
+      return inputs;
+    }
+
+    const agent = this.#copilotKit.getAgent(agentId);
+    if (agent) {
+      inputs.agent = agent;
+    }
+
+    return inputs;
   }
 
   protected buildHumanInTheLoopToolCall<Args extends Record<string, unknown>>(
@@ -157,6 +195,7 @@ export class RenderToolCalls {
 
     if (message) {
       return {
+        name: toolCall.function.name,
         args,
         status: "complete",
         result: message.content!,
@@ -164,6 +203,7 @@ export class RenderToolCalls {
       };
     } else if (this.isLoading()) {
       return {
+        name: toolCall.function.name,
         args,
         status: "in-progress",
         result: undefined,
@@ -171,6 +211,7 @@ export class RenderToolCalls {
       };
     } else {
       return {
+        name: toolCall.function.name,
         args,
         status: "executing",
         result: undefined,
@@ -185,5 +226,9 @@ export class RenderToolCalls {
     );
 
     return message;
+  }
+
+  #messageAgentId(): string | undefined {
+    return (this.message() as AssistantMessage & { agentId?: string }).agentId;
   }
 }
