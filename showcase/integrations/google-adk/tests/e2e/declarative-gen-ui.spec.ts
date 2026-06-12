@@ -83,18 +83,15 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       "Show me my sales dashboard for this quarter.",
     );
 
-    // The hero surface must contain a titled Card with a KPI Metric row
-    // AND both charts — a single lonely widget is the regression OSS-136
-    // was filed about. 90s budget: on cold starts the secondary-LLM
-    // `generate_a2ui` pass can eat most of a minute.
+    // The hero surface must contain a bare KPI Metric row AND both charts
+    // (no surrounding Card — the charts carry their own card chrome). A
+    // single lonely widget is the regression OSS-136 was filed about. 90s
+    // budget: on cold starts the secondary-LLM `generate_a2ui` pass can eat
+    // most of a minute.
     const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
       .poll(async () => await metrics.count(), { timeout: 90_000 })
       .toBeGreaterThanOrEqual(3);
-
-    await expect(
-      page.locator('[data-testid="declarative-card"]').first(),
-    ).toBeVisible({ timeout: 15_000 });
 
     // PieChart: recharts donut (mirrors beautiful-chat's sales dashboard) —
     // one sector path per slice.
@@ -148,6 +145,12 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect
       .poll(async () => await rows.count(), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(2);
+
+    // The surface is dashboardy, not a bare table: a quota-attainment
+    // BarChart accompanies it.
+    await expect(
+      page.locator('[data-testid="declarative-bar-chart"]').first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("at-risk pill renders StatusBadge pills", async ({ page }) => {
@@ -157,10 +160,18 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       "Are any accounts or pipeline deals at risk this quarter?",
     );
 
+    // One severity badge per at-risk account (3 in the dataset).
     const badges = page.locator('[data-testid="declarative-status-badge"]');
     await expect
       .poll(async () => await badges.count(), { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(1);
+      .toBeGreaterThanOrEqual(3);
+
+    // The surface is a risk panel, not bare cards: a KPI strip (ARR at
+    // risk / accounts / biggest exposure) leads it.
+    const metrics = page.locator('[data-testid="declarative-metric"]');
+    await expect
+      .poll(async () => await metrics.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2);
   });
 
   test("top account pill renders InfoRow facts", async ({ page }) => {
@@ -176,5 +187,11 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect
       .poll(async () => await infoRows.count(), { timeout: 90_000 })
       .toBeGreaterThanOrEqual(3);
+
+    // The surface is dashboardy, not a bare fact list: a product-line
+    // PieChart accompanies it.
+    await expect(
+      page.locator('[data-testid="declarative-pie-chart"]').first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

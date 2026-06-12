@@ -129,7 +129,6 @@ describe("d5-gen-ui-declarative script", () => {
     );
     expect(hero).toBeDefined();
     expect(hero!.expectedTestIds).toEqual([
-      "declarative-card",
       "declarative-metric",
       "declarative-pie-chart",
       "declarative-bar-chart",
@@ -163,16 +162,10 @@ describe("d5-gen-ui-declarative script", () => {
     const baseline = newCapturedBaseline({}); // empty DOM before pill
     const assertion = buildDeclarativeAssertion(
       "sales-dashboard",
-      [
-        "declarative-card",
-        "declarative-metric",
-        "declarative-pie-chart",
-        "declarative-bar-chart",
-      ],
+      ["declarative-metric", "declarative-pie-chart", "declarative-bar-chart"],
       baseline,
     );
     const page = makePage({
-      card: true,
       metric: true,
       pieChart: true,
       barChart: true,
@@ -184,16 +177,11 @@ describe("d5-gen-ui-declarative script", () => {
     const baseline = newCapturedBaseline({});
     const assertion = buildDeclarativeAssertion(
       "sales-dashboard",
-      [
-        "declarative-card",
-        "declarative-metric",
-        "declarative-pie-chart",
-        "declarative-bar-chart",
-      ],
+      ["declarative-metric", "declarative-pie-chart", "declarative-bar-chart"],
       baseline,
     );
     // A lonely bar chart is not a dashboard — conjunctive check refuses.
-    const page = makeAbortingPage({ card: true, barChart: true });
+    const page = makeAbortingPage({ barChart: true });
     await expect(assertion(page)).rejects.toThrow();
   });
 

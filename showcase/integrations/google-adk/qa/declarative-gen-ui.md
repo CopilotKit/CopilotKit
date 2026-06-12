@@ -29,9 +29,8 @@
 
 #### Hero Pill — Composed Sales Dashboard
 
-- [ ] Click "Show my sales dashboard"; within 60s verify ONE composed surface renders containing ALL of:
-  - a titled `declarative-card` ("Q2"-flavoured dashboard title)
-  - a row of at least 3 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
+- [ ] Click "Show my sales dashboard"; within 60s verify ONE composed surface renders containing ALL of (no surrounding Card — the charts carry their own card chrome):
+  - a bare row of at least 3 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
   - a `declarative-pie-chart` (recharts donut mirroring beautiful-chat: `innerRadius` 40 / `outerRadius` 80, one `.recharts-pie-sector` per slice, tooltip on hover, no legend) showing revenue by region
   - a `declarative-bar-chart` (recharts, height 200, single blue `#3b82f6` bars with rounded tops, dashed grid) showing monthly revenue
 - [ ] Verify the surface is a single composed dashboard, NOT a lonely single widget — this is the regression OSS-136 was filed about
@@ -42,17 +41,17 @@
 #### Team Performance — DataTable
 
 - [ ] Click "Team performance"; within 60s verify a `declarative-data-table` renders inside a Card: uppercase column headers (Rep / Attainment / Pipeline), one body row per rep (5 reps, Dana Whitfield through Elena Vasquez), tabular numerals
-- [ ] Verify no charts render for this pill (steered to a table)
+- [ ] Verify a quota-attainment BarChart renders alongside the table (dashboardy, not a bare table); no StatusBadge or InfoRow
 
 #### At Risk — StatusBadge Cards
 
-- [ ] Click "Anything at risk?"; within 60s verify at least one `declarative-status-badge` renders (rounded pill, `warning`/`error` variant) inside per-account Cards (Northwind Retail, Cascadia Outfitters, Atlas Goods)
+- [ ] Click "Anything at risk?"; within 60s verify a risk panel: a KPI strip of Metric tiles (ARR at risk $615k, accounts at risk 3, biggest exposure Northwind $340k) above three side-by-side account Cards (Northwind Retail, Cascadia Outfitters, Atlas Goods), each with a content-sized `declarative-status-badge` (error = high severity, warning = medium) and a one-line reason + recommended next action
 - [ ] Verify no charts or tables render for this pill
 
 #### Top Account — InfoRow Facts
 
 - [ ] Click "Top account details"; within 60s verify a Card for Meridian Apparel Group with at least 3 `declarative-info-row` label/value rows (Owner, Region, ARR, Renewal, Last contact), each separated by a 1px bottom border
-- [ ] Verify no charts, tables, or badges render for this pill
+- [ ] Verify a product-line PieChart renders next to the fact card (grounded in Meridian's product mix); no DataTable or StatusBadge
 
 #### Cross-Pill Differentiation (mirrors the D5 probe)
 

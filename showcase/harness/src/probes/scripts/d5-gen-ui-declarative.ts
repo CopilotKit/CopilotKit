@@ -54,11 +54,11 @@ export const GEN_UI_DECLARATIVE_PILLS = [
   {
     tag: "sales-dashboard",
     prompt: "Show me my sales dashboard for this quarter.",
-    // The hero pill: one composed surface with KPI metrics + both
-    // charts. Conjunctive across all four testids so a single lonely
+    // The hero pill: one composed surface with a bare KPI metric row +
+    // both charts (no surrounding Card — the charts carry their own card
+    // chrome). Conjunctive across all three testids so a single lonely
     // widget cannot pass as a "dashboard".
     expectedTestIds: [
-      "declarative-card",
       "declarative-metric",
       "declarative-pie-chart",
       "declarative-bar-chart",
