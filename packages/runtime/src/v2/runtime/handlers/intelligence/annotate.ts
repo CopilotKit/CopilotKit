@@ -94,6 +94,10 @@ export async function handleAnnotate({
       payload: parsed.payload,
       clientEventId: parsed.clientEventId,
       occurredAt: parsed.occurredAt,
+      // TRUST HINGE: `permitted` comes solely from identifyUser. The client
+      // cannot influence it. `undefined` (unconfigured) ⇒ omitted ⇒
+      // unrestricted; `[]` ⇒ write nowhere; a list ⇒ exactly those containers.
+      permitted: user.learningContainers?.writableContainers,
     });
     return new Response(JSON.stringify(result), {
       status: 200,
