@@ -144,6 +144,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (config.debug) {
       this.debug = config.debug;
     }
+    this.ensureSubscribers();
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
     }
@@ -173,8 +174,19 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this._capabilities;
   }
 
+  private ensureSubscribers(): void {
+    if (!Array.isArray(this.subscribers)) {
+      this.subscribers = [];
+    }
+  }
+
   async getCapabilities(): Promise<AgentCapabilities> {
     return this._capabilities ?? {};
+  }
+
+  override subscribe(subscriber: AgentSubscriber): { unsubscribe: () => void } {
+    this.ensureSubscribers();
+    return super.subscribe(subscriber);
   }
 
   override async detachActiveRun(): Promise<void> {
@@ -312,6 +324,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     // Forward the proxy's subscribers to the delegate so that UI hooks
     // (e.g. useAgent's onMessagesChanged) receive real-time updates as
     // the delegate processes events during connectAgent.
+    this.ensureSubscribers();
     const forwardedSubs = this.subscribers.map((s) => delegate.subscribe(s));
 
     try {
