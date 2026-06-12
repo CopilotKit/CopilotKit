@@ -3,42 +3,45 @@
 /**
  * A2UI catalog RENDERERS.
  *
- * React implementations for each definition in `./definitions.ts`,
- * styled with the demo's local ShadCN-flavoured primitives in
- * `../_components/`. The assembled catalog (definitions × renderers via
- * `createCatalog`) lives in `./catalog.ts`.
+ * React implementations for each definition in `./definitions.ts`. Visuals
+ * mirror beautiful-chat's sales dashboard renderers
+ * (../../beautiful-chat/declarative-generative-ui/renderers.tsx) so the two
+ * demos read as the same product family — same card chrome, metric
+ * typography, recharts donut/bar styling, and palette. The assembled catalog
+ * (definitions × renderers via `createCatalog`) lives in `./catalog.ts`.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
-import React, { useRef } from "react";
+import React from "react";
 import {
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
   BarChart as RechartsBarChart,
   Bar,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Rectangle,
 } from "recharts";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 
 import type { MyDefinitions } from "./definitions";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "../_components/card";
 import { Badge } from "../_components/badge";
 import { Button } from "../_components/button";
 
-// ─── Chart palette ──────────────────────────────────────────────────────────
-// Matches the beautiful-chat sales-dashboard palette so the two demos read
-// as the same product family.
+// ─── Theme tokens + palette (mirrors beautiful-chat) ────────────────────────
+const c = {
+  card: "var(--card)",
+  cardFg: "var(--card-foreground)",
+  border: "var(--border)",
+  muted: "var(--muted-foreground)",
+  divider: "color-mix(in srgb, var(--border) 50%, var(--card))",
+  shadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
+};
+
 const CHART_COLORS = [
   "#3b82f6", // blue-500
   "#8b5cf6", // violet-500
@@ -48,113 +51,49 @@ const CHART_COLORS = [
   "#6366f1", // indigo-500
 ] as const;
 
-const CHART_TOOLTIP_STYLE: React.CSSProperties = {
-  backgroundColor: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  padding: "8px 12px",
-  color: "var(--foreground)",
-  fontSize: 12,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-};
-
-/** Custom SVG donut chart built with <circle> + stroke-dasharray. */
-function DonutChart({
-  data,
-  size = 220,
-  strokeWidth = 36,
+/** DashboardCard-style chrome shared by Card and the chart wrappers. */
+function CardShell({
+  title,
+  subtitle,
+  testid,
+  children,
 }: {
-  data: { label: string; value: number }[];
-  size?: number;
-  strokeWidth?: number;
+  title: string;
+  subtitle?: string;
+  testid?: string;
+  children?: React.ReactNode;
 }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const center = size / 2;
-
-  const total = data.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
-
-  let accumulated = 0;
-  const slices = data.map((item, index) => {
-    const val = Number(item.value) || 0;
-    const ratio = total > 0 ? val / total : 0;
-    const arc = ratio * circumference;
-    const startAt = accumulated;
-    accumulated += arc;
-    return {
-      ...item,
-      arc,
-      gap: circumference - arc,
-      dashoffset: -startAt,
-      color: CHART_COLORS[index % CHART_COLORS.length],
-    };
-  });
-
   return (
-    <svg
-      width="100%"
-      viewBox={`0 0 ${size} ${size}`}
+    <div
+      data-testid={testid}
       style={{
-        display: "block",
-        margin: "0 auto",
-        maxWidth: size,
-        transform: "scaleX(-1)",
+        background: c.card,
+        borderRadius: "12px",
+        border: `1px solid ${c.border}`,
+        padding: "20px",
+        boxShadow: c.shadow,
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        width: "100%",
+        minWidth: 0,
+        overflow: "hidden",
       }}
     >
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke="var(--muted)"
-        strokeWidth={strokeWidth}
-      />
-      {slices.map((slice, i) => (
-        <circle
-          key={i}
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={slice.color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${slice.arc} ${slice.gap}`}
-          strokeDashoffset={slice.dashoffset}
-          strokeLinecap="butt"
-          transform={`rotate(-90 ${center} ${center})`}
-        />
-      ))}
-    </svg>
-  );
-}
-
-/** Tracks seen indices so only NEW bars get the fade-in animation. */
-function useSeenIndices() {
-  const seen = useRef(new Set<number>());
-  return {
-    isNew(index: number) {
-      if (seen.current.has(index)) return false;
-      seen.current.add(index);
-      return true;
-    },
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function AnimatedBar(props: any) {
-  const { isNew, ...rest } = props;
-  return (
-    <g
-      style={
-        isNew
-          ? {
-              animation: "barSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
-            }
-          : undefined
-      }
-    >
-      <Rectangle {...rest} />
-    </g>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: "0.9rem", color: c.cardFg }}>
+          {title}
+        </div>
+        {subtitle && (
+          <div
+            style={{ fontSize: "0.75rem", color: c.muted, marginTop: "2px" }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -208,20 +147,13 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   },
 
   Card: ({ props, children }) => (
-    <Card
-      className="w-full min-w-0 overflow-hidden"
-      data-testid="declarative-card"
+    <CardShell
+      title={props.title}
+      subtitle={props.subtitle}
+      testid="declarative-card"
     >
-      <CardHeader>
-        <CardTitle>{props.title}</CardTitle>
-        {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
-      </CardHeader>
-      {props.child && (
-        <CardContent className="flex flex-col gap-4">
-          {children(props.child)}
-        </CardContent>
-      )}
-    </Card>
+      {props.child && children(props.child)}
+    </CardShell>
   ),
 
   StatusBadge: ({ props }) => (
@@ -234,32 +166,57 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   ),
 
   Metric: ({ props }) => {
-    const trend = props.trend ?? "neutral";
-    const arrow = trend === "up" ? "↑" : trend === "down" ? "↓" : "";
-    const trendClass =
-      trend === "up"
-        ? "text-emerald-600"
-        : trend === "down"
-          ? "text-rose-600"
-          : "text-[var(--foreground)]";
+    const trendColors: Record<string, string> = {
+      up: "#059669",
+      down: "#dc2626",
+      neutral: c.muted,
+    };
+    const trendIcons: Record<string, string> = {
+      up: "↑",
+      down: "↓",
+      neutral: "→",
+    };
     return (
-      // `flex-1 min-w-[120px]` lets a row of Metrics distribute evenly
-      // inside the basic catalog's gap-less Row — 3 metrics in a 600px
-      // card column get ~200px each instead of squishing to content width.
       <div
         data-testid="declarative-metric"
-        className="flex flex-1 min-w-[120px] flex-col gap-1"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          minWidth: "120px",
+        }}
       >
-        <div className="text-xs font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+        <span
+          style={{
+            fontSize: "0.75rem",
+            color: c.muted,
+            fontWeight: 500,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           {props.label}
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tabular-nums text-[var(--foreground)]">
+        </span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+          <span
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: c.cardFg,
+              letterSpacing: "-0.02em",
+            }}
+          >
             {props.value}
           </span>
-          {arrow && (
-            <span className={`text-sm font-medium tabular-nums ${trendClass}`}>
-              {arrow}
+          {props.trend && (
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 500,
+                color: trendColors[props.trend] ?? c.muted,
+              }}
+            >
+              {trendIcons[props.trend]}
               {props.trendValue ? ` ${props.trendValue}` : ""}
             </span>
           )}
@@ -339,150 +296,82 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   ),
 
   PieChart: ({ props }) => {
-    const data = props.data ?? [];
-    const safeData = Array.isArray(data) ? data : [];
-    const total = safeData.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
-
+    // Coerce values to numbers — the LLM sometimes emits them as strings.
+    const data = (Array.isArray(props.data) ? props.data : []).map((d) => ({
+      ...d,
+      value: Number(d.value) || 0,
+    }));
     return (
-      // `flex-1 min-w-0` so multiple charts in a basic-catalog Row
-      // distribute the available width evenly instead of each insisting
-      // on its content size and overflowing.
-      <Card
-        className="w-full flex-1 min-w-0 overflow-hidden"
-        data-testid="declarative-pie-chart"
+      <CardShell
+        title={props.title}
+        subtitle={props.description}
+        testid="declarative-pie-chart"
       >
-        <CardHeader>
-          <CardTitle>{props.title}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {safeData.length === 0 ? (
-            <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              No data available
-            </div>
-          ) : (
-            <>
-              <DonutChart data={safeData} />
-              <div className="flex flex-col gap-2 pt-2">
-                {safeData.map((item, index) => {
-                  const val = Number(item.value) || 0;
-                  const pct =
-                    total > 0 ? ((val / total) * 100).toFixed(0) : "0";
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 text-sm"
-                    >
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{
-                          backgroundColor:
-                            CHART_COLORS[index % CHART_COLORS.length],
-                        }}
-                      />
-                      <span className="flex-1 truncate text-[var(--foreground)]">
-                        {item.label}
-                      </span>
-                      <span className="tabular-nums text-[var(--muted-foreground)]">
-                        {val.toLocaleString()}
-                      </span>
-                      <span className="w-10 text-right tabular-nums text-[var(--muted-foreground)]">
-                        {pct}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+        {data.length === 0 ? (
+          <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+            No data available
+          </div>
+        ) : (
+          <div style={{ width: "100%", height: 200 }}>
+            <ResponsiveContainer>
+              <RechartsPieChart>
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={80}
+                  paddingAngle={2}
+                >
+                  {data.map((_, i) => (
+                    <Cell
+                      key={i}
+                      fill={CHART_COLORS[i % CHART_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </CardShell>
     );
   },
 
   BarChart: ({ props }) => {
-    const { isNew } = useSeenIndices();
-    const data = props.data ?? [];
-    const safeData = Array.isArray(data) ? data : [];
-
+    // Coerce values to numbers — the LLM sometimes emits them as strings,
+    // which recharts treats as categorical (unordered Y-axis ticks).
+    const data = (Array.isArray(props.data) ? props.data : []).map((d) => ({
+      ...d,
+      value: Number(d.value) || 0,
+    }));
     return (
-      <Card
-        className="w-full flex-1 min-w-0 overflow-hidden"
-        data-testid="declarative-bar-chart"
+      <CardShell
+        title={props.title}
+        subtitle={props.description}
+        testid="declarative-bar-chart"
       >
-        {/* Scoped keyframe — no globals.css needed */}
-        <style>{`
-          @keyframes barSlideIn {
-            from { transform: translateY(40px); opacity: 0; }
-            20% { opacity: 1; }
-            to { transform: translateY(0); opacity: 1; }
-          }
-        `}</style>
-        <CardHeader>
-          <CardTitle>{props.title}</CardTitle>
-          <CardDescription>{props.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {safeData.length === 0 ? (
-            <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              No data available
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <RechartsBarChart
-                data={safeData}
-                margin={{ top: 12, right: 12, bottom: 4, left: -8 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--border)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                  stroke="var(--border)"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                  stroke="var(--border)"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
-                />
-                <Bar
-                  isAnimationActive={false}
-                  dataKey="value"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={48}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  shape={
-                    ((barProps: any) => (
-                      <AnimatedBar
-                        {...barProps}
-                        isNew={isNew(barProps.index as number)}
-                      />
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    )) as any
-                  }
-                >
-                  {safeData.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    />
-                  ))}
-                </Bar>
+        {data.length === 0 ? (
+          <div className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+            No data available
+          </div>
+        ) : (
+          <div style={{ width: "100%", height: 200 }}>
+            <ResponsiveContainer>
+              <RechartsBarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke={c.divider} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.muted }} />
+                <YAxis tick={{ fontSize: 11, fill: c.muted }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </RechartsBarChart>
             </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </CardShell>
     );
   },
 };

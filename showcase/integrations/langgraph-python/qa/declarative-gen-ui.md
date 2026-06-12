@@ -32,10 +32,10 @@
 - [ ] Click "Show my sales dashboard"; within 60s verify ONE composed surface renders containing ALL of:
   - a titled `declarative-card` ("Q2"-flavoured dashboard title)
   - a row of at least 3 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
-  - a `declarative-pie-chart` (custom SVG donut: grey background `<circle>` + one stroked `<circle>` per slice, legend rows ending in a percentage) showing revenue by region
-  - a `declarative-bar-chart` (recharts `ResponsiveContainer`, ≥2 bar rectangles, rounded tops) showing monthly revenue
+  - a `declarative-pie-chart` (recharts donut mirroring beautiful-chat: `innerRadius` 40 / `outerRadius` 80, one `.recharts-pie-sector` per slice, tooltip on hover, no legend) showing revenue by region
+  - a `declarative-bar-chart` (recharts, height 200, single blue `#3b82f6` bars with rounded tops, dashed grid) showing monthly revenue
 - [ ] Verify the surface is a single composed dashboard, NOT a lonely single widget — this is the regression OSS-136 was filed about
-- [ ] Verify chart colours come from the shared palette (`#3b82f6` blue, `#8b5cf6` violet, `#ec4899` pink, `#f59e0b` amber, `#10b981` emerald, `#6366f1` indigo) matching beautiful-chat's sales dashboard
+- [ ] Verify the pie slices cycle through the shared palette (`#3b82f6`, `#8b5cf6`, `#ec4899`, `#f59e0b`, `#10b981`, `#6366f1`) and bars are uniform blue `#3b82f6` — identical chrome to beautiful-chat's sales dashboard (12px-radius cards, 20px padding, soft shadow)
 - [ ] Verify the chat reply text beneath the surface is one short sentence (per `SYSTEM_PROMPT`: let the UI do the talking)
 - [ ] Verify metric numbers match the Vantage Threads dataset (revenue $4.2M, 186 new customers, 31% win rate, $22.6k avg deal)
 

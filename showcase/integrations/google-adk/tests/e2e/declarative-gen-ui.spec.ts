@@ -96,14 +96,14 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       page.locator('[data-testid="declarative-card"]').first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    // PieChart: the custom DonutChart renderer builds an inline <svg> with
-    // one grey background <circle> + one stroked <circle> per slice.
+    // PieChart: recharts donut (mirrors beautiful-chat's sales dashboard) —
+    // one sector path per slice.
     const pie = page.locator('[data-testid="declarative-pie-chart"]');
     await expect(pie.first()).toBeVisible({ timeout: 60_000 });
-    const circles = pie.locator("svg circle");
+    const sectors = pie.locator(".recharts-pie-sector");
     await expect
-      .poll(async () => await circles.count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(3);
+      .poll(async () => await sectors.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2);
 
     // BarChart: recharts markers are stable across versions.
     const bar = page.locator('[data-testid="declarative-bar-chart"]');
@@ -121,12 +121,13 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     ).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
 
-    // Regression guard: only one bar-chart surface should render — looping
-    // renders would stack multiple ResponsiveContainers.
+    // Regression guard: exactly one composed surface — pie + bar each use a
+    // ResponsiveContainer, so a single hero dashboard yields at most 2.
+    // Looping renders would stack more.
     const allCharts = page.locator(".recharts-responsive-container");
     await expect
       .poll(async () => await allCharts.count(), { timeout: 5_000 })
-      .toBeLessThanOrEqual(1);
+      .toBeLessThanOrEqual(2);
   });
 
   test("team performance pill renders a DataTable with rep rows", async ({
