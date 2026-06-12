@@ -43,12 +43,6 @@ export class AgentStore {
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
-        // Copy into a fresh array so the signal's Object.is equality check
-        // sees a new reference. AbstractAgent.addMessage mutates its messages
-        // array in place and notifies with the same reference, so set()ing
-        // that reference directly is a no-op: OnPush views bound to this
-        // signal would not re-render until the array identity changed (e.g.
-        // at run completion). See issue #5416.
         this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
