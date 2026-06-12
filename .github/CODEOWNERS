@@ -3,5 +3,8 @@
 # CI supply-chain hardening — allowlist changes require core dev review
 .github/config-allowlist.txt @tylerslaton @jpr5 @ranst91 @marthakelly @mme
 
-# Showcases — demo team owns these alongside core dev
-examples/showcases/ @CopilotKit/demo @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+# Showcases — demos team owns these alongside core dev
+examples/showcases/ @CopilotKit/demos @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+
+#url
+https://github.com/aripitek/copilot
