@@ -1,6 +1,10 @@
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../core/runtime";
 import type { AgentDescription, RuntimeInfo } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
@@ -76,9 +80,11 @@ export async function handleGetRuntimeInfo({
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is
       // the source of truth: it preserves the per-agent scoping that this
-      // boolean discards (see CopilotKit/CopilotKit#5369).
-      a2uiEnabled: !!runtime.a2ui,
-      ...(runtime.a2ui
+      // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
+      // shared isA2UIEnabled() predicate so an explicit `enabled: false`
+      // disables a2ui here exactly as it does on the run path.
+      a2uiEnabled: isA2UIEnabled(runtime.a2ui),
+      ...(isA2UIEnabled(runtime.a2ui)
         ? {
             a2ui: {
               enabled: true,
