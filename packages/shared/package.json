@@ -46,7 +46,7 @@
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "publint": "publint .",
+    "publint": "publint . && node scripts/verify-cjs-exports.cjs",
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
