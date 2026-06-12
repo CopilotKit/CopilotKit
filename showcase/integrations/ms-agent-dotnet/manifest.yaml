@@ -69,6 +69,7 @@ features:
   - open-gen-ui-advanced
   - voice
   - agent-config
+  - shared-state-read
 a2ui_pattern: schema-inline
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
