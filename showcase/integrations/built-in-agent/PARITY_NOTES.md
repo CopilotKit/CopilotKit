@@ -164,6 +164,21 @@ layer.
   integration.
 - Action: tracked in follow-up PR against `packages/react-core`.
 
+### headless-complete turns 3+4 (highlight_note, revenue_chart) — server-tool reprompt loop
+
+BIA registers `get_weather` / `get_stock_price` / `get_revenue_chart` / `highlight_note` as **server-executed** tools via TanStack's `chat()` engine. After the LLM returns a tool call, TanStack runs the server tool and reprompts the LLM with the result. The aimock fixture's userMessage-keyed toolcall entries fire again on each reprompt (the original user pill text remains in conversation history), so the loop never converges: server executes → tool result returned → LLM reprompted → fixture fires again → repeat until the harness's 60s window expires.
+
+Turns 1 (weather) and 2 (stock) pass under this architecture because they don't accumulate enough reprompts to balloon the assistant message count before assertion. Turns 3 (highlight_note) and 4 (revenue_chart) hit message counts of 70+ within the timeout window.
+
+LGP works because LGP runs these tools INSIDE the Python agent and emits them as AG-UI events directly — no TanStack reprompt cycle. The mismatch is architectural.
+
+Fix options (all outside this PR's scope):
+- (a) Exclude these tools from BIA's default agent server-tool list for the headless-complete demo
+- (b) Harden aimock matcher precedence so `toolCallId` narration always wins when a tool result is the last message
+- (c) Tighten BIA fixture matchers (e.g. require absence of a matching tool result in history before firing the userMessage fixture)
+
+Tracked separately.
+
 ## Doc maintenance
 
 PARITY_NOTES inaccuracies surfaced by staging verify after PR #5413 merge — fixed 2026-06-12.
