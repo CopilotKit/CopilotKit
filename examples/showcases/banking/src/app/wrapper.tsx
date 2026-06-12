@@ -19,27 +19,56 @@ import { RecordingVignette } from "@/components/recording-vignette";
 // v2 component — it's omitted from `CopilotChatProps` and supplied via the hook
 // instead). See packages/react-core/src/v2/hooks/use-configure-suggestions.tsx
 // and packages/react-core/src/v2/components/chat/CopilotChat.tsx (line 41–46).
+//
+// The first three pills are sequenced to drive the self-learning demo arc
+// (FOR-137). The agent prompt (api/copilotkit/[[...slug]]/route.ts) deliberately
+// never explains the over-policy-limit unlock, and the agent only ever sees
+// exception *codes*, never their human labels — so a fresh agent must LEARN,
+// by watching an officer file a justifying exception, both that over-limit
+// charges can be unlocked and which codes justify it.
+//   1. Teach-ask  — hits the gate (agent correctly stalls before learning).
+//   2. Teach-setup — surfaces the pending charges so the officer can
+//      demonstrate the unlock inline (that demonstration is what gets recorded).
+//   3. Recall     — on a FRESH thread after distill, the agent applies the
+//      learned procedure to a DIFFERENT over-limit charge it was never taught.
+// Titles stay symptom-only: they must NOT hint at the exception path the agent
+// is meant to learn on its own.
 function BankingSuggestions() {
   useConfigureSuggestions({
     available: "before-first-message",
     suggestions: [
       {
-        // Leads the welcome screen: a one-click path straight into the
-        // over-policy-limit gate (seed t-1: Google Ads, -$5,000, Marketing
-        // policy, limit $5,000 / spent $500 → approving it always trips
-        // OVER_POLICY_LIMIT). Pre-learning the agent fails this correctly;
-        // post-learning it succeeds — the same pill demonstrates both halves
-        // of the teach-mode arc. Title stays benign (symptom-only): it must
-        // NOT hint at the exception path.
-        title: "Approve the $5,000 Marketing transaction",
+        // BEAT 1 — the teachable ask. Seed t-1: Google Ads, -$5,000, Marketing
+        // policy (limit $5,000 / spent $500 → approving always trips
+        // OVER_POLICY_LIMIT). Pre-learning the agent stalls here correctly;
+        // post-learning the same ask succeeds. Leads the welcome screen.
+        title: "Approve the $5,000 Google Ads charge",
         message:
-          "Approve the $5,000 Google Ads transaction on the Marketing policy.",
+          "Approve the $5,000 Google Ads charge on the Marketing policy.",
       },
-      { title: "View transactions", message: "Show me my recent transactions" },
-      { title: "Add a card", message: "Add a new credit card" },
       {
-        title: "Assign a policy",
-        message: "Assign a spending policy to one of my cards",
+        // BEAT 2 setup — surfaces the pending charges (all three are over their
+        // policy limit) via showTransactions, the unconditional-render tool
+        // that is reliable in every mode. The officer files a policy exception
+        // inline on a row to demonstrate the unlock; that is the recorded
+        // demonstration the writer agent distills into /knowledge.
+        title: "Review my pending transactions",
+        message: "Show me my pending transactions.",
+      },
+      {
+        // BEAT 3 — recall / generalization. On a fresh thread after the
+        // demonstration is distilled, the agent should apply the learned
+        // procedure to a DIFFERENT over-limit charge it was never explicitly
+        // taught (seed t-2: AWS, -$15,000, Engineering policy, limit $15,000 /
+        // spent $1,500), proving transferable memory, not per-row memorization.
+        title: "How should I handle the $15,000 AWS charge?",
+        message:
+          "The $15,000 AWS charge is over its policy limit. How should I handle it?",
+      },
+      {
+        // Breadth — a clean non-arc capability (the generative-UI card flow).
+        title: "Add an expense card",
+        message: "Add a new expense card",
       },
     ],
   });
