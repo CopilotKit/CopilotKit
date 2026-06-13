@@ -1076,6 +1076,7 @@ describe("CopilotChatInput", () => {
 
   describe("Container dimension cache", () => {
     const OriginalResizeObserver = globalThis.ResizeObserver;
+    const OriginalMatchMedia = window.matchMedia;
 
     class MockResizeObserver {
       static instances: MockResizeObserver[] = [];
@@ -1144,7 +1145,33 @@ describe("CopilotChatInput", () => {
     afterEach(() => {
       vi.restoreAllMocks();
       globalThis.ResizeObserver = OriginalResizeObserver;
+      if (OriginalMatchMedia) {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          writable: true,
+          value: OriginalMatchMedia,
+        });
+      } else {
+        Reflect.deleteProperty(window, "matchMedia");
+      }
     });
+
+    const mockMobileViewport = () => {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          matches: query === "(max-width: 767px)",
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+    };
 
     /**
      * Extends mockLayoutMetrics with getComputedStyle mocks so that
@@ -1534,6 +1561,53 @@ describe("CopilotChatInput", () => {
 
       // Cache was invalidated, so updateContainerCache called getBoundingClientRect
       expect(addRectSpy).toHaveBeenCalled();
+    });
+
+    it("does not re-measure textarea value on mobile after measurements are warm", async () => {
+      mockMobileViewport();
+
+      const valueDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      );
+      const valueSetterSpy = vi
+        .spyOn(HTMLTextAreaElement.prototype, "value", "set")
+        .mockImplementation(function (
+          this: HTMLTextAreaElement,
+          nextValue: string,
+        ) {
+          valueDescriptor?.set?.call(this, nextValue);
+        });
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput onSubmitMessage={mockOnSubmitMessage} />,
+      );
+      setupMocksAndInvalidateCache(container, DEFAULT_LAYOUT_OPTIONS);
+
+      const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "ABCD" } });
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+
+      valueSetterSpy.mockClear();
+      textarea.setSelectionRange(1, 1);
+
+      fireEvent.change(textarea, {
+        target: { value: "AEBCD", selectionStart: 2, selectionEnd: 2 },
+      });
+      triggerResizeForTargets(textarea);
+
+      await waitFor(() => {
+        expect(getLayoutGrid(textarea).getAttribute("data-layout")).toBe(
+          "expanded",
+        );
+      });
+
+      expect(valueSetterSpy).not.toHaveBeenCalledWith("");
     });
 
     it("keeps cache warm during layout toggle (ignoreResizeRef path)", async () => {
