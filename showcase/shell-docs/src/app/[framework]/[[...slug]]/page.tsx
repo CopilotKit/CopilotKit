@@ -52,9 +52,10 @@ import {
   getDocsMode,
   getIntegration,
   getIntegrations,
+  ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
-import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
+import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
 import path from "path";
@@ -100,8 +101,14 @@ export async function generateMetadata({
   const isDocsOnlyFramework =
     !integration && hasDocsOnlyFrameworkContent(framework);
   if (!integration && !isDocsOnlyFramework) {
+    // Root-surface URL. The BIA-authored page wins when one exists —
+    // mirror UnscopedDocsPage's resolution so the metadata matches the
+    // content the route serves.
     const unscopedPath = [framework, ...(slug ?? [])].join("/");
-    const doc = loadDoc(unscopedPath);
+    const doc =
+      loadDoc(
+        `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedPath}`,
+      ) ?? loadDoc(unscopedPath);
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
