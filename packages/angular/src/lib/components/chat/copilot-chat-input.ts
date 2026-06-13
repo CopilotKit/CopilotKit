@@ -17,7 +17,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { LucideAngularModule, ArrowUp } from "lucide-angular";
+import { LucideAngularModule, ArrowUp, Square } from "lucide-angular";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -213,7 +213,7 @@ export interface ToolbarContext {
                 >
                 </copilot-chat-start-transcribe-button>
               }
-              <!-- Send button with slot -->
+              <!-- Send / Stop button -->
               @if (sendButtonTemplate || sendButtonComponent()) {
                 <copilot-slot
                   [slot]="sendButtonTemplate || sendButtonComponent()"
@@ -225,16 +225,25 @@ export interface ToolbarContext {
                 <div class="mr-[10px]">
                   <button
                     type="button"
+                    data-testid="copilot-send-button"
                     [class]="sendButtonClass() || defaultButtonClass"
-                    [disabled]="
-                      !computedValue().trim() || computedMode() === 'processing'
-                    "
-                    (click)="send()"
+                    [disabled]="sendButtonDisabled()"
+                    (click)="handleSendButtonClick()"
                   >
-                    <lucide-angular
-                      [img]="ArrowUpIcon"
-                      [size]="18"
-                    ></lucide-angular>
+                    @if (isProcessing() && canStop()) {
+                      <!-- Stop / Square icon while a run is active -->
+                      <lucide-angular
+                        data-testid="copilot-stop-icon"
+                        [img]="SquareIcon"
+                        [size]="18"
+                        class="fill-current"
+                      ></lucide-angular>
+                    } @else {
+                      <lucide-angular
+                        [img]="ArrowUpIcon"
+                        [size]="18"
+                      ></lucide-angular>
+                    }
                   </button>
                 </div>
               }
@@ -326,9 +335,14 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   finishTranscribe = output<void>();
   addFile = output<void>();
   valueChange = output<string>();
+  /** Emitted when the stop button is clicked or Enter is pressed on empty input
+   *  while a run is active.  Parent components can listen for this to cancel
+   *  in-flight requests independently of the ChatState wiring. */
+  stop = output<void>();
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
+  readonly SquareIcon = Square;
   readonly defaultButtonClass = cn(
     // Base button styles
     "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
@@ -349,7 +363,6 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
 
   // Services
   readonly labels = injectChatLabels();
-  // readonly chatConfig = injectChatConfig();
   readonly chatState = injectChatState();
 
   // Signals
@@ -379,6 +392,38 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     return customValue || configValue || "";
   });
 
+  /**
+   * True when a run is in flight (not transcribing).
+   * Mirrors React v2: `const isProcessing = mode !== "transcribe" && isRunning`.
+   */
+  isProcessing = computed(() => {
+    const mode = this.computedMode();
+    const running = this.chatState.isRunning?.() ?? false;
+    return mode !== "transcribe" && running;
+  });
+
+  /**
+   * True when the composer holds sendable text and a submit handler is wired.
+   * Mirrors React v2: `const canSend = resolvedValue.trim().length > 0 && !!onSubmitMessage`.
+   * In Angular the submit path always exists (through ChatState), so we only
+   * check for non-empty text.
+   */
+  canSend = computed(() => this.computedValue().trim().length > 0);
+
+  /**
+   * True when a stop handler is available.
+   * In Angular this is fulfilled by ChatState.stopCurrentRun existing.
+   */
+  canStop = computed(() => typeof this.chatState.stopCurrentRun === "function");
+
+  /**
+   * Disabled logic for the send/stop button, mirroring React v2:
+   *   isProcessing ? !canStop : !canSend
+   */
+  sendButtonDisabled = computed(() =>
+    this.isProcessing() ? !this.canStop() : !this.canSend(),
+  );
+
   computedClass = computed(() => {
     const baseClasses = cn(
       // Layout
@@ -397,9 +442,8 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
 
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
-    send: () => this.send(),
-    disabled:
-      !this.computedValue().trim() || this.computedMode() === "processing",
+    send: () => this.handleSendButtonClick(),
+    disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
   }));
 
@@ -411,6 +455,8 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   textAreaContext = computed(() => ({
     value: this.computedValue(),
     autoFocus: this.computedAutoFocus(),
+    // Keep textarea enabled while running — React v2 allows typing mid-run.
+    // Only disable in 'processing' mode (transcription in progress).
     disabled: this.computedMode() === "processing",
     maxRows: this.textAreaMaxRows(),
     placeholder: this.textAreaPlaceholder(),
@@ -454,7 +500,10 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     clicked: () => this.handleStartTranscribe(),
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
-  sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
+  sendButtonOutputs = {
+    clicked: () => this.handleSendButtonClick(),
+    click: () => this.handleSendButtonClick(),
+  };
 
   ngAfterViewInit(): void {
     // Auto-focus if needed
@@ -472,16 +521,59 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Keyboard handler for the textarea — mirrors React v2 `handleKeyDown`.
+   *
+   * Rules (matching the React v2 contract):
+   *  - Enter (no Shift): if a run is in flight AND the composer is empty →
+   *    stop the run (the "Enter on empty" stop affordance).
+   *  - Enter (no Shift): in all other cases → send (non-empty text always
+   *    sends, even mid-run; this is the consecutive-interrupt fix).
+   *  - Shift+Enter: always let the default newline through.
+   */
   handleKeyDown(event: KeyboardEvent): void {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      this.send();
+
+      // Mirrors React v2 logic:
+      //   if (isProcessing && !canSend) { onStop?.(); } else { send(); }
+      if (this.isProcessing() && !this.canSend()) {
+        this.triggerStop();
+      } else {
+        this.send();
+      }
     }
   }
 
   handleValueChange(value: string): void {
     this.valueChange.emit(value);
     if (this.chatState) this.chatState.changeInput(value);
+  }
+
+  /**
+   * Handle send/stop button click.
+   *
+   * The button is an explicit control: while a run is in flight it renders as
+   * a Stop (Square) button, so a click ALWAYS maps to stop regardless of
+   * composer contents.  This is the intentional divergence from Enter (which
+   * sends when the composer has text).  Mirrors React v2 `handleSendButtonClick`.
+   */
+  handleSendButtonClick(): void {
+    if (this.isProcessing()) {
+      this.triggerStop();
+      return;
+    }
+    this.send();
+  }
+
+  /**
+   * Stop the current run.
+   * Delegates to `ChatState.stopCurrentRun` (provided by `CopilotChat`) and
+   * also emits the `stop` output so parent templates can react directly.
+   */
+  private triggerStop(): void {
+    this.stop.emit();
+    this.chatState.stopCurrentRun?.();
   }
 
   send(): void {

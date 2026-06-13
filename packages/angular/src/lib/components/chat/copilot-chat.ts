@@ -20,13 +20,21 @@ import {
   AbstractAgent,
   AGUIConnectNotImplementedError,
 } from "@ag-ui/client";
+import { isRunCompletionAware } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
- * Provides a complete chat interface that wires an agent to the chat view
+ * Provides a complete chat interface that wires an agent to the chat view.
+ *
+ * Run-control behaviour (mirrors React v2 CopilotChat):
+ *  - Stop button is visible while a run is active.
+ *  - Pressing Enter on an empty input stops the active run.
+ *  - New sends are serialised behind the active run's completion promise so
+ *    an interrupt-resume is never pre-empted by a concurrent new message.
+ *  - The textarea stays editable while a run is in flight.
  *
  * @example
  * ```html
@@ -67,7 +75,6 @@ export class CopilotChat implements ChatState {
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   private readonly copilotKit = inject(CopilotKit);
-  // readonly chatConfig = injectChatConfig();
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
 
@@ -79,7 +86,6 @@ export class CopilotChat implements ChatState {
   private hasConnectedOnce = false;
 
   constructor() {
-    // Connect once when agent becomes available
     // Connect once when agent becomes available
     effect(
       () => {
@@ -140,9 +146,78 @@ export class CopilotChat implements ChatState {
     }
   }
 
+  /**
+   * Stop the currently active run.
+   *
+   * Mirrors React v2 `stopCurrentRun`:
+   *  1. Tries `core.stopAgent({ agent })` first (also aborts in-flight tools).
+   *  2. Falls back to `agent.abortRun()` if `stopAgent` throws.
+   */
+  stopCurrentRun(): void {
+    const agent = this.agentStore().agent;
+    if (!agent) return;
+
+    try {
+      this.copilotKit.core.stopAgent({ agent });
+    } catch (error) {
+      console.error("CopilotChat: stopAgent failed", error);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        console.error("CopilotChat: abortRun fallback failed", abortError);
+      }
+    }
+  }
+
+  /**
+   * If a run is currently in flight and the agent is RunCompletionAware,
+   * await its `activeRunCompletionPromise` before the next dispatch.
+   *
+   * Mirrors React v2 `waitForActiveRunToSettle` — prevents a new send from
+   * pre-empting an interrupt-resume mid-flight (the consecutive-interrupt
+   * regression fix, #5195).
+   */
+  private async waitForActiveRunToSettle(): Promise<void> {
+    const agent = this.agentStore().agent;
+    if (
+      agent &&
+      this.isRunning() &&
+      isRunCompletionAware(agent) &&
+      agent.activeRunCompletionPromise
+    ) {
+      try {
+        await agent.activeRunCompletionPromise;
+      } catch (error) {
+        // The in-flight run rejected — proceed with the new send anyway,
+        // but log so a chronically-failing run is observable.
+        console.error(
+          "CopilotChat: in-flight run rejected while queuing send",
+          error,
+        );
+      }
+    }
+  }
+
+  /**
+   * Send a new user message.
+   *
+   * Mirrors React v2 `onSubmitInput`:
+   *  - Clears the input immediately (optimistic UX).
+   *  - Awaits `waitForActiveRunToSettle` so an interrupt-resume finishes
+   *    before the new run begins.
+   *  - Adds the user message and calls `core.runAgent`.
+   */
   async submitInput(value: string): Promise<void> {
     const agent = this.agentStore().agent;
     if (!agent || !value.trim()) return;
+
+    // Clear the input immediately so the composer reflects the accepted send
+    // even though the actual dispatch may be deferred behind the in-flight run.
+    this.inputValue.set("");
+
+    // If a run is already in flight, let it finish before sending the new
+    // message instead of pre-empting it (mirrors React v2 serialization).
+    await this.waitForActiveRunToSettle();
 
     // Add user message
     const userMessage: Message = {
@@ -151,9 +226,6 @@ export class CopilotChat implements ChatState {
       content: value,
     };
     agent.addMessage(userMessage);
-
-    // Clear the input
-    this.inputValue.set("");
 
     // Show cursor while processing
     this.showCursor.set(true);
