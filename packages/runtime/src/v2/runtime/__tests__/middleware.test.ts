@@ -1,11 +1,13 @@
-import { vi, type MockedFunction } from "vitest";
+import { vi } from "vitest";
+import type { MockedFunction } from "vitest";
 import { createCopilotEndpoint } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-const dummyRuntime = (opts: Partial<CopilotRuntime> = {}) => {
+const dummyRuntime = (opts: Partial<CopilotSseRuntimeOptions> = {}) => {
   const runtime = new CopilotRuntime({
     agents: { agent: {} as unknown as AbstractAgent },
     ...opts,
@@ -42,7 +44,7 @@ describe("CopilotEndpoint middleware", () => {
         return new Response(null, { status: 204 });
       }
       throw new Error(`Unexpected fetch URL: ${url}`);
-    });
+    }) as unknown as MockedFunction<typeof fetch>;
     // Override global fetch for the duration of this test
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore

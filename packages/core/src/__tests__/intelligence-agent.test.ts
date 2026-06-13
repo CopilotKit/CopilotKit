@@ -251,7 +251,7 @@ describe("IntelligenceAgent", () => {
       await flushAsyncWork();
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, options] = mockFetch.mock.calls[0];
+      const [url, options] = mockFetch.mock.calls[0]!;
       expect(url).toContain("/agent/my-agent/run");
       expect(options.method).toBe("POST");
       expect(options.headers).toMatchObject({
@@ -752,7 +752,7 @@ describe("IntelligenceAgent", () => {
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await flushAsyncWork();
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = mockFetch.mock.calls[0]!;
       expect(options.credentials).toBe("include");
     });
 
@@ -761,7 +761,7 @@ describe("IntelligenceAgent", () => {
       agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await flushAsyncWork();
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = mockFetch.mock.calls[0]!;
       expect(options.credentials).toBeUndefined();
     });
   });
@@ -819,7 +819,7 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url] = mockFetch.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0]!;
       expect(url).toContain("/agent/my-agent/connect");
 
       const socket = getSocket(agent)!;
