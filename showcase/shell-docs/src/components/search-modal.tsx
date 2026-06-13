@@ -9,6 +9,12 @@ import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import type { Registry } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import {
+  frameworkDocsHref,
+  normalizeHref,
+  parseDocsHref,
+  parseIntegrationDocsHref,
+} from "@/lib/search-hrefs";
 
 // Integrations explorer + per-integration demo pages live on the shell
 // host (showcase.copilotkit.ai), not on shell-docs. Search results that
@@ -105,37 +111,6 @@ function buildDocsFolderMap(
   }
 
   return map;
-}
-
-function parseIntegrationDocsHref(
-  href: string,
-): { folder: string; topic: string } | null {
-  const prefix = "/docs/integrations/";
-  if (!href.startsWith(prefix)) return null;
-  const rest = href.slice(prefix.length);
-  const [folder, ...topicParts] = rest.split("/").filter(Boolean);
-  if (!folder) return null;
-  return { folder, topic: topicParts.join("/") };
-}
-
-function parseDocsHref(href: string): string | null {
-  if (!href.startsWith("/docs/")) return null;
-  if (href.startsWith("/docs/integrations/")) return null;
-  return href.slice("/docs/".length);
-}
-
-function frameworkDocsHref(framework: string, topic: string): string {
-  return topic ? `/${framework}/${topic}` : `/${framework}`;
-}
-
-function normalizeHref(href: string, shellHost: string): string {
-  if (href === "/integrations" || href === "/matrix") {
-    return `${shellHost}${href}`;
-  }
-  if (href.startsWith("/docs/")) {
-    return href.slice("/docs".length) || "/";
-  }
-  return href;
 }
 
 function matchesQuery(
