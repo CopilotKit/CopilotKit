@@ -6,14 +6,13 @@ import type {
 import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  resolveDebugConfig,
 } from "@copilotkit/shared";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseChecker } from "@copilotkit/license-verifier";
-import { resolveDebugConfig } from "@copilotkit/shared";
-import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
+import type { MCPClientConfig } from "../handlers/shared/mcp-apps-middleware";
 import pkg from "../../../../package.json";
 import type {
   BeforeRequestMiddleware,
