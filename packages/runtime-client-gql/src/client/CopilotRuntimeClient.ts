@@ -1,6 +1,6 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import * as packageJson from "../../package.json";
-import {
+import type {
   AvailableAgentsQuery,
   GenerateCopilotResponseMutation,
   GenerateCopilotResponseMutationVariables,
@@ -11,7 +11,7 @@ import {
   getAvailableAgentsQuery,
   loadAgentStateQuery,
 } from "../graphql/definitions/queries";
-import { OperationResultSource, OperationResult } from "urql";
+import type { OperationResultSource, OperationResult } from "urql";
 import {
   ResolvedCopilotKitError,
   CopilotKitLowLevelError,
@@ -19,6 +19,23 @@ import {
   CopilotKitVersionMismatchError,
   getPossibleVersionMismatch,
 } from "@copilotkit/shared";
+
+const KNOWN_ABORT_MESSAGES = [
+  "BodyStreamBuffer was aborted",
+  "signal is aborted without reason",
+];
+
+const isAbortError = (error: unknown) => {
+  if (error === null || typeof error !== "object") {
+    return false;
+  }
+
+  const message = (error as { message?: unknown }).message;
+  return (
+    typeof message === "string" &&
+    KNOWN_ABORT_MESSAGES.some((phrase) => message.includes(phrase))
+  );
+};
 
 const createFetchFn =
   (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
@@ -52,10 +69,7 @@ const createFetchFn =
       return result;
     } catch (error) {
       // Let abort error pass through. It will be suppressed later
-      if (
-        (error as Error).message.includes("BodyStreamBuffer was aborted") ||
-        (error as Error).message.includes("signal is aborted without reason")
-      ) {
+      if (isAbortError(error)) {
         throw error;
       }
       if (error instanceof CopilotKitError) {
@@ -139,10 +153,7 @@ export class CopilotRuntimeClient {
       start(controller) {
         source.subscribe(({ data, hasNext, error }) => {
           if (error) {
-            if (
-              error.message.includes("BodyStreamBuffer was aborted") ||
-              error.message.includes("signal is aborted without reason")
-            ) {
+            if (isAbortError(error)) {
               // close the stream if there is no next item
               if (!hasNext) controller.close();
 
