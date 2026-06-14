@@ -5,7 +5,12 @@ import { CopilotKit } from "../copilotkit";
 import { useCopilotContext } from "../../../context/copilot-context";
 import { useCopilotChatConfiguration, useAgent } from "../../../v2";
 import type { CopilotKitProps } from "../copilotkit-props";
-import type { AbstractAgent } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  type BaseEvent,
+  type RunAgentInput,
+} from "@ag-ui/client";
+import { Observable, Subject } from "rxjs";
 
 /**
  * Probe that reads hasExplicitThreadId from the CopilotChatConfigurationProvider
@@ -40,8 +45,26 @@ function SetThreadIdButton({ nextId }: { nextId: string }) {
 // than every render.
 type V1Props = CopilotKitProps & {
   agents__unsafe_dev_only?: Record<string, unknown>;
+  selfManagedAgents?: Record<string, unknown>;
 };
 const CopilotKitAny = CopilotKit as unknown as React.FC<V1Props>;
+
+class LocalTestAgent extends AbstractAgent {
+  private subject = new Subject<BaseEvent>();
+
+  clone(): LocalTestAgent {
+    const cloned = new LocalTestAgent({ agentId: this.agentId });
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject =
+      this.subject;
+    return cloned;
+  }
+
+  async detachActiveRun(): Promise<void> {}
+
+  run(_input: RunAgentInput): Observable<BaseEvent> {
+    return this.subject.asObservable();
+  }
+}
 
 /**
  * Regression coverage for fix/welcome-not-showing-at-all at the v1 bridge
@@ -104,6 +127,43 @@ describe("v1 <CopilotKit> bridge → hasExplicitThreadId", () => {
       "user-picked-thread",
     );
     expect(screen.getByTestId("explicit").textContent).toBe("true");
+  });
+});
+
+describe("v1 <CopilotKit> bridge -> selfManagedAgents", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  function AgentProbe({
+    onCapture,
+  }: {
+    onCapture: (agent: AbstractAgent) => void;
+  }) {
+    const { agent } = useAgent({ agentId: "testAgent" });
+    React.useEffect(() => {
+      onCapture(agent);
+    });
+    return null;
+  }
+
+  it("accepts selfManagedAgents without runtimeUrl or public key", () => {
+    const testAgent = new LocalTestAgent({ agentId: "testAgent" });
+    let captured: AbstractAgent | null = null;
+
+    expect(() => {
+      render(
+        <CopilotKitAny selfManagedAgents={{ testAgent }} agent="testAgent">
+          <AgentProbe onCapture={(agent) => (captured = agent)} />
+        </CopilotKitAny>,
+      );
+    }).not.toThrow();
+
+    expect(captured).toBe(testAgent);
   });
 });
 
