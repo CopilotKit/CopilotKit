@@ -1,0 +1,22 @@
+# Slack ingress bot (app/index.ts): Socket Mode, JSX -> Block Kit, and the
+# chart/diagram renderer, which drives Playwright Chromium. The browser is
+# installed INSIDE node_modules (PLAYWRIGHT_BROWSERS_PATH=0) so it ships with
+# the app layer, and `install --with-deps` bakes Chromium's system libraries
+# into this image — the two failure modes of platform builders, eliminated.
+FROM node:22.16.0-slim@sha256:048ed02c5fd52e86fda6fbd2f6a76cf0d4492fd6c6fee9e2c463ed5108da0e34
+
+WORKDIR /app
+ENV CI=true \
+    PLAYWRIGHT_BROWSERS_PATH=0
+RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+# Uses the lockfile-resolved playwright version — no version drift possible.
+RUN npx playwright install --with-deps chromium
+
+COPY . .
+
+# Socket Mode is outbound-only: no ports exposed. Needs SLACK_BOT_TOKEN,
+# SLACK_APP_TOKEN, AGENT_URL in the environment.
+CMD ["pnpm", "start"]
