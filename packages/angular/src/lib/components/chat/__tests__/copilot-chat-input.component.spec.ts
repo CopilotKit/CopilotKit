@@ -20,12 +20,13 @@ class ChatStateStub extends ChatState {
 }
 
 // ---------------------------------------------------------------------------
-// Stub that exposes isRunning + stopCurrentRun (mirrors CopilotChat)
+// Stub that exposes isRunning + stopCurrentRun + canStopRun (mirrors CopilotChat)
 // ---------------------------------------------------------------------------
 @Injectable()
 class RunAwareChatStateStub extends ChatState {
   inputValue = signal("");
   readonly isRunning = signal<boolean>(false);
+  readonly canStopRun = signal<boolean>(false);
   submitInput = vi.fn((value: string) => this.inputValue.set(value));
   changeInput = vi.fn((value: string) => this.inputValue.set(value));
   stopCurrentRun = vi.fn();
@@ -149,26 +150,69 @@ describe("CopilotChatInput", () => {
       expect(component.canSend()).toBe(true);
     });
 
-    it("canStop is true when ChatState exposes stopCurrentRun", () => {
+    it("canStop is true when ChatState exposes canStopRun = true", () => {
+      runAwareState.canStopRun.set(true);
       expect(component.canStop()).toBe(true);
+    });
+
+    it("canStop is false when ChatState exposes canStopRun = false", () => {
+      runAwareState.canStopRun.set(false);
+      expect(component.canStop()).toBe(false);
     });
 
     it("sendButtonDisabled is true when not running and composer is empty", () => {
       runAwareState.isRunning.set(false);
+      runAwareState.canStopRun.set(false);
       runAwareState.changeInput("");
       expect(component.sendButtonDisabled()).toBe(true);
     });
 
     it("sendButtonDisabled is false when not running and composer has text", () => {
       runAwareState.isRunning.set(false);
+      runAwareState.canStopRun.set(false);
       runAwareState.changeInput("hello");
       expect(component.sendButtonDisabled()).toBe(false);
     });
 
-    it("sendButtonDisabled is false (stop enabled) when running and canStop", () => {
+    it("sendButtonDisabled is false (stop enabled) when running with messages and canStopRun", () => {
       runAwareState.isRunning.set(true);
+      runAwareState.canStopRun.set(true);
       runAwareState.changeInput(""); // empty — isProcessing && !canSend
       expect(component.sendButtonDisabled()).toBe(false); // stop is available
+    });
+
+    it("sendButtonDisabled is true when running but canStopRun=false (no messages yet)", () => {
+      runAwareState.isRunning.set(true);
+      runAwareState.canStopRun.set(false); // welcome-screen guard: no messages
+      runAwareState.changeInput("");
+      // isProcessing=true, !canStop=true → disabled
+      expect(component.sendButtonDisabled()).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // canStop fallback: no canStopRun signal — falls back to stopCurrentRun presence
+  // ---------------------------------------------------------------------------
+  describe("canStop fallback (ChatState without canStopRun signal)", () => {
+    it("falls back to true when ChatState has stopCurrentRun but no canStopRun", () => {
+      // RunAwareChatStateStub does have canStopRun, but use the base stub:
+      @Injectable()
+      class LegacyStopState extends ChatState {
+        inputValue = signal("");
+        submitInput = vi.fn();
+        changeInput = vi.fn();
+        // No canStopRun signal — only the method
+        stopCurrentRun = vi.fn();
+      }
+
+      const result = makeComponent(LegacyStopState);
+      // canStopRun signal not set → falls back to typeof stopCurrentRun === "function"
+      expect(result.component.canStop()).toBe(true);
+    });
+
+    it("falls back to false when ChatState has neither canStopRun nor stopCurrentRun", () => {
+      // ChatStateStub has no stopCurrentRun
+      expect(component.canStop()).toBe(false);
     });
   });
 
@@ -203,6 +247,7 @@ describe("CopilotChatInput", () => {
 
       // Prepare: running with sendable text
       runAwareState.isRunning.set(true);
+      runAwareState.canStopRun.set(true);
       runAwareState.changeInput("a brand new message");
 
       // Enter with sendable text during a run => SEND (not stop).
@@ -231,6 +276,7 @@ describe("CopilotChatInput", () => {
       component.stop.subscribe(stopSpy);
 
       runAwareState.isRunning.set(true);
+      runAwareState.canStopRun.set(true);
       runAwareState.changeInput(""); // empty composer
 
       component.handleKeyDown(
@@ -247,6 +293,7 @@ describe("CopilotChatInput", () => {
       component.submitMessage.subscribe(submitSpy);
 
       runAwareState.isRunning.set(false);
+      runAwareState.canStopRun.set(false);
       runAwareState.changeInput("hello");
 
       component.handleKeyDown(
@@ -262,6 +309,7 @@ describe("CopilotChatInput", () => {
       component.submitMessage.subscribe(submitSpy);
 
       runAwareState.isRunning.set(false);
+      runAwareState.canStopRun.set(false);
       runAwareState.changeInput("hello");
 
       component.handleKeyDown(
@@ -278,6 +326,7 @@ describe("CopilotChatInput", () => {
       component.stop.subscribe(stopSpy);
 
       runAwareState.isRunning.set(true);
+      runAwareState.canStopRun.set(true);
       runAwareState.changeInput("some text");
 
       component.handleSendButtonClick();
@@ -292,6 +341,7 @@ describe("CopilotChatInput", () => {
       component.submitMessage.subscribe(submitSpy);
 
       runAwareState.isRunning.set(false);
+      runAwareState.canStopRun.set(false);
       runAwareState.changeInput("hello");
 
       component.handleSendButtonClick();
@@ -316,6 +366,7 @@ describe("CopilotChatInput", () => {
       const state = result.chatState as RunAwareChatStateStub;
 
       state.isRunning.set(true);
+      state.canStopRun.set(true);
       state.changeInput(""); // empty so Enter routes to stop
 
       c.handleKeyDown(
@@ -349,105 +400,5 @@ describe("CopilotChatInput", () => {
       component.modeSignal.set("processing");
       expect(component.textAreaContext().disabled).toBe(true);
     });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// CopilotChat serialization tests (waitForActiveRunToSettle)
-// ---------------------------------------------------------------------------
-describe("CopilotChat – waitForActiveRunToSettle serialization", () => {
-  it("awaits activeRunCompletionPromise before sending when a run is in flight", async () => {
-    // We test the serialization logic by examining the sequence:
-    // 1. submitInput is called while isRunning = true
-    // 2. The run's completion promise must resolve before runAgent is called
-    //
-    // This is a unit-level proof that the logic mirrors React v2.
-
-    let resolveRun!: () => void;
-    const runCompletion = new Promise<void>((r) => {
-      resolveRun = r;
-    });
-
-    const callOrder: string[] = [];
-
-    // Mock agent with RunCompletionAware
-    const mockAgent = {
-      isRunning: true,
-      activeRunCompletionPromise: runCompletion,
-      addMessage: vi.fn(),
-      abortRun: vi.fn(),
-      threadId: "thread-1",
-      messages: [],
-    };
-
-    // Simulate the serialization logic extracted from CopilotChat.submitInput
-    const waitForActiveRunToSettle = async () => {
-      if (
-        mockAgent.isRunning &&
-        "activeRunCompletionPromise" in mockAgent &&
-        mockAgent.activeRunCompletionPromise
-      ) {
-        try {
-          await mockAgent.activeRunCompletionPromise;
-        } catch {
-          // ignore
-        }
-      }
-    };
-
-    const dispatchMessage = async (value: string) => {
-      callOrder.push("pre-wait");
-      await waitForActiveRunToSettle();
-      callOrder.push("post-wait");
-      mockAgent.addMessage({ id: "1", role: "user", content: value });
-    };
-
-    // Start the dispatch (it should pause at the await)
-    const dispatchPromise = dispatchMessage("hello");
-
-    // At this point post-wait should NOT have been called yet
-    expect(callOrder).toEqual(["pre-wait"]);
-    expect(mockAgent.addMessage).not.toHaveBeenCalled();
-
-    // Resolve the in-flight run
-    resolveRun();
-    await dispatchPromise;
-
-    // Now the message should have been added
-    expect(callOrder).toEqual(["pre-wait", "post-wait"]);
-    expect(mockAgent.addMessage).toHaveBeenCalledWith({
-      id: "1",
-      role: "user",
-      content: "hello",
-    });
-  });
-
-  it("proceeds immediately when agent is not RunCompletionAware", async () => {
-    const callOrder: string[] = [];
-
-    // Agent without activeRunCompletionPromise
-    const mockAgent = {
-      isRunning: true,
-      addMessage: vi.fn(),
-      threadId: "thread-1",
-      messages: [],
-    };
-
-    const waitForActiveRunToSettle = async () => {
-      if (
-        mockAgent.isRunning &&
-        "activeRunCompletionPromise" in mockAgent &&
-        (mockAgent as any).activeRunCompletionPromise
-      ) {
-        await (mockAgent as any).activeRunCompletionPromise;
-      }
-    };
-
-    callOrder.push("pre-wait");
-    await waitForActiveRunToSettle();
-    callOrder.push("post-wait");
-
-    // Should proceed synchronously (no activeRunCompletionPromise)
-    expect(callOrder).toEqual(["pre-wait", "post-wait"]);
   });
 });

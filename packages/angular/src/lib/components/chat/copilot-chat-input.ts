@@ -411,10 +411,24 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   canSend = computed(() => this.computedValue().trim().length > 0);
 
   /**
-   * True when a stop handler is available.
-   * In Angular this is fulfilled by ChatState.stopCurrentRun existing.
+   * True when a stop action is currently meaningful.
+   *
+   * Mirrors React v2's two-part guard:
+   *   - `canStop` (= `!!onStop`): the handler exists.
+   *   - `shouldAllowStop` (= `isRunning && hasMessages`): the stop button is
+   *     only rendered while a run is in flight AND the thread has messages.
+   *
+   * When the ChatState exposes `canStopRun` (as `CopilotChat` does) we use it
+   * directly — it already encodes both conditions.  Otherwise we fall back to
+   * checking that `stopCurrentRun` is defined, which preserves backward
+   * compatibility for custom ChatState implementations.
    */
-  canStop = computed(() => typeof this.chatState.stopCurrentRun === "function");
+  canStop = computed(() => {
+    if (this.chatState.canStopRun) {
+      return this.chatState.canStopRun();
+    }
+    return typeof this.chatState.stopCurrentRun === "function";
+  });
 
   /**
    * Disabled logic for the send/stop button, mirroring React v2:

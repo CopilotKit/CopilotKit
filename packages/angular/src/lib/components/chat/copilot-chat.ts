@@ -79,8 +79,17 @@ export class CopilotChat implements ChatState {
   readonly injector = inject(Injector);
 
   protected messages = computed(() => this.agentStore().messages());
-  protected isRunning = computed(() => this.agentStore().isRunning());
+  readonly isRunning = computed(() => this.agentStore().isRunning());
   protected showCursor = signal<boolean>(false);
+
+  /**
+   * True when a stop handler should be offered to the UI.
+   * Mirrors React v2: `agent.isRunning && hasMessages` — the stop button is
+   * only meaningful after at least one message is in the thread.
+   */
+  readonly canStopRun = computed(
+    () => this.isRunning() && this.messages().length > 0,
+  );
 
   private generatedThreadId: string = randomUUID();
   private hasConnectedOnce = false;
@@ -152,8 +161,13 @@ export class CopilotChat implements ChatState {
    * Mirrors React v2 `stopCurrentRun`:
    *  1. Tries `core.stopAgent({ agent })` first (also aborts in-flight tools).
    *  2. Falls back to `agent.abortRun()` if `stopAgent` throws.
+   *
+   * Only has effect when `canStopRun` is true (running with messages), mirroring
+   * React v2's `shouldAllowStop = agent.isRunning && hasMessages` guard.
    */
   stopCurrentRun(): void {
+    if (!this.canStopRun()) return;
+
     const agent = this.agentStore().agent;
     if (!agent) return;
 
