@@ -1,5 +1,6 @@
-import { ReactCustomMessageRendererPosition, useAgent } from "../v2";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAgent } from "../v2";
+import type { ReactCustomMessageRendererPosition } from "../v2";
+import { useEffect, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
 import { parseJson } from "@copilotkit/shared";
@@ -108,13 +109,13 @@ export function useCoagentStateRenderBridge(
   const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
   const [nodeName, setNodeName] = useState<string | undefined>(undefined);
-  const [, forceUpdate] = useState(0);
+  const [, setLiveUpdateVersion] = useState(0);
 
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
       onStateChanged: () => {
-        forceUpdate((value) => value + 1);
+        setLiveUpdateVersion((value) => value + 1);
       },
       onStepStartedEvent: ({ event }) => {
         if (event.stepName !== nodeName) {
@@ -135,26 +136,17 @@ export function useCoagentStateRenderBridge(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, nodeName]);
 
-  const getStateRender = useCallback(
-    (messageId: string) => {
-      return Object.entries(coAgentStateRenders).find(
-        ([stateRenderId, stateRender]) => {
-          if (claimsRef.current[messageId]) {
-            return stateRenderId === claimsRef.current[messageId].stateRenderId;
-          }
-          const matchingAgentName = stateRender.name === agentId;
-          const matchesNodeContext = stateRender.nodeName
-            ? stateRender.nodeName === nodeName
-            : true;
-          return matchingAgentName && matchesNodeContext;
-        },
-      );
+  const stateRenderEntry = Object.entries(coAgentStateRenders).find(
+    ([stateRenderId, stateRender]) => {
+      if (claimsRef.current[message.id]) {
+        return stateRenderId === claimsRef.current[message.id].stateRenderId;
+      }
+      const matchingAgentName = stateRender.name === agentId;
+      const matchesNodeContext = stateRender.nodeName
+        ? stateRender.nodeName === nodeName
+        : true;
+      return matchingAgentName && matchesNodeContext;
     },
-    [coAgentStateRenders, nodeName, agentId],
-  );
-  const stateRenderEntry = useMemo(
-    () => getStateRender(message.id),
-    [getStateRender, message.id],
   );
   const stateRenderId = stateRenderEntry?.[0];
   const stateRender = stateRenderEntry?.[1];
@@ -174,47 +166,36 @@ export function useCoagentStateRenderBridge(
     claimsRef,
   });
 
-  return useMemo(() => {
-    if (!stateRender || !stateRenderId) {
-      return null;
-    }
-    if (!canRender) {
-      return null;
-    }
+  if (!stateRender || !stateRenderId) {
+    return null;
+  }
+  if (!canRender) {
+    return null;
+  }
 
-    if (stateRender.handler) {
-      stateRender.handler({
-        state: stateSnapshot
-          ? parseJson(stateSnapshot, stateSnapshot)
-          : (agent?.state ?? {}),
-        nodeName: nodeName ?? "",
-      });
-    }
+  if (stateRender.handler) {
+    stateRender.handler({
+      state: stateSnapshot
+        ? parseJson(stateSnapshot, stateSnapshot)
+        : (agent?.state ?? {}),
+      nodeName: nodeName ?? "",
+    });
+  }
 
-    if (stateRender.render) {
-      const status = agent?.isRunning
-        ? RenderStatus.InProgress
-        : RenderStatus.Complete;
+  if (stateRender.render) {
+    const status = agent?.isRunning
+      ? RenderStatus.InProgress
+      : RenderStatus.Complete;
 
-      if (typeof stateRender.render === "string") return stateRender.render;
+    if (typeof stateRender.render === "string") return stateRender.render;
 
-      return stateRender.render({
-        status,
-        // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
-        state: claimsRef.current[message.id].stateSnapshot ?? {},
-        nodeName: nodeName ?? "",
-      });
-    }
-  }, [
-    stateRender,
-    stateRenderId,
-    agent?.state,
-    agent?.isRunning,
-    nodeName,
-    message.id,
-    stateSnapshot,
-    canRender,
-  ]);
+    return stateRender.render({
+      status,
+      // Always use state from claim, to make sure the state does not seem "wiped" for a fraction of a second
+      state: claimsRef.current[message.id].stateSnapshot ?? {},
+      nodeName: nodeName ?? "",
+    });
+  }
 }
 
 export function CoAgentStateRenderBridge(props: CoAgentStateRenderBridgeProps) {
