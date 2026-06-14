@@ -366,6 +366,35 @@ describe("useCoAgentStateRender", () => {
     });
   });
 
+  it("re-renders from in-place live agent state updates", async () => {
+    const copilotContextValue = createTestCopilotContext();
+    const liveState = { current_step: "Processing..." };
+    mockAgent.state = liveState;
+
+    render(
+      <CopilotContext.Provider value={copilotContextValue}>
+        <CoAgentStateRendersProvider>
+          <LiveStateHarness
+            message={{ id: "msg-live-in-place", role: "assistant" }}
+          />
+        </CoAgentStateRendersProvider>
+      </CopilotContext.Provider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("state").textContent).toBe("Processing...");
+    });
+
+    act(() => {
+      liveState.current_step = "Thinking...";
+      lastSubscriber?.onStateChanged?.({ state: liveState });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("state").textContent).toBe("Thinking...");
+    });
+  });
+
   it("renders state snapshots before any assistant message exists", async () => {
     const copilotContextValue = createTestCopilotContext({
       threadId: "thread-1",
@@ -404,8 +433,6 @@ describe("useCoAgentStateRender", () => {
     });
 
     expect(screen.getByTestId(placeholderTestId)).toBeTruthy();
-
-    const placeholderStep = screen.getByTestId("state").textContent;
 
     mockAgent.isRunning = false;
     mockAgent.state = {};
