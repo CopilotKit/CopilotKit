@@ -17,7 +17,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { LucideAngularModule, ArrowUp } from "lucide-angular";
+import { LucideAngularModule, ArrowUp, Square } from "lucide-angular";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -42,6 +42,8 @@ export interface SendButtonContext {
   send: () => void;
   disabled: boolean;
   value: string;
+  stop: () => void;
+  isRunning: boolean;
 }
 
 export interface ToolbarContext {
@@ -226,15 +228,21 @@ export interface ToolbarContext {
                   <button
                     type="button"
                     [class]="sendButtonClass() || defaultButtonClass"
-                    [disabled]="
-                      !computedValue().trim() || computedMode() === 'processing'
-                    "
-                    (click)="send()"
+                    [disabled]="sendButtonDisabled()"
+                    (click)="handleSendButtonClick()"
                   >
-                    <lucide-angular
-                      [img]="ArrowUpIcon"
-                      [size]="18"
-                    ></lucide-angular>
+                    @if (isProcessing() && canStop()) {
+                      <lucide-angular
+                        [img]="SquareIcon"
+                        [size]="18"
+                        class="fill-current"
+                      ></lucide-angular>
+                    } @else {
+                      <lucide-angular
+                        [img]="ArrowUpIcon"
+                        [size]="18"
+                      ></lucide-angular>
+                    }
                   </button>
                 </div>
               }
@@ -326,9 +334,11 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   finishTranscribe = output<void>();
   addFile = output<void>();
   valueChange = output<string>();
+  stop = output<void>();
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
+  readonly SquareIcon = Square;
   readonly defaultButtonClass = cn(
     // Base button styles
     "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
@@ -379,6 +389,17 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     return customValue || configValue || "";
   });
 
+  isProcessing = computed(
+    () =>
+      this.computedMode() !== "transcribe" &&
+      (this.chatState.isRunning?.() ?? false),
+  );
+  canSend = computed(() => this.computedValue().trim().length > 0);
+  canStop = computed(() => typeof this.chatState.stopCurrentRun === "function");
+  sendButtonDisabled = computed(() =>
+    this.isProcessing() ? !this.canStop() : !this.canSend(),
+  );
+
   computedClass = computed(() => {
     const baseClasses = cn(
       // Layout
@@ -397,10 +418,11 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
 
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
-    send: () => this.send(),
-    disabled:
-      !this.computedValue().trim() || this.computedMode() === "processing",
+    send: () => this.handleSendButtonClick(),
+    disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
+    stop: () => this.triggerStop(),
+    isRunning: this.isProcessing(),
   }));
 
   toolbarContext = computed<ToolbarContext>(() => ({
@@ -454,7 +476,10 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     clicked: () => this.handleStartTranscribe(),
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
-  sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
+  sendButtonOutputs = {
+    clicked: () => this.handleSendButtonClick(),
+    click: () => this.handleSendButtonClick(),
+  };
 
   ngAfterViewInit(): void {
     // Auto-focus if needed
@@ -475,6 +500,10 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   handleKeyDown(event: KeyboardEvent): void {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (this.isProcessing() && !this.canSend()) {
+        this.triggerStop();
+        return;
+      }
       this.send();
     }
   }
@@ -482,6 +511,19 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   handleValueChange(value: string): void {
     this.valueChange.emit(value);
     if (this.chatState) this.chatState.changeInput(value);
+  }
+
+  handleSendButtonClick(): void {
+    if (this.isProcessing()) {
+      this.triggerStop();
+      return;
+    }
+    this.send();
+  }
+
+  private triggerStop(): void {
+    this.stop.emit();
+    this.chatState.stopCurrentRun?.();
   }
 
   send(): void {
