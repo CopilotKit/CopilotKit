@@ -52,6 +52,13 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
+import { OPEN_GEN_UI_DESIGN_SYSTEM_CSS } from "../lib/designSystemCss";
+import {
+  DEFAULT_OPEN_GEN_UI_LIBRARIES,
+  mergeLibraries,
+} from "../lib/assembleDocument";
+import { OpenGenerativeUIOptionsProvider } from "./OpenGenerativeUIOptionsContext";
+import type { OpenGenerativeUIResolvedOptions } from "./OpenGenerativeUIOptionsContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -63,7 +70,10 @@ const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
 const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
-const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
+// Legacy design skill (hardcoded palette). Used when the design system is
+// disabled (`openGenerativeUI.designSystem === false`) so the model still
+// receives concrete color/border guidance instead of token references.
+const LEGACY_DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
 - Neutral base palette: white backgrounds, zinc/slate gray text (#09090b for headings, #71717a for secondary text). One accent color for interactive elements.
@@ -74,19 +84,72 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
-const GENERATE_SANDBOXED_UI_DESCRIPTION =
-  "Generate sandboxed UI. " +
-  "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
-  "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-  "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
-  "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
-  "CDN resources load normally inside the sandbox.\n\n" +
-  "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
-  "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
-  "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
-  "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
-  "4. jsFunctions (reusable helper functions)\n" +
-  "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
+// Default design skill (token-based). Used when the design system is injected
+// so the model styles against the pre-injected design tokens.
+const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
+
+- Use the injected design tokens for all colors and radii (var(--color-*), var(--border-radius-*)); never hardcode grays. One accent color for interactive elements.
+- Surfaces separate with 1px var(--color-border-tertiary) borders, not shadows.
+- Use system font stacks (system-ui, -apple-system, sans-serif) at readable sizes (14px body, 600 weight for headings). Tight line-heights.
+- Small, consistent border-radius (6–8px). Cards and containers use border, not shadow, for separation.
+- Buttons: solid fill for primary (dark bg, white text), outline for secondary (border + transparent bg). Subtle hover state (slight opacity or background shift).
+- Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
+- Minimal transitions (150ms) for hover/focus states only. No decorative animations.
+- Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
+
+// Base generateSandboxedUi tool description. When the design system / library
+// importmap are injected into the document, append guidance so the model knows
+// the kit and pre-wired ES-module libraries exist.
+// `designSystem` is three-state: "builtin" advertises the built-in token/SVG
+// kit; "custom" appends a short neutral line (the custom CSS may not define the
+// built-in token names); "off" appends nothing. With "off" + no libraries this
+// returns the original (legacy) description text verbatim.
+function buildGenerateSandboxedUiDescription(opts: {
+  designSystem: "builtin" | "custom" | "off";
+  libraries: string[];
+}): string {
+  let description =
+    "Generate sandboxed UI. " +
+    "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
+    "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
+    "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
+    "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
+    "CDN resources load normally inside the sandbox.\n\n" +
+    "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
+    "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
+    "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
+    "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
+    "4. jsFunctions (reusable helper functions)\n" +
+    "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
+
+  if (opts.designSystem === "builtin") {
+    description +=
+      "\n\nA design system is PRE-INJECTED into the document. Prefer it over hand-rolled styles:\n" +
+      "- CSS variables: var(--color-background-primary|secondary|tertiary), var(--color-text-primary|secondary|tertiary), var(--color-border-*), semantic info/danger/success/warning variants, var(--font-sans|serif|mono), var(--border-radius-md|lg|xl). Light/dark is automatic — do NOT hardcode colors for things the tokens cover.\n" +
+      "- Form controls (button, input, textarea, select, range, checkbox, radio) are pre-styled; write semantic HTML and skip restyling basics.\n" +
+      "- SVG helper classes: text.t/.ts/.th for typography; .box, .node, .arr, .leader; color ramps .c-purple/.c-teal/.c-coral/.c-pink/.c-gray/.c-blue/.c-green/.c-amber/.c-red for fills+strokes with dark-mode handled.";
+  } else if (opts.designSystem === "custom") {
+    description +=
+      "\n\nA custom design system stylesheet is PRE-INJECTED into the document. Prefer its existing styles over hand-rolled CSS.";
+  }
+
+  if (opts.libraries.length > 0) {
+    // The appended block below tells the model NOT to add <script src> CDN tags
+    // for the pre-wired libraries. The base text's CDN example previously named
+    // some of those same libraries (Chart.js, D3, Three.js), directly
+    // contradicting that instruction — so when the block is appended, drop the
+    // pre-wired names from the example and keep only a non-pre-wired one.
+    description = description.replace(
+      "(e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.)",
+      "(e.g., x-data-spreadsheet, etc.)",
+    );
+    description += `\n\nPre-wired ES-module libraries (importmap is already in the document): ${opts.libraries.join(
+      ", ",
+    )}. Import them with bare specifiers inside <script type="module"> (e.g. import * as THREE from "three"; import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"). Do NOT add <script src> CDN tags for these libraries.`;
+  }
+
+  return description;
+}
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -119,12 +182,10 @@ export interface CopilotKitProviderProps {
    *
    * @example
    * ```tsx
-   * <CopilotKit
-   *   runtimeUrl="/api/copilotkit"
-   *   openGenerativeUI={{
-   *     sandboxFunctions: [{ name: "addToCart", description: "…", parameters: schema, handler: fn }],
-   *   }}
-   * >
+   * // define outside the component (or useMemo) — a stable identity avoids sandbox rebuilds
+   * const sandboxFunctions = [{ name: "addToCart", description: "…", parameters: schema, handler: fn }];
+   *
+   * <CopilotKit runtimeUrl="/api/copilotkit" openGenerativeUI={{ sandboxFunctions }}>
    * ```
    */
   openGenerativeUI?: {
@@ -146,6 +207,19 @@ export interface CopilotKitProviderProps {
      * A sensible default is provided if omitted.
      */
     designSkill?: string;
+    /**
+     * Design-system CSS injected into every generated document.
+     * `true` (default) injects the built-in token/SVG/form kit; `false` disables;
+     * `{ css }` replaces the kit with a custom one (a degenerate object such as
+     * `{}` or `{ css: "" }` falls back to the built-in kit).
+     */
+    designSystem?: boolean | { css: string };
+    /**
+     * ES-module importmap entries injected into every generated document.
+     * Defaults to pinned three/gsap/d3/chart.js. Merged over the defaults;
+     * `false` disables the importmap entirely.
+     */
+    libraries?: Record<string, string> | false;
   };
   showDevConsole?: boolean | "auto";
   /**
@@ -274,6 +348,83 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  // Single source of truth for the custom design-system stylesheet. A custom kit
+  // is only present when `designSystem` is an object carrying a non-empty `css`
+  // string; `{}`, `{ css: "" }`, whitespace-only css, `null` and `undefined` all
+  // resolve to `undefined` here and therefore behave like the built-in kit.
+  // Both the injection decision (`openGenUIOptions.designSystemCss`) and the
+  // guidance decision (`usingBuiltInKit`) derive from this so they can never
+  // disagree about what actually landed in the document.
+  //
+  // Computed as a plain const (cheap string ops; output is the primitive
+  // `string | undefined`) rather than a memo keyed on the `designSystem` object
+  // identity — the documented inline idiom (`designSystem={{ css }}`) passes a
+  // fresh object every render, so an identity-keyed memo would recompute (and
+  // break referential stability of the resolved options) on every parent
+  // re-render even when the value is unchanged.
+  const designSystem = openGenerativeUI?.designSystem;
+  const customKitCss =
+    designSystem &&
+    typeof designSystem === "object" &&
+    typeof designSystem.css === "string" &&
+    designSystem.css.trim().length > 0
+      ? designSystem.css
+      : undefined;
+  const designSystemOff = designSystem === false;
+
+  // Value-stable key for the library importmap. The inline idiom
+  // (`libraries={{ … }}`) passes a fresh object every render, and a dynamically
+  // built object (spread merges, Object.fromEntries) can also reorder keys
+  // between renders while carrying the same entries. JSON.stringify is
+  // insertion-order-sensitive, so we serialize from sorted entries — the key
+  // changes only on a genuine VALUE change, never on key-order or
+  // object-identity churn. The memo below therefore recomputes only when the
+  // resolved importmap would actually differ.
+  const libs = openGenerativeUI?.libraries;
+  const librariesKey =
+    libs === false
+      ? "false"
+      : libs == null
+        ? "null"
+        : JSON.stringify(
+            Object.fromEntries(
+              Object.entries(libs).sort(([a], [b]) =>
+                a < b ? -1 : a > b ? 1 : 0,
+              ),
+            ),
+          );
+
+  // Resolve the design-system CSS + library importmap once. Defaults inject the
+  // built-in kit and pinned libraries; `designSystem: false` / `libraries: false`
+  // restore legacy (no-injection) behavior.
+  //
+  // Deps are VALUE keys (primitives), not object identities, so inline-but-
+  // unchanged configs keep a referentially stable result. This matters because
+  // the resolved options flow into the live sandbox iframe: a new identity on an
+  // unrelated parent re-render would destroy and rebuild the iframe (flicker +
+  // full JS-state wipe). The memo body may read the latest `libs` closure since
+  // `librariesKey` changes whenever the VALUE changes.
+  const openGenUIOptions = useMemo<OpenGenerativeUIResolvedOptions>(
+    () => ({
+      designSystemCss: designSystemOff
+        ? false
+        : (customKitCss ?? OPEN_GEN_UI_DESIGN_SYSTEM_CSS),
+      importMap:
+        libs === false
+          ? false
+          : mergeLibraries(DEFAULT_OPEN_GEN_UI_LIBRARIES, libs ?? {}),
+    }),
+    // identity-stable: deps are value keys, not object identities. `libs` is
+    // intentionally read from the latest closure (gated by `librariesKey`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [designSystemOff, customKitCss, librariesKey],
+  );
+
+  // Distinguish the built-in kit from a custom one so downstream guidance
+  // (tool description + design skill) advertises only what's actually injected.
+  // Built-in kit = anything except `false` (disabled) or a non-empty custom
+  // `{ css }`. A custom kit may not define the built-in token/SVG names.
+  const usingBuiltInKit = !designSystemOff && customKitCss === undefined;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     string | undefined
   >(undefined);
@@ -471,14 +622,26 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     return [
       {
         name: "generateSandboxedUi",
-        description: GENERATE_SANDBOXED_UI_DESCRIPTION,
+        description: buildGenerateSandboxedUiDescription({
+          designSystem:
+            openGenUIOptions.designSystemCss === false
+              ? "off"
+              : usingBuiltInKit
+                ? "builtin"
+                : "custom",
+          libraries: openGenUIOptions.importMap
+            ? Object.keys(openGenUIOptions.importMap).filter(
+                (k) => !k.endsWith("/"),
+              )
+            : [],
+        }),
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
     ];
-  }, [openGenUIActive]);
+  }, [openGenUIActive, openGenUIOptions, usingBuiltInKit]);
 
   // Combine all tools for CopilotKitCore
   const allTools = useMemo(() => {
@@ -557,8 +720,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // Sync runtime feature flags from the core once runtime info is fetched
   useEffect(() => {
-    // Check current value immediately (may already be set before subscription)
+    // Read all current values immediately: runtime /info may have already
+    // resolved before this effect subscribed, and no further
+    // onRuntimeConnectionStatusChanged event would fire to deliver them.
     setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+    setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
+    setRuntimeLicenseStatus(copilotkit.licenseStatus);
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: () => {
         setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
@@ -714,8 +881,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setDefaultThrottleMs(defaultThrottleMs);
   }, [copilotkit, defaultThrottleMs]);
 
-  // Register design skill as agent context for the generateSandboxedUi tool
-  const designSkill = openGenerativeUI?.designSkill ?? DEFAULT_DESIGN_SKILL;
+  // Register design skill as agent context for the generateSandboxedUi tool.
+  // The token-based skill (which references built-in var(--color-*) names) is
+  // only safe when the built-in kit is injected. For a custom kit or a disabled
+  // design system, fall back to the generic legacy skill so the model gets
+  // concrete color/border guidance instead of token names it may not have.
+  const designSkill =
+    openGenerativeUI?.designSkill ??
+    (usingBuiltInKit ? DEFAULT_DESIGN_SKILL : LEGACY_DEFAULT_DESIGN_SKILL);
 
   useLayoutEffect(() => {
     if (!copilotkit || !openGenUIActive) return;
@@ -767,39 +940,41 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 
   return (
-    <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
-      <CopilotKitContext.Provider value={contextValue}>
-        <LicenseContext.Provider value={licenseContextValue}>
-          {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-          {runtimeA2UIEnabled && (
-            <A2UICatalogContext
-              catalog={a2ui?.catalog}
-              includeSchema={a2ui?.includeSchema}
-            />
-          )}
-          {children}
-          {shouldRenderInspector ? (
-            <CopilotKitInspector
-              core={copilotkit}
-              defaultAnchor={inspectorDefaultAnchor}
-            />
-          ) : null}
-          {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
-            <LicenseWarningBanner type="no_license" />
-          )}
-          {runtimeLicenseStatus === "expired" && (
-            <LicenseWarningBanner type="expired" />
-          )}
-          {runtimeLicenseStatus === "invalid" && (
-            <LicenseWarningBanner type="invalid" />
-          )}
-          {runtimeLicenseStatus === "expiring" && (
-            <LicenseWarningBanner type="expiring" />
-          )}
-        </LicenseContext.Provider>
-      </CopilotKitContext.Provider>
-    </SandboxFunctionsContext.Provider>
+    <OpenGenerativeUIOptionsProvider value={openGenUIOptions}>
+      <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
+        <CopilotKitContext.Provider value={contextValue}>
+          <LicenseContext.Provider value={licenseContextValue}>
+            {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
+            {runtimeA2UIEnabled && (
+              <A2UICatalogContext
+                catalog={a2ui?.catalog}
+                includeSchema={a2ui?.includeSchema}
+              />
+            )}
+            {children}
+            {shouldRenderInspector ? (
+              <CopilotKitInspector
+                core={copilotkit}
+                defaultAnchor={inspectorDefaultAnchor}
+              />
+            ) : null}
+            {/* License warnings — driven by server-reported status */}
+            {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
+              <LicenseWarningBanner type="no_license" />
+            )}
+            {runtimeLicenseStatus === "expired" && (
+              <LicenseWarningBanner type="expired" />
+            )}
+            {runtimeLicenseStatus === "invalid" && (
+              <LicenseWarningBanner type="invalid" />
+            )}
+            {runtimeLicenseStatus === "expiring" && (
+              <LicenseWarningBanner type="expiring" />
+            )}
+          </LicenseContext.Provider>
+        </CopilotKitContext.Provider>
+      </SandboxFunctionsContext.Provider>
+    </OpenGenerativeUIOptionsProvider>
   );
 };
 

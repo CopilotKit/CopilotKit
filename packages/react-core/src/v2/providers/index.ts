@@ -1,6 +1,7 @@
 export {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
   type CopilotChatLabels,
   type CopilotChatConfigurationValue,
   type CopilotChatConfigurationProviderProps,
