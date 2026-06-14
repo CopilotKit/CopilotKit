@@ -20,10 +20,10 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
     vi.restoreAllMocks();
   });
 
-  it("should skip tool call when result already exists in newMessages", async () => {
+  it("should replace placeholder and execute handler when tool has a handler and result already exists", async () => {
     const tool = createTool({
       name: "alreadyProcessedTool",
-      handler: vi.fn(async () => "Should not be called"),
+      handler: vi.fn(async () => "Real result"),
     });
     copilotKitCore.addTool(tool);
 
@@ -51,7 +51,8 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     await copilotKitCore.runAgent({ agent: agent as any });
 
-    expect(tool.handler).not.toHaveBeenCalled();
+    // With the placeholder fix, a tool with a handler replaces the placeholder
+    expect(tool.handler).toHaveBeenCalled();
   });
 
   it("should handle empty tool function name", async () => {
