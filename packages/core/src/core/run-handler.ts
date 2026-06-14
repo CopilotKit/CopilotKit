@@ -393,15 +393,34 @@ export class RunHandler {
     for (const message of newMessages) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
+          const tool = this.getTool({
+            toolName: toolCall.function.name,
+            agentId: agent.agentId,
+          });
+
+          let existingResultIndex = newMessages.findIndex(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
+
+          // When a remote agent returns a placeholder result (e.g. "Forwarded to
+          // client") for a frontend tool that has a handler, remove the placeholder
+          // so the real handler can execute. Without this, the guard below would
+          // skip execution entirely because it finds an existing result.
+          if (tool?.handler !== undefined && existingResultIndex !== -1) {
+            newMessages.splice(existingResultIndex, 1);
+            existingResultIndex = -1;
+
+            // Mirror the removal in agent.messages so the follow-up run does not
+            // send the stale placeholder back to the backend.
+            const agentMsgIdx = agent.messages.findIndex(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
-            const tool = this.getTool({
-              toolName: toolCall.function.name,
-              agentId: agent.agentId,
-            });
+            );
+            if (agentMsgIdx !== -1) {
+              agent.messages.splice(agentMsgIdx, 1);
+            }
+          }
+
+          if (existingResultIndex === -1) {
             if (tool) {
               const followUp = await this.executeSpecificTool(
                 tool,
