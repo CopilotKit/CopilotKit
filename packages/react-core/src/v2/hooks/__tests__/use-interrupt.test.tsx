@@ -630,4 +630,76 @@ describe("useInterrupt", () => {
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  // RESUME-PATH regression: `resolve()` MUST return a Promise that settles
+  // only when the underlying `copilotkit.runAgent` call settles. Callers
+  // (e.g. the showcase `interrupt-headless` demo's `useHeadlessInterrupt`,
+  // or any consumer that wants to chain post-resume UI like the harness
+  // DOM settle-check for the confirmation bubble) cannot sequence against
+  // the resume run otherwise. The 12 manifests quarantine `interrupt-headless`
+  // citing exactly this failure mode: backend resumes + streams (HTTP 200),
+  // but downstream observers can't tell when the resume has actually
+  // landed because resolve() returns void instead of a Promise.
+  it("resolve returns a Promise that settles when runAgent settles (RESUME-PATH)", async () => {
+    // Make runAgent return a manually-controlled promise so we can assert
+    // resolve() awaits it rather than fire-and-forget.
+    let releaseRunAgent: ((result: { newMessages: never[] }) => void) | null =
+      null;
+    runAgentMock.mockImplementation(
+      () =>
+        new Promise((res) => {
+          releaseRunAgent = res;
+        }),
+    );
+
+    let capturedResolve: ((response: unknown) => unknown) | null = null;
+    function CaptureHarness() {
+      useInterrupt({
+        renderInChat: false,
+        render: ({ event, resolve }) => {
+          capturedResolve = resolve;
+          return (
+            <button data-testid="interrupt">{String(event.value)}</button>
+          );
+        },
+      });
+      return <div />;
+    }
+
+    render(<CaptureHarness />);
+    emitInterrupt("resume-me");
+
+    // resolve must exist and must return a thenable.
+    expect(capturedResolve).toBeTypeOf("function");
+    const returnedFromResolve = capturedResolve!({ approved: true });
+    expect(returnedFromResolve).toBeDefined();
+    expect(
+      returnedFromResolve &&
+        typeof (returnedFromResolve as { then?: unknown }).then === "function",
+    ).toBe(true);
+
+    // runAgent was dispatched.
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+
+    // Track settlement of the returned promise.
+    let settled = false;
+    void (returnedFromResolve as Promise<unknown>).then(() => {
+      settled = true;
+    });
+
+    // Yield microtasks: settled must still be false because runAgent
+    // hasn't settled yet.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    // Now settle the runAgent promise.
+    await act(async () => {
+      releaseRunAgent!({ newMessages: [] });
+      // Flush microtasks so the chained .then runs.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(settled).toBe(true);
+  });
 });

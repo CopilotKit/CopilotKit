@@ -219,12 +219,17 @@ export function useInterrupt<
   }, [agent]);
 
   const resolve = useCallback(
-    (response: unknown) => {
+    async (response: unknown) => {
       // Do NOT synchronously clear pendingEvent here — onRunStartedEvent
       // already clears it when the resume run begins. Clearing synchronously
       // unmounts the card before commit, which previously forced consumers
       // to wrap their resolve() in a 500ms setTimeout to keep the UI alive.
-      copilotkit.runAgent({
+      //
+      // RESUME-PATH: await runAgent and return the result so callers can
+      // sequence post-resume UI (e.g. harness DOM settle-check waiting for
+      // the assistant confirmation bubble). Returning void here is the bug
+      // that quarantined 12 showcase manifests' interrupt-headless feature.
+      return await copilotkit.runAgent({
         agent,
         forwardedProps: {
           command: {
