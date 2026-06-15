@@ -158,8 +158,12 @@ export function jsonSchemaToDiscordOptions(
 }
 
 /**
- * Build string choices from an enum: skip empty/whitespace names, clamp name and
- * value to 100 chars, and clamp the array to 25. Returns `undefined` when zero
+ * Build string choices from an enum: skip empty/whitespace names, and clamp the
+ * array to 25. The choice `value` is what Discord sends back on selection and is
+ * validated against the original enum, so it must round-trip exactly — never
+ * truncate it. Instead, SKIP (with a warning) any choice whose value exceeds the
+ * 100-char cap, since a truncated value would fail enum validation. The `name` is
+ * display-only and may still be truncated to 100. Returns `undefined` when zero
  * choices survive, since Discord rejects an empty `choices` array.
  */
 function stringChoices(
@@ -168,14 +172,21 @@ function stringChoices(
   if (!Array.isArray(enumValues)) return undefined;
   const choices: { name: string; value: string }[] = [];
   for (const v of enumValues) {
-    const name = String(v);
-    if (name.trim().length === 0) {
+    const value = String(v);
+    if (value.trim().length === 0) {
       console.warn(`[bot-discord] skipping enum choice with empty name for a string option.`);
       continue;
     }
+    if (value.length > CHOICE_VALUE_MAX) {
+      console.warn(
+        `[bot-discord] skipping string enum choice whose value exceeds ${CHOICE_VALUE_MAX} chars; ` +
+          "a truncated value would no longer match the enum on selection.",
+      );
+      continue;
+    }
     choices.push({
-      name: truncateText(name, CHOICE_NAME_MAX),
-      value: truncateText(name, CHOICE_VALUE_MAX),
+      name: truncateText(value, CHOICE_NAME_MAX),
+      value,
     });
   }
   if (choices.length === 0) return undefined;

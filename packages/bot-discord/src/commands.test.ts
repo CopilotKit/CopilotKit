@@ -192,15 +192,39 @@ describe("jsonSchemaToDiscordOptions", () => {
     expect(name.length).toBeLessThanOrEqual(32);
   });
 
-  it("clamps a choice name and value longer than 100 chars", () => {
+  it("skips a string choice whose value exceeds 100 chars (a truncated value would fail enum validation), but keeps a <=100-char member with its exact value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const long = "z".repeat(120);
+    const short = "z".repeat(100);
     const strOpts = jsonSchemaToDiscordOptions({
       type: "object",
-      properties: { tag: { type: "string", enum: [long] } },
+      properties: { tag: { type: "string", enum: [long, short, "ok"] } },
+    });
+    const choices = strOpts.find((o) => o.name === "tag")!.choices!;
+    // The >100-char member is dropped entirely — NOT emitted with a truncated value.
+    expect(choices.some((c) => String(c.value).endsWith("…") || String(c.value).length > 100)).toBe(
+      false,
+    );
+    expect(choices.some((c) => c.value === long)).toBe(false);
+    // The <=100-char members survive with their exact (round-trippable) value.
+    expect(choices).toContainEqual({ name: short, value: short });
+    expect(choices).toContainEqual({ name: "ok", value: "ok" });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("truncates a long choice name (display-only) while keeping the value exact when <=100 chars", () => {
+    // A value of exactly 100 chars is kept verbatim; the name is display-only and may be truncated,
+    // but at 100 chars it is already within the name cap so it too stays intact.
+    const value = "v".repeat(100);
+    const strOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { tag: { type: "string", enum: [value] } },
     });
     const choice = strOpts.find((o) => o.name === "tag")!.choices![0]!;
+    expect(choice.value).toBe(value);
+    expect(String(choice.value).length).toBe(100);
     expect(choice.name.length).toBeLessThanOrEqual(100);
-    expect((choice.value as string).length).toBeLessThanOrEqual(100);
 
     const intOpts = jsonSchemaToDiscordOptions({
       type: "object",
