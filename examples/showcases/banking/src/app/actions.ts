@@ -11,6 +11,21 @@ import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
 
+// Cross-instance revalidation bus.
+//
+// `useCreditCards()` keeps its OWN local state and is called independently by
+// several components (the dashboard page, copilot-context where the chat's
+// approveTransaction/finalize tools live, page.tsx, …). A mutation made through
+// one instance therefore would NOT refresh another — e.g. the agent approving a
+// charge in chat (copilot-context's instance) left the dashboard's pending
+// table showing the charge as still pending. Each instance registers a
+// refetch callback here; every mutation calls `notifyDataChanged()` so ALL live
+// instances re-pull from the server and every view reflects the change at once.
+const dataChangeListeners = new Set<() => void>();
+function notifyDataChanged() {
+  for (const listener of dataChangeListeners) listener();
+}
+
 export default function useCreditCards() {
   const [cards, setCards] = useState<ICard[]>([]);
   const [policies, setPolicies] = useState<ExpensePolicy[]>([]);
@@ -81,9 +96,16 @@ export default function useCreditCards() {
   };
 
   useEffect(() => {
-    void (async () => {
-      await Promise.all([fetchCards(), fetchPolicies(), fetchTransactions()]);
-    })();
+    const refetchAll = () => {
+      void Promise.all([fetchCards(), fetchPolicies(), fetchTransactions()]);
+    };
+    refetchAll();
+    // Refresh this instance whenever ANY instance reports a mutation, so the
+    // dashboard reflects chat-driven approvals (and vice-versa) immediately.
+    dataChangeListeners.add(refetchAll);
+    return () => {
+      dataChangeListeners.delete(refetchAll);
+    };
   }, []);
 
   const addNewCard = async ({ type, color, pin }: NewCardRequest) => {
@@ -112,7 +134,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to add new card");
       }
-      void fetchCards();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error adding new card:", error);
@@ -137,7 +159,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to assign policy");
       }
-      void fetchCards();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error assigning policy:", error);
@@ -166,7 +188,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to add new card");
       }
-      void fetchTransactions();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error adding new card:", error);
@@ -190,7 +212,7 @@ export default function useCreditCards() {
       });
       // Always refresh from the server so the UI reflects the real state
       // whether the write succeeded or was rejected (e.g. the over-limit gate).
-      void fetchTransactions();
+      notifyDataChanged();
       if (!response.ok) {
         // Surface the server's symptom-only message (e.g. "<team> policy limit
         // exceeded") so the agent + UI can learn the failure instead of
@@ -224,7 +246,7 @@ export default function useCreditCards() {
         body: JSON.stringify({ transactionId, code }),
       });
       const body = await response.json().catch(() => null);
-      void fetchTransactions();
+      notifyDataChanged();
       if (!response.ok) {
         return {
           ok: false,
@@ -254,7 +276,7 @@ export default function useCreditCards() {
         },
       );
       const body = await response.json().catch(() => null);
-      void fetchTransactions();
+      notifyDataChanged();
       if (!response.ok) {
         return {
           ok: false,
