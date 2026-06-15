@@ -11,7 +11,13 @@ export const lookupDiscordUserTool: BotTool = defineBotTool({
     query: z.string().describe("A name, display name, or handle to resolve."),
   }),
   async handler({ query }, { thread }) {
-    const user = await thread.lookupUser(query);
+    let user;
+    try {
+      user = await thread.lookupUser(query);
+    } catch (error) {
+      console.error(`lookup_discord_user failed for "${query}":`, error);
+      return `Couldn't resolve a Discord user for "${query}" (lookup unavailable).`;
+    }
     if (!user) return `No Discord user found matching "${query}".`;
     return { id: user.id, name: user.name, mention: `<@${user.id}>` };
   },
