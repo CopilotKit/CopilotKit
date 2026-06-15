@@ -80,6 +80,10 @@ export class DiscordAdapter implements PlatformAdapter {
           GatewayIntentBits.GuildMessages,
           GatewayIntentBits.MessageContent,
           GatewayIntentBits.DirectMessages,
+          // Privileged intent — required for `guild.members.search` in
+          // `lookupUser`. Like MessageContent, it must be enabled in the
+          // Discord Developer Portal for the bot application.
+          GatewayIntentBits.GuildMembers,
         ],
         partials: [Partials.Channel], // needed to receive DMs
       });
@@ -141,8 +145,10 @@ export class DiscordAdapter implements PlatformAdapter {
       if (!i.isButton() && !i.isStringSelectMenu?.()) return;
       try {
         await i.deferUpdate();
-      } catch {
-        /* already acked */
+      } catch (err) {
+        // Usually a benign "already acknowledged" race; but an expired token
+        // or network error also lands here, so surface it before proceeding.
+        console.error("[bot-discord] interaction deferUpdate failed:", err);
       }
       const evt = this.decodeInteraction(i);
       if (evt) await sink.onInteraction(evt);
@@ -168,6 +174,9 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+    // An empty stream returns a ref with id "" (no message was ever posted);
+    // a fetch on "" would throw, so treat update/delete on it as a no-op.
+    if (!ref.id) return;
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
     const { components, flags } = renderDiscordMessage(ir);
@@ -181,18 +190,20 @@ export class DiscordAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
     let firstId = "";
-    let stored: { edit(p: unknown): Promise<unknown> } | undefined;
+    // One handle per posted Discord message, keyed by the id returned from
+    // `channel.send`. Multi-chunk replies (>2000 chars) post several
+    // messages; `updateAt(id, …)` must edit the message that owns `id`,
+    // not always message #0. Mirrors the `messages` Map in event-renderer.ts.
+    const handles = new Map<string, { edit(p: unknown): Promise<unknown> }>();
     const stream = new ChunkedMessageStream({
       postPlaceholder: async (text) => {
         const m = await channel.send(text);
-        if (!firstId) {
-          firstId = m.id;
-          stored = m;
-        }
+        if (!firstId) firstId = m.id;
+        handles.set(m.id, m);
         return m.id;
       },
-      updateAt: async (_id, text) => {
-        await stored?.edit(text);
+      updateAt: async (id, text) => {
+        await handles.get(id)?.edit(text);
       },
       transform: (s) => discordMarkdown(autoCloseOpenMarkdown(s)),
     });
@@ -206,6 +217,7 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
+    if (!ref.id) return; // empty-stream ref — nothing was posted
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
     await msg.delete();
@@ -248,7 +260,11 @@ export class DiscordAdapter implements PlatformAdapter {
             handle: user.username,
           };
         }
-      } catch {
+      } catch (err) {
+        console.error(
+          `[bot-discord] member search failed (guild ${guild.id}, query "${query}"):`,
+          err,
+        );
         /* try the next guild */
       }
     }
@@ -276,7 +292,11 @@ export class DiscordAdapter implements PlatformAdapter {
             }
           : undefined,
       }));
-    } catch {
+    } catch (err) {
+      console.error(
+        `[bot-discord] getMessages failed (channel ${t.channelId}):`,
+        err,
+      );
       return [];
     }
   }
@@ -300,16 +320,22 @@ export class DiscordAdapter implements PlatformAdapter {
   async resolveUser(userId: string): Promise<PlatformUser> {
     const cached = this.userCache.get(userId);
     if (cached) return cached;
-    let user: PlatformUser = { id: userId };
     try {
       const u = await this.client.users.fetch(userId);
-      user = { id: u.id, name: u.globalName ?? u.username, handle: u.username };
+      const user: PlatformUser = {
+        id: u.id,
+        name: u.globalName ?? u.username,
+        handle: u.username,
+      };
       // Note: bots cannot read user email; PlatformUser.email stays undefined.
-    } catch {
-      /* bare id fallback */
+      // Cache ONLY on success — a transient fetch failure must not pin the
+      // bare-id fallback forever; a later call should retry.
+      this.userCache.set(userId, user);
+      return user;
+    } catch (err) {
+      console.error(`[bot-discord] resolveUser fetch failed (${userId}):`, err);
+      return { id: userId }; // bare-id fallback, intentionally not cached
     }
-    this.userCache.set(userId, user);
-    return user;
   }
 
   private channelIdOf(ref: MessageRef): string {

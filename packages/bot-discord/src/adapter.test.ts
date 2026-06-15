@@ -64,4 +64,73 @@ describe("DiscordAdapter", () => {
   it("discord() factory returns an adapter", () => {
     expect(discord({ botToken: "t", appId: "app" })).toBeInstanceOf(DiscordAdapter);
   });
+
+  it("stream() edits each posted message with ITS own chunk, not all-on-first", async () => {
+    // Each send() mints a distinct id and its own edit spy, so we can assert
+    // the per-message Map wiring (chunk N → message N), not chunk-on-#0.
+    const posted: Array<{ id: string; edit: ReturnType<typeof vi.fn> }> = [];
+    let n = 0;
+    const channel = {
+      id: "c1",
+      send: vi.fn(async () => {
+        const m = { id: `m${++n}`, edit: vi.fn(async () => {}) };
+        posted.push(m);
+        return m;
+      }),
+      messages: { fetch: vi.fn() },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: { fetch: vi.fn(async () => channel) },
+    };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    // Two chunks: >2000 chars forces ChunkedMessageStream to post a second
+    // Discord message. Distinct markers per half let us check routing.
+    const first = "A".repeat(1500) + "\n";
+    const second = "B".repeat(1500);
+    async function* chunks() {
+      yield first;
+      yield second;
+    }
+    const ref = await a.stream({ channelId: "c1" } as never, chunks());
+
+    // Two messages posted, ref points at the first.
+    expect(posted.length).toBe(2);
+    expect(ref.id).toBe("m1");
+
+    // The first message's final edit must NOT contain the second chunk's
+    // marker, and the second message's final edit must contain it. If the
+    // Map were ignored (old bug), every edit would land on message #0.
+    const firstFinal = posted[0]!.edit.mock.calls.at(-1)?.[0] as string;
+    const secondFinal = posted[1]!.edit.mock.calls.at(-1)?.[0] as string;
+    expect(firstFinal).toContain("A");
+    expect(firstFinal).not.toContain("B");
+    expect(secondFinal).toContain("B");
+  });
+
+  it("resolveUser does NOT cache the bare-id fallback on transient fetch failure", async () => {
+    const fetch = vi
+      .fn()
+      // first call throws → bare-id fallback, must not be cached
+      .mockRejectedValueOnce(new Error("rate limited"))
+      // second call succeeds → real user
+      .mockResolvedValueOnce({ id: "u1", globalName: "Ada", username: "ada" });
+    const client = { ...fakeClient(), users: { fetch } };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    const first = await a.resolveUser("u1");
+    expect(first).toEqual({ id: "u1" }); // bare-id fallback
+
+    const second = await a.resolveUser("u1");
+    // A retry happened (not served from cache) and resolved the real user.
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(second).toEqual({ id: "u1", name: "Ada", handle: "ada" });
+  });
 });
