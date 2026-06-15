@@ -94,7 +94,8 @@ describe("renderComponents", () => {
     expect(totalText).toBeLessThanOrEqual(4000 + "_…content truncated_".length);
   });
 
-  it("shows a '+N more…' overflow indicator when a select exceeds 25 options", () => {
+  it("clamps a select to 25 real options with no fake selectable sentinel when it exceeds 25", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const options = Array.from({ length: 30 }, (_, i) => ({ label: `opt${i}`, value: `v${i}` }));
     const ir: BotNode[] = [
       node("message", {
@@ -106,11 +107,15 @@ describe("renderComponents", () => {
     const json = renderComponents(ir).toJSON();
     const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
     const select = (row as any).components[0];
+    // Exactly 25 real options; the dropped 5 are warned, never turned into a
+    // selectable "__overflow__" garbage value.
     expect(select.options.length).toBe(25);
-    const last = select.options[24];
-    expect(last.label).toContain("more");
-    // 30 options, 24 shown + indicator → 6 hidden.
-    expect(last.label).toContain("6");
+    expect(select.options.every((o: any) => o.value !== "__overflow__")).toBe(true);
+    expect(select.options.map((o: any) => o.value)).toEqual(
+      Array.from({ length: 25 }, (_, i) => `v${i}`),
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("truncates a select placeholder over 150 chars", () => {
@@ -199,5 +204,91 @@ describe("renderComponents", () => {
     expect(td.content.length).toBeLessThanOrEqual(2000);
     // Fence delimiters must be balanced (even count) so the closing ``` is present.
     expect((td.content.match(/```/g) ?? []).length % 2).toBe(0);
+  });
+
+  it("counts nested buttons toward the component cap (5 rows × 5 buttons stays ≤ 40 real components)", () => {
+    // 25 buttons → 5 action rows × 5 buttons = 5 rows + 25 buttons = 30 nested
+    // components, plus a leading text. The naive +1-per-row accounting would
+    // count only 5; the cap is 40 total. Add enough rows to force overflow.
+    const buttons = Array.from({ length: 25 }, (_, i) =>
+      node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
+    );
+    const ir: BotNode[] = [
+      node("message", {
+        children: [
+          node("section", { children: text("header text") }),
+          node("actions", { children: buttons }),
+        ],
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    // Count every real component Discord would tally: containers' direct children
+    // plus each action row's nested components.
+    const countComponents = (comps: any[]): number =>
+      comps.reduce((sum, c) => {
+        if (c.type === ComponentType.ActionRow) {
+          return sum + 1 + (c.components?.length ?? 0);
+        }
+        return sum + 1;
+      }, 0);
+    const total = countComponents(json.components);
+    expect(total).toBeLessThanOrEqual(40);
+  });
+
+  it("overflow-signals before exceeding 40 when many rows of buttons overflow the cap", () => {
+    // 5 rows of 5 buttons would be 30 components, but pad with dividers first so
+    // the action rows push past the cap and an overflow marker is emitted.
+    const dividers = Array.from({ length: 30 }, () => node("divider"));
+    const buttons = Array.from({ length: 25 }, (_, i) =>
+      node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
+    );
+    const ir: BotNode[] = [
+      node("message", { children: [...dividers, node("actions", { children: buttons })] }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const countComponents = (comps: any[]): number =>
+      comps.reduce((sum, c) => {
+        if (c.type === ComponentType.ActionRow) {
+          return sum + 1 + (c.components?.length ?? 0);
+        }
+        return sum + 1;
+      }, 0);
+    expect(countComponents(json.components)).toBeLessThanOrEqual(40);
+    const overflow = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay && c.content === "_…content truncated_",
+    );
+    expect(overflow.length).toBe(1);
+  });
+
+  it("emits no empty TextDisplay when the text budget is exhausted", () => {
+    // Two 4000-char sections: the first fills totalTextChars, the second clamps
+    // to "" — which must NOT become an empty TextDisplay (Discord rejects it).
+    const chunk = "x".repeat(4000);
+    const ir: BotNode[] = [
+      node("message", {
+        children: [
+          node("section", { children: text(chunk) }),
+          node("section", { children: text(chunk) }),
+        ],
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
+    expect(texts.every((c: any) => (c.content?.length ?? 0) > 0)).toBe(true);
+  });
+
+  it("counts the overflow marker against the text budget", () => {
+    // Fill text past the cap so an overflow marker is appended; total text
+    // (including the marker) must stay within totalTextChars.
+    const chunk = "x".repeat(2000);
+    const sections = Array.from({ length: 4 }, () => node("section", { children: text(chunk) }));
+    const ir: BotNode[] = [node("message", { children: sections })];
+    const json = renderComponents(ir).toJSON();
+    const totalText = json.components
+      .filter((c: any) => c.type === ComponentType.TextDisplay)
+      .reduce((sum: number, c: any) => sum + (c.content?.length ?? 0), 0);
+    // Overflow marker is reserved for and charged against the budget, so the
+    // summed text never exceeds totalTextChars.
+    expect(totalText).toBeLessThanOrEqual(4000);
   });
 });

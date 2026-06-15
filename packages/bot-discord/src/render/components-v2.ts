@@ -31,12 +31,16 @@ interface RenderBudget {
 
 const OVERFLOW_TEXT = "_…content truncated_";
 
+/** Guards one-time warnings so they don't fire on every render. */
+let warnedInputSkipped = false;
+
 /** True once the message is full; callers must stop adding components. */
 function budgetFull(budget: RenderBudget): boolean {
-  // Leave room for one trailing overflow TextDisplay.
+  // Reserve room for one trailing overflow TextDisplay: one component slot plus
+  // the marker's text length, so signalOverflow never pushes us over a cap.
   return (
     budget.components >= DISCORD_LIMITS.componentsPerMessage - 1 ||
-    budget.textChars >= DISCORD_LIMITS.totalTextChars
+    budget.textChars >= DISCORD_LIMITS.totalTextChars - OVERFLOW_TEXT.length
   );
 }
 
@@ -45,13 +49,24 @@ function signalOverflow(budget: RenderBudget, container: ContainerBuilder): void
   if (budget.overflowed) return;
   budget.overflowed = true;
   budget.components += 1;
+  budget.textChars += OVERFLOW_TEXT.length;
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(OVERFLOW_TEXT));
 }
 
 /** Add a TextDisplay, charging the text budget and clamping to remaining room. */
 function addText(content: string, budget: RenderBudget, container: ContainerBuilder): void {
-  const remaining = DISCORD_LIMITS.totalTextChars - budget.textChars;
+  // Reserve room for one trailing overflow marker (mirrors the component-slot
+  // reservation in budgetFull) so the summed text — including a marker that may
+  // be appended later — never exceeds totalTextChars.
+  const remaining = DISCORD_LIMITS.totalTextChars - OVERFLOW_TEXT.length - budget.textChars;
   const clamped = content.length > remaining ? truncateText(content, Math.max(0, remaining)) : content;
+  // Discord rejects an empty TextDisplay. If the text budget left no room (or the
+  // content was empty to begin with), emit the overflow marker instead of an
+  // empty component.
+  if (clamped.length === 0) {
+    signalOverflow(budget, container);
+    return;
+  }
   budget.textChars += clamped.length;
   budget.components += 1;
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(clamped));
@@ -154,7 +169,14 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     case "image": {
       const url = (props.url ?? props.image_url) as string | undefined;
       if (url) {
-        budget.components += 1;
+        // Discord counts the MediaGallery PLUS every nested item toward the cap.
+        // One image node = the gallery (1) + a single item (1).
+        const cost = 1 + 1;
+        if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+          signalOverflow(budget, container);
+          return;
+        }
+        budget.components += cost;
         container.addMediaGalleryComponents(
           new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(url)),
         );
@@ -163,11 +185,15 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     }
     case "actions": {
       for (const row of buildActionRows(childNodes(node))) {
-        if (budget.components >= DISCORD_LIMITS.componentsPerMessage - 1) {
+        // Discord counts the ActionRow PLUS every nested button/select toward the
+        // componentsPerMessage cap. Charge the full nested cost and check the
+        // projected total (reserving one slot for the overflow marker) before adding.
+        const cost = 1 + row.components.length;
+        if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
           signalOverflow(budget, container);
           break;
         }
-        budget.components += 1;
+        budget.components += cost;
         container.addActionRowComponents(row);
       }
       return;
@@ -186,7 +212,10 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     case "input": {
       // Free-standing text inputs are modal-only on Discord; modals are deferred
       // to a follow-up. Log once and skip (total renderer).
-      console.warn("[bot-discord] <Input> is modal-only; skipped (modals not in v1).");
+      if (!warnedInputSkipped) {
+        warnedInputSkipped = true;
+        console.warn("[bot-discord] <Input> is modal-only; skipped (modals not in v1).");
+      }
       return;
     }
     default:
@@ -244,27 +273,21 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
   const id = idFromHandler(props.onSelect);
   if (!id) return undefined;
   const options = (props.options as { label: string; value: unknown }[] | undefined) ?? [];
-  // Clamp to Discord's 25-option cap. When options overflow, surface it rather
-  // than silently dropping: reserve the last slot for a disabled "+N more…"
-  // indicator (clamp, never silent drop).
+  // Clamp to Discord's 25-option cap. A fake "+N more…" indicator is NOT an
+  // option here: it would be a selectable garbage value that dispatches as a
+  // real selection. Drop the overflow and warn instead (clamp, never a bogus
+  // selectable value).
   const { items, overflow } = clampArray(options, DISCORD_LIMITS.selectOptions);
-  const built = (
-    overflow > 0
-      ? items.slice(0, DISCORD_LIMITS.selectOptions - 1)
-      : items
-  ).map((o) =>
+  if (overflow > 0) {
+    console.warn(
+      `[bot-discord] <Select> has more than ${DISCORD_LIMITS.selectOptions} options; dropping ${overflow}.`,
+    );
+  }
+  const built = items.map((o) =>
     new StringSelectMenuOptionBuilder()
       .setLabel(truncateText(o.label, 100))
       .setValue(truncateText(String(o.value), 100)),
   );
-  if (overflow > 0) {
-    // +1 for the option that the indicator displaces back into the overflow.
-    built.push(
-      new StringSelectMenuOptionBuilder()
-        .setLabel(truncateText(`+${overflow + 1} more…`, 100))
-        .setValue("__overflow__"),
-    );
-  }
   const select = new StringSelectMenuBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
     .setPlaceholder(truncateText(String(props.placeholder ?? " "), DISCORD_LIMITS.selectPlaceholder))
