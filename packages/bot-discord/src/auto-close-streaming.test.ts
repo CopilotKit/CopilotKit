@@ -46,6 +46,18 @@ describe("autoCloseOpenMarkdown", () => {
     expect(autoCloseOpenMarkdown("text *")).toBe("text *");
   });
 
+  it("closes an open italic `*` that precedes an empty trailing `**` — `*ab**`", () => {
+    // The trailing `**` is empty (just opened) and is dropped, but the
+    // leading `*ab` italic has real content and must still be closed.
+    // Regression: lastIndexOf("*") used to match the `*` inside `**`,
+    // wrongly treating the italic as empty and leaving it unbalanced.
+    expect(autoCloseOpenMarkdown("*ab**")).toBe("*ab***");
+  });
+
+  it("closes an open underscore-italic `_` that precedes an empty trailing `__` — `_ab__`", () => {
+    expect(autoCloseOpenMarkdown("_ab__")).toBe("_ab___");
+  });
+
   // ── Strike ───────────────────────────────────────────────────────
   it("closes `~~strike` → `~~strike~~`", () => {
     expect(autoCloseOpenMarkdown("~~strike")).toBe("~~strike~~");

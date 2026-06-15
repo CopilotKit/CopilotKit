@@ -1,25 +1,24 @@
 /**
  * Streaming-polish layer: while an agent is mid-stream, the buffer is
  * usually an *unfinished* markdown document — an open code fence, an
- * unclosed `**`, etc. If we send the unbalanced text straight to Slack,
+ * unclosed `**`, etc. If we send the unbalanced text straight to Discord,
  * the rest of the message renders broken (a stray ``` will turn the rest
- * of the Slack message into a code block until the closer arrives).
+ * of the Discord message into a code block until the closer arrives).
  *
  * `autoCloseOpenMarkdown` returns a balanced copy of the buffer by
  * appending the minimum set of closers needed so that the markdown is
  * well-formed for display. When the agent later emits the real closer,
  * the buffer becomes balanced on its own and this function adds nothing
- * — i.e. no double-close in the committed Slack message.
+ * — i.e. no double-close in the committed Discord message.
  *
- * Operates in **markdown space** (i.e. on the raw text from the agent,
- * before mrkdwn translation). The caller composes this with
- * `markdownToMrkdwn` afterwards so the translator sees a balanced
- * document.
+ * Operates in **markdown space** (i.e. on the raw text from the agent).
+ * Discord renders a Markdown subset natively, so a balanced document
+ * displays correctly without further translation.
  *
  * What it handles, in priority order:
  *
  *   1. Unclosed fenced code blocks ``` … (most severe — leaks code styling
- *      through the rest of the Slack message)
+ *      through the rest of the Discord message)
  *   2. Unclosed inline code `…`
  *   3. Unclosed bold `**…` / `__…`
  *   4. Unclosed italic `*…` / `_…`
@@ -127,28 +126,34 @@ export function autoCloseOpenMarkdown(text: string): string {
  * doubled variant — `**` is parsed as one bold marker, not two italics.
  */
 function scanBracketStack(text: string): string[] {
-  const stack: string[] = [];
-  const tryToggle = (m: string) => {
-    if (stack[stack.length - 1] === m) stack.pop();
-    else stack.push(m);
+  // Each entry remembers the marker AND the position where it was pushed
+  // during the scan. Tracking the actual push position is required for the
+  // trailing-strip step below: a single-char marker (`*`) is a substring of
+  // its doubled variant (`**`), so `text.lastIndexOf("*")` could match the
+  // `*` inside a later `**` and wrongly classify a marker with real content
+  // as empty (e.g. `"*ab**"` would lose its open italic).
+  const stack: { marker: string; index: number }[] = [];
+  const tryToggle = (m: string, index: number) => {
+    if (stack[stack.length - 1]?.marker === m) stack.pop();
+    else stack.push({ marker: m, index });
   };
 
   let i = 0;
   while (i < text.length) {
     if (text.startsWith("**", i)) {
-      tryToggle("**");
+      tryToggle("**", i);
       i += 2;
     } else if (text.startsWith("__", i)) {
-      tryToggle("__");
+      tryToggle("__", i);
       i += 2;
     } else if (text.startsWith("~~", i)) {
-      tryToggle("~~");
+      tryToggle("~~", i);
       i += 2;
     } else if (text[i] === "*") {
-      tryToggle("*");
+      tryToggle("*", i);
       i += 1;
     } else if (text[i] === "_") {
-      tryToggle("_");
+      tryToggle("_", i);
       i += 1;
     } else {
       i += 1;
@@ -158,12 +163,11 @@ function scanBracketStack(text: string): string[] {
   // Strip any marker at the top of the stack that has NO content after it
   // (i.e. it appears at the very end of the buffer with only whitespace
   // following). Closing those would produce a transient `****`-style
-  // artefact that looks worse than the open `**`.
+  // artefact that looks worse than the open `**`. We use the stored push
+  // index (not lastIndexOf) so substring markers can't be mis-located.
   while (stack.length > 0) {
-    const last = stack[stack.length - 1]!;
-    const lastIdx = text.lastIndexOf(last);
-    if (lastIdx < 0) break;
-    const after = text.slice(lastIdx + last.length);
+    const top = stack[stack.length - 1]!;
+    const after = text.slice(top.index + top.marker.length);
     if (/^\s*$/.test(after)) {
       stack.pop();
     } else {
@@ -171,7 +175,7 @@ function scanBracketStack(text: string): string[] {
     }
   }
 
-  return stack;
+  return stack.map((e) => e.marker);
 }
 
 function hasContentAfterMarker(tail: string, marker: string): boolean {
@@ -200,9 +204,9 @@ function hasFenceCodeContent(tail: string): boolean {
 /**
  * What markdown context is *still open* at the end of `text`? Used to
  * decide what opening marker(s) the NEXT chunk needs prepended when we
- * split a long buffer across multiple Slack messages mid-formatting
+ * split a long buffer across multiple Discord messages mid-formatting
  * — without this, a chunk boundary inside a ` ```python … ``` ` block
- * would have the second Slack message start with raw code that Slack
+ * would have the second Discord message start with raw code that Discord
  * renders as plain text.
  */
 export interface OpenMarkdownContext {
