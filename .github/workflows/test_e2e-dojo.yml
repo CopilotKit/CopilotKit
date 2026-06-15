@@ -61,7 +61,9 @@ jobs:
   dojo:
     needs: detect-changes
     name: ${{ matrix.suite }}
-    runs-on: depot-ubuntu-24.04
+    # 4-vCPU runner (was depot-ubuntu-24.04 = 2 vCPU) to speed the build, the
+    # dojo prep, and Playwright worker parallelism on the long-pole suites.
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 30
     permissions:
       contents: read
@@ -266,7 +268,8 @@ jobs:
         working-directory: CopilotKit
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-          NX_PARALLEL: 2
+          # Match the 4-vCPU runner so the monorepo build uses the extra cores.
+          NX_PARALLEL: 4
         run: pnpm build
 
       - name: Install ag-ui dependencies
