@@ -9,6 +9,7 @@
     "dev": "tsx watch app/index.ts",
     "start": "tsx app/index.ts",
     "runtime": "tsx runtime.ts",
+    "notion-mcp": "tsx scripts/start-notion-mcp.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "tsx e2e/run.ts",
