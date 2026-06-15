@@ -26,18 +26,33 @@ import type { Page } from "@playwright/test";
  *  (the user bubble with the pill's full message text appears). On slow
  *  dev-server hydration the first click can land before the chat send
  *  pipeline is wired and is silently swallowed — retry until the bubble
- *  shows up. */
+ *  shows up.
+ *
+ *  The "dispatched" assertion is scoped to the chat-message list
+ *  (`[data-message-role="user"]`), NOT a bare `getByText` — the pill
+ *  button itself contains the message text, so an unscoped match would
+ *  satisfy the locator with the pill rather than the resulting user
+ *  bubble, neutering the dispatch guard. Before each retry we also
+ *  check whether the user bubble already exists; if it does the
+ *  earlier click DID dispatch and we must NOT re-click (which would
+ *  send a duplicate user message). */
 async function clickPill(page: Page, title: string, message: string) {
   const pill = page
     .locator('[data-testid="copilot-suggestion"]')
     .filter({ hasText: title })
     .first();
   await expect(pill).toBeVisible({ timeout: 15_000 });
+  const userBubble = page
+    .locator('[data-message-role="user"]')
+    .filter({ hasText: message })
+    .first();
   await expect(async () => {
-    await pill.click();
-    await expect(page.getByText(message).first()).toBeVisible({
-      timeout: 3_000,
-    });
+    // If the previous attempt's click already produced the user bubble,
+    // skip the click — re-clicking dispatches a duplicate user message.
+    if ((await userBubble.count()) === 0) {
+      await pill.click();
+    }
+    await expect(userBubble).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 30_000 });
 }
 
@@ -74,7 +89,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     }
   });
 
-  test("sales dashboard pill renders a composed surface: card + metrics + pie + bar", async ({
+  test("sales dashboard pill renders a composed surface: KPI strip + pie + bar (no surrounding card)", async ({
     page,
   }) => {
     await clickPill(
@@ -83,15 +98,17 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       "Show me my sales dashboard for this quarter.",
     );
 
-    // The hero surface must contain a bare KPI Metric row AND both charts
-    // (no surrounding Card — the charts carry their own card chrome). A
-    // single lonely widget is the regression OSS-136 was filed about. 90s
-    // budget: on cold starts the secondary-LLM `generate_a2ui` pass can eat
-    // most of a minute.
+    // The hero surface must contain a 4-tile KPI Metric row AND both
+    // charts (no surrounding Card — the charts carry their own card
+    // chrome). Composition rule (sales-context.ts) + D5 probe + aimock
+    // fixtures all pin the hero at 4 Metric tiles. A single lonely
+    // widget is the regression OSS-136 was filed about. 90s budget: on
+    // cold starts the secondary-LLM `generate_a2ui` pass can eat most
+    // of a minute.
     const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
       .poll(async () => await metrics.count(), { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(3);
+      .toBeGreaterThanOrEqual(4);
 
     // PieChart: recharts donut (mirrors beautiful-chat's sales dashboard) —
     // one sector path per slice.
@@ -119,12 +136,19 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
 
     // Regression guard: exactly one composed surface — pie + bar each use a
-    // ResponsiveContainer, so a single hero dashboard yields at most 2.
-    // Looping renders would stack more.
+    // ResponsiveContainer, so the hero dashboard yields exactly 2.
+    // Fewer = under-composed surface (a lonely chart, OSS-136 regression);
+    // more = looping/duplicated renders.
     const allCharts = page.locator(".recharts-responsive-container");
     await expect
       .poll(async () => await allCharts.count(), { timeout: 5_000 })
-      .toBeLessThanOrEqual(2);
+      .toEqual(2);
+
+    // Composition rule (OSS-136 — QA `qa/declarative-gen-ui.md`): the hero
+    // dashboard has NO surrounding Card. The charts carry their own card
+    // chrome, so wrapping them in an extra Card is a planner-side
+    // over-composition regression. Assert zero `declarative-card` mounts.
+    await expect(page.getByTestId("declarative-card")).toHaveCount(0);
   });
 
   test("team performance pill renders a DataTable with rep rows", async ({
@@ -166,12 +190,21 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
       .poll(async () => await badges.count(), { timeout: 90_000 })
       .toBeGreaterThanOrEqual(3);
 
-    // The surface is a risk panel, not bare cards: a KPI strip (ARR at
-    // risk / accounts / biggest exposure) leads it.
+    // The surface is a risk panel, not bare cards: a KPI strip of three
+    // tiles (ARR at risk / accounts at risk / biggest exposure) leads
+    // it. QA + composition rule require all three — fewer is an
+    // under-specified surface.
     const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
       .poll(async () => await metrics.count(), { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(2);
+      .toBeGreaterThanOrEqual(3);
+
+    // Composition rule (QA `qa/declarative-gen-ui.md`): the at-risk pill
+    // renders StatusBadge cards + a KPI strip — NO charts or tables.
+    // Any chart/table mount here is a planner over-composition regression.
+    await expect(page.getByTestId("declarative-pie-chart")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-bar-chart")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
   });
 
   test("top account pill renders InfoRow facts", async ({ page }) => {
@@ -193,5 +226,12 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(
       page.locator('[data-testid="declarative-pie-chart"]').first(),
     ).toBeVisible({ timeout: 15_000 });
+
+    // Composition rule (QA `qa/declarative-gen-ui.md`): the top-account
+    // pill renders a Card of InfoRow facts + a product-line PieChart —
+    // NO DataTable, NO StatusBadge. Either is a planner over-composition
+    // regression.
+    await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-status-badge")).toHaveCount(0);
   });
 });

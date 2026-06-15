@@ -30,7 +30,7 @@
 #### Hero Pill — Composed Sales Dashboard
 
 - [ ] Click "Show my sales dashboard"; within 60s verify ONE composed surface renders containing ALL of (no surrounding Card — the charts carry their own card chrome):
-  - a bare row of at least 3 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
+  - a bare row of 4 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
   - a `declarative-pie-chart` (recharts donut mirroring beautiful-chat: `innerRadius` 40 / `outerRadius` 80, one `.recharts-pie-sector` per slice, tooltip on hover, no legend) showing revenue by region
   - a `declarative-bar-chart` (recharts, height 200, single blue `#3b82f6` bars with rounded tops, dashed grid) showing monthly revenue
 - [ ] Verify the surface is a single composed dashboard, NOT a lonely single widget — this is the regression OSS-136 was filed about
@@ -67,6 +67,6 @@
 
 - Chat loads within 3s; plain-text response within 10s; A2UI surfaces render within 60s of prompt (secondary-LLM pass can be slow on cold start)
 - `generate_a2ui` is called exactly once per surface-producing prompt; result contains a valid `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`
-- The hero pill produces a composed dashboard (card + metrics + pie + bar in one surface); pills 2-4 produce their distinguishing component (data-table / status-badge / info-row)
+- The hero pill produces a composed dashboard (4 KPI tile metrics + 1 PieChart + 1 BarChart in one surface, with NO surrounding Card per OSS-136); pills 2-4 produce their distinguishing component (data-table / status-badge / info-row)
 - Numbers are consistent with the Vantage Threads dataset across all four pills
 - No UI layout breaks, no flash of unstyled content, no uncaught console errors
