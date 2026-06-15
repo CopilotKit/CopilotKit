@@ -10,7 +10,7 @@
 // popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -76,6 +76,8 @@ function useHeadlessInterrupt(agentId: string): {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId });
   const [pending, setPending] = useState<InterruptEvent | null>(null);
+  const pendingRef = useRef<InterruptEvent | null>(null);
+  pendingRef.current = pending;
 
   useEffect(() => {
     let local: InterruptEvent | null = null;
@@ -112,8 +114,7 @@ function useHeadlessInterrupt(agentId: string): {
 
   const resolve = useMemo(
     () => async (response: unknown) => {
-      const snapshot = pending;
-      setPending(null);
+      const snapshot = pendingRef.current;
       return await copilotkit.runAgent({
         agent,
         forwardedProps: {
@@ -124,7 +125,7 @@ function useHeadlessInterrupt(agentId: string): {
         },
       });
     },
-    [agent, copilotkit, pending],
+    [agent, copilotkit],
   );
 
   return { pending, resolve };
