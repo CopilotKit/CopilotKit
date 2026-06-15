@@ -5,6 +5,36 @@ import {
 } from "./auto-close-streaming.js";
 import { discordMarkdown } from "./markdown.js";
 
+/** Discord's hard per-message content limit. Edits above this are rejected. */
+const DISCORD_HARD_LIMIT = 2000;
+
+/**
+ * Soft chunk limit. Sits ~100 chars below the hard limit to leave headroom
+ * for the per-chunk transform, which can both append a closer ("\n```") and
+ * prepend a continuation re-opener ("```longlangname\n").
+ */
+const DEFAULT_LIMIT = 1900;
+
+/**
+ * Last-resort safety net: guarantee a transformed chunk never exceeds
+ * Discord's hard limit. The 1900-char soft limit is the primary defence;
+ * this clamp only fires in pathological cases (e.g. an enormous re-opener
+ * language tag). If truncation severs an open code fence, re-append a
+ * closing fence so the message still renders as a balanced block — at the
+ * cost of dropping the overflow characters, which is preferable to a
+ * rejected edit that freezes the chunk on its placeholder.
+ */
+function clampToHardLimit(text: string): string {
+  if (text.length <= DISCORD_HARD_LIMIT) return text;
+  let clamped = text.slice(0, DISCORD_HARD_LIMIT);
+  // Odd number of triple-backticks → an open fence was severed. Reserve room
+  // for a "\n```" closer (4 chars) and re-append it to keep the fence balanced.
+  if ((clamped.match(/```/g) || []).length % 2 === 1) {
+    clamped = clamped.slice(0, DISCORD_HARD_LIMIT - 4) + "\n```";
+  }
+  return clamped;
+}
+
 /**
  * Position (0-based) of the unpaired opening ``` in `buffer.slice(0, end)`,
  * or null if all triple-backticks before `end` are paired.
@@ -18,10 +48,11 @@ function findUnpairedFenceStart(buffer: string, end: number): number | null {
 }
 
 /**
- * Discord caps message content at 2000 chars. For longer agent responses we
- * spread the text over several Discord messages — but the *chunk boundaries*
- * must be stable once committed (we can't reflow a sentence into a previous
- * chunk after that chunk has already been posted to Discord).
+ * Discord's HARD per-message content limit is 2000 chars. For longer agent
+ * responses we spread the text over several Discord messages — but the
+ * *chunk boundaries* must be stable once committed (we can't reflow a
+ * sentence into a previous chunk after that chunk has already been posted
+ * to Discord).
  *
  * ChunkedMessageStream owns N underlying `MessageStream`s (one per Discord
  * message). It accepts the full accumulated text on `append()`, decides
@@ -34,7 +65,15 @@ function findUnpairedFenceStart(buffer: string, end: number): number | null {
  * move once frozen, so an already-posted chunk's text never shrinks.
  */
 export interface ChunkedMessageStreamConfig {
-  /** Soft per-message char limit. Defaults to 2000 (Discord plain-content limit). */
+  /**
+   * Soft per-message char limit used to choose chunk boundaries. Defaults to
+   * 1900 — deliberately below Discord's 2000 hard limit so the per-chunk
+   * `transform` has headroom to grow the text without overflowing. The
+   * transform appends a fence/marker closer (autoCloseOpenMarkdown) and, for
+   * continuation chunks, prepends a re-opener (e.g. "```longlangname\n"); a
+   * chunk sliced to exactly 2000 raw chars would exceed 2000 once transformed
+   * and Discord would reject the edit with BASE_TYPE_MAX_LENGTH.
+   */
   limit?: number;
   /** Throttle floor for each underlying stream's message edit. */
   minIntervalMs?: number;
@@ -49,8 +88,6 @@ export interface ChunkedMessageStreamConfig {
    */
   transform?: (text: string) => string;
 }
-
-const DEFAULT_LIMIT = 2000;
 
 export class ChunkedMessageStream {
   private buffer = "";
@@ -153,7 +190,8 @@ export class ChunkedMessageStream {
       const id = await this.postPlaceholder(placeholder);
       this.streams.push(
         new MessageStream({
-          update: (text) => this.updateAt(id, this.transform(text) || " "),
+          update: (text) =>
+            this.updateAt(id, clampToHardLimit(this.transform(text)) || " "),
           minIntervalMs: this.minIntervalMs,
         }),
       );

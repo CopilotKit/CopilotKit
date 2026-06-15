@@ -252,6 +252,68 @@ describe("ChunkedMessageStream", () => {
     expect(discord.posts.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("no transformed chunk exceeds Discord's 2000 hard limit, even with an open fence forcing a closer + re-opener", async () => {
+    // Regression for the no-headroom bug. The input is one long unbroken line
+    // inside an OPEN ```<lang> fence: with no newline/space in the back of the
+    // window, the boundary lands at the soft-limit edge, so chunk 1 slices to
+    // ~limit raw chars. The per-chunk transform then APPENDS a fence closer
+    // ("\n```") and the continuation chunk gets a "```<lang>\n" re-opener
+    // PREPENDED — growth that, at a 2000 soft limit, tips chunk 1 past 2000 and
+    // makes Discord reject the edit with BASE_TYPE_MAX_LENGTH. With the default
+    // 1900 soft limit there is headroom, and the safety clamp guarantees the
+    // exact string handed to Discord is never above 2000 regardless.
+    const discord = makeFakeDiscord();
+    const lang = "supercalifragilisticpython";
+    const fullText = "```" + lang + "\n" + "x".repeat(3000); // open fence
+    const s = new ChunkedMessageStream({
+      ...discord,
+      // Default limit (1900) — leaves headroom for the transform.
+      minIntervalMs: 0,
+    });
+    s.append(fullText);
+    await s.finish();
+
+    expect(discord.posts.length).toBeGreaterThanOrEqual(2);
+    expect(discord.updates.length).toBeGreaterThan(0);
+    // Every edited string is the post-transform text actually sent to Discord.
+    for (const u of discord.updates) {
+      expect(u.text.length).toBeLessThanOrEqual(2000);
+    }
+    // Sanity: the continuation chunk really did get a fence re-opener prepended,
+    // so this exercise genuinely grows the transformed text.
+    const second = [...discord.updates].reverse().find((u) => u.id === "2.0");
+    expect(second?.text.startsWith("```" + lang + "\n")).toBe(true);
+  });
+
+  it("soft limit gives the transform headroom: limit=1900 fits under 2000 where limit=2000 hits the hard cap", async () => {
+    // Red/green via the `limit` option, same open-fence single-line input.
+    // chunk 1's transform appends "\n```" (+4 chars). At limit=2000 the raw
+    // chunk fills to 2000 and the appended closer overflows to 2004, so the
+    // safety clamp has to fire and drop content to land exactly at the 2000
+    // hard cap. At limit=1900 the closer fits (1904) so no clamp engages and
+    // chunk 1 stays strictly below 2000 — the headroom the fix buys us.
+    const lang = "supercalifragilisticpython";
+    const fullText = "```" + lang + "\n" + "x".repeat(3000);
+
+    const chunk1Len = async (limit: number) => {
+      const discord = makeFakeDiscord();
+      const s = new ChunkedMessageStream({ ...discord, limit, minIntervalMs: 0 });
+      s.append(fullText);
+      await s.finish();
+      for (const u of discord.updates) {
+        // The clamp must hold the hard invariant at every limit.
+        expect(u.text.length).toBeLessThanOrEqual(2000);
+      }
+      return [...discord.updates].reverse().find((u) => u.id === "1.0")!.text
+        .length;
+    };
+
+    // RED at 2000: transform overflowed → clamp forced chunk 1 to the hard cap.
+    expect(await chunk1Len(2000)).toBe(2000);
+    // GREEN at 1900: headroom → chunk 1's transform fits strictly under 2000.
+    expect(await chunk1Len(1900)).toBeLessThan(2000);
+  });
+
   it("a fenced code block is never split mid-fence (block-keeps-whole with default 2000 limit)", async () => {
     const discord = makeFakeDiscord();
     const s = new ChunkedMessageStream({
