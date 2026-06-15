@@ -94,6 +94,7 @@ AGENT_MODEL=openai/gpt-5.5
 ```
 
 Optional MCP integrations:
+
 - **Linear** — set `LINEAR_API_KEY` to your Linear API key. The bot connects
   to `https://mcp.linear.app/mcp` (override with `LINEAR_MCP_URL`).
 - **Notion** — run the official Notion MCP server as a sidecar

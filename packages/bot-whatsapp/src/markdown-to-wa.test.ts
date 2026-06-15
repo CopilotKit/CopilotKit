@@ -17,7 +17,9 @@ describe("markdownToWhatsApp", () => {
   });
 
   it("renders a link as 'text (url)'", () => {
-    expect(markdownToWhatsApp("[docs](https://x.io)")).toBe("docs (https://x.io)");
+    expect(markdownToWhatsApp("[docs](https://x.io)")).toBe(
+      "docs (https://x.io)",
+    );
   });
 
   it("strips ATX headers to plain bold lines", () => {

@@ -16,7 +16,9 @@ const baseArgs = (sink: any, history = new InMemoryHistoryStore()) => ({
   history,
   phoneNumberId: "PNID",
   commandPrefix: "/",
-  client: { downloadMedia: async () => ({ bytes: new Uint8Array(), mimeType: "x" }) } as any,
+  client: {
+    downloadMedia: async () => ({ bytes: new Uint8Array(), mimeType: "x" }),
+  } as any,
   files: {},
 });
 
@@ -26,7 +28,9 @@ describe("handleWebhookValue", () => {
     const history = new InMemoryHistoryStore();
     const value: ChangeValue = {
       contacts: [{ wa_id: "111", profile: { name: "Ada" } }],
-      messages: [{ from: "111", id: "wamid.1", type: "text", text: { body: "hello" } }],
+      messages: [
+        { from: "111", id: "wamid.1", type: "text", text: { body: "hello" } },
+      ],
     };
     await handleWebhookValue(value, baseArgs(sink, history));
     expect(sink.onTurn).toHaveBeenCalledWith(
@@ -45,11 +49,22 @@ describe("handleWebhookValue", () => {
     const sink = makeSink();
     const history = new InMemoryHistoryStore();
     const value: ChangeValue = {
-      messages: [{ from: "111", id: "wamid.2", type: "text", text: { body: "/triage urgent bug" } }],
+      messages: [
+        {
+          from: "111",
+          id: "wamid.2",
+          type: "text",
+          text: { body: "/triage urgent bug" },
+        },
+      ],
     };
     await handleWebhookValue(value, baseArgs(sink, history));
     expect(sink.onCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ command: "triage", text: "urgent bug", conversationKey: "whatsapp:111" }),
+      expect.objectContaining({
+        command: "triage",
+        text: "urgent bug",
+        conversationKey: "whatsapp:111",
+      }),
     );
     expect(sink.onTurn).not.toHaveBeenCalled();
     expect(await history.read("whatsapp:111")).toHaveLength(0);
@@ -63,12 +78,17 @@ describe("handleWebhookValue", () => {
           from: "111",
           id: "wamid.3",
           type: "interactive",
-          interactive: { type: "button_reply", button_reply: { id: "ck:1", title: "Yes" } },
+          interactive: {
+            type: "button_reply",
+            button_reply: { id: "ck:1", title: "Yes" },
+          },
         },
       ],
     };
     await handleWebhookValue(value, baseArgs(sink));
-    expect(sink.onInteraction).toHaveBeenCalledWith(expect.objectContaining({ id: "ck:1" }));
+    expect(sink.onInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ck:1" }),
+    );
   });
 
   it("ignores status receipts", async () => {
@@ -82,16 +102,28 @@ describe("handleWebhookValue", () => {
     const sink = makeSink();
     const history = new InMemoryHistoryStore();
     const client = {
-      downloadMedia: async () => ({ bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png" }),
+      downloadMedia: async () => ({
+        bytes: new Uint8Array([1, 2, 3]),
+        mimeType: "image/png",
+      }),
     } as any;
     const value: ChangeValue = {
       messages: [
-        { from: "111", id: "wamid.m", type: "image", image: { id: "MID", mime_type: "image/png", caption: "look" } } as any,
+        {
+          from: "111",
+          id: "wamid.m",
+          type: "image",
+          image: { id: "MID", mime_type: "image/png", caption: "look" },
+        } as any,
       ],
     };
     await handleWebhookValue(value, { ...baseArgs(sink, history), client });
     expect(sink.onTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationKey: "whatsapp:111", userText: "look", platform: "whatsapp" }),
+      expect.objectContaining({
+        conversationKey: "whatsapp:111",
+        userText: "look",
+        platform: "whatsapp",
+      }),
     );
     const stored = await history.read("whatsapp:111");
     expect(stored).toHaveLength(1);
@@ -107,7 +139,14 @@ describe("handleWebhookValue", () => {
       },
     } as any;
     const value: ChangeValue = {
-      messages: [{ from: "111", id: "wamid.m2", type: "image", image: { id: "MID", mime_type: "image/png" } } as any],
+      messages: [
+        {
+          from: "111",
+          id: "wamid.m2",
+          type: "image",
+          image: { id: "MID", mime_type: "image/png" },
+        } as any,
+      ],
     };
     await handleWebhookValue(value, { ...baseArgs(sink, history), client });
     const stored = await history.read("whatsapp:111");
@@ -115,8 +154,15 @@ describe("handleWebhookValue", () => {
     // so the turn IS stored and emitted (the note is the only content item)
     expect(stored).toHaveLength(1);
     expect(Array.isArray(stored[0]!.content)).toBe(true);
-    const content = stored[0]!.content as Array<{ type: string; text?: string }>;
-    expect(content.some((p) => p.type === "text" && p.text?.includes("failed to download"))).toBe(true);
+    const content = stored[0]!.content as Array<{
+      type: string;
+      text?: string;
+    }>;
+    expect(
+      content.some(
+        (p) => p.type === "text" && p.text?.includes("failed to download"),
+      ),
+    ).toBe(true);
     expect(sink.onTurn).toHaveBeenCalled();
   });
 });

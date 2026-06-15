@@ -9,11 +9,19 @@ async function get(server: WebhookServer, path: string) {
   const port = (server.address() as any).port;
   return fetch(`http://127.0.0.1:${port}${path}`);
 }
-async function post(server: WebhookServer, path: string, body: string, sig?: string) {
+async function post(
+  server: WebhookServer,
+  path: string,
+  body: string,
+  sig?: string,
+) {
   const port = (server.address() as any).port;
   return fetch(`http://127.0.0.1:${port}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(sig ? { "X-Hub-Signature-256": sig } : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(sig ? { "X-Hub-Signature-256": sig } : {}),
+    },
     body,
   });
 }
@@ -40,10 +48,18 @@ describe("WebhookServer", () => {
   });
 
   it("rejects a verify with a wrong token", async () => {
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "VTOK", appSecret: "S", onEvent: async () => {} });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "VTOK",
+      appSecret: "S",
+      onEvent: async () => {},
+    });
     await server.start(0);
     try {
-      const res = await get(server, "/webhook?hub.mode=subscribe&hub.verify_token=WRONG&hub.challenge=1");
+      const res = await get(
+        server,
+        "/webhook?hub.mode=subscribe&hub.verify_token=WRONG&hub.challenge=1",
+      );
       expect(res.status).toBe(403);
     } finally {
       await server.stop();
@@ -52,10 +68,18 @@ describe("WebhookServer", () => {
 
   it("accepts a correctly-signed POST and invokes onEvent", async () => {
     const onEvent = vi.fn(async () => {});
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "SECRET", onEvent });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "V",
+      appSecret: "SECRET",
+      onEvent,
+    });
     await server.start(0);
     try {
-      const body = JSON.stringify({ object: "whatsapp_business_account", entry: [] });
+      const body = JSON.stringify({
+        object: "whatsapp_business_account",
+        entry: [],
+      });
       const res = await post(server, "/webhook", body, sign("SECRET", body));
       expect(res.status).toBe(200);
       await new Promise((r) => setTimeout(r, 10));
@@ -67,7 +91,12 @@ describe("WebhookServer", () => {
 
   it("rejects a POST with a bad signature", async () => {
     const onEvent = vi.fn(async () => {});
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "SECRET", onEvent });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "V",
+      appSecret: "SECRET",
+      onEvent,
+    });
     await server.start(0);
     try {
       const res = await post(server, "/webhook", "{}", "sha256=deadbeef");
@@ -80,12 +109,19 @@ describe("WebhookServer", () => {
 
   it("rejects a POST with a correctly-formatted but wrong signature", async () => {
     const onEvent = vi.fn(async () => {});
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "SECRET", onEvent });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "V",
+      appSecret: "SECRET",
+      onEvent,
+    });
     await server.start(0);
     try {
       const body = "{}";
       // valid length (64 hex) but computed with the WRONG secret
-      const wrong = "sha256=" + createHmac("sha256", "NOT_THE_SECRET").update(body).digest("hex");
+      const wrong =
+        "sha256=" +
+        createHmac("sha256", "NOT_THE_SECRET").update(body).digest("hex");
       const res = await post(server, "/webhook", body, wrong);
       expect(res.status).toBe(401);
       expect(onEvent).not.toHaveBeenCalled();

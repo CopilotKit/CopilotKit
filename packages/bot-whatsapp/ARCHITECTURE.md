@@ -140,15 +140,15 @@ engine time to dispatch before the webhook response times out.
 
 ## What differs from Slack
 
-| Concern              | Slack                                              | WhatsApp                                              |
-| -------------------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Ingress              | Socket Mode (outbound WebSocket via Bolt)          | HTTP webhook (signed POST); needs a public URL        |
-| Egress               | `chat.update` streaming; message editing           | Buffered single send; no message editing or delete    |
-| History              | Reconstructed from `conversations.replies` per turn | Held in `HistoryStore`; durable storage is required for persistence |
-| Commands             | Native slash commands via Slack app config         | Leading-keyword text match; not a native surface      |
-| Command persistence  | Slash commands appear in the thread history        | Commands are NOT persisted at ingress (engine prompt path injects them) |
-| User directory       | `lookupUser` resolves names/emails to `<@USERID>`  | `lookupUser` always returns `undefined`               |
-| Streaming            | `chat.update` throttle; live editing               | Not supported; buffer + single send                   |
+| Concern             | Slack                                               | WhatsApp                                                                |
+| ------------------- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Ingress             | Socket Mode (outbound WebSocket via Bolt)           | HTTP webhook (signed POST); needs a public URL                          |
+| Egress              | `chat.update` streaming; message editing            | Buffered single send; no message editing or delete                      |
+| History             | Reconstructed from `conversations.replies` per turn | Held in `HistoryStore`; durable storage is required for persistence     |
+| Commands            | Native slash commands via Slack app config          | Leading-keyword text match; not a native surface                        |
+| Command persistence | Slash commands appear in the thread history         | Commands are NOT persisted at ingress (engine prompt path injects them) |
+| User directory      | `lookupUser` resolves names/emails to `<@USERID>`   | `lookupUser` always returns `undefined`                                 |
+| Streaming           | `chat.update` throttle; live editing                | Not supported; buffer + single send                                     |
 
 ## SDK files at a glance
 

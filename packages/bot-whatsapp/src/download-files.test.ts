@@ -18,14 +18,21 @@ describe("buildFileContentParts", () => {
     );
     expect(notes).toEqual([]);
     expect(parts).toHaveLength(1);
-    expect(parts[0]).toMatchObject({ type: "image", source: { type: "data", mimeType: "image/png" } });
+    expect(parts[0]).toMatchObject({
+      type: "image",
+      source: { type: "data", mimeType: "image/png" },
+    });
   });
 
   it("decodes a text media into a text part", async () => {
     const client = fakeClient({
       M2: { bytes: new TextEncoder().encode("hello"), mimeType: "text/plain" },
     });
-    const { parts } = await buildFileContentParts([{ id: "M2", mime_type: "text/plain" }], client as any, {});
+    const { parts } = await buildFileContentParts(
+      [{ id: "M2", mime_type: "text/plain" }],
+      client as any,
+      {},
+    );
     expect(parts[0]).toEqual({ type: "text", text: "hello" });
   });
 

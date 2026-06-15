@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { WhatsAppClient } from "./client.js";
 
-function fakeFetch(impl: (url: string, init?: RequestInit) => Promise<Response>) {
+function fakeFetch(
+  impl: (url: string, init?: RequestInit) => Promise<Response>,
+) {
   return vi.fn(impl) as unknown as typeof fetch;
 }
 
@@ -19,7 +21,10 @@ describe("WhatsAppClient", () => {
           body: JSON.parse((init?.body as string) ?? "{}"),
           auth: (init?.headers as Record<string, string>)?.Authorization,
         });
-        return new Response(JSON.stringify({ messages: [{ id: "wamid.OUT" }] }), { status: 200 });
+        return new Response(
+          JSON.stringify({ messages: [{ id: "wamid.OUT" }] }),
+          { status: 200 },
+        );
       }),
     });
 
@@ -35,7 +40,11 @@ describe("WhatsAppClient", () => {
       to: "15551234567",
       type: "text",
     });
-    expect(ref).toEqual({ id: "wamid.OUT", to: "15551234567", phoneNumberId: "PNID" });
+    expect(ref).toEqual({
+      id: "wamid.OUT",
+      to: "15551234567",
+      phoneNumberId: "PNID",
+    });
   });
 
   it("throws on a non-2xx response", async () => {
@@ -45,7 +54,10 @@ describe("WhatsAppClient", () => {
       fetchImpl: fakeFetch(async () => new Response("bad", { status: 400 })),
     });
     await expect(
-      client.sendMessage("x", { type: "text", text: { body: "y", preview_url: false } }),
+      client.sendMessage("x", {
+        type: "text",
+        text: { body: "y", preview_url: false },
+      }),
     ).rejects.toThrow(/400/);
   });
 
@@ -57,9 +69,15 @@ describe("WhatsAppClient", () => {
       graphBaseUrl: "https://graph.test",
       fetchImpl: fakeFetch(async (url) => {
         if ((url as string).endsWith("/MEDIA_ID")) {
-          return new Response(JSON.stringify({ url: "https://cdn.test/blob", mime_type: "image/png" }), {
-            status: 200,
-          });
+          return new Response(
+            JSON.stringify({
+              url: "https://cdn.test/blob",
+              mime_type: "image/png",
+            }),
+            {
+              status: 200,
+            },
+          );
         }
         return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
       }),

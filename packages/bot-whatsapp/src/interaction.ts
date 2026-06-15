@@ -29,7 +29,11 @@ export function decodeInteraction(
   if (msg.type !== "interactive" || !msg.interactive) return undefined;
   const i = msg.interactive;
   const reply =
-    i.type === "button_reply" ? i.button_reply : i.type === "list_reply" ? i.list_reply : undefined;
+    i.type === "button_reply"
+      ? i.button_reply
+      : i.type === "list_reply"
+        ? i.list_reply
+        : undefined;
   if (!reply?.id) return undefined;
 
   let id = reply.id;
@@ -51,6 +55,10 @@ export function decodeInteraction(
     replyTarget,
     value,
     user: { id: msg.from },
-    messageRef: { id: msg.id, to: replyTarget.to, phoneNumberId: replyTarget.phoneNumberId },
+    messageRef: {
+      id: msg.id,
+      to: replyTarget.to,
+      phoneNumberId: replyTarget.phoneNumberId,
+    },
   };
 }

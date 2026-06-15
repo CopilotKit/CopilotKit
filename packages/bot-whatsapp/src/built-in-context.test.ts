@@ -9,7 +9,10 @@ describe("defaults", () => {
 
   it("ships formatting + no-streaming guidance context", () => {
     expect(defaultWhatsAppContext.length).toBeGreaterThan(0);
-    const joined = defaultWhatsAppContext.map((c) => c.value).join("\n").toLowerCase();
+    const joined = defaultWhatsAppContext
+      .map((c) => c.value)
+      .join("\n")
+      .toLowerCase();
     expect(joined).toContain("whatsapp");
     expect(joined).toMatch(/bold|formatting/);
   });

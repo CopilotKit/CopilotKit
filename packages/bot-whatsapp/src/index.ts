@@ -1,5 +1,9 @@
 export { whatsapp, WhatsAppAdapter } from "./adapter.js";
-export type { WhatsAppAdapterOptions, ReplyTarget, WhatsAppMessageRef } from "./types.js";
+export type {
+  WhatsAppAdapterOptions,
+  ReplyTarget,
+  WhatsAppMessageRef,
+} from "./types.js";
 
 export { WhatsAppConversationStore } from "./conversation-store.js";
 export { InMemoryHistoryStore } from "./history-store.js";

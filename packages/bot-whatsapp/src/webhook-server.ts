@@ -1,4 +1,9 @@
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type Server,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { WebhookBody } from "./types.js";
@@ -71,7 +76,9 @@ export class WebhookServer {
       const rawBuf = Buffer.concat(chunks);
       const raw = rawBuf.toString("utf8");
       const sig = req.headers["x-hub-signature-256"];
-      if (!this.verifySignature(rawBuf, typeof sig === "string" ? sig : undefined)) {
+      if (
+        !this.verifySignature(rawBuf, typeof sig === "string" ? sig : undefined)
+      ) {
         res.statusCode = 401;
         res.end();
         return;
@@ -93,7 +100,9 @@ export class WebhookServer {
 
   private verifySignature(raw: Buffer, signature: string | undefined): boolean {
     if (!signature || !signature.startsWith("sha256=")) return false;
-    const expected = "sha256=" + createHmac("sha256", this.args.appSecret).update(raw).digest("hex");
+    const expected =
+      "sha256=" +
+      createHmac("sha256", this.args.appSecret).update(raw).digest("hex");
     const a = Buffer.from(signature);
     const b = Buffer.from(expected);
     return a.length === b.length && timingSafeEqual(a, b);

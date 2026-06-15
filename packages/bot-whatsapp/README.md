@@ -18,10 +18,7 @@ pnpm add @copilotkit/bot @copilotkit/bot-whatsapp
 
 ```ts
 import { createBot } from "@copilotkit/bot";
-import {
-  whatsapp,
-  defaultWhatsAppContext,
-} from "@copilotkit/bot-whatsapp";
+import { whatsapp, defaultWhatsAppContext } from "@copilotkit/bot-whatsapp";
 
 const bot = createBot({
   adapters: [
@@ -65,12 +62,12 @@ setup walkthrough.
 
 ## Capabilities
 
-| Capability          | Supported | Notes                                                              |
-| ------------------- | --------- | ------------------------------------------------------------------ |
-| `supportsStreaming`  | false     | WhatsApp messages are immutable; there is no edit-message API.     |
-| `supportsModals`    | false     | No modal surface in the Cloud API.                                 |
-| `supportsTyping`    | false     | No typing-indicator API for business accounts.                     |
-| `supportsReactions` | false     | No reaction API for business-sent messages.                        |
+| Capability          | Supported | Notes                                                          |
+| ------------------- | --------- | -------------------------------------------------------------- |
+| `supportsStreaming` | false     | WhatsApp messages are immutable; there is no edit-message API. |
+| `supportsModals`    | false     | No modal surface in the Cloud API.                             |
+| `supportsTyping`    | false     | No typing-indicator API for business accounts.                 |
+| `supportsReactions` | false     | No reaction API for business-sent messages.                    |
 
 Because messages are immutable, `thread.stream(...)` buffers the full iterable
 and sends it as a single message — there is no token-by-token streaming. Calls to
@@ -80,20 +77,20 @@ it doesn't promise to "update this message."
 
 ## `WhatsAppAdapterOptions` reference
 
-| Option                | Type                    | Default                          | Description                                                        |
-| --------------------- | ----------------------- | -------------------------------- | ------------------------------------------------------------------ |
-| `accessToken`         | `string`                | required                         | Cloud API access token (Bearer).                                   |
-| `phoneNumberId`       | `string`                | required                         | Business phone-number id that sends messages.                      |
-| `appSecret`           | `string`                | required                         | App secret for `X-Hub-Signature-256` webhook validation.           |
-| `verifyToken`         | `string`                | required                         | Token echoed during the GET verification handshake.                |
-| `port`                | `number`                | `3000`                           | HTTP server port.                                                  |
-| `path`                | `string`                | `"/webhook"`                     | Webhook path.                                                      |
-| `apiVersion`          | `string`                | `"v21.0"`                        | Graph API version.                                                 |
-| `graphBaseUrl`        | `string`                | `"https://graph.facebook.com"`   | Graph API base origin. Overridable for tests.                      |
-| `interruptEventNames` | `ReadonlySet<string>`   | `undefined`                      | Custom AG-UI event names treated as interrupts by the run renderer.|
-| `commandPrefix`       | `string`                | `"/"`                            | Prefix for leading-keyword command matching.                       |
-| `historyStore`        | `HistoryStore`          | `new InMemoryHistoryStore()`     | Pluggable conversation-history persistence.                        |
-| `files`               | `FileDeliveryConfig`    | `{}`                             | Inbound media handling configuration.                              |
+| Option                | Type                  | Default                        | Description                                                         |
+| --------------------- | --------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| `accessToken`         | `string`              | required                       | Cloud API access token (Bearer).                                    |
+| `phoneNumberId`       | `string`              | required                       | Business phone-number id that sends messages.                       |
+| `appSecret`           | `string`              | required                       | App secret for `X-Hub-Signature-256` webhook validation.            |
+| `verifyToken`         | `string`              | required                       | Token echoed during the GET verification handshake.                 |
+| `port`                | `number`              | `3000`                         | HTTP server port.                                                   |
+| `path`                | `string`              | `"/webhook"`                   | Webhook path.                                                       |
+| `apiVersion`          | `string`              | `"v21.0"`                      | Graph API version.                                                  |
+| `graphBaseUrl`        | `string`              | `"https://graph.facebook.com"` | Graph API base origin. Overridable for tests.                       |
+| `interruptEventNames` | `ReadonlySet<string>` | `undefined`                    | Custom AG-UI event names treated as interrupts by the run renderer. |
+| `commandPrefix`       | `string`              | `"/"`                          | Prefix for leading-keyword command matching.                        |
+| `historyStore`        | `HistoryStore`        | `new InMemoryHistoryStore()`   | Pluggable conversation-history persistence.                         |
+| `files`               | `FileDeliveryConfig`  | `{}`                           | Inbound media handling configuration.                               |
 
 ## JSX → WhatsApp rendering
 
@@ -158,7 +155,7 @@ Pass it as `historyStore` in the adapter options:
 whatsapp({
   // ...
   historyStore: new MyRedisHistoryStore(),
-})
+});
 ```
 
 Without a durable `HistoryStore`, conversation history is lost on process restart.

@@ -38,9 +38,11 @@ describe("createRunRenderer (buffered)", () => {
   it("captures tool calls for the run loop", async () => {
     const r = createRunRenderer({ send: async () => {} });
     const s = r.subscriber;
-    await s.onToolCallEndEvent?.(
-      { event: { toolCallId: "t1" }, toolCallName: "do_x", toolCallArgs: { a: 1 } } as any,
-    );
+    await s.onToolCallEndEvent?.({
+      event: { toolCallId: "t1" },
+      toolCallName: "do_x",
+      toolCallArgs: { a: 1 },
+    } as any);
     expect(r.getCapturedToolCalls()).toEqual([
       { toolCallId: "t1", toolCallName: "do_x", toolCallArgs: { a: 1 } },
     ]);
@@ -48,8 +50,13 @@ describe("createRunRenderer (buffered)", () => {
 
   it("captures interrupts via matching custom event", () => {
     const r = createRunRenderer({ send: async () => {} });
-    r.subscriber.onCustomEvent?.({ event: { name: "on_interrupt", value: { q: 1 } } } as any);
-    expect(r.getPendingInterrupt()).toEqual({ eventName: "on_interrupt", value: { q: 1 } });
+    r.subscriber.onCustomEvent?.({
+      event: { name: "on_interrupt", value: { q: 1 } },
+    } as any);
+    expect(r.getPendingInterrupt()).toEqual({
+      eventName: "on_interrupt",
+      value: { q: 1 },
+    });
   });
 
   it("does not send after markInterrupted", async () => {

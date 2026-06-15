@@ -9,8 +9,16 @@ function fakeAgent(threadId: string) {
 describe("WhatsAppConversationStore", () => {
   it("replays stored history into agent.messages with a fresh threadId", async () => {
     const history = new InMemoryHistoryStore();
-    await history.append("whatsapp:111", { role: "user", content: "hi", ts: "1" });
-    await history.append("whatsapp:111", { role: "assistant", content: "hello", ts: "2" });
+    await history.append("whatsapp:111", {
+      role: "user",
+      content: "hi",
+      ts: "1",
+    });
+    await history.append("whatsapp:111", {
+      role: "assistant",
+      content: "hello",
+      ts: "2",
+    });
     const store = new WhatsAppConversationStore({ historyStore: history });
 
     const target = { to: "111", phoneNumberId: "P" };
@@ -25,7 +33,11 @@ describe("WhatsAppConversationStore", () => {
 
   it("getMessages maps stored history into ThreadMessage[]", async () => {
     const history = new InMemoryHistoryStore();
-    await history.append("whatsapp:111", { role: "assistant", content: "yo", ts: "9" });
+    await history.append("whatsapp:111", {
+      role: "assistant",
+      content: "yo",
+      ts: "9",
+    });
     const store = new WhatsAppConversationStore({ historyStore: history });
     const out = await store.getMessages({ to: "111", phoneNumberId: "P" });
     expect(out).toEqual([{ text: "yo", isBot: true, ts: "9" }]);

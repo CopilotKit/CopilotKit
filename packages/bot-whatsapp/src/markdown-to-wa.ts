@@ -30,7 +30,8 @@ function splitOnCode(input: string): Segment[] {
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(input)) !== null) {
-    if (m.index > last) out.push({ text: input.slice(last, m.index), code: false });
+    if (m.index > last)
+      out.push({ text: input.slice(last, m.index), code: false });
     out.push({ text: m[0], code: true });
     last = m.index + m[0].length;
   }

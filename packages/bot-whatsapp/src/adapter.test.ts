@@ -19,7 +19,9 @@ describe("whatsapp() adapter", () => {
 
   it("render() lowers IR to Cloud API payloads", () => {
     const a = whatsapp(opts);
-    const payloads = a.render([{ type: "section", props: { children: "hi" } }]) as any[];
+    const payloads = a.render([
+      { type: "section", props: { children: "hi" } },
+    ]) as any[];
     expect(payloads[0]).toMatchObject({ type: "text" });
   });
 
@@ -46,7 +48,10 @@ describe("whatsapp() adapter", () => {
         from: "111",
         id: "wamid.1",
         type: "interactive",
-        interactive: { type: "button_reply", button_reply: { id: "ck:9", title: "Y" } },
+        interactive: {
+          type: "button_reply",
+          button_reply: { id: "ck:9", title: "Y" },
+        },
       },
       replyTarget: { to: "111", phoneNumberId: "PNID" },
     });
@@ -73,7 +78,10 @@ describe("whatsapp() adapter", () => {
       { bytes: new Uint8Array([1]), filename: "pic.png", altText: "a pic" },
     );
     expect(res).toEqual({ ok: true, fileId: "MEDIA1" });
-    expect(calls[0]).toEqual({ type: "image", image: { id: "MEDIA1", caption: "a pic" } });
+    expect(calls[0]).toEqual({
+      type: "image",
+      image: { id: "MEDIA1", caption: "a pic" },
+    });
   });
 
   it("postFile sends a document payload by id for non-image mimes", async () => {
@@ -108,7 +116,9 @@ describe("whatsapp() adapter", () => {
     const r = a.createRunRenderer({ to: "111", phoneNumberId: "PNID" });
     const s = r.subscriber;
     s.onTextMessageStartEvent({ event: { messageId: "m" } });
-    s.onTextMessageContentEvent({ event: { messageId: "m", delta: "**hi** world" } });
+    s.onTextMessageContentEvent({
+      event: { messageId: "m", delta: "**hi** world" },
+    });
     await s.onTextMessageEndEvent({ event: { messageId: "m" } });
     expect(sent).toEqual(["*hi* world"]);
   });

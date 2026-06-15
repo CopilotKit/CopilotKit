@@ -12,7 +12,14 @@
  * the tool's natural-language return and any follow-up the agent posts.
  */
 import { z } from "zod";
-import { Message, Header, Section, Context, Actions, Button } from "@copilotkit/bot-ui";
+import {
+  Message,
+  Header,
+  Section,
+  Context,
+  Actions,
+  Button,
+} from "@copilotkit/bot-ui";
 import { defineBotTool } from "@copilotkit/bot";
 
 export interface ConfirmWriteProps {

@@ -12,7 +12,9 @@ describe("renderWhatsAppMessage", () => {
     const out = renderWhatsAppMessage([
       node("section", { children: "Hello **world**" }),
     ]);
-    expect(out).toEqual([{ type: "text", text: { body: "Hello *world*", preview_url: false } }]);
+    expect(out).toEqual([
+      { type: "text", text: { body: "Hello *world*", preview_url: false } },
+    ]);
   });
 
   it("renders <=3 buttons as an interactive button message (value encoded in id)", () => {
@@ -45,11 +47,17 @@ describe("renderWhatsAppMessage", () => {
     const buttons = ["a", "b", "c", "d"].map((t, i) =>
       node("button", { children: t, onClick: { id: `ck:${i}` } }),
     );
-    const out = renderWhatsAppMessage([node("section", { children: "Choose" }), ...buttons]);
+    const out = renderWhatsAppMessage([
+      node("section", { children: "Choose" }),
+      ...buttons,
+    ]);
     const m = out[0] as Record<string, any>;
     expect(m.interactive.type).toBe("list");
     expect(m.interactive.action.sections[0].rows).toHaveLength(4);
-    expect(m.interactive.action.sections[0].rows[0]).toEqual({ id: "ck:0", title: "a" });
+    expect(m.interactive.action.sections[0].rows[0]).toEqual({
+      id: "ck:0",
+      title: "a",
+    });
   });
 
   it("renders a select as a list message (option value encoded per row)", () => {
@@ -74,14 +82,20 @@ describe("renderWhatsAppMessage", () => {
   it("clamps button titles to 20 chars", () => {
     const out = renderWhatsAppMessage([
       node("section", { children: "x" }),
-      node("button", { children: "a".repeat(40), value: "v", onClick: { id: "ck:1" } }),
+      node("button", {
+        children: "a".repeat(40),
+        value: "v",
+        onClick: { id: "ck:1" },
+      }),
     ]);
     const m = out[0] as Record<string, any>;
     expect(m.interactive.action.buttons[0].reply.title.length).toBe(20);
   });
 
   it("renders an image as an image payload", () => {
-    const out = renderWhatsAppMessage([node("image", { url: "https://x/i.png", alt: "pic" })]);
+    const out = renderWhatsAppMessage([
+      node("image", { url: "https://x/i.png", alt: "pic" }),
+    ]);
     expect(out).toContainEqual({
       type: "image",
       image: { link: "https://x/i.png", caption: "pic" },
@@ -92,7 +106,10 @@ describe("renderWhatsAppMessage", () => {
     const buttons = Array.from({ length: 12 }, (_, i) =>
       node("button", { children: `opt${i}`, onClick: { id: `ck:${i}` } }),
     );
-    const out = renderWhatsAppMessage([node("section", { children: "Many" }), ...buttons]);
+    const out = renderWhatsAppMessage([
+      node("section", { children: "Many" }),
+      ...buttons,
+    ]);
     const m = out[0] as Record<string, any>;
     expect(m.type).toBe("text");
     expect(m.text.body).toContain("1. opt0");
@@ -104,7 +121,11 @@ describe("renderWhatsAppMessage", () => {
     expect(() =>
       renderWhatsAppMessage([
         node("section", { children: "x" }),
-        node("button", { children: "Go", value: huge, onClick: { id: "ck:1" } }),
+        node("button", {
+          children: "Go",
+          value: huge,
+          onClick: { id: "ck:1" },
+        }),
       ]),
     ).toThrow(/too large to round-trip/);
   });

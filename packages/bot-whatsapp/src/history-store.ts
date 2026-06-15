@@ -35,7 +35,8 @@ export class InMemoryHistoryStore implements HistoryStore {
   async append(conversationKey: string, message: StoredMessage): Promise<void> {
     const arr = this.map.get(conversationKey) ?? [];
     arr.push(message);
-    if (arr.length > this.maxMessages) arr.splice(0, arr.length - this.maxMessages);
+    if (arr.length > this.maxMessages)
+      arr.splice(0, arr.length - this.maxMessages);
     this.map.set(conversationKey, arr);
   }
 

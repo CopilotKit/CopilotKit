@@ -1,5 +1,9 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type { RunRenderer, CapturedToolCall, CapturedInterrupt } from "@copilotkit/bot";
+import type {
+  RunRenderer,
+  CapturedToolCall,
+  CapturedInterrupt,
+} from "@copilotkit/bot";
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
@@ -20,7 +24,8 @@ export interface RunRendererArgs {
  * them identically.
  */
 export function createRunRenderer(args: RunRendererArgs): RunRenderer {
-  const interruptEventNames = args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
+  const interruptEventNames =
+    args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
   const buffers = new Map<string, string>();
   const finalised = new Set<string>();
   const capturedToolCalls: CapturedToolCall[] = [];
@@ -54,7 +59,10 @@ export function createRunRenderer(args: RunRendererArgs): RunRenderer {
     },
     onTextMessageContentEvent({ event }) {
       if (aborted || finalised.has(event.messageId)) return;
-      buffers.set(event.messageId, (buffers.get(event.messageId) ?? "") + (event.delta ?? ""));
+      buffers.set(
+        event.messageId,
+        (buffers.get(event.messageId) ?? "") + (event.delta ?? ""),
+      );
     },
     async onTextMessageEndEvent({ event }) {
       if (aborted || finalised.has(event.messageId)) return;

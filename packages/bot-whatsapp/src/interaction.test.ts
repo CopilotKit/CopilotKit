@@ -16,7 +16,10 @@ describe("decodeInteraction", () => {
       from: "15551234567",
       id: "wamid.A",
       type: "interactive",
-      interactive: { type: "button_reply", button_reply: { id: "ck:42", title: "Yes" } },
+      interactive: {
+        type: "button_reply",
+        button_reply: { id: "ck:42", title: "Yes" },
+      },
     };
     const evt = decodeInteraction(msg, target);
     expect(evt).toEqual({
@@ -34,7 +37,10 @@ describe("decodeInteraction", () => {
       from: "15551234567",
       id: "wamid.B",
       type: "interactive",
-      interactive: { type: "list_reply", list_reply: { id: 'ck:sel::"eu"', title: "EU" } },
+      interactive: {
+        type: "list_reply",
+        list_reply: { id: 'ck:sel::"eu"', title: "EU" },
+      },
     };
     const evt = decodeInteraction(msg, target);
     expect(evt?.id).toBe("ck:sel");
@@ -46,7 +52,10 @@ describe("decodeInteraction", () => {
       from: "15551234567",
       id: "wamid.C",
       type: "interactive",
-      interactive: { type: "button_reply", button_reply: { id: 'ck:7::{"confirmed":true}', title: "Yes" } },
+      interactive: {
+        type: "button_reply",
+        button_reply: { id: 'ck:7::{"confirmed":true}', title: "Yes" },
+      },
     };
     const evt = decodeInteraction(msg, target);
     expect(evt?.id).toBe("ck:7");
@@ -54,7 +63,12 @@ describe("decodeInteraction", () => {
   });
 
   it("returns undefined for a non-interactive message", () => {
-    const msg: InboundMessage = { from: "x", id: "1", type: "text", text: { body: "hi" } };
+    const msg: InboundMessage = {
+      from: "x",
+      id: "1",
+      type: "text",
+      text: { body: "hi" },
+    };
     expect(decodeInteraction(msg, target)).toBeUndefined();
   });
 });

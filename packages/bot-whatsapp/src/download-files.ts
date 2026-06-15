@@ -42,7 +42,10 @@ const TEXT_MIME_EXACT = new Set([
 ]);
 
 function isText(mime: string): boolean {
-  return TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p)) || TEXT_MIME_EXACT.has(mime);
+  return (
+    TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p)) ||
+    TEXT_MIME_EXACT.has(mime)
+  );
 }
 
 function mediaKind(mime: string): "image" | "audio" | "video" | "document" {
@@ -90,7 +93,9 @@ export async function buildFileContentParts(
   }
 
   if (media.length > cfg.maxFiles) {
-    notes.push(`dropped ${media.length - cfg.maxFiles} extra media (limit ${cfg.maxFiles})`);
+    notes.push(
+      `dropped ${media.length - cfg.maxFiles} extra media (limit ${cfg.maxFiles})`,
+    );
   }
   return { parts, notes };
 }

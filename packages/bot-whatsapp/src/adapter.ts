@@ -7,7 +7,12 @@ import type {
   ConversationStore,
   UserQuery,
 } from "@copilotkit/bot";
-import type { BotNode, MessageRef, PlatformUser, ThreadMessage } from "@copilotkit/bot-ui";
+import type {
+  BotNode,
+  MessageRef,
+  PlatformUser,
+  ThreadMessage,
+} from "@copilotkit/bot-ui";
 import type {
   ReplyTarget,
   WhatsAppAdapterOptions,
@@ -22,7 +27,10 @@ import { WebhookServer } from "./webhook-server.js";
 import { handleWebhookValue } from "./webhook-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { conversationKeyOf, decodeInteraction } from "./interaction.js";
-import { renderWhatsAppMessage, type WhatsAppOutbound } from "./render/message.js";
+import {
+  renderWhatsAppMessage,
+  type WhatsAppOutbound,
+} from "./render/message.js";
 import { markdownToWhatsApp } from "./markdown-to-wa.js";
 import { WA_LIMITS } from "./render/budget.js";
 
@@ -59,7 +67,9 @@ export class WhatsAppAdapter implements PlatformAdapter {
       graphBaseUrl: opts.graphBaseUrl,
     });
     this.history = opts.historyStore ?? new InMemoryHistoryStore();
-    this.waStore = new WhatsAppConversationStore({ historyStore: this.history });
+    this.waStore = new WhatsAppConversationStore({
+      historyStore: this.history,
+    });
     this.conversationStore = this.waStore;
     this.port = opts.port ?? 3000;
     this.commandPrefix = opts.commandPrefix ?? "/";
@@ -104,7 +114,11 @@ export class WhatsAppAdapter implements PlatformAdapter {
 
   async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
     const payloads = this.render(ir);
-    let last: WhatsAppMessageRef = { id: "", to: target.to, phoneNumberId: target.phoneNumberId };
+    let last: WhatsAppMessageRef = {
+      id: "",
+      to: target.to,
+      phoneNumberId: target.phoneNumberId,
+    };
     for (const p of payloads) {
       last = await this.client.sendMessage(target.to, p);
     }
@@ -117,7 +131,10 @@ export class WhatsAppAdapter implements PlatformAdapter {
     await this.post({ to: r.to, phoneNumberId: r.phoneNumberId }, ir);
   }
 
-  async stream(target: ReplyTarget, chunks: AsyncIterable<string>): Promise<MessageRef> {
+  async stream(
+    target: ReplyTarget,
+    chunks: AsyncIterable<string>,
+  ): Promise<MessageRef> {
     // No live streaming: buffer the whole iterable, then send once.
     let text = "";
     for await (const c of chunks) text += c;
@@ -161,16 +178,35 @@ export class WhatsAppAdapter implements PlatformAdapter {
 
   async postFile(
     target: ReplyTarget,
-    args: { bytes: Uint8Array; filename: string; title?: string; altText?: string },
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     try {
       const mime = guessMime(args.filename);
-      const mediaId = await this.client.uploadMedia(args.bytes, mime, args.filename);
+      const mediaId = await this.client.uploadMedia(
+        args.bytes,
+        mime,
+        args.filename,
+      );
       const payload: WhatsAppOutbound = mime.startsWith("image/")
-        ? { type: "image", image: { id: mediaId, ...(args.altText ? { caption: args.altText } : {}) } }
+        ? {
+            type: "image",
+            image: {
+              id: mediaId,
+              ...(args.altText ? { caption: args.altText } : {}),
+            },
+          }
         : {
             type: "document",
-            document: { id: mediaId, filename: args.filename, ...(args.title ? { caption: args.title } : {}) },
+            document: {
+              id: mediaId,
+              filename: args.filename,
+              ...(args.title ? { caption: args.title } : {}),
+            },
           };
       await this.client.sendMessage(target.to, payload);
       return { ok: true, fileId: mediaId };
@@ -180,13 +216,23 @@ export class WhatsAppAdapter implements PlatformAdapter {
   }
 
   /** Send agent/freeform text: convert markdown to WhatsApp formatting, split to ≤bodyText chunks. */
-  private async sendText(to: string, text: string): Promise<WhatsAppMessageRef> {
+  private async sendText(
+    to: string,
+    text: string,
+  ): Promise<WhatsAppMessageRef> {
     const body = markdownToWhatsApp(text);
     if (!body) return { id: "", to, phoneNumberId: this.opts.phoneNumberId };
     const parts = splitForWhatsApp(body, WA_LIMITS.bodyText);
-    let last: WhatsAppMessageRef = { id: "", to, phoneNumberId: this.opts.phoneNumberId };
+    let last: WhatsAppMessageRef = {
+      id: "",
+      to,
+      phoneNumberId: this.opts.phoneNumberId,
+    };
     for (const part of parts) {
-      last = await this.client.sendMessage(to, { type: "text", text: { body: part, preview_url: false } });
+      last = await this.client.sendMessage(to, {
+        type: "text",
+        text: { body: part, preview_url: false },
+      });
     }
     return last;
   }
