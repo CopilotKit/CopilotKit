@@ -54,13 +54,17 @@ export function IncidentCard({ id, title, severity, summary }: IncidentProps) {
           value={{ action: "ack", id }}
           style="primary"
           onClick={async ({ thread, user, message }: InteractionContext) => {
-            await thread.update(
-              message.ref,
-              <Message accent="#27AE60">
-                <Header>{`✅ Acknowledged · ${title}`}</Header>
-                <Context>{`Ack'd by ${user?.name ?? user?.id ?? "someone"}`}</Context>
-              </Message>,
-            );
+            try {
+              await thread.update(
+                message.ref,
+                <Message accent="#27AE60">
+                  <Header>{`✅ Acknowledged · ${title}`}</Header>
+                  <Context>{`Ack'd by ${user?.name ?? user?.id ?? "someone"}`}</Context>
+                </Message>,
+              );
+            } catch (e) {
+              console.error("[showcase-tools] acknowledge click failed:", e);
+            }
           }}
         >
           Acknowledge
@@ -69,9 +73,13 @@ export function IncidentCard({ id, title, severity, summary }: IncidentProps) {
           value={{ action: "escalate", id }}
           style="danger"
           onClick={async ({ thread }: InteractionContext) => {
-            await thread.post(
-              `🚨 Escalating **${title}** — paging the next on-call.`,
-            );
+            try {
+              await thread.post(
+                `🚨 Escalating **${title}** — paging the next on-call.`,
+              );
+            } catch (e) {
+              console.error("[showcase-tools] escalate click failed:", e);
+            }
           }}
         >
           Escalate
@@ -90,8 +98,12 @@ export const showIncidentTool = defineBotTool({
     "card in place, clicking Escalate posts a paging notice.",
   parameters: incidentSchema,
   async handler(props, { thread }) {
-    await thread.post(<IncidentCard {...props} />);
-    return "Posted the incident card to the user.";
+    try {
+      await thread.post(<IncidentCard {...props} />);
+      return "Posted the incident card to the user.";
+    } catch (e) {
+      return `Failed to post the incident card: ${(e as Error).message}`;
+    }
   },
 });
 
@@ -133,8 +145,12 @@ export const showStatusTool = defineBotTool({
     "of small key/value metrics.",
   parameters: statusSchema,
   async handler(props, { thread }) {
-    await thread.post(<StatusCard {...props} />);
-    return "Posted the status card to the user.";
+    try {
+      await thread.post(<StatusCard {...props} />);
+      return "Posted the status card to the user.";
+    } catch (e) {
+      return `Failed to post the status card: ${(e as Error).message}`;
+    }
   },
 });
 
@@ -174,7 +190,11 @@ export const showLinksTool = defineBotTool({
     "links. Use to surface runbooks, dashboards, or related pages.",
   parameters: linksSchema,
   async handler(props, { thread }) {
-    await thread.post(<LinksCard {...props} />);
-    return "Posted the links to the user.";
+    try {
+      await thread.post(<LinksCard {...props} />);
+      return "Posted the links to the user.";
+    } catch (e) {
+      return `Failed to post the links: ${(e as Error).message}`;
+    }
   },
 });

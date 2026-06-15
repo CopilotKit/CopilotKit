@@ -25,8 +25,12 @@ export const issueCardTool = defineBotTool({
     "single issue, or right after creating one (set justCreated: true).",
   parameters: issueCardSchema,
   async handler(props, { thread }) {
-    await thread.post(<IssueCard {...props} />);
-    return "Displayed the issue card to the user.";
+    try {
+      await thread.post(<IssueCard {...props} />);
+      return "Displayed the issue card to the user.";
+    } catch (e) {
+      return `Failed to post the issue card: ${(e as Error).message}`;
+    }
   },
 });
 
@@ -40,8 +44,12 @@ export const issueListTool = defineBotTool({
     "as prose. For a single issue, use issue_card.",
   parameters: issueListSchema,
   async handler(props, { thread }) {
-    await thread.post(<IssueList {...props} />);
-    return "Displayed the issue list to the user.";
+    try {
+      await thread.post(<IssueList {...props} />);
+      return "Displayed the issue list to the user.";
+    } catch (e) {
+      return `Failed to post the issue list: ${(e as Error).message}`;
+    }
   },
 });
 
@@ -54,7 +62,11 @@ export const pageListTool = defineBotTool({
     "of writing them out as prose.",
   parameters: pageListSchema,
   async handler(props, { thread }) {
-    await thread.post(<PageList {...props} />);
-    return "Displayed the Notion pages to the user.";
+    try {
+      await thread.post(<PageList {...props} />);
+      return "Displayed the Notion pages to the user.";
+    } catch (e) {
+      return `Failed to post the Notion pages: ${(e as Error).message}`;
+    }
   },
 });

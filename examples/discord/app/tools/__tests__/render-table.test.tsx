@@ -83,7 +83,7 @@ describe("render_table tool", () => {
     expect(rows).toHaveLength(2);
   });
 
-  it("falls back to a monospace table when the native post is rejected", async () => {
+  it("falls back to a monospace table when the post fails", async () => {
     const { posts, ctx } = fakeThread(1);
     const out = (await renderTableTool.handler(
       { title: "Open issues", columns: COLS, rows: ROWS },
@@ -92,9 +92,13 @@ describe("render_table tool", () => {
     // First post threw; second (fallback) recorded.
     expect(posts).toHaveLength(1);
     expect(out).toBe("Rendered the table (monospace fallback) for the user.");
-    // The raw fallback contains a code-fenced table.
-    expect(JSON.stringify(posts[0])).toContain("```");
-    expect(JSON.stringify(posts[0])).toContain("CPK-1");
+    // The fallback is a plain markdown string containing the title and a
+    // code-fenced table (not a raw-block object).
+    expect(typeof posts[0]).toBe("string");
+    const fallback = posts[0] as string;
+    expect(fallback).toContain("**Open issues**");
+    expect(fallback).toContain("```");
+    expect(fallback).toContain("CPK-1");
   });
 
   it("clamps to 99 data rows", async () => {
@@ -104,7 +108,9 @@ describe("render_table tool", () => {
       { columns: COLS, rows: manyRows },
       ctx,
     )) as string;
-    expect(out).toBe("Rendered the table for the user.");
+    expect(out).toContain("Rendered the table for the user.");
+    // Overflow note is appended to the success message.
+    expect(out).toContain("first 99 of 150 rows");
     const ir = renderToIR(posts[0] as never);
     const rows = findAll(ir, "row");
     expect(rows).toHaveLength(99);
@@ -120,7 +126,9 @@ describe("render_table tool", () => {
       { columns: manyCols, rows: [wideRow] },
       ctx,
     )) as string;
-    expect(out).toBe("Rendered the table for the user.");
+    expect(out).toContain("Rendered the table for the user.");
+    // Overflow note is appended to the success message.
+    expect(out).toContain("first 20 of 25 columns");
     const ir = renderToIR(posts[0] as never);
     const cells = findAll(ir, "cell");
     expect(cells).toHaveLength(20);

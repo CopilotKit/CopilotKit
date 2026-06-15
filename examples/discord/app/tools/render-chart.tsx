@@ -17,42 +17,52 @@ const schema = z.object({
     .optional()
     .describe("Short title shown as the image's filename/caption."),
   chartSpec: z
-    .object({
-      type: z
-        .string()
-        .describe("'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar'."),
-      data: z
+    .union([
+      z
         .object({
-          labels: z
-            .array(z.string())
-            .describe("X-axis / category labels, e.g. ['2026-01','2026-02']."),
-          datasets: z
-            .array(
-              z
-                .object({
-                  label: z
-                    .string()
-                    .optional()
-                    .describe("Series name in the legend, e.g. 'Sev1'."),
-                  data: z
-                    .array(z.number())
-                    .describe("One numeric value per label."),
-                })
-                // Allow Chart.js dataset extras: stack, backgroundColor, fill…
-                .passthrough(),
-            )
-            .min(1)
-            .describe("One entry per data series."),
-        })
-        .describe("Chart.js data — inline the actual numbers."),
-      options: z
-        .record(z.string(), z.any())
-        .optional()
-        .describe(
-          "Optional Chart.js options. Stacked bar: " +
-            "{ scales: { x: { stacked: true }, y: { stacked: true } } }.",
-        ),
-    })
+          type: z
+            .string()
+            .describe(
+              "'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar'.",
+            ),
+          data: z
+            .object({
+              labels: z
+                .array(z.string())
+                .describe(
+                  "X-axis / category labels, e.g. ['2026-01','2026-02'].",
+                ),
+              datasets: z
+                .array(
+                  z
+                    .object({
+                      label: z
+                        .string()
+                        .optional()
+                        .describe("Series name in the legend, e.g. 'Sev1'."),
+                      data: z
+                        .array(z.number())
+                        .describe("One numeric value per label."),
+                    })
+                    // Allow Chart.js dataset extras: stack, backgroundColor, fill…
+                    .passthrough(),
+                )
+                .min(1)
+                .describe("One entry per data series."),
+            })
+            .describe("Chart.js data — inline the actual numbers."),
+          options: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe(
+              "Optional Chart.js options. Stacked bar: " +
+                "{ scales: { x: { stacked: true }, y: { stacked: true } } }.",
+            ),
+        }),
+      // Some models still hand back the config as a JSON string; tolerate it
+      // and parse in the handler.
+      z.string(),
+    ])
     .describe("A Chart.js config with all values inlined."),
 });
 

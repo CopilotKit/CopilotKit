@@ -1,13 +1,15 @@
 /**
- * `render_table` — render tabular data as a Discord **native Table block**,
- * posted into the current thread. Use this for "show X as a table": a list of
- * issues with several fields, metrics parsed from an uploaded CSV, side-by-side
- * comparisons — anything where a chart isn't the right shape.
+ * `render_table` — render tabular data as a table posted into the current
+ * thread. Use this for "show X as a table": a list of issues with several
+ * fields, metrics parsed from an uploaded CSV, side-by-side comparisons —
+ * anything where a chart isn't the right shape.
  *
- * Authored as JSX over `@copilotkit/bot-ui`'s `<Table>/<Row>/<Cell>` vocabulary
- * and posted via `thread.post`. If the workspace rejects the native Table block,
- * we fall back to a column-aligned monospace (code-fenced) table via the raw
- * escape hatch so the data always lands.
+ * Discord has no native table primitive: `<Table>/<Row>/<Cell>` renders as a
+ * GFM pipe table inside a monospace code fence. We author it as JSX over
+ * `@copilotkit/bot-ui`'s `<Table>/<Row>/<Cell>` vocabulary and post via
+ * `thread.post`. If that post fails (rate-limit / network / message too
+ * large), we fall back to posting a plain column-aligned monospace
+ * (code-fenced) table as ordinary markdown so the data still lands.
  */
 import { z } from "zod";
 import { Message, Header, Table, Row, Cell } from "@copilotkit/bot-ui";
@@ -44,7 +46,7 @@ const schema = z.object({
 
 type Column = z.infer<typeof schema>["columns"][number];
 
-// Cap the native Table block at 100 rows (header included) and 20 cols.
+// Cap the rendered table at 100 rows (header included) and 20 cols.
 const MAX_COLUMNS = 20;
 const MAX_DATA_ROWS = 99;
 
@@ -96,7 +98,7 @@ export const renderTableTool = defineBotTool({
     "right shape. Max 20 columns and 100 rows.",
   parameters: schema,
   async handler({ title, columns, rows }, { thread }) {
-    const { cols, dataRows } = clamp(columns, rows);
+    const { cols, dataRows, notes } = clamp(columns, rows);
 
     const table = (
       <Message>
@@ -115,23 +117,28 @@ export const renderTableTool = defineBotTool({
 
     try {
       await thread.post(table);
-      return "Rendered the table for the user.";
-    } catch {
-      // Native Table block not accepted — post the same data as a monospace
-      // code-fenced table via the raw escape hatch so it still lands.
+      return (
+        "Rendered the table for the user." +
+        (notes.length ? ` (${notes.join("; ")})` : "")
+      );
+    } catch (e) {
+      // The post itself failed (rate-limit / network / message too large) —
+      // post the same data as a plain monospace code-fenced markdown table so
+      // it still lands.
+      console.error(
+        "[render_table] table post failed, falling back to monospace:",
+        e,
+      );
       const mono = toMonospaceTable(cols, dataRows);
-      await thread.post({
-        raw: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: (title ? `**${title}**\n` : "") + mono,
-            },
-          },
-        ],
-      });
-      return "Rendered the table (monospace fallback) for the user.";
+      try {
+        await thread.post((title ? `**${title}**\n` : "") + mono);
+        return (
+          "Rendered the table (monospace fallback) for the user." +
+          (notes.length ? ` (${notes.join("; ")})` : "")
+        );
+      } catch (e2) {
+        return `Failed to render the table: ${(e2 as Error).message}`;
+      }
     }
   },
 });
