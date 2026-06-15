@@ -23,8 +23,13 @@ export const myDefinitions = {
       "Horizontal layout container. Children share the width evenly. Use `gap` (px) to space dashboard tiles.",
     props: z.object({
       gap: z.number().optional(),
-      align: z.string().optional(),
-      justify: z.string().optional(),
+      // Enum mirrors the keys the renderer actually maps to CSS. Anything
+      // outside this set silently falls back at render time, so we reject
+      // it at schema-parse time to surface LLM typos early.
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
+      justify: z.enum(["start", "center", "end", "spaceBetween"]).optional(),
       children: z.array(z.string()),
     }),
   },
@@ -34,7 +39,9 @@ export const myDefinitions = {
       "Vertical layout container. Use `gap` (px) to space stacked sections.",
     props: z.object({
       gap: z.number().optional(),
-      align: z.string().optional(),
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
       children: z.array(z.string()),
     }),
   },
@@ -89,10 +96,23 @@ export const myDefinitions = {
 
   DataTable: {
     description:
-      "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists).",
+      "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists). Each row's keys MUST appear in `columns[].key`; unknown row keys render as blank cells and indicate model/schema drift.",
+    // NOTE on B12 (row-keys ⊆ columns[].key): we'd normally enforce this
+    // with `z.object(...).refine(...)`, but the host catalog package's
+    // `CatalogComponentDefinition` type requires `props: ZodObject<…>`
+    // (it inspects `.shape` at runtime), and `.refine` returns a
+    // `ZodEffects` that breaks both the `satisfies CatalogDefinitions`
+    // type assertion and the runtime `.shape` access. Until the host
+    // type is broadened, we encode the constraint in the description
+    // above so the LLM sees the rule, and leave hard enforcement to
+    // the rendering pipeline (which already shows the empty cell —
+    // detection is the gap, not behaviour).
     props: z.object({
       columns: z.array(z.object({ key: z.string(), label: z.string() })),
-      rows: z.array(z.record(z.string())),
+      // Cells may be strings or numbers — the renderer stringifies at
+      // render time, but accepting both lets the LLM emit raw numerics
+      // (e.g. attainment 124) instead of being forced to stringify.
+      rows: z.array(z.record(z.union([z.string(), z.number()]))),
     }),
   },
 
@@ -101,7 +121,12 @@ export const myDefinitions = {
       "A styled primary call-to-action button. Attach an optional `action` that will be dispatched back to the agent when the user clicks it.",
     props: z.object({
       label: z.string(),
-      action: z.any().optional(),
+      // The renderer hands `action` opaquely to the A2UI `dispatch` helper,
+      // which forwards it back to the agent. We don't constrain the shape
+      // (different demos use different action payloads), but `z.unknown()`
+      // is strictly better than `z.any()` here because it forces any
+      // consumer that touches the value to narrow it explicitly.
+      action: z.unknown().optional(),
     }),
   },
 
