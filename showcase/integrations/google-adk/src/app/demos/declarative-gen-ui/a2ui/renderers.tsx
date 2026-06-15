@@ -57,16 +57,19 @@ function CardShell({
   title,
   subtitle,
   testid,
+  cardId,
   children,
 }: {
   title: string;
   subtitle?: string;
   testid?: string;
+  cardId?: string;
   children?: React.ReactNode;
 }) {
   return (
     <div
       data-testid={testid}
+      data-card-id={cardId}
       style={{
         background: c.card,
         borderRadius: "12px",
@@ -154,10 +157,15 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
   ),
 
   Card: ({ props, children }) => (
+    // `data-testid="declarative-card"` stays shared so existing e2e selectors
+    // still find every card; `data-card-id={props.title}` disambiguates
+    // sibling cards (e.g. the at-risk pill's 3 severity cards) so test
+    // assertions can target a specific card by title.
     <CardShell
       title={props.title}
       subtitle={props.subtitle}
       testid="declarative-card"
+      cardId={props.title}
     >
       {props.child && children(props.child)}
     </CardShell>
@@ -285,21 +293,31 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={i}
-                className="border-b border-[var(--border)] last:border-b-0"
-              >
-                {cols.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-3 py-2 tabular-nums text-[var(--foreground)]"
-                  >
-                    {String(row[col.key] ?? "")}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              // Stable row key: prefer the first column's value (primary-key-ish),
+              // suffix with index in case values repeat, fall back to a JSON
+              // stringify of the row when columns is empty. Stable keys prevent
+              // React from re-mounting every row when the agent re-emits a
+              // slightly different table.
+              const pk = cols.length > 0 ? row[cols[0].key] : undefined;
+              const rowKey =
+                pk !== undefined ? `${pk}-${i}` : JSON.stringify(row);
+              return (
+                <tr
+                  key={rowKey}
+                  className="border-b border-[var(--border)] last:border-b-0"
+                >
+                  {cols.map((col) => (
+                    <td
+                      key={col.key}
+                      className="px-3 py-2 tabular-nums text-[var(--foreground)]"
+                    >
+                      {String(row[col.key] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -318,10 +336,26 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
   PieChart: ({ props }) => {
     // Coerce values to numbers — the LLM sometimes emits them as strings.
-    const data = (Array.isArray(props.data) ? props.data : []).map((d) => ({
-      ...d,
-      value: Number(d.value) || 0,
-    }));
+    // Use a strict finite check so null/undefined/NaN/non-numeric strings are
+    // surfaced via console.warn rather than silently collapsed to 0 (which
+    // masks schema/data drift). Recharts requires a numeric value to render,
+    // so we fall back to 0 only after logging.
+    const data = (Array.isArray(props.data) ? props.data : []).map((d) => {
+      const raw = (d as { value?: unknown }).value;
+      const n = typeof raw === "number" ? raw : parseFloat(raw as string);
+      let value: number;
+      if (Number.isFinite(n)) {
+        value = n;
+      } else {
+        console.warn("Invalid chart value", {
+          component: "PieChart",
+          key: "value",
+          raw,
+        });
+        value = 0;
+      }
+      return { ...d, value };
+    });
     return (
       <CardShell
         title={props.title}
@@ -364,11 +398,27 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
   BarChart: ({ props }) => {
     // Coerce values to numbers — the LLM sometimes emits them as strings,
-    // which recharts treats as categorical (unordered Y-axis ticks).
-    const data = (Array.isArray(props.data) ? props.data : []).map((d) => ({
-      ...d,
-      value: Number(d.value) || 0,
-    }));
+    // which recharts treats as categorical (unordered Y-axis ticks). Use a
+    // strict finite check so null/undefined/NaN/non-numeric strings are
+    // surfaced via console.warn rather than silently collapsed to 0 (which
+    // masks schema/data drift). Recharts requires a numeric value to render,
+    // so we fall back to 0 only after logging.
+    const data = (Array.isArray(props.data) ? props.data : []).map((d) => {
+      const raw = (d as { value?: unknown }).value;
+      const n = typeof raw === "number" ? raw : parseFloat(raw as string);
+      let value: number;
+      if (Number.isFinite(n)) {
+        value = n;
+      } else {
+        console.warn("Invalid chart value", {
+          component: "BarChart",
+          key: "value",
+          raw,
+        });
+        value = 0;
+      }
+      return { ...d, value };
+    });
     return (
       <CardShell
         title={props.title}
