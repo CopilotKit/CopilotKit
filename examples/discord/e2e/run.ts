@@ -201,8 +201,11 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
         allBotMessages.push(m);
       }
     }
-  } catch {
-    // non-fatal: we still have finalText for basic assertions
+  } catch (e) {
+    console.warn(
+      "[e2e] messagesSince failed; per-message checks will be skipped:",
+      e,
+    );
   }
 
   const exp = spec.expectations ?? {};

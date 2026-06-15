@@ -38,22 +38,26 @@ export function ConfirmWrite({ action, detail }: ConfirmWriteProps) {
       <Header>{`📝 ${action}?`}</Header>
       {detail ? <Section>{detail}</Section> : null}
       <Context>
-        {":lock:  Nothing is written until you click **Create**."}
+        {"🔒  Nothing is written until you click **Create**."}
       </Context>
       <Actions>
         <Button
           value={{ confirmed: true }}
           style="primary"
           onClick={async ({ thread, message }: InteractionContext) => {
-            await thread.update(
-              message.ref,
-              <Message accent="#27AE60">
-                <Header>{`✅ ${action}`}</Header>
-                <Context>
-                  {":white_check_mark:  Approved — writing now."}
-                </Context>
-              </Message>,
-            );
+            try {
+              await thread.update(
+                message.ref,
+                <Message accent="#27AE60">
+                  <Header>{`✅ ${action}`}</Header>
+                  <Context>
+                    {"✅  Approved — writing now."}
+                  </Context>
+                </Message>,
+              );
+            } catch (e) {
+              console.error("[confirm-write] approve click failed:", e);
+            }
           }}
         >
           Create
@@ -62,15 +66,19 @@ export function ConfirmWrite({ action, detail }: ConfirmWriteProps) {
           value={{ confirmed: false }}
           style="danger"
           onClick={async ({ thread, message }: InteractionContext) => {
-            await thread.update(
-              message.ref,
-              <Message accent="#EB5757">
-                <Header>{`🚫 ${action}`}</Header>
-                <Context>
-                  {":no_entry_sign:  Declined — nothing was written."}
-                </Context>
-              </Message>,
-            );
+            try {
+              await thread.update(
+                message.ref,
+                <Message accent="#EB5757">
+                  <Header>{`🚫 ${action}`}</Header>
+                  <Context>
+                    {"🚫  Declined — nothing was written."}
+                  </Context>
+                </Message>,
+              );
+            } catch (e) {
+              console.error("[confirm-write] decline click failed:", e);
+            }
           }}
         >
           Cancel

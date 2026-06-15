@@ -94,6 +94,7 @@ cp .env.example .env
 #   DISCORD_GUILD_ID          (optional; guild ID for instant dev slash-commands)
 #   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
 #   LINEAR_API_KEY            (linear.app → Settings → API → Personal API keys)
+#   LINEAR_TEAM_KEY           (optional; default Linear team key, default CPK)
 #   NOTION_TOKEN              (notion.so → Settings → Connections → integrations)
 #   NOTION_MCP_AUTH_TOKEN     (any strong string; shared between the sidecar and the agent)
 ```
@@ -148,11 +149,14 @@ Mention the bot in a channel:
 | `DISCORD_APP_ID` | Yes | Application ID from General Information. |
 | `DISCORD_GUILD_ID` | No | Guild ID for instant slash-command registration during dev. Omit for global commands. |
 | `AGENT_URL` | Yes | AG-UI endpoint served by `runtime.ts`. Default: `http://localhost:8200/api/copilotkit/agent/triage/run`. |
+| `AGENT_AUTH_HEADER` | No | Authorization header value forwarded to a deployed runtime. |
+| `AGENT_MAX_STEPS` | No | Max agent tool-loop steps per turn. Default: 12. |
 | `OPENAI_API_KEY` | Yes* | Required if using the default `openai/gpt-5.5` model. |
 | `ANTHROPIC_API_KEY` | No | Set alongside `AGENT_MODEL=anthropic/claude-sonnet-4-6`. |
 | `GOOGLE_API_KEY` | No | Set alongside `AGENT_MODEL=google/gemini-2.5-flash`. |
 | `AGENT_MODEL` | No | Override the default model (`openai/gpt-5.5`). |
 | `LINEAR_API_KEY` | No | Personal API key from linear.app. Omit to run without Linear. |
+| `LINEAR_TEAM_KEY` | No | Default Linear team key the agent files/queries against. Default: `CPK`. |
 | `NOTION_TOKEN` | No | Notion integration secret (`ntn_...`). Omit to run without Notion. |
 | `NOTION_MCP_AUTH_TOKEN` | No | Shared bearer secret for the local Notion MCP sidecar. Required if `NOTION_TOKEN` is set. |
 
@@ -182,6 +186,6 @@ pnpm test            # unit tests (read_thread, render tools, components, confir
 ```
 
 > **Note:** the live-Discord e2e harness (`pnpm e2e` / `pnpm e2e:restart`) is
-> being migrated to the new `createBot` API — it still targets the old bridge
+> being migrated to the new `createBot` API — it still targets the old bot
 > and the obsolete button-value resume path, so it does not run against this
 > example as-is.

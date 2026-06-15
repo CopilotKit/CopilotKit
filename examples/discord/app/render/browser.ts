@@ -4,7 +4,7 @@
  * The rendering happens entirely in-process (our own browser) — only the
  * charting *library* is fetched from a CDN; the user's data never leaves the
  * host. Reuse one browser across renders so we don't pay a launch per call;
- * `closeBrowser()` is wired into the bridge's shutdown.
+ * `closeBrowser()` is called from the bot's shutdown handler (app/index.ts).
  *
  * Requires a Chromium binary: `npx playwright install chromium`.
  */
