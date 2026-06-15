@@ -40,12 +40,20 @@ export function jsonSchemaToDiscordOptions(
         out.push({ ...base, type: OPT_STRING, ...(choices ? { choices } : {}) });
         break;
       }
-      case "integer":
-        out.push({ ...base, type: OPT_INTEGER });
+      case "integer": {
+        const choices = Array.isArray(prop.enum)
+          ? prop.enum.map((v: unknown) => ({ name: String(v), value: Number(v) }))
+          : undefined;
+        out.push({ ...base, type: OPT_INTEGER, ...(choices ? { choices } : {}) });
         break;
-      case "number":
-        out.push({ ...base, type: OPT_NUMBER });
+      }
+      case "number": {
+        const choices = Array.isArray(prop.enum)
+          ? prop.enum.map((v: unknown) => ({ name: String(v), value: Number(v) }))
+          : undefined;
+        out.push({ ...base, type: OPT_NUMBER, ...(choices ? { choices } : {}) });
         break;
+      }
       case "boolean":
         out.push({ ...base, type: OPT_BOOLEAN });
         break;
@@ -57,7 +65,11 @@ export function jsonSchemaToDiscordOptions(
         out.push({ ...base, type: OPT_STRING });
     }
   }
-  return out;
+
+  // Discord rejects a command whose optional option precedes a required one
+  // ("Required options must be placed before optional options"). Stable-partition
+  // so all required options come first, preserving declaration order within each group.
+  return [...out.filter((o) => o.required), ...out.filter((o) => !o.required)];
 }
 
 /** The REST body for one application command. */

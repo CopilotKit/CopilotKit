@@ -40,6 +40,35 @@ describe("jsonSchemaToDiscordOptions", () => {
   it("returns [] for a free-text command (no options schema)", () => {
     expect(jsonSchemaToDiscordOptions(undefined)).toEqual([]);
   });
+
+  it("orders required options before optional ones (Discord requirement)", () => {
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: {
+        note: { type: "string" },
+        priority: { type: "string" },
+      },
+      required: ["priority"],
+    });
+    // `note` is declared first but is optional; `priority` must come first.
+    expect(opts.map((o) => o.name)).toEqual(["priority", "note"]);
+    expect(opts[0]!.required).toBe(true);
+    expect(opts[1]!.required).toBe(false);
+  });
+
+  it("builds numeric choices for an integer enum", () => {
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: [1, 2, 3] } },
+    });
+    const level = opts.find((o) => o.name === "level")!;
+    expect(level.type).toBe(4);
+    expect(level.choices).toEqual([
+      { name: "1", value: 1 },
+      { name: "2", value: 2 },
+      { name: "3", value: 3 },
+    ]);
+  });
 });
 
 describe("registerCommands", () => {
