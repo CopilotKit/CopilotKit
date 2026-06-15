@@ -5,7 +5,7 @@ interface MessageLike {
   content: string;
   channelId: string;
   guildId?: string | null;
-  mentions: { has(id: string): boolean };
+  mentions: { has(id: string): boolean; users?: { has(id: string): boolean } };
   channel: { isDMBased(): boolean };
 }
 
@@ -56,12 +56,14 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
       channelId: msg.channelId,
       ...(msg.guildId ? { guildId: msg.guildId } : {}),
     };
-    void onTurn({
-      conversationKey: msg.channelId,
-      replyTarget,
-      userText: stripMention(msg.content, botId),
-      senderUserId: msg.author.id,
-    });
+    void Promise.resolve(
+      onTurn({
+        conversationKey: msg.channelId,
+        replyTarget,
+        userText: stripMention(msg.content, botId),
+        senderUserId: msg.author.id,
+      }),
+    ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });
 
   client.on("interactionCreate", (i: ChatInputLike) => {
@@ -72,14 +74,16 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
       channelId: i.channelId,
       ...(i.guildId ? { guildId: i.guildId } : {}),
     };
-    void onCommand({
-      command: i.commandName,
-      text: Object.values(rawOptions).map(String).join(" "),
-      rawOptions,
-      conversationKey: i.channelId,
-      replyTarget,
-      senderUserId: i.user.id,
-    });
+    void Promise.resolve(
+      onCommand({
+        command: i.commandName,
+        text: Object.values(rawOptions).map(String).join(" "),
+        rawOptions,
+        conversationKey: i.channelId,
+        replyTarget,
+        senderUserId: i.user.id,
+      }),
+    ).catch((e) => console.error("[bot-discord] onCommand handler failed:", e));
   });
 }
 
@@ -88,7 +92,10 @@ function shouldAnswer(msg: MessageLike, botUserId: string): boolean {
   if (msg.author.id === botUserId) return false;
   if (msg.author.bot) return false;
   if (msg.channel.isDMBased()) return true;
-  return msg.mentions.has(botUserId);
+  // Only answer a DIRECT user mention. discord.js `mentions.has()` also returns
+  // true for role mentions and @everyone/@here that happen to include the bot,
+  // so narrow to the explicit user-mention set.
+  return msg.mentions.users?.has?.(botUserId) ?? false;
 }
 
 /** Drop a leading <@botId> / <@!botId> mention from the message text. */

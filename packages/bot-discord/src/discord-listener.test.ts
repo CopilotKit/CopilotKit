@@ -21,7 +21,7 @@ function message(over: Record<string, unknown>) {
     content: "hello",
     channelId: "c1",
     guildId: "g1",
-    mentions: { has: () => false },
+    mentions: { has: () => false, users: { has: () => false } },
     channel: { isDMBased: () => false },
     ...over,
   };
@@ -32,7 +32,13 @@ describe("attachDiscordListener", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
-    client.emit("messageCreate", message({ mentions: { has: () => true }, content: "<@bot-1> hi" }));
+    client.emit(
+      "messageCreate",
+      message({
+        mentions: { has: () => true, users: { has: (q: string) => q === "bot-1" } },
+        content: "<@bot-1> hi",
+      }),
+    );
     expect(onTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         conversationKey: "c1",
@@ -40,6 +46,22 @@ describe("attachDiscordListener", () => {
         senderUserId: "u1",
       }),
     );
+  });
+
+  it("does not answer a role / @everyone mention that only matches via mentions.has", () => {
+    const client = fakeClient();
+    const onTurn = vi.fn();
+    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    // `mentions.has` is true (e.g. a role mention the bot belongs to), but the
+    // bot is not a direct user mention, so we must NOT answer.
+    client.emit(
+      "messageCreate",
+      message({
+        mentions: { has: () => true, users: { has: () => false } },
+        content: "<@&role-1> ping everyone",
+      }),
+    );
+    expect(onTurn).not.toHaveBeenCalled();
   });
 
   it("emits a turn for a DM even without a mention", () => {
@@ -79,7 +101,13 @@ describe("attachDiscordListener", () => {
     // Before the id is known, the bot's own message would not match a mention,
     // but a DM still answers regardless of id.
     id = "bot-1";
-    client.emit("messageCreate", message({ mentions: { has: (q: string) => q === "bot-1" }, content: "<@bot-1> hi" }));
+    client.emit(
+      "messageCreate",
+      message({
+        mentions: { has: (q: string) => q === "bot-1", users: { has: (q: string) => q === "bot-1" } },
+        content: "<@bot-1> hi",
+      }),
+    );
     expect(onTurn).toHaveBeenCalledWith(
       expect.objectContaining({ conversationKey: "c1", senderUserId: "u1" }),
     );
@@ -104,5 +132,26 @@ describe("attachDiscordListener", () => {
         rawOptions: { priority: "high" },
       }),
     );
+  });
+
+  it("catches a rejecting onTurn handler instead of letting it escape", async () => {
+    const client = fakeClient();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onTurn = vi.fn().mockRejectedValue(new Error("boom"));
+    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    expect(() =>
+      client.emit(
+        "messageCreate",
+        message({
+          mentions: { has: () => true, users: { has: (q: string) => q === "bot-1" } },
+          content: "<@bot-1> hi",
+        }),
+      ),
+    ).not.toThrow();
+    // Let the rejected promise settle so the .catch runs.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(errSpy).toHaveBeenCalledWith("[bot-discord] onTurn handler failed:", expect.any(Error));
+    errSpy.mockRestore();
   });
 });
