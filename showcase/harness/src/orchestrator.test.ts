@@ -1589,10 +1589,10 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
     try {
       await expect(
         boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
-      // B2 fix tightened the predicate (now fails loud in any deployable
-      // mode, not just NODE_ENV='production') — the error message changed
-      // accordingly. Match the message common to both the old and new
-      // throws: FATAL-CONFIG + SHARED_SECRET.
+        // B2 fix tightened the predicate (now fails loud in any deployable
+        // mode, not just NODE_ENV='production') — the error message changed
+        // accordingly. Match the message common to both the old and new
+        // throws: FATAL-CONFIG + SHARED_SECRET.
       ).rejects.toThrow(/FATAL-CONFIG.*SHARED_SECRET/);
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
