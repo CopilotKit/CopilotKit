@@ -133,7 +133,7 @@ describe("attachDiscordListener", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(reply).toHaveBeenCalledTimes(1);
-    const ackArg = reply.mock.calls[0][0];
+    const ackArg = reply.mock.calls[0]![0];
     expect(ackArg.flags).toBe(MessageFlags.Ephemeral);
     expect(typeof ackArg.content).toBe("string");
     expect(ackArg.content.length).toBeGreaterThan(0);
