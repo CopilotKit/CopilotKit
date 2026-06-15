@@ -164,6 +164,14 @@ layer.
   integration.
 - Action: tracked in follow-up PR against `packages/react-core`.
 
+### headless-complete server-tool reprompt loop — resolved via sequenceIndex gating
+
+BIA registers `get_weather` / `get_stock_price` / `get_revenue_chart` / `highlight_note` as **server-executed** tools via TanStack's `chat()` engine. After the LLM returns a tool call, TanStack runs the server tool and reprompts the LLM with the result; the original user pill text remains in conversation history, so userMessage-keyed toolcall fixtures would naively fire on every reprompt and the loop never converges. BIA's `/v1/responses` endpoint also rewrites assistant `tool_call_id`s to runtime-generated `fc-…` values, breaking the toolCallId-keyed narration fallback that works on non-rewriting backends.
+
+Resolution (#5427 follow-up): `d6/built-in-agent/gen-ui-headless-complete.json` now structures each pill as a `(sequenceIndex:0 emitter, narration fallback)` pair. The emitter matches the FIRST request for the pill prompt (counter starts at 0) and emits the tool call; subsequent BIA reprompt iterations fall through the now-exhausted emitter to the narration fallback (no tool call), so the loop converges. `sequenceIndex` is chosen over `hasToolResult:false` because `hasToolResult` is computed across the entire thread — any earlier pill's tool result would permanently disable a `hasToolResult:false` emitter, breaking multi-turn sessions.
+
+This pattern is BIA-specific because LGP runs these tools INSIDE the Python agent and emits them as AG-UI events directly — no TanStack reprompt cycle — so LGP's `gen-ui-headless-complete.json` retains the simpler userMessage-only emitter pattern.
+
 ## Doc maintenance
 
 PARITY_NOTES inaccuracies surfaced by staging verify after PR #5413 merge — fixed 2026-06-12.
