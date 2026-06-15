@@ -26,7 +26,18 @@ export const appCommands: BotCommand[] = [
         await thread.post("Usage: `/agent <your question>`");
         return;
       }
-      await thread.runAgent({ prompt: text, context: senderContext(user) });
+      try {
+        await thread.runAgent({ prompt: text, context: senderContext(user) });
+      } catch (err) {
+        console.error("[discord-bot] agent run failed:", err);
+        await thread
+          .post(
+            "⚠️ I hit an error reaching the agent and couldn't finish that — please try again in a moment.",
+          )
+          .catch((e) =>
+            console.error("[discord-bot] failed to post error notice:", e),
+          );
+      }
     },
   }),
 
@@ -40,7 +51,18 @@ export const appCommands: BotCommand[] = [
       const prompt = text
         ? `Triage this and propose Linear issues to file: ${text}`
         : "Triage the current conversation: summarize it and propose Linear issues to file.";
-      await thread.runAgent({ prompt, context: senderContext(user) });
+      try {
+        await thread.runAgent({ prompt, context: senderContext(user) });
+      } catch (err) {
+        console.error("[discord-bot] agent run failed:", err);
+        await thread
+          .post(
+            "⚠️ I hit an error reaching the agent and couldn't finish that — please try again in a moment.",
+          )
+          .catch((e) =>
+            console.error("[discord-bot] failed to post error notice:", e),
+          );
+      }
     },
   }),
 ];

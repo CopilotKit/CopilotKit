@@ -29,6 +29,7 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
+import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -88,7 +89,18 @@ async function main() {
   // mentions, owned-thread replies, AND DMs; a second onMessage handler would
   // never fire (and registering both would risk double-handling).
   bot.onMention(async ({ thread, message }) => {
-    await thread.runAgent({ context: senderContext(message.user) });
+    try {
+      await thread.runAgent({ context: senderContext(message.user) });
+    } catch (err) {
+      console.error("[discord-bot] agent run failed:", err);
+      await thread
+        .post(
+          "⚠️ I hit an error reaching the agent and couldn't finish that — please try again in a moment.",
+        )
+        .catch((e) =>
+          console.error("[discord-bot] failed to post error notice:", e),
+        );
+    }
   });
 
   await bot.start();
@@ -96,6 +108,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`\n[discord-bot] received ${signal}, stopping…`);
     await bot.stop();
+    await closeBrowser();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));

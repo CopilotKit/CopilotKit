@@ -1,7 +1,7 @@
 /**
  * Agent backend for the Discord triage assistant.
  *
- * This is the brain behind the Discord bridge: a single CopilotKit
+ * This is the brain behind the Discord bot: a single CopilotKit
  * `BuiltInAgent` (LLM + MCP) served over AG-UI by a `CopilotSseRuntime`.
  * It replaces the old vendored Python/LangGraph showcase backend — there
  * is no Python, no `langgraph dev`, no A2UI middleware. Everything is a
@@ -18,7 +18,7 @@
  *
  * The Discord-side primitives (read_thread, the confirm_write HITL picker,
  * the issue/page components) are forwarded to the agent as
- * client-provided tools by the bridge on every run — see `app/index.ts`.
+ * client-provided tools by the bot on every run — see `app/index.ts`.
  *
  * Auth & deployment
  * -----------------
@@ -35,7 +35,7 @@
  * A server is only wired up when its credentials are present, so the bot
  * runs Linear-only, Notion-only, or both.
  *
- * Exposed route (the bridge's `AGENT_URL`):
+ * Exposed route (the bot's `AGENT_URL`):
  *   POST http://localhost:8200/api/copilotkit/agent/triage/run
  */
 import "dotenv/config";
@@ -52,11 +52,28 @@ import type {
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 /**
+ * Read a positive-integer env var, failing loud on a malformed value. The
+ * bare `Number(process.env[x] ?? def)` pattern silently yields NaN on a
+ * non-numeric value (the `??` only covers undefined/null), so validate.
+ */
+function intEnv(name: string, def: number): number {
+  const raw = process.env[name];
+  if (raw === undefined) return def;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    console.error(
+      `[discord-runtime] invalid ${name} "${raw}" — must be a positive integer`,
+    );
+    process.exit(1);
+  }
+  return n;
+}
+
+/**
  * An HTTP MCP server that injects a static `Authorization: Bearer` on
  * every outbound request. `MCPClientConfigHTTP` has no `headers` field;
  * the SDK's documented extension point is `options.fetch`, so we wrap
- * `fetch` to set the header (mirrors how the runtime injects its own
- * intelligence-MCP credentials).
+ * `fetch` to set the header.
  */
 function bearerMcpServer(url: string, token: string): MCPClientConfig {
   return {
@@ -219,7 +236,7 @@ const agent = new BuiltInAgent({
   model,
   // Triage chains several MCP calls per turn (search -> read -> confirm ->
   // create), so give the agent room to loop.
-  maxSteps: Number(process.env["AGENT_MAX_STEPS"] ?? 12),
+  maxSteps: intEnv("AGENT_MAX_STEPS", 12),
   mcpServers,
   prompt: SYSTEM_PROMPT,
 });
@@ -234,7 +251,7 @@ const listener = createCopilotNodeListener({
   cors: true,
 });
 
-const port = Number(process.env["PORT"] ?? 8200);
+const port = intEnv("PORT", 8200);
 createServer(listener).listen(port, () => {
   console.log(
     `[discord-runtime] listening on http://localhost:${port}/api/copilotkit/agent/triage/run`,

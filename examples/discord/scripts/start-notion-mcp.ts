@@ -78,6 +78,13 @@ const child = spawn(
   },
 );
 
+child.on("error", (err) => {
+  console.error(
+    "[notion-mcp] failed to launch the Notion MCP server (is `npx` on PATH?):",
+    err,
+  );
+  process.exit(1);
+});
 child.on("exit", (code) => process.exit(code ?? 0));
 process.on("SIGINT", () => child.kill("SIGINT"));
 process.on("SIGTERM", () => child.kill("SIGTERM"));
