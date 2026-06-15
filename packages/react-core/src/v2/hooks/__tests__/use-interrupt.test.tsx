@@ -63,6 +63,7 @@ describe("useInterrupt", () => {
     // F21: clean up the test-only global installed by the 2nd-interrupt
     // BugHarness so it cannot leak across tests.
     delete (globalThis as { __forceRerender?: () => void }).__forceRerender;
+    runAgentMock.mockReset();
   });
 
   function Harness({
