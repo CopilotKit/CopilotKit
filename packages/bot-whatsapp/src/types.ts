@@ -14,6 +14,7 @@ export interface WhatsAppMessageRef {
   id: string;
   to: string;
   phoneNumberId: string;
+  [k: string]: unknown;
 }
 
 export interface WhatsAppAdapterOptions {

@@ -5,7 +5,8 @@ import { WA_LIMITS, truncateText, clampArray } from "./budget.js";
 /** A Cloud API send payload (the body sans messaging_product/to, which the client adds). */
 export type WhatsAppOutbound =
   | { type: "text"; text: { body: string; preview_url: boolean } }
-  | { type: "image"; image: { link: string; caption?: string } }
+  | { type: "image"; image: { link?: string; id?: string; caption?: string } }
+  | { type: "document"; document: { link?: string; id?: string; filename?: string; caption?: string } }
   | { type: "interactive"; interactive: InteractiveButton | InteractiveList };
 
 interface InteractiveButton {
