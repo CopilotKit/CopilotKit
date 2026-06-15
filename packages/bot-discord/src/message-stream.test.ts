@@ -143,4 +143,34 @@ describe("MessageStream", () => {
     // No concurrent updates were in flight
     expect(discord.inFlight).toBe(0);
   });
+
+  it("retries the final buffer on a subsequent flush when the previous update() failed", async () => {
+    // The previous implementation marked `posted = text` *before* awaiting
+    // update(). If that final update() rejected, the guard treated the failed
+    // text as delivered, so the last segment was lost forever — never retried.
+    // With the fix, `posted` is only set after update() resolves, so a failed
+    // flush leaves the buffer un-posted and the next flush re-sends it.
+    const sent: string[] = [];
+    let calls = 0;
+    const update = async (text: string): Promise<void> => {
+      calls++;
+      if (calls === 1) {
+        // First flush fails (e.g. genuine edit failure after discord.js retries).
+        throw new Error("boom");
+      }
+      sent.push(text);
+    };
+    const stream = new MessageStream({ update, minIntervalMs: 0 });
+
+    stream.append("FINAL");
+    // First flush attempt rejects; `posted` must stay "" so the buffer is retried.
+    await stream.finish();
+    expect(sent).toHaveLength(0); // first attempt threw, nothing delivered yet
+
+    // A subsequent flush (here a fresh finish()) must re-attempt the same buffer.
+    await stream.finish();
+
+    expect(calls).toBe(2);
+    expect(sent).toEqual(["FINAL"]); // the final segment is re-sent after the failure
+  });
 });

@@ -76,9 +76,15 @@ export class MessageStream {
   private async flushNow(): Promise<void> {
     if (this.buffer === this.posted) return;
     const text = this.buffer;
-    this.posted = text;
     try {
       await this.update(text);
+      // Only mark `text` as delivered once the edit actually succeeds. If we
+      // marked it before the await and update() threw, the guard above would
+      // treat the failed text as posted — and a final failed flush (via
+      // finish() with no further appends) would be lost forever. Assigning
+      // after success leaves `posted` unchanged on failure so a subsequent
+      // flush re-attempts the same buffer.
+      this.posted = text;
     } catch (err) {
       // Rate-limit (429) edits are already handled by discord.js with
       // automatic retry (honoring Retry-After). If we still land here the
