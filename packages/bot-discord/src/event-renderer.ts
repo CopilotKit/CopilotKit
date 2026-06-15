@@ -224,6 +224,24 @@ export function createRunRenderer(args: {
       }
       pendingInterrupt = { eventName: e.name, value };
     },
+
+    // ── 4. Errors ─────────────────────────────────────────────────────
+    // When an agent run fails (RUN_ERROR), surface a visible warning in
+    // the channel so the user isn't left staring at an expired typing
+    // indicator with no feedback. Suppressed when the abort was
+    // self-initiated — the `_(interrupted)_` marker is the user-visible
+    // signal in that case. Best-effort, like the typing call: a failure
+    // here must never crash the run.
+    async onRunErrorEvent({ event }) {
+      if (aborted) return;
+      try {
+        await channel.send(
+          `⚠️ Agent error: ${event.message ?? "unknown error"}`,
+        );
+      } catch (err) {
+        console.error("[discord-renderer] error notice failed:", err);
+      }
+    },
   };
 
   return {
