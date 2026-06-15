@@ -14,8 +14,48 @@ import {
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import type { BotNode } from "@copilotkit/bot-ui";
-import { DISCORD_LIMITS, truncateText, clampArray } from "./budget.js";
+import { DISCORD_LIMITS, truncateText, truncateFenced, clampArray } from "./budget.js";
 import { discordMarkdown } from "../markdown.js";
+
+/**
+ * Running totals enforced across a single message render. Discord rejects the
+ * entire message if it exceeds `componentsPerMessage` total components or
+ * `totalTextChars` summed text, so we stop adding once a budget is reached and
+ * emit a single trailing overflow signal (clamp, never silent drop).
+ */
+interface RenderBudget {
+  components: number; // components added so far (TextDisplay, Separator, ActionRow, MediaGallery, …)
+  textChars: number; // summed TextDisplay content length so far
+  overflowed: boolean; // a trailing overflow marker already appended
+}
+
+const OVERFLOW_TEXT = "_…content truncated_";
+
+/** True once the message is full; callers must stop adding components. */
+function budgetFull(budget: RenderBudget): boolean {
+  // Leave room for one trailing overflow TextDisplay.
+  return (
+    budget.components >= DISCORD_LIMITS.componentsPerMessage - 1 ||
+    budget.textChars >= DISCORD_LIMITS.totalTextChars
+  );
+}
+
+/** Append a single trailing overflow marker (idempotent) when the budget is hit. */
+function signalOverflow(budget: RenderBudget, container: ContainerBuilder): void {
+  if (budget.overflowed) return;
+  budget.overflowed = true;
+  budget.components += 1;
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(OVERFLOW_TEXT));
+}
+
+/** Add a TextDisplay, charging the text budget and clamping to remaining room. */
+function addText(content: string, budget: RenderBudget, container: ContainerBuilder): void {
+  const remaining = DISCORD_LIMITS.totalTextChars - budget.textChars;
+  const clamped = content.length > remaining ? truncateText(content, Math.max(0, remaining)) : content;
+  budget.textChars += clamped.length;
+  budget.components += 1;
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(clamped));
+}
 
 /**
  * Render a cross-platform IR tree (already expanded + action-bound, so event
@@ -34,7 +74,8 @@ export function renderComponents(ir: BotNode[]): ContainerBuilder {
     if (int !== undefined) container.setAccentColor(int);
   }
 
-  for (const node of ir) addNode(node, container);
+  const budget: RenderBudget = { components: 0, textChars: 0, overflowed: false };
+  for (const node of ir) addNode(node, container, budget);
   return container;
 }
 
@@ -46,30 +87,34 @@ export function renderDiscordMessage(ir: BotNode[]): {
   return { components: [renderComponents(ir)], flags: MessageFlags.IsComponentsV2 };
 }
 
-function addNode(node: BotNode, container: ContainerBuilder): void {
+function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudget): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded
+  // <Message> is a structural wrapper; recurse into it without charging budget.
+  if (node.type === "message") {
+    for (const child of childNodes(node)) addNode(child, container, budget);
+    return;
+  }
+  // Message-level budget reached — emit one overflow marker and stop adding.
+  if (budgetFull(budget)) {
+    signalOverflow(budget, container);
+    return;
+  }
   const props = node.props ?? {};
   switch (node.type) {
-    case "message": {
-      for (const child of childNodes(node)) addNode(child, container);
-      return;
-    }
     case "header": {
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "# " + truncateText(collectText(node), DISCORD_LIMITS.headerText),
-        ),
-      );
+      addText("# " + truncateText(collectText(node), DISCORD_LIMITS.headerText), budget, container);
       return;
     }
     case "section":
     case "markdown":
     case "text": {
       const raw = node.type === "text" ? String(props.value ?? "") : collectText(node);
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          truncateText(discordMarkdown(raw), DISCORD_LIMITS.textDisplayChars),
-        ),
+      // Fence-safe: truncate the rendered (possibly fenced) markdown without
+      // cutting a closing ``` open.
+      addText(
+        truncateFenced(discordMarkdown(raw), DISCORD_LIMITS.textDisplayChars),
+        budget,
+        container,
       );
       return;
     }
@@ -77,18 +122,18 @@ function addNode(node: BotNode, container: ContainerBuilder): void {
       // No native field grid in CV2 — render each field as a bold-label line.
       const fields = childNodes(node).filter((c) => c.type === "field");
       const lines = fields.map((f) => `**${collectFieldLabel(f)}** ${collectFieldValue(f)}`.trim());
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          truncateText(discordMarkdown(lines.join("\n")), DISCORD_LIMITS.textDisplayChars),
-        ),
+      addText(
+        truncateFenced(discordMarkdown(lines.join("\n")), DISCORD_LIMITS.textDisplayChars),
+        budget,
+        container,
       );
       return;
     }
     case "field": {
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          truncateText(discordMarkdown(collectText(node)), DISCORD_LIMITS.textDisplayChars),
-        ),
+      addText(
+        truncateFenced(discordMarkdown(collectText(node)), DISCORD_LIMITS.textDisplayChars),
+        budget,
+        container,
       );
       return;
     }
@@ -96,12 +141,11 @@ function addNode(node: BotNode, container: ContainerBuilder): void {
       // Discord subtext: lines prefixed with `-# `.
       const parts = childNodes(node).map((c) => collectText(c)).filter(Boolean);
       const body = parts.map((p) => `-# ${p}`).join("\n");
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(truncateText(body, DISCORD_LIMITS.textDisplayChars)),
-      );
+      addText(truncateText(body, DISCORD_LIMITS.textDisplayChars), budget, container);
       return;
     }
     case "divider": {
+      budget.components += 1;
       container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
       );
@@ -110,6 +154,7 @@ function addNode(node: BotNode, container: ContainerBuilder): void {
     case "image": {
       const url = (props.url ?? props.image_url) as string | undefined;
       if (url) {
+        budget.components += 1;
         container.addMediaGalleryComponents(
           new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(url)),
         );
@@ -118,18 +163,23 @@ function addNode(node: BotNode, container: ContainerBuilder): void {
     }
     case "actions": {
       for (const row of buildActionRows(childNodes(node))) {
+        if (budget.components >= DISCORD_LIMITS.componentsPerMessage - 1) {
+          signalOverflow(budget, container);
+          break;
+        }
+        budget.components += 1;
         container.addActionRowComponents(row);
       }
       return;
     }
     case "table": {
       // Discord has no tables; emit a fenced text block via discordMarkdown over
-      // a reconstructed pipe table.
+      // a reconstructed pipe table. Fence-safe truncation keeps the closing ```.
       const md = tableToMarkdown(node);
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          truncateText(discordMarkdown(md), DISCORD_LIMITS.textDisplayChars),
-        ),
+      addText(
+        truncateFenced(discordMarkdown(md), DISCORD_LIMITS.textDisplayChars),
+        budget,
+        container,
       );
       return;
     }
@@ -194,17 +244,31 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
   const id = idFromHandler(props.onSelect);
   if (!id) return undefined;
   const options = (props.options as { label: string; value: unknown }[] | undefined) ?? [];
-  const { items } = clampArray(options, DISCORD_LIMITS.selectOptions);
+  // Clamp to Discord's 25-option cap. When options overflow, surface it rather
+  // than silently dropping: reserve the last slot for a disabled "+N more…"
+  // indicator (clamp, never silent drop).
+  const { items, overflow } = clampArray(options, DISCORD_LIMITS.selectOptions);
+  const built = (
+    overflow > 0
+      ? items.slice(0, DISCORD_LIMITS.selectOptions - 1)
+      : items
+  ).map((o) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(truncateText(o.label, 100))
+      .setValue(truncateText(String(o.value), 100)),
+  );
+  if (overflow > 0) {
+    // +1 for the option that the indicator displaces back into the overflow.
+    built.push(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(truncateText(`+${overflow + 1} more…`, 100))
+        .setValue("__overflow__"),
+    );
+  }
   const select = new StringSelectMenuBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
-    .setPlaceholder(String(props.placeholder ?? " "))
-    .addOptions(
-      items.map((o) =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(truncateText(o.label, 100))
-          .setValue(truncateText(String(o.value), 100)),
-      ),
-    );
+    .setPlaceholder(truncateText(String(props.placeholder ?? " "), DISCORD_LIMITS.selectPlaceholder))
+    .addOptions(built);
   return select;
 }
 
@@ -223,19 +287,39 @@ function idFromHandler(handler: unknown): string | undefined {
   return undefined;
 }
 
-/** A button with no handler but a `value` still needs a stable custom_id. */
+/**
+ * A button with no handler but a `value` still needs a stable custom_id. The
+ * value is encoded as `v:<json>` so {@link unpackValue} can recover it. If that
+ * encoding would exceed the custom_id cap we must NOT truncate — a truncated
+ * JSON string is corrupt and silently decodes to undefined. Instead omit the
+ * value entirely (caller falls back to the handler id) and warn.
+ */
 function packValueId(value: unknown): string | undefined {
   if (value === undefined) return undefined;
-  return truncateText("v:" + JSON.stringify(value), DISCORD_LIMITS.customId);
+  const id = "v:" + JSON.stringify(value);
+  if (id.length > DISCORD_LIMITS.customId) {
+    console.warn(
+      "[bot-discord] button `value` too large to encode in a custom_id; dropping the bound value.",
+    );
+    return undefined;
+  }
+  return id;
 }
 
-/** "#5865F2" / "5865F2" / 0x5865F2 → integer; undefined if unparseable. */
+const HEX6 = /^#?[0-9a-fA-F]{6}$/;
+
+/**
+ * "#5865F2" / "5865F2" / 0x5865F2 → integer; undefined if unparseable.
+ * Strict: a string must be exactly 6 hex digits (optionally `#`-prefixed); a
+ * number must fall within the 0..0xFFFFFF RGB range.
+ */
 function parseAccent(accent: unknown): number | undefined {
-  if (typeof accent === "number") return accent;
-  if (typeof accent !== "string" || accent.length === 0) return undefined;
-  const hex = accent.replace(/^#/, "");
-  const n = Number.parseInt(hex, 16);
-  return Number.isNaN(n) ? undefined : n;
+  if (typeof accent === "number") {
+    if (!Number.isInteger(accent) || accent < 0 || accent > 0xffffff) return undefined;
+    return accent;
+  }
+  if (typeof accent !== "string" || !HEX6.test(accent)) return undefined;
+  return Number.parseInt(accent.replace(/^#/, ""), 16);
 }
 
 // ── helpers copied verbatim from bot-slack/src/render/block-kit.ts ──
