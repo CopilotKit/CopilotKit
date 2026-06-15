@@ -629,8 +629,11 @@ with open('$tmp_ports', 'w') as f:
 
   # Generate offset compose file in the temp dir
   local tmp_compose="$ISOLATE_TMPDIR/docker-compose.local.yml"
-  python3 -c "
-import re
+  # Pass slug via env var instead of bash-interpolating into the python
+  # source — a slug containing a single quote would break the python literal.
+  # Internal-tool risk only (slug is developer-typed), but cheap to harden.
+  SHOWCASE_ISO_SLUG="$slug" python3 -c "
+import os, re
 with open('$COMPOSE_FILE') as f:
     content = f.read()
 
@@ -679,9 +682,10 @@ content = re.sub(r'(\s+env_file:\s+)\.env(\b)', lambda m: m.group(1) + ROOT + '/
 # from the slug's manifest.yaml; if absent or unparseable, fall back to the
 # representative d5 cell ('agentic-chat') so the iso run still targets the
 # right container — just with a narrower demo set than d6 would normally use.
-SLUG = '$slug'
+SLUG = os.environ.get('SHOWCASE_ISO_SLUG', '')
 if SLUG:
-    import json as _json, os as _os
+    import json as _json
+    _os = os
     demos = []
     for _mp in (
         _osp.join(ROOT, 'integrations', SLUG, 'manifest.yaml'),
