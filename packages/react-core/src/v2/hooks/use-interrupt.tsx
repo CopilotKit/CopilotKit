@@ -212,6 +212,7 @@ export function useInterrupt<
       },
       onRunFailed: () => {
         localInterrupt = null;
+        setPendingEvent(null);
       },
     });
 
@@ -229,15 +230,23 @@ export function useInterrupt<
       // sequence post-resume UI (e.g. harness DOM settle-check waiting for
       // the assistant confirmation bubble). Returning void here is the bug
       // that quarantined the showcase manifests' interrupt-headless feature.
-      return await copilotkit.runAgent({
-        agent,
-        forwardedProps: {
-          command: {
-            resume: response,
-            interruptEvent: pendingEventRef.current?.value,
+      try {
+        return await copilotkit.runAgent({
+          agent,
+          forwardedProps: {
+            command: {
+              resume: response,
+              interruptEvent: pendingEventRef.current?.value,
+            },
           },
-        },
-      });
+        });
+      } catch (err) {
+        console.error(
+          "[CopilotKit] useInterrupt resolve: runAgent rejected; rethrowing to caller",
+          err,
+        );
+        throw err;
+      }
     },
     [agent, copilotkit],
   );

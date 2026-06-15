@@ -107,6 +107,7 @@ function useHeadlessInterrupt(agentId: string): {
       },
       onRunFailed: () => {
         local = null;
+        setPending(null);
       },
     });
     return () => sub.unsubscribe();
@@ -115,15 +116,24 @@ function useHeadlessInterrupt(agentId: string): {
   const resolve = useMemo(
     () => async (response: unknown) => {
       const snapshot = pendingRef.current;
-      return await copilotkit.runAgent({
-        agent,
-        forwardedProps: {
-          command: {
-            resume: response,
-            interruptEvent: snapshot?.value,
+      try {
+        return await copilotkit.runAgent({
+          agent,
+          forwardedProps: {
+            command: {
+              resume: response,
+              interruptEvent: snapshot?.value,
+            },
           },
-        },
-      });
+        });
+      } catch (err) {
+        console.error(
+          "[interrupt-headless] resume runAgent rejected; restoring pending for retry",
+          err,
+        );
+        setPending(snapshot);
+        throw err;
+      }
     },
     [agent, copilotkit],
   );
