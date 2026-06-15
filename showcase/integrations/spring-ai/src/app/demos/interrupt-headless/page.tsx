@@ -71,7 +71,7 @@ function Layout() {
 
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 } {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId });
@@ -133,7 +133,7 @@ function useHeadlessInterrupt(agentId: string): {
 
 type AppSurfaceProps = {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 };
 
 function AppSurface({ pending, resolve }: AppSurfaceProps) {

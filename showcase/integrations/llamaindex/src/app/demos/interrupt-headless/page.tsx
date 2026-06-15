@@ -71,7 +71,7 @@ function Layout() {
 
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 } {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId });
@@ -111,20 +111,18 @@ function useHeadlessInterrupt(agentId: string): {
   }, [agent]);
 
   const resolve = useMemo(
-    () => (response: unknown) => {
+    () => async (response: unknown) => {
       const snapshot = pending;
       setPending(null);
-      void copilotkit
-        .runAgent({
-          agent,
-          forwardedProps: {
-            command: {
-              resume: response,
-              interruptEvent: snapshot?.value,
-            },
+      return await copilotkit.runAgent({
+        agent,
+        forwardedProps: {
+          command: {
+            resume: response,
+            interruptEvent: snapshot?.value,
           },
-        })
-        .catch(() => {});
+        },
+      });
     },
     [agent, copilotkit, pending],
   );
@@ -135,7 +133,7 @@ function useHeadlessInterrupt(agentId: string): {
 
 type AppSurfaceProps = {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 };
 
 function AppSurface({ pending, resolve }: AppSurfaceProps) {
