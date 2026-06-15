@@ -18,7 +18,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const i = raw as ComponentInteractionLike;
   if (typeof i?.isButton !== "function") return undefined;
   const isButton = i.isButton();
-  const isSelect = i.isStringSelectMenu();
+  const isSelect = i.isStringSelectMenu?.() ?? false;
   if (!isButton && !isSelect) return undefined;
 
   const customId = i.customId ?? "";

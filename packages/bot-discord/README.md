@@ -69,13 +69,19 @@ most use cases.
 > **Guild-scoped commands** (with `guildId`) register instantly — use them
 > during development and switch to global for production.
 
-### MessageContent privileged intent
+### Privileged intents
 
-> **Before your bot can read message bodies, you must enable the
-> "Message Content Intent" in the [Discord Developer Portal](https://discord.com/developers/applications).**
-> Navigate to your application → Bot → Privileged Gateway Intents → toggle
-> **Message Content Intent** on. Without it the Gateway delivers messages with
-> an empty `content` string and the bot cannot read what users write.
+The adapter requests **two** privileged gateway intents — `MessageContent` and
+`GuildMembers`. Both must be enabled in the
+[Discord Developer Portal](https://discord.com/developers/applications)
+(your application → Bot → Privileged Gateway Intents) or Gateway login is
+rejected.
+
+> - **Message Content Intent** — without it the Gateway delivers messages with
+>   an empty `content` string and the bot cannot read what users write.
+> - **Server Members Intent** (`GuildMembers`) — backs member search, which
+>   powers `lookup_discord_user` / `thread.lookupUser`. Without it those
+>   lookups fail and login is rejected.
 
 ## What it provides
 

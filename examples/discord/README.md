@@ -55,9 +55,12 @@ sidecar**, the **agent** (`runtime.ts`), and the **bot** (`app/`).
 2. In the left sidebar open **Bot**.
    - Click **Reset Token** (or copy the existing token) — this is your
      `DISCORD_BOT_TOKEN`.
-   - Under **Privileged Gateway Intents**, enable **Message Content Intent**.
-     **This is required** — without it the bot receives events but the
-     message body is empty, so every mention arrives as an empty string.
+   - Under **Privileged Gateway Intents**, enable **both** **Message Content
+     Intent** and **Server Members Intent**. **Both are required** — without
+     Message Content Intent the bot receives events but the message body is
+     empty (every mention arrives as an empty string), and without Server
+     Members Intent the `lookup_discord_user` member search fails. The bot
+     requests both intents, so Gateway login is rejected unless both are on.
 3. Back on **General Information**, copy the **Application ID** — this is
    your `DISCORD_APP_ID`.
 

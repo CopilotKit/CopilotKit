@@ -54,4 +54,8 @@ describe("decodeInteraction", () => {
       decodeInteraction({ isButton: () => false, isStringSelectMenu: () => false }),
     ).toBeUndefined();
   });
+
+  it("returns undefined (not throws) when isStringSelectMenu is absent", () => {
+    expect(decodeInteraction({ isButton: () => false })).toBeUndefined();
+  });
 });
