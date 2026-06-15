@@ -228,7 +228,7 @@ export function useInterrupt<
       // RESUME-PATH: await runAgent and return the result so callers can
       // sequence post-resume UI (e.g. harness DOM settle-check waiting for
       // the assistant confirmation bubble). Returning void here is the bug
-      // that quarantined 12 showcase manifests' interrupt-headless feature.
+      // that quarantined the showcase manifests' interrupt-headless feature.
       return await copilotkit.runAgent({
         agent,
         forwardedProps: {

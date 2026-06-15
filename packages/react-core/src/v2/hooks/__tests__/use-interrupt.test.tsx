@@ -636,8 +636,8 @@ describe("useInterrupt", () => {
   // (e.g. the showcase `interrupt-headless` demo's `useHeadlessInterrupt`,
   // or any consumer that wants to chain post-resume UI like the harness
   // DOM settle-check for the confirmation bubble) cannot sequence against
-  // the resume run otherwise. The 12 manifests quarantine `interrupt-headless`
-  // citing exactly this failure mode: backend resumes + streams (HTTP 200),
+  // the resume run otherwise. The showcase quarantine of `interrupt-headless`
+  // cites exactly this failure mode: backend resumes + streams (HTTP 200),
   // but downstream observers can't tell when the resume has actually
   // landed because resolve() returns void instead of a Promise.
   it("resolve returns a Promise that settles when runAgent settles (RESUME-PATH)", async () => {
@@ -681,25 +681,27 @@ describe("useInterrupt", () => {
     // runAgent was dispatched.
     expect(runAgentMock).toHaveBeenCalledTimes(1);
 
-    // Track settlement of the returned promise.
-    let settled = false;
-    void (returnedFromResolve as Promise<unknown>).then(() => {
-      settled = true;
-    });
+    // Race against a sentinel to assert the returned promise has NOT yet
+    // settled (runAgent is still pending). Deterministic regardless of
+    // internal microtask-chain depth.
+    const before = await Promise.race([
+      returnedFromResolve as Promise<unknown>,
+      Promise.resolve("pending"),
+    ]);
+    expect(before).toBe("pending");
 
-    // Yield microtasks: settled must still be false because runAgent
-    // hasn't settled yet.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(settled).toBe(false);
-
-    // Now settle the runAgent promise.
+    // Settle the runAgent promise and deterministically await the
+    // returned promise inside act() so React state updates flush.
     await act(async () => {
       releaseRunAgent!({ newMessages: [] });
-      // Flush microtasks so the chained .then runs.
-      await Promise.resolve();
-      await Promise.resolve();
+      await returnedFromResolve;
     });
-    expect(settled).toBe(true);
+
+    // The returned promise must resolve with the runAgent result, not
+    // just settle. A regression where resolve() returns a different
+    // settled promise (or `undefined` cast as thenable) would otherwise
+    // still pass.
+    const value = await returnedFromResolve;
+    expect(value).toEqual({ newMessages: [] });
   });
 });
