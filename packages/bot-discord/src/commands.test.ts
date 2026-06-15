@@ -46,7 +46,7 @@ describe("registerCommands", () => {
   const spec: CommandSpec = { name: "triage", description: "Triage the thread", options: undefined };
 
   it("registers to a guild when guildId is set", async () => {
-    const put = vi.fn(async () => {});
+    const put = vi.fn(async (_route: `/${string}`, _opts: { body: unknown }) => {});
     await registerCommands({ put } as any, "app-1", "guild-9", [spec]);
     expect(put).toHaveBeenCalledTimes(1);
     const [route, body] = put.mock.calls[0]!;
@@ -55,7 +55,7 @@ describe("registerCommands", () => {
   });
 
   it("registers globally when guildId is absent", async () => {
-    const put = vi.fn(async () => {});
+    const put = vi.fn(async (_route: `/${string}`, _opts: { body: unknown }) => {});
     await registerCommands({ put } as any, "app-1", undefined, [spec]);
     const [route] = put.mock.calls[0]!;
     expect(String(route)).not.toContain("guild");
