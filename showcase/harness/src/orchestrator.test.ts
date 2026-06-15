@@ -5547,3 +5547,199 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
     }
   });
 });
+
+/**
+ * B2 fix: `POST /webhooks/deploy` must be registered on BOTH boot paths
+ * (worker via boot(), control-plane via runControlPlane), AND the
+ * FATAL-CONFIG guard on missing SHARED_SECRET must fire regardless of
+ * NODE_ENV (gated only by an explicit test/escape-hatch).
+ *
+ * Pre-fix: the CP path's buildServer call omitted webhookSecrets/metrics
+ * entirely, so the server.ts gate (deps.webhookSecrets?.length > 0)
+ * silently skipped route registration — every notify-harness POST from
+ * the Showcase: Verify Deploy workflow returned 404 on the public host.
+ *
+ * Test plan (red-green-refactor):
+ *   - Test A: CP boot with SHARED_SECRET set → POST /webhooks/deploy
+ *     without HMAC headers returns 401 (route IS mounted; the route's own
+ *     HMAC reject path fires). Pre-fix this returned 404.
+ *   - Test B: worker boot with SHARED_SECRET set → same 401 probe
+ *     (regression guard so the worker path keeps working).
+ *   - Test C: SHARED_SECRET unset + NODE_ENV != "test" / no escape hatch
+ *     → boot throws FATAL-CONFIG mentioning SHARED_SECRET. Pre-fix this
+ *     silently booted unless NODE_ENV === "production".
+ *   - Test D: SHARED_SECRET unset + NODE_ENV === "test" → boot succeeds
+ *     (test-mode escape hatch preserved).
+ */
+describe("orchestrator B2: /webhooks/deploy registered on CP + fail-loud on missing SHARED_SECRET", () => {
+  let tempDir: string;
+  let alertsDir: string;
+  let probesDir: string;
+  let port = 0;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  let workerStopFn: (() => Promise<void>) | null = null;
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-cp-b2-"));
+    alertsDir = path.join(root, "alerts");
+    probesDir = path.join(root, "probes");
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-worker-b2-"));
+    await fs.mkdir(alertsDir, { recursive: true });
+    await fs.mkdir(probesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    if (workerStopFn) {
+      await workerStopFn().catch(() => undefined);
+      workerStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    await fs.rm(probesDir, { recursive: true, force: true });
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+  });
+
+  // Helper: probe POST /webhooks/deploy with no HMAC headers. Expected
+  // outcomes: 404 when the route is NOT mounted (pre-fix CP), 401 when
+  // it IS mounted (the route's HMAC reject path rejects unsigned bodies).
+  async function probeWebhookDeploy(p: number): Promise<number> {
+    const res = await fetch(`http://127.0.0.1:${p}/webhooks/deploy`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    return res.status;
+  }
+
+  it("Test A: CP boot registers POST /webhooks/deploy when SHARED_SECRET is set (401, not 404)", async () => {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.SHARED_SECRET = "b2-test-secret-cp";
+    process.env.NODE_ENV = "test";
+    try {
+      const orchMod = await import("./orchestrator.js");
+      const handle = await orchMod.runControlPlane(
+        { role: "control-plane", poolCount: 1 },
+        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+      );
+      cpStopFn = handle.stop;
+
+      const status = await probeWebhookDeploy(port);
+      // Pre-fix: 404 (route omitted because CP buildServer call dropped
+      // webhookSecrets). Post-fix: 401 (route mounted, HMAC reject path
+      // fires on the unsigned POST).
+      expect(status).toBe(401);
+    } finally {
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+    }
+  });
+
+  it("Test B: worker boot still registers POST /webhooks/deploy when SHARED_SECRET is set (401, regression guard)", async () => {
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.SHARED_SECRET = "b2-test-secret-worker";
+    process.env.NODE_ENV = "test";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      workerStopFn = booted.stop;
+
+      const status = await probeWebhookDeploy(port);
+      expect(status).toBe(401);
+    } finally {
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+    }
+  });
+
+  it("Test C: boot throws FATAL-CONFIG when SHARED_SECRET unset AND NODE_ENV is non-test (regardless of production)", async () => {
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevEscape = process.env.HARNESS_ALLOW_NO_SECRET;
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    delete process.env.HARNESS_ALLOW_NO_SECRET;
+    // "development" — pre-fix this booted silently (only NODE_ENV ===
+    // "production" tripped the guard). Post-fix it must throw.
+    process.env.NODE_ENV = "development";
+    process.env.POCKETBASE_URL = "http://localhost:8090";
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/SHARED_SECRET/);
+    } finally {
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+      if (prevEscape !== undefined)
+        process.env.HARNESS_ALLOW_NO_SECRET = prevEscape;
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
+      else process.env.POCKETBASE_URL = prevPbUrl;
+    }
+  });
+
+  it("Test D: boot succeeds when SHARED_SECRET unset AND NODE_ENV=test (test-mode escape hatch)", async () => {
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    const prevNodeEnv = process.env.NODE_ENV;
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    process.env.NODE_ENV = "test";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      workerStopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+    }
+  });
+});
