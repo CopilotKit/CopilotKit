@@ -65,12 +65,18 @@ export function createRunRenderer(args: {
   /** Per-AG-UI-message ChunkedMessageStream. Lazily created on first content. */
   const streams = new Map<string, ChunkedMessageStream>();
   /**
-   * Per-AG-UI-message Discord message handle, stored so `updateAt` can
-   * call `.edit()` on the correct message object.
+   * One handle per posted Discord message, keyed by the id returned from
+   * `channel.send`. A long agent reply (>2000 chars) is split by
+   * {@link ChunkedMessageStream} into several Discord messages, and
+   * `updateAt(id, …)` must edit the message that owns `id` — NOT a single
+   * per-AG-UI-message handle, which every new chunk would overwrite,
+   * routing all edits to the last-posted message. Mirrors the `handles`
+   * Map in adapter.ts `stream()`. Shared across every stream in this run
+   * (Discord ids are globally unique, so there's no collision risk).
    */
-  const messages = new Map<
+  const handles = new Map<
     string,
-    { id: string; edit(p: string | { content: string }): Promise<unknown> }
+    { edit(p: string | { content: string }): Promise<unknown> }
   >();
   /**
    * Once a stream has been "finalised" (either via TEXT_MESSAGE_END or via
@@ -105,11 +111,11 @@ export function createRunRenderer(args: {
       s = new ChunkedMessageStream({
         postPlaceholder: async (text) => {
           const m = await channel.send(text);
-          messages.set(messageId, m);
+          handles.set(m.id, m);
           return m.id;
         },
-        updateAt: async (_id, text) => {
-          await messages.get(messageId)?.edit(text);
+        updateAt: async (id, text) => {
+          await handles.get(id)?.edit(text);
         },
         transform: displayTransform,
       });
