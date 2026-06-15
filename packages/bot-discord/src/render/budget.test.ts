@@ -42,6 +42,14 @@ describe("truncateFenced", () => {
     expect(out).not.toContain("```");
     expect(out.length).toBeLessThanOrEqual(10);
   });
+
+  it("never exceeds max even when max is smaller than the closing fence", () => {
+    // An open fence with max=3 (< "\n```".length = 4) must not append a 4-char
+    // closer that overruns max; it falls back to a plain clamp.
+    const longFenced = "```\n" + "a".repeat(50);
+    const out = truncateFenced(longFenced, 3);
+    expect(out.length).toBeLessThanOrEqual(3);
+  });
 });
 
 describe("DISCORD_LIMITS", () => {

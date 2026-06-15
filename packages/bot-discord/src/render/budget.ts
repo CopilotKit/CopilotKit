@@ -40,6 +40,10 @@ export function truncateFenced(text: string, max: number): string {
   if (fences % 2 === 0) return truncated;
   // A fence was left open. Close it, trimming to keep within `max`.
   const closer = "\n```";
+  // If there's no room for even the closer, we can't append a balanced fence
+  // without exceeding `max`. Fall back to a plain truncation (no fence append)
+  // so the documented "never exceeds max" invariant holds.
+  if (max <= closer.length) return truncateText(text, max);
   const room = max - closer.length;
   const body = truncated.length > room ? truncated.slice(0, Math.max(0, room)) : truncated;
   return body + closer;

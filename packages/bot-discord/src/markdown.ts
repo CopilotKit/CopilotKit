@@ -17,7 +17,9 @@ const FENCE = /^\s*(`{3,}|~{3,})/;
 
 /** Count GFM cells in a row: split on unescaped pipes, drop empty leading/trailing cells. */
 function cellCount(line: string): number {
-  const cells = line.trim().split("|");
+  // Split on pipes that are NOT escaped (`\|` is a literal pipe inside a cell,
+  // not a column separator). Negative lookbehind needs Node 18+ (supported).
+  const cells = line.trim().split(/(?<!\\)\|/);
   // A leading/trailing pipe produces an empty edge cell — ignore those.
   if (cells.length && cells[0]!.trim() === "") cells.shift();
   if (cells.length && cells[cells.length - 1]!.trim() === "") cells.pop();

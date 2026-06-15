@@ -34,6 +34,16 @@ describe("discordMarkdown", () => {
     expect(discordMarkdown(md)).toBe(md);
   });
 
+  it("detects and wraps a table whose cell contains an escaped pipe", () => {
+    // Header has two cells: "A \| B" (an escaped pipe inside one cell) and "C".
+    // A naive split on every `|` would count three cells and fail to match the
+    // two-column separator, leaving the table unwrapped.
+    const md = ["| A \\| B | C |", "| - | - |", "| 1 | 2 |"].join("\n");
+    const out = discordMarkdown(md);
+    expect(out.startsWith("```")).toBe(true);
+    expect((out.match(/```/g) ?? []).length).toBe(2);
+  });
+
   it("does not double-fence a table already inside a model fence", () => {
     const md = ["```", "| A | B |", "| - | - |", "| 1 | 2 |", "```"].join("\n");
     const out = discordMarkdown(md);

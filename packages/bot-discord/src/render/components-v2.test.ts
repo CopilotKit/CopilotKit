@@ -277,6 +277,91 @@ describe("renderComponents", () => {
     expect(texts.every((c: any) => (c.content?.length ?? 0) > 0)).toBe(true);
   });
 
+  it("emits no 'content truncated' marker for genuinely-empty input (empty Fields / empty Text)", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: [
+          node("fields", { children: [] }),
+          node("section", { children: text("") }),
+          node("context", { children: [] }),
+        ],
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const overflow = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay && c.content === "_…content truncated_",
+    );
+    expect(overflow.length).toBe(0);
+    // No empty TextDisplay leaked through either.
+    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
+    expect(texts.every((c: any) => (c.content?.length ?? 0) > 0)).toBe(true);
+  });
+
+  it("keeps a fenced table balanced when clamped by the cumulative 4000-char text budget", () => {
+    // Pre-fill text close to the 4000 cumulative cap, then render a fenced table
+    // whose markdown is clamped by the cumulative budget (not the per-display
+    // limit). The cumulative clamp must not sever the fence open.
+    // Leave only a small cumulative budget (~10 chars) for the table so the
+    // cumulative clamp lands mid-fence, exercising the fence-aware path.
+    const filler = "x".repeat(1985);
+    const fillers = Array.from({ length: 2 }, () => node("section", { children: text(filler) }));
+    const columns = [{ header: "A" }, { header: "B" }];
+    const rows = Array.from({ length: 50 }, (_, i) =>
+      node("row", {
+        children: [
+          node("cell", { children: text("aaaa" + i) }),
+          node("cell", { children: text("bbbb" + i) }),
+        ],
+      }),
+    );
+    const ir: BotNode[] = [
+      node("message", {
+        children: [...fillers, node("table", { columns, children: rows })],
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay) as any[];
+    // The table's TextDisplay is the one containing a fence; it must be present
+    // (a cut fence leaves an opening ```) and balanced.
+    const fenced = texts.filter((c) => (c.content ?? "").includes("```"));
+    expect(fenced.length).toBeGreaterThan(0);
+    for (const c of fenced) {
+      expect((c.content.match(/```/g) ?? []).length % 2).toBe(0);
+    }
+  });
+
+  it("does not emit a Select with zero options", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: node("actions", {
+          children: node("select", { onSelect: { id: "ck:sel" }, options: [] }),
+        }),
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    // No options → no select → the action row is never created.
+    expect(row).toBeUndefined();
+  });
+
+  it("falls back to ' ' for an explicitly-empty select placeholder", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: node("actions", {
+          children: node("select", {
+            onSelect: { id: "ck:sel" },
+            placeholder: "",
+            options: [{ label: "a", value: "a" }],
+          }),
+        }),
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const select = (row as any).components[0];
+    expect(select.placeholder).toBe(" ");
+  });
+
   it("counts the overflow marker against the text budget", () => {
     // Fill text past the cap so an overflow marker is appended; total text
     // (including the marker) must stay within totalTextChars.

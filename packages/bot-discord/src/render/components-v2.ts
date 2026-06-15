@@ -55,14 +55,24 @@ function signalOverflow(budget: RenderBudget, container: ContainerBuilder): void
 
 /** Add a TextDisplay, charging the text budget and clamping to remaining room. */
 function addText(content: string, budget: RenderBudget, container: ContainerBuilder): void {
+  // Genuinely-empty INPUT (an empty <Text value="">, an empty <Fields>/<Context>/
+  // <Table>) is not an overflow — skip it silently. Only a NON-empty content that
+  // the budget clamps to empty signals truncation.
+  if (content.length === 0) return;
   // Reserve room for one trailing overflow marker (mirrors the component-slot
   // reservation in budgetFull) so the summed text — including a marker that may
   // be appended later — never exceeds totalTextChars.
   const remaining = DISCORD_LIMITS.totalTextChars - OVERFLOW_TEXT.length - budget.textChars;
-  const clamped = content.length > remaining ? truncateText(content, Math.max(0, remaining)) : content;
-  // Discord rejects an empty TextDisplay. If the text budget left no room (or the
-  // content was empty to begin with), emit the overflow marker instead of an
-  // empty component.
+  let clamped = content;
+  if (content.length > remaining) {
+    const room = Math.max(0, remaining);
+    // The cumulative clamp can sever a ``` fence emitted by the table/section
+    // path. If the content carries a fence, use the fence-balancing truncation
+    // so a cut fence is re-closed (kept within `room`).
+    clamped = content.includes("```") ? truncateFenced(content, room) : truncateText(content, room);
+  }
+  // Discord rejects an empty TextDisplay. If the text budget clamped a non-empty
+  // content down to empty, emit the overflow marker instead of an empty component.
   if (clamped.length === 0) {
     signalOverflow(budget, container);
     return;
@@ -288,9 +298,15 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
       .setLabel(truncateText(o.label, 100))
       .setValue(truncateText(String(o.value), 100)),
   );
+  // Discord rejects a StringSelectMenu with zero options (needs 1..25). With no
+  // options there's nothing selectable, so omit the select entirely (the caller
+  // already filters undefined, mirroring the button path).
+  if (built.length === 0) return undefined;
   const select = new StringSelectMenuBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
-    .setPlaceholder(truncateText(String(props.placeholder ?? " "), DISCORD_LIMITS.selectPlaceholder))
+    // Truthy fallback so an explicit "" placeholder falls back to " " (Discord
+    // rejects an empty placeholder), matching the button-label path.
+    .setPlaceholder(truncateText(String(props.placeholder || " "), DISCORD_LIMITS.selectPlaceholder))
     .addOptions(built);
   return select;
 }
