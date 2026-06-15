@@ -199,7 +199,7 @@ export async function assertDefaultCatchall(
 export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
-      input: "weather in Tokyo",
+      input: "forecast for Tokyo",
       assertions: assertDefaultCatchall,
     },
   ];

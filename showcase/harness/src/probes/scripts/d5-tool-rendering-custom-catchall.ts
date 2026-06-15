@@ -49,7 +49,7 @@ export const CUSTOM_CATCHALL_TESTID = "custom-wildcard-card";
  * `gen-ui-headless-complete.json` patterns).
  */
 export const PROMPT_TOOL_PAIRS = [
-  { prompt: "weather in Tokyo", tool: "get_weather" },
+  { prompt: "forecast for Tokyo", tool: "get_weather" },
   { prompt: "What's the current price of AAPL?", tool: "get_stock_price" },
 ] as const;
 
