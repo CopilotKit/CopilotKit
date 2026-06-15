@@ -96,6 +96,13 @@ export class ChunkedMessageStream {
   private streams: MessageStream[] = [];
   /** Serialises new-chunk creation so async postPlaceholder calls don't race. */
   private setupPromise: Promise<void> = Promise.resolve();
+  /**
+   * Records the first setup-chain failure (e.g. a rejecting `postPlaceholder`).
+   * The chain itself is kept rejection-free via a `.catch` so no interim
+   * unhandled promise rejection is emitted; the stored error is rethrown
+   * deterministically at the next `append`/`finish`.
+   */
+  private setupError: unknown = undefined;
   private finished = false;
 
   private readonly limit: number;
@@ -114,23 +121,42 @@ export class ChunkedMessageStream {
 
   append(fullText: string): void {
     if (this.finished) return;
+    // A prior setup-chain failure is fatal for the stream — surface it
+    // synchronously here rather than chaining more work onto a doomed promise.
+    if (this.setupError !== undefined) throw this.asSetupError();
     if (fullText === this.buffer) return;
     this.buffer = fullText;
     this.refreezeBoundaries();
-    // Make sure we have one Discord message per chunk, then dispatch.
-    this.setupPromise = this.setupPromise.then(() =>
-      this.ensureStreamsAndDispatch(),
-    );
+    // Make sure we have one Discord message per chunk, then dispatch. The
+    // `.catch` keeps `setupPromise` itself rejection-free (no unhandled
+    // rejection between this append and the next surfacing point); the failure
+    // is recorded once and rethrown at the next append/finish.
+    this.setupPromise = this.setupPromise
+      .then(() => this.ensureStreamsAndDispatch())
+      .catch((err) => {
+        if (this.setupError === undefined) this.setupError = err;
+      });
   }
 
   async finish(): Promise<void> {
     this.finished = true;
     // Drain any pending setup, then a final dispatch, then finish each stream.
-    this.setupPromise = this.setupPromise.then(() =>
-      this.ensureStreamsAndDispatch(),
-    );
+    this.setupPromise = this.setupPromise
+      .then(() => this.ensureStreamsAndDispatch())
+      .catch((err) => {
+        if (this.setupError === undefined) this.setupError = err;
+      });
     await this.setupPromise;
+    // Surface a setup failure (e.g. a rejecting postPlaceholder) here so the
+    // caller still sees it — just without an interim unhandled rejection.
+    if (this.setupError !== undefined) throw this.asSetupError();
     for (const s of this.streams) await s.finish();
+  }
+
+  /** Wraps the recorded setup failure with context for surfacing to callers. */
+  private asSetupError(): Error {
+    const cause = this.setupError;
+    return new Error("ChunkedMessageStream setup failed", { cause });
   }
 
   /** Returns the number of Discord messages this stream has posted so far. */

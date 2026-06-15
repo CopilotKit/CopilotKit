@@ -314,6 +314,59 @@ describe("ChunkedMessageStream", () => {
     expect(await chunk1Len(1900)).toBeLessThan(2000);
   });
 
+  it("a rejecting postPlaceholder surfaces at finish() without an unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const sendError = new Error("channel.send failed");
+      const s = new ChunkedMessageStream({
+        postPlaceholder: async () => {
+          throw sendError;
+        },
+        updateAt: async () => {},
+        limit: 100,
+        minIntervalMs: 0,
+      });
+      // First append schedules the (doomed) setup. No throw here — the failure
+      // is recorded on the chain, not surfaced synchronously on the first append.
+      s.append("hello world");
+      // Give the microtask queue a chance to settle the rejected setup chain;
+      // the `.catch` must absorb it so Node never reports an unhandled rejection.
+      await new Promise((r) => setTimeout(r, 10));
+      // The failure surfaces deterministically at finish(), with the original
+      // send error attached as the cause.
+      await expect(s.finish()).rejects.toThrow(/setup failed/i);
+      const caught = await s.finish().catch((e) => e);
+      expect((caught as { cause?: unknown }).cause).toBe(sendError);
+    } finally {
+      // Let any stray rejection flush before asserting.
+      await new Promise((r) => setTimeout(r, 10));
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toHaveLength(0);
+  });
+
+  it("a rejecting postPlaceholder surfaces at the next append", async () => {
+    const sendError = new Error("channel.send failed");
+    let calls = 0;
+    const s = new ChunkedMessageStream({
+      postPlaceholder: async () => {
+        calls++;
+        throw sendError;
+      },
+      updateAt: async () => {},
+      limit: 100,
+      minIntervalMs: 0,
+    });
+    s.append("first");
+    // Wait for the first setup attempt to reject and be recorded.
+    await new Promise((r) => setTimeout(r, 10));
+    // The next append observes the recorded failure and rethrows it.
+    expect(() => s.append("second")).toThrow(/setup failed/i);
+    expect(calls).toBe(1);
+  });
+
   it("a fenced code block is never split mid-fence (block-keeps-whole with default 2000 limit)", async () => {
     const discord = makeFakeDiscord();
     const s = new ChunkedMessageStream({

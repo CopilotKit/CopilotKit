@@ -216,11 +216,18 @@ export class DiscordAdapter implements PlatformAdapter {
       transform: (s) => discordMarkdown(autoCloseOpenMarkdown(s)),
     });
     let acc = "";
-    for await (const chunk of chunks) {
-      acc += chunk;
-      stream.append(acc);
+    // If the source iterable rejects partway, `finish()` must still run so the
+    // already-posted "_thinking…_" placeholder gets drained to its accumulated
+    // text instead of being frozen forever; then let the original error
+    // propagate.
+    try {
+      for await (const chunk of chunks) {
+        acc += chunk;
+        stream.append(acc);
+      }
+    } finally {
+      await stream.finish();
     }
-    await stream.finish();
     return { id: firstId, channelId: t.channelId };
   }
 
