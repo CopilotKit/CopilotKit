@@ -62,6 +62,9 @@ export async function buildFileContentParts(
   const parts: AgentContentPart[] = [];
   const notes: string[] = [];
 
+  // WhatsApp delivers one media object per inbound message, so the ingress path
+  // passes a single-element array today. The maxFiles clamp/overflow note exists
+  // for callers that batch multiple media (e.g. future album support).
   for (const m of media.slice(0, cfg.maxFiles)) {
     let dl;
     try {

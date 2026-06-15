@@ -64,8 +64,7 @@ export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
           const baseId = idFromHandler(n.props.onClick);
           const title = textOf(n.props.children);
           if (baseId) {
-            const id = encodeActionId(baseId, n.props.value);
-            actions.push({ id: truncateText(id, WA_LIMITS.controlId), title });
+            actions.push({ id: buildControlId(baseId, n.props.value), title });
           }
           break;
         }
@@ -76,10 +75,7 @@ export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
           const opts = (n.props.options as Array<{ label: string; value: string }>) ?? [];
           if (baseId) {
             for (const o of opts) {
-              actions.push({
-                id: truncateText(encodeActionId(baseId, o.value), WA_LIMITS.controlId),
-                title: o.label,
-              });
+              actions.push({ id: buildControlId(baseId, o.value), title: o.label });
             }
           }
           break;
@@ -179,13 +175,22 @@ function idFromHandler(handler: unknown): string | undefined {
 }
 
 /**
- * Encode a control's value into its reply id so it round-trips (WhatsApp reply
- * buttons/list rows carry only an id, no separate value field). Minted ids are
- * `ck:`+16 hex, so `::` never collides. `decodeInteraction` splits this back.
+ * Build a reply-control id. A bare minted id is short and safe to clamp. When a
+ * value must round-trip (WhatsApp replies carry only an id, no value field) we
+ * encode `${id}::${JSON.stringify(value)}`; if that exceeds WhatsApp's 256-char
+ * id limit it CANNOT round-trip, so we fail loudly rather than truncate (which
+ * would make decodeInteraction silently parse garbage).
  */
-function encodeActionId(actionId: string, value: unknown): string {
-  if (value === undefined) return actionId;
-  return `${actionId}::${JSON.stringify(value)}`;
+function buildControlId(actionId: string, value: unknown): string {
+  if (value === undefined) return truncateText(actionId, WA_LIMITS.controlId);
+  const encoded = `${actionId}::${JSON.stringify(value)}`;
+  if (encoded.length > WA_LIMITS.controlId) {
+    throw new Error(
+      `WhatsApp control value too large to round-trip: encoded id is ${encoded.length} chars ` +
+        `(max ${WA_LIMITS.controlId}). Use a smaller value or a short key the handler maps.`,
+    );
+  }
+  return encoded;
 }
 
 /** Flatten a `BotChildren` tree to a single text string (text nodes + nested children). */

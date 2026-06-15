@@ -10,6 +10,11 @@ export function conversationKeyOf(waId: string): string {
   return `whatsapp:${waId}`;
 }
 
+/** Inverse of conversationKeyOf: recover the wa_id from a conversation key. */
+export function waIdFromKey(conversationKey: string): string {
+  return conversationKey.replace(/^whatsapp:/, "");
+}
+
 /**
  * Decode an inbound interactive message (`button_reply` / `list_reply`) into a
  * bot `InteractionEvent`. The opaque minted id (`ck:...`) rides in the reply

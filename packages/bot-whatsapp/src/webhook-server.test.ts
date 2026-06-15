@@ -77,4 +77,20 @@ describe("WebhookServer", () => {
       await server.stop();
     }
   });
+
+  it("rejects a POST with a correctly-formatted but wrong signature", async () => {
+    const onEvent = vi.fn(async () => {});
+    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "SECRET", onEvent });
+    await server.start(0);
+    try {
+      const body = "{}";
+      // valid length (64 hex) but computed with the WRONG secret
+      const wrong = "sha256=" + createHmac("sha256", "NOT_THE_SECRET").update(body).digest("hex");
+      const res = await post(server, "/webhook", body, wrong);
+      expect(res.status).toBe(401);
+      expect(onEvent).not.toHaveBeenCalled();
+    } finally {
+      await server.stop();
+    }
+  });
 });

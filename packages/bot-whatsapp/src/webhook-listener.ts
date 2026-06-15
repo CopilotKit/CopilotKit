@@ -52,8 +52,11 @@ export async function handleWebhookValue(value: ChangeValue, args: WebhookListen
         const space = rest.indexOf(" ");
         const command = space === -1 ? rest : rest.slice(0, space);
         const text = space === -1 ? "" : rest.slice(space + 1).trim();
-        // Record the raw command text as a user turn so history is complete.
-        await args.history.append(conversationKey, { role: "user", content: body, ts: msg.timestamp ?? msg.id });
+        // Unlike a normal turn, a slash command's text is NOT persisted to history here.
+        // The command handler injects it via thread.runAgent({ prompt }) — the engine's
+        // designated path for input that isn't in the adapter's replayed history (mirrors
+        // bot-slack, where slash args never appear in channel history). Persisting it here
+        // too would double it in the agent's context.
         await args.sink.onCommand({ command, text, conversationKey, replyTarget, user, platform: "whatsapp" });
         continue;
       }

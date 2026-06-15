@@ -4,6 +4,7 @@ import type { AgentSession, ConversationStore } from "@copilotkit/bot";
 import type { ThreadMessage } from "@copilotkit/bot-ui";
 import type { HistoryStore, StoredMessage } from "./history-store.js";
 import type { ReplyTarget } from "./types.js";
+import { conversationKeyOf, waIdFromKey } from "./interaction.js";
 
 interface AgentMessage {
   id: string;
@@ -26,7 +27,7 @@ export class WhatsAppConversationStore implements ConversationStore {
   }
 
   private newThreadId(conversationKey: string): string {
-    const waId = conversationKey.replace(/^whatsapp:/, "");
+    const waId = waIdFromKey(conversationKey);
     return `whatsapp-${waId}-${randomUUID()}`;
   }
 
@@ -49,7 +50,7 @@ export class WhatsAppConversationStore implements ConversationStore {
 
   /** Back `Thread.getMessages()` from stored history. */
   async getMessages(replyTarget: ReplyTarget): Promise<ThreadMessage[]> {
-    const key = `whatsapp:${replyTarget.to}`;
+    const key = conversationKeyOf(replyTarget.to);
     const history = await this.historyStore.read(key);
     return history.map((m) => ({
       text: typeof m.content === "string" ? m.content : "[media]",

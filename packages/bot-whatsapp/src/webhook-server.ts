@@ -68,9 +68,10 @@ export class WebhookServer {
     const chunks: Buffer[] = [];
     req.on("data", (c) => chunks.push(c as Buffer));
     req.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8");
+      const rawBuf = Buffer.concat(chunks);
+      const raw = rawBuf.toString("utf8");
       const sig = req.headers["x-hub-signature-256"];
-      if (!this.verifySignature(raw, typeof sig === "string" ? sig : undefined)) {
+      if (!this.verifySignature(rawBuf, typeof sig === "string" ? sig : undefined)) {
         res.statusCode = 401;
         res.end();
         return;
@@ -90,7 +91,7 @@ export class WebhookServer {
     });
   }
 
-  private verifySignature(raw: string, signature: string | undefined): boolean {
+  private verifySignature(raw: Buffer, signature: string | undefined): boolean {
     if (!signature || !signature.startsWith("sha256=")) return false;
     const expected = "sha256=" + createHmac("sha256", this.args.appSecret).update(raw).digest("hex");
     const a = Buffer.from(signature);

@@ -98,4 +98,14 @@ describe("renderWhatsAppMessage", () => {
     expect(m.text.body).toContain("1. opt0");
     expect(m.text.body).toContain("12. opt11");
   });
+
+  it("throws when an encoded button value exceeds the WhatsApp id limit", () => {
+    const huge = "x".repeat(300);
+    expect(() =>
+      renderWhatsAppMessage([
+        node("section", { children: "x" }),
+        node("button", { children: "Go", value: huge, onClick: { id: "ck:1" } }),
+      ]),
+    ).toThrow(/too large to round-trip/);
+  });
 });

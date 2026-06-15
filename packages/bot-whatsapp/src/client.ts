@@ -57,7 +57,7 @@ export class WhatsAppClient {
     const form = new FormData();
     form.append("messaging_product", "whatsapp");
     form.append("type", mimeType);
-    form.append("file", new Blob([bytes.buffer as ArrayBuffer], { type: mimeType }), filename);
+    form.append("file", new Blob([(bytes.buffer as ArrayBuffer).slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)], { type: mimeType }), filename);
     const res = await this.fetchImpl(url, { method: "POST", headers: this.authHeader, body: form });
     if (!res.ok) throw new Error(`WhatsApp uploadMedia failed: ${res.status} ${await safeText(res)}`);
     const json = (await res.json()) as { id?: string };
