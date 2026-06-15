@@ -182,47 +182,30 @@
       }
     },
     {
-      "_comment": "Stock price — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture).",
+      "_comment": "Stock price — first-leg tool-emit. Uses sequenceIndex:0 (per-test counter) instead of hasToolResult/turnIndex because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result + assistant turn in history, making BOTH hasToolResult:false AND turnIndex:0 false-y when AAPL arrives at turn 2. sequenceIndex:0 fires exactly once per test; on iteration 2 (count=1) it falls through to the bare narration below, breaking the emit→tool-result→re-emit loop without depending on hasToolResult-based history inspection. Ordered BEFORE the bare narration so first-match-wins on iteration 1.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": true,
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Stock price — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows a sibling pill's first turn.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
         "context": "built-in-agent"
       },
       "response": {
         "content": "AAPL is trading at $338.37, down 2.96% on the day."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_stock_aapl_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "Stock price — first-turn tool-emit fallback for multi-pill demo sessions where a PRIOR pill already left an assistant message in the thread, so turnIndex is not 0 and the fixture above is skipped. Anchored on hasToolResult:false so it only emits BEFORE any tool has run.",
-      "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": false,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_tr_stock_aapl_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
-          }
-        ]
       }
     },
     {
@@ -399,47 +382,30 @@
       }
     },
     {
-      "_comment": "AAPL probe — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture). Must precede the first-leg emitter below. Tightened from bare 'AAPL' to 'current price of AAPL' to avoid shadowing gen-ui-headless-complete.json's 'price of AAPL right now' pill.",
+      "_comment": "AAPL probe — first-leg tool-emit. Uses sequenceIndex:0 (fires once per test) instead of hasToolResult:false because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result in history, making hasToolResult:false false-y for the AAPL turn. sequenceIndex:0 is stable across multi-pill sessions (per-test counter resets) AND breaks the emit→tool-result→re-emit loop on iteration 2 (count=1, seqIdx:0 mismatch → falls through to narration below). Ordered BEFORE the bare-userMessage narration so first-match-wins on iteration 1.",
       "match": {
         "userMessage": "current price of AAPL",
-        "hasToolResult": true,
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "AAPL probe — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows because the emitter is gated by sequenceIndex rather than hasToolResult.",
+      "match": {
+        "userMessage": "current price of AAPL",
         "context": "built-in-agent"
       },
       "response": {
         "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "current price of AAPL",
-        "turnIndex": 0,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "AAPL probe — first-leg tool-emit fallback for multi-pill sessions where turnIndex is not 0 (the custom-catchall probe sends 'weather in Tokyo' first, then 'AAPL'). Anchored on hasToolResult:false so it only emits BEFORE the stock tool has run. Tightened from bare 'AAPL' to 'current price of AAPL' to avoid shadowing gen-ui-headless-complete.json's 'price of AAPL right now' pill.",
-      "match": {
-        "userMessage": "current price of AAPL",
-        "hasToolResult": false,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
-          }
-        ]
       }
     },
     {
