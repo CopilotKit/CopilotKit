@@ -213,6 +213,58 @@ export function loadWebhookSecrets(logger_: typeof logger = logger): string[] {
 }
 
 /**
+ * Resolve the PocketBase URL with the SAME symmetric fail-loud predicate
+ * as `loadWebhookSecrets`: throw unless either
+ *   - POCKETBASE_URL is set to a non-empty string, OR
+ *   - we are explicitly in a non-deployable mode: `NODE_ENV === "test"`
+ *     OR the escape-hatch `HARNESS_ALLOW_NO_PB_URL === "1"` (local dev).
+ *
+ * R1-F3 fix: pre-fix the inline guard only fired when
+ * `NODE_ENV === "production"`, so a staging / unset / "development" deploy
+ * silently bound to `http://localhost:8090` and every PB read/write hit a
+ * non-existent host. That was asymmetric with `loadWebhookSecrets` (which
+ * already used the test-or-escape-hatch predicate) — now both checks share
+ * one predicate so staging deploys fail loud on either misconfig.
+ *
+ * NOTE: the legacy single-purpose `HARNESS_ALLOW_NO_SECRET` flag is kept
+ * separate (this skill could unify them under a single HARNESS_DEV_LOCAL
+ * but doing so in this PR risks a tooling-env footgun — defer).
+ *
+ * Called from BOTH boot paths (worker `boot()` and the CP's
+ * `resolveFleetPbConfig`) so neither role can silently bind to a fake PB.
+ */
+export function loadPocketbaseUrl(logger_: typeof logger = logger): string {
+  const rawPbUrl = process.env.POCKETBASE_URL;
+  if (typeof rawPbUrl === "string" && rawPbUrl.length > 0) return rawPbUrl;
+
+  const isTestMode = process.env.NODE_ENV === "test";
+  const escapeHatch = process.env.HARNESS_ALLOW_NO_PB_URL === "1";
+  if (isTestMode || escapeHatch) {
+    const logLevel = escapeHatch && !isTestMode ? "warn" : "info";
+    logger_[logLevel]("orchestrator.pocketbase-url-default", {
+      msg: "POCKETBASE_URL unset — defaulting to http://localhost:8090",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+      escapeHatch,
+    });
+    return "http://localhost:8090";
+  }
+
+  logger_.error("orchestrator.FATAL-CONFIG", {
+    msg: "POCKETBASE_URL required — refusing to boot",
+    nodeEnv: process.env.NODE_ENV ?? "(unset)",
+  });
+  throw new Error(
+    "FATAL-CONFIG: POCKETBASE_URL is required — refusing to boot " +
+      "in any deployable mode. A missing POCKETBASE_URL pre-fix silently " +
+      "bound the orchestrator to http://localhost:8090, causing every " +
+      "PB read/write to fail against a non-existent host. " +
+      "Set POCKETBASE_URL in the env, or set " +
+      "NODE_ENV=test / HARNESS_ALLOW_NO_PB_URL=1 for local dev. " +
+      `Current NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}.`,
+  );
+}
+
+/**
  * Subscribe to `deploy.result` events on the given bus, routing each event
  * through `writer.write(deployEventToProbeResult(...))` so the deploy
  * webhook POST emits a `status.changed` row on the dashboard.
@@ -259,24 +311,21 @@ export async function boot(opts: BootOptions = {}): Promise<{
    */
   bus: ReturnType<typeof createEventBus>;
 }> {
-  // HF13-A2: fail loud on missing POCKETBASE_URL in production. Pre-fix the
-  // `?? "http://localhost:8090"` fallback silently bound a prod orchestrator
-  // to a non-existent localhost PB — no status reads, no state writes, no
-  // alerts. Shell-dashboard's `pb.ts` uses a `pbIsMisconfigured` sentinel and
-  // fails loud; orchestrator was asymmetric. Now it throws on boot in prod so
-  // the deploy CI (or Railway health-check) catches it immediately instead of
-  // discovering it hours later via silent alert suppression.
-  const rawPbUrl = process.env.POCKETBASE_URL;
-  if (!rawPbUrl && process.env.NODE_ENV === "production") {
-    logger.error("orchestrator.FATAL-CONFIG", {
-      msg: "POCKETBASE_URL required in production",
-      nodeEnv: process.env.NODE_ENV,
-    });
-    throw new Error(
-      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
-    );
-  }
-  const pbUrl = rawPbUrl ?? "http://localhost:8090";
+  // R1-F2: hoist all fail-loud config validation to the TOP of boot() —
+  // BEFORE any pb client / bus / scheduler / writer / S3 uploader allocations.
+  // Pre-fix `loadWebhookSecrets` lived AFTER the entire scheduler+writer
+  // setup, and `POCKETBASE_URL` had a narrower predicate than SHARED_SECRET
+  // (only NODE_ENV=production), so a misconfigured staging boot allocated
+  // expensive resources, mounted file watchers, and registered scheduler
+  // entries before throwing. Now both checks fire here, before anything that
+  // would need teardown.
+  //
+  // R1-F3: `loadPocketbaseUrl` replaces the inline production-only guard
+  // with the same test-or-escape-hatch predicate `loadWebhookSecrets` uses,
+  // so staging/development/unset NODE_ENV fail loud on BOTH config misses
+  // instead of just SHARED_SECRET.
+  const pbUrl = loadPocketbaseUrl(logger);
+  const webhookSecrets = loadWebhookSecrets(logger);
   // These authenticate against `/api/collections/_superusers/auth-with-password`
   // in pb-client, so the env var names intentionally mirror "superuser" —
   // previously `POCKETBASE_WRITER_*`, renamed to eliminate the naming drift
@@ -859,16 +908,6 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // subscription lived only here, so a valid signed POST against the CP host
   // returned 202 and the event vanished (no dashboard row written).
   busUnsubs.push(subscribeDeployResults(bus, writer, logger));
-
-  // B2 fix: webhook-secrets loading + FATAL-CONFIG fail-loud now live in
-  // `loadWebhookSecrets` so the CP boot path (runControlPlane) consumes the
-  // same predicate. The previous inline guard fired ONLY on
-  // `NODE_ENV === "production"`, which meant a deploy whose NODE_ENV was unset
-  // / "prod" / "staging" silently shipped with webhookSecrets=[], the server
-  // gate at http/server.ts:119 skipped POST /webhooks/deploy registration, and
-  // every notify-harness POST returned 404. See the helper's doc for the new
-  // predicate (test-mode or escape-hatch only).
-  const webhookSecrets = loadWebhookSecrets(logger);
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the
@@ -2406,10 +2445,21 @@ export async function runControlPlane(
     poolCount: config.poolCount,
   });
 
+  // R1-F2: hoist all fail-loud config validation to the TOP of
+  // runControlPlane — BEFORE any pb client / queue / bus / scheduler /
+  // aggregator / fleet-health allocations. Pre-fix `loadWebhookSecrets`
+  // ran AFTER pb+claim+bus+queue+scheduler were already constructed, so
+  // a misconfigured CP boot allocated five resources before throwing.
+  // Now both checks fire here; if either throws, no teardown is needed.
+  //
+  // R1-F3: `resolveFleetPbConfig` now defers to `loadPocketbaseUrl` so
+  // the CP path's POCKETBASE_URL predicate matches `loadWebhookSecrets`'
+  // semantics (test-or-escape-hatch instead of production-only).
+  const webhookSecrets = loadWebhookSecrets(logger);
+  const pbCfg = resolveFleetPbConfig();
+
   const env = process.env;
   const port = opts.port ?? (Number(env.PORT ?? 8080) || 8080);
-
-  const pbCfg = resolveFleetPbConfig();
   const pb = createPbClient({
     url: pbCfg.url,
     email: pbCfg.email,
@@ -2435,20 +2485,11 @@ export async function runControlPlane(
   });
   const scheduler = createScheduler({ logger });
 
-  // B2 fix: load deploy-webhook HMAC secrets here so the CP `buildServer`
-  // call below ACTUALLY registers POST /webhooks/deploy (the gate at
-  // http/server.ts:119 needs `webhookSecrets.length > 0`). Pre-fix the CP
-  // path omitted both `webhookSecrets` and `metrics` from buildServer, so
-  // the public Railway host running the control-plane role returned 404 on
-  // every notify-harness POST from the Showcase: Verify Deploy workflow.
-  // `loadWebhookSecrets` also runs the tightened FATAL-CONFIG guard, so a
-  // CP boot with no SHARED_SECRET fails loud here regardless of NODE_ENV
-  // (only NODE_ENV=test / HARNESS_ALLOW_NO_SECRET=1 permits empty secrets).
-  const webhookSecrets = loadWebhookSecrets(logger);
   // A metrics registry on the CP role lets /metrics expose webhook
   // rejection / HMAC-failure counters from the deploy webhook (same surface
   // the worker boot exposes). Cheap (in-process counters only, no scrape
   // server) and matches the worker buildServer call's wiring.
+  // (R1-F2: `webhookSecrets` hoisted to the top — see above.)
   const metrics = createMetricsRegistry();
 
   // S5 aggregator — the ONLY authoritative dashboard writer — over the
@@ -3309,18 +3350,13 @@ function resolveFleetPbConfig(): {
   email?: string;
   password?: string;
 } {
-  const rawPbUrl = process.env.POCKETBASE_URL;
-  if (!rawPbUrl && process.env.NODE_ENV === "production") {
-    logger.error("orchestrator.FATAL-CONFIG", {
-      msg: "POCKETBASE_URL required in production",
-      nodeEnv: process.env.NODE_ENV,
-    });
-    throw new Error(
-      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
-    );
-  }
+  // R1-F3: use the shared `loadPocketbaseUrl` so the CP path's
+  // POCKETBASE_URL predicate matches `loadWebhookSecrets`' semantics
+  // (throw unless NODE_ENV=test OR HARNESS_ALLOW_NO_PB_URL=1). Pre-fix
+  // the predicate was production-only, so a staging/unset/"development"
+  // boot silently bound to http://localhost:8090.
   return {
-    url: rawPbUrl ?? "http://localhost:8090",
+    url: loadPocketbaseUrl(logger),
     email: process.env.POCKETBASE_SUPERUSER_EMAIL,
     password: process.env.POCKETBASE_SUPERUSER_PASSWORD,
   };

@@ -237,16 +237,83 @@ describe("orchestrator /health wiring (F1.1)", () => {
   it("HF13-A2: boot throws FATAL-CONFIG when NODE_ENV=production and POCKETBASE_URL unset", async () => {
     const prevNodeEnv = process.env.NODE_ENV;
     const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevSecret = process.env.SHARED_SECRET;
     process.env.NODE_ENV = "production";
     delete process.env.POCKETBASE_URL;
+    // R1-F3: hoisted POCKETBASE_URL check now fires BEFORE
+    // loadWebhookSecrets — but production still requires both, so set a
+    // real SHARED_SECRET to ensure the test specifically asserts the
+    // POCKETBASE_URL guard, not the SHARED_SECRET one.
+    process.env.SHARED_SECRET = "hf13-a2-test-secret";
     try {
       await expect(
         boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
-      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL required in production/);
+      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL/);
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+    }
+  });
+
+  // R1-F3: POCKETBASE_URL fail-loud is now symmetric with SHARED_SECRET —
+  // it throws on NODE_ENV=development (pre-fix this only fired on
+  // production), and the new HARNESS_ALLOW_NO_PB_URL=1 escape hatch
+  // permits unset POCKETBASE_URL the same way HARNESS_ALLOW_NO_SECRET=1
+  // does for SHARED_SECRET. Tests both branches.
+  it("R1-F3: boot throws FATAL-CONFIG when POCKETBASE_URL unset AND NODE_ENV is non-test (regardless of production)", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevEscape = process.env.HARNESS_ALLOW_NO_PB_URL;
+    process.env.NODE_ENV = "development";
+    delete process.env.POCKETBASE_URL;
+    delete process.env.HARNESS_ALLOW_NO_PB_URL;
+    process.env.SHARED_SECRET = "r1f3-test-secret";
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL/);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+      if (prevEscape !== undefined)
+        process.env.HARNESS_ALLOW_NO_PB_URL = prevEscape;
+    }
+  });
+
+  it("R1-F3: boot succeeds when POCKETBASE_URL unset AND HARNESS_ALLOW_NO_PB_URL=1 (escape hatch)", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevEscape = process.env.HARNESS_ALLOW_NO_PB_URL;
+    const prevSecret = process.env.SHARED_SECRET;
+    process.env.NODE_ENV = "development";
+    delete process.env.POCKETBASE_URL;
+    process.env.HARNESS_ALLOW_NO_PB_URL = "1";
+    // SHARED_SECRET also fail-loud on non-test NODE_ENV; set it so this
+    // test specifically exercises the POCKETBASE_URL escape hatch.
+    process.env.SHARED_SECRET = "r1f3-escape-test-secret";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevEscape === undefined) delete process.env.HARNESS_ALLOW_NO_PB_URL;
+      else process.env.HARNESS_ALLOW_NO_PB_URL = prevEscape;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
     }
   });
 
@@ -5791,8 +5858,7 @@ describe("orchestrator R1-F1: deploy.result subscriber on CP path", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
     vi.resetModules();
     vi.restoreAllMocks();
-    // R1-F1 tests use vi.stubEnv (modern pattern); restoreAllMocks does
-    // NOT undo stubEnv — explicit unstub.
+    // CB-1: restoreAllMocks does NOT undo vi.stubEnv — explicit unstub.
     vi.unstubAllEnvs();
     vi.doUnmock("@hono/node-server");
     vi.doUnmock("./storage/pb-client.js");
