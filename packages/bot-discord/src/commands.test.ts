@@ -99,6 +99,117 @@ describe("jsonSchemaToDiscordOptions", () => {
     warn.mockRestore();
   });
 
+  it("omits the choices key (not []) when an integer enum has no numeric entries", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: ["a", "b", "c"] } },
+    });
+    const level = opts.find((o) => o.name === "level")!;
+    expect(level.type).toBe(4);
+    // No choices key at all — an empty `choices: []` would make Discord reject the batch.
+    expect("choices" in level).toBe(false);
+    expect(level.choices).toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it("drops non-integer values from an integer enum (1.5 is not an integer)", () => {
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: [1, 1.5, 2] } },
+    });
+    const level = opts.find((o) => o.name === "level")!;
+    expect(level.choices).toEqual([
+      { name: "1", value: 1 },
+      { name: "2", value: 2 },
+    ]);
+  });
+
+  it("keeps non-integer finite values for a number (float) enum", () => {
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { ratio: { type: "number", enum: [1, 1.5, 2] } },
+    });
+    const ratio = opts.find((o) => o.name === "ratio")!;
+    expect(ratio.type).toBe(10);
+    expect(ratio.choices).toEqual([
+      { name: "1", value: 1 },
+      { name: "1.5", value: 1.5 },
+      { name: "2", value: 2 },
+    ]);
+  });
+
+  it("skips an empty-name choice (String('') is whitespace, Number('') is a finite 0)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const intOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: ["", 1] } },
+    });
+    expect(intOpts.find((o) => o.name === "level")!.choices).toEqual([{ name: "1", value: 1 }]);
+
+    const strOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { tag: { type: "string", enum: ["", " ", "ok"] } },
+    });
+    expect(strOpts.find((o) => o.name === "tag")!.choices).toEqual([{ name: "ok", value: "ok" }]);
+    warn.mockRestore();
+  });
+
+  it("clamps an enum with more than 25 values to exactly 25 choices", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const thirty = Array.from({ length: 30 }, (_, i) => i + 1);
+    const intOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: thirty } },
+    });
+    expect(intOpts.find((o) => o.name === "level")!.choices!.length).toBe(25);
+
+    const strOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { tag: { type: "string", enum: thirty.map((n) => `v${n}`) } },
+    });
+    expect(strOpts.find((o) => o.name === "tag")!.choices!.length).toBe(25);
+    warn.mockRestore();
+  });
+
+  it("clamps a command to at most 25 options", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const properties: Record<string, unknown> = {};
+    for (let i = 0; i < 30; i++) properties[`opt${i}`] = { type: "string" };
+    const opts = jsonSchemaToDiscordOptions({ type: "object", properties });
+    expect(opts.length).toBe(25);
+    warn.mockRestore();
+  });
+
+  it("normalizes an option name to a lowercase valid slug (<=32, matches ^[-_a-z0-9]+$)", () => {
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { "My Opt Name!": { type: "string" } },
+    });
+    const name = opts[0]!.name;
+    expect(name).toMatch(/^[-_a-z0-9]+$/);
+    expect(name.length).toBeGreaterThanOrEqual(1);
+    expect(name.length).toBeLessThanOrEqual(32);
+  });
+
+  it("clamps a choice name and value longer than 100 chars", () => {
+    const long = "z".repeat(120);
+    const strOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { tag: { type: "string", enum: [long] } },
+    });
+    const choice = strOpts.find((o) => o.name === "tag")!.choices![0]!;
+    expect(choice.name.length).toBeLessThanOrEqual(100);
+    expect((choice.value as string).length).toBeLessThanOrEqual(100);
+
+    const intOpts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: [Number("1".repeat(120))] } },
+    });
+    // A 120-digit number → Infinity (not finite/integer) → dropped, so just assert no crash.
+    expect(intOpts.find((o) => o.name === "level")).toBeTruthy();
+  });
+
   it("truncates an option description longer than 100 chars", () => {
     const long = "x".repeat(250);
     const opts = jsonSchemaToDiscordOptions({
@@ -115,6 +226,14 @@ describe("buildCommandBody", () => {
     const long = "y".repeat(250);
     const body = buildCommandBody({ name: "triage", description: long, options: undefined });
     expect(body.description.length).toBeLessThanOrEqual(100);
+  });
+
+  it("normalizes a command name to a lowercase valid slug (<=32, matches ^[-_a-z0-9]+$)", () => {
+    const body = buildCommandBody({ name: "MyCmd Name!", description: "x", options: undefined });
+    expect(body.name).toMatch(/^[-_a-z0-9]+$/);
+    expect(body.name).toBe(body.name.toLowerCase());
+    expect(body.name.length).toBeGreaterThanOrEqual(1);
+    expect(body.name.length).toBeLessThanOrEqual(32);
   });
 });
 
