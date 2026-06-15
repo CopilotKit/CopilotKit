@@ -241,10 +241,16 @@ export function useInterrupt<
           },
         });
       } catch (err) {
+        // Catastrophic rejection path: runAgent rejected before/around the
+        // run actually starting (network error, auth failure, validation
+        // reject). In that case `onRunFailed` may never fire — so clear
+        // `pendingEvent` here so the popup unmounts. Symmetric with the
+        // `onRunFailed` handler above; both write null, so no race.
         console.error(
-          "[CopilotKit] useInterrupt resolve: runAgent rejected; rethrowing to caller",
+          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
+        setPendingEvent(null);
         throw err;
       }
     },

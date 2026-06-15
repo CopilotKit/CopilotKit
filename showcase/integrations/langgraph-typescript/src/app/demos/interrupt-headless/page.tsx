@@ -127,11 +127,16 @@ function useHeadlessInterrupt(agentId: string): {
           },
         });
       } catch (err) {
+        // Catastrophic rejection (network error, auth failure, validation
+        // reject) may fire before the run starts, so onRunFailed never runs.
+        // Clear pending here so the popup unmounts. Symmetric with the
+        // framework resolve catch + onRunFailed handler — all write null,
+        // no race. Caller still sees the rethrow.
         console.error(
-          "[interrupt-headless] resume runAgent rejected; restoring pending for retry",
+          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        setPending(snapshot);
+        setPending(null);
         throw err;
       }
     },
