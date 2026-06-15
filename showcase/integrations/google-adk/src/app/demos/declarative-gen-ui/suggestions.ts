@@ -1,7 +1,7 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 // Pill prompts are natural business questions — chart-type steering lives in
-// the agent's system prompt (src/agents/a2ui_dynamic.py). Each pill maps to a
+// the agent's system prompt (src/agents/declarative_gen_ui_agent.py). Each pill maps to a
 // distinct catalog component so the D5 probe
 // (showcase/harness/src/probes/scripts/d5-gen-ui-declarative.ts) can assert a
 // newly-mounted testid per pill. Keep prompts in sync with that probe and with
