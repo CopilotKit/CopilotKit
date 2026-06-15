@@ -482,6 +482,13 @@ _release_isolate_slot() {
 # for cleanup of the claimed slot (and, once created, the runs/<name> dir).
 apply_isolation() {
   local name="${1:-}"
+  # Slug the run is scoped to (from `showcase test <slug>`). Used below to
+  # override the persistent stack's hardcoded LOCAL_SERVICES_JSON — that value
+  # points at langgraph-python's agentic-chat cell for fast N=1 local demos, so
+  # an iso stack for a DIFFERENT slug would inherit the wrong roster and the
+  # harness's railway-services local-injection seam would enumerate the wrong
+  # service (discovery.railway-services.local-injection count:1 names:["showcase-langgraph-python"]).
+  local slug="${2:-}"
   # NB: ISOLATE_ACTIVE is deliberately NOT set here. cmd-test.sh arms
   # `trap restore_isolation EXIT` BEFORE calling this function, so if we
   # flipped it true before COMPOSE_CMD is repointed at the isolated project,
@@ -663,6 +670,53 @@ content = re.sub(r'(\s+dockerfile:\s+)\./([^\n]+)', lambda m: _abs(m.group(1), m
 content = re.sub(r'(\s+-\s+)\./([^:\n]+:)', lambda m: _abs(m.group(1), m.group(2), ROOT), content)
 # env_file: .env            →  <showcase>/.env
 content = re.sub(r'(\s+env_file:\s+)\.env(\b)', lambda m: m.group(1) + ROOT + '/.env' + m.group(2), content)
+
+# Per-slug LOCAL_SERVICES_JSON override. The persistent stack hardcodes the
+# roster to langgraph-python's agentic-chat (a fast N=1 local-demo default).
+# An iso stack scoped to a DIFFERENT slug would inherit that value and the
+# harness's railway-services local-injection seam would enumerate the wrong
+# service. Rewrite the line to point at the requested slug. Demos are sourced
+# from the slug's manifest.yaml; if absent or unparseable, fall back to the
+# representative d5 cell ('agentic-chat') so the iso run still targets the
+# right container — just with a narrower demo set than d6 would normally use.
+SLUG = '$slug'
+if SLUG:
+    import json as _json, os as _os
+    demos = []
+    for _mp in (
+        _osp.join(ROOT, 'integrations', SLUG, 'manifest.yaml'),
+        _osp.join(ROOT, 'packages', SLUG, 'manifest.yaml'),
+    ):
+        if _os.path.exists(_mp):
+            with open(_mp) as _mf:
+                _in_demos = False
+                for _line in _mf:
+                    _stripped = _line.rstrip('\n')
+                    if re.match(r'^demos:\s*$', _stripped):
+                        _in_demos = True
+                        continue
+                    if _in_demos:
+                        if re.match(r'^\S', _stripped):
+                            break
+                        _m = re.match(r'^\s+-\s+id:\s*[\"\']?([A-Za-z0-9_\-]+)', _stripped)
+                        if _m:
+                            demos.append(_m.group(1))
+            break
+    if not demos:
+        demos = ['agentic-chat']
+    _override = _json.dumps([{
+        'name': f'showcase-{SLUG}',
+        'publicUrl': f'http://{SLUG}:10000',
+        'demos': demos,
+    }])
+    # Replace the entire folded-scalar LOCAL_SERVICES_JSON=[...] payload line.
+    # docker-compose.local.yml writes it as:  '        LOCAL_SERVICES_JSON=[...]'
+    content = re.sub(
+        r'(^\s+)LOCAL_SERVICES_JSON=\[[^\n]*\]',
+        lambda m: m.group(1) + 'LOCAL_SERVICES_JSON=' + _override,
+        content,
+        flags=re.MULTILINE,
+    )
 
 with open('$tmp_compose', 'w') as f:
     f.write(content)
