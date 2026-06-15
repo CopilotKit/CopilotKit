@@ -49,6 +49,45 @@ describe("decodeInteraction", () => {
     expect(evt).toMatchObject({ id: "ck:sel1", value: "opt-b" });
   });
 
+  it("JSON-parses a string-select value that round-trips (object)", () => {
+    const evt = decodeInteraction({
+      isButton: () => false,
+      isStringSelectMenu: () => true,
+      customId: "ck:sel2",
+      values: ['{"k":1}'],
+      message: baseMsg,
+      channelId: "c1",
+      user: { id: "u1" },
+    });
+    expect(evt?.value).toEqual({ k: 1 });
+  });
+
+  it("JSON-parses a string-select value that round-trips (number)", () => {
+    const evt = decodeInteraction({
+      isButton: () => false,
+      isStringSelectMenu: () => true,
+      customId: "ck:sel3",
+      values: ["42"],
+      message: baseMsg,
+      channelId: "c1",
+      user: { id: "u1" },
+    });
+    expect(evt?.value).toBe(42);
+  });
+
+  it("keeps a plain non-JSON string-select value as the raw string", () => {
+    const evt = decodeInteraction({
+      isButton: () => false,
+      isStringSelectMenu: () => true,
+      customId: "ck:sel4",
+      values: ["opt-a"],
+      message: baseMsg,
+      channelId: "c1",
+      user: { id: "u1" },
+    });
+    expect(evt?.value).toBe("opt-a");
+  });
+
   it("returns undefined for a non-component interaction", () => {
     expect(
       decodeInteraction({ isButton: () => false, isStringSelectMenu: () => false }),

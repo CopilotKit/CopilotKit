@@ -25,7 +25,17 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const channelId = i.channelId ?? "";
   const user = toUser(i.user);
 
-  const value = isSelect ? i.values?.[0] : unpackValue(customId);
+  // For a select, JSON-parse the chosen value so a non-string option value
+  // (number/boolean/object) round-trips back to its original type at the
+  // handler — mirroring bot-slack. Buttons keep the `v:<json>` unpack path.
+  let value: unknown = isSelect ? i.values?.[0] : unpackValue(customId);
+  if (isSelect && typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // Not JSON — keep the raw string.
+    }
+  }
 
   return {
     id: customId,
