@@ -1,3 +1,4 @@
+import { MessageFlags } from "discord.js";
 import { describe, it, expect, vi } from "vitest";
 import { attachDiscordListener } from "./discord-listener.js";
 
@@ -113,9 +114,10 @@ describe("attachDiscordListener", () => {
     );
   });
 
-  it("forwards a chat-input command via onCommand", () => {
+  it("forwards a chat-input command via onCommand and acks the interaction", async () => {
     const client = fakeClient();
     const onCommand = vi.fn();
+    const reply = vi.fn().mockResolvedValue(undefined);
     attachDiscordListener({ client: client as any, botUserId: botId, onTurn: vi.fn(), onCommand });
     client.emit("interactionCreate", {
       isChatInputCommand: () => true,
@@ -124,7 +126,17 @@ describe("attachDiscordListener", () => {
       guildId: "g1",
       user: { id: "u1", username: "ann", globalName: "Ann" },
       options: { data: [{ name: "priority", value: "high" }] },
+      reply,
     });
+    // The ack must happen synchronously within Discord's 3s window; let the
+    // async handler settle so the subsequent onCommand dispatch runs.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(reply).toHaveBeenCalledTimes(1);
+    const ackArg = reply.mock.calls[0][0];
+    expect(ackArg.flags).toBe(MessageFlags.Ephemeral);
+    expect(typeof ackArg.content).toBe("string");
+    expect(ackArg.content.length).toBeGreaterThan(0);
     expect(onCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         command: "triage",
@@ -132,6 +144,26 @@ describe("attachDiscordListener", () => {
         rawOptions: { priority: "high" },
       }),
     );
+  });
+
+  it("does not ack or dispatch a non-command interaction", async () => {
+    const client = fakeClient();
+    const onCommand = vi.fn();
+    const reply = vi.fn().mockResolvedValue(undefined);
+    attachDiscordListener({ client: client as any, botUserId: botId, onTurn: vi.fn(), onCommand });
+    client.emit("interactionCreate", {
+      isChatInputCommand: () => false,
+      commandName: "triage",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1" },
+      options: { data: [] },
+      reply,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(reply).not.toHaveBeenCalled();
+    expect(onCommand).not.toHaveBeenCalled();
   });
 
   it("catches a rejecting onTurn handler instead of letting it escape", async () => {
