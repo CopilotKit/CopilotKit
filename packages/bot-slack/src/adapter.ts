@@ -21,9 +21,18 @@ import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction, conversationKeyOf } from "./interaction.js";
 import { renderBlockKit, renderSlackMessage } from "./render/block-kit.js";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
+import { NativeMessageStream } from "./native-stream.js";
+import type { TextStream, NativeStreamTransport } from "./native-stream.js";
+import { attachAssistant } from "./assistant.js";
+import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
-import { DM_SCOPE, type ConversationKey, type ReplyTarget } from "./types.js";
+import { DM_SCOPE } from "./types.js";
+import type {
+  ConversationKey,
+  ReplyTarget,
+  SlackAssistantOptions,
+} from "./types.js";
 
 export interface SlackAdapterOptions {
   /** Slack bot token (xoxb-…). */
@@ -42,18 +51,26 @@ export interface SlackAdapterOptions {
   interruptEventNames?: ReadonlySet<string>;
   /** Surface `:wrench:`/`:white_check_mark:` tool-status rows. Default true. */
   showToolStatus?: boolean;
+  /**
+   * Assistant-pane behavior ("Agents & AI Apps"). ON by default — the pane
+   * activates whenever the app's Slack config has the toggle (see the README),
+   * and lies dormant without it. Pass an object to customize, or `false` to
+   * disable pane handling entirely.
+   */
+  assistant?: SlackAssistantOptions | false;
+  /**
+   * Reply-stream transport. "native" (default): `chat.startStream` wherever the
+   * reply target is a thread; flat DMs and workspaces where the streaming API
+   * is unavailable fall back to legacy automatically. "legacy": the shipped
+   * `chat.update` transport.
+   */
+  streaming?: "native" | "legacy";
 }
 
 /** Slack `PlatformAdapter`: ingress via Bolt, egress via Block Kit + streaming. */
 export class SlackAdapter implements PlatformAdapter {
   readonly platform = "slack";
-  readonly capabilities: SurfaceCapabilities = {
-    supportsModals: false,
-    supportsTyping: false,
-    supportsReactions: false,
-    supportsStreaming: true,
-    maxBlocksPerMessage: 50,
-  };
+  readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
 
   readonly app: App;
@@ -63,8 +80,28 @@ export class SlackAdapter implements PlatformAdapter {
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
   private readonly userCache = new Map<string, PlatformUser>();
+  /** Set once the Assistant middleware is attached (when assistant !== false). */
+  private assistantHandle: AssistantHandle | undefined;
+  /** Our team id (from auth.test); native channel streams need it. */
+  private teamId: string | undefined;
+  /**
+   * In-memory native-streaming health for this workspace. Flipped to false the
+   * first time `chat.startStream` fails, so subsequent streams skip the native
+   * path and go straight to the legacy transport.
+   */
+  private nativeStreamingOk = true;
 
   constructor(private readonly opts: SlackAdapterOptions) {
+    const assistantEnabled = opts.assistant !== false;
+    this.capabilities = {
+      supportsModals: false,
+      supportsTyping: false,
+      supportsReactions: false,
+      supportsStreaming: true,
+      maxBlocksPerMessage: 50,
+      supportsSuggestedPrompts: assistantEnabled,
+      supportsThreadTitle: assistantEnabled,
+    };
     this.app = new App({
       token: opts.botToken,
       appToken: opts.appToken,
@@ -96,16 +133,35 @@ export class SlackAdapter implements PlatformAdapter {
     // guard (skip our own posts) is in place from the first event.
     const auth = await this.client.auth.test();
     this.botUserId = auth.user_id as string;
+    this.teamId = auth.team_id as string | undefined;
     (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
+
+    // Attach the assistant-pane middleware FIRST (when enabled) so its
+    // `isAssistantThread` predicate is available to the message listener's
+    // no-double-delivery guard below.
+    if (this.opts.assistant !== false) {
+      this.assistantHandle = attachAssistant({
+        app: this.app,
+        sink,
+        opts: this.opts.assistant ?? {},
+        resolveUser: (id) => this.resolveUser(id),
+      });
+    }
 
     attachSlackListener({
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
         await sink.onTurn({
           conversationKey: conversationKeyOf(turn.conversation),
-          replyTarget: turn.replyTarget,
+          // Carry the sender id so native channel streams can pass
+          // `recipient_user_id` to chat.startStream.
+          replyTarget: {
+            ...turn.replyTarget,
+            recipientUserId: turn.senderUserId,
+          },
           userText: turn.userText,
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
@@ -211,49 +267,208 @@ export class SlackAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     let firstTs: string | undefined;
     let channel = t.channel;
-    const stream = new ChunkedMessageStream({
-      postPlaceholder: async (text) => {
-        const posted = await this.client.chat.postMessage({
-          channel: t.channel,
-          thread_ts: t.threadTs,
-          text,
-          unfurl_links: false,
-          unfurl_media: false,
-        });
-        if (!posted.ts) throw new Error("postMessage returned no ts");
-        if (!firstTs) {
-          firstTs = posted.ts;
-          channel = posted.channel ?? t.channel;
-        }
-        return posted.ts;
-      },
-      updateAt: async (ts, text) => {
-        await this.client.chat.update({ channel: t.channel, ts, text });
-      },
-      transform: (s) => markdownToMrkdwn(autoCloseOpenMarkdown(s)),
-    });
+
+    // The shipped chat.update streamer — also the automatic fallback for native.
+    const makeLegacy = (): TextStream =>
+      new ChunkedMessageStream({
+        postPlaceholder: async (text) => {
+          const posted = await this.client.chat.postMessage({
+            channel: t.channel,
+            thread_ts: t.threadTs,
+            text,
+            unfurl_links: false,
+            unfurl_media: false,
+          });
+          if (!posted.ts) throw new Error("postMessage returned no ts");
+          if (!firstTs) {
+            firstTs = posted.ts;
+            channel = posted.channel ?? t.channel;
+          }
+          return posted.ts;
+        },
+        updateAt: async (ts, text) => {
+          await this.client.chat.update({ channel: t.channel, ts, text });
+        },
+        transform: (s) => markdownToMrkdwn(autoCloseOpenMarkdown(s)),
+      });
+
+    // Native streaming only where a thread exists (Slack requires streams to be
+    // thread replies); flat DMs always use the legacy streamer.
+    const useNative =
+      this.opts.streaming !== "legacy" &&
+      !!t.threadTs &&
+      this.nativeStreamingOk;
+
+    let sink: TextStream;
+    if (useNative) {
+      sink = new NativeMessageStream({
+        transport: this.nativeTransport(t, (ts, ch) => {
+          if (!firstTs) {
+            firstTs = ts;
+            channel = ch ?? t.channel;
+          }
+        }),
+        fallback: makeLegacy,
+        onStartFailure: () => {
+          this.nativeStreamingOk = false;
+        },
+      });
+    } else {
+      sink = makeLegacy();
+    }
 
     let acc = "";
     for await (const chunk of chunks) {
       acc += chunk;
-      stream.append(acc);
+      sink.append(acc);
     }
-    await stream.finish();
+    await sink.finish();
 
     return { id: firstTs ?? "", channel, ts: firstTs };
+  }
+
+  /**
+   * Build the {@link NativeStreamTransport} (chat.startStream/appendStream/
+   * stopStream) for a thread target. `onFirstTs` records the first streamed
+   * message's ts/channel for the returned MessageRef. Native channel streams
+   * pass `recipient_user_id` (the turn sender) + `recipient_team_id`.
+   */
+  private nativeTransport(
+    t: ReplyTarget,
+    onFirstTs: (ts: string, channel?: string) => void,
+  ): NativeStreamTransport {
+    return {
+      startStream: async () => {
+        const args: Record<string, unknown> = {
+          channel: t.channel,
+          thread_ts: t.threadTs,
+        };
+        if (t.recipientUserId) args.recipient_user_id = t.recipientUserId;
+        if (this.teamId) args.recipient_team_id = this.teamId;
+        const res = (await this.client.chat.startStream(
+          args as unknown as Parameters<WebClient["chat"]["startStream"]>[0],
+        )) as { ts?: string; channel?: string };
+        if (!res.ts) throw new Error("startStream returned no ts");
+        onFirstTs(res.ts, res.channel);
+        return res.ts;
+      },
+      appendStream: async (ts, markdownText) => {
+        await this.client.chat.appendStream({
+          channel: t.channel,
+          ts,
+          markdown_text: markdownText,
+        } as unknown as Parameters<WebClient["chat"]["appendStream"]>[0]);
+      },
+      stopStream: async (ts) => {
+        await this.client.chat.stopStream({
+          channel: t.channel,
+          ts,
+        } as unknown as Parameters<WebClient["chat"]["stopStream"]>[0]);
+      },
+    };
   }
 
   async delete(ref: MessageRef): Promise<void> {
     await this.client.chat.delete({ channel: channelOf(ref), ts: ref.id });
   }
 
+  /**
+   * True if `target` is a known assistant-pane thread (recorded by the
+   * Assistant middleware). Pane targets drive native status and back the
+   * pane-only `setSuggestedPrompts` / `setThreadTitle` methods.
+   */
+  private isPaneTarget(
+    t: ReplyTarget,
+  ): t is ReplyTarget & { threadTs: string } {
+    return Boolean(
+      t.threadTs &&
+      this.assistantHandle?.isAssistantThread(t.channel, t.threadTs),
+    );
+  }
+
   createRunRenderer(target: BotReplyTarget): RunRenderer {
+    const t = target as ReplyTarget;
+    const assistantOpts: SlackAssistantOptions | undefined =
+      this.opts.assistant === false ? undefined : (this.opts.assistant ?? {});
+    // Pane targets drive native status (setStatus) instead of placeholder +
+    // :wrench: rows.
+    const isPane = this.isPaneTarget(t);
+    // Native streaming wherever a thread exists (and the workspace supports it).
+    const useNative =
+      this.opts.streaming !== "legacy" &&
+      !!t.threadTs &&
+      this.nativeStreamingOk;
     return createRunRenderer({
       client: this.client,
-      target: target as ReplyTarget,
+      target: t,
       interruptEventNames: this.opts.interruptEventNames,
       showToolStatus: this.opts.showToolStatus,
+      assistantStatus: isPane ? (assistantOpts?.status ?? {}) : undefined,
+      nativeStreaming: useNative
+        ? {
+            transport: this.nativeTransport(t, () => {}),
+            onStartFailure: () => {
+              this.nativeStreamingOk = false;
+            },
+          }
+        : undefined,
     });
+  }
+
+  /** Backs the capability-gated `Thread.setSuggestedPrompts` for pane threads. */
+  async setSuggestedPrompts(
+    target: BotReplyTarget,
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }> {
+    const t = target as ReplyTarget;
+    if (!this.isPaneTarget(t)) {
+      return {
+        ok: false,
+        error: "suggested prompts require an assistant-pane thread",
+      };
+    }
+    try {
+      await this.client.assistant.threads.setSuggestedPrompts({
+        channel_id: t.channel,
+        thread_ts: t.threadTs,
+        prompts: prompts.map((p) => ({
+          title: p.title,
+          message: p.message,
+        })) as [
+          { title: string; message: string },
+          ...{ title: string; message: string }[],
+        ],
+        ...(opts?.title ? { title: opts.title } : {}),
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+
+  /** Backs the capability-gated `Thread.setTitle` for pane threads. */
+  async setThreadTitle(
+    target: BotReplyTarget,
+    title: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const t = target as ReplyTarget;
+    if (!this.isPaneTarget(t)) {
+      return {
+        ok: false,
+        error: "thread title requires an assistant-pane thread",
+      };
+    }
+    try {
+      await this.client.assistant.threads.setTitle({
+        channel_id: t.channel,
+        thread_ts: t.threadTs,
+        title,
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
   }
 
   decodeInteraction(raw: unknown): InteractionEvent | undefined {

@@ -6,6 +6,36 @@ export interface ReplyTarget {
   channel: string;
   /** Thread ts to post into. Omit for flat replies (DMs). */
   threadTs?: string;
+  /**
+   * Turn sender's Slack user id. `chat.startStream` requires it
+   * (`recipient_user_id`) when streaming into a channel; carried here so the
+   * native streamer can read it off the target.
+   */
+  recipientUserId?: string;
+}
+
+/**
+ * Assistant-pane behavior ("Agents & AI Apps"). The pane is ON by default —
+ * it activates whenever the Slack app config has the Agents toggle, and lies
+ * dormant otherwise. Pass an object to {@link SlackAdapterOptions.assistant} to
+ * customize, or `false` to disable pane handling entirely.
+ */
+export interface SlackAssistantOptions {
+  /** Posted when a user opens the pane. */
+  greeting?: string;
+  /** Up to 4 prompt chips shown on thread start. */
+  suggestedPrompts?: ReadonlyArray<{ title: string; message: string }>;
+  /** "auto" (default): title the thread from the first user message. false: never title. */
+  title?: "auto" | false;
+  /** Native status shown under the composer while the agent runs. */
+  status?: {
+    /** Status while reasoning. Default "is thinking…". */
+    thinking?: string;
+    /** Up to 10 loading messages Slack rotates through. */
+    loadingMessages?: readonly string[];
+    /** Surface "is using `tool`…" per tool call. Default true. */
+    toolStatus?: boolean;
+  };
 }
 
 /**
