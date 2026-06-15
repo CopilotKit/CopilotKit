@@ -3,9 +3,17 @@ import { useAgentContext } from "@copilotkit/react-core/v2";
 // Grounding data + composition rules for the sales-analyst demo persona.
 // Registered as agent context so it reaches both the primary agent (App
 // Context) and the secondary A2UI planner LLM, which serialises frontend
-// context entries into its system instruction. Keep this file identical
-// across integrations (langgraph-python, google-adk) — it is the single
-// source of truth for the demo's fictional dataset.
+// context entries into its system instruction.
+//
+// DUPLICATION NOTICE: This file is intentionally byte-duplicated across
+// the langgraph-python and google-adk integrations, per the showcase's
+// per-integration parity convention (no cross-integration imports). The
+// two copies MUST be kept byte-for-byte identical — verify with `diff`
+// after any edit, and update BOTH files in the same commit.
+//
+// TODO(OSS-136): Extract this dataset + composition rules into a shared
+// showcase module so both integrations import a single source of truth
+// instead of relying on manual byte-sync.
 const SALES_DATASET = `Vantage Threads (fictional B2B apparel company) — Q2 sales data. Ground every visual in these numbers; invent only plausible details consistent with them.
 - Quarterly revenue: $4.2M (up 12% QoQ). New customers: 186 (up 8%). Win rate: 31% (down 2pts). Avg deal size: $22.6k (up 5%).
 - Revenue by region: North America $1.9M, EMEA $1.3M, APAC $720k, LATAM $280k.
