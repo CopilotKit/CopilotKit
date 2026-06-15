@@ -1,0 +1,141 @@
+/**
+ * Inbound file transport. Discord messages can carry attachments; this turns
+ * them into AG-UI multimodal message content the agent's model can read —
+ * images as binary data parts and plain text/CSV/JSON/etc. as decoded `text`
+ * parts — downloading each from its public CDN URL (no auth required).
+ *
+ * The AgentContentPart union is intentionally identical to bot-slack's so the
+ * agent sees the same multimodal input shape across both adapters.
+ */
+
+/** The subset of a Discord attachment we use. */
+export interface DiscordAttachmentRef {
+  /** CDN URL — publicly fetchable, no auth header needed. */
+  url: string;
+  /** Original filename, used for extension-based MIME fallback. */
+  name: string;
+  /** MIME type reported by Discord (may be null/undefined for some uploads). */
+  contentType?: string | null;
+  /** Byte length reported by Discord. Used to gate the size cap pre-fetch. */
+  size: number;
+}
+
+/** A base64 data source, shared by every binary media part. */
+type MediaDataSource = { type: "data"; value: string; mimeType: string };
+
+/**
+ * AG-UI multimodal content parts — SAME shape as bot-slack emits so the agent
+ * sees identical multimodal input across both adapters.
+ *
+ * Binary media (image/audio/video/document) is passed straight through as a
+ * data part; the agent's model decides what it can actually consume. Most
+ * models read images and PDFs; far fewer accept audio or video. The bridge
+ * stays transport-only and does not gate on model capability.
+ */
+export type AgentContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; source: MediaDataSource }
+  | { type: "audio"; source: MediaDataSource }
+  | { type: "video"; source: MediaDataSource }
+  | { type: "document"; source: MediaDataSource };
+
+/** Tunables for inbound file handling (all optional; sane defaults). */
+export interface FileDeliveryConfig {
+  /**
+   * Skip a single file larger than this many bytes without fetching it.
+   * Default 10 MiB.
+   */
+  maxBytes?: number;
+  /**
+   * Inject a custom fetch implementation (for testing or environments without
+   * the global `fetch`).
+   */
+  fetchImpl?: typeof fetch;
+}
+
+const DEFAULT_MAX_BYTES = 10_000_000; // 10 MiB
+
+/** File extensions that indicate decodable plain text even when MIME is absent. */
+const TEXT_EXT_RE = /\.(txt|csv|json|md|log|tsv|ya?ml)$/i;
+
+function isTextMime(mime: string): boolean {
+  return (
+    mime.startsWith("text/") ||
+    mime === "application/json" ||
+    mime === "application/csv" ||
+    mime === "application/xml" ||
+    mime === "application/x-ndjson" ||
+    mime === "application/yaml"
+  );
+}
+
+function mediaPartType(
+  mime: string,
+): "image" | "audio" | "video" | "document" | null {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  if (mime === "application/pdf") return "document";
+  return null;
+}
+
+/**
+ * Download Discord message attachments and convert them to AG-UI content parts.
+ *
+ * Files over `maxBytes` are skipped WITHOUT fetching. Images map to an image
+ * part; text/* and text-named files (.txt, .csv, .json, .md, .log, .tsv,
+ * .yaml) map to a text part; other binary content is silently skipped.
+ */
+export async function buildFileContentParts(
+  attachments: readonly DiscordAttachmentRef[],
+  cfg: FileDeliveryConfig = {},
+): Promise<AgentContentPart[]> {
+  const fetchImpl = cfg.fetchImpl ?? fetch;
+  const maxBytes = cfg.maxBytes ?? DEFAULT_MAX_BYTES;
+  const parts: AgentContentPart[] = [];
+
+  for (const att of attachments) {
+    // Gate on the reported size — skip (without fetching) if it exceeds the cap.
+    if (att.size > maxBytes) continue;
+
+    const mime = (att.contentType ?? "").toLowerCase().split(";")[0]!.trim();
+    const media = mediaPartType(mime);
+    const textMime = isTextMime(mime);
+    const textName = !mime && TEXT_EXT_RE.test(att.name);
+
+    // Skip binary types we don't represent.
+    if (!media && !textMime && !textName) continue;
+
+    let res: Response;
+    try {
+      res = await fetchImpl(att.url);
+    } catch {
+      continue;
+    }
+    if (!res.ok) continue;
+
+    const bytes = new Uint8Array(await res.arrayBuffer());
+
+    if (media) {
+      // Binary media part — base64-encoded, exact same shape as bot-slack.
+      const effectiveMime = mime || `application/octet-stream`;
+      parts.push({
+        type: media,
+        source: {
+          type: "data",
+          value: Buffer.from(bytes).toString("base64"),
+          mimeType: effectiveMime,
+        },
+      });
+    } else {
+      // Text content — decode and wrap with filename context.
+      const text = new TextDecoder("utf-8").decode(bytes);
+      parts.push({
+        type: "text",
+        text: `Attached file "${att.name}" (${mime || "text"}):\n${text}`,
+      });
+    }
+  }
+
+  return parts;
+}
