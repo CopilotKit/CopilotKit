@@ -69,6 +69,53 @@ describe("jsonSchemaToDiscordOptions", () => {
       { name: "3", value: 3 },
     ]);
   });
+
+  it("skips non-numeric enum entries for an integer option (NaN would reject the batch)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { level: { type: "integer", enum: [1, "x", 3] } },
+    });
+    const level = opts.find((o) => o.name === "level")!;
+    expect(level.type).toBe(4);
+    // "x" → NaN → dropped; only finite values survive.
+    expect(level.choices).toEqual([
+      { name: "1", value: 1 },
+      { name: "3", value: 3 },
+    ]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("normalizes a nullable array type (['string','null']) to a String option, not the warn path", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { note: { type: ["string", "null"] } },
+    });
+    const note = opts.find((o) => o.name === "note")!;
+    expect(note.type).toBe(3); // String, not the default-warn fallthrough
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("truncates an option description longer than 100 chars", () => {
+    const long = "x".repeat(250);
+    const opts = jsonSchemaToDiscordOptions({
+      type: "object",
+      properties: { note: { type: "string", description: long } },
+    });
+    const note = opts.find((o) => o.name === "note")!;
+    expect(note.description.length).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("buildCommandBody", () => {
+  it("truncates a command description longer than 100 chars", () => {
+    const long = "y".repeat(250);
+    const body = buildCommandBody({ name: "triage", description: long, options: undefined });
+    expect(body.description.length).toBeLessThanOrEqual(100);
+  });
 });
 
 describe("registerCommands", () => {

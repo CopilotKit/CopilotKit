@@ -1,5 +1,10 @@
 import { Routes } from "discord.js";
 import type { CommandSpec } from "@copilotkit/bot";
+import { truncateText } from "./render/budget.js";
+
+// Discord caps command and option descriptions at 100 chars; a longer one
+// rejects the whole command. Truncate defensively.
+const DESCRIPTION_MAX = 100;
 
 /** A REST client subset (discord.js REST exposes `put`). */
 export interface RestLike {
@@ -20,6 +25,29 @@ const OPT_INTEGER = 4;
 const OPT_BOOLEAN = 5;
 const OPT_NUMBER = 10;
 
+/**
+ * Build numeric choices from an enum, skipping entries that aren't finite numbers.
+ * A non-numeric enum value would serialize to `null` (NaN → null) and make Discord
+ * reject the whole command batch, so drop those choices (with a warning) instead.
+ */
+function numericChoices(
+  enumValues: unknown,
+): { name: string; value: number }[] | undefined {
+  if (!Array.isArray(enumValues)) return undefined;
+  const choices: { name: string; value: number }[] = [];
+  for (const v of enumValues) {
+    const value = Number(v);
+    if (Number.isFinite(value)) {
+      choices.push({ name: String(v), value });
+    } else {
+      console.warn(
+        `[bot-discord] skipping non-numeric enum choice "${String(v)}" for a numeric option.`,
+      );
+    }
+  }
+  return choices;
+}
+
 /** Map a JSON Schema (CommandSpec.options) to Discord application-command options. */
 export function jsonSchemaToDiscordOptions(
   schema: Record<string, unknown> | undefined,
@@ -30,9 +58,16 @@ export function jsonSchemaToDiscordOptions(
   const out: DiscordOption[] = [];
 
   for (const [name, prop] of Object.entries(properties)) {
-    const description = typeof prop.description === "string" ? prop.description : name;
+    const rawDescription = typeof prop.description === "string" ? prop.description : name;
+    const description = truncateText(rawDescription, DESCRIPTION_MAX);
     const base = { name, description, required: required.has(name) };
-    switch (prop.type) {
+    // zod-to-json-schema can emit a nullable type as an array (e.g. ["string", "null"]).
+    // Normalize to the first non-"null" member so the switch matches the real type
+    // instead of falling through to the warn+string default.
+    const type = Array.isArray(prop.type)
+      ? (prop.type.find((x: unknown) => x !== "null") ?? prop.type[0])
+      : prop.type;
+    switch (type) {
       case "string": {
         const choices = Array.isArray(prop.enum)
           ? prop.enum.map((v: unknown) => ({ name: String(v), value: String(v) }))
@@ -41,16 +76,12 @@ export function jsonSchemaToDiscordOptions(
         break;
       }
       case "integer": {
-        const choices = Array.isArray(prop.enum)
-          ? prop.enum.map((v: unknown) => ({ name: String(v), value: Number(v) }))
-          : undefined;
+        const choices = numericChoices(prop.enum);
         out.push({ ...base, type: OPT_INTEGER, ...(choices ? { choices } : {}) });
         break;
       }
       case "number": {
-        const choices = Array.isArray(prop.enum)
-          ? prop.enum.map((v: unknown) => ({ name: String(v), value: Number(v) }))
-          : undefined;
+        const choices = numericChoices(prop.enum);
         out.push({ ...base, type: OPT_NUMBER, ...(choices ? { choices } : {}) });
         break;
       }
@@ -59,7 +90,7 @@ export function jsonSchemaToDiscordOptions(
         break;
       default:
         console.warn(
-          `[bot-discord] command option "${name}" has unsupported type "${prop.type}"; ` +
+          `[bot-discord] command option "${name}" has unsupported type "${String(type)}"; ` +
             "registering it as a free-text string option.",
         );
         out.push({ ...base, type: OPT_STRING });
@@ -80,7 +111,7 @@ export function buildCommandBody(spec: CommandSpec): {
 } {
   return {
     name: spec.name,
-    description: spec.description || spec.name,
+    description: truncateText(spec.description || spec.name, DESCRIPTION_MAX),
     options: jsonSchemaToDiscordOptions(spec.options),
   };
 }
