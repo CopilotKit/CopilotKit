@@ -53,6 +53,12 @@ export interface FileDeliveryConfig {
    */
   maxTextBytes?: number;
   /**
+   * Process at most this many attachments per message. Extra attachments beyond
+   * this cap are ignored without fetching, bounding the multimodal payload /
+   * token budget a single message can inject. Default 5.
+   */
+  maxFiles?: number;
+  /**
    * Inject a custom fetch implementation (for testing or environments without
    * the global `fetch`).
    */
@@ -61,6 +67,7 @@ export interface FileDeliveryConfig {
 
 const DEFAULT_MAX_BYTES = 10_000_000; // 10 MiB
 const DEFAULT_MAX_TEXT_BYTES = 200_000; // ~200 KiB
+const DEFAULT_MAX_FILES = 5;
 
 /** File extensions that indicate decodable plain text even when MIME is absent. */
 const TEXT_EXT_RE = /\.(txt|csv|json|md|log|tsv|ya?ml)$/i;
@@ -96,6 +103,10 @@ function mediaPartType(
  * with a generic binary MIME like application/octet-stream — map to a text
  * part (truncated to `maxTextBytes`); other binary content is silently
  * skipped.
+ *
+ * At most `maxFiles` attachments (default 5) are processed; any beyond that cap
+ * are ignored without fetching, bounding the multimodal payload a single
+ * message can inject.
  */
 export async function buildFileContentParts(
   attachments: readonly DiscordAttachmentRef[],
@@ -104,9 +115,12 @@ export async function buildFileContentParts(
   const fetchImpl = cfg.fetchImpl ?? fetch;
   const maxBytes = cfg.maxBytes ?? DEFAULT_MAX_BYTES;
   const maxTextBytes = cfg.maxTextBytes ?? DEFAULT_MAX_TEXT_BYTES;
+  const maxFiles = cfg.maxFiles ?? DEFAULT_MAX_FILES;
   const parts: AgentContentPart[] = [];
 
-  for (const att of attachments) {
+  // Cap the number of attachments processed per message before any fetching,
+  // bounding the multimodal payload / token budget (bot-slack parity).
+  for (const att of attachments.slice(0, maxFiles)) {
     // Gate on the reported size — skip (without fetching) if it exceeds the cap.
     if (att.size > maxBytes) continue;
 

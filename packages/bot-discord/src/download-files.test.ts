@@ -74,6 +74,23 @@ describe("buildFileContentParts", () => {
     expect(text.match(/Z/g)?.length).toBe(100);
   });
 
+  it("processes at most maxFiles attachments per message (default 5)", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+    })) as any;
+    // 7 attachments, default maxFiles is 5 → only the first 5 are processed.
+    const attachments = Array.from({ length: 7 }, (_, i) => ({
+      url: `https://cdn/x${i}.png`,
+      name: `x${i}.png`,
+      contentType: "image/png",
+      size: 3,
+    }));
+    const parts = await buildFileContentParts(attachments, { fetchImpl });
+    expect(parts).toHaveLength(5);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
   it("decodes a .csv reported as application/octet-stream as a text part", async () => {
     const csv = "a,b\n1,2";
     const fetchImpl = vi.fn(async () => ({
