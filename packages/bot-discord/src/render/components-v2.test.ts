@@ -20,8 +20,8 @@ describe("renderComponents", () => {
     const json = container.toJSON();
     expect(json.type).toBe(ComponentType.Container);
     const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
-    expect(texts[0].content).toBe("# Hello");
-    expect(texts[1].content).toContain("Body **bold**");
+    expect((texts[0] as any).content).toBe("# Hello");
+    expect((texts[1] as any).content).toContain("Body **bold**");
   });
 
   it("maps accent to the container accent color (#5865F2 → int)", () => {
