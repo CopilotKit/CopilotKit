@@ -87,10 +87,12 @@ rejected.
 
 ### JSX → Components V2 rendering
 
-`renderDiscordMessage(ir)` / `renderComponents(ir)` translate the
-`@copilotkit/bot-ui` vocabulary to Discord Components V2 (flag
-`IS_COMPONENTS_V2`). The entire message is wrapped in a single `Container`;
-child nodes map as follows:
+`renderDiscordMessage(ir)` translates the `@copilotkit/bot-ui` vocabulary to a
+ready-to-send Discord Components V2 payload (`{ components, flags }`) with the
+`IS_COMPONENTS_V2` flag (`MessageFlags.IsComponentsV2`) set. It builds on
+`renderComponents(ir)`, the lower-level building block, which returns a bare
+`ContainerBuilder` with no flag. The entire message is wrapped in a single
+`Container`; child nodes map as follows:
 
 | bot-ui element         | Discord output                                          |
 | ---------------------- | ------------------------------------------------------- |

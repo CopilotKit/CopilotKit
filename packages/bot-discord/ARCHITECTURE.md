@@ -98,7 +98,8 @@ and emits `onCommand`.
 
 Required Gateway intents: `Guilds`, `GuildMessages`, `MessageContent`
 (privileged — must be enabled in the Developer Portal), `DirectMessages`
-(with `Partials.Channel` to receive DMs).
+(with `Partials.Channel` to receive DMs), and `GuildMembers` (privileged —
+must be enabled in the Developer Portal; powers user lookup / member search).
 
 The `conversationKey` is the **channel id** for both guild channels and DMs.
 Discord threads and DMs each have their own unique channel id, so no
