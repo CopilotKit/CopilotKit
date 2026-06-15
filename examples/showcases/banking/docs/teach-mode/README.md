@@ -6,16 +6,16 @@ A reusable recipe for building **self-learning, teachable** CopilotKit demos.
 do**, a human **demonstrates** the workaround in the UI, that demonstration is
 **recorded → distilled → written to `/knowledge`**, and a **fresh agent then
 succeeds unaided**. The agent didn't have the recipe prompt-stuffed in; it
-*learned* it from watching a person.
+_learned_ it from watching a person.
 
 This loop is already implemented **identically** in two demos — only the domain
 entities differ. This cookbook documents the contract they share so a **third
 demo is a copy-and-reskin**, not a redesign.
 
-| Demo | Path | Entities |
-|------|------|----------|
-| **Banking** (canonical) | `examples/showcases/banking` | `transaction` / `expense-policy` / `policy-exception` |
-| **E-commerce** (reference) | `cpk-intelligence-banking/demos/e-commerce` | `order` / `refund` / `incident-report` |
+| Demo                       | Path                                        | Entities                                              |
+| -------------------------- | ------------------------------------------- | ----------------------------------------------------- |
+| **Banking** (canonical)    | `examples/showcases/banking`                | `transaction` / `expense-policy` / `policy-exception` |
+| **E-commerce** (reference) | `cpk-intelligence-banking/demos/e-commerce` | `order` / `refund` / `incident-report`                |
 
 > Paths in this doc are repo-relative to `CopilotKit/` for banking, and to
 > `cpk-intelligence-banking/` for e-commerce.
@@ -73,38 +73,59 @@ and is **verifiable today** with no Intelligence backend. The right half
 react-core + Intelligence runtime are wired — see role #5 and the honest
 backend-block note in **(e)**.
 
+> **Banking's narrated dashboard variant (PR #5266).** On top of this contract,
+> the banking demo drives the unlock as an _agent-orchestrated, narrated_ loop.
+> When asked to approve an over-limit charge it has no saved procedure for, the
+> agent declines ("I don't have a saved way to approve an over-limit charge yet")
+> and offers to record (`offerWorkflowRecording`) — no approval card is shown.
+> The officer demonstrates the unlock on the real **/dashboard → Transactions →
+> Pending approval** view (file a justifying exception, then approve) while a
+> waiting card (`awaitDashboardDemonstration`) holds the chat; the agent then
+> summarizes and saves the procedure (`saveLearnedWorkflow`) and, on a later
+> request, applies it itself to a _different_ over-limit charge
+> (`openPolicyException` → `finalizePolicyException` → `approveTransaction`).
+> Because the demonstration happens on a different route, these teach/recall HITL
+> tools are registered **globally** in `src/components/copilot-context.tsx` (not
+> in a page component) so they survive navigation — a route-scoped registration
+> unmounts mid-run and the followUp never fires. Same-session recall works by
+> echoing the saved procedure back into the thread; the cross-thread `/knowledge`
+> proof still requires the backend (role #5).
+
 ---
 
 ## (b) The 5-role contract (with load-bearing invariants)
 
 State each role demo-agnostically. The **invariant** is the part you must not
-break when reskinning — it's what makes the demo *prove learning* rather than
-merely *script a workflow*.
+break when reskinning — it's what makes the demo _prove learning_ rather than
+merely _script a workflow_.
 
 ### 1. GATE — a write that fails with a SYMPTOM-ONLY error
+
 A normal-looking write (approve, refund, …) is blocked when a domain rule isn't
 satisfied. The rejection **names the problem, never the fix**.
 
-> **Invariant.** The error is symptom-only. It may say *"\<policy\> policy limit
-> exceeded"*; it must NEVER mention the policy-exception path (or whatever the
+> **Invariant.** The error is symptom-only. It may say _"\<policy\> policy limit
+> exceeded"_; it must NEVER mention the policy-exception path (or whatever the
 > unlock is). Leaking the recipe in the error lets the agent derive it in one
-> round-trip and defeats the demo. The gate must also be *liftable* — it passes
+> round-trip and defeats the demo. The gate must also be _liftable_ — it passes
 > once the unlock is in place (`isWithinLimit(x) || hasApprovedException(x)`).
 
 ### 2. UNLOCK — a discriminating multi-step procedure that lifts the gate
+
 A human (and, post-learning, the agent) lifts the gate by **filing a record
 under a JUSTIFYING code → finalizing it → linking it** to the entity. The
 catalogue mixes justifying codes with **decoys**, and unknown codes are
 **rejected without enumeration**.
 
-> **Invariant.** The procedure is *discriminating*: only JUSTIFYING codes lift
+> **Invariant.** The procedure is _discriminating_: only JUSTIFYING codes lift
 > the gate; DECOY codes file successfully (recorded for history) but do NOT
-> justify; INVALID codes are rejected *without listing the valid ones*. The
+> justify; INVALID codes are rejected _without listing the valid ones_. The
 > agent is **never told which codes justify** — it must learn that from observed
 > human flows. (If any code worked, or the catalogue were leaked, there'd be
 > nothing to learn.)
 
 ### 3. RECORDING surface — human UI mutations captured on the current thread
+
 Every human mutation that advances the unlock is recorded on the current thread
 via `useRecordUserActionInCurrentThread()`, called as
 `recordUserAction({ title, description, previousData, newData, metadata }).catch(...)`.
@@ -118,6 +139,7 @@ via `useRecordUserActionInCurrentThread()`, called as
 > distiller learns from — keep flag names stable across the open→finalize steps.
 
 ### 4. AGENT FRAMING — withhold the recipe, ship distractors, enforce discipline
+
 The system prompt lists the unlock's tools but **never the procedure**, and
 ships **plausible distractor tools** that look helpful but don't lift the gate.
 An **ACTION DISCIPLINE** clause forbids improvising a substitute.
@@ -127,15 +149,16 @@ An **ACTION DISCIPLINE** clause forbids improvising a substitute.
 > ships distractors (banking: `sendSpendAlert`, `requestCardReplacement`,
 > `flagForReview`) so "called a plausible tool" ≠ "cleared the gate"; (c) ACTION
 > DISCIPLINE makes the agent stop and report on failure rather than guess. Before
-> learning, the correctly-framed agent *cannot* pass.
+> learning, the correctly-framed agent _cannot_ pass.
 
 ### 5. KNOWLEDGE BACKEND — record → distill → `/knowledge` → fresh agent learns
+
 Recorded actions are distilled into `/knowledge`; a fresh agent retrieves it and
 succeeds unaided. The runtime is **env-gated**: OSS `InMemoryAgentRunner` by
 default, `CopilotKitIntelligence` when configured.
 
 > **Invariant.** The backend is a **swappable seam**, and roles #1–#2 are proven
-> *without* it. **Honest current block:** the OSS `@copilotkit/react-core/v2`
+> _without_ it. **Honest current block:** the OSS `@copilotkit/react-core/v2`
 > build does **not** yet export the recording hook, so the recording surface
 > (role #3) is a **no-op shim** today — gate/unlock/framing all work and verify,
 > but the distill→`/knowledge`→fresh-agent leg is deferred until the
@@ -149,13 +172,13 @@ default, `CopilotKitIntelligence` when configured.
 
 Each role → the banking file → the e-commerce file → what you swap for a new demo.
 
-| Role | Banking (`examples/showcases/banking`) | E-commerce (`cpk-intelligence-banking/demos/e-commerce`) | What you swap for a new demo |
-|------|----------------------------------------|----------------------------------------------------------|------------------------------|
-| **#1 GATE** | `src/app/api/v1/transactions/[id]/route.ts` — PUT returns **422 `OVER_POLICY_LIMIT`** when `status==="approved" && !isWithinPolicyLimit && !hasApprovedException`. Rule fns in `src/lib/store.ts`: `isWithinPolicyLimit` / `hasApprovedException` / `canApprove`. | `react/src/app/data/store.ts` — `processRefund` / `initiateReturn` throw **`REFUND_NOT_PERMITTED` / `RETURN_NOT_PERMITTED`** when `!isWithinRefundWindow && !hasApprovedActiveIncident`. | The gated write + its symptom-only error code. Pick your domain's "blocked action" (publish, ship, escalate…) and the rule that blocks it. |
-| **#2 UNLOCK** | Catalogue `src/app/api/v1/policy-exception-codes.ts` (`POLICY_EXCEPTION_CODES`, `JUSTIFYING_EXCEPTION_CODES`, `isValidExceptionCode`, `isJustifying`). REST `src/app/api/v1/exceptions/route.ts` (open, POST) + `src/app/api/v1/exceptions/[id]/finalize/route.ts` (finalize, POST). Store `openPolicyException` / `finalizePolicyException`. | Catalogue `react/src/app/data/incident-codes.ts` (`INCIDENT_CODES`, `REFUND_JUSTIFYING_CODES`, `isValidIncidentCode`). Store `openIncidentReport` / `finalizeIncidentReport`. | The record entity + its code catalogue. Keep 3 justifying + N decoys; keep open→finalize→link; keep the catalogue check that rejects unknown codes **without enumerating**. |
-| **#3 RECORDING** | `src/lib/record-user-action.ts` (**no-op shim**) → consumed in `src/components/policy-exception-modal.tsx` (two `recordUserAction` calls: `policy_exception.opened` then `.finalized`). | `@copilotkit/react-core/v2` (**real hook import**) → consumed in `react/src/app/components/incident-create-modal.tsx` (`incident_report.opened` / `.finalized`) and `order-actions-bar.tsx` (`order.refunded` / `order.return_initiated`). | Nothing in the seam itself — copy `record-user-action.ts` verbatim. Swap only the **payload values** (`title`/flags/`metadata`) for your domain. |
-| **#4 AGENT FRAMING** | `src/app/api/copilotkit/[[...slug]]/route.ts` — `BuiltInAgent` prompt withholds the unlock recipe; ships distractors `sendSpendAlert` / `requestCardReplacement` / `flagForReview`; has the **ACTION DISCIPLINE** clause. | Same role in the e-commerce runtime route (refund/return tools listed; distractors present; recipe withheld). | The prompt's tool list, your 3 distractor tools, and the ACTION DISCIPLINE clause (reuse the wording — it's domain-neutral). |
-| **#5 KNOWLEDGE BACKEND** | Same route — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `INTELLIGENCE_API_KEY`; `identifyUser` scopes threads by role. | Equivalent env-gated Intelligence runtime in the e-commerce app. | Nothing structural — reuse the env-gated `createRuntime()` pattern verbatim; only `agents: { default: <yourAgent> }` changes. |
+| Role                     | Banking (`examples/showcases/banking`)                                                                                                                                                                                                                                                                                                        | E-commerce (`cpk-intelligence-banking/demos/e-commerce`)                                                                                                                                                                                   | What you swap for a new demo                                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **#1 GATE**              | `src/app/api/v1/transactions/[id]/route.ts` — PUT returns **422 `OVER_POLICY_LIMIT`** when `status==="approved" && !isWithinPolicyLimit && !hasApprovedException`. Rule fns in `src/lib/store.ts`: `isWithinPolicyLimit` / `hasApprovedException` / `canApprove`.                                                                             | `react/src/app/data/store.ts` — `processRefund` / `initiateReturn` throw **`REFUND_NOT_PERMITTED` / `RETURN_NOT_PERMITTED`** when `!isWithinRefundWindow && !hasApprovedActiveIncident`.                                                   | The gated write + its symptom-only error code. Pick your domain's "blocked action" (publish, ship, escalate…) and the rule that blocks it.                                  |
+| **#2 UNLOCK**            | Catalogue `src/app/api/v1/policy-exception-codes.ts` (`POLICY_EXCEPTION_CODES`, `JUSTIFYING_EXCEPTION_CODES`, `isValidExceptionCode`, `isJustifying`). REST `src/app/api/v1/exceptions/route.ts` (open, POST) + `src/app/api/v1/exceptions/[id]/finalize/route.ts` (finalize, POST). Store `openPolicyException` / `finalizePolicyException`. | Catalogue `react/src/app/data/incident-codes.ts` (`INCIDENT_CODES`, `REFUND_JUSTIFYING_CODES`, `isValidIncidentCode`). Store `openIncidentReport` / `finalizeIncidentReport`.                                                              | The record entity + its code catalogue. Keep 3 justifying + N decoys; keep open→finalize→link; keep the catalogue check that rejects unknown codes **without enumerating**. |
+| **#3 RECORDING**         | `src/lib/record-user-action.ts` (**no-op shim**) → consumed in `src/components/policy-exception-modal.tsx` (two `recordUserAction` calls: `policy_exception.opened` then `.finalized`).                                                                                                                                                       | `@copilotkit/react-core/v2` (**real hook import**) → consumed in `react/src/app/components/incident-create-modal.tsx` (`incident_report.opened` / `.finalized`) and `order-actions-bar.tsx` (`order.refunded` / `order.return_initiated`). | Nothing in the seam itself — copy `record-user-action.ts` verbatim. Swap only the **payload values** (`title`/flags/`metadata`) for your domain.                            |
+| **#4 AGENT FRAMING**     | `src/app/api/copilotkit/[[...slug]]/route.ts` — `BuiltInAgent` prompt withholds the unlock recipe; ships distractors `sendSpendAlert` / `requestCardReplacement` / `flagForReview`; has the **ACTION DISCIPLINE** clause.                                                                                                                     | Same role in the e-commerce runtime route (refund/return tools listed; distractors present; recipe withheld).                                                                                                                              | The prompt's tool list, your 3 distractor tools, and the ACTION DISCIPLINE clause (reuse the wording — it's domain-neutral).                                                |
+| **#5 KNOWLEDGE BACKEND** | Same route — env-gated `CopilotKitIntelligence` (OSS `InMemoryAgentRunner` default) keyed on `INTELLIGENCE_API_URL` / `INTELLIGENCE_GATEWAY_WS_URL` / `INTELLIGENCE_API_KEY`; `identifyUser` scopes threads by role.                                                                                                                          | Equivalent env-gated Intelligence runtime in the e-commerce app.                                                                                                                                                                           | Nothing structural — reuse the env-gated `createRuntime()` pattern verbatim; only `agents: { default: <yourAgent> }` changes.                                               |
 
 ---
 
@@ -224,15 +247,18 @@ it.
 
 ```ts
 export type UserActionRecord = {
-  title: string;                          // machine-ish dotted event name
-  description: string;                    // one human sentence
-  previousData?: unknown;                 // GATED state (flags that were false)
-  newData?: unknown;                      // UNLOCKED effect (flipped flags + ids)
-  metadata?: Record<string, unknown>;     // domain ids ("which")
+  title: string; // machine-ish dotted event name
+  description: string; // one human sentence
+  previousData?: unknown; // GATED state (flags that were false)
+  newData?: unknown; // UNLOCKED effect (flipped flags + ids)
+  metadata?: Record<string, unknown>; // domain ids ("which")
 };
 
 export const useRecordUserActionInCurrentThread =
-  () => (record: UserActionRecord): Promise<void> => { /* … */ };
+  () =>
+  (record: UserActionRecord): Promise<void> => {
+    /* … */
+  };
 ```
 
 Call-site convention, verbatim from `policy-exception-modal.tsx` (the e-commerce
@@ -245,8 +271,8 @@ recordUserAction({
   title: "policy_exception.opened",
   description: "Opened a policy exception from the transactions view.",
   previousData: { transactionActiveExceptionId: null, approvePermitted: false },
-  newData:      { exceptionId, exceptionStatus: "draft", exceptionCode: code },
-  metadata:     { transactionId: props.transactionId },
+  newData: { exceptionId, exceptionStatus: "draft", exceptionCode: code },
+  metadata: { transactionId: props.transactionId },
 }).catch(console.error);
 // ...then after finalize() succeeds, a second record flips the flags to the unlocked state.
 ```
@@ -311,8 +337,8 @@ What it asserts (each step commented in the script with the role it exercises):
   **422 `OVER_POLICY_LIMIT`**, and the body does **not** mention the
   exception/unlock path (symptom-only invariant).
 - **B. UNLOCK (#2)** — `POST /api/v1/exceptions {transactionId:"t-1",
-  code:"EXC-BOARD-APPROVED"}` → **201** → `POST
-  /api/v1/exceptions/{id}/finalize` → **200 approved** → re-`PUT` approve `t-1`
+code:"EXC-BOARD-APPROVED"}` → **201** → `POST
+/api/v1/exceptions/{id}/finalize` → **200 approved** → re-`PUT` approve `t-1`
   → **201** (gate lifted).
 - **C. DECOY (#2)** — same flow on `t-3` with `EXC-WILL-REIMBURSE` files +
   finalizes (**201/200**) but the approve stays **422 `OVER_POLICY_LIMIT`**.
@@ -341,7 +367,7 @@ curl -s -X PUT  "$BASE/transactions/t-1" -H 'content-type: application/json' \
 
 ### Fresh-agent learning proof (activates once the backend lands) — roles #3 + #5
 
-This is the proof that the loop *learned*, not that the REST works. It requires
+This is the proof that the loop _learned_, not that the REST works. It requires
 the recording hook (real, not the shim) and the env-gated `CopilotKitIntelligence`
 runtime configured (`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`,
 `INTELLIGENCE_API_KEY`).
@@ -349,7 +375,7 @@ runtime configured (`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`,
 1. **Baseline (no knowledge).** In a fresh thread, ask the agent to approve an
    over-limit transaction. With role #4 framing intact it **fails correctly**:
    it hits the gate, has no procedure, and (per ACTION DISCIPLINE) reports the
-   failure instead of firing a distractor. *This failure is the control.*
+   failure instead of firing a distractor. _This failure is the control._
 2. **Human teaches.** A human opens the policy-exception modal and performs the
    unlock (justifying code → finalize). Each step fires `recordUserAction(...)`
    on the current thread (now a real stream, not a no-op).
@@ -357,8 +383,8 @@ runtime configured (`INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`,
    into a reusable procedure in `/knowledge`.
 4. **Fresh agent succeeds unaided.** In a **new** thread (no memory of the
    human's session), ask the same over-limit approval. The agent retrieves
-   `/knowledge`, files a *justifying* exception, finalizes it, and the approval
+   `/knowledge`, files a _justifying_ exception, finalizes it, and the approval
    now returns **201** — with **no human help and nothing added to the prompt**.
 
 Pass criteria: step 1 fails, step 4 succeeds, and the only thing that changed
-between them is the distilled `/knowledge`. That delta *is* the learning.
+between them is the distilled `/knowledge`. That delta _is_ the learning.

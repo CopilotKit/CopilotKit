@@ -1,6 +1,7 @@
 "use client";
 import useCreditCards from "@/app/actions";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import type { Transaction } from "@/app/api/v1/data";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -17,8 +18,38 @@ import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
 export default function HomePage() {
-  const { cards, policies, transactions } = useCreditCards();
+  const {
+    cards,
+    policies,
+    transactions,
+    changeTransactionStatus,
+    openPolicyException,
+    finalizePolicyException,
+  } = useCreditCards();
   const { currentUser } = useAuthContext();
+  // Top-level dashboard tab; the "View All" link jumps straight to Transactions.
+  const [tab, setTab] = useState("overview");
+
+  // Charges awaiting approval. Over-limit ones surface the "File policy
+  // exception" affordance inside TransactionsList; the approve only takes
+  // effect once a justifying exception is finalized (the gate in store.ts).
+  const pendingTransactions = transactions.filter(
+    (t) => t.status === "pending",
+  );
+
+  // Run the REST mutation and report whether it actually took effect, so
+  // TransactionsList only records the human action when the server accepted it
+  // (a blocked over-limit approval must not be recorded as an approval).
+  const handleChangeTransactionStatus = async ({
+    id,
+    status,
+  }: {
+    id: string;
+    status: Transaction["status"];
+  }): Promise<boolean> => {
+    const { ok } = await changeTransactionStatus({ id, status });
+    return ok;
+  };
 
   const { balance, income, expenses, limit, lastPayment, stats, statLabels } =
     useMemo(() => {
@@ -81,9 +112,7 @@ export default function HomePage() {
         expenses,
         limit: {
           total: limit.total,
-          usagePercentage: limit.total
-            ? (limit.used / limit.total) * 100
-            : 0,
+          usagePercentage: limit.total ? (limit.used / limit.total) * 100 : 0,
         },
         lastPayment,
         stats,
@@ -97,13 +126,14 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6 px-2 pb-4 md:px-4">
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight text-ink">
             Dashboard
           </h2>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
           </TabsList>
@@ -168,12 +198,13 @@ export default function HomePage() {
                 <h3 className="section-heading text-base">
                   Recent Transactions
                 </h3>
-                <Link
-                  href="/"
+                <button
+                  type="button"
+                  onClick={() => setTab("transactions")}
                   className="text-sm font-medium text-brand-indigo hover:underline dark:text-brand-violet"
                 >
                   View All
-                </Link>
+                </button>
               </div>
 
               <Tabs defaultValue="all">
@@ -296,6 +327,61 @@ export default function HomePage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </aside>
+        </TabsContent>
+
+        <TabsContent value="transactions">
+          <section className="rounded-2xl border border-hairline bg-surface p-5 shadow-soft">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="section-heading text-base">All Transactions</h3>
+            </div>
+
+            <Tabs defaultValue="all">
+              <TabsList variant="underline" className="mb-2">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="pending">Pending approval</TabsTrigger>
+                <TabsTrigger value="income">Income</TabsTrigger>
+                <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="all">
+                <TransactionsList transactions={transactions} />
+              </TabsContent>
+              <TabsContent value="pending">
+                {pendingTransactions.length ? (
+                  <TransactionsList
+                    transactions={pendingTransactions}
+                    policies={policies}
+                    openPolicyException={openPolicyException}
+                    finalizePolicyException={finalizePolicyException}
+                    showApprovalInterface
+                    approvalInterfaceProps={{
+                      onApprove: (id) =>
+                        handleChangeTransactionStatus({
+                          id,
+                          status: "approved",
+                        }),
+                      onDeny: (id) =>
+                        handleChangeTransactionStatus({ id, status: "denied" }),
+                    }}
+                  />
+                ) : (
+                  <p className="px-3 py-8 text-center text-sm text-ink-muted">
+                    No transactions are pending approval.
+                  </p>
+                )}
+              </TabsContent>
+              <TabsContent value="income">
+                <TransactionsList
+                  transactions={transactions.filter((t) => t.amount > 0)}
+                />
+              </TabsContent>
+              <TabsContent value="expenses">
+                <TransactionsList
+                  transactions={transactions.filter((t) => t.amount < 0)}
+                />
+              </TabsContent>
+            </Tabs>
+          </section>
         </TabsContent>
 
         <TabsContent value="analytics">

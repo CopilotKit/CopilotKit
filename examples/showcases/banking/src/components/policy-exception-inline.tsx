@@ -65,7 +65,7 @@ export function PolicyExceptionInline(props: Props) {
   const [doneId, setDoneId] = useState<string | null>(null);
 
   const recordUserAction = useRecordUserActionInCurrentThread();
-  const { beginRecording, endRecording } = useRecording();
+  const { beginRecording, endRecording, noteDemonstratedCode } = useRecording();
 
   const submitDisabled = busy || code === "";
 
@@ -122,6 +122,10 @@ export function PolicyExceptionInline(props: Props) {
         metadata: { transactionId: props.transactionId },
       }).catch(console.error);
 
+      // Surface the demonstrated code to the teach-mode context so the chat's
+      // awaitDashboardDemonstration card can report it to the agent — the
+      // demonstration happens on the dashboard, outside the chat HITL flow.
+      noteDemonstratedCode(code);
       setDoneId(exceptionId);
       props.onFiled?.(code);
     } finally {

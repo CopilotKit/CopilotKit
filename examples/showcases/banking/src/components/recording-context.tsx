@@ -40,6 +40,15 @@ interface RecordingContextValue {
   isRecording: boolean;
   beginRecording: () => void;
   endRecording: () => void;
+  // The exception code the officer used in the most recent demonstration.
+  // The dashboard demonstration (file exception + approve) happens OUTSIDE the
+  // chat HITL flow, so the agent can't see which code was chosen. The inline
+  // exception card reports it here via `noteDemonstratedCode`; the chat's
+  // `awaitDashboardDemonstration` card reads it back with `getDemonstratedCode`
+  // at click time (a ref, so it never captures a stale value) and hands it to
+  // saveLearnedWorkflow.
+  noteDemonstratedCode: (code: string) => void;
+  getDemonstratedCode: () => string | null;
 }
 
 const RecordingContext = createContext<RecordingContextValue | null>(null);
@@ -53,6 +62,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const activeRef = useRef(false);
   const startRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest demonstrated exception code. A ref (not state) so reads at click
+  // time always see the most recent value even from a render closure captured
+  // earlier — the waiting card renders before the officer files on the
+  // dashboard, so a stateful read would be stale.
+  const demonstratedCodeRef = useRef<string | null>(null);
 
   const beginRecording = useCallback(() => {
     countRef.current += 1;
@@ -85,6 +99,15 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     }, remaining);
   }, []);
 
+  const noteDemonstratedCode = useCallback((code: string) => {
+    demonstratedCodeRef.current = code;
+  }, []);
+
+  const getDemonstratedCode = useCallback(
+    () => demonstratedCodeRef.current,
+    [],
+  );
+
   useEffect(
     () => () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -93,8 +116,20 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ isRecording, beginRecording, endRecording }),
-    [isRecording, beginRecording, endRecording],
+    () => ({
+      isRecording,
+      beginRecording,
+      endRecording,
+      noteDemonstratedCode,
+      getDemonstratedCode,
+    }),
+    [
+      isRecording,
+      beginRecording,
+      endRecording,
+      noteDemonstratedCode,
+      getDemonstratedCode,
+    ],
   );
 
   return (
@@ -117,6 +152,8 @@ export function useRecording(): RecordingContextValue {
       isRecording: false,
       beginRecording: () => {},
       endRecording: () => {},
+      noteDemonstratedCode: () => {},
+      getDemonstratedCode: () => null,
     };
   }
   return ctx;

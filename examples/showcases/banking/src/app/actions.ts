@@ -10,7 +10,6 @@ import { MemberRole } from "@/app/api/v1/data";
 import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
-import { useAgentContext } from "@copilotkit/react-core/v2";
 
 export default function useCreditCards() {
   const [cards, setCards] = useState<ICard[]>([]);
@@ -268,15 +267,6 @@ export default function useCreditCards() {
       return { ok: false, error: "Network error" };
     }
   };
-
-  // Provide the cards data to our copilot
-  // This readable is set up here because the `useCards` hook is also used in the dashboard
-  // So the cards information is available in both cards and dashboard pages.
-  useAgentContext({
-    description:
-      "The available credit cards, possible expense policies and transactions",
-    value: JSON.stringify({ cards, policies, transactions }),
-  });
 
   return {
     cards:
