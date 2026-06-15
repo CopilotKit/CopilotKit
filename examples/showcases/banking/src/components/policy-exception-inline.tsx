@@ -65,7 +65,8 @@ export function PolicyExceptionInline(props: Props) {
   const [doneId, setDoneId] = useState<string | null>(null);
 
   const recordUserAction = useRecordUserActionInCurrentThread();
-  const { beginRecording, endRecording, noteDemonstratedCode } = useRecording();
+  const { beginRecording, endRecording, noteDemonstratedCode, logStep } =
+    useRecording();
 
   const submitDisabled = busy || code === "";
 
@@ -126,6 +127,8 @@ export function PolicyExceptionInline(props: Props) {
       // awaitDashboardDemonstration card can report it to the agent — the
       // demonstration happens on the dashboard, outside the chat HITL flow.
       noteDemonstratedCode(code);
+      // Narrate the filing into the recorder HUD.
+      logStep("Filed the policy exception");
       setDoneId(exceptionId);
       props.onFiled?.(code);
     } finally {

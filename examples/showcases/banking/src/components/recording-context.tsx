@@ -36,10 +36,28 @@ import {
 
 const MIN_VISIBLE_MS = 1200;
 
+// A single human-readable line in the visible recorder feed — one per UI action
+// the officer performs during a demonstration ("Opened the Dashboard",
+// "Approved the charge"). UI-only: these are NEVER sent to the agent (the agent
+// learns from the recordUserAction seam, not this feed), so they may use plain
+// human language without touching the learning invariant.
+export interface RecordedStep {
+  id: number;
+  label: string;
+}
+
 interface RecordingContextValue {
   isRecording: boolean;
   beginRecording: () => void;
   endRecording: () => void;
+  // The ordered feed of UI actions captured during the current demonstration,
+  // surfaced live by <RecordingFeed/>. Cleared at the start of each new
+  // demonstration (the first beginRecording of a fresh window).
+  steps: RecordedStep[];
+  // Append a step to the feed. A no-op unless a demonstration is active, so call
+  // sites (nav links, tabs, buttons) can call it unconditionally — it only
+  // records while the officer is actually being watched.
+  logStep: (label: string) => void;
   // The exception code the officer used in the most recent demonstration.
   // The dashboard demonstration (file exception + approve) happens OUTSIDE the
   // chat HITL flow, so the agent can't see which code was chosen. The inline
@@ -55,6 +73,8 @@ const RecordingContext = createContext<RecordingContextValue | null>(null);
 
 export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [isRecording, setIsRecording] = useState(false);
+  // The visible recorder feed (one line per officer UI action this demonstration).
+  const [steps, setSteps] = useState<RecordedStep[]>([]);
 
   // All mutable bookkeeping lives in refs so begin/endRecording keep stable
   // identities (empty dep arrays) and never read stale state.
@@ -62,6 +82,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const activeRef = useRef(false);
   const startRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepIdRef = useRef(0);
   // Latest demonstrated exception code. A ref (not state) so reads at click
   // time always see the most recent value even from a render closure captured
   // earlier — the waiting card renders before the officer files on the
@@ -77,6 +98,10 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     if (!activeRef.current) {
       activeRef.current = true;
       startRef.current = Date.now();
+      // Fresh demonstration window — reset the visible feed so it shows only
+      // the actions from THIS recording, not a previous one.
+      stepIdRef.current = 0;
+      setSteps([]);
       setIsRecording(true);
     }
   }, []);
@@ -97,6 +122,20 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         setIsRecording(false);
       }
     }, remaining);
+  }, []);
+
+  // Append a feed line. Gated on activeRef (the synchronous ref, never stale) so
+  // call sites — global nav links, dashboard tabs, list buttons — can call it
+  // unconditionally and it only records while a demonstration is live. Drops a
+  // line that exactly repeats the previous one (e.g. clicking the same tab
+  // twice) to keep the feed clean.
+  const logStep = useCallback((label: string) => {
+    if (!activeRef.current) return;
+    setSteps((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].label === label) return prev;
+      stepIdRef.current += 1;
+      return [...prev, { id: stepIdRef.current, label }];
+    });
   }, []);
 
   const noteDemonstratedCode = useCallback((code: string) => {
@@ -120,6 +159,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       isRecording,
       beginRecording,
       endRecording,
+      steps,
+      logStep,
       noteDemonstratedCode,
       getDemonstratedCode,
     }),
@@ -127,6 +168,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       isRecording,
       beginRecording,
       endRecording,
+      steps,
+      logStep,
       noteDemonstratedCode,
       getDemonstratedCode,
     ],
@@ -152,6 +195,8 @@ export function useRecording(): RecordingContextValue {
       isRecording: false,
       beginRecording: () => {},
       endRecording: () => {},
+      steps: [],
+      logStep: () => {},
       noteDemonstratedCode: () => {},
       getDemonstratedCode: () => null,
     };

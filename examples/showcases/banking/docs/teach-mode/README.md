@@ -90,6 +90,18 @@ backend-block note in **(e)**.
 > unmounts mid-run and the followUp never fires. Same-session recall works by
 > echoing the saved procedure back into the thread; the cross-thread `/knowledge`
 > proof still requires the backend (role #5).
+>
+> The waiting card stays **non-directional** — it never lists the steps ("go
+> ahead and do it yourself now and I'll watch and learn"), since the point is the
+> agent doesn't yet know how. A floating **recorder HUD**
+> (`src/components/recording-feed.tsx`, fed by `logStep` from the nav / tab /
+> file-exception / approve call sites) narrates each officer action live ("Opened
+> Dashboard" → "Filed the policy exception" → "Approved the charge"), so the
+> demonstration is visibly captured. `saveLearnedWorkflow`'s tool result is
+> **directive** so the model renders the Save card instead of asking "should I
+> save this?" in prose (the failure that otherwise leaves the user nothing to
+> click). After saving, the agent treats the demonstrated charge as already
+> cleared and waits, rather than re-running the fresh procedure on it.
 
 ---
 

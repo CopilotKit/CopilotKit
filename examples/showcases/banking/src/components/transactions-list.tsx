@@ -69,7 +69,8 @@ export function TransactionsList({
   const recordUserAction = useRecordUserActionInCurrentThread();
   // Bracket each record so the canvas recording vignette pulses while a
   // demonstrated action is captured (true even against the no-op shim).
-  const { beginRecording, endRecording } = useRecording();
+  // `logStep` narrates each click into the recorder HUD while recording.
+  const { beginRecording, endRecording, logStep } = useRecording();
   const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
   return (
@@ -200,7 +201,10 @@ export function TransactionsList({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setExceptionTxnId(transaction.id)}
+                        onClick={() => {
+                          logStep("Opened the exception form");
+                          setExceptionTxnId(transaction.id);
+                        }}
                       >
                         File policy exception
                       </Button>
@@ -217,6 +221,7 @@ export function TransactionsList({
                           transaction.id,
                         )) ?? false;
                       if (!ok) return;
+                      logStep("Approved the charge");
                       beginRecording();
                       recordUserAction({
                         title: "transaction.approved",

@@ -445,7 +445,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   useHumanInTheLoop({
     followUp: true,
     name: "awaitDashboardDemonstration",
-    description: `Wait while the user demonstrates how they clear this charge on the dashboard. Call this after the user agrees to record (offerWorkflowRecording returned "started"). Tell them to open the Dashboard, go to Transactions -> Pending approval, file an exception and approve the charge, then click "I'm done". When they finish you receive the exception code they used.`,
+    description: `Wait while the user demonstrates how they clear this charge themselves. Call this after the user agrees to record (offerWorkflowRecording returned "started"). Do NOT give the user step-by-step directions or tell them where to click — you do not know the procedure, which is the whole point of watching. Say only something brief like "Go ahead and do it now and I'll watch and learn." When they finish you receive the exception code they used.`,
     available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
     parameters: z.object({
       transactionId: z
@@ -463,14 +463,10 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-ink">
-              Recording your workflow
-            </h3>
+            <h3 className="text-lg font-semibold text-ink">Show me how</h3>
             <p className="text-sm text-ink-muted">
-              Open the <span className="font-medium text-ink">Dashboard</span>,
-              go to <span className="font-medium text-ink">Transactions</span> →{" "}
-              <span className="font-medium text-ink">Pending approval</span>,
-              file a policy exception on the charge and approve it. Click{" "}
+              I don&apos;t know how to do this yet — go ahead and do it yourself
+              now and I&apos;ll watch and learn. Click{" "}
               <span className="font-medium text-ink">I&apos;m done</span> when
               you&apos;re finished.
             </p>
@@ -481,10 +477,15 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             onApprove={() => {
               endRecording();
               const code = getDemonstratedCode();
+              // Directive result so the agent reliably renders the Save card as
+              // its next step instead of just asking "should I save this?" in
+              // prose (gpt-5.4-mini otherwise tends to summarize in text and
+              // stall, leaving the user nothing to click). saveLearnedWorkflow
+              // IS the way it asks.
               respond?.(
                 code
-                  ? `The user filed a policy exception with code ${code} and approved the charge on the dashboard.`
-                  : "The user finished on the dashboard, but no exception code was captured.",
+                  ? `The user filed a policy exception with code ${code} and approved the charge on the dashboard. Now call saveLearnedWorkflow with this transaction id and code "${code}" exactly — that renders the card that asks them to save it. Do NOT ask whether to save in plain text; the card is how you ask.`
+                  : "The user finished on the dashboard, but no exception code was captured. Ask them which exception code they used, then call saveLearnedWorkflow with it.",
               );
             }}
             onDeny={() => {
@@ -521,7 +522,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           </div>
         );
       }
-      const { code } = args;
+      const { code, transactionId } = args;
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <div className="space-y-2">
@@ -545,7 +546,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Discard"
             onApprove={() => {
               endRecording();
-              respond?.(canonicalProcedure(code));
+              // The charge the user demonstrated on was cleared BY that
+              // demonstration, so it is already approved. Tell the agent
+              // explicitly, or it tends to immediately re-run the just-saved
+              // procedure on that same charge — opening a redundant exception
+              // on an approved transaction and tangling the next request.
+              respond?.(
+                `${canonicalProcedure(code)} You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
+              );
             }}
             onDeny={() => {
               endRecording();

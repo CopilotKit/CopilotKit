@@ -12,6 +12,7 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
+import { RecordingFeed } from "@/components/recording-feed";
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -140,6 +141,13 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             </LayoutComponent>
             <ChatPanel threadId={threadId} />
             <RecordingVignette />
+            {/*
+              The recorder HUD — narrates each officer action live while a
+              workflow is being recorded (the visible counterpart to the
+              vignette's glow). Mounted here, outside the routed content, so it
+              persists while the officer walks to the dashboard to demonstrate.
+            */}
+            <RecordingFeed />
           </RecordingProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>

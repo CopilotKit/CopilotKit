@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  CreditCard,
-  HelpCircle,
-  LayoutDashboard,
-  Users,
-} from "lucide-react";
+import { CreditCard, HelpCircle, LayoutDashboard, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +20,7 @@ import {
 import type { Member } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
+import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname } from "next/navigation";
@@ -226,12 +222,16 @@ interface NavItemProps {
 }
 
 function NavItem({ href, icon: Icon, label, active = false }: NavItemProps) {
+  // Narrate nav clicks into the recorder HUD — a no-op unless a workflow is
+  // being recorded, so it only fires while the officer is demonstrating.
+  const { logStep } = useRecording();
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
             href={href}
+            onClick={() => logStep(`Opened ${label}`)}
             aria-current={active ? "page" : undefined}
             className={cn(
               "relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-200",

@@ -14,6 +14,7 @@ import { TransactionsList } from "@/components/transactions-list";
 import { GradientCreditCard } from "@/components/card-visual";
 import { StatisticsChart } from "@/components/statistics-chart";
 import { useAuthContext } from "@/components/auth-context";
+import { useRecording } from "@/components/recording-context";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
@@ -27,8 +28,17 @@ export default function HomePage() {
     finalizePolicyException,
   } = useCreditCards();
   const { currentUser } = useAuthContext();
+  const { logStep } = useRecording();
   // Top-level dashboard tab; the "View All" link jumps straight to Transactions.
   const [tab, setTab] = useState("overview");
+
+  // Switch the top-level tab and narrate it into the recorder HUD (only while a
+  // workflow is being recorded). Used by both the tab strip and the "View All"
+  // shortcut so either path records the same "Opened Transactions" step.
+  const selectTab = (value: string) => {
+    setTab(value);
+    if (value === "transactions") logStep("Opened Transactions");
+  };
 
   // Charges awaiting approval. Over-limit ones surface the "File policy
   // exception" affordance inside TransactionsList; the approve only takes
@@ -126,7 +136,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6 px-2 pb-4 md:px-4">
-      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+      <Tabs value={tab} onValueChange={selectTab} className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight text-ink">
             Dashboard
@@ -200,7 +210,7 @@ export default function HomePage() {
                 </h3>
                 <button
                   type="button"
-                  onClick={() => setTab("transactions")}
+                  onClick={() => selectTab("transactions")}
                   className="text-sm font-medium text-brand-indigo hover:underline dark:text-brand-violet"
                 >
                   View All
@@ -335,7 +345,12 @@ export default function HomePage() {
               <h3 className="section-heading text-base">All Transactions</h3>
             </div>
 
-            <Tabs defaultValue="all">
+            <Tabs
+              defaultValue="all"
+              onValueChange={(value) => {
+                if (value === "pending") logStep("Opened Pending approval");
+              }}
+            >
               <TabsList variant="underline" className="mb-2">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="pending">Pending approval</TabsTrigger>
