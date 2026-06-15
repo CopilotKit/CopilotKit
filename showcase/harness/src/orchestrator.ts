@@ -147,6 +147,69 @@ export interface BootOptions {
   fleetEnumerate?: ServiceEnumerator;
 }
 
+/**
+ * Load the deploy-webhook HMAC secrets from env and fail loud if absent
+ * in any deployable boot mode.
+ *
+ * Background: `POST /webhooks/deploy` is only registered when
+ * `webhookSecrets.length > 0` (see `buildServer` at
+ * `src/http/server.ts:119`). Pre-fix, the FATAL-CONFIG guard only fired
+ * when `NODE_ENV === "production"` — so any deploy that booted with a
+ * non-"production" NODE_ENV (unset, "prod", or set after the check by a
+ * launch hook) silently shipped with `webhookSecrets = []`, the gate
+ * skipped route registration, and every notify-harness POST from the
+ * `Showcase: Verify Deploy` workflow returned 404 without a peep.
+ *
+ * Predicate: throw unless either
+ *   - at least one of SHARED_SECRET / SHARED_SECRET_PREV is set, OR
+ *   - we are explicitly in a non-deployable mode: `NODE_ENV === "test"`
+ *     or the escape-hatch `HARNESS_ALLOW_NO_SECRET === "1"` (local dev).
+ *
+ * The escape hatch is intentionally narrow: NODE_ENV must be EXACTLY
+ * "test" (not "testing", not unset). Any other NODE_ENV value — incl.
+ * the unset case staging deploys hit — is treated as deployable and
+ * must carry a real secret.
+ *
+ * Called from BOTH boot paths (worker `boot()` and control-plane
+ * `runControlPlane`) so the deploy webhook is registered uniformly and
+ * a missing secret fails loud regardless of which role is selected.
+ */
+export function loadWebhookSecrets(logger_: typeof logger = logger): string[] {
+  const sharedSecret = process.env.SHARED_SECRET;
+  const sharedSecretPrev = process.env.SHARED_SECRET_PREV;
+  const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
+    (s): s is string => typeof s === "string" && s.length > 0,
+  );
+
+  if (webhookSecrets.length > 0) return webhookSecrets;
+
+  const isTestMode = process.env.NODE_ENV === "test";
+  const escapeHatch = process.env.HARNESS_ALLOW_NO_SECRET === "1";
+  if (isTestMode || escapeHatch) {
+    logger_.info("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+      escapeHatch,
+    });
+    return webhookSecrets;
+  }
+
+  logger_.error("orchestrator.FATAL-CONFIG", {
+    msg: "SHARED_SECRET required — refusing to boot",
+    nodeEnv: process.env.NODE_ENV ?? "(unset)",
+  });
+  throw new Error(
+    "FATAL-CONFIG: SHARED_SECRET (or SHARED_SECRET_PREV) is required — refusing to boot " +
+      "in any deployable mode (gate at src/http/server.ts:119 only registers " +
+      "POST /webhooks/deploy when webhookSecrets.length > 0, so booting without " +
+      "a secret would silently 404 every notify-harness POST from the " +
+      "Showcase: Verify Deploy workflow). " +
+      "Set SHARED_SECRET (or SHARED_SECRET_PREV) in the env, or set " +
+      "NODE_ENV=test / HARNESS_ALLOW_NO_SECRET=1 for local dev. " +
+      `Current NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}.`,
+  );
+}
+
 export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;
@@ -769,31 +832,15 @@ export async function boot(opts: BootOptions = {}): Promise<{
     }),
   );
 
-  const sharedSecret = process.env.SHARED_SECRET;
-  const sharedSecretPrev = process.env.SHARED_SECRET_PREV;
-  const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
-    (s): s is string => typeof s === "string" && s.length > 0,
-  );
-  // R5-G4 D5: empty webhookSecrets silently disables auth on the
-  // deploy.result webhook — anyone who knows the URL can POST. Mirror
-  // the POCKETBASE_URL fail-loud pattern: in production the missing
-  // config is a deploy bug that must surface immediately. In dev/test
-  // emit an info log so developers see the bypass.
-  if (webhookSecrets.length === 0) {
-    if (process.env.NODE_ENV === "production") {
-      logger.error("orchestrator.FATAL-CONFIG", {
-        msg: "SHARED_SECRET required in production",
-        nodeEnv: process.env.NODE_ENV,
-      });
-      throw new Error(
-        "FATAL-CONFIG: SHARED_SECRET required in production (NODE_ENV=production)",
-      );
-    }
-    logger.info("orchestrator.webhook-auth-bypass", {
-      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
-      nodeEnv: process.env.NODE_ENV ?? "(unset)",
-    });
-  }
+  // B2 fix: webhook-secrets loading + FATAL-CONFIG fail-loud now live in
+  // `loadWebhookSecrets` so the CP boot path (runControlPlane) consumes the
+  // same predicate. The previous inline guard fired ONLY on
+  // `NODE_ENV === "production"`, which meant a deploy whose NODE_ENV was unset
+  // / "prod" / "staging" silently shipped with webhookSecrets=[], the server
+  // gate at http/server.ts:119 skipped POST /webhooks/deploy registration, and
+  // every notify-harness POST returned 404. See the helper's doc for the new
+  // predicate (test-mode or escape-hatch only).
+  const webhookSecrets = loadWebhookSecrets(logger);
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the
@@ -2360,6 +2407,22 @@ export async function runControlPlane(
   });
   const scheduler = createScheduler({ logger });
 
+  // B2 fix: load deploy-webhook HMAC secrets here so the CP `buildServer`
+  // call below ACTUALLY registers POST /webhooks/deploy (the gate at
+  // http/server.ts:119 needs `webhookSecrets.length > 0`). Pre-fix the CP
+  // path omitted both `webhookSecrets` and `metrics` from buildServer, so
+  // the public Railway host running the control-plane role returned 404 on
+  // every notify-harness POST from the Showcase: Verify Deploy workflow.
+  // `loadWebhookSecrets` also runs the tightened FATAL-CONFIG guard, so a
+  // CP boot with no SHARED_SECRET fails loud here regardless of NODE_ENV
+  // (only NODE_ENV=test / HARNESS_ALLOW_NO_SECRET=1 permits empty secrets).
+  const webhookSecrets = loadWebhookSecrets(logger);
+  // A metrics registry on the CP role lets /metrics expose webhook
+  // rejection / HMAC-failure counters from the deploy webhook (same surface
+  // the worker boot exposes). Cheap (in-process counters only, no scrape
+  // server) and matches the worker buildServer call's wiring.
+  const metrics = createMetricsRegistry();
+
   // S5 aggregator — the ONLY authoritative dashboard writer — over the
   // UNCHANGED status + run-history pipelines (preserves the dashboard row
   // shapes exactly; see result-aggregator.ts). It is the single sink for BOTH
@@ -2981,6 +3044,14 @@ export async function runControlPlane(
     schedulerJobCount: () => scheduler.list().length,
     schedulerIsStopped: () => scheduler.isStopped(),
     bus,
+    // B2 fix: register POST /webhooks/deploy on the CP role too — the public
+    // Railway host running the CP role is the one that receives the
+    // notify-harness POST after every main deploy. Pre-fix the gate at
+    // http/server.ts:119 silently skipped registration because these two were
+    // omitted from the CP buildServer call (worker boot path had them), so
+    // every POST returned 404 since at least 2026-06-12.
+    webhookSecrets,
+    metrics,
     probes: probesDeps,
     // §5.2 unconditional CP mount: unlike `probes` (token-gated), the
     // read-only fleet-runs routes are ALWAYS supplied on the control-plane
