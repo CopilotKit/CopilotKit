@@ -3590,6 +3590,32 @@ ${argsString}</pre
         box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
       }
 
+      .announcement-preview__dismiss {
+        flex: none;
+        margin-top: -1px;
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #838389;
+        cursor: pointer;
+        transition:
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .announcement-preview__dismiss:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: #010507;
+      }
+
+      .announcement-preview__dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
       .announcement-dismiss {
         background: none;
         border: none;
@@ -7439,6 +7465,9 @@ ${prettyEvent}</pre
     const side =
       this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
 
+    // The preview renders inside the floating <button>, so the dismiss control
+    // must NOT be a nested <button> (invalid HTML). Use a role="button" span and
+    // stop propagation so dismissing never bubbles up to open the inspector.
     return html`<div
       class="announcement-preview"
       data-side=${side}
@@ -7446,6 +7475,16 @@ ${prettyEvent}</pre
       @click=${() => this.handleAnnouncementPreviewClick()}
     >
       <span>${this.announcementPreviewText}</span>
+      <span
+        class="announcement-preview__dismiss"
+        role="button"
+        tabindex="0"
+        aria-label="Dismiss announcement"
+        @click=${this.handleDismissAnnouncementPreview}
+        @keydown=${this.handleDismissAnnouncementPreviewKeydown}
+      >
+        ${this.renderIcon("X")}
+      </span>
       <span class="announcement-preview__arrow"></span>
     </div>`;
   }
@@ -7454,6 +7493,30 @@ ${prettyEvent}</pre
     this.showAnnouncementPreview = false;
     this.openInspector();
   }
+
+  // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
+  // otherwise the bubble pops back out on the next mount because
+  // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
+  // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
+  // and openInspector do) is intentionally transient — it's the X that makes
+  // the dismissal stick.
+  private handleDismissAnnouncementPreview = (event: Event): void => {
+    // Don't let the dismiss bubble to the preview body (which opens the
+    // inspector) or the floating button beneath it.
+    event.stopPropagation();
+    this.handleDismissAnnouncement();
+  };
+
+  private handleDismissAnnouncementPreviewKeydown = (
+    event: KeyboardEvent,
+  ): void => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.handleDismissAnnouncement();
+  };
 
   private handleDismissAnnouncement = (): void => {
     this.trackBannerClickedOnce({ cta: "dismiss" });
