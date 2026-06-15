@@ -6,6 +6,13 @@ features:
   bot_user:
     display_name: CopilotKit Triage
     always_online: true
+  # App Home: enable the Messages tab so users can DM the bot (and so the tab
+  # isn't read-only — otherwise Slack shows "Sending messages to this app has
+  # been turned off").
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
   # Enables the assistant pane ("Agents & AI Apps"). The greeting + chips here
   # mirror the `assistant` option in app/index.ts.
   assistant_view:
