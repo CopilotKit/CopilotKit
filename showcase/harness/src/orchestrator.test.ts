@@ -5674,6 +5674,10 @@ describe("orchestrator B2: /webhooks/deploy registered on CP + fail-loud on miss
     await fs.rm(tempDir, { recursive: true, force: true });
     vi.resetModules();
     vi.restoreAllMocks();
+    // CB-1 (Slot 2 #22): tests below use vi.stubEnv instead of direct
+    // process.env mutation so the test runner can guarantee restoration
+    // (restoreAllMocks does NOT undo stubEnv — explicit unstub required).
+    vi.unstubAllEnvs();
     vi.doUnmock("@hono/node-server");
     vi.doUnmock("./storage/pb-client.js");
   });
@@ -5714,104 +5718,60 @@ describe("orchestrator B2: /webhooks/deploy registered on CP + fail-loud on miss
       };
     });
 
-    const prevSecret = process.env.SHARED_SECRET;
-    const prevNodeEnv = process.env.NODE_ENV;
-    process.env.SHARED_SECRET = "b2-test-secret-cp";
-    process.env.NODE_ENV = "test";
-    try {
-      const orchMod = await import("./orchestrator.js");
-      const handle = await orchMod.runControlPlane(
-        { role: "control-plane", poolCount: 1 },
-        { port, configDir: alertsDir, fleetEnumerate: async () => [] },
-      );
-      cpStopFn = handle.stop;
+    vi.stubEnv("SHARED_SECRET", "b2-test-secret-cp");
+    vi.stubEnv("NODE_ENV", "test");
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+    cpStopFn = handle.stop;
 
-      const status = await probeWebhookDeploy(port);
-      // Pre-fix: 404 (route omitted because CP buildServer call dropped
-      // webhookSecrets). Post-fix: 401 (route mounted, HMAC reject path
-      // fires on the unsigned POST).
-      expect(status).toBe(401);
-    } finally {
-      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
-      else process.env.SHARED_SECRET = prevSecret;
-      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = prevNodeEnv;
-    }
+    const status = await probeWebhookDeploy(port);
+    // Pre-fix: 404 (route omitted because CP buildServer call dropped
+    // webhookSecrets). Post-fix: 401 (route mounted, HMAC reject path
+    // fires on the unsigned POST).
+    expect(status).toBe(401);
   });
 
   it("Test B: worker boot still registers POST /webhooks/deploy when SHARED_SECRET is set (401, regression guard)", async () => {
-    const prevSecret = process.env.SHARED_SECRET;
-    const prevNodeEnv = process.env.NODE_ENV;
-    process.env.SHARED_SECRET = "b2-test-secret-worker";
-    process.env.NODE_ENV = "test";
-    try {
-      const booted = await boot({
-        configDir: tempDir,
-        port,
-        bootstrapWindowMs: 0,
-      });
-      workerStopFn = booted.stop;
+    vi.stubEnv("SHARED_SECRET", "b2-test-secret-worker");
+    vi.stubEnv("NODE_ENV", "test");
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
 
-      const status = await probeWebhookDeploy(port);
-      expect(status).toBe(401);
-    } finally {
-      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
-      else process.env.SHARED_SECRET = prevSecret;
-      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = prevNodeEnv;
-    }
+    const status = await probeWebhookDeploy(port);
+    expect(status).toBe(401);
   });
 
   it("Test C: boot throws FATAL-CONFIG when SHARED_SECRET unset AND NODE_ENV is non-test (regardless of production)", async () => {
-    const prevSecret = process.env.SHARED_SECRET;
-    const prevPrev = process.env.SHARED_SECRET_PREV;
-    const prevNodeEnv = process.env.NODE_ENV;
-    const prevPbUrl = process.env.POCKETBASE_URL;
-    const prevEscape = process.env.HARNESS_ALLOW_NO_SECRET;
-    delete process.env.SHARED_SECRET;
-    delete process.env.SHARED_SECRET_PREV;
-    delete process.env.HARNESS_ALLOW_NO_SECRET;
+    vi.stubEnv("SHARED_SECRET", undefined as unknown as string);
+    vi.stubEnv("SHARED_SECRET_PREV", undefined as unknown as string);
+    vi.stubEnv("HARNESS_ALLOW_NO_SECRET", undefined as unknown as string);
     // "development" — pre-fix this booted silently (only NODE_ENV ===
     // "production" tripped the guard). Post-fix it must throw.
-    process.env.NODE_ENV = "development";
-    process.env.POCKETBASE_URL = "http://localhost:8090";
-    try {
-      await expect(
-        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
-      ).rejects.toThrow(/SHARED_SECRET/);
-    } finally {
-      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
-      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
-      if (prevEscape !== undefined)
-        process.env.HARNESS_ALLOW_NO_SECRET = prevEscape;
-      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = prevNodeEnv;
-      if (prevPbUrl === undefined) delete process.env.POCKETBASE_URL;
-      else process.env.POCKETBASE_URL = prevPbUrl;
-    }
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("POCKETBASE_URL", "http://localhost:8090");
+    await expect(
+      boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/SHARED_SECRET/);
   });
 
   it("Test D: boot succeeds when SHARED_SECRET unset AND NODE_ENV=test (test-mode escape hatch)", async () => {
-    const prevSecret = process.env.SHARED_SECRET;
-    const prevPrev = process.env.SHARED_SECRET_PREV;
-    const prevNodeEnv = process.env.NODE_ENV;
-    delete process.env.SHARED_SECRET;
-    delete process.env.SHARED_SECRET_PREV;
-    process.env.NODE_ENV = "test";
-    try {
-      const booted = await boot({
-        configDir: tempDir,
-        port,
-        bootstrapWindowMs: 0,
-      });
-      workerStopFn = booted.stop;
-      expect(booted.port).toBe(port);
-    } finally {
-      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
-      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
-      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = prevNodeEnv;
-    }
+    vi.stubEnv("SHARED_SECRET", undefined as unknown as string);
+    vi.stubEnv("SHARED_SECRET_PREV", undefined as unknown as string);
+    vi.stubEnv("NODE_ENV", "test");
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
+    expect(booted.port).toBe(port);
   });
 });
 

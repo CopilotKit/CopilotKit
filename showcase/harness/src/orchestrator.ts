@@ -163,7 +163,8 @@ export interface BootOptions {
  * `Showcase: Verify Deploy` workflow returned 404 without a peep.
  *
  * Predicate: throw unless either
- *   - at least one of SHARED_SECRET / SHARED_SECRET_PREV is set, OR
+ *   - at least one of SHARED_SECRET / SHARED_SECRET_PREV is set to a
+ *     non-empty string, OR
  *   - we are explicitly in a non-deployable mode: `NODE_ENV === "test"`
  *     or the escape-hatch `HARNESS_ALLOW_NO_SECRET === "1"` (local dev).
  *
@@ -188,8 +189,14 @@ export function loadWebhookSecrets(logger_: typeof logger = logger): string[] {
   const isTestMode = process.env.NODE_ENV === "test";
   const escapeHatch = process.env.HARNESS_ALLOW_NO_SECRET === "1";
   if (isTestMode || escapeHatch) {
-    logger_.info("orchestrator.webhook-auth-bypass", {
-      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
+    // CB-2 (Slot 2 #28): when the escape hatch fires with a real-looking
+    // NODE_ENV (anything except "test"), log at `warn` so a production
+    // typo (e.g. NODE_ENV=staging + HARNESS_ALLOW_NO_SECRET=1) is visible
+    // in dashboards / log alerting. Pure local-dev (NODE_ENV=test) stays
+    // at info level so a normal unit-test boot doesn't spam warnings.
+    const logLevel = escapeHatch && !isTestMode ? "warn" : "info";
+    logger_[logLevel]("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set to a non-empty value",
       nodeEnv: process.env.NODE_ENV ?? "(unset)",
       escapeHatch,
     });
