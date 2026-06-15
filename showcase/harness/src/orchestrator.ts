@@ -299,11 +299,16 @@ export function subscribeDeployResults(
   };
   return bus.on("deploy.result", (event: DeployResultEvent) => {
     const result = deployEventToProbeResult(event, deployCtx);
-    writer
-      .write(result)
-      .catch((err) =>
-        logErrorWithStack(logger_, "orchestrator.deploy-writer-failed", err),
-      );
+    writer.write(result).catch((err) => {
+      logErrorWithStack(logger_, "orchestrator.deploy-writer-failed", err);
+      // R2-F2: emit a bus event in addition to logging so alert rules /
+      // metrics subscribers can observe deploy-writer write failures as a
+      // first-class signal (matching other `*.failed` surfaces like
+      // `writer.failed`, `probes.reload.failed`, `rules.reload.failed`).
+      bus.emit("deploy.writer.failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
   });
 }
 
@@ -2515,15 +2520,22 @@ export async function runControlPlane(
     writtenBy: "fleet-cp",
   });
 
+  // Track CP-side bus subscriptions so stop() / bind-failure teardown can
+  // release them symmetrically (mirrors worker `boot()`'s `busUnsubs`
+  // pattern). Pre-fix the CP path discarded the unsub returned by
+  // `subscribeDeployResults`, so a repeated boot/stop cycle (e.g. tests
+  // that exercise the CP role multiple times) leaked the deploy.result
+  // handler against the prior writer.
+  const cpUnsubs: Array<() => void> = [];
+
   // R1-F1: subscribe `deploy.result` events through the CP's status writer
   // so a valid signed POST against the CP host actually writes the
   // deploy-overall dashboard row. Pre-fix this subscription only existed in
   // worker `boot()` — after B2 mounted the route on the CP, signed POSTs
   // returned 202 but the bus event had no listener and the dashboard row
-  // never landed. The CP keeps the subscription alive for the lifetime of
-  // `bus` (no per-handler teardown — bus drops with the process; the
-  // worker boot path collects the unsubscribe into `busUnsubs`).
-  subscribeDeployResults(bus, statusWriter, logger);
+  // never landed. R2-F1: the returned unsub is captured into `cpUnsubs` so
+  // stop() and the bind-failure teardown release the listener.
+  cpUnsubs.push(subscribeDeployResults(bus, statusWriter, logger));
 
   // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key.
   // Validates the read value against the known State set; a never-observed key
@@ -3186,6 +3198,18 @@ export async function runControlPlane(
           unwatchErr instanceof Error ? unwatchErr.message : String(unwatchErr),
       });
     }
+    // R2-F1: release every CP-side bus subscription so a failed bind never
+    // leaves the deploy.result handler attached against a now-stale writer.
+    for (const u of cpUnsubs) {
+      try {
+        u();
+      } catch (unsubErr) {
+        logger.error("fleet.control-plane.bus-unsub-after-bind-failure", {
+          err: unsubErr instanceof Error ? unsubErr.message : String(unsubErr),
+        });
+      }
+    }
+    cpUnsubs.length = 0;
     await controlPlane.stop().catch((stopErr) =>
       logger.error("fleet.control-plane.stop-after-bind-failure", {
         err: stopErr instanceof Error ? stopErr.message : String(stopErr),
@@ -3260,6 +3284,20 @@ export async function runControlPlane(
           err: err instanceof Error ? err.message : String(err),
         });
       }
+      // R2-F1: release every CP-side bus subscription so a repeated
+      // boot/stop cycle never leaks the deploy.result handler against the
+      // prior status writer (mirrors worker `boot()`'s `busUnsubs` drain).
+      for (const u of cpUnsubs) {
+        try {
+          u();
+        } catch (unsubErr) {
+          logger.error("fleet.control-plane.bus-unsub-on-stop-failed", {
+            err:
+              unsubErr instanceof Error ? unsubErr.message : String(unsubErr),
+          });
+        }
+      }
+      cpUnsubs.length = 0;
       // controlPlane.stop() clears its own internal fleet-health + consumer
       // intervals (REQ-B seams now own that lifecycle).
       await controlPlane.stop();

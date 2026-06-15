@@ -5943,3 +5943,199 @@ describe("orchestrator R1-F1: deploy.result subscriber on CP path", () => {
     expect(after - before).toBe(1);
   });
 });
+
+/**
+ * R2-F1: `runControlPlane` must capture the unsub returned by
+ * `subscribeDeployResults` so `stop()` (and bind-failure teardown) release
+ * the listener. Pre-fix the CP path discarded the unsub — a repeated
+ * boot/stop cycle leaked the deploy.result handler against the stale
+ * writer, and post-stop bus.emit("deploy.result", ...) still routed
+ * through `writer.write(...)`.
+ *
+ * Assertion shape: bind the CP, capture writes (count=0), emit one
+ * deploy.result (writes=1), call handle.stop(), emit another
+ * deploy.result, assert writes stayed at 1 (the listener detached).
+ */
+describe("orchestrator R2-F1: CP deploy.result unsub release on stop", () => {
+  let port = 0;
+  let alertsDir: string;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  const writes: ProbeResult[] = [];
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r2f1-"));
+    alertsDir = path.join(root, "alerts");
+    await fs.mkdir(alertsDir, { recursive: true });
+    writes.length = 0;
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+  });
+
+  async function mountMocks(): Promise<void> {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: (): StatusWriter => ({
+          write: async (result: ProbeResult) => {
+            writes.push(result);
+            return {
+              previousState: null,
+              newState: "green",
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
+          },
+          writeOverlay: async (): Promise<OverlayWriteOutcome> => ({
+            applied: false,
+            state: null,
+            historyPersisted: false,
+          }),
+        }),
+      };
+    });
+  }
+
+  function emitDeployResult(bus: ReturnType<typeof createEventBus>): void {
+    bus.emit("deploy.result", {
+      runId: "r2f1-test-runid",
+      runUrl: "https://example.invalid/runs/r2f1",
+      services: ["showcase-shell-docs"],
+      failed: [],
+      succeeded: ["showcase-shell-docs"],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+  }
+
+  it("CP stop() releases the deploy.result subscription (post-stop emit does NOT route to writer.write)", async () => {
+    vi.stubEnv("SHARED_SECRET", "r2f1-test-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountMocks();
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    // Pre-stop: a deploy.result emit must reach writer.write (proves the
+    // subscription is live).
+    const baseline = writes.filter((r) => r.key === "deploy:overall").length;
+    emitDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const afterEmit = writes.filter((r) => r.key === "deploy:overall").length;
+    expect(afterEmit - baseline).toBe(1);
+
+    // Stop the CP — R2-F1: the deploy.result unsub must run.
+    await handle.stop();
+    cpStopFn = null; // already stopped
+
+    // Post-stop: another deploy.result emit must NOT reach writer.write
+    // (pre-fix this would route through the leaked listener against the
+    // stale writer).
+    emitDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const afterStopEmit = writes.filter(
+      (r) => r.key === "deploy:overall",
+    ).length;
+    expect(afterStopEmit).toBe(afterEmit);
+  });
+});
+
+/**
+ * R2-F2: `subscribeDeployResults` must emit `deploy.writer.failed` (in
+ * addition to logging) when `writer.write(...)` rejects, so alert rules /
+ * metrics subscribers can observe deploy-writer failures as a first-class
+ * bus event rather than only via the error log.
+ *
+ * Drives the helper directly with a real bus + a writer stub whose
+ * `write` rejects, then asserts the new event fired with the err message
+ * payload.
+ */
+describe("orchestrator R2-F2: deploy.writer.failed bus event on write failure", () => {
+  it("emits `deploy.writer.failed` when writer.write rejects", async () => {
+    const orchMod = await import("./orchestrator.js");
+    const bus = createEventBus();
+    const writer: Pick<StatusWriter, "write"> = {
+      write: async () => {
+        throw new Error("pb-blew-up");
+      },
+    };
+    const emits: Array<{ event: string; payload: unknown }> = [];
+    bus.on("deploy.writer.failed", (payload) => {
+      emits.push({ event: "deploy.writer.failed", payload });
+    });
+
+    const unsub = orchMod.subscribeDeployResults(bus, writer);
+
+    bus.emit("deploy.result", {
+      runId: "r2f2-runid",
+      runUrl: "https://example.invalid/runs/r2f2",
+      services: ["showcase-shell-docs"],
+      failed: ["showcase-shell-docs"],
+      succeeded: [],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+
+    // The handler's `.catch` runs on the next microtask after writer.write
+    // rejects — yield a couple of microtasks for the chain to settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(emits.length).toBe(1);
+    expect(emits[0].event).toBe("deploy.writer.failed");
+    const payload = emits[0].payload as { err: string };
+    expect(payload.err).toContain("pb-blew-up");
+
+    unsub();
+  });
+});
