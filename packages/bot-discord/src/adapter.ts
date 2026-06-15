@@ -42,7 +42,11 @@ export interface DiscordAdapterOptions {
  */
 interface SendableChannel {
   id: string;
-  send(payload: unknown): Promise<{ id: string; edit(p: unknown): Promise<unknown>; delete(): Promise<unknown> }>;
+  send(payload: unknown): Promise<{
+    id: string;
+    edit(p: unknown): Promise<unknown>;
+    delete(): Promise<unknown>;
+  }>;
   edit?(payload: unknown): Promise<unknown>;
   sendTyping?(): Promise<void>;
   messages: {
@@ -88,7 +92,8 @@ export class DiscordAdapter implements PlatformAdapter {
         partials: [Partials.Channel], // needed to receive DMs
       });
     this.rest =
-      injected?.rest ?? (new REST().setToken(opts.botToken) as unknown as RestLike);
+      injected?.rest ??
+      (new REST().setToken(opts.botToken) as unknown as RestLike);
   }
 
   registerCommands(commands: readonly CommandSpec[]): void {
@@ -318,7 +323,12 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async postFile(
     target: BotReplyTarget,
-    args: { bytes: Uint8Array; filename: string; title?: string; altText?: string },
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     const t = target as ReplyTarget;
     try {

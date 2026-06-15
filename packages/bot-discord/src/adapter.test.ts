@@ -14,7 +14,10 @@ function fakeClient() {
     destroy: vi.fn(async () => {}),
     user: { id: "bot-1" },
     channels: {
-      fetch: vi.fn(async () => ({ id: "c1", send: vi.fn(async () => ({ id: "m1" })) })),
+      fetch: vi.fn(async () => ({
+        id: "c1",
+        send: vi.fn(async () => ({ id: "m1" })),
+      })),
     },
     emit(e: string, a: unknown) {
       handlers[e]?.(a);
@@ -22,7 +25,11 @@ function fakeClient() {
   };
 }
 
-const sink = () => ({ onTurn: vi.fn(), onInteraction: vi.fn(), onCommand: vi.fn() });
+const sink = () => ({
+  onTurn: vi.fn(),
+  onInteraction: vi.fn(),
+  onCommand: vi.fn(),
+});
 
 describe("DiscordAdapter", () => {
   it("advertises Discord capabilities (modals off in v1)", () => {
@@ -39,7 +46,10 @@ describe("DiscordAdapter", () => {
   it("renders IR to a components-v2 container", () => {
     const a = new DiscordAdapter({ botToken: "t", appId: "app" });
     const out = a.render([
-      { type: "message", props: { children: { type: "text", props: { value: "hi" } } } },
+      {
+        type: "message",
+        props: { children: { type: "text", props: { value: "hi" } } },
+      },
     ]);
     expect(out).toBeTruthy(); // ContainerBuilder
   });
@@ -62,7 +72,9 @@ describe("DiscordAdapter", () => {
   });
 
   it("discord() factory returns an adapter", () => {
-    expect(discord({ botToken: "t", appId: "app" })).toBeInstanceOf(DiscordAdapter);
+    expect(discord({ botToken: "t", appId: "app" })).toBeInstanceOf(
+      DiscordAdapter,
+    );
   });
 
   it("stream() edits each posted message with ITS own chunk, not all-on-first", async () => {

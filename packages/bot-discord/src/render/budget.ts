@@ -1,15 +1,15 @@
 /** Per-element ceilings the Discord API enforces. Degradation is truncate/clamp — never silent drop. */
 export const DISCORD_LIMITS = {
   componentsPerMessage: 40, // total components (nested counted) in a Components V2 message
-  actionRows: 5,            // action rows per message
-  buttonsPerRow: 5,         // buttons per action row
-  selectOptions: 25,        // options per string select
-  selectPlaceholder: 150,   // chars per select placeholder
-  textDisplayChars: 2000,   // chars per TextDisplay
-  totalTextChars: 4000,     // summed text across the message
-  buttonLabel: 80,          // button label chars
-  customId: 100,            // custom_id chars
-  headerText: 256,          // header line chars (TextDisplay with `# ` prefix)
+  actionRows: 5, // action rows per message
+  buttonsPerRow: 5, // buttons per action row
+  selectOptions: 25, // options per string select
+  selectPlaceholder: 150, // chars per select placeholder
+  textDisplayChars: 2000, // chars per TextDisplay
+  totalTextChars: 4000, // summed text across the message
+  buttonLabel: 80, // button label chars
+  customId: 100, // custom_id chars
+  headerText: 256, // header line chars (TextDisplay with `# ` prefix)
 } as const;
 
 /** Truncate to max chars, appending an ellipsis marker if the input was longer. Never returns >max. */
@@ -45,6 +45,7 @@ export function truncateFenced(text: string, max: number): string {
   // so the documented "never exceeds max" invariant holds.
   if (max <= closer.length) return truncateText(text, max);
   const room = max - closer.length;
-  const body = truncated.length > room ? truncated.slice(0, Math.max(0, room)) : truncated;
+  const body =
+    truncated.length > room ? truncated.slice(0, Math.max(0, room)) : truncated;
   return body + closer;
 }

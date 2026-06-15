@@ -90,7 +90,10 @@ describe("decodeInteraction", () => {
 
   it("returns undefined for a non-component interaction", () => {
     expect(
-      decodeInteraction({ isButton: () => false, isStringSelectMenu: () => false }),
+      decodeInteraction({
+        isButton: () => false,
+        isStringSelectMenu: () => false,
+      }),
     ).toBeUndefined();
   });
 

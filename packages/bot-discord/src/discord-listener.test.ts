@@ -32,11 +32,19 @@ describe("attachDiscordListener", () => {
   it("emits a turn when the bot is mentioned", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
     client.emit(
       "messageCreate",
       message({
-        mentions: { has: () => true, users: { has: (q: string) => q === "bot-1" } },
+        mentions: {
+          has: () => true,
+          users: { has: (q: string) => q === "bot-1" },
+        },
         content: "<@bot-1> hi",
       }),
     );
@@ -52,7 +60,12 @@ describe("attachDiscordListener", () => {
   it("does not answer a role / @everyone mention that only matches via mentions.has", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
     // `mentions.has` is true (e.g. a role mention the bot belongs to), but the
     // bot is not a direct user mention, so we must NOT answer.
     client.emit(
@@ -68,23 +81,44 @@ describe("attachDiscordListener", () => {
   it("emits a turn for a DM even without a mention", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
-    client.emit("messageCreate", message({ channel: { isDMBased: () => true }, guildId: null }));
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
+    client.emit(
+      "messageCreate",
+      message({ channel: { isDMBased: () => true }, guildId: null }),
+    );
     expect(onTurn).toHaveBeenCalledTimes(1);
   });
 
   it("ignores the bot's own messages", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
-    client.emit("messageCreate", message({ author: { id: "bot-1", bot: true } }));
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
+    client.emit(
+      "messageCreate",
+      message({ author: { id: "bot-1", bot: true } }),
+    );
     expect(onTurn).not.toHaveBeenCalled();
   });
 
   it("ignores other bots", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
     client.emit("messageCreate", message({ author: { id: "u2", bot: true } }));
     expect(onTurn).not.toHaveBeenCalled();
   });
@@ -105,7 +139,10 @@ describe("attachDiscordListener", () => {
     client.emit(
       "messageCreate",
       message({
-        mentions: { has: (q: string) => q === "bot-1", users: { has: (q: string) => q === "bot-1" } },
+        mentions: {
+          has: (q: string) => q === "bot-1",
+          users: { has: (q: string) => q === "bot-1" },
+        },
         content: "<@bot-1> hi",
       }),
     );
@@ -118,7 +155,12 @@ describe("attachDiscordListener", () => {
     const client = fakeClient();
     const onCommand = vi.fn();
     const reply = vi.fn().mockResolvedValue(undefined);
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn: vi.fn(), onCommand });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand,
+    });
     client.emit("interactionCreate", {
       isChatInputCommand: () => true,
       commandName: "triage",
@@ -150,7 +192,12 @@ describe("attachDiscordListener", () => {
     const client = fakeClient();
     const onCommand = vi.fn();
     const reply = vi.fn().mockResolvedValue(undefined);
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn: vi.fn(), onCommand });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand,
+    });
     client.emit("interactionCreate", {
       isChatInputCommand: () => false,
       commandName: "triage",
@@ -170,12 +217,20 @@ describe("attachDiscordListener", () => {
     const client = fakeClient();
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const onTurn = vi.fn().mockRejectedValue(new Error("boom"));
-    attachDiscordListener({ client: client as any, botUserId: botId, onTurn, onCommand: vi.fn() });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
     expect(() =>
       client.emit(
         "messageCreate",
         message({
-          mentions: { has: () => true, users: { has: (q: string) => q === "bot-1" } },
+          mentions: {
+            has: () => true,
+            users: { has: (q: string) => q === "bot-1" },
+          },
           content: "<@bot-1> hi",
         }),
       ),
@@ -183,7 +238,10 @@ describe("attachDiscordListener", () => {
     // Let the rejected promise settle so the .catch runs.
     await Promise.resolve();
     await Promise.resolve();
-    expect(errSpy).toHaveBeenCalledWith("[bot-discord] onTurn handler failed:", expect.any(Error));
+    expect(errSpy).toHaveBeenCalledWith(
+      "[bot-discord] onTurn handler failed:",
+      expect.any(Error),
+    );
     errSpy.mockRestore();
   });
 });

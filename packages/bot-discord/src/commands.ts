@@ -70,7 +70,9 @@ function numericChoices(
   for (const v of enumValues) {
     const name = String(v);
     if (name.trim().length === 0) {
-      console.warn(`[bot-discord] skipping enum choice with empty name for a numeric option.`);
+      console.warn(
+        `[bot-discord] skipping enum choice with empty name for a numeric option.`,
+      );
       continue;
     }
     const value = Number(v);
@@ -100,13 +102,17 @@ export function jsonSchemaToDiscordOptions(
   schema: Record<string, unknown> | undefined,
 ): DiscordOption[] {
   if (!schema) return [];
-  const properties = (schema.properties as Record<string, any> | undefined) ?? {};
-  const required = new Set<string>((schema.required as string[] | undefined) ?? []);
+  const properties =
+    (schema.properties as Record<string, any> | undefined) ?? {};
+  const required = new Set<string>(
+    (schema.required as string[] | undefined) ?? [],
+  );
   const out: DiscordOption[] = [];
 
   for (const [rawName, prop] of Object.entries(properties)) {
     const name = normalizeName(rawName, "option");
-    const rawDescription = typeof prop.description === "string" ? prop.description : rawName;
+    const rawDescription =
+      typeof prop.description === "string" ? prop.description : rawName;
     const description = truncateText(rawDescription, DESCRIPTION_MAX);
     const base = { name, description, required: required.has(rawName) };
     // zod-to-json-schema can emit a nullable type as an array (e.g. ["string", "null"]).
@@ -118,17 +124,29 @@ export function jsonSchemaToDiscordOptions(
     switch (type) {
       case "string": {
         const choices = stringChoices(prop.enum);
-        out.push({ ...base, type: OPT_STRING, ...(choices ? { choices } : {}) });
+        out.push({
+          ...base,
+          type: OPT_STRING,
+          ...(choices ? { choices } : {}),
+        });
         break;
       }
       case "integer": {
         const choices = numericChoices(prop.enum, (v) => Number.isInteger(v));
-        out.push({ ...base, type: OPT_INTEGER, ...(choices ? { choices } : {}) });
+        out.push({
+          ...base,
+          type: OPT_INTEGER,
+          ...(choices ? { choices } : {}),
+        });
         break;
       }
       case "number": {
         const choices = numericChoices(prop.enum, (v) => Number.isFinite(v));
-        out.push({ ...base, type: OPT_NUMBER, ...(choices ? { choices } : {}) });
+        out.push({
+          ...base,
+          type: OPT_NUMBER,
+          ...(choices ? { choices } : {}),
+        });
         break;
       }
       case "boolean":
@@ -146,7 +164,10 @@ export function jsonSchemaToDiscordOptions(
   // Discord rejects a command whose optional option precedes a required one
   // ("Required options must be placed before optional options"). Stable-partition
   // so all required options come first, preserving declaration order within each group.
-  const ordered = [...out.filter((o) => o.required), ...out.filter((o) => !o.required)];
+  const ordered = [
+    ...out.filter((o) => o.required),
+    ...out.filter((o) => !o.required),
+  ];
   // Discord caps a command at 25 options. Clamp (don't silently drop) on overflow.
   if (ordered.length > OPTIONS_MAX) {
     console.warn(
@@ -174,7 +195,9 @@ function stringChoices(
   for (const v of enumValues) {
     const value = String(v);
     if (value.trim().length === 0) {
-      console.warn(`[bot-discord] skipping enum choice with empty name for a string option.`);
+      console.warn(
+        `[bot-discord] skipping enum choice with empty name for a string option.`,
+      );
       continue;
     }
     if (value.length > CHOICE_VALUE_MAX) {

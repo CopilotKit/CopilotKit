@@ -297,7 +297,11 @@ describe("ChunkedMessageStream", () => {
 
     const chunk1Len = async (limit: number) => {
       const discord = makeFakeDiscord();
-      const s = new ChunkedMessageStream({ ...discord, limit, minIntervalMs: 0 });
+      const s = new ChunkedMessageStream({
+        ...discord,
+        limit,
+        minIntervalMs: 0,
+      });
       s.append(fullText);
       await s.finish();
       for (const u of discord.updates) {

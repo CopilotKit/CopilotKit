@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { jsonSchemaToDiscordOptions, buildCommandBody, registerCommands } from "./commands.js";
+import {
+  jsonSchemaToDiscordOptions,
+  buildCommandBody,
+  registerCommands,
+} from "./commands.js";
 import type { CommandSpec } from "@copilotkit/bot";
 
 describe("jsonSchemaToDiscordOptions", () => {
@@ -7,7 +11,11 @@ describe("jsonSchemaToDiscordOptions", () => {
     const opts = jsonSchemaToDiscordOptions({
       type: "object",
       properties: {
-        priority: { type: "string", enum: ["low", "high"], description: "How urgent" },
+        priority: {
+          type: "string",
+          enum: ["low", "high"],
+          description: "How urgent",
+        },
         count: { type: "integer" },
         notify: { type: "boolean" },
       },
@@ -145,13 +153,17 @@ describe("jsonSchemaToDiscordOptions", () => {
       type: "object",
       properties: { level: { type: "integer", enum: ["", 1] } },
     });
-    expect(intOpts.find((o) => o.name === "level")!.choices).toEqual([{ name: "1", value: 1 }]);
+    expect(intOpts.find((o) => o.name === "level")!.choices).toEqual([
+      { name: "1", value: 1 },
+    ]);
 
     const strOpts = jsonSchemaToDiscordOptions({
       type: "object",
       properties: { tag: { type: "string", enum: ["", " ", "ok"] } },
     });
-    expect(strOpts.find((o) => o.name === "tag")!.choices).toEqual([{ name: "ok", value: "ok" }]);
+    expect(strOpts.find((o) => o.name === "tag")!.choices).toEqual([
+      { name: "ok", value: "ok" },
+    ]);
     warn.mockRestore();
   });
 
@@ -202,9 +214,11 @@ describe("jsonSchemaToDiscordOptions", () => {
     });
     const choices = strOpts.find((o) => o.name === "tag")!.choices!;
     // The >100-char member is dropped entirely — NOT emitted with a truncated value.
-    expect(choices.some((c) => String(c.value).endsWith("…") || String(c.value).length > 100)).toBe(
-      false,
-    );
+    expect(
+      choices.some(
+        (c) => String(c.value).endsWith("…") || String(c.value).length > 100,
+      ),
+    ).toBe(false);
     expect(choices.some((c) => c.value === long)).toBe(false);
     // The <=100-char members survive with their exact (round-trippable) value.
     expect(choices).toContainEqual({ name: short, value: short });
@@ -228,7 +242,9 @@ describe("jsonSchemaToDiscordOptions", () => {
 
     const intOpts = jsonSchemaToDiscordOptions({
       type: "object",
-      properties: { level: { type: "integer", enum: [Number("1".repeat(120))] } },
+      properties: {
+        level: { type: "integer", enum: [Number("1".repeat(120))] },
+      },
     });
     // A 120-digit number → Infinity (not finite/integer) → dropped, so just assert no crash.
     expect(intOpts.find((o) => o.name === "level")).toBeTruthy();
@@ -248,12 +264,20 @@ describe("jsonSchemaToDiscordOptions", () => {
 describe("buildCommandBody", () => {
   it("truncates a command description longer than 100 chars", () => {
     const long = "y".repeat(250);
-    const body = buildCommandBody({ name: "triage", description: long, options: undefined });
+    const body = buildCommandBody({
+      name: "triage",
+      description: long,
+      options: undefined,
+    });
     expect(body.description.length).toBeLessThanOrEqual(100);
   });
 
   it("normalizes a command name to a lowercase valid slug (<=32, matches ^[-_a-z0-9]+$)", () => {
-    const body = buildCommandBody({ name: "MyCmd Name!", description: "x", options: undefined });
+    const body = buildCommandBody({
+      name: "MyCmd Name!",
+      description: "x",
+      options: undefined,
+    });
     expect(body.name).toMatch(/^[-_a-z0-9]+$/);
     expect(body.name).toBe(body.name.toLowerCase());
     expect(body.name.length).toBeGreaterThanOrEqual(1);
@@ -262,19 +286,30 @@ describe("buildCommandBody", () => {
 });
 
 describe("registerCommands", () => {
-  const spec: CommandSpec = { name: "triage", description: "Triage the thread", options: undefined };
+  const spec: CommandSpec = {
+    name: "triage",
+    description: "Triage the thread",
+    options: undefined,
+  };
 
   it("registers to a guild when guildId is set", async () => {
-    const put = vi.fn(async (_route: `/${string}`, _opts: { body: unknown }) => {});
+    const put = vi.fn(
+      async (_route: `/${string}`, _opts: { body: unknown }) => {},
+    );
     await registerCommands({ put } as any, "app-1", "guild-9", [spec]);
     expect(put).toHaveBeenCalledTimes(1);
     const [route, body] = put.mock.calls[0]!;
     expect(String(route)).toContain("guild-9");
-    expect((body as any).body[0]).toMatchObject({ name: "triage", description: "Triage the thread" });
+    expect((body as any).body[0]).toMatchObject({
+      name: "triage",
+      description: "Triage the thread",
+    });
   });
 
   it("registers globally when guildId is absent", async () => {
-    const put = vi.fn(async (_route: `/${string}`, _opts: { body: unknown }) => {});
+    const put = vi.fn(
+      async (_route: `/${string}`, _opts: { body: unknown }) => {},
+    );
     await registerCommands({ put } as any, "app-1", undefined, [spec]);
     const [route] = put.mock.calls[0]!;
     expect(String(route)).not.toContain("guild");

@@ -14,7 +14,12 @@ import {
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import type { BotNode } from "@copilotkit/bot-ui";
-import { DISCORD_LIMITS, truncateText, truncateFenced, clampArray } from "./budget.js";
+import {
+  DISCORD_LIMITS,
+  truncateText,
+  truncateFenced,
+  clampArray,
+} from "./budget.js";
 import { discordMarkdown } from "../markdown.js";
 
 /**
@@ -45,16 +50,25 @@ function budgetFull(budget: RenderBudget): boolean {
 }
 
 /** Append a single trailing overflow marker (idempotent) when the budget is hit. */
-function signalOverflow(budget: RenderBudget, container: ContainerBuilder): void {
+function signalOverflow(
+  budget: RenderBudget,
+  container: ContainerBuilder,
+): void {
   if (budget.overflowed) return;
   budget.overflowed = true;
   budget.components += 1;
   budget.textChars += OVERFLOW_TEXT.length;
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(OVERFLOW_TEXT));
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(OVERFLOW_TEXT),
+  );
 }
 
 /** Add a TextDisplay, charging the text budget and clamping to remaining room. */
-function addText(content: string, budget: RenderBudget, container: ContainerBuilder): void {
+function addText(
+  content: string,
+  budget: RenderBudget,
+  container: ContainerBuilder,
+): void {
   // Genuinely-empty INPUT (an empty <Text value="">, an empty <Fields>/<Context>/
   // <Table>) is not an overflow — skip it silently. Only a NON-empty content that
   // the budget clamps to empty signals truncation.
@@ -62,14 +76,17 @@ function addText(content: string, budget: RenderBudget, container: ContainerBuil
   // Reserve room for one trailing overflow marker (mirrors the component-slot
   // reservation in budgetFull) so the summed text — including a marker that may
   // be appended later — never exceeds totalTextChars.
-  const remaining = DISCORD_LIMITS.totalTextChars - OVERFLOW_TEXT.length - budget.textChars;
+  const remaining =
+    DISCORD_LIMITS.totalTextChars - OVERFLOW_TEXT.length - budget.textChars;
   let clamped = content;
   if (content.length > remaining) {
     const room = Math.max(0, remaining);
     // The cumulative clamp can sever a ``` fence emitted by the table/section
     // path. If the content carries a fence, use the fence-balancing truncation
     // so a cut fence is re-closed (kept within `room`).
-    clamped = content.includes("```") ? truncateFenced(content, room) : truncateText(content, room);
+    clamped = content.includes("```")
+      ? truncateFenced(content, room)
+      : truncateText(content, room);
   }
   // Discord rejects an empty TextDisplay. If the text budget clamped a non-empty
   // content down to empty, emit the overflow marker instead of an empty component.
@@ -79,7 +96,9 @@ function addText(content: string, budget: RenderBudget, container: ContainerBuil
   }
   budget.textChars += clamped.length;
   budget.components += 1;
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(clamped));
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(clamped),
+  );
 }
 
 /**
@@ -99,7 +118,11 @@ export function renderComponents(ir: BotNode[]): ContainerBuilder {
     if (int !== undefined) container.setAccentColor(int);
   }
 
-  const budget: RenderBudget = { components: 0, textChars: 0, overflowed: false };
+  const budget: RenderBudget = {
+    components: 0,
+    textChars: 0,
+    overflowed: false,
+  };
   for (const node of ir) addNode(node, container, budget);
   return container;
 }
@@ -109,10 +132,17 @@ export function renderDiscordMessage(ir: BotNode[]): {
   components: ContainerBuilder[];
   flags: number;
 } {
-  return { components: [renderComponents(ir)], flags: MessageFlags.IsComponentsV2 };
+  return {
+    components: [renderComponents(ir)],
+    flags: MessageFlags.IsComponentsV2,
+  };
 }
 
-function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudget): void {
+function addNode(
+  node: BotNode,
+  container: ContainerBuilder,
+  budget: RenderBudget,
+): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded
   // <Message> is a structural wrapper; recurse into it without charging budget.
   if (node.type === "message") {
@@ -127,13 +157,18 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
   const props = node.props ?? {};
   switch (node.type) {
     case "header": {
-      addText("# " + truncateText(collectText(node), DISCORD_LIMITS.headerText), budget, container);
+      addText(
+        "# " + truncateText(collectText(node), DISCORD_LIMITS.headerText),
+        budget,
+        container,
+      );
       return;
     }
     case "section":
     case "markdown":
     case "text": {
-      const raw = node.type === "text" ? String(props.value ?? "") : collectText(node);
+      const raw =
+        node.type === "text" ? String(props.value ?? "") : collectText(node);
       // Fence-safe: truncate the rendered (possibly fenced) markdown without
       // cutting a closing ``` open.
       addText(
@@ -146,9 +181,14 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     case "fields": {
       // No native field grid in CV2 — render each field as a bold-label line.
       const fields = childNodes(node).filter((c) => c.type === "field");
-      const lines = fields.map((f) => `**${collectFieldLabel(f)}** ${collectFieldValue(f)}`.trim());
+      const lines = fields.map((f) =>
+        `**${collectFieldLabel(f)}** ${collectFieldValue(f)}`.trim(),
+      );
       addText(
-        truncateFenced(discordMarkdown(lines.join("\n")), DISCORD_LIMITS.textDisplayChars),
+        truncateFenced(
+          discordMarkdown(lines.join("\n")),
+          DISCORD_LIMITS.textDisplayChars,
+        ),
         budget,
         container,
       );
@@ -156,7 +196,10 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     }
     case "field": {
       addText(
-        truncateFenced(discordMarkdown(collectText(node)), DISCORD_LIMITS.textDisplayChars),
+        truncateFenced(
+          discordMarkdown(collectText(node)),
+          DISCORD_LIMITS.textDisplayChars,
+        ),
         budget,
         container,
       );
@@ -164,15 +207,23 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
     }
     case "context": {
       // Discord subtext: lines prefixed with `-# `.
-      const parts = childNodes(node).map((c) => collectText(c)).filter(Boolean);
+      const parts = childNodes(node)
+        .map((c) => collectText(c))
+        .filter(Boolean);
       const body = parts.map((p) => `-# ${p}`).join("\n");
-      addText(truncateText(body, DISCORD_LIMITS.textDisplayChars), budget, container);
+      addText(
+        truncateText(body, DISCORD_LIMITS.textDisplayChars),
+        budget,
+        container,
+      );
       return;
     }
     case "divider": {
       budget.components += 1;
       container.addSeparatorComponents(
-        new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(SeparatorSpacingSize.Small),
       );
       return;
     }
@@ -182,13 +233,18 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
         // Discord counts the MediaGallery PLUS every nested item toward the cap.
         // One image node = the gallery (1) + a single item (1).
         const cost = 1 + 1;
-        if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        if (
+          budget.components + cost >
+          DISCORD_LIMITS.componentsPerMessage - 1
+        ) {
           signalOverflow(budget, container);
           return;
         }
         budget.components += cost;
         container.addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(url)),
+          new MediaGalleryBuilder().addItems(
+            new MediaGalleryItemBuilder().setURL(url),
+          ),
         );
       }
       return;
@@ -199,7 +255,10 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
         // componentsPerMessage cap. Charge the full nested cost and check the
         // projected total (reserving one slot for the overflow marker) before adding.
         const cost = 1 + row.components.length;
-        if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        if (
+          budget.components + cost >
+          DISCORD_LIMITS.componentsPerMessage - 1
+        ) {
           signalOverflow(budget, container);
           break;
         }
@@ -224,7 +283,9 @@ function addNode(node: BotNode, container: ContainerBuilder, budget: RenderBudge
       // to a follow-up. Log once and skip (total renderer).
       if (!warnedInputSkipped) {
         warnedInputSkipped = true;
-        console.warn("[bot-discord] <Input> is modal-only; skipped (modals not in v1).");
+        console.warn(
+          "[bot-discord] <Input> is modal-only; skipped (modals not in v1).",
+        );
       }
       return;
     }
@@ -242,7 +303,11 @@ function buildActionRows(
 
   const flushButtons = () => {
     if (current.length === 0) return;
-    rows.push(new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(...current));
+    rows.push(
+      new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+        ...current,
+      ),
+    );
     current = [];
   };
 
@@ -258,7 +323,9 @@ function buildActionRows(
       const select = buildSelect(child);
       if (select) {
         rows.push(
-          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(select),
+          new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+            select,
+          ),
         );
       }
     }
@@ -273,7 +340,9 @@ function buildButton(node: BotNode): ButtonBuilder | undefined {
   if (!id) return undefined;
   const btn = new ButtonBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
-    .setLabel(truncateText(collectText(node) || " ", DISCORD_LIMITS.buttonLabel))
+    .setLabel(
+      truncateText(collectText(node) || " ", DISCORD_LIMITS.buttonLabel),
+    )
     .setStyle(buttonStyle(props.style));
   return btn;
 }
@@ -282,7 +351,8 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
   const props = node.props ?? {};
   const id = idFromHandler(props.onSelect);
   if (!id) return undefined;
-  const options = (props.options as { label: string; value: unknown }[] | undefined) ?? [];
+  const options =
+    (props.options as { label: string; value: unknown }[] | undefined) ?? [];
   // Clamp to Discord's 25-option cap. A fake "+N more…" indicator is NOT an
   // option here: it would be a selectable garbage value that dispatches as a
   // real selection. Drop the overflow and warn instead (clamp, never a bogus
@@ -306,7 +376,12 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
     // Truthy fallback so an explicit "" placeholder falls back to " " (Discord
     // rejects an empty placeholder), matching the button-label path.
-    .setPlaceholder(truncateText(String(props.placeholder || " "), DISCORD_LIMITS.selectPlaceholder))
+    .setPlaceholder(
+      truncateText(
+        String(props.placeholder || " "),
+        DISCORD_LIMITS.selectPlaceholder,
+      ),
+    )
     .addOptions(built);
   return select;
 }
@@ -354,7 +429,8 @@ const HEX6 = /^#?[0-9a-fA-F]{6}$/;
  */
 function parseAccent(accent: unknown): number | undefined {
   if (typeof accent === "number") {
-    if (!Number.isInteger(accent) || accent < 0 || accent > 0xffffff) return undefined;
+    if (!Number.isInteger(accent) || accent < 0 || accent > 0xffffff)
+      return undefined;
     return accent;
   }
   if (typeof accent !== "string" || !HEX6.test(accent)) return undefined;
@@ -399,10 +475,16 @@ function collectFieldValue(node: BotNode): string {
 // discordMarkdown can fence it. Columns from props.columns; rows from row/cell.
 function tableToMarkdown(node: BotNode): string {
   const columns =
-    (node.props?.columns as { header: string }[] | undefined)?.map((c) => c.header) ?? [];
+    (node.props?.columns as { header: string }[] | undefined)?.map(
+      (c) => c.header,
+    ) ?? [];
   const rows = childNodes(node)
     .filter((c) => c.type === "row")
-    .map((r) => childNodes(r).filter((c) => c.type === "cell").map((c) => collectText(c)));
+    .map((r) =>
+      childNodes(r)
+        .filter((c) => c.type === "cell")
+        .map((c) => collectText(c)),
+    );
   const lines: string[] = [];
   if (columns.length) {
     lines.push(`| ${columns.join(" | ")} |`);

@@ -72,7 +72,9 @@ describe("ConfirmWrite", () => {
     expect(collectText(section!)).toContain("CPK-9: Checkout 500s under load");
 
     const context = findByType(ir, "context");
-    expect(collectText(context!)).toContain("Nothing is written until you click");
+    expect(collectText(context!)).toContain(
+      "Nothing is written until you click",
+    );
     // "Create" is authored as Markdown bold (`**Create**`).
     expect(collectText(context!)).toContain("**Create**");
 

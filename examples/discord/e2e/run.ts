@@ -211,7 +211,9 @@ async function runCase(spec: E2ECase): Promise<CaseResult> {
   const exp = spec.expectations ?? {};
   runExpectations(exp, finalText, allBotMessages, errors);
 
-  const unbalancedSamples = samples.filter((s) => s.len > 0 && !s.balanced).length;
+  const unbalancedSamples = samples.filter(
+    (s) => s.len > 0 && !s.balanced,
+  ).length;
   if (exp.balancedBrackets && unbalancedSamples > 0) {
     errors.push(`${unbalancedSamples} mid-stream samples were not balanced`);
   }

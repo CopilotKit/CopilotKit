@@ -1,5 +1,9 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type { RunRenderer, CapturedToolCall, CapturedInterrupt } from "@copilotkit/bot";
+import type {
+  RunRenderer,
+  CapturedToolCall,
+  CapturedInterrupt,
+} from "@copilotkit/bot";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
@@ -29,9 +33,7 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
  */
 export interface ChannelLike {
   sendTyping(): Promise<void>;
-  send(
-    payload: string | { content: string },
-  ): Promise<{
+  send(payload: string | { content: string }): Promise<{
     id: string;
     edit(p: string | { content: string }): Promise<unknown>;
   }>;
@@ -104,7 +106,9 @@ export function createRunRenderer(args: {
    */
   let pendingInterrupt: CapturedInterrupt | undefined;
 
-  const ensureStream = (messageId: string): ChunkedMessageStream | undefined => {
+  const ensureStream = (
+    messageId: string,
+  ): ChunkedMessageStream | undefined => {
     if (finalised.has(messageId)) return undefined;
     let s = streams.get(messageId);
     if (!s) {

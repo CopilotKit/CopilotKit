@@ -21,7 +21,9 @@ function treeText(nodes: BotNode[]): string {
     const children = node.props?.children;
     const childArr = Array.isArray(children)
       ? (children as BotNode[])
-      : children && typeof children === "object" && "type" in (children as object)
+      : children &&
+          typeof children === "object" &&
+          "type" in (children as object)
         ? [children as BotNode]
         : [];
     return childArr.map(collectText).join("");

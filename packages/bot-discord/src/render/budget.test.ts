@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { DISCORD_LIMITS, truncateText, truncateFenced, clampArray } from "./budget.js";
+import {
+  DISCORD_LIMITS,
+  truncateText,
+  truncateFenced,
+  clampArray,
+} from "./budget.js";
 
 describe("truncateText", () => {
   it("returns short text unchanged", () => {

@@ -1,10 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { lookupDiscordUserTool, defaultDiscordTools } from "./built-in-tools.js";
+import {
+  lookupDiscordUserTool,
+  defaultDiscordTools,
+} from "./built-in-tools.js";
 
 describe("lookupDiscordUserTool", () => {
   it("resolves a query via thread.lookupUser and returns a mention", async () => {
-    const thread = { lookupUser: vi.fn(async () => ({ id: "u9", name: "Ann", handle: "ann" })) };
-    const res = await lookupDiscordUserTool.handler({ query: "ann" }, { thread } as any);
+    const thread = {
+      lookupUser: vi.fn(async () => ({ id: "u9", name: "Ann", handle: "ann" })),
+    };
+    const res = await lookupDiscordUserTool.handler({ query: "ann" }, {
+      thread,
+    } as any);
     expect(thread.lookupUser).toHaveBeenCalledWith("ann");
     expect(JSON.stringify(res)).toContain("<@u9>");
   });
@@ -14,7 +21,9 @@ describe("lookupDiscordUserTool", () => {
         throw new Error("intent missing");
       }),
     };
-    const res = await lookupDiscordUserTool.handler({ query: "ann" }, { thread } as any);
+    const res = await lookupDiscordUserTool.handler({ query: "ann" }, {
+      thread,
+    } as any);
     expect(thread.lookupUser).toHaveBeenCalledWith("ann");
     expect(typeof res).toBe("string");
     expect(res).toContain("lookup unavailable");

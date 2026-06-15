@@ -23,7 +23,9 @@ function findAll(nodes: BotNode[], type: string): BotNode[] {
     const children = n.props?.children;
     const childArr = Array.isArray(children)
       ? (children as BotNode[])
-      : children && typeof children === "object" && "type" in (children as object)
+      : children &&
+          typeof children === "object" &&
+          "type" in (children as object)
         ? [children as BotNode]
         : [];
     out.push(...findAll(childArr, type));

@@ -17,7 +17,8 @@ const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN missing in .env");
 
 /** Optional second-bot / user-bot token to send messages AS a non-bot-user account. */
-export const USER_TOKEN: string | undefined = process.env.DISCORD_TEST_USER_TOKEN;
+export const USER_TOKEN: string | undefined =
+  process.env.DISCORD_TEST_USER_TOKEN;
 
 /** The bot's Discord user ID (from the Developer Portal → Bot page). */
 export const BOT_USER_ID: string = process.env.DISCORD_BOT_USER_ID ?? "";
@@ -36,9 +37,7 @@ const botRest = new REST({ version: "10" }).setToken(BOT_TOKEN);
 let _userRest: REST | null = null;
 function userRest(): REST {
   if (!_userRest) {
-    _userRest = new REST({ version: "10" }).setToken(
-      USER_TOKEN ?? BOT_TOKEN!,
-    );
+    _userRest = new REST({ version: "10" }).setToken(USER_TOKEN ?? BOT_TOKEN!);
   }
   return _userRest;
 }
@@ -251,7 +250,9 @@ export async function watchForReply(args: {
   while (Date.now() - start < args.timeoutMs) {
     const msgs = await messagesSince(args.channelId, args.afterMessageId, 10);
     // Find the first message from the bot that arrived after our trigger.
-    const botMsg = msgs.find((m) => m.author.id === BOT_USER_ID || m.author.bot === true);
+    const botMsg = msgs.find(
+      (m) => m.author.id === BOT_USER_ID || m.author.bot === true,
+    );
 
     // If we found the bot message, re-fetch it by ID to get latest content
     // (Discord edits the same message during streaming via PATCH /messages/:id).
@@ -316,9 +317,7 @@ export async function watchForNextReply(args: {
     );
 
     target =
-      botMsgs.length > args.seenCount
-        ? botMsgs[botMsgs.length - 1]
-        : undefined;
+      botMsgs.length > args.seenCount ? botMsgs[botMsgs.length - 1] : undefined;
 
     // Re-fetch the target for latest content.
     if (target) {

@@ -80,9 +80,7 @@ export function IssueCard(issue: IssueCardProps): BotNode {
         {`${issue.justCreated ? "✅ " : `${stateUnicode(issue.state)} `}${issue.identifier}`}
       </Header>
       <Section>{titleText}</Section>
-      {issue.justCreated ? (
-        <Context>{"✨ Filed in Linear"}</Context>
-      ) : null}
+      {issue.justCreated ? <Context>{"✨ Filed in Linear"}</Context> : null}
       <Fields>
         <Field>{`**Status**\n${stateShortcode(issue.state)} ${issue.state ?? "—"}`}</Field>
         <Field>{`**Assignee**\n${issue.assignee ?? "_unassigned_"}`}</Field>

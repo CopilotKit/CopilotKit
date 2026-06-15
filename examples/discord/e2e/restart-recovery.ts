@@ -37,7 +37,12 @@
  */
 import "dotenv/config";
 import { spawn } from "node:child_process";
-import { channelHistory, messagesSince, clickButton, BOT_USER_ID } from "./discord-api.js";
+import {
+  channelHistory,
+  messagesSince,
+  clickButton,
+  BOT_USER_ID,
+} from "./discord-api.js";
 import { postAsUser } from "./discord-api.js";
 import { BOT_MENTION } from "./cases.js";
 
@@ -107,14 +112,10 @@ interface BotInstance {
  * logs that it's connected to the Gateway.
  */
 function spawnBot(): BotInstance {
-  const child = spawn(
-    "node",
-    ["--loader", "tsx/esm", "app/index.ts"],
-    {
-      env: { ...process.env },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
+  const child = spawn("node", ["--loader", "tsx/esm", "app/index.ts"], {
+    env: { ...process.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   const ready = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(
@@ -162,7 +163,8 @@ async function main() {
   const preHistory = await channelHistory(TEST_CHANNEL, 1);
   const anchorId = preHistory[0]?.id ?? "0";
 
-  const prompt = `<@${BOT_USER_ID}> file a Linear issue titled "E2E restart test". ` +
+  const prompt =
+    `<@${BOT_USER_ID}> file a Linear issue titled "E2E restart test". ` +
     "Use the confirm_write tool to ask me to approve it before creating anything.";
   const sent = await postAsUser(TEST_CHANNEL, prompt);
   console.log(`   Sent message ID: ${sent.id}`);
@@ -187,7 +189,10 @@ async function main() {
   // Find the Create button's custom_id.
   let createCustomId: string | undefined;
   for (const row of pickerMsg.components ?? []) {
-    const r = row as { type?: number; components?: Array<{ type?: number; custom_id?: string; label?: string }> };
+    const r = row as {
+      type?: number;
+      components?: Array<{ type?: number; custom_id?: string; label?: string }>;
+    };
     if (r.type === 1 && Array.isArray(r.components)) {
       for (const c of r.components) {
         if (c.type === 2 && /create/i.test(c.label ?? "")) {

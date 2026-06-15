@@ -4,7 +4,10 @@ import { renderComponents } from "./components-v2.js";
 import type { BotNode } from "@copilotkit/bot-ui";
 
 const text = (value: string): BotNode => ({ type: "text", props: { value } });
-const node = (type: string, props: Record<string, unknown> = {}): BotNode => ({ type, props });
+const node = (type: string, props: Record<string, unknown> = {}): BotNode => ({
+  type,
+  props,
+});
 
 describe("renderComponents", () => {
   it("wraps a header + section in a container with text displays", () => {
@@ -19,13 +22,17 @@ describe("renderComponents", () => {
     const container = renderComponents(ir);
     const json = container.toJSON();
     expect(json.type).toBe(ComponentType.Container);
-    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
+    const texts = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    );
     expect((texts[0] as any).content).toBe("# Hello");
     expect((texts[1] as any).content).toContain("Body **bold**");
   });
 
   it("maps accent to the container accent color (#5865F2 → int)", () => {
-    const ir: BotNode[] = [node("message", { accent: "#5865F2", children: text("hi") })];
+    const ir: BotNode[] = [
+      node("message", { accent: "#5865F2", children: text("hi") }),
+    ];
     const json = renderComponents(ir).toJSON();
     expect(json.accent_color).toBe(0x5865f2);
   });
@@ -43,7 +50,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     expect(row).toBeTruthy();
     const btn = (row as any).components[0];
     expect(btn.custom_id).toBe("ck:abc123");
@@ -55,9 +64,13 @@ describe("renderComponents", () => {
     const buttons = Array.from({ length: 7 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
     );
-    const ir: BotNode[] = [node("message", { children: node("actions", { children: buttons }) })];
+    const ir: BotNode[] = [
+      node("message", { children: node("actions", { children: buttons }) }),
+    ];
     const json = renderComponents(ir).toJSON();
-    const rows = json.components.filter((c: any) => c.type === ComponentType.ActionRow);
+    const rows = json.components.filter(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     expect(rows.length).toBe(2);
     expect((rows[0] as any).components.length).toBe(5);
     expect((rows[1] as any).components.length).toBe(2);
@@ -66,7 +79,9 @@ describe("renderComponents", () => {
   it("renders a divider as a separator", () => {
     const ir: BotNode[] = [node("message", { children: node("divider") })];
     const json = renderComponents(ir).toJSON();
-    expect(json.components.some((c: any) => c.type === ComponentType.Separator)).toBe(true);
+    expect(
+      json.components.some((c: any) => c.type === ComponentType.Separator),
+    ).toBe(true);
   });
 
   it("clamps an IR with > componentsPerMessage components and appends one overflow marker", () => {
@@ -76,7 +91,9 @@ describe("renderComponents", () => {
     const json = renderComponents(ir).toJSON();
     expect(json.components.length).toBeLessThanOrEqual(40);
     const overflow = json.components.filter(
-      (c: any) => c.type === ComponentType.TextDisplay && c.content === "_…content truncated_",
+      (c: any) =>
+        c.type === ComponentType.TextDisplay &&
+        c.content === "_…content truncated_",
     );
     expect(overflow.length).toBe(1);
   });
@@ -84,7 +101,9 @@ describe("renderComponents", () => {
   it("clamps total text across the message at totalTextChars", () => {
     // Three 2000-char sections (each within textDisplayChars) sum to 6000 > 4000.
     const chunk = "x".repeat(2000);
-    const sections = Array.from({ length: 3 }, () => node("section", { children: text(chunk) }));
+    const sections = Array.from({ length: 3 }, () =>
+      node("section", { children: text(chunk) }),
+    );
     const ir: BotNode[] = [node("message", { children: sections })];
     const json = renderComponents(ir).toJSON();
     const totalText = json.components
@@ -96,7 +115,10 @@ describe("renderComponents", () => {
 
   it("clamps a select to 25 real options with no fake selectable sentinel when it exceeds 25", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const options = Array.from({ length: 30 }, (_, i) => ({ label: `opt${i}`, value: `v${i}` }));
+    const options = Array.from({ length: 30 }, (_, i) => ({
+      label: `opt${i}`,
+      value: `v${i}`,
+    }));
     const ir: BotNode[] = [
       node("message", {
         children: node("actions", {
@@ -105,12 +127,16 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     const select = (row as any).components[0];
     // Exactly 25 real options; the dropped 5 are warned, never turned into a
     // selectable "__overflow__" garbage value.
     expect(select.options.length).toBe(25);
-    expect(select.options.every((o: any) => o.value !== "__overflow__")).toBe(true);
+    expect(select.options.every((o: any) => o.value !== "__overflow__")).toBe(
+      true,
+    );
     expect(select.options.map((o: any) => o.value)).toEqual(
       Array.from({ length: 25 }, (_, i) => `v${i}`),
     );
@@ -132,16 +158,22 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     const select = (row as any).components[0];
     expect(select.placeholder.length).toBeLessThanOrEqual(150);
   });
 
   it("accepts a strict 6-hex accent and rejects junk / out-of-range", () => {
-    const accepted = renderComponents([node("message", { accent: "#5865F2", children: text("hi") })]).toJSON();
+    const accepted = renderComponents([
+      node("message", { accent: "#5865F2", children: text("hi") }),
+    ]).toJSON();
     expect(accepted.accent_color).toBe(0x5865f2);
 
-    const partialHex = renderComponents([node("message", { accent: "12xyz", children: text("hi") })]).toJSON();
+    const partialHex = renderComponents([
+      node("message", { accent: "12xyz", children: text("hi") }),
+    ]).toJSON();
     expect(partialHex.accent_color).toBeUndefined();
 
     const outOfRange = renderComponents([
@@ -165,7 +197,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     const btn = (row as any).components[0];
     // Handler id wins; the value is never encoded into the custom_id.
     expect(btn.custom_id).toBe("ck:handler");
@@ -198,9 +232,13 @@ describe("renderComponents", () => {
         ],
       }),
     );
-    const ir: BotNode[] = [node("message", { children: node("table", { columns, children: rows }) })];
+    const ir: BotNode[] = [
+      node("message", { children: node("table", { columns, children: rows }) }),
+    ];
     const json = renderComponents(ir).toJSON();
-    const td = json.components.find((c: any) => c.type === ComponentType.TextDisplay) as any;
+    const td = json.components.find(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    ) as any;
     expect(td.content.length).toBeLessThanOrEqual(2000);
     // Fence delimiters must be balanced (even count) so the closing ``` is present.
     expect((td.content.match(/```/g) ?? []).length % 2).toBe(0);
@@ -243,7 +281,9 @@ describe("renderComponents", () => {
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),
     );
     const ir: BotNode[] = [
-      node("message", { children: [...dividers, node("actions", { children: buttons })] }),
+      node("message", {
+        children: [...dividers, node("actions", { children: buttons })],
+      }),
     ];
     const json = renderComponents(ir).toJSON();
     const countComponents = (comps: any[]): number =>
@@ -255,7 +295,9 @@ describe("renderComponents", () => {
       }, 0);
     expect(countComponents(json.components)).toBeLessThanOrEqual(40);
     const overflow = json.components.filter(
-      (c: any) => c.type === ComponentType.TextDisplay && c.content === "_…content truncated_",
+      (c: any) =>
+        c.type === ComponentType.TextDisplay &&
+        c.content === "_…content truncated_",
     );
     expect(overflow.length).toBe(1);
   });
@@ -273,7 +315,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
+    const texts = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    );
     expect(texts.every((c: any) => (c.content?.length ?? 0) > 0)).toBe(true);
   });
 
@@ -289,11 +333,15 @@ describe("renderComponents", () => {
     ];
     const json = renderComponents(ir).toJSON();
     const overflow = json.components.filter(
-      (c: any) => c.type === ComponentType.TextDisplay && c.content === "_…content truncated_",
+      (c: any) =>
+        c.type === ComponentType.TextDisplay &&
+        c.content === "_…content truncated_",
     );
     expect(overflow.length).toBe(0);
     // No empty TextDisplay leaked through either.
-    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay);
+    const texts = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    );
     expect(texts.every((c: any) => (c.content?.length ?? 0) > 0)).toBe(true);
   });
 
@@ -304,7 +352,9 @@ describe("renderComponents", () => {
     // Leave only a small cumulative budget (~10 chars) for the table so the
     // cumulative clamp lands mid-fence, exercising the fence-aware path.
     const filler = "x".repeat(1985);
-    const fillers = Array.from({ length: 2 }, () => node("section", { children: text(filler) }));
+    const fillers = Array.from({ length: 2 }, () =>
+      node("section", { children: text(filler) }),
+    );
     const columns = [{ header: "A" }, { header: "B" }];
     const rows = Array.from({ length: 50 }, (_, i) =>
       node("row", {
@@ -320,7 +370,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const texts = json.components.filter((c: any) => c.type === ComponentType.TextDisplay) as any[];
+    const texts = json.components.filter(
+      (c: any) => c.type === ComponentType.TextDisplay,
+    ) as any[];
     // The table's TextDisplay is the one containing a fence; it must be present
     // (a cut fence leaves an opening ```) and balanced.
     const fenced = texts.filter((c) => (c.content ?? "").includes("```"));
@@ -339,7 +391,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     // No options → no select → the action row is never created.
     expect(row).toBeUndefined();
   });
@@ -357,7 +411,9 @@ describe("renderComponents", () => {
       }),
     ];
     const json = renderComponents(ir).toJSON();
-    const row = json.components.find((c: any) => c.type === ComponentType.ActionRow);
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
     const select = (row as any).components[0];
     expect(select.placeholder).toBe(" ");
   });
@@ -366,7 +422,9 @@ describe("renderComponents", () => {
     // Fill text past the cap so an overflow marker is appended; total text
     // (including the marker) must stay within totalTextChars.
     const chunk = "x".repeat(2000);
-    const sections = Array.from({ length: 4 }, () => node("section", { children: text(chunk) }));
+    const sections = Array.from({ length: 4 }, () =>
+      node("section", { children: text(chunk) }),
+    );
     const ir: BotNode[] = [node("message", { children: sections })];
     const json = renderComponents(ir).toJSON();
     const totalText = json.components

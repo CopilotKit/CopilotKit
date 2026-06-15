@@ -8,7 +8,14 @@ describe("buildFileContentParts", () => {
       arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
     })) as any;
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/x.png", name: "x.png", contentType: "image/png", size: 3 }],
+      [
+        {
+          url: "https://cdn/x.png",
+          name: "x.png",
+          contentType: "image/png",
+          size: 3,
+        },
+      ],
       { fetchImpl },
     );
     expect(parts[0]).toMatchObject({ type: "image" });
@@ -21,7 +28,14 @@ describe("buildFileContentParts", () => {
       arrayBuffer: async () => new TextEncoder().encode(csv).buffer,
     })) as any;
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/x.csv", name: "x.csv", contentType: "text/csv", size: csv.length }],
+      [
+        {
+          url: "https://cdn/x.csv",
+          name: "x.csv",
+          contentType: "text/csv",
+          size: csv.length,
+        },
+      ],
       { fetchImpl },
     );
     expect(parts[0]).toMatchObject({ type: "text" });
@@ -31,7 +45,14 @@ describe("buildFileContentParts", () => {
   it("skips a file over the size cap without fetching", async () => {
     const fetchImpl = vi.fn();
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/big.bin", name: "big.bin", contentType: "application/octet-stream", size: 99_000_000 }],
+      [
+        {
+          url: "https://cdn/big.bin",
+          name: "big.bin",
+          contentType: "application/octet-stream",
+          size: 99_000_000,
+        },
+      ],
       { fetchImpl, maxBytes: 10_000_000 },
     );
     expect(parts).toEqual([]);
@@ -47,7 +68,14 @@ describe("buildFileContentParts", () => {
       arrayBuffer: async () => big.buffer,
     })) as any;
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/x.png", name: "x.png", contentType: "image/png", size: 3 }],
+      [
+        {
+          url: "https://cdn/x.png",
+          name: "x.png",
+          contentType: "image/png",
+          size: 3,
+        },
+      ],
       { fetchImpl, maxBytes: 10 },
     );
     expect(fetchImpl).toHaveBeenCalledOnce();
@@ -63,7 +91,14 @@ describe("buildFileContentParts", () => {
       arrayBuffer: async () => new TextEncoder().encode(big).buffer,
     })) as any;
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/big.log", name: "big.log", contentType: "text/plain", size: big.length }],
+      [
+        {
+          url: "https://cdn/big.log",
+          name: "big.log",
+          contentType: "text/plain",
+          size: big.length,
+        },
+      ],
       { fetchImpl, maxTextBytes: 100 },
     );
     expect(parts[0]).toMatchObject({ type: "text" });
@@ -98,7 +133,14 @@ describe("buildFileContentParts", () => {
       arrayBuffer: async () => new TextEncoder().encode(csv).buffer,
     })) as any;
     const parts = await buildFileContentParts(
-      [{ url: "https://cdn/data.csv", name: "data.csv", contentType: "application/octet-stream", size: csv.length }],
+      [
+        {
+          url: "https://cdn/data.csv",
+          name: "data.csv",
+          contentType: "application/octet-stream",
+          size: csv.length,
+        },
+      ],
       { fetchImpl },
     );
     expect(parts[0]).toMatchObject({ type: "text" });

@@ -139,8 +139,7 @@ export const CASES: E2ECase[] = [
 
   {
     name: "B11 — bold/italic markers",
-    prompt:
-      `${BOT_MENTION} say a sentence with one **bold** word and one *italic* word. Use those exact markdown markers.`,
+    prompt: `${BOT_MENTION} say a sentence with one **bold** word and one *italic* word. Use those exact markdown markers.`,
     expectations: {
       finalContains: ["**", "*"],
       balancedBrackets: true,
@@ -206,7 +205,8 @@ export const CASES: E2ECase[] = [
       perMessageChecks: (messages) => {
         const errs: string[] = [];
         const hasContent = messages.some(
-          (m) => m.content.length > 0 || (m.components && m.components.length > 0),
+          (m) =>
+            m.content.length > 0 || (m.components && m.components.length > 0),
         );
         if (!hasContent) {
           errs.push("no bot message had any content or components");
@@ -228,7 +228,10 @@ export const CASES: E2ECase[] = [
       // "Approve" equivalent or that components are present.
       perMessageChecks: (messages) => {
         const errs: string[] = [];
-        const joined = messages.map((m) => m.content).join("\n").toLowerCase();
+        const joined = messages
+          .map((m) => m.content)
+          .join("\n")
+          .toLowerCase();
         const hasButtonMessage = messages.some(
           (m) => m.components && m.components.length > 0,
         );
@@ -261,7 +264,10 @@ export const CASES: E2ECase[] = [
         for (const m of messages) {
           if (!m.components) continue;
           for (const row of m.components) {
-            const r = row as { type?: number; components?: Array<Record<string, unknown>> };
+            const r = row as {
+              type?: number;
+              components?: Array<Record<string, unknown>>;
+            };
             if (r.type === 1 && Array.isArray(r.components)) {
               for (const c of r.components) {
                 if ((c as { type?: number }).type === 2) buttons.push(c);
@@ -271,7 +277,10 @@ export const CASES: E2ECase[] = [
         }
         if (buttons.length < 2) {
           // If no buttons were found in components, check text fallback.
-          const joined = messages.map((m) => m.content).join("\n").toLowerCase();
+          const joined = messages
+            .map((m) => m.content)
+            .join("\n")
+            .toLowerCase();
           if (!joined.includes("create") && !joined.includes("approve")) {
             errs.push(
               `expected ≥2 confirm_write buttons (Create/Cancel) or text 'create'/'approve'; found ${buttons.length} button(s)`,
@@ -334,12 +343,7 @@ export const CASES: E2ECase[] = [
     expectations: {
       perMessageChecks: (messages) => {
         const joined = messages.map((m) => m.content).join("\n");
-        const witnesses = [
-          "<@",
-          "lookup_discord_user",
-          "@-mention",
-          "mention",
-        ];
+        const witnesses = ["<@", "lookup_discord_user", "@-mention", "mention"];
         if (witnesses.some((w) => joined.includes(w))) return [];
         return [
           `final reply quoted no context phrase from ${JSON.stringify(witnesses)}`,

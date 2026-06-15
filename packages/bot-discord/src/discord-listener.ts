@@ -2,7 +2,12 @@ import { MessageFlags } from "discord.js";
 import type { IncomingTurn, ReplyTarget } from "./types.js";
 
 interface MessageLike {
-  author: { id: string; bot?: boolean; username?: string; globalName?: string | null };
+  author: {
+    id: string;
+    bot?: boolean;
+    username?: string;
+    globalName?: string | null;
+  };
   content: string;
   channelId: string;
   guildId?: string | null;
@@ -69,7 +74,8 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
   });
 
   client.on("interactionCreate", async (i: ChatInputLike) => {
-    if (typeof i?.isChatInputCommand !== "function" || !i.isChatInputCommand()) return;
+    if (typeof i?.isChatInputCommand !== "function" || !i.isChatInputCommand())
+      return;
     // Ack within Discord's 3s window. The real reply is delivered out-of-band as a
     // channel message, so ack with a minimal ephemeral note (visible only to the invoker).
     try {
