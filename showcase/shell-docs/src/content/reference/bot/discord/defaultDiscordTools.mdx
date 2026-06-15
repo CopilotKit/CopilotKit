@@ -28,7 +28,11 @@ Resolves a person to a Discord user ID so the agent can @-mention them properly.
   Name, display name, or handle of the person to look up.
 </PropertyReference>
 
-**Returns** (to the agent): on success `{ id, name, mention }` — where `mention` is the ready-to-paste `<@id>` string the agent should put verbatim in its reply; on a miss, a plain string `No Discord user found matching "…"` so the agent writes the plain name instead.
+**Returns** (to the agent):
+
+- **On success** — `{ id, name, mention }`, where `mention` is the ready-to-paste `<@id>` string the agent should put verbatim in its reply.
+- **On a genuine miss** — a plain string `No Discord user found matching "…"` so the agent writes the plain name instead.
+- **On a lookup failure** — if the directory search throws, a plain string `Couldn't resolve a Discord user for "…" (lookup unavailable).` so the agent degrades gracefully rather than erroring.
 
 Under the hood it calls [`thread.lookupUser(query)`](/reference/bot/classes/Thread), the capability-gated directory search this adapter backs.
 

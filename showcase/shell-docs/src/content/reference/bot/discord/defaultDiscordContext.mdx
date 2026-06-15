@@ -10,8 +10,8 @@ description: "The Discord context entries the adapter ships — tagging procedur
 | Entry | Teaches the agent |
 |-------|-------------------|
 | `discordTaggingContext` | How to @-mention people: resolve via the [`lookup_discord_user`](/reference/bot/discord/defaultDiscordTools) tool and paste the returned `<@id>` mention verbatim; mention channels with `<#CHANNEL_ID>` |
-| `discordFormattingContext` | What formatting survives in Discord — standard Markdown (**bold**, *italic*, `code`, fenced blocks, headings, quotes) works, but Discord renders **no tables** — put tabular data in a fenced code block instead |
-| `discordConversationModelContext` | The Discord conversation model — each channel, thread, and DM is one conversation; the bot replies in the same channel the message arrived in |
+| `discordFormattingContext` | What formatting survives in Discord — standard Markdown (**bold**, *italic*, `code`, fenced blocks, headings, quotes) works, but Discord renders **no tables** — put tabular data in a fenced code block or call the appropriate render tool instead |
+| `discordConversationModelContext` | The Discord conversation model — each channel, thread, and DM is one conversation; the bot replies in the same channel the message arrived in, and uses the read-history tool to see prior messages when it needs earlier context |
 
 ## Usage
 
