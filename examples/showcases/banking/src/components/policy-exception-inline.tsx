@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { PolicyException } from "@/app/api/v1/data";
 import {
   POLICY_EXCEPTION_CODES,
+  isJustifying,
   labelForExceptionCode,
 } from "@/app/api/v1/policy-exception-codes";
 import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
@@ -19,7 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const DEFAULT_CODE = POLICY_EXCEPTION_CODES[0].code;
+// This card exists to CLEAR an over-limit charge, and only a justifying code
+// actually lifts the policy-limit gate server-side (see store.hasApprovedException
+// + isJustifying). Offering a non-justifying code here is a foot-gun: it files,
+// flips the row to "Cleared", but the subsequent approve is rejected 422. So we
+// only present the codes that can genuinely authorize the override.
+const JUSTIFYING_CODES = POLICY_EXCEPTION_CODES.filter((c) =>
+  isJustifying(c.code),
+);
+
+const DEFAULT_CODE = JUSTIFYING_CODES[0].code;
 
 type ExceptionResult = {
   ok: boolean;
@@ -170,7 +180,7 @@ export function PolicyExceptionInline(props: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {POLICY_EXCEPTION_CODES.map((c) => (
+            {JUSTIFYING_CODES.map((c) => (
               <SelectItem key={c.code} value={c.code}>
                 <span className="font-mono text-xs text-ink-muted">
                   {c.code}

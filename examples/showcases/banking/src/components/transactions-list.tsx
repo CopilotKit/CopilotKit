@@ -1,11 +1,15 @@
 "use client";
 
+import { Fragment, useState } from "react";
 import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Check,
+  FileText,
   MessageSquare,
+  MoreHorizontal,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import type {
@@ -15,7 +19,12 @@ import type {
 } from "@/app/api/v1/data";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
 import { useRecording } from "@/components/recording-context";
 import { PolicyExceptionInline } from "@/components/policy-exception-inline";
@@ -69,25 +78,260 @@ export function TransactionsList({
   const recordUserAction = useRecordUserActionInCurrentThread();
   // Bracket each record so the canvas recording vignette pulses while a
   // demonstrated action is captured (true even against the no-op shim).
-  // `logStep` narrates each click into the recorder HUD while recording.
+  // `logStep` narrates each click into the recorder feed while recording.
   const { beginRecording, endRecording, logStep } = useRecording();
   const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
+  // Approve a charge from the queue. Only records the human action when the
+  // server mutation actually took effect (a blocked over-limit approve is a
+  // no-op and must never be recorded as an approval).
+  const handleApprove = async (id: string): Promise<void> => {
+    const ok = (await approvalInterfaceProps?.onApprove?.(id)) ?? false;
+    if (!ok) return;
+    logStep("Approved the charge");
+    beginRecording();
+    recordUserAction({
+      title: "transaction.approved",
+      description:
+        "User approved a pending transaction from the transactions view.",
+      previousData: { status: "pending" },
+      newData: { status: "approved" },
+      metadata: { transactionId: id },
+    })
+      .catch(console.error)
+      .finally(() => endRecording());
+  };
+
+  const handleDeny = async (id: string): Promise<void> => {
+    const ok = (await approvalInterfaceProps?.onDeny?.(id)) ?? false;
+    if (!ok) return;
+    beginRecording();
+    recordUserAction({
+      title: "transaction.denied",
+      description:
+        "User denied a pending transaction from the transactions view.",
+      previousData: { status: "pending" },
+      newData: { status: "denied" },
+      metadata: { transactionId: id },
+    })
+      .catch(console.error)
+      .finally(() => endRecording());
+  };
+
+  // Derive a row's policy status from already-loaded data (no server import):
+  //  - overLimit: would push the policy past its limit and has no exception yet,
+  //  - cleared:   over its limit but a justifying exception is now linked.
+  // Once a justifying exception is finalized server-side `activeExceptionId` is
+  // set, so the row flips overLimit → cleared and Approve unlocks.
+  const statusOf = (transaction: Transaction) => {
+    const policy = policies.find((p) => p.id === transaction.policyId);
+    const policyOver =
+      !!policy && policy.spent + Math.abs(transaction.amount) > policy.limit;
+    return {
+      overLimit: policyOver && !transaction.activeExceptionId,
+      cleared: policyOver && !!transaction.activeExceptionId,
+    };
+  };
+
+  // ── Approval queue ─────────────────────────────────────────────────────────
+  // A scannable table (Merchant · Amount · Policy · Actions) instead of a
+  // center-stacked card per row: columns let the eye compare amounts/status down
+  // the list. Each row's actions are check / x icon buttons with a "more
+  // actions" overflow menu for File policy exception. Approve is gated while the
+  // charge is over its limit (it would only be rejected server-side until a
+  // justifying exception is filed), which makes the policy gate legible.
+  if (showApprovalInterface) {
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-hairline text-xs font-medium uppercase tracking-wide text-ink-muted">
+              <th className="px-3 py-2.5 text-left font-medium">Merchant</th>
+              <th className="px-3 py-2.5 text-right font-medium">Amount</th>
+              <th className="px-3 py-2.5 text-left font-medium">Policy</th>
+              <th className="px-3 py-2.5 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((transaction) => {
+              const isIncome = transaction.amount > 0;
+              const { overLimit, cleared } = statusOf(transaction);
+              const isExpanded = exceptionTxnId === transaction.id;
+              const canFileException =
+                overLimit && openPolicyException && finalizePolicyException;
+              return (
+                <Fragment key={transaction.id}>
+                  <tr className="border-b border-hairline/60 transition-colors hover:bg-surface-muted">
+                    {/* Merchant */}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 flex-none items-center justify-center rounded-full",
+                            isIncome
+                              ? "bg-positive-soft text-positive"
+                              : "bg-negative-soft text-negative",
+                          )}
+                        >
+                          {isIncome ? (
+                            <ArrowUpRight className="h-4 w-4" />
+                          ) : (
+                            <ArrowDownRight className="h-4 w-4" />
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold leading-tight text-ink">
+                            {transaction.title}
+                          </p>
+                          <p className="text-xs leading-tight text-ink-muted">
+                            {transaction.date}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Amount */}
+                    <td
+                      className={cn(
+                        "whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums",
+                        isIncome ? "text-positive" : "text-negative",
+                      )}
+                    >
+                      {isIncome ? "+" : ""}
+                      {formatCurrency(transaction.amount)}
+                    </td>
+                    {/* Policy status */}
+                    <td className="px-3 py-3">
+                      {overLimit ? (
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-negative-soft px-2.5 py-1 text-xs font-medium text-negative ring-1 ring-inset ring-negative/30">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Over limit
+                        </span>
+                      ) : cleared ? (
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-positive-soft px-2.5 py-1 text-xs font-medium text-positive ring-1 ring-inset ring-positive/30">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Cleared
+                        </span>
+                      ) : (
+                        <span className="text-xs text-ink-muted">
+                          Within limit
+                        </span>
+                      )}
+                    </td>
+                    {/* Actions: check / x + a more-actions overflow menu */}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <span
+                          title={
+                            overLimit
+                              ? "File a policy exception to approve"
+                              : undefined
+                          }
+                        >
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            disabled={overLimit}
+                            onClick={() => void handleApprove(transaction.id)}
+                            aria-label="Approve"
+                            className="h-9 w-9 rounded-full border-transparent bg-positive-soft text-positive hover:bg-positive-soft hover:text-positive hover:brightness-95 disabled:opacity-40 dark:hover:brightness-110"
+                          >
+                            <Check className="h-5 w-5" />
+                          </Button>
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => void handleDeny(transaction.id)}
+                          aria-label="Deny"
+                          className="h-9 w-9 rounded-full border-transparent bg-negative-soft text-negative hover:bg-negative-soft hover:text-negative hover:brightness-95 dark:hover:brightness-110"
+                        >
+                          <X className="h-5 w-5" />
+                        </Button>
+                        {canFileException ? (
+                          // modal={false} so opening the menu does NOT engage
+                          // Radix's scroll-lock (react-remove-scroll), which
+                          // otherwise compensates for the scrollbar and reflows
+                          // the table — squeezing the columns and clipping this
+                          // Actions cell. A row action menu has no need to be
+                          // modal; it still dismisses on outside-click/scroll.
+                          <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="More actions"
+                                className="h-9 w-9 rounded-full text-ink-muted hover:bg-surface-muted"
+                              >
+                                <MoreHorizontal className="h-5 w-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  logStep("Opened the exception form");
+                                  setExceptionTxnId(transaction.id);
+                                }}
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                File policy exception
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Inline exception form — expands directly under its row. */}
+                  {isExpanded &&
+                    openPolicyException &&
+                    finalizePolicyException && (
+                      <tr className="border-b border-hairline/60">
+                        <td colSpan={4} className="px-3 pb-3">
+                          <PolicyExceptionInline
+                            transactionId={transaction.id}
+                            openPolicyException={openPolicyException}
+                            finalizePolicyException={finalizePolicyException}
+                            onFiled={() => setExceptionTxnId(null)}
+                            onCancel={() => setExceptionTxnId(null)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+
+                  {/* Note */}
+                  {transaction.note && (
+                    <tr className="border-b border-hairline/60">
+                      <td colSpan={4} className="px-3 pb-3">
+                        <div className="flex items-start rounded-xl bg-surface-muted p-3">
+                          <MessageSquare className="mr-2 mt-0.5 h-4 w-4 flex-shrink-0 text-ink-muted" />
+                          <div className="flex-1">
+                            <p className="text-sm text-ink">
+                              {transaction.note.content}
+                            </p>
+                            <p className="mt-1 text-xs text-ink-muted">
+                              {transaction.note.date}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // ── Read-only list ─────────────────────────────────────────────────────────
+  // The original compact row layout, used by the chat showTransactions card and
+  // the dashboard overview / all / income / expenses tabs (no approval UI).
   return (
     <div className={cn("overflow-hidden", compact ? "text-sm" : "text-base")}>
       {transactions.map((transaction) => {
-        // Over-limit is derived on the CLIENT from already-loaded data: a
-        // pending txn whose policy would be pushed past its limit by this
-        // amount, and which has no exception linked yet. Once a justifying
-        // exception is finalized server-side, `activeExceptionId` is set and
-        // this clears. (A non-justifying exception also clears the badge but
-        // the approve will re-block server-side — acceptable for the demo.)
-        const policy = policies.find((p) => p.id === transaction.policyId);
-        const policyOver =
-          !!policy &&
-          policy.spent + Math.abs(transaction.amount) > policy.limit;
-        const overLimit = policyOver && !transaction.activeExceptionId;
-
         const isIncome = transaction.amount > 0;
         return (
           <div key={transaction.id}>
@@ -172,99 +416,6 @@ export function TransactionsList({
                   >
                     {transaction.note.date}
                   </p>
-                </div>
-              </div>
-            )}
-            {showApprovalInterface && transaction.status === "pending" && (
-              <div className="flex flex-col items-center gap-3 rounded-2xl bg-surface p-4">
-                {overLimit && (
-                  <div className="flex w-full flex-col items-center gap-2">
-                    <div className="flex items-center gap-1.5 rounded-full bg-negative-soft px-2.5 py-1 text-xs font-medium text-negative ring-1 ring-inset ring-negative/30">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      Over policy limit
-                    </div>
-                    {exceptionTxnId === transaction.id &&
-                    openPolicyException &&
-                    finalizePolicyException ? (
-                      // The exception flow renders INLINE in the chat card (not
-                      // a popup modal) so the officer's whole demonstration —
-                      // symptom → file exception → recorded — happens right in
-                      // the conversation.
-                      <PolicyExceptionInline
-                        transactionId={transaction.id}
-                        openPolicyException={openPolicyException}
-                        finalizePolicyException={finalizePolicyException}
-                        onFiled={() => setExceptionTxnId(null)}
-                        onCancel={() => setExceptionTxnId(null)}
-                      />
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          logStep("Opened the exception form");
-                          setExceptionTxnId(transaction.id);
-                        }}
-                      >
-                        File policy exception
-                      </Button>
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center justify-center space-x-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={async () => {
-                      const ok =
-                        (await approvalInterfaceProps?.onApprove?.(
-                          transaction.id,
-                        )) ?? false;
-                      if (!ok) return;
-                      logStep("Approved the charge");
-                      beginRecording();
-                      recordUserAction({
-                        title: "transaction.approved",
-                        description:
-                          "User approved a pending transaction from the transactions view.",
-                        previousData: { status: "pending" },
-                        newData: { status: "approved" },
-                        metadata: { transactionId: transaction.id },
-                      })
-                        .catch(console.error)
-                        .finally(() => endRecording());
-                    }}
-                    aria-label="Approve"
-                    className="h-12 w-12 rounded-full border-transparent bg-positive-soft text-positive hover:bg-positive-soft hover:text-positive hover:brightness-95 dark:hover:brightness-110"
-                  >
-                    <Check className="h-6 w-6" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={async () => {
-                      const ok =
-                        (await approvalInterfaceProps?.onDeny?.(
-                          transaction.id,
-                        )) ?? false;
-                      if (!ok) return;
-                      beginRecording();
-                      recordUserAction({
-                        title: "transaction.denied",
-                        description:
-                          "User denied a pending transaction from the transactions view.",
-                        previousData: { status: "pending" },
-                        newData: { status: "denied" },
-                        metadata: { transactionId: transaction.id },
-                      })
-                        .catch(console.error)
-                        .finally(() => endRecording());
-                    }}
-                    aria-label="Deny"
-                    className="h-12 w-12 rounded-full border-transparent bg-negative-soft text-negative hover:bg-negative-soft hover:text-negative hover:brightness-95 dark:hover:brightness-110"
-                  >
-                    <X className="h-6 w-6" />
-                  </Button>
                 </div>
               </div>
             )}
