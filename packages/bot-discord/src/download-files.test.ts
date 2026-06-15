@@ -37,4 +37,54 @@ describe("buildFileContentParts", () => {
     expect(parts).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it("skips a file whose downloaded body exceeds the cap (reported size lied)", async () => {
+    // Reported size is under the cap, so it gets fetched — but the actual body
+    // is larger than maxBytes and must be dropped post-fetch.
+    const big = new Uint8Array(100);
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => big.buffer,
+    })) as any;
+    const parts = await buildFileContentParts(
+      [{ url: "https://cdn/x.png", name: "x.png", contentType: "image/png", size: 3 }],
+      { fetchImpl, maxBytes: 10 },
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(parts).toEqual([]);
+  });
+
+  it("truncates a text body larger than maxTextBytes", async () => {
+    // Use a payload char that never appears in the surrounding framing so the
+    // count of retained body bytes is unambiguous.
+    const big = "Z".repeat(500);
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode(big).buffer,
+    })) as any;
+    const parts = await buildFileContentParts(
+      [{ url: "https://cdn/big.log", name: "big.log", contentType: "text/plain", size: big.length }],
+      { fetchImpl, maxTextBytes: 100 },
+    );
+    expect(parts[0]).toMatchObject({ type: "text" });
+    const text = (parts[0] as { type: "text"; text: string }).text;
+    expect(text).toContain("truncated");
+    expect(text).toContain("…(truncated)");
+    // Exactly 100 body bytes retained out of the original 500.
+    expect(text.match(/Z/g)?.length).toBe(100);
+  });
+
+  it("decodes a .csv reported as application/octet-stream as a text part", async () => {
+    const csv = "a,b\n1,2";
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode(csv).buffer,
+    })) as any;
+    const parts = await buildFileContentParts(
+      [{ url: "https://cdn/data.csv", name: "data.csv", contentType: "application/octet-stream", size: csv.length }],
+      { fetchImpl },
+    );
+    expect(parts[0]).toMatchObject({ type: "text" });
+    expect(JSON.stringify(parts[0])).toContain("a,b");
+  });
 });

@@ -47,6 +47,12 @@ export interface FileDeliveryConfig {
    */
   maxBytes?: number;
   /**
+   * Truncate decoded text files to this many bytes before injecting them into
+   * the prompt (keeps a large text upload from blowing the token budget).
+   * Default 200 KiB.
+   */
+  maxTextBytes?: number;
+  /**
    * Inject a custom fetch implementation (for testing or environments without
    * the global `fetch`).
    */
@@ -54,6 +60,7 @@ export interface FileDeliveryConfig {
 }
 
 const DEFAULT_MAX_BYTES = 10_000_000; // 10 MiB
+const DEFAULT_MAX_TEXT_BYTES = 200_000; // ~200 KiB
 
 /** File extensions that indicate decodable plain text even when MIME is absent. */
 const TEXT_EXT_RE = /\.(txt|csv|json|md|log|tsv|ya?ml)$/i;
@@ -82,9 +89,13 @@ function mediaPartType(
 /**
  * Download Discord message attachments and convert them to AG-UI content parts.
  *
- * Files over `maxBytes` are skipped WITHOUT fetching. Images map to an image
- * part; text/* and text-named files (.txt, .csv, .json, .md, .log, .tsv,
- * .yaml) map to a text part; other binary content is silently skipped.
+ * Files whose reported size exceeds `maxBytes` are skipped WITHOUT fetching;
+ * the actual downloaded byte length is re-checked against the same cap after
+ * fetching. Images map to an image part; text/* MIME types and text-named
+ * files (.txt, .csv, .json, .md, .log, .tsv, .yaml) — including ones reported
+ * with a generic binary MIME like application/octet-stream — map to a text
+ * part (truncated to `maxTextBytes`); other binary content is silently
+ * skipped.
  */
 export async function buildFileContentParts(
   attachments: readonly DiscordAttachmentRef[],
@@ -92,6 +103,7 @@ export async function buildFileContentParts(
 ): Promise<AgentContentPart[]> {
   const fetchImpl = cfg.fetchImpl ?? fetch;
   const maxBytes = cfg.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxTextBytes = cfg.maxTextBytes ?? DEFAULT_MAX_TEXT_BYTES;
   const parts: AgentContentPart[] = [];
 
   for (const att of attachments) {
@@ -101,7 +113,11 @@ export async function buildFileContentParts(
     const mime = (att.contentType ?? "").toLowerCase().split(";")[0]!.trim();
     const media = mediaPartType(mime);
     const textMime = isTextMime(mime);
-    const textName = !mime && TEXT_EXT_RE.test(att.name);
+    // Treat a recognized text extension as text whenever the MIME isn't a
+    // medium we pass through and isn't itself a text MIME — this also covers
+    // generic/unrecognized binary types (e.g. application/octet-stream) that
+    // Discord sometimes reports for .csv/.json/etc. uploads.
+    const textName = !media && !textMime && TEXT_EXT_RE.test(att.name);
 
     // Skip binary types we don't represent.
     if (!media && !textMime && !textName) continue;
@@ -116,6 +132,10 @@ export async function buildFileContentParts(
 
     const bytes = new Uint8Array(await res.arrayBuffer());
 
+    // Double-check the actual downloaded size — the reported `att.size` can
+    // lie (or be absent), so re-gate on the real byte length.
+    if (bytes.length > maxBytes) continue;
+
     if (media) {
       // Binary media part — base64-encoded, exact same shape as bot-slack.
       const effectiveMime = mime || `application/octet-stream`;
@@ -128,11 +148,22 @@ export async function buildFileContentParts(
         },
       });
     } else {
-      // Text content — decode and wrap with filename context.
-      const text = new TextDecoder("utf-8").decode(bytes);
+      // Text content — truncate the BYTES then decode (slicing the decoded
+      // string by character index would corrupt multi-byte UTF-8 and wouldn't
+      // actually bound the byte length). Append a note when truncated.
+      let buf = bytes;
+      let truncated = false;
+      if (buf.length > maxTextBytes) {
+        buf = buf.subarray(0, maxTextBytes);
+        truncated = true;
+      }
+      const text = new TextDecoder("utf-8").decode(buf);
       parts.push({
         type: "text",
-        text: `Attached file "${att.name}" (${mime || "text"}):\n${text}`,
+        text:
+          `Attached file "${att.name}" (${mime || "text"}${truncated ? ", truncated" : ""}):\n` +
+          text +
+          (truncated ? "\n…(truncated)" : ""),
       });
     }
   }
