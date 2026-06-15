@@ -8,7 +8,7 @@ export const lookupDiscordUserTool: BotTool = defineBotTool({
     "Resolve a person's name, display name, or handle to a Discord user id and a " +
     "ready-to-use <@id> mention.",
   parameters: z.object({
-    query: z.string().describe("A name, display name, or handle to resolve."),
+    query: z.string().min(1).describe("A name, display name, or handle to resolve."),
   }),
   async handler({ query }, { thread }) {
     let user;

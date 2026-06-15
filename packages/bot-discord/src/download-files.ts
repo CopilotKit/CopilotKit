@@ -21,7 +21,7 @@ export interface DiscordAttachmentRef {
 }
 
 /** A base64 data source, shared by every binary media part. */
-type MediaDataSource = { type: "data"; value: string; mimeType: string };
+export type MediaDataSource = { type: "data"; value: string; mimeType: string };
 
 /**
  * AG-UI multimodal content parts — SAME shape as bot-slack emits so the agent

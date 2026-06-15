@@ -33,7 +33,7 @@ export { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 export { registerCommands, jsonSchemaToDiscordOptions } from "./commands.js";
 
 export { buildFileContentParts } from "./download-files.js";
-export type { DiscordAttachmentRef, AgentContentPart, FileDeliveryConfig } from "./download-files.js";
+export type { DiscordAttachmentRef, AgentContentPart, FileDeliveryConfig, MediaDataSource } from "./download-files.js";
 
 export {
   defaultDiscordContext,
