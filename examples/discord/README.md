@@ -143,33 +143,33 @@ Mention the bot in a channel:
 
 ## Environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `DISCORD_BOT_TOKEN` | Yes | Bot token from the Developer Portal (Bot page). |
-| `DISCORD_APP_ID` | Yes | Application ID from General Information. |
-| `DISCORD_GUILD_ID` | No | Guild ID for instant slash-command registration during dev. Omit for global commands. |
-| `AGENT_URL` | Yes | AG-UI endpoint served by `runtime.ts`. Default: `http://localhost:8200/api/copilotkit/agent/triage/run`. |
-| `AGENT_AUTH_HEADER` | No | Authorization header value forwarded to a deployed runtime. |
-| `AGENT_MAX_STEPS` | No | Max agent tool-loop steps per turn. Default: 12. |
-| `OPENAI_API_KEY` | Yes* | Required if using the default `openai/gpt-5.5` model. |
-| `ANTHROPIC_API_KEY` | No | Set alongside `AGENT_MODEL=anthropic/claude-sonnet-4-6`. |
-| `GOOGLE_API_KEY` | No | Set alongside `AGENT_MODEL=google/gemini-2.5-flash`. |
-| `AGENT_MODEL` | No | Override the default model (`openai/gpt-5.5`). |
-| `LINEAR_API_KEY` | No | Personal API key from linear.app. Omit to run without Linear. |
-| `LINEAR_TEAM_KEY` | No | Default Linear team key the agent files/queries against. Default: `CPK`. |
-| `NOTION_TOKEN` | No | Notion integration secret (`ntn_...`). Omit to run without Notion. |
-| `NOTION_MCP_AUTH_TOKEN` | No | Shared bearer secret for the local Notion MCP sidecar. Required if `NOTION_TOKEN` is set. |
+| Variable                | Required | Description                                                                                              |
+| ----------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `DISCORD_BOT_TOKEN`     | Yes      | Bot token from the Developer Portal (Bot page).                                                          |
+| `DISCORD_APP_ID`        | Yes      | Application ID from General Information.                                                                 |
+| `DISCORD_GUILD_ID`      | No       | Guild ID for instant slash-command registration during dev. Omit for global commands.                    |
+| `AGENT_URL`             | Yes      | AG-UI endpoint served by `runtime.ts`. Default: `http://localhost:8200/api/copilotkit/agent/triage/run`. |
+| `AGENT_AUTH_HEADER`     | No       | Authorization header value forwarded to a deployed runtime.                                              |
+| `AGENT_MAX_STEPS`       | No       | Max agent tool-loop steps per turn. Default: 12.                                                         |
+| `OPENAI_API_KEY`        | Yes\*    | Required if using the default `openai/gpt-5.5` model.                                                    |
+| `ANTHROPIC_API_KEY`     | No       | Set alongside `AGENT_MODEL=anthropic/claude-sonnet-4-6`.                                                 |
+| `GOOGLE_API_KEY`        | No       | Set alongside `AGENT_MODEL=google/gemini-2.5-flash`.                                                     |
+| `AGENT_MODEL`           | No       | Override the default model (`openai/gpt-5.5`).                                                           |
+| `LINEAR_API_KEY`        | No       | Personal API key from linear.app. Omit to run without Linear.                                            |
+| `LINEAR_TEAM_KEY`       | No       | Default Linear team key the agent files/queries against. Default: `CPK`.                                 |
+| `NOTION_TOKEN`          | No       | Notion integration secret (`ntn_...`). Omit to run without Notion.                                       |
+| `NOTION_MCP_AUTH_TOKEN` | No       | Shared bearer secret for the local Notion MCP sidecar. Required if `NOTION_TOKEN` is set.                |
 
 ## Scripts
 
-| Script | Command | Description |
-|---|---|---|
-| `runtime` | `pnpm runtime` | Start the CopilotKit agent backend on port 8200. |
-| `dev` | `pnpm dev` | Start the bot with hot-reload (`tsx watch`). |
-| `start` | `pnpm start` | Start the bot without hot-reload (production). |
-| `notion-mcp` | `pnpm notion-mcp` | Run the Notion MCP sidecar on port 3001. |
-| `e2e` | `pnpm e2e` | Run the live-Discord e2e harness. |
-| `e2e:restart` | `pnpm e2e:restart` | Re-run the e2e recovery path. |
+| Script        | Command            | Description                                      |
+| ------------- | ------------------ | ------------------------------------------------ |
+| `runtime`     | `pnpm runtime`     | Start the CopilotKit agent backend on port 8200. |
+| `dev`         | `pnpm dev`         | Start the bot with hot-reload (`tsx watch`).     |
+| `start`       | `pnpm start`       | Start the bot without hot-reload (production).   |
+| `notion-mcp`  | `pnpm notion-mcp`  | Run the Notion MCP sidecar on port 3001.         |
+| `e2e`         | `pnpm e2e`         | Run the live-Discord e2e harness.                |
+| `e2e:restart` | `pnpm e2e:restart` | Re-run the e2e recovery path.                    |
 
 ## Deploying
 
