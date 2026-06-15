@@ -36,7 +36,7 @@ interface Props {
   finalizePolicyException: (args: {
     exceptionId: string;
   }) => Promise<ExceptionResult>;
-  onFiled?: () => void;
+  onFiled?: (code: string) => void;
   onCancel?: () => void;
 }
 
@@ -123,7 +123,7 @@ export function PolicyExceptionInline(props: Props) {
       }).catch(console.error);
 
       setDoneId(exceptionId);
-      props.onFiled?.();
+      props.onFiled?.(code);
     } finally {
       setBusy(false);
       endRecording();

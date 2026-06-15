@@ -28,6 +28,8 @@ import { useSearchParams } from "next/navigation";
 import { CardsPageOperations } from "@/components/copilot-context";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 import { ApprovalButtons } from "@/components/approval-buttons";
+import { PolicyExceptionInline } from "@/components/policy-exception-inline";
+import { useRecording } from "@/components/recording-context";
 
 interface ChangePinState {
   newPin: string;
@@ -43,6 +45,19 @@ const changePinReducer = (
   ...state,
   ...payload,
 });
+
+// Self-learning "teach a workflow" loop — the canonical procedure echoed to the
+// agent when the officer saves the demonstrated workflow. It names the exact
+// (justifying) code the officer used; finalizing such an exception is what lifts
+// the over-limit gate (proven in scripts/over-limit-gate-smoke.mjs). This text
+// lands in the thread, which is how the agent recalls the procedure later in the
+// SAME session. The agent only ever sees the code, never its human label.
+const canonicalProcedure = (code: string): string =>
+  `Saved workflow for clearing an over-limit charge: (1) open a policy ` +
+  `exception against the transaction with code ${code}, (2) finalize the ` +
+  `exception, then (3) approve the transaction. Finalizing a ${code} exception ` +
+  `lifts the policy-limit gate. Reuse this same procedure for any other ` +
+  `over-limit charge — do not ask how to proceed.`;
 
 export default function Page() {
   const { currentUser } = useAuthContext();
@@ -66,6 +81,7 @@ export default function Page() {
     openPolicyException,
     finalizePolicyException,
   } = useCreditCards();
+  const { beginRecording, endRecording } = useRecording();
 
   useEffect(() => {
     const operationNameToMethod: Partial<
@@ -478,7 +494,12 @@ export default function Page() {
 
   useHumanInTheLoop(
     {
-      followUp: false,
+      // followUp:true so the agent CONTINUES after the human clicks Approve.
+      // With over-limit seed charges the approve is rejected, and the agent must
+      // follow up by offering to record a workflow (offerWorkflowRecording)
+      // rather than ending the run on the failure. Keep the prompt terse so a
+      // successful approve still yields only a one-line follow-up.
+      followUp: true,
       name: "showAndApproveTransactions",
       description: `
       This operation is per department.
@@ -573,7 +594,11 @@ export default function Page() {
   // describe a sequence. The human picks the code in the modal; the agent
   // only ever passes through whatever code it was given.
   useHumanInTheLoop({
-    followUp: false,
+    // followUp:true so that during recall the agent CONTINUES after the
+    // exception is opened — it must chain to finalizePolicyException (and then
+    // approval) on its own. With followUp:false the run ended here and the
+    // recall stalled after opening the exception.
+    followUp: true,
     name: "openPolicyException",
     description:
       "Open a draft policy exception against a transaction. Requires human approval.",
@@ -613,12 +638,18 @@ export default function Page() {
                 respond?.("Missing transaction or exception code");
                 return;
               }
-              const { ok, error } = await openPolicyException({
+              const { ok, data, error } = await openPolicyException({
                 transactionId,
                 code,
               });
+              // Directive result so the agent reliably chains the NEXT step
+              // during recall: finalize THIS exception (by id) before any
+              // approval. gpt-5.4-mini otherwise tends to jump straight to
+              // approving, which the gate then rejects.
               respond?.(
-                ok ? "Exception opened" : `Could not open exception: ${error}`,
+                ok
+                  ? `Policy exception ${data?.id ?? "(id unavailable)"} opened as a DRAFT. Next, call finalizePolicyException with exceptionId "${data?.id ?? ""}". The transaction stays blocked until this exception is finalized — do not try to approve before then.`
+                  : `Could not open exception: ${error}`,
               );
             }}
             onDeny={() => respond?.("Denied by user")}
@@ -631,7 +662,9 @@ export default function Page() {
   // Finalize a policy exception (human-in-the-loop). Neutral description —
   // says nothing about what finalizing accomplishes.
   useHumanInTheLoop({
-    followUp: false,
+    // followUp:true so the agent CONTINUES after finalizing to perform the
+    // approval — completing the open -> finalize -> approve recall chain.
+    followUp: true,
     name: "finalizePolicyException",
     description: "Finalize a policy exception. Requires human approval.",
     available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
@@ -670,11 +703,178 @@ export default function Page() {
               });
               respond?.(
                 ok
-                  ? "Exception finalized"
+                  ? "Exception finalized — the policy-limit gate is now lifted. Approve the transaction to complete it."
                   : `Could not finalize exception: ${error}`,
               );
             }}
             onDeny={() => respond?.("Denied by user")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // --- Self-learning "teach a workflow" loop ---------------------------------
+  // Three HITL cards the agent calls in sequence once it hits the over-limit
+  // gate with no saved procedure (the sequencing rules live in
+  // api/copilotkit/[[...slug]]/route.ts): offer to record -> let the officer
+  // demonstrate the fix -> summarize and save. All are followUp:true so the
+  // agent advances to the next beat after each card resolves. Recording mode
+  // (the canvas vignette) opens on "Start recording" and closes on
+  // Save/Discard/Cancel; RecordingProvider ref-counts, so the inline card's own
+  // begin/end bracket nests harmlessly inside this window.
+
+  // BEAT 2 — offer to record, after an approval is rejected with no procedure.
+  useHumanInTheLoop({
+    followUp: true,
+    name: "offerWorkflowRecording",
+    description:
+      "Offer to record how the user handles a charge you have no saved procedure for. Call this immediately after an approval is rejected (e.g. over the policy limit) and you have no saved workflow for it — do NOT just ask how to proceed.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      transactionId: z
+        .string()
+        .describe("The transaction whose approval was just rejected."),
+    }),
+    render: ({ respond, status }) => {
+      if (status === "inProgress") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-ink">
+              Record a workflow?
+            </h3>
+            <p className="text-sm text-ink-muted">
+              No saved procedure for this charge yet. Want me to record how you
+              handle it so I can do it myself next time?
+            </p>
+          </div>
+          <ApprovalButtons
+            approveLabel="Start recording"
+            denyLabel="Not now"
+            onApprove={() => {
+              beginRecording();
+              respond?.("started");
+            }}
+            onDeny={() => respond?.("declined")}
+          />
+        </div>
+      );
+    },
+  });
+
+  // BEAT 3 — the officer demonstrates the fix. Renders the inline policy-
+  // exception card; on filed it finishes the original ask by approving the
+  // now-unblocked charge, then reports the demonstrated code back to the agent.
+  useHumanInTheLoop(
+    {
+      followUp: true,
+      name: "recordExceptionDemonstration",
+      description:
+        'Let the user demonstrate how they clear this charge. Call this after the user agrees to record (offerWorkflowRecording returned "started"). When they finish you receive the exception code they used.',
+      available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+      parameters: z.object({
+        transactionId: z
+          .string()
+          .describe("The transaction the user will demonstrate on."),
+      }),
+      render: ({ args, respond, status }) => {
+        if (status === "inProgress") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              Loading…
+            </div>
+          );
+        }
+        return (
+          <PolicyExceptionInline
+            transactionId={args.transactionId}
+            openPolicyException={openPolicyException}
+            finalizePolicyException={finalizePolicyException}
+            onFiled={async (code) => {
+              // The exception lifted the gate — finish the original request by
+              // approving, so the charge actually clears in front of the user.
+              const { ok, error } = await changeTransactionStatus({
+                id: args.transactionId,
+                status: "approved",
+              });
+              respond?.(
+                ok
+                  ? `Filed a policy exception with code ${code} and approved the charge.`
+                  : `Filed a policy exception with code ${code}, but the approval still failed: ${error}`,
+              );
+            }}
+            onCancel={() => {
+              endRecording();
+              respond?.("cancelled");
+            }}
+          />
+        );
+      },
+    },
+    [transactions, policies],
+  );
+
+  // BEAT 4 — summarize and save. Echoes the demonstrated procedure back into the
+  // thread (the same-session recall mechanism) and closes recording mode.
+  useHumanInTheLoop({
+    followUp: true,
+    name: "saveLearnedWorkflow",
+    description:
+      "Summarize the procedure the user just demonstrated and ask to save it. Call this after recordExceptionDemonstration reports a filed exception, passing the exact code from that result.",
+    available: PERMISSIONS.APPROVE_TRANSACTION.includes(currentUser.role),
+    parameters: z.object({
+      transactionId: z.string(),
+      code: z
+        .string()
+        .describe(
+          "The exception code the user demonstrated, taken from recordExceptionDemonstration's result.",
+        ),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status === "inProgress") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
+      }
+      const { code } = args;
+      return (
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-ink">
+              Save this workflow?
+            </h3>
+            <p className="text-sm text-ink-muted">
+              To clear an over-limit charge:
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+              <li>
+                Open a policy exception under code{" "}
+                <span className="font-mono text-xs">{code}</span>
+              </li>
+              <li>Finalize the exception</li>
+              <li>Approve the transaction</li>
+            </ol>
+          </div>
+          <ApprovalButtons
+            approveLabel="Save workflow"
+            denyLabel="Discard"
+            onApprove={() => {
+              endRecording();
+              respond?.(canonicalProcedure(code));
+            }}
+            onDeny={() => {
+              endRecording();
+              respond?.("discarded");
+            }}
           />
         </div>
       );
@@ -739,6 +939,25 @@ export default function Page() {
           currentUser.role,
         ),
     ),
+  });
+
+  // Expose the transactions so the agent can resolve a charge the user names
+  // (by merchant and/or amount) to the correct id. Without this the agent only
+  // sees that ids look like "t-N" and GUESSES — which made it target the wrong
+  // charge during recall. It does NOT reveal the over-limit unlock procedure;
+  // the agent still has to learn that.
+  useAgentContext({
+    description:
+      "The user's transactions. When the user refers to a charge by merchant " +
+      "name and/or amount, resolve it to the matching id here and pass that id " +
+      "to the transaction tools. Never invent an id that is not in this list.",
+    value: transactions.map((t) => ({
+      id: t.id,
+      merchant: t.title,
+      amount: t.amount,
+      status: t.status,
+      policyId: t.policyId,
+    })),
   });
 
   if (!cards || !policies) return null;
