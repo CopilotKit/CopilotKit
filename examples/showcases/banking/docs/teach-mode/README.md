@@ -91,13 +91,16 @@ backend-block note in **(e)**.
 > echoing the saved procedure back into the thread; the cross-thread `/knowledge`
 > proof still requires the backend (role #5).
 >
-> The waiting card stays **non-directional** — it never lists the steps ("go
-> ahead and do it yourself now and I'll watch and learn"), since the point is the
-> agent doesn't yet know how. A floating **recorder HUD**
-> (`src/components/recording-feed.tsx`, fed by `logStep` from the nav / tab /
-> file-exception / approve call sites) narrates each officer action live ("Opened
-> Dashboard" → "Filed the policy exception" → "Approved the charge"), so the
-> demonstration is visibly captured. `saveLearnedWorkflow`'s tool result is
+> The waiting card ("Recording your workflow") stays **non-directional** — it
+> never lists the steps ("go ahead and do it yourself now and I'll watch and
+> learn"), since the point is the agent doesn't yet know how. The card embeds a
+> live **recorder feed** (`RecordingSteps` in `src/components/recording-feed.tsx`,
+> fed by `logStep` from the nav / tab / file-exception / approve call sites) that
+> narrates each officer action as it happens ("Opened Dashboard" → "Filed the
+> policy exception" → "Approved the charge"). It renders INSIDE the chat card (a
+> child component subscribed to the recording context, so it updates live without
+> a stale-closure dep), reading consistently with the other cards rather than as
+> a floating overlay. `saveLearnedWorkflow`'s tool result is
 > **directive** so the model renders the Save card instead of asking "should I
 > save this?" in prose (the failure that otherwise leaves the user nothing to
 > click). After saving, the agent treats the demonstrated charge as already

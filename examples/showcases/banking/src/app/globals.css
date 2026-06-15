@@ -255,27 +255,3 @@ body {
     opacity: 0.45;
   }
 }
-
-/* Recorder HUD (see <RecordingFeed/>): the floating panel that narrates each
-   officer action while a workflow is being recorded. Eases up into view so it
-   reads as "the recorder just appeared". */
-@keyframes recording-feed-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.recording-feed-panel {
-  animation: recording-feed-in 240ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .recording-feed-panel {
-    animation: none;
-  }
-}

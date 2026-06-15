@@ -6,6 +6,7 @@ import useCreditCards from "@/app/actions";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
+import { RecordingSteps } from "@/components/recording-feed";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 import { Button } from "./ui/button";
 
@@ -463,7 +464,18 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       return (
         <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <div className="space-y-1">
-            <h3 className="text-lg font-semibold text-ink">Show me how</h3>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-negative opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-negative" />
+              </span>
+              <h3 className="text-lg font-semibold text-ink">
+                Recording your workflow
+              </h3>
+              <span className="ml-auto text-[0.65rem] font-semibold uppercase tracking-wide text-negative">
+                Rec
+              </span>
+            </div>
             <p className="text-sm text-ink-muted">
               I don&apos;t know how to do this yet — go ahead and do it yourself
               now and I&apos;ll watch and learn. Click{" "}
@@ -471,6 +483,9 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
               you&apos;re finished.
             </p>
           </div>
+          {/* Live feed of the actions being captured — same chat card, so it
+              reads consistently with the other cards (not a floating overlay). */}
+          <RecordingSteps />
           <ApprovalButtons
             approveLabel="I'm done"
             denyLabel="Cancel"
