@@ -8,7 +8,7 @@
     {
       "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 follow-up content after get_weather tool ran. MUST come before tool-emitting fixture (first-match-wins).",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "ms-agent-python"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 emit get_weather tool call. The custom wildcard renderer will catch this since there is no per-tool renderer registered.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "hasToolResult": false,
         "context": "ms-agent-python"
       },

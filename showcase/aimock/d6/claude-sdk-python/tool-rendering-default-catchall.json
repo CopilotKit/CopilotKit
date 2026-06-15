@@ -8,7 +8,7 @@
     {
       "_comment": "default-catchall: weather in Tokyo \u2014 follow-up content after get_weather tool result. MUST come before the tool-emitting fixture below (first-match-wins). The built-in default renderer (copilot-tool-render testid) fires for get_weather since no user-supplied renderer is registered.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "claude-sdk-python"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "default-catchall: weather in Tokyo \u2014 first leg: emit get_weather tool call.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolName": "get_weather",
         "context": "claude-sdk-python"
       },
@@ -37,7 +37,7 @@
     {
       "_comment": "default-catchall: weather in Tokyo \u2014 fallback when get_weather tool not registered.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "context": "claude-sdk-python"
       },
       "response": {

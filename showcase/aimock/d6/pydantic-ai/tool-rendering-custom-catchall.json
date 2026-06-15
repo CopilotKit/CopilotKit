@@ -8,7 +8,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up after get_weather ran. Keyed on toolCallId so it fires after iteration 1. Must come BEFORE the tool-emitting fixture.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "pydantic-ai"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo first leg: emit get_weather tool call. Driven by the probe's first prompt.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "hasToolResult": false,
         "context": "pydantic-ai"
       },

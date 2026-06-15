@@ -8,7 +8,7 @@
     {
       "_comment": "default-catchall \u2014 weather in Tokyo. Follow-up content after get_weather tool ran. Keyed by toolCallId. MUST come before the tool-emitting fixture below.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolCallId": "call_d6_mastra_dc_weather_001",
         "context": "mastra"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "default-catchall \u2014 weather in Tokyo, emit get_weather. Uses toolName gate.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "toolName": "get_weather",
         "context": "mastra"
       },
@@ -36,7 +36,7 @@
     {
       "_comment": "default-catchall \u2014 weather in Tokyo, fallback content when no toolName gate matches.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "turnIndex": 0,
         "context": "mastra"
       },

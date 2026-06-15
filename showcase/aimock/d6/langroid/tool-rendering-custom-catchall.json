@@ -8,7 +8,7 @@
     {
       "_comment": "Custom catchall turn 1: weather in Tokyo \u2014 emits get_weather tool call. The custom wildcard renderer fires for this tool. hasToolResult:false on first leg.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "hasToolResult": false,
         "context": "langroid"
       },
@@ -25,7 +25,7 @@
     {
       "_comment": "Custom catchall turn 1: weather in Tokyo \u2014 follow-up after tool result.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "weather in Tokyo",
         "hasToolResult": true,
         "context": "langroid"
       },
