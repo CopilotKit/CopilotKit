@@ -150,8 +150,16 @@ export class DiscordAdapter implements PlatformAdapter {
         // or network error also lands here, so surface it before proceeding.
         console.error("[bot-discord] interaction deferUpdate failed:", err);
       }
-      const evt = this.decodeInteraction(i);
-      if (evt) await sink.onInteraction(evt);
+      try {
+        const evt = this.decodeInteraction(i);
+        if (evt) await sink.onInteraction(evt);
+      } catch (err) {
+        // Mirror discord-listener's onTurn/onCommand guards: a malformed
+        // payload (decode throw) or a rejected sink dispatch must not become
+        // an unhandled promise rejection. The interaction is already acked
+        // via deferUpdate above, so logging here is sufficient.
+        console.error("[bot-discord] interaction dispatch failed:", err);
+      }
     });
 
     await this.client.login(this.opts.botToken);

@@ -133,4 +133,48 @@ describe("DiscordAdapter", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(second).toEqual({ id: "u1", name: "Ada", handle: "ada" });
   });
+
+  it("interactionCreate dispatch failures are caught, not left unhandled", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    // sink.onInteraction rejects — without the try/catch this becomes an
+    // unhandled promise rejection inside the event handler.
+    s.onInteraction.mockRejectedValue(new Error("dispatch boom"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await a.start(s as never);
+
+    // A well-formed button interaction that decodes to an event.
+    const deferUpdate = vi.fn(async () => {});
+    const interaction = {
+      isButton: () => true,
+      isStringSelectMenu: () => false,
+      customId: "btn-1",
+      channelId: "c1",
+      user: { id: "u1", username: "ada" },
+      message: { id: "m1" },
+      deferUpdate,
+    };
+
+    // emit() invokes the (async) handler synchronously; the body runs across
+    // several microtask turns (deferUpdate → decode → dispatch → catch). If the
+    // rejection escaped the handler, it would surface as an unhandled rejection
+    // (and crash under --unhandled-rejections=throw) rather than the logged path.
+    client.emit("interactionCreate", interaction);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+    expect(s.onInteraction).toHaveBeenCalledTimes(1);
+    expect(errSpy).toHaveBeenCalledWith(
+      "[bot-discord] interaction dispatch failed:",
+      expect.any(Error),
+    );
+    errSpy.mockRestore();
+  });
 });
