@@ -5747,3 +5747,173 @@ describe("orchestrator B2: /webhooks/deploy registered on CP + fail-loud on miss
     }
   });
 });
+
+/**
+ * R1-F1 (CR round 1, bucket a): the CP boot path MUST subscribe to
+ * `deploy.result` and route each event through its status writer so a valid
+ * signed POST against the CP host actually writes the deploy-overall
+ * dashboard row.
+ *
+ * Pre-fix: B2 mounted POST /webhooks/deploy on the CP role and the route
+ * emitted on the bus, but only the worker `boot()` path had a
+ * `bus.on("deploy.result", ...)` listener. CP signed POSTs returned 202
+ * (route accepted), but the bus event had no subscriber and the dashboard
+ * row never landed — the original B2 fix mounted the route without
+ * delivering the event.
+ */
+describe("orchestrator R1-F1: deploy.result subscriber on CP path", () => {
+  let port = 0;
+  let alertsDir: string;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  let workerStopFn: (() => Promise<void>) | null = null;
+  let tempDir: string;
+  const writes: ProbeResult[] = [];
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r1f1-"));
+    alertsDir = path.join(root, "alerts");
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r1f1-worker-"));
+    await fs.mkdir(alertsDir, { recursive: true });
+    writes.length = 0;
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    if (workerStopFn) {
+      await workerStopFn().catch(() => undefined);
+      workerStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    // R1-F1 tests use vi.stubEnv (modern pattern); restoreAllMocks does
+    // NOT undo stubEnv — explicit unstub.
+    vi.unstubAllEnvs();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+  });
+
+  async function mountCommonMocks(): Promise<void> {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+    // Replace `createStatusWriter` with a stub that records every write so
+    // the test can assert the CP's deploy.result subscriber actually
+    // routed the event through `writer.write(...)`.
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: (): StatusWriter => ({
+          write: async (result: ProbeResult) => {
+            writes.push(result);
+            return {
+              previousState: null,
+              newState: "green",
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
+          },
+          writeOverlay: async (): Promise<OverlayWriteOutcome> => ({
+            applied: false,
+            state: null,
+            historyPersisted: false,
+          }),
+        }),
+      };
+    });
+  }
+
+  function emitFakeDeployResult(bus: ReturnType<typeof createEventBus>): void {
+    bus.emit("deploy.result", {
+      runId: "r1f1-test-runid",
+      runUrl: "https://example.invalid/runs/123",
+      services: ["showcase-shell-docs"],
+      failed: [],
+      succeeded: ["showcase-shell-docs"],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+  }
+
+  it("CP boot subscribes deploy.result → writer.write fires with deploy-overall ProbeResult", async () => {
+    vi.stubEnv("SHARED_SECRET", "r1f1-test-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountCommonMocks();
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+    cpStopFn = handle.stop;
+
+    // The subscriber's writer.write is sync from the bus' POV (the
+    // handler awaits internally and fire-and-forgets); the in-memory
+    // stub records synchronously inside the catch-free path, but yield
+    // one microtask to give any chained `.catch()` a chance to settle.
+    const before = writes.filter((r) => r.key === "deploy:overall").length;
+    emitFakeDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const after = writes.filter((r) => r.key === "deploy:overall").length;
+    // deployEventToProbeResult keys the row "deploy:overall" — the
+    // subscriber must transform the event into a ProbeResult before
+    // writing (not pass the raw DeployResultEvent through).
+    expect(after - before).toBe(1);
+  });
+
+  it("worker boot subscribes deploy.result → writer.write fires (regression guard for helper extraction)", async () => {
+    vi.stubEnv("SHARED_SECRET", "r1f1-worker-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountCommonMocks();
+    const orchMod = await import("./orchestrator.js");
+    const booted = await orchMod.boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
+
+    // The worker boot writes other keys at startup (browser-pool
+    // healthy/degraded, etc.) — filter to deploy-overall to assert the
+    // deploy.result handler specifically routed through writer.write.
+    const before = writes.filter((r) => r.key === "deploy:overall").length;
+    emitFakeDeployResult(booted.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const after = writes.filter((r) => r.key === "deploy:overall").length;
+    expect(after - before).toBe(1);
+  });
+});

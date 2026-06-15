@@ -9,6 +9,7 @@ import {
   assertSafeKey,
 } from "./storage/alert-state-store.js";
 import { createEventBus } from "./events/event-bus.js";
+import type { DeployResultEvent } from "./events/event-bus.js";
 import { createRuleLoader } from "./rules/rule-loader.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import { createRenderer } from "./render/renderer.js";
@@ -16,6 +17,7 @@ import { createAlertEngine } from "./alerts/alert-engine.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import type { Scheduler } from "./scheduler/scheduler.js";
 import { createStatusWriter } from "./writers/status-writer.js";
+import type { StatusWriter } from "./writers/status-writer.js";
 import { createSlackWebhookTarget } from "./targets/slack-webhook.js";
 import { createMetricsRegistry } from "./http/metrics.js";
 import {
@@ -208,6 +210,42 @@ export function loadWebhookSecrets(logger_: typeof logger = logger): string[] {
       "NODE_ENV=test / HARNESS_ALLOW_NO_SECRET=1 for local dev. " +
       `Current NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}.`,
   );
+}
+
+/**
+ * Subscribe to `deploy.result` events on the given bus, routing each event
+ * through `writer.write(deployEventToProbeResult(...))` so the deploy
+ * webhook POST emits a `status.changed` row on the dashboard.
+ *
+ * R1-F1 fix: pre-fix this subscription lived inline in worker `boot()`
+ * only — the CP `runControlPlane` path registered POST /webhooks/deploy
+ * (after B2) but had no subscriber, so a valid signed POST returned 202
+ * and the event vanished. Extracted so BOTH boot paths can share the
+ * exact same handler logic.
+ *
+ * The returned function is the bus unsubscribe handle — callers append
+ * it to their teardown array (worker `boot()`'s `busUnsubs`); the CP
+ * path keeps it alive for the lifetime of the bus (no per-handler
+ * teardown is needed; the bus itself drops with the process).
+ */
+export function subscribeDeployResults(
+  bus: ReturnType<typeof createEventBus>,
+  writer: Pick<StatusWriter, "write">,
+  logger_: typeof logger = logger,
+): () => void {
+  const deployCtx = {
+    now: () => new Date(),
+    logger: logger_,
+    env: process.env as Readonly<Record<string, string | undefined>>,
+  };
+  return bus.on("deploy.result", (event: DeployResultEvent) => {
+    const result = deployEventToProbeResult(event, deployCtx);
+    writer
+      .write(result)
+      .catch((err) =>
+        logErrorWithStack(logger_, "orchestrator.deploy-writer-failed", err),
+      );
+  });
 }
 
 export async function boot(opts: BootOptions = {}): Promise<{
@@ -815,22 +853,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
       });
   });
 
-  // Route deploy.result webhook events through the writer so they emit status.changed.
-  const deployCtx = {
-    now: () => new Date(),
-    logger,
-    env: process.env as Readonly<Record<string, string | undefined>>,
-  };
-  busUnsubs.push(
-    bus.on("deploy.result", (event) => {
-      const result = deployEventToProbeResult(event, deployCtx);
-      writer
-        .write(result)
-        .catch((err) =>
-          logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
-        );
-    }),
-  );
+  // R1-F1: route deploy.result webhook events through the writer so they
+  // emit status.changed. Extracted into `subscribeDeployResults` so the CP
+  // boot path (runControlPlane) shares the IDENTICAL handler — pre-fix the
+  // subscription lived only here, so a valid signed POST against the CP host
+  // returned 202 and the event vanished (no dashboard row written).
+  busUnsubs.push(subscribeDeployResults(bus, writer, logger));
 
   // B2 fix: webhook-secrets loading + FATAL-CONFIG fail-loud now live in
   // `loadWebhookSecrets` so the CP boot path (runControlPlane) consumes the
@@ -2438,6 +2466,17 @@ export async function runControlPlane(
     logger,
     writtenBy: "fleet-cp",
   });
+
+  // R1-F1: subscribe `deploy.result` events through the CP's status writer
+  // so a valid signed POST against the CP host actually writes the
+  // deploy-overall dashboard row. Pre-fix this subscription only existed in
+  // worker `boot()` — after B2 mounted the route on the CP, signed POSTs
+  // returned 202 but the bus event had no listener and the dashboard row
+  // never landed. The CP keeps the subscription alive for the lifetime of
+  // `bus` (no per-handler teardown — bus drops with the process; the
+  // worker boot path collects the unsubscribe into `busUnsubs`).
+  subscribeDeployResults(bus, statusWriter, logger);
+
   // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key.
   // Validates the read value against the known State set; a never-observed key
   // (no row) returns null, never a fabricated green. Self-defensive: a lookup
