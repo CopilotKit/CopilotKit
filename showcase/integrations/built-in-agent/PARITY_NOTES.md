@@ -28,8 +28,7 @@ BIA has no `interrupt()` primitive:
 - `interrupt-headless` — same Strategy-B handler model, no chat UI.
 
 These are full-capability demos and SHOULD NOT be added to
-`not_supported_features`. They are currently quarantined for a separate
-upstream reason (see Reasoning-trio below).
+`not_supported_features`.
 
 ## `shared-state-read-write` — UI divergence
 
@@ -56,22 +55,18 @@ not from the integration). PM escalation is pending to confirm whether the
 testid should ship from the kit; until then, BIA cannot satisfy the
 expectation by patching its own source.
 
-## Reasoning-trio — manifest-quarantined
+## Reasoning-trio — NSF
 
 The following three demos are listed in `manifest.yaml` under
-`not_supported_features` pending a `@copilotkit/react-core` package release
-that fixes a `useInterrupt`/`useHeadlessInterrupt` RESUME-PATH bug (the
-backend resumes fine but the frontend never appends the confirmation
-bubble):
+`not_supported_features` because backend reasoning-event emission is TBD
+on the built-in agent factory:
 
 - `reasoning-default-render`
 - `agentic-chat-reasoning`
 - `tool-rendering-reasoning-chain`
 
-Backend reasoning-event emission is also TBD on the built-in agent factory.
-Once the upstream `react-core` fix lands AND the factory emits
-`REASONING_MESSAGE_*` events, the quarantine should be lifted in the same
-PR that bumps `@copilotkit/react-core`.
+Once the factory emits `REASONING_MESSAGE_*` events, these can be removed
+from `not_supported_features`.
 
 ## NSF banners
 

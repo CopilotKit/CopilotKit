@@ -25,15 +25,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   # Reasoning-family NSF: while spring-ai DOES emit REASONING_MESSAGE_* events
   # for the `reasoning-custom` / `reasoning-default` demos (via the dedicated
   # ReasoningController at /reasoning/, which writes raw-JSON

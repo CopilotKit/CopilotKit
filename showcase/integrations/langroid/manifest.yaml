@@ -23,15 +23,6 @@ not_supported_features:
   - shared-state-streaming
   - mcp-apps
   - tool-rendering-reasoning-chain
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
 features:

@@ -59,16 +59,6 @@ features:
 not_supported_features:
   - hitl
   - shared-state-streaming
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 due to a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: the backend resumes and
-  # streams fine (HTTP 200), but the frontend never appends the confirmation
-  # assistant bubble, so the harness DOM settle-check times out. The fix is a
-  # published-package change (out of scope here), so these demos are honestly
-  # marked not-supported (skipped-incapable side-rows, not green, not red)
-  # rather than counting as a regression. The demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
