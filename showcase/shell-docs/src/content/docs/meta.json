@@ -48,6 +48,7 @@
     "...deploy",
     "---Platforms---",
     "slack",
+    "whatsapp",
     "microsoft-teams",
     "react-native",
     "---Other---",
