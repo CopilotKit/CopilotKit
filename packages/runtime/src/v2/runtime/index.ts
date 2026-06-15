@@ -24,6 +24,15 @@ export {
 // into `mcpClients`; `MCPTransport` is the contract for custom transports.
 export type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
 
+export {
+  MCPAppsMiddleware,
+  getServerHash,
+  type MCPAppsMiddlewareConfig,
+  type MCPClientConfig,
+  type MCPClientConfigHTTP,
+  type MCPClientConfigSSE,
+} from "./handlers/shared/mcp-apps-middleware";
+
 // Export framework-agnostic fetch handler
 export { createCopilotRuntimeHandler } from "./core/fetch-handler";
 export type {

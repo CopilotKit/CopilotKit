@@ -1,8 +1,8 @@
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
   BasicAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
+  MCPAppsMiddleware,
 } from "@copilotkit/runtime/v2";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";

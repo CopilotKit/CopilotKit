@@ -4,12 +4,12 @@
  */
 import { EventType, HttpAgent } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
   CopilotKitIntelligence,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
+  MCPAppsMiddleware,
 } from "@copilotkit/runtime/v2";
 import { concatMap, of } from "rxjs";
 import { randomUUID } from "node:crypto";

@@ -3,9 +3,9 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotEndpoint,
+  BuiltInAgent,
+  MCPAppsMiddleware,
 } from "@copilotkit/runtime/v2";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { handle } from "hono/vercel";
 
 const middlewares = [

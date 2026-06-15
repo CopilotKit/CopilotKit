@@ -1,12 +1,16 @@
 import {
+  BuiltInAgent,
+  defineTool,
+  getServerHash,
+  MCPAppsMiddleware,
+} from "@copilotkit/runtime/v2";
+import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
 import { map } from "rxjs/operators";
 import { E2BWorkspaceProvider } from "@/lib/workspace/e2b";
 import { getDefaultMcpServers, type McpServerConfig } from "@/lib/mcp-defaults";

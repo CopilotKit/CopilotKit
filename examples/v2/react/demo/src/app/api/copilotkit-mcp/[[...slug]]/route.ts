@@ -3,9 +3,9 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
   BasicAgent,
+  MCPAppsMiddleware,
 } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
