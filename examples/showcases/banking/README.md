@@ -49,6 +49,22 @@ is also streamed over a Phoenix WebSocket to the Intelligence gateway for durabl
 threads and self-learning ingestion. If any of the three is unset, the demo falls
 back to the exact OSS path above.
 
+### What each mode actually recalls
+
+The two modes differ in **how far the learned workflow travels**:
+
+- **OSS (default):** the teach-a-workflow loop works _within a single
+  conversation_. After you teach the over-limit procedure, the agent reuses it
+  for other charges **in the same thread** — the saved procedure is echoed back
+  into that thread's context. Start a **new** conversation and the agent no
+  longer knows it; nothing persists across conversations or restarts.
+- **Intelligence:** the demonstrated actions are distilled into durable
+  knowledge, so a **brand-new conversation** (or a fresh agent) recalls the
+  procedure without being re-taught. This cross-conversation memory is the part
+  the external Intelligence backend provides — it cannot be reproduced in OSS
+  mode. (So "it doesn't know in a new chat" is expected in OSS; it's the signal
+  you need Intelligence mode for full persistence.)
+
 ```bash
 # Required for Intelligence mode (all three, or none):
 export INTELLIGENCE_API_URL=http://localhost:4201        # platform REST API
