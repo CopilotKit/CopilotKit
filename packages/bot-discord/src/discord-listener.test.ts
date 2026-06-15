@@ -66,6 +66,25 @@ describe("attachDiscordListener", () => {
     expect(onTurn).not.toHaveBeenCalled();
   });
 
+  it("resolves a getter-form botUserId per event", () => {
+    const client = fakeClient();
+    const onTurn = vi.fn();
+    let id = "";
+    attachDiscordListener({
+      client: client as any,
+      botUserId: () => id,
+      onTurn,
+      onCommand: vi.fn(),
+    });
+    // Before the id is known, the bot's own message would not match a mention,
+    // but a DM still answers regardless of id.
+    id = "bot-1";
+    client.emit("messageCreate", message({ mentions: { has: (q: string) => q === "bot-1" }, content: "<@bot-1> hi" }));
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationKey: "c1", senderUserId: "u1" }),
+    );
+  });
+
   it("forwards a chat-input command via onCommand", () => {
     const client = fakeClient();
     const onCommand = vi.fn();

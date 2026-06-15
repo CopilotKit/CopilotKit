@@ -35,7 +35,12 @@ export interface IncomingCommandRaw {
 
 export interface ListenerConfig {
   client: ClientLike;
-  botUserId: string;
+  /**
+   * The bot's own user id. May be a getter so the adapter can attach the
+   * listener once at startup and supply the id lazily after the `ready`
+   * event (when it first becomes known).
+   */
+  botUserId: string | (() => string);
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onCommand(cmd: IncomingCommandRaw): void | Promise<void>;
 }
@@ -45,7 +50,8 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
   const { client, botUserId, onTurn, onCommand } = cfg;
 
   client.on("messageCreate", (msg: MessageLike) => {
-    if (!shouldAnswer(msg, botUserId)) return;
+    const botId = typeof botUserId === "function" ? botUserId() : botUserId;
+    if (!shouldAnswer(msg, botId)) return;
     const replyTarget = {
       channelId: msg.channelId,
       ...(msg.guildId ? { guildId: msg.guildId } : {}),
@@ -53,7 +59,7 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
     void onTurn({
       conversationKey: msg.channelId,
       replyTarget,
-      userText: stripMention(msg.content, botUserId),
+      userText: stripMention(msg.content, botId),
       senderUserId: msg.author.id,
     });
   });
