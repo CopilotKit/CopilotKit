@@ -272,6 +272,43 @@ export function loadPocketbaseUrl(logger_: typeof logger = logger): string {
 }
 
 /**
+ * Resolve `OPS_TRIGGER_TOKEN` with the SAME fail-loud-at-top discipline as
+ * `loadWebhookSecrets` / `loadPocketbaseUrl`: a set-but-empty (or
+ * whitespace-only) value is a misconfiguration and throws; unset means
+ * "router intentionally disabled" and returns `undefined`; a real value is
+ * returned trimmed (matches the auth-layer's symmetric trim — see
+ * R3-A.5).
+ *
+ * R3-F1 fix: pre-fix the empty-string check lived AFTER pb / bus /
+ * scheduler / writer / S3 uploader allocations in BOTH boot paths
+ * (worker `boot()` and `runControlPlane`), so a typo'd
+ * `OPS_TRIGGER_TOKEN=` allocated expensive resources before throwing.
+ * Hoisting via this helper puts the check next to the other fail-loud
+ * predicates at the top of each boot path.
+ *
+ * Returns the trimmed token string, or `undefined` when the env var is
+ * unset (intentional disable — callers log "router-disabled" and omit
+ * the /api/probes router).
+ */
+export function loadOpsTriggerToken(
+  logger_: typeof logger = logger,
+): string | undefined {
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken === undefined) return undefined;
+  if (rawTriggerToken.trim() === "") {
+    logger_.error("orchestrator.FATAL-CONFIG", {
+      msg: "OPS_TRIGGER_TOKEN set but empty — refusing to boot",
+    });
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  // R3-A.5: trim defense-in-depth so the value passed downstream matches
+  // exactly what the bearer-auth middleware compares against (see auth.ts).
+  return rawTriggerToken.trim();
+}
+
+/**
  * Subscribe to `deploy.result` events on the given bus, routing each event
  * through `writer.write(deployEventToProbeResult(...))` so the deploy
  * webhook POST emits a `status.changed` row on the dashboard.
@@ -298,7 +335,26 @@ export function subscribeDeployResults(
     env: process.env as Readonly<Record<string, string | undefined>>,
   };
   return bus.on("deploy.result", (event: DeployResultEvent) => {
-    const result = deployEventToProbeResult(event, deployCtx);
+    // R3-F2: a synchronous throw inside `deployEventToProbeResult`
+    // (malformed event, unexpected type drift, etc.) pre-fix bypassed
+    // the `.catch` below — the bus saw the throw and we lost both the
+    // log AND the `deploy.writer.failed` emit. Mirror the rejection
+    // path here so alert rules / metrics subscribers observe sync
+    // throws the same way they observe async write failures.
+    let result;
+    try {
+      result = deployEventToProbeResult(event, deployCtx);
+    } catch (err) {
+      logErrorWithStack(
+        logger_,
+        "orchestrator.deploy-writer-failed",
+        err as unknown,
+      );
+      bus.emit("deploy.writer.failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
     writer.write(result).catch((err) => {
       logErrorWithStack(logger_, "orchestrator.deploy-writer-failed", err);
       // R2-F2: emit a bus event in addition to logging so alert rules /
@@ -336,8 +392,15 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // with the same test-or-escape-hatch predicate `loadWebhookSecrets` uses,
   // so staging/development/unset NODE_ENV fail loud on BOTH config misses
   // instead of just SHARED_SECRET.
+  //
+  // R3-F1: hoist `OPS_TRIGGER_TOKEN` set-but-empty fail-loud here too.
+  // Pre-fix this check lived AFTER pb / bus / scheduler / writer / S3
+  // uploader allocations, so a typo'd `OPS_TRIGGER_TOKEN=` allocated
+  // expensive resources before throwing. Now all three fail-loud config
+  // predicates fire at the top, before anything that would need teardown.
   const pbUrl = loadPocketbaseUrl(logger);
   const webhookSecrets = loadWebhookSecrets(logger);
+  const triggerToken = loadOpsTriggerToken(logger);
   // These authenticate against `/api/collections/_superusers/auth-with-password`
   // in pb-client, so the env var names intentionally mirror "superuser" —
   // previously `POCKETBASE_WRITER_*`, renamed to eliminate the naming drift
@@ -929,31 +992,15 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // in stop() so post-shutdown probes also read correctly.
   let schedulerRunning = false;
 
-  // F1: only mount the /api/probes router when an OPS_TRIGGER_TOKEN is
-  // configured. The router's bearer-auth middleware is fail-loud at
-  // construction (MissingAuthTokenError) — wiring it unconditionally would
-  // break every test / dev boot that doesn't set the env var. When unset we
-  // log at info level so operators can see the routes were intentionally
-  // skipped, then flag it as a hardening concern in the boot summary.
-  //
-  // R2-B.3: distinguish "unset" (intentional disable) from "set-but-empty"
-  // (misconfiguration). An operator who mistypes `OPS_TRIGGER_TOKEN=`
-  // (no value) ships an empty string AND would otherwise see a silent-skip
-  // log instead of the load-bearing fail-loud error. Whitespace-only is
-  // treated identically: trim() then reject if zero-length.
-  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
-  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
-    throw new Error(
-      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
-    );
-  }
-  // R3-A.5: trim defense-in-depth. The auth layer (auth.ts) also trims
-  // both sides at construction, but normalising here keeps the orchestrator
-  // contract honest — the value passed downstream is the same one the
-  // bearer-auth middleware will compare against. Pre-fix, a "  abc  "
-  // token boot'd successfully but the auth layer's asymmetric trimming
-  // (presented trimmed, expected verbatim) silently 401'd every request.
-  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  // F1 / R2-B.3 / R3-A.5 / R3-F1: only mount the /api/probes router when
+  // an OPS_TRIGGER_TOKEN is configured. The router's bearer-auth
+  // middleware is fail-loud at construction (MissingAuthTokenError) —
+  // wiring it unconditionally would break every test / dev boot that
+  // doesn't set the env var. When unset we log at info level so operators
+  // can see the routes were intentionally skipped, then flag it as a
+  // hardening concern in the boot summary. Set-but-empty (incl.
+  // whitespace-only) is rejected fail-loud by `loadOpsTriggerToken` at
+  // the top of boot() — see the hoisted call above.
   const probesDeps = triggerToken
     ? {
         scheduler,
@@ -2467,7 +2514,13 @@ export async function runControlPlane(
   // R1-F3: `resolveFleetPbConfig` now defers to `loadPocketbaseUrl` so
   // the CP path's POCKETBASE_URL predicate matches `loadWebhookSecrets`'
   // semantics (test-or-escape-hatch instead of production-only).
+  //
+  // R3-F1: hoist `OPS_TRIGGER_TOKEN` set-but-empty fail-loud here too.
+  // Pre-fix this check lived AFTER pb / claim / bus / queue / scheduler /
+  // statusWriter / aggregator / fleet-health allocations, so a typo'd
+  // `OPS_TRIGGER_TOKEN=` allocated all of those before throwing.
   const webhookSecrets = loadWebhookSecrets(logger);
+  const triggerToken = loadOpsTriggerToken(logger);
   const pbCfg = resolveFleetPbConfig();
 
   const env = process.env;
@@ -3095,13 +3148,10 @@ export async function runControlPlane(
   // Token handling mirrors boot() exactly (fail-safe): unset → router omitted;
   // set-but-empty (incl. whitespace-only) → fail-loud at boot so a mistyped
   // `OPS_TRIGGER_TOKEN=` can't silently ship an insecure/always-reject route.
-  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
-  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
-    throw new Error(
-      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
-    );
-  }
-  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  // R3-F1: the empty-string / whitespace-only fail-loud check is now hoisted
+  // via `loadOpsTriggerToken(logger)` at the TOP of runControlPlane (above)
+  // — `triggerToken` here is already either undefined (intentional disable)
+  // or a trimmed non-empty string. Re-bind locally is unnecessary.
   const probesDeps = triggerToken
     ? {
         scheduler,

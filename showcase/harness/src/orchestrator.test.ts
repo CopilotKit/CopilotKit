@@ -2188,6 +2188,64 @@ describe("orchestrator OPS_TRIGGER_TOKEN empty-string handling (R2-B.3)", () => 
 });
 
 /**
+ * R3-F1: `OPS_TRIGGER_TOKEN` fail-loud check is hoisted to the TOP of both
+ * boot paths (worker `boot()` and `runControlPlane`) via the exported
+ * helper `loadOpsTriggerToken`, matching `loadWebhookSecrets` /
+ * `loadPocketbaseUrl`. Pre-fix the empty-string check lived AFTER pb /
+ * bus / scheduler / writer allocations, so a typo'd `OPS_TRIGGER_TOKEN=`
+ * allocated expensive resources before throwing.
+ *
+ * Unit-tests the helper directly so the predicate is locked in
+ * independently of either boot path's other config plumbing.
+ */
+describe("orchestrator R3-F1: loadOpsTriggerToken fail-loud helper", () => {
+  let prevToken: string | undefined;
+
+  beforeEach(() => {
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
+  });
+
+  afterEach(() => {
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+  });
+
+  it("returns undefined when OPS_TRIGGER_TOKEN is unset (intentional disable)", async () => {
+    delete process.env.OPS_TRIGGER_TOKEN;
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBeUndefined();
+  });
+
+  it('throws fail-loud when OPS_TRIGGER_TOKEN="" (empty string)', async () => {
+    process.env.OPS_TRIGGER_TOKEN = "";
+    const orchMod = await import("./orchestrator.js");
+    expect(() => orchMod.loadOpsTriggerToken()).toThrow(
+      /OPS_TRIGGER_TOKEN.*empty/i,
+    );
+  });
+
+  it("throws fail-loud when OPS_TRIGGER_TOKEN is whitespace-only", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "   ";
+    const orchMod = await import("./orchestrator.js");
+    expect(() => orchMod.loadOpsTriggerToken()).toThrow(
+      /OPS_TRIGGER_TOKEN.*empty/i,
+    );
+  });
+
+  it("returns the trimmed token when set with surrounding whitespace (R3-A.5 contract)", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "  abc  ";
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBe("abc");
+  });
+
+  it("returns the verbatim token when set with no whitespace", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "real-token";
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBe("real-token");
+  });
+});
+
+/**
  * R2-B.1: cron-rule unregister failure must NOT be fire-and-forget. Pre-fix,
  * `diffCronSchedules` called `scheduler.unregister(id)` without awaiting the
  * returned promise — a rejection became an unhandled rejection AND the
@@ -6135,6 +6193,92 @@ describe("orchestrator R2-F2: deploy.writer.failed bus event on write failure", 
     expect(emits[0].event).toBe("deploy.writer.failed");
     const payload = emits[0].payload as { err: string };
     expect(payload.err).toContain("pb-blew-up");
+
+    unsub();
+  });
+});
+
+/**
+ * R3-F2: `subscribeDeployResults` must ALSO emit `deploy.writer.failed`
+ * (and log) when the synchronous mapping helper `deployEventToProbeResult`
+ * THROWS — not just when the async `writer.write(...)` rejects. Pre-fix
+ * the `.catch` only covered the write promise, so a sync throw inside
+ * the mapping (malformed event, unexpected type drift) bypassed both the
+ * log and the bus emit, and the failure was effectively swallowed by
+ * the bus handler boundary.
+ */
+describe("orchestrator R3-F2: deploy.writer.failed on subscribeDeployResults sync throw", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.doUnmock("./probes/deploy-result.js");
+  });
+
+  it("emits `deploy.writer.failed` when deployEventToProbeResult throws synchronously", async () => {
+    vi.resetModules();
+    vi.doMock("./probes/deploy-result.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/deploy-result.js")
+      >("./probes/deploy-result.js");
+      return {
+        ...actual,
+        deployEventToProbeResult: () => {
+          throw new Error("mapping-blew-up-sync");
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+    const busMod = await import("./events/event-bus.js");
+    const bus = busMod.createEventBus();
+    // Writer must NOT be called on a sync mapping throw — assert it stays
+    // untouched so the test pins down "throw fires before write".
+    let writeCalls = 0;
+    const writer: Pick<StatusWriter, "write"> = {
+      write: async () => {
+        writeCalls += 1;
+        return {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+          persisted: true,
+        };
+      },
+    };
+    const emits: Array<{ event: string; payload: unknown }> = [];
+    bus.on("deploy.writer.failed", (payload) => {
+      emits.push({ event: "deploy.writer.failed", payload });
+    });
+
+    const unsub = orchMod.subscribeDeployResults(bus, writer);
+
+    // Emit must NOT throw out of the bus handler boundary — the helper
+    // catches synchronously and converts to a bus emit.
+    expect(() => {
+      bus.emit("deploy.result", {
+        runId: "r3f2-runid",
+        runUrl: "https://example.invalid/runs/r3f2",
+        services: ["showcase-shell-docs"],
+        failed: [],
+        succeeded: ["showcase-shell-docs"],
+        cancelled: false,
+        gateSkipped: false,
+        gateReason: undefined,
+        buildRunId: undefined,
+        buildRunUrl: undefined,
+      });
+    }).not.toThrow();
+
+    // Sync throw — no microtask wait needed, but yield one for symmetry
+    // with the R2-F2 assertion shape.
+    await Promise.resolve();
+
+    expect(writeCalls).toBe(0);
+    expect(emits.length).toBe(1);
+    expect(emits[0].event).toBe("deploy.writer.failed");
+    const payload = emits[0].payload as { err: string };
+    expect(payload.err).toContain("mapping-blew-up-sync");
 
     unsub();
   });
