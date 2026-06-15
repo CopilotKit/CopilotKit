@@ -8,7 +8,7 @@
     {
       "_comment": "custom-catchall turn 1 follow-up — after get_weather tool result. Must come before the tool-emitting fixture. Keyed on the actual probe prompt 'weather in Tokyo' (d5-tool-rendering-custom-catchall.ts PROMPT_TOOL_PAIRS[0]); the old key 'check Tokyo weather forecast' never matched anything the probe sends.",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "forecast for Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "spring-ai"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "custom-catchall turn 1 — emit get_weather tool call. The custom wildcard renderer fires for any tool. toolName-gated so agents without get_weather still fall through to tool-rendering.json's content-only fallback; hasToolResult:false keeps this off the post-tool leg.",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "forecast for Tokyo",
         "toolName": "get_weather",
         "hasToolResult": false,
         "context": "spring-ai"

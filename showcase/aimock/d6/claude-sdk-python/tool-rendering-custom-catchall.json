@@ -9,7 +9,7 @@
     {
       "_comment": "custom-catchall: weather in Tokyo follow-up after get_weather tool result. MUST come before the tool-emitting fixture (first-match-wins).",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "claude-sdk-python"
       },
@@ -20,7 +20,7 @@
     {
       "_comment": "custom-catchall: weather in Tokyo first leg: emit get_weather tool call. The custom wildcard renderer fires for this tool (no per-tool renderer registered).",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "toolName": "get_weather",
         "context": "claude-sdk-python"
       },
@@ -37,7 +37,7 @@
     {
       "_comment": "custom-catchall: weather in Tokyo fallback when get_weather tool not registered.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "context": "claude-sdk-python"
       },
       "response": {
