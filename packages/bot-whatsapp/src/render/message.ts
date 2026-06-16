@@ -6,20 +6,33 @@ import { WA_LIMITS, truncateText, clampArray } from "./budget.js";
 export type WhatsAppOutbound =
   | { type: "text"; text: { body: string; preview_url: boolean } }
   | { type: "image"; image: { link?: string; id?: string; caption?: string } }
-  | { type: "document"; document: { link?: string; id?: string; filename?: string; caption?: string } }
+  | {
+      type: "document";
+      document: {
+        link?: string;
+        id?: string;
+        filename?: string;
+        caption?: string;
+      };
+    }
   | { type: "interactive"; interactive: InteractiveButton | InteractiveList };
 
 interface InteractiveButton {
   type: "button";
   body: { text: string };
-  action: { buttons: Array<{ type: "reply"; reply: { id: string; title: string } }> };
+  action: {
+    buttons: Array<{ type: "reply"; reply: { id: string; title: string } }>;
+  };
 }
 interface InteractiveList {
   type: "list";
   body: { text: string };
   action: {
     button: string;
-    sections: Array<{ title?: string; rows: Array<{ id: string; title: string; description?: string }> }>;
+    sections: Array<{
+      title?: string;
+      rows: Array<{ id: string; title: string; description?: string }>;
+    }>;
   };
 }
 
@@ -95,7 +108,10 @@ export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
         const url = n.props.url as string | undefined;
         if (url) {
           const alt = n.props.alt as string | undefined;
-          out.push({ type: "image", image: { link: url, ...(alt ? { caption: alt } : {}) } });
+          out.push({
+            type: "image",
+            image: { link: url, ...(alt ? { caption: alt } : {}) },
+          });
         }
         return;
       }
@@ -110,19 +126,27 @@ export function renderWhatsAppMessage(ir: BotNode[]): WhatsAppOutbound[] {
           // handler to dispatch, but the value MUST round-trip so the engine's
           // waiter resolves. Encode it behind a synthetic base id; decodeInteraction
           // splits it back into `{ value }` and the awaiting waiter takes it.
-          actions.push({ id: buildControlId(VALUE_ONLY_ID, n.props.value), title });
+          actions.push({
+            id: buildControlId(VALUE_ONLY_ID, n.props.value),
+            title,
+          });
         }
         // A button with neither a handler nor a value can't round-trip → skip.
         return;
       }
       case "select": {
         const baseId = idFromHandler(n.props.onSelect);
-        selectButtonLabel = (n.props.placeholder as string | undefined) ?? "Choose";
+        selectButtonLabel =
+          (n.props.placeholder as string | undefined) ?? "Choose";
         hasSelect = true;
-        const opts = (n.props.options as Array<{ label: string; value: string }>) ?? [];
+        const opts =
+          (n.props.options as Array<{ label: string; value: string }>) ?? [];
         if (baseId) {
           for (const o of opts) {
-            actions.push({ id: buildControlId(baseId, o.value), title: o.label });
+            actions.push({
+              id: buildControlId(baseId, o.value),
+              title: o.label,
+            });
           }
         }
         return;
@@ -178,24 +202,35 @@ function buttonPayload(body: string, actions: Action[]): WhatsAppOutbound {
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: truncateText(markdownToWhatsApp(body), WA_LIMITS.interactiveBody) },
+      body: {
+        text: truncateText(markdownToWhatsApp(body), WA_LIMITS.interactiveBody),
+      },
       action: {
         buttons: items.map((a) => ({
           type: "reply" as const,
-          reply: { id: a.id, title: truncateText(a.title, WA_LIMITS.buttonTitle) },
+          reply: {
+            id: a.id,
+            title: truncateText(a.title, WA_LIMITS.buttonTitle),
+          },
         })),
       },
     },
   };
 }
 
-function listPayload(body: string, buttonLabel: string, actions: Action[]): WhatsAppOutbound {
+function listPayload(
+  body: string,
+  buttonLabel: string,
+  actions: Action[],
+): WhatsAppOutbound {
   const { items } = clampArray(actions, WA_LIMITS.listRows);
   return {
     type: "interactive",
     interactive: {
       type: "list",
-      body: { text: truncateText(markdownToWhatsApp(body), WA_LIMITS.interactiveBody) },
+      body: {
+        text: truncateText(markdownToWhatsApp(body), WA_LIMITS.interactiveBody),
+      },
       action: {
         button: truncateText(buttonLabel, WA_LIMITS.listButton),
         sections: [
@@ -252,7 +287,10 @@ function textOf(children: unknown): string {
   const node = children as BotNode;
   if (node && typeof node === "object" && "props" in node) {
     const props = node.props as Record<string, unknown>;
-    if (node.type === "text" && (typeof props.value === "string" || typeof props.value === "number")) {
+    if (
+      node.type === "text" &&
+      (typeof props.value === "string" || typeof props.value === "number")
+    ) {
       return String(props.value);
     }
     return textOf(props.children);

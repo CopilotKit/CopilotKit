@@ -176,8 +176,16 @@ describe("renderWhatsAppMessage", () => {
           node("section", { children: [text("An incident needs attention")] }),
           node("actions", {
             children: [
-              node("button", { children: [text("Acknowledge")], value: "ack", onClick: { id: "ck:a" } }),
-              node("button", { children: [text("Escalate")], value: "esc", onClick: { id: "ck:e" } }),
+              node("button", {
+                children: [text("Acknowledge")],
+                value: "ack",
+                onClick: { id: "ck:a" },
+              }),
+              node("button", {
+                children: [text("Escalate")],
+                value: "esc",
+                onClick: { id: "ck:e" },
+              }),
             ],
           }),
         ],
@@ -188,10 +196,9 @@ describe("renderWhatsAppMessage", () => {
     expect(m.type).toBe("interactive");
     expect(m.interactive.type).toBe("button");
     expect(m.interactive.body.text).toContain("An incident");
-    expect(m.interactive.action.buttons.map((b: any) => b.reply.title)).toEqual([
-      "Acknowledge",
-      "Escalate",
-    ]);
+    expect(m.interactive.action.buttons.map((b: any) => b.reply.title)).toEqual(
+      ["Acknowledge", "Escalate"],
+    );
     expect(m.interactive.action.buttons.map((b: any) => b.reply.id)).toEqual([
       'ck:a::"ack"',
       'ck:e::"esc"',

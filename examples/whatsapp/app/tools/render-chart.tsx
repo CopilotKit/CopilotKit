@@ -11,9 +11,7 @@ import { z } from "zod";
 import { defineBotTool } from "@copilotkit/bot";
 
 const chartSchema = z.object({
-  type: z
-    .enum(["bar", "line", "pie", "doughnut"])
-    .describe("Chart type."),
+  type: z.enum(["bar", "line", "pie", "doughnut"]).describe("Chart type."),
   title: z.string().optional().describe("Optional chart title."),
   labels: z
     .array(z.string())
@@ -33,10 +31,18 @@ const chartSchema = z.object({
 type ChartProps = z.infer<typeof chartSchema>;
 
 /** Build a QuickChart image URL from a Chart.js config. */
-export function quickChartUrl({ type, title, labels, datasets }: ChartProps): string {
+export function quickChartUrl({
+  type,
+  title,
+  labels,
+  datasets,
+}: ChartProps): string {
   const config = {
     type,
-    data: { labels, datasets: datasets.map((d) => ({ label: d.label, data: d.data })) },
+    data: {
+      labels,
+      datasets: datasets.map((d) => ({ label: d.label, data: d.data })),
+    },
     options: title
       ? { plugins: { title: { display: true, text: title } } }
       : {},

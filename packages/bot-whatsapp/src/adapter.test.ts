@@ -46,7 +46,11 @@ describe("whatsapp() adapter", () => {
     const history = new InMemoryHistoryStore();
     const a = whatsapp({ ...opts, historyStore: history }) as any;
     a.client = {
-      sendMessage: vi.fn(async (to: string) => ({ id: "wamid.OUT1", to, phoneNumberId: "PNID" })),
+      sendMessage: vi.fn(async (to: string) => ({
+        id: "wamid.OUT1",
+        to,
+        phoneNumberId: "PNID",
+      })),
     };
     await a.post({ to: "111", phoneNumberId: "PNID" }, [
       { type: "section", props: { children: "Open CPK issues" } },
