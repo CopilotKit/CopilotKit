@@ -108,24 +108,68 @@ export interface CustomCatchallProbe {
 export async function probeCustomCatchall(
   page: Page,
 ): Promise<CustomCatchallProbe> {
-  const phrase = CUSTOM_CATCHALL_CONTENT_PHRASE;
-  return await page.evaluate((expectedPhrase?: string) => {
-    const needle = expectedPhrase ?? "";
-    const win = globalThis as unknown as {
-      document: {
-        querySelectorAll(sel: string): ArrayLike<{
-          getAttribute(name: string): string | null;
-          textContent: string | null;
-        }>;
-        body: { textContent?: string | null };
-      };
-    };
-    const containers = win.document.querySelectorAll(
+  // ROOT CAUSE (PR #5495 A11): the prior implementation passed the
+  // content phrase into the browser-side closure via the
+  // `page.evaluate(fn, arg)` second-arg form:
+  //
+  //     return await page.evaluate((expectedPhrase?: string) => {
+  //       const needle = expectedPhrase ?? "";
+  //       if (needle) { /* … cascade scan … */ }
+  //       ...
+  //     }, phrase);
+  //
+  // Empirically (verified via in-closure return diagnostics during the
+  // A11 RED-GREEN proof on `langgraph-python:tool-rendering-custom-catchall`),
+  // `expectedPhrase` arrives as `undefined` inside the closure — the arg
+  // is NOT propagated through the harness's compiled `page.evaluate` call
+  // path. With `needle === ""`, the `if (needle)` guard skipped the entire
+  // cascade and `customContentPhrasePresent` stayed `false` forever, even
+  // though `bubble.textContent` / `body.textContent` / `body.innerText`
+  // all contained the canonical phrase at the SAME moment.
+  //
+  // Why this affects ONLY this probe: `findAssistantBubbleAt` and
+  // `readCascadeStateLast` pass a `number` (bubble index) via the same
+  // mechanism and work correctly — verified by the conversation runner's
+  // `settled text` log reading bubble idx=3's prose successfully. The
+  // bubble-index path being green vs the string-arg path being undef
+  // hints at a serialization-layer behavior we did not fully nail down
+  // (Playwright + tsc + the harness build chain). The defensive fix
+  // sidesteps the question entirely by inlining the needle as a JS
+  // literal inside the closure — no `page.evaluate(fn, arg)` second-arg
+  // dependency at all.
+  //
+  // The needle is the canonical content phrase exported above as
+  // `CUSTOM_CATCHALL_CONTENT_PHRASE`. Keep these two in lock-step.
+  return await page.evaluate(() => {
+    const needle = "rendered through the custom wildcard catchall";
+    // Re-establish minimal DOM shape locally — package tsconfig excludes the
+    // `dom` lib. Same pattern used in `findAssistantBubbleAt`.
+    interface DomElement {
+      readonly textContent: string | null;
+      getAttribute(name: string): string | null;
+      querySelector(sel: string): DomElement | null;
+      querySelectorAll(sel: string): DomNodeList;
+    }
+    interface DomNodeList {
+      readonly length: number;
+      item(idx: number): DomElement | null;
+    }
+    const doc = (
+      globalThis as unknown as {
+        document: {
+          querySelectorAll(sel: string): DomNodeList;
+          body: {
+            textContent?: string | null;
+          } | null;
+        };
+      }
+    ).document;
+    const containers = doc.querySelectorAll(
       '[data-testid="custom-wildcard-card"]',
     );
     const names = new Set<string>();
     for (let i = 0; i < containers.length; i++) {
-      const n = containers[i]!.getAttribute("data-tool-name");
+      const n = containers.item(i)?.getAttribute("data-tool-name");
       if (n) names.add(n);
     }
     // Scan the assistant-message bubbles for the custom-catchall content
@@ -140,37 +184,35 @@ export async function probeCustomCatchall(
     // shells that don't carry the canonical `copilot-assistant-message`
     // testid.
     let customContentPhrasePresent = false;
-    if (needle) {
-      const tiers = [
-        '[data-testid="copilot-assistant-message"]',
-        '[role="article"][data-message-role="assistant"]',
-        '[role="article"]:not([data-message-role="user"])',
-        '[data-message-role="assistant"]',
-      ];
-      for (const sel of tiers) {
-        const bubbles = win.document.querySelectorAll(sel);
-        for (let i = 0; i < bubbles.length; i++) {
-          const t = bubbles[i]!.textContent ?? "";
-          if (t.includes(needle)) {
-            customContentPhrasePresent = true;
-            break;
-          }
+    const tiers = [
+      '[data-testid="copilot-assistant-message"]',
+      '[role="article"][data-message-role="assistant"]',
+      '[role="article"]:not([data-message-role="user"])',
+      '[data-message-role="assistant"]',
+    ];
+    for (const sel of tiers) {
+      const bubbles = doc.querySelectorAll(sel);
+      for (let i = 0; i < bubbles.length; i++) {
+        const t = bubbles.item(i)?.textContent ?? "";
+        if (t.includes(needle)) {
+          customContentPhrasePresent = true;
+          break;
         }
-        if (customContentPhrasePresent) break;
       }
-      // Last-resort: scan the document body's textContent (full DOM).
-      if (!customContentPhrasePresent) {
-        const body = win.document.body;
-        const bodyText = (body.textContent ?? "") as string;
-        customContentPhrasePresent = bodyText.includes(needle);
-      }
+      if (customContentPhrasePresent) break;
+    }
+    // Last-resort: scan the document body's textContent (full DOM).
+    if (!customContentPhrasePresent) {
+      const body = doc.body;
+      const bodyText = (body?.textContent ?? "") as string;
+      customContentPhrasePresent = bodyText.includes(needle);
     }
     return {
       toolNames: Array.from(names),
       containerCount: containers.length,
       customContentPhrasePresent,
     };
-  }, phrase);
+  });
 }
 
 /**
