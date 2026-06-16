@@ -59,11 +59,7 @@ function BackendGrid() {
         {integrations.map((i) => (
           <Link
             key={i.slug}
-            href={
-              i.slug === "built-in-agent"
-                ? "/built-in-agent/quickstart"
-                : `/${i.slug}`
-            }
+            href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
             className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
           >
             <span

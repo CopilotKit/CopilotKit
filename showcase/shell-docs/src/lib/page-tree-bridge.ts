@@ -14,13 +14,10 @@
 //   - Folder { type: 'folder'; name; children; defaultOpen?; index? }
 //
 // We pre-bake the URL using `slugHrefPrefix` (the value DocsPageView
-// already uses for its own hrefs), so a framework-scoped render passes
-// `/built-in-agent` and the sidebar renders `/built-in-agent/<slug>`
-// links statically. This loses shell-docs's client-side framework
-// rewriting via <SidebarLink>, but the FrameworkProvider + RouterPivot
-// handle the case where a user lands on an unscoped URL — they get
-// redirected to /<stored>/<slug> and the sidebar there carries the
-// framework prefix.
+// already uses for its own hrefs): a framework-scoped render passes
+// `/<framework>` and the sidebar renders `/<framework>/<slug>` links
+// statically, while the root surface (where the Built-in Agent docs are
+// served) passes "" and the sidebar links resolve at `/<slug>`.
 
 import React from "react";
 import type * as PageTree from "fumadocs-core/page-tree";

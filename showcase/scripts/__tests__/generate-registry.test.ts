@@ -1,8 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import {
+  FileSnapshotRestorer,
+  acquireGeneratedDataLock,
+  execOptsFor,
+  withGeneratedDataLock,
+} from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // `generate-registry.ts` multi-emits registry.json + catalog.json into
@@ -11,11 +24,9 @@ import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 // catalog.json drifts on every run (its metadata carries a generated_at
 // timestamp), so the full write set must be snapshotted, not just the
 // shell registry/constraints pair. Snapshot in beforeAll; restore after
-// each test and at the end of the suite. This suite is the ONLY one that
-// snapshots these paths — test-cleanup.ts's disjointness contract under
-// the `fileParallelism: true` config requires suites' snapshot targets
-// never overlap (the pattern suite runs against a per-suite tmpdir
-// harness instead — see generate-registry-pattern.test.ts, SU7-F3).
+// each test and at the end of the suite. These paths overlap with the
+// catalog and integration-smoke suites, so each generator mutation window
+// holds the generated-data lock.
 const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),
@@ -27,6 +38,7 @@ const DATA_FILES = [
   ]),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+let releaseGeneratedDataLock: (() => void) | undefined;
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
@@ -39,28 +51,50 @@ function runGenerator(): string {
   return out.toString();
 }
 
-beforeAll(() => {
-  // Generate the data files (they're gitignored, so they may not exist).
-  // Running the DEFAULT generator before snapshotting also heals any
-  // drift a previously crashed run left behind — the baseline is always
-  // fresh default output, never leaked override artifacts (SU7-F3).
-  runGenerator();
-  dataRestorer.snapshot();
-  // Every file in the write set must have been captured — a missing
-  // entry means the generator's outputs and DATA_FILES have drifted
-  // apart, and the un-snapshotted file would leak mutations into the
-  // working tree with no restore (SU7-F3).
-  const missing = DATA_FILES.filter((p) => !dataRestorer.snapshotMap.has(p));
-  if (missing.length > 0) {
-    throw new Error(
-      `generate-registry.test.ts: snapshot is missing generated files —` +
-        ` DATA_FILES has drifted from the generator's write set:\n` +
-        missing.map((p) => `  ${p}`).join("\n"),
-    );
+beforeAll(() =>
+  withGeneratedDataLock(() => {
+    // Generate the data files (they're gitignored, so they may not exist).
+    // Running the DEFAULT generator before snapshotting also heals any
+    // drift a previously crashed run left behind — the baseline is always
+    // fresh default output, never leaked override artifacts (SU7-F3).
+    runGenerator();
+    dataRestorer.snapshot();
+    // Every file in the write set must have been captured — a missing
+    // entry means the generator's outputs and DATA_FILES have drifted
+    // apart, and the un-snapshotted file would leak mutations into the
+    // working tree with no restore (SU7-F3).
+    const missing = DATA_FILES.filter((p) => !dataRestorer.snapshotMap.has(p));
+    if (missing.length > 0) {
+      throw new Error(
+        `generate-registry.test.ts: snapshot is missing generated files —` +
+          ` DATA_FILES has drifted from the generator's write set:\n` +
+          missing.map((p) => `  ${p}`).join("\n"),
+      );
+    }
+  }),
+);
+
+beforeEach(() => {
+  const release = acquireGeneratedDataLock();
+  try {
+    dataRestorer.restore();
+    releaseGeneratedDataLock = release;
+  } catch (err) {
+    release();
+    throw err;
   }
 });
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
+
+afterEach(() => {
+  try {
+    dataRestorer.restore();
+  } finally {
+    releaseGeneratedDataLock?.();
+    releaseGeneratedDataLock = undefined;
+  }
+});
+
+afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 // The generator uses __dirname-relative paths, so we test it via the actual
 // script against the real showcase directory, using the existing
