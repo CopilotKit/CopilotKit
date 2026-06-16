@@ -20,7 +20,6 @@
       "_comment": "tool-rendering-default-catchall — weather in Tokyo (first turn). Emits get_weather tool call that the built-in default catchall renderer handles.",
       "match": {
         "userMessage": "forecast for Tokyo",
-        "toolName": "get_weather",
         "context": "ms-agent-dotnet"
       },
       "response": {
@@ -31,17 +30,6 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ]
-      }
-    },
-    {
-      "_comment": "tool-rendering-default-catchall — weather in Tokyo fallback when no get_weather tool registered.",
-      "match": {
-        "userMessage": "forecast for Tokyo",
-        "turnIndex": 0,
-        "context": "ms-agent-dotnet"
-      },
-      "response": {
-        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
       }
     }
   ]

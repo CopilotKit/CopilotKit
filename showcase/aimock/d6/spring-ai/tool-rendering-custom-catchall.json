@@ -20,7 +20,6 @@
       "_comment": "custom-catchall turn 1 — emit get_weather tool call. The custom wildcard renderer fires for any tool. toolName-gated so agents without get_weather still fall through to tool-rendering.json's content-only fallback; hasToolResult:false keeps this off the post-tool leg.",
       "match": {
         "userMessage": "forecast for Tokyo",
-        "toolName": "get_weather",
         "hasToolResult": false,
         "context": "spring-ai"
       },
@@ -49,7 +48,6 @@
       "_comment": "custom-catchall turn 2 — emit get_stock_price tool call. Both turns render through the same custom-wildcard-card testid with different data-tool-name values. The old hasToolResult:false gate could never match turn 2: turn 1's get_weather tool result is still in the thread (hasToolResult is a whole-thread check), so the request fell through to no-match -> backend RuntimeException -> RUN_ERROR. Deliberately NO turnIndex/hasToolResult gate: spring-ai's MessageListFilter reshapes prior-turn messages, making both counts unreliable (a turnIndex:2 gate also failed live). Loop safety comes from ordering — the toolCallId-gated follow-up above matches the post-tool leg first. This file loads before tool-rendering.json, so this also absorbs that demo's turnIndex:0 AAPL pill leg; that is benign-equivalent (same get_stock_price name, same ticker/price_usd/change_pct argument shape, near-identical follow-up content).",
       "match": {
         "userMessage": "current price of AAPL",
-        "toolName": "get_stock_price",
         "context": "spring-ai"
       },
       "response": {
