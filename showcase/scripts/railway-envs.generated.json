@@ -218,11 +218,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-agno",
@@ -241,11 +237,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-built-in-agent",
@@ -264,11 +256,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -287,11 +275,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -310,11 +294,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-crewai-crews",
@@ -333,11 +313,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-google-adk",
@@ -356,11 +332,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -379,11 +351,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-python",
@@ -402,11 +370,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -425,11 +389,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langroid",
@@ -448,11 +408,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-llamaindex",
@@ -471,11 +427,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-mastra",
@@ -494,11 +446,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -517,11 +465,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -540,11 +484,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-python",
@@ -563,11 +503,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-pydantic-ai",
@@ -586,11 +522,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-spring-ai",
@@ -609,11 +541,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-strands",
@@ -632,11 +560,7 @@
         "prod": true,
         "driver": "agent"
       },
-      "promoteDeps": [
-        "aimock",
-        "harness",
-        "dashboard"
-      ]
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "webhooks",
