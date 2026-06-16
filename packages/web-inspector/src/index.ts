@@ -3463,6 +3463,11 @@ ${argsString}</pre
         transition: transform 300ms ease;
       }
 
+      .console-button-wrapper {
+        position: relative;
+        display: inline-flex;
+      }
+
       .console-button {
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -3595,6 +3600,10 @@ ${argsString}</pre
         margin-top: -1px;
         width: 20px;
         height: 20px;
+        padding: 0;
+        appearance: none;
+        background: none;
+        border: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -4296,29 +4305,38 @@ ${argsString}</pre
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
     ].join(" ");
 
+    // The announcement preview renders as a SIBLING of the floating button (not
+    // a child) so its dismiss affordance can be a real <button>. Nesting any
+    // interactive/tabbable element inside the floating <button> violates the
+    // HTML button content model. The wrapper is position: relative so the
+    // absolutely-positioned preview still anchors to the button's edge.
     return html`
-      <button
-        class=${buttonClasses}
-        type="button"
-        aria-label="Web Inspector"
-        data-drag-context="button"
-        data-dragging=${
-          this.isDragging && this.pointerContext === "button" ? "true" : "false"
-        }
-        @pointerdown=${this.handlePointerDown}
-        @pointermove=${this.handlePointerMove}
-        @pointerup=${this.handlePointerUp}
-        @pointercancel=${this.handlePointerCancel}
-        @click=${this.handleButtonClick}
-      >
+      <div class="console-button-wrapper">
+        <button
+          class=${buttonClasses}
+          type="button"
+          aria-label="Web Inspector"
+          data-drag-context="button"
+          data-dragging=${
+            this.isDragging && this.pointerContext === "button"
+              ? "true"
+              : "false"
+          }
+          @pointerdown=${this.handlePointerDown}
+          @pointermove=${this.handlePointerMove}
+          @pointerup=${this.handlePointerUp}
+          @pointercancel=${this.handlePointerCancel}
+          @click=${this.handleButtonClick}
+        >
+          <img
+            src=${inspectorLogoIconUrl}
+            alt="Inspector logo"
+            class="h-5 w-auto"
+            loading="lazy"
+          />
+        </button>
         ${this.renderAnnouncementPreview()}
-        <img
-          src=${inspectorLogoIconUrl}
-          alt="Inspector logo"
-          class="h-5 w-auto"
-          loading="lazy"
-        />
-      </button>
+      </div>
     `;
   }
 
@@ -7465,9 +7483,9 @@ ${prettyEvent}</pre
     const side =
       this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
 
-    // The preview renders inside the floating <button>, so the dismiss control
-    // must NOT be a nested <button> (invalid HTML). Use a role="button" span and
-    // stop propagation so dismissing never bubbles up to open the inspector.
+    // The preview is a sibling of the floating button (see renderButton), so the
+    // dismiss control is a real <button>. stopPropagation keeps the X from
+    // bubbling to the preview body, whose click opens the inspector.
     return html`<div
       class="announcement-preview"
       data-side=${side}
@@ -7475,16 +7493,14 @@ ${prettyEvent}</pre
       @click=${() => this.handleAnnouncementPreviewClick()}
     >
       <span>${this.announcementPreviewText}</span>
-      <span
+      <button
+        type="button"
         class="announcement-preview__dismiss"
-        role="button"
-        tabindex="0"
         aria-label="Dismiss announcement"
         @click=${this.handleDismissAnnouncementPreview}
-        @keydown=${this.handleDismissAnnouncementPreviewKeydown}
       >
         ${this.renderIcon("X")}
-      </span>
+      </button>
       <span class="announcement-preview__arrow"></span>
     </div>`;
   }
@@ -7501,19 +7517,8 @@ ${prettyEvent}</pre
   // and openInspector do) is intentionally transient — it's the X that makes
   // the dismissal stick.
   private handleDismissAnnouncementPreview = (event: Event): void => {
-    // Don't let the dismiss bubble to the preview body (which opens the
-    // inspector) or the floating button beneath it.
-    event.stopPropagation();
-    this.handleDismissAnnouncement();
-  };
-
-  private handleDismissAnnouncementPreviewKeydown = (
-    event: KeyboardEvent,
-  ): void => {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
+    // Don't let the dismiss bubble to the preview body, whose click opens the
+    // inspector.
     event.stopPropagation();
     this.handleDismissAnnouncement();
   };
