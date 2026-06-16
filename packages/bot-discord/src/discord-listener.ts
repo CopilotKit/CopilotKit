@@ -13,6 +13,18 @@ interface MessageLike {
   guildId?: string | null;
   mentions: { has(id: string): boolean; users?: { has(id: string): boolean } };
   channel: { isDMBased(): boolean };
+  /**
+   * discord.js `Message.attachments` is a Collection; we only use `.values()`
+   * to iterate the uploaded files. Optional so plain test fakes can omit it.
+   */
+  attachments?: {
+    values(): IterableIterator<{
+      url: string;
+      name: string;
+      contentType?: string | null;
+      size: number;
+    }>;
+  };
 }
 
 interface ChatInputLike {
@@ -69,6 +81,14 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
         replyTarget,
         userText: stripMention(msg.content, botId),
         senderUserId: msg.author.id,
+        attachments: msg.attachments
+          ? Array.from(msg.attachments.values()).map((a) => ({
+              url: a.url,
+              name: a.name,
+              contentType: a.contentType,
+              size: a.size,
+            }))
+          : undefined,
       }),
     ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });

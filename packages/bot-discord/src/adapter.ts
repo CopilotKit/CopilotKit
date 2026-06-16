@@ -12,9 +12,14 @@ import type {
   UserQuery,
   CommandSpec,
 } from "@copilotkit/bot";
-import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
+import type {
+  AgentContentPart,
+  BotNode,
+  ThreadMessage,
+} from "@copilotkit/bot-ui";
 import { DiscordConversationStore } from "./conversation-store.js";
 import { attachDiscordListener } from "./discord-listener.js";
+import { buildFileContentParts } from "./download-files.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction } from "./interaction.js";
 import {
@@ -119,10 +124,26 @@ export class DiscordAdapter implements PlatformAdapter {
       client: this.client as never,
       botUserId: () => this.botUserId, // read lazily — only known after `ready`
       onTurn: async (turn) => {
+        // Build multimodal content parts when the message carries attachments,
+        // so the agent's model receives the inbound images/files (bot-slack
+        // parity). Leading text part preserves the user's message alongside.
+        let contentParts: AgentContentPart[] | undefined;
+        if (turn.attachments && turn.attachments.length > 0) {
+          const fileParts = await buildFileContentParts(turn.attachments);
+          if (fileParts.length > 0) {
+            contentParts = [
+              ...(turn.userText
+                ? [{ type: "text" as const, text: turn.userText }]
+                : []),
+              ...fileParts,
+            ];
+          }
+        }
         await sink.onTurn({
           conversationKey: turn.conversationKey,
           replyTarget: turn.replyTarget,
           userText: turn.userText,
+          ...(contentParts ? { contentParts } : {}),
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,

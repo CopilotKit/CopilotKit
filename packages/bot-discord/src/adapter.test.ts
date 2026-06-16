@@ -146,6 +146,66 @@ describe("DiscordAdapter", () => {
     expect(second).toEqual({ id: "u1", name: "Ada", handle: "ada" });
   });
 
+  it("delivers inbound attachments to the sink as multimodal content parts", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+    client.emit("ready", client);
+    await Promise.resolve();
+
+    // Stub the global fetch the download path uses so no real network happens.
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => pngBytes.buffer,
+    } as never);
+
+    client.emit("messageCreate", {
+      author: { id: "u1", bot: false, username: "ann", globalName: "Ann" },
+      content: "<@bot-1> look at this",
+      channelId: "c1",
+      guildId: "g1",
+      mentions: {
+        has: () => true,
+        users: { has: (q: string) => q === "bot-1" },
+      },
+      channel: { isDMBased: () => false },
+      attachments: {
+        values: () =>
+          [
+            {
+              url: "https://cdn.discord/a.png",
+              name: "a.png",
+              contentType: "image/png",
+              size: pngBytes.length,
+            },
+          ][Symbol.iterator](),
+      },
+    });
+    // Let the listener's async onTurn (download + resolveUser) settle.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(s.onTurn).toHaveBeenCalledTimes(1);
+    const turn = s.onTurn.mock.calls[0]![0];
+    expect(turn.contentParts).toEqual([
+      // The leading mention is stripped by the listener, leaving the text body.
+      { type: "text", text: "look at this" },
+      {
+        type: "image",
+        source: {
+          type: "data",
+          value: Buffer.from(pngBytes).toString("base64"),
+          mimeType: "image/png",
+        },
+      },
+    ]);
+    fetchSpy.mockRestore();
+  });
+
   it("interactionCreate dispatch failures are caught, not left unhandled", async () => {
     const client = fakeClient();
     const a = new DiscordAdapter(

@@ -136,6 +136,7 @@ export function createBot(opts: CreateBotOptions): Bot {
         );
         const message: IncomingMessage = {
           text: turn.userText,
+          contentParts: turn.contentParts,
           user: turn.user ?? { id: "" },
           ref: { id: "" },
           platform: turn.platform,

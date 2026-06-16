@@ -1,5 +1,6 @@
 import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
+  AgentContentPart,
   BotNode,
   MessageRef,
   PlatformUser,
@@ -44,6 +45,11 @@ export interface IncomingTurn {
   conversationKey: string;
   replyTarget: ReplyTarget;
   userText: string;
+  /**
+   * Optional multimodal content parts built by the adapter (e.g. inbound
+   * image/file attachments). Carried through to `IncomingMessage.contentParts`.
+   */
+  contentParts?: AgentContentPart[];
   user?: PlatformUser;
   platform: string;
 }
