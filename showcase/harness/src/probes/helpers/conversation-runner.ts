@@ -33,7 +33,7 @@ import {
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
   countAssistantMessages,
-  readCascadeState,
+  readCascadeStateLast,
 } from "./assistant-message-count.js";
 import { formatCvdiag } from "./cv-diag.js";
 
@@ -570,6 +570,18 @@ export async function runConversation(
         }
       };
 
+      // Defect-2 sentinel for the multi-bubble hotfix: snapshot the count
+      // of assistant bubbles already in the DOM BEFORE this turn submits.
+      // Multi-step agents emit >1 bubble per turn — `waitForTurnComplete`
+      // gates on `count > baselineCount` to detect "a new bubble appeared
+      // for THIS turn" without assuming 1 bubble = 1 turn. Captured BEFORE
+      // sendTurnMessage so the assistant can't have started streaming yet
+      // (the user message hasn't been submitted), guaranteeing the
+      // snapshot reflects only prior-turn bubbles.
+      const baselineCount = await countAssistantMessages(
+        page as unknown as PlaywrightPage,
+      );
+
       await sendTurnMessage();
 
       console.debug(
@@ -632,6 +644,7 @@ export async function runConversation(
           settleMs,
           timeoutMs: turnTimeoutMs,
           baselineBannerText,
+          baselineCount,
         });
       } catch (settleErr) {
         // Translate a turn-incomplete failure observed alongside a
@@ -725,6 +738,16 @@ export async function runConversation(
           if (chatInputSelector === null) {
             throw translatedErr;
           }
+          // Re-snapshot the post-reload baseline assistant-bubble count
+          // BEFORE the cold-start re-send. The page DOM was torn down by
+          // page.reload() so the count is typically 0, but a demo with a
+          // prerendered seed conversation could expose pre-existing
+          // bubbles — capture the real count so the multi-bubble gate
+          // (`count > baselineCount`) cannot misread those as the retry's
+          // response.
+          const retryBaselineCount = await countAssistantMessages(
+            page as unknown as PlaywrightPage,
+          );
           await fillAndVerifySend(page, chatInputSelector, turn.input);
           // Re-snapshot the post-reload baseline banner. The page DOM was
           // torn down + repainted, so any banner now visible is the
@@ -753,6 +776,7 @@ export async function runConversation(
                 turnDeadline - Date.now(),
               ),
               baselineBannerText: retryBaselineBannerText,
+              baselineCount: retryBaselineCount,
             });
           } catch (retryErr) {
             if (retryErr instanceof BannerVisibleError) {
@@ -1352,6 +1376,25 @@ export interface WaitForTurnCompleteOpts {
    * (or a fresh visible-after-absent) counts as a candidate.
    */
   baselineBannerText?: string | null;
+  /**
+   * Pre-turn baseline assistant-bubble count snapshot. Captured by the
+   * runner BEFORE the user message is submitted so the gate can detect
+   * "a new bubble appeared for THIS turn" without assuming "1 turn = 1
+   * bubble" (multi-step agents — LangGraph, Mastra, CrewAI — emit
+   * 2-3+ bubbles per turn: tool-call + tool-render + final-text).
+   *
+   * Defect-2 protection: the gate requires `count > baselineCount` so a
+   * leftover bubble from a prior turn cannot be misread as this turn's
+   * response. The settled bubble is then the LAST in the matched cascade
+   * tier (read via `readCascadeStateLast`) — for a multi-step turn that's
+   * the agent's final-text bubble whose scoped text settles cleanly; for
+   * a single-bubble turn that's the only new bubble.
+   *
+   * When omitted, defaults to `turnIndex - 1` to preserve the
+   * pre-multi-step-fix semantics (1 bubble per turn) — used by unit-test
+   * fakes that script count progressions keyed to turn ordinals.
+   */
+  baselineCount?: number;
 }
 
 /** Result of a successful `waitForTurnComplete`. */
@@ -1427,7 +1470,16 @@ export async function waitForTurnComplete(
   const { page, turnIndex, settleMs, timeoutMs } = opts;
   const baselineBannerText = opts.baselineBannerText ?? null;
   const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
-  const bubbleIndex = turnIndex - 1;
+  // Defect-2 sentinel: per-turn baseline count of assistant bubbles already
+  // in the DOM BEFORE this turn submitted. The gate requires
+  // `count > baselineCount` so a leftover bubble from a prior turn cannot
+  // be misread as this turn's response. Defaults to `turnIndex - 1` for
+  // backward compat with unit-test fakes that script count progressions
+  // keyed to turn ordinals; production callers (the runner) snapshot the
+  // real pre-submit count and pass it explicitly. See the multi-bubble
+  // hotfix: multi-step agents (LangGraph, Mastra, CrewAI) emit 2-3+
+  // bubbles per turn, so "turn N = N bubbles" no longer holds.
+  const baselineCount = opts.baselineCount ?? turnIndex - 1;
   const startedAt = Date.now();
   // Track the last observed text per-poll so we can measure how long
   // the bubble has been stable. `null` is a distinct "no bubble yet"
@@ -1449,22 +1501,35 @@ export async function waitForTurnComplete(
   const pwPage = page as unknown as PlaywrightPage;
   while (Date.now() - startedAt < timeoutMs) {
     const runsFinished = await readRunsFinished(page);
-    // Atomic single-evaluate read: `readCascadeState` returns BOTH the
-    // count and the indexed text from the SAME cascade tier in ONE
-    // browser-side round-trip, eliminating a DOM-mutates-between-reads
-    // race where the count comes from one tier and the text from another.
-    const { count, text } = await readCascadeState(pwPage, bubbleIndex);
+    // Atomic single-evaluate read: `readCascadeStateLast` returns BOTH the
+    // count and the text of the LAST bubble in the matched cascade tier in
+    // ONE browser-side round-trip. The "last bubble" semantics is the
+    // multi-bubble hotfix: multi-step agents (LangGraph, Mastra, CrewAI)
+    // emit a tool-call bubble + tool-render bubble + final-text bubble
+    // per turn; only the LAST bubble's scoped text (`.cpk\:prose` etc.)
+    // is non-empty. The strict-index `turnIndex - 1` semantics this
+    // replaces landed on intermediate tool-call bubbles whose scoped
+    // selectors were empty forever → text-stable timeout across most
+    // multi-step demos.
+    const { count, text } = await readCascadeStateLast(pwPage);
     const now = Date.now();
     if (text !== lastText) {
       lastText = text;
       lastChangeAt = now;
     }
     const sseOk = runsFinished >= turnIndex;
-    const domOk = count > bubbleIndex;
+    // Defect-2 protection: a new bubble has appeared for THIS turn — not
+    // just "any bubble exists". `count > baselineCount` rejects a leftover
+    // bubble from a prior turn while accepting multi-step turns where >1
+    // bubble appears (we still want the LAST of the new arrivals).
+    const domOk = count > baselineCount;
     const textOk =
       text !== null && text.trim().length > 0 && now - lastChangeAt >= settleMs;
     if (sseOk && domOk && textOk) {
-      return { bubbleIndex, text: text! };
+      // bubbleIndex returned = last bubble in the matched tier at the
+      // moment of return, so callers consuming the assertions ctx see the
+      // same bubble whose text settled the gate.
+      return { bubbleIndex: count - 1, text: text! };
     }
     // Pre-conjunct banner fast-fail guard. We ONLY fire fast-fail when the
     // assistant hasn't yet produced a response for THIS turn (domOk =
@@ -1519,7 +1584,7 @@ export async function waitForTurnComplete(
   const reason: TurnNotCompleteError["reason"] =
     runsFinishedFinal < turnIndex
       ? "sse-missing"
-      : countFinal <= bubbleIndex
+      : countFinal <= baselineCount
         ? "dom-missing"
         : "text-unstable";
   throw new TurnNotCompleteError(
