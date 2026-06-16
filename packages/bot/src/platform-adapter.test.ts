@@ -11,6 +11,7 @@ describe("FakeAdapter", () => {
       },
       onInteraction: () => {},
       onCommand: () => {},
+      onThreadStarted: () => {},
     });
     a.emitTurn({ userText: "hi" });
     expect(got).toBe("hi");
@@ -27,6 +28,7 @@ describe("FakeAdapter", () => {
         id = e.id;
       },
       onCommand: () => {},
+      onThreadStarted: () => {},
     });
     a.emitInteraction({ id: "ck:abc" });
     expect(id).toBe("ck:abc");

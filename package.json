@@ -90,6 +90,9 @@
       }
     },
     "overrides": {
+      "@copilotkit/bot": "workspace:*",
+      "@copilotkit/bot-slack": "workspace:*",
+      "@copilotkit/bot-ui": "workspace:*",
       "@ag-ui/mcp-middleware>@ag-ui/client": "0.0.53",
       "streamdown>react": "^19.0.0",
       "@types/react": "19.1.8",
