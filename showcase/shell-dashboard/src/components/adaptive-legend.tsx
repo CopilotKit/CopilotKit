@@ -66,7 +66,7 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D4</span>
-        Round Trip (RT): single message, full-stack response verification
+        Round Trip (BE): single message, full-stack response verification
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D5</span>

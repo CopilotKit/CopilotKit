@@ -3,7 +3,7 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all relevant badge dimensions (d6/Parity, d5/CV, d4/RT,
+ * Renders all relevant badge dimensions (d6/Parity, d5/CV, d4/BE,
  * e2e/UI, d2/API, health) with tone, label, and — for red/amber badges —
  * failure metadata presented as readable key-value pairs with the full
  * signal collapsible for debugging.
@@ -40,7 +40,7 @@ export interface CellDrilldownProps {
 
 /**
  * Dimension metadata for display ordering (descending depth). Labels follow
- * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "RT (Round
+ * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "BE (Round
  * Trip)" (chat+tools round-trip), D3/e2e = "UI (Frontend)" (the demo page
  * renders in a browser). BadgeRow derives its data-testid from the label,
  * so labels must stay unique across rows.
@@ -56,7 +56,7 @@ const DIMENSIONS: Array<{
 }> = [
   { key: "d6", label: "Parity (Reference)" },
   { key: "d5", label: "CV (Conversation)" },
-  { key: "d4", label: "RT (Round Trip)" },
+  { key: "d4", label: "BE (Round Trip)" },
   { key: "e2e", label: "UI (Frontend)" },
   { key: "d2", label: "API (Agent)" },
   { key: "health", label: "Health" },

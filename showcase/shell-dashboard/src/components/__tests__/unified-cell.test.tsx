@@ -225,7 +225,7 @@ describe("UnifiedCell", () => {
 
       // No badges rendered
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
 
       // No layer divs rendered
@@ -298,11 +298,11 @@ describe("UnifiedCell", () => {
 
   // ── Test 3: Only shows badges for test levels that exist ──────────
   describe("badge existence filtering", () => {
-    it("shows E2E badge when D3 exists but hides RT badge when D4 is missing", () => {
+    it("shows E2E badge when D3 exists but hides BE badge when D4 is missing", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
-        d4: makeLevel(false), // D4 missing -- no RT badge
+        d4: makeLevel(false), // D4 missing -- no BE badge
         d5: makeLevel(true, "red"),
       });
       const { getByTestId, queryByTestId } = render(
@@ -311,8 +311,8 @@ describe("UnifiedCell", () => {
 
       // E2E badge present (D3 exists)
       expect(getByTestId("mock-badge-UI")).toBeInTheDocument();
-      // RT badge absent (D4 does not exist)
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
+      // BE badge absent (D4 does not exist)
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
       // CV badge present (D5 exists)
       expect(getByTestId("mock-badge-CV")).toBeInTheDocument();
     });
@@ -329,7 +329,7 @@ describe("UnifiedCell", () => {
       );
 
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
 
@@ -345,14 +345,14 @@ describe("UnifiedCell", () => {
       );
 
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
-      expect(getByTestId("mock-badge-RT")).toBeInTheDocument();
+      expect(getByTestId("mock-badge-BE")).toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
   });
 
   // ── Test 4: Shows all three badges when all levels exist ──────────
   describe("all badges visible", () => {
-    it("shows E2E, RT, and CV badges when all three levels exist", () => {
+    it("shows E2E, BE, and CV badges when all three levels exist", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
@@ -367,7 +367,7 @@ describe("UnifiedCell", () => {
       expect(e2eBadge).toBeInTheDocument();
       expect(e2eBadge.getAttribute("data-tone")).toBe("green");
 
-      const rtBadge = getByTestId("mock-badge-RT");
+      const rtBadge = getByTestId("mock-badge-BE");
       expect(rtBadge).toBeInTheDocument();
       expect(rtBadge.getAttribute("data-tone")).toBe("amber");
 
@@ -392,7 +392,7 @@ describe("UnifiedCell", () => {
 
       expect(queryByTestId("health-layer")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
 

@@ -5,7 +5,7 @@
  *   - CP5: missing-state tooltip distinguishes opt-out vs absent
  *   - CP7: error-state docs link is clickable when href is present
  *   - CP8: CV badges hidden for testing-kind features
- *   - docs-only kind hides ALL badges (API, RT, CV)
+ *   - docs-only kind hides ALL badges (API, BE, CV)
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
