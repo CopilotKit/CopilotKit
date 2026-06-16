@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-ui",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "JSX runtime, IR, and cross-platform component vocabulary for CopilotKit bots.",
   "license": "MIT",
   "repository": {
