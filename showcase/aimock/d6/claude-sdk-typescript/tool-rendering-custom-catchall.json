@@ -79,20 +79,14 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall pill 2 fallback: AAPL without toolName gate.",
+      "_comment": "tool-rendering-custom-catchall pill 2 fallback: AAPL narration when no tool is wired.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
         "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_cc_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
-          }
-        ]
+        "content": "AAPL is trading around $338.37, down 2.96% on the day — narration fallback when the get_stock_price tool isn't wired through the custom wildcard catchall."
       }
     }
   ]
