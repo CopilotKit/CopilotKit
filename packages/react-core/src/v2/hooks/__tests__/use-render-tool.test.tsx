@@ -114,6 +114,29 @@ describe("useRenderTool", () => {
     expect(renderer?.args.safeParse({ arbitrary: true }).success).toBe(true);
   });
 
+  it("registers a named render-only renderer without a schema and defaults parameters to z.any", () => {
+    const core = createMockCore();
+    mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+    // Opt a specific tool out of the default rendering — no schema needed.
+    const optOutRender = vi.fn(() => <></>);
+
+    const Harness: React.FC = () => {
+      useRenderTool({ name: "specificTool", render: optOutRender }, []);
+      return null;
+    };
+
+    render(<Harness />);
+
+    const renderer = core.renderToolCalls.find(
+      (item) => item.name === "specificTool",
+    );
+    expect(renderer).toBeDefined();
+    expect(typeof renderer?.render).toBe("function");
+    // Defaulted schema accepts anything since parameters are ignored.
+    expect(renderer?.args.safeParse({ arbitrary: true }).success).toBe(true);
+  });
+
   it("deduplicates by agentId:name and keeps unrelated entries", () => {
     const oldRenderer: ReactToolCallRenderer = {
       name: "searchDocs",
