@@ -33,23 +33,6 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall pill 1 fallback: weather in Tokyo without toolName gate.",
-      "match": {
-        "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "turnIndex": 0,
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_cc_get_weather_001",
-            "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
-          }
-        ]
-      }
-    },
-    {
       "_comment": "tool-rendering-custom-catchall pill 2: AAPL stock price \u2014 follow-up after get_stock_price tool result. Must come before the tool-emitting fixture.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
@@ -74,17 +57,6 @@
             "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
           }
         ]
-      }
-    },
-    {
-      "_comment": "tool-rendering-custom-catchall pill 2 fallback: AAPL narration when no tool is wired.",
-      "match": {
-        "userMessage": "Quote AAPL through the wildcard renderer",
-        "turnIndex": 0,
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "AAPL is trading around $338.37, down 2.96% on the day — narration fallback when the get_stock_price tool isn't wired through the custom wildcard catchall."
       }
     }
   ]
