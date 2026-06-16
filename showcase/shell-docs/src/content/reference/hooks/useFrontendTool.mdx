@@ -185,6 +185,27 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 }
 ```
 
+## LangGraph agents: description vs. system_prompt
+
+For simple UI-control tools (e.g. toggling a theme), the `description` field is usually enough for a LangGraph agent to discover and call the tool at the right time. For **mandatory** tools — ones where the agent must call the tool before answering rather than reasoning from stale context — pair a clear `description` with an explicit instruction in the agent's `system_prompt`.
+
+```python title="agent.py — make mandatory tools explicit in system_prompt"
+graph = create_react_agent(
+    model="openai:gpt-4o",
+    tools=[],
+    middleware=[CopilotKitMiddleware()],
+    state_schema=CopilotKitState,
+    prompt=(
+        "You are a helpful assistant.\n\n"
+        "IMPORTANT: When the user asks about current sales data, you MUST call "
+        "the `fetch_sales_by_month_range` frontend tool first. "
+        "Never answer from memory or previously seen context values."
+    ),
+)
+```
+
+See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/frontend-tools#ensuring-your-agent-reliably-calls-frontend-tools) for the full pattern and a TypeScript example.
+
 ## Behavior
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
