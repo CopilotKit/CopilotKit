@@ -46,7 +46,7 @@ function logTickGauges(
  * console dumps; without truncation those propagate untouched into
  * Pocketbase rows and Slack alerts, blowing past render budgets and
  * making the dashboard unreadable. Same budget the e2e drivers use
- * (`drivers/e2e-readiness.ts`, `drivers/e2e-chat-tools.ts` — both at 1200) so the
+ * (`drivers/d3-readiness.ts`, `drivers/e2e-chat-tools.ts` — both at 1200) so the
  * synthetic path matches what drivers self-truncate to.
  */
 const SYNTHETIC_ERROR_MSG_BUDGET = 1200;

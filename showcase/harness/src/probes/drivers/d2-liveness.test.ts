@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as http from "node:http";
 import type { AddressInfo } from "node:net";
-import { livenessDriver, type SmokeDriverSignal } from "./liveness.js";
+import { livenessDriver, type SmokeDriverSignal } from "./d2-liveness.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,

@@ -7,13 +7,13 @@ import {
   e2eReadinessDriver,
   createE2eDemosDriver,
   createPooledE2eDemosLauncher,
-} from "./e2e-readiness.js";
+} from "./d3-readiness.js";
 import type {
   E2eDemosBrowser,
   E2eDemosBrowserContext,
   E2eDemosPage,
   E2eDemosAggregateSignal,
-} from "./e2e-readiness.js";
+} from "./d3-readiness.js";
 import { buildProbeInvoker } from "../loader/probe-invoker.js";
 import { createDiscoveryRegistry } from "../discovery/index.js";
 import type { DiscoverySource } from "../types.js";
