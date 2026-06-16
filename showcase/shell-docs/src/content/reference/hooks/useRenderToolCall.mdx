@@ -176,7 +176,7 @@ function App() {
 
 ### Opting Out of Rendering
 
-Because the hook falls back to the built-in `DefaultToolCallRenderer` when no renderer matches, tool calls paint UI out-of-the-box. To suppress that — render nothing for a tool call — register a renderer whose `render` returns `null`. A registered renderer (even one returning `null`) takes priority over the default, so no fallback UI is shown.
+Because the hook falls back to the built-in `DefaultToolCallRenderer` when no renderer matches, tool calls paint UI out-of-the-box. To suppress that — render nothing for a tool call — register a renderer whose `render` produces no UI (return `null`, or an empty fragment `<></>`). A registered renderer takes priority over the default, so no fallback UI is shown.
 
 Opt out of a **single tool** by name:
 
@@ -199,32 +199,23 @@ function App() {
 }
 ```
 
-Opt out of **all unhandled tools** with a wildcard renderer. This disables the default renderer globally while still letting any tool with its own named renderer paint:
+Opt out of **all unhandled tools** by registering a wildcard (`"*"`) renderer with [`useRenderTool`](/reference/hooks/useRenderTool). Its wildcard overload takes no `parameters` schema, so this is the simplest no-op path — no Zod schema required. This disables the default renderer globally while still letting any tool with its own named renderer paint:
 
 ```tsx
 function App() {
-  return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      renderToolCalls={[
-        {
-          // Suppresses the built-in DefaultToolCallRenderer for any
-          // tool call without an exact-name renderer.
-          name: "*",
-          render: () => null,
-        },
-      ]}
-    >
-      <YourApp />
-    </CopilotKit>
-  );
+  // Suppresses the built-in DefaultToolCallRenderer for any tool call
+  // without an exact-name renderer.
+  useRenderTool({ name: "*", render: () => <></> }, []);
+
+  return <YourApp />;
 }
 ```
 
-You can also opt out conditionally — return `null` only for certain statuses (for example, render nothing while `InProgress` but show a result on `Complete`), since the `render` function receives the current `status`.
+You can also opt out conditionally — render nothing for some statuses and real UI for others (for example, hide while `InProgress` but show a result on `Complete`), since the `render` function receives the current `status`.
 
 ## Related
 
+- [`useRenderTool`](/reference/hooks/useRenderTool) -- register a renderer by tool name or wildcard (no schema needed for `"*"`)
 - [`useFrontendTool`](/reference/hooks/useFrontendTool) -- register tools with render components
 - [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) -- register interactive tools with render components
 - [`CopilotKit`](/reference/v2) -- configure static render tool calls at the provider level
