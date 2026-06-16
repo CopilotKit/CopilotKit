@@ -1,12 +1,12 @@
+import type { Message } from "../graphql/types/converted";
 import {
   ActionExecutionMessage,
-  Message,
   ResultMessage,
   TextMessage,
   AgentStateMessage,
   ImageMessage,
 } from "../graphql/types/converted";
-import { MessageInput } from "../graphql/inputs/message.input";
+import type { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
 import { tryMap, safeParseToolArgs } from "@copilotkit/shared";
 
@@ -29,6 +29,7 @@ export function convertGqlInputToMessages(
         role: message.imageMessage.role,
         bytes: message.imageMessage.bytes,
         format: message.imageMessage.format,
+        url: message.imageMessage.url,
         parentMessageId: message.imageMessage.parentMessageId,
       });
     } else if (message.actionExecutionMessage) {

@@ -102,7 +102,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof props?.result === "string") {
         try {
           props.result = JSON.parse(props.result);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -111,7 +111,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof actionResult === "string") {
         try {
           actionResult = JSON.parse(actionResult);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -263,8 +263,21 @@ export function gqlResultMessageToAGUIMessage(
 export function gqlImageMessageToAGUIMessage(
   message: gql.ImageMessage,
 ): agui.Message {
-  // Validate image format
-  if (!validateImageFormat(message.format)) {
+  // Determine the role based on the message role
+  const role = message.role === gql.Role.assistant ? "assistant" : "user";
+
+  if (message.url) {
+    const imageMessage: agui.Message = {
+      id: message.id,
+      role,
+      content: "",
+      image: { url: message.url } as any,
+    };
+    return imageMessage;
+  }
+
+  // Validate image format for base64 path
+  if (!validateImageFormat(message.format ?? "")) {
     throw new Error(
       `Invalid image format: ${message.format}. Supported formats are: ${VALID_IMAGE_FORMATS.join(", ")}`,
     );
@@ -279,16 +292,12 @@ export function gqlImageMessageToAGUIMessage(
     throw new Error("Image bytes must be a non-empty string");
   }
 
-  // Determine the role based on the message role
-  const role = message.role === gql.Role.assistant ? "assistant" : "user";
-
-  // Create the image message with proper typing
   const imageMessage: agui.Message = {
     id: message.id,
     role,
     content: "",
     image: {
-      format: message.format,
+      format: message.format!,
       bytes: message.bytes,
     },
   };
