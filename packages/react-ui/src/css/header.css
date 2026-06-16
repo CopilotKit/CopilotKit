@@ -1,4 +1,4 @@
-.copilotKitHeader {
+:where(.copilotKitHeader) {
   height: 56px;
   font-weight: 500;
   display: flex;
@@ -14,21 +14,21 @@
   z-index: 2;
 }
 
-.copilotKitSidebar .copilotKitHeader {
+:where(.copilotKitSidebar) :where(.copilotKitHeader) {
   border-radius: 0;
 }
 
-.copilotKitHeaderControls {
+:where(.copilotKitHeaderControls) {
   display: flex;
 }
 
-.copilotKitHeaderCloseButton {
+:where(.copilotKitHeaderCloseButton) {
   background: none;
   border: none;
 }
 
 @media (min-width: 640px) {
-  .copilotKitHeader {
+  :where(.copilotKitHeader) {
     padding-left: 1.5rem;
     padding-right: 24px;
     border-top-left-radius: 8px;
@@ -36,7 +36,7 @@
   }
 }
 
-.copilotKitHeader > button {
+:where(.copilotKitHeader) > button {
   border: 0;
   padding: 8px;
   position: absolute;
@@ -56,10 +56,10 @@
   height: 35px;
 }
 
-.copilotKitHeader > button:hover {
+:where(.copilotKitHeader) > button:hover {
   color: color-mix(in srgb, var(--copilot-kit-muted-color) 80%, black);
 }
 
-.copilotKitHeader > button:focus {
+:where(.copilotKitHeader) > button:focus {
   outline: none;
 }

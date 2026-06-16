@@ -1,4 +1,4 @@
-.copilotKitButton {
+:where(.copilotKitButton) {
   width: 3.5rem;
   height: 3.5rem;
   display: flex;
@@ -16,17 +16,17 @@
   box-shadow: var(--copilot-kit-shadow-sm);
 }
 
-.copilotKitButton:hover {
+:where(.copilotKitButton):hover {
   transform: scale(1.05);
   box-shadow: var(--copilot-kit-shadow-md);
 }
 
-.copilotKitButton:active {
+:where(.copilotKitButton):active {
   transform: scale(0.95);
   box-shadow: var(--copilot-kit-shadow-sm);
 }
 
-.copilotKitButtonIcon {
+:where(.copilotKitButtonIcon) {
   transition:
     opacity 100ms,
     transform 300ms;
@@ -39,29 +39,29 @@
   justify-content: center;
 }
 
-.copilotKitButtonIcon svg {
+:where(.copilotKitButtonIcon) svg {
   width: 1.5rem;
   height: 1.5rem;
 }
 
 /* State when the chat is open */
-.copilotKitButton.open .copilotKitButtonIconOpen {
+:where(.copilotKitButton.open) :where(.copilotKitButtonIconOpen) {
   transform: translate(-50%, -50%) scale(0) rotate(90deg);
   opacity: 0;
 }
 
-.copilotKitButton.open .copilotKitButtonIconClose {
+:where(.copilotKitButton.open) :where(.copilotKitButtonIconClose) {
   transform: translate(-50%, -50%) scale(1) rotate(0deg);
   opacity: 1;
 }
 
 /* State when the chat is closed */
-.copilotKitButton:not(.open) .copilotKitButtonIconOpen {
+:where(.copilotKitButton):not(.open) :where(.copilotKitButtonIconOpen) {
   transform: translate(-50%, -50%) scale(1) rotate(0deg);
   opacity: 1;
 }
 
-.copilotKitButton:not(.open) .copilotKitButtonIconClose {
+:where(.copilotKitButton):not(.open) :where(.copilotKitButtonIconClose) {
   transform: translate(-50%, -50%) scale(0) rotate(-90deg);
   opacity: 0;
 }

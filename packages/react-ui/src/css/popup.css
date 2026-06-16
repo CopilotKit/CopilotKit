@@ -1,4 +1,4 @@
-.copilotKitPopup {
+:where(.copilotKitPopup) {
   position: fixed;
   bottom: 1rem;
   right: 1rem;
@@ -28,7 +28,7 @@
   touch-action: manipulation;
 }
 
-.copilotKitPopup svg {
+:where(.copilotKitPopup) svg {
   display: inline-block;
   vertical-align: middle;
 }

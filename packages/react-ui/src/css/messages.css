@@ -1,4 +1,4 @@
-.copilotKitMessages {
+:where(.copilotKitMessages) {
   overflow-y: scroll;
   flex: 1;
   display: flex;
@@ -9,13 +9,13 @@
   z-index: 1;
 }
 
-.copilotKitMessagesContainer {
+:where(.copilotKitMessagesContainer) {
   padding: 1rem 24px;
   display: flex;
   flex-direction: column;
 }
 
-.copilotKitMessagesFooter {
+:where(.copilotKitMessagesFooter) {
   display: flex;
   padding: 0.5rem 0.75rem;
   margin: 8px auto 0 auto;
@@ -25,25 +25,25 @@
   box-sizing: border-box;
 }
 
-.copilotKitMessages::-webkit-scrollbar {
+:where(.copilotKitMessages)::-webkit-scrollbar {
   width: 6px;
 }
 
-.copilotKitMessages::-webkit-scrollbar-thumb {
+:where(.copilotKitMessages)::-webkit-scrollbar-thumb {
   background-color: var(--copilot-kit-separator-color);
   border-radius: 10rem;
   border: 2px solid var(--copilot-kit-background-color);
 }
 
-.copilotKitMessages::-webkit-scrollbar-track-piece:start {
+:where(.copilotKitMessages)::-webkit-scrollbar-track-piece:start {
   background: transparent;
 }
 
-.copilotKitMessages::-webkit-scrollbar-track-piece:end {
+:where(.copilotKitMessages)::-webkit-scrollbar-track-piece:end {
   background: transparent;
 }
 
-.copilotKitMessage {
+:where(.copilotKitMessage) {
   border-radius: 15px;
   padding: 8px 12px;
   font-size: 1rem;
@@ -53,7 +53,7 @@
   margin-bottom: 0.5rem;
 }
 
-.copilotKitMessage.copilotKitUserMessage {
+:where(.copilotKitMessage.copilotKitUserMessage) {
   background: var(--copilot-kit-primary-color);
   color: var(--copilot-kit-contrast-color);
   margin-left: auto;
@@ -62,7 +62,7 @@
   font-size: 1rem;
 }
 
-.copilotKitMessage.copilotKitAssistantMessage {
+:where(.copilotKitMessage.copilotKitAssistantMessage) {
   background: transparent;
   margin-right: auto;
   padding-left: 0;
@@ -71,7 +71,7 @@
   color: var(--copilot-kit-secondary-contrast-color);
 }
 
-.copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
+:where(.copilotKitMessage.copilotKitAssistantMessage) :where(.copilotKitMessageControls) {
   position: absolute;
   left: 0;
   display: flex;
@@ -81,22 +81,22 @@
   padding: 5px 0 0 0;
 }
 
-.copilotKitMessageControls.currentMessage {
+:where(.copilotKitMessageControls.currentMessage) {
   opacity: 1 !important;
 }
 
-.copilotKitMessage.copilotKitAssistantMessage:hover .copilotKitMessageControls {
+:where(.copilotKitMessage.copilotKitAssistantMessage):hover :where(.copilotKitMessageControls) {
   opacity: 1;
 }
 
 /* Always show controls on mobile */
 @media (max-width: 768px) {
-  .copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
+  :where(.copilotKitMessage.copilotKitAssistantMessage) :where(.copilotKitMessageControls) {
     opacity: 1;
   }
 }
 
-.copilotKitMessageControlButton {
+:where(.copilotKitMessageControlButton) {
   width: 20px;
   height: 20px;
   display: flex;
@@ -113,22 +113,22 @@
   border: none;
 }
 
-.copilotKitMessageControlButton:hover {
+:where(.copilotKitMessageControlButton):hover {
   color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
   transform: scale(1.05);
 }
 
-.copilotKitMessageControlButton:active {
+:where(.copilotKitMessageControlButton):active {
   color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
   transform: scale(1.05);
 }
 
-.copilotKitMessageControlButton.active {
+:where(.copilotKitMessageControlButton.active) {
   background-color: var(--copilot-kit-primary-color);
   color: var(--copilot-kit-contrast-color);
 }
 
-.copilotKitMessageControlButton.active:hover {
+:where(.copilotKitMessageControlButton.active):hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-primary-color) 90%,
@@ -137,24 +137,24 @@
   color: var(--copilot-kit-contrast-color);
 }
 
-.copilotKitMessageControlButton svg {
+:where(.copilotKitMessageControlButton) svg {
   width: 1rem;
   height: 1rem;
   display: block;
   pointer-events: none;
 }
 
-.copilotKitMessage.copilotKitAssistantMessage
-  + .copilotKitMessage.copilotKitUserMessage {
+:where(.copilotKitMessage.copilotKitAssistantMessage)
+  + :where(.copilotKitMessage.copilotKitUserMessage) {
   margin-top: 1.5rem;
 }
 
-.copilotKitCustomAssistantMessage {
+:where(.copilotKitCustomAssistantMessage) {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
 }
 
-.copilotKitMessage .inProgressLabel {
+:where(.copilotKitMessage) .inProgressLabel {
   margin-left: 10px;
   opacity: 0.7;
 }
@@ -168,7 +168,7 @@
   }
 }
 
-.copilotKitSpinner {
+:where(.copilotKitSpinner) {
   display: inline-block;
   width: 16px;
   height: 16px;
@@ -191,7 +191,7 @@
   }
 }
 
-.copilotKitActivityDot {
+:where(.copilotKitActivityDot) {
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -201,13 +201,13 @@
 }
 
 /* Image Rendering Styles */
-.copilotKitImageRendering {
+:where(.copilotKitImageRendering) {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.copilotKitImageRenderingImage {
+:where(.copilotKitImageRenderingImage) {
   max-width: 80px;
   max-height: 80px;
   width: auto;
@@ -219,7 +219,7 @@
   cursor: pointer;
 }
 
-.copilotKitImageRenderingContent {
+:where(.copilotKitImageRenderingContent) {
   margin-top: 8px;
   padding: 0 16px;
   font-size: 0.875rem;
@@ -228,7 +228,7 @@
 }
 
 /* Image Error State Styles */
-.copilotKitImageRenderingError {
+:where(.copilotKitImageRenderingError) {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -238,7 +238,7 @@
   background-color: var(--copilot-kit-input-background-color);
 }
 
-.copilotKitImageRenderingErrorMessage {
+:where(.copilotKitImageRenderingErrorMessage) {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -251,7 +251,7 @@
   font-weight: 500;
 }
 
-.copilotKitImageRenderingErrorMessage::before {
+:where(.copilotKitImageRenderingErrorMessage)::before {
   content: "⚠️";
   font-size: 1rem;
 }
