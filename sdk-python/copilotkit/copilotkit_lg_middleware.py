@@ -354,9 +354,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     catalog_id = parsed.get("catalogId")
             except (TypeError, ValueError):
                 pass
-            # Native path: the toolkit reads ``a2ui_schema`` from state itself,
-            # so no composition_guide is needed — just surface the catalog id.
-            return None, catalog_id
+            # Return the full schema as component_schema so the subagent
+            # has component definitions even when build_context_prompt
+            # cannot read from state (e.g., when ag-ui key is filtered).
+            return a2ui_schema, catalog_id
 
         # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
         context = (state.get("copilotkit") or {}).get("context") or []
@@ -433,6 +434,24 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         # only catalog components (the toolkit appends this to its prompt).
         if component_schema:
             params["guidelines"] = {"composition_guide": component_schema}
+
+        # Pass catalog for component validation and recovery for auto-retry.
+        # This ensures invalid component names are caught and the subagent
+        # can retry generation instead of propagating errors to the frontend.
+        ag_ui_state = state.get("ag-ui") or state.get("ag_ui") or {}
+        a2ui_schema_raw = ag_ui_state.get("a2ui_schema")
+        if a2ui_schema_raw:
+            try:
+                parsed_schema = (
+                    json.loads(a2ui_schema_raw)
+                    if isinstance(a2ui_schema_raw, str)
+                    else a2ui_schema_raw
+                )
+                if isinstance(parsed_schema, dict):
+                    params["catalog"] = parsed_schema
+                    params["recovery"] = {"maxAttempts": 3}
+            except (TypeError, ValueError):
+                pass
 
         tool = get_a2ui_tools(params)
 
