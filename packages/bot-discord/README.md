@@ -28,8 +28,8 @@ const bot = createBot({
   adapters: [
     discord({
       botToken: process.env.DISCORD_BOT_TOKEN!, // Bot token — Gateway + REST
-      appId: process.env.DISCORD_APP_ID!,       // Application ID for command registration
-      guildId: process.env.DISCORD_GUILD_ID,    // Optional: instant guild-scoped dev commands
+      appId: process.env.DISCORD_APP_ID!, // Application ID for command registration
+      guildId: process.env.DISCORD_GUILD_ID, // Optional: instant guild-scoped dev commands
     }),
   ],
   agent: (threadId) => makeAgent(threadId),
@@ -59,11 +59,11 @@ most use cases.
 
 ### Required env
 
-| Var                   | Purpose                                                                    |
-| --------------------- | -------------------------------------------------------------------------- |
-| `DISCORD_BOT_TOKEN`   | Bot token for Gateway login and REST calls.                                |
-| `DISCORD_APP_ID`      | Application ID used when registering slash commands.                       |
-| `DISCORD_GUILD_ID`    | *(Optional)* Guild ID for instant per-guild command registration in dev.   |
+| Var                 | Purpose                                                                  |
+| ------------------- | ------------------------------------------------------------------------ |
+| `DISCORD_BOT_TOKEN` | Bot token for Gateway login and REST calls.                              |
+| `DISCORD_APP_ID`    | Application ID used when registering slash commands.                     |
+| `DISCORD_GUILD_ID`  | _(Optional)_ Guild ID for instant per-guild command registration in dev. |
 
 > **Global commands** (no `guildId`) propagate across Discord in ~1 hour.
 > **Guild-scoped commands** (with `guildId`) register instantly — use them
@@ -96,7 +96,7 @@ ready-to-send Discord Components V2 payload (`{ components, flags }`) with the
 
 | bot-ui element         | Discord output                                          |
 | ---------------------- | ------------------------------------------------------- |
-| `Message`              | `Container` (accent color → `setAccentColor`)          |
+| `Message`              | `Container` (accent color → `setAccentColor`)           |
 | `Header`               | `TextDisplay` with `# ` prefix                          |
 | `Section` / `Markdown` | `TextDisplay`                                           |
 | `Fields`               | `TextDisplay` — each field as a **bold-label** line     |
@@ -113,16 +113,16 @@ ready-to-send Discord Components V2 payload (`{ components, flags }`) with the
 Discord caps every element. The renderer degrades by truncate-with-overflow /
 clamp — it never silently drops content. Limits live in `DISCORD_LIMITS`:
 
-| Limit                  | Value | Element                              |
-| ---------------------- | ----- | ------------------------------------ |
+| Limit                  | Value | Element                               |
+| ---------------------- | ----- | ------------------------------------- |
 | `componentsPerMessage` | 40    | total (nested) components per message |
-| `actionRows`           | 5     | action rows per message              |
-| `buttonsPerRow`        | 5     | buttons per action row               |
-| `selectOptions`        | 25    | options per string select            |
-| `textDisplayChars`     | 2000  | chars per TextDisplay                |
-| `buttonLabel`          | 80    | button label chars                   |
-| `customId`             | 100   | `custom_id` chars                    |
-| `headerText`           | 256   | header line chars (`# ` TextDisplay) |
+| `actionRows`           | 5     | action rows per message               |
+| `buttonsPerRow`        | 5     | buttons per action row                |
+| `selectOptions`        | 25    | options per string select             |
+| `textDisplayChars`     | 2000  | chars per TextDisplay                 |
+| `buttonLabel`          | 80    | button label chars                    |
+| `customId`             | 100   | `custom_id` chars                     |
+| `headerText`           | 256   | header line chars (`# ` TextDisplay)  |
 
 ### Streaming
 
@@ -151,6 +151,7 @@ resumes the agent via `thread.resume(value)`.
 ### Typing indicator and reactions
 
 The adapter supports both Discord-native capabilities:
+
 - **Typing indicator** — `channel.sendTyping()` is called at the start of each
   run, giving users immediate feedback.
 - **Reactions** — `supportsReactions: true` is advertised; the engine can add
@@ -181,7 +182,7 @@ only through capability-gated `thread` methods, which this adapter backs:
 
 - `thread.getMessages()` — the current channel's recent messages (via
   `channel.messages.fetch`), each a `ThreadMessage` (`{ user?, text, ts?,
-  isBot? }`).
+isBot? }`).
 - `thread.lookupUser(query)` — resolve a name/handle to a `PlatformUser` by
   searching guild members.
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file

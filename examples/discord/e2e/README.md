@@ -41,16 +41,16 @@ Discord guild with the bot running.
 
 Add these to `.env` (alongside the existing bot credentials) before running:
 
-| Variable | Required | Description |
-|---|---|---|
-| `DISCORD_E2E` | **Yes (gate)** | Set to `1` to enable the harness. Without this, `pnpm e2e` is a no-op. |
-| `DISCORD_BOT_TOKEN` | Yes | Bot token — already in `.env` for the live bot. |
-| `DISCORD_APP_ID` | Yes | Application ID from Developer Portal → General Information. |
-| `DISCORD_BOT_USER_ID` | Yes | The bot's user ID (find it in Developer Portal → Bot, or from `GET /users/@me`). |
-| `DISCORD_TEST_GUILD_ID` | Yes | Snowflake ID of the throwaway test guild (right-click server → Copy Server ID). |
-| `DISCORD_TEST_CHANNEL_ID` | Yes | Snowflake ID of the test channel inside that guild. |
-| `DISCORD_TEST_USER_TOKEN` | Recommended | Token for a _second_ Discord account (user bot / alt). Messages sent from this token bypass the bot's own-message guard, giving accurate trigger delivery. Without it the harness falls back to the bot token and warns. |
-| `DISCORD_INTERACTIONS_URL` | Optional | HTTP URL of the bot's registered Interactions Endpoint. Required for button-click simulation (E-hitl cases). Without it, click-simulation steps are skipped with a warning (they don't fail the run). |
+| Variable                   | Required       | Description                                                                                                                                                                                                              |
+| -------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DISCORD_E2E`              | **Yes (gate)** | Set to `1` to enable the harness. Without this, `pnpm e2e` is a no-op.                                                                                                                                                   |
+| `DISCORD_BOT_TOKEN`        | Yes            | Bot token — already in `.env` for the live bot.                                                                                                                                                                          |
+| `DISCORD_APP_ID`           | Yes            | Application ID from Developer Portal → General Information.                                                                                                                                                              |
+| `DISCORD_BOT_USER_ID`      | Yes            | The bot's user ID (find it in Developer Portal → Bot, or from `GET /users/@me`).                                                                                                                                         |
+| `DISCORD_TEST_GUILD_ID`    | Yes            | Snowflake ID of the throwaway test guild (right-click server → Copy Server ID).                                                                                                                                          |
+| `DISCORD_TEST_CHANNEL_ID`  | Yes            | Snowflake ID of the test channel inside that guild.                                                                                                                                                                      |
+| `DISCORD_TEST_USER_TOKEN`  | Recommended    | Token for a _second_ Discord account (user bot / alt). Messages sent from this token bypass the bot's own-message guard, giving accurate trigger delivery. Without it the harness falls back to the bot token and warns. |
+| `DISCORD_INTERACTIONS_URL` | Optional       | HTTP URL of the bot's registered Interactions Endpoint. Required for button-click simulation (E-hitl cases). Without it, click-simulation steps are skipped with a warning (they don't fail the run).                    |
 
 ## Setting up a throwaway test guild
 

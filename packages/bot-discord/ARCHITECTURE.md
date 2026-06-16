@@ -182,15 +182,15 @@ always `undefined`.
 These files carry over from (or are adapted from) the cross-platform and
 bot-slack approach:
 
-| File                        | Job                                                                        |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `discord-listener.ts`       | Gateway events → normalized turns/commands; ingress filters.               |
-| `conversation-store.ts`     | In-memory Discord-backed history reconstruction; keyed by channel id.      |
-| `message-stream.ts`         | Per-message `message.edit` queue + ≥1100ms throttle (no update races).     |
-| `chunked-message-stream.ts` | Multi-message chunking at 2000-char boundary; keeps fenced blocks whole.   |
-| `auto-close-streaming.ts`   | Closes dangling markdown brackets mid-stream (idempotent).                 |
-| `markdown.ts`               | GFM Markdown → Discord markdown; fences GFM tables as code blocks.         |
-| `download-files.ts`         | Inbound Discord attachment download → AG-UI multimodal content parts.      |
+| File                        | Job                                                                      |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `discord-listener.ts`       | Gateway events → normalized turns/commands; ingress filters.             |
+| `conversation-store.ts`     | In-memory Discord-backed history reconstruction; keyed by channel id.    |
+| `message-stream.ts`         | Per-message `message.edit` queue + ≥1100ms throttle (no update races).   |
+| `chunked-message-stream.ts` | Multi-message chunking at 2000-char boundary; keeps fenced blocks whole. |
+| `auto-close-streaming.ts`   | Closes dangling markdown brackets mid-stream (idempotent).               |
+| `markdown.ts`               | GFM Markdown → Discord markdown; fences GFM tables as code blocks.       |
+| `download-files.ts`         | Inbound Discord attachment download → AG-UI multimodal content parts.    |
 
 ## SDK files at a glance
 
