@@ -61,6 +61,35 @@ export class WhatsAppClient {
     return { id, to, phoneNumberId: this.phoneNumberId };
   }
 
+  /**
+   * Mark an inbound message as read and optionally show a typing indicator.
+   * The indicator displays for up to ~25s or until the next message is sent —
+   * it's the only "pending" affordance WhatsApp offers (no streaming/edits).
+   * Throws on a non-2xx so callers can decide; ingress fires it best-effort.
+   */
+  async sendReadReceipt(
+    messageId: string,
+    opts: { typing?: boolean } = {},
+  ): Promise<void> {
+    const url = `${this.base}/${this.apiVersion}/${this.phoneNumberId}/messages`;
+    const body: Record<string, unknown> = {
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: messageId,
+    };
+    if (opts.typing) body.typing_indicator = { type: "text" };
+    const res = await this.fetchImpl(url, {
+      method: "POST",
+      headers: { ...this.authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(
+        `WhatsApp read/typing failed: ${res.status} ${await safeText(res)}`,
+      );
+    }
+  }
+
   /** Upload media (multipart) and return its media id. */
   async uploadMedia(
     bytes: Uint8Array,

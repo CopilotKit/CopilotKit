@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { whatsapp, splitForWhatsApp } from "./adapter.js";
+import { InMemoryHistoryStore } from "./history-store.js";
 
 describe("whatsapp() adapter", () => {
   const opts = {
@@ -39,6 +40,21 @@ describe("whatsapp() adapter", () => {
     ]);
     expect(sent[0].to).toBe("111");
     expect(ref).toMatchObject({ id: "wamid.X" });
+  });
+
+  it("records outbound messages in history keyed by wamid (quote-reply resolution)", async () => {
+    const history = new InMemoryHistoryStore();
+    const a = whatsapp({ ...opts, historyStore: history }) as any;
+    a.client = {
+      sendMessage: vi.fn(async (to: string) => ({ id: "wamid.OUT1", to, phoneNumberId: "PNID" })),
+    };
+    await a.post({ to: "111", phoneNumberId: "PNID" }, [
+      { type: "section", props: { children: "Open CPK issues" } },
+    ]);
+    const hist = await history.read("whatsapp:111");
+    expect(hist).toHaveLength(1);
+    expect(hist[0]).toMatchObject({ role: "assistant", id: "wamid.OUT1" });
+    expect(hist[0]!.content).toContain("Open CPK issues");
   });
 
   it("decodeInteraction delegates to the interaction decoder", () => {

@@ -4,10 +4,7 @@ import type { ChangeValue, ReplyTarget } from "./types.js";
 import type { HistoryStore } from "./history-store.js";
 import type { WhatsAppClient } from "./client.js";
 import type { FileDeliveryConfig, WhatsAppMediaRef } from "./download-files.js";
-import {
-  buildFileContentParts,
-  type AgentContentPart,
-} from "./download-files.js";
+import { buildFileContentParts, type AgentContentPart } from "./download-files.js";
 import { conversationKeyOf, decodeInteraction } from "./interaction.js";
 
 export interface WebhookListenerArgs {
@@ -15,17 +12,14 @@ export interface WebhookListenerArgs {
   history: HistoryStore;
   phoneNumberId: string;
   commandPrefix: string;
-  client: Pick<WhatsAppClient, "downloadMedia">;
+  client: Pick<WhatsAppClient, "downloadMedia" | "sendReadReceipt">;
   files: FileDeliveryConfig;
 }
 
 const MEDIA_TYPES = ["image", "audio", "video", "document"] as const;
 
 /** Process one webhook `value` object: classify each message and emit to the sink. */
-export async function handleWebhookValue(
-  value: ChangeValue,
-  args: WebhookListenerArgs,
-): Promise<void> {
+export async function handleWebhookValue(value: ChangeValue, args: WebhookListenerArgs): Promise<void> {
   if (!value.messages || value.messages.length === 0) return; // statuses-only or empty
 
   const nameByWaId = new Map<string, string>();
@@ -34,13 +28,19 @@ export async function handleWebhookValue(
   }
 
   for (const msg of value.messages) {
-    const replyTarget: ReplyTarget = {
-      to: msg.from,
-      phoneNumberId: args.phoneNumberId,
-    };
+    const replyTarget: ReplyTarget = { to: msg.from, phoneNumberId: args.phoneNumberId };
     const user: PlatformUser = { id: msg.from };
     const name = nameByWaId.get(msg.from);
     if (name) user.name = name;
+
+    // Acknowledge immediately: mark read + show a typing indicator so the user
+    // sees activity during the (non-streaming) agent run. Best-effort — a
+    // failure here must never block or fail the turn.
+    if (msg.id) {
+      void args.client
+        .sendReadReceipt(msg.id, { typing: true })
+        .catch((err) => console.warn("[whatsapp] read/typing failed:", err));
+    }
 
     // 1. Interactive reply → interaction.
     if (msg.type === "interactive") {
@@ -66,39 +66,38 @@ export async function handleWebhookValue(
         // designated path for input that isn't in the adapter's replayed history (mirrors
         // bot-slack, where slash args never appear in channel history). Persisting it here
         // too would double it in the agent's context.
-        await args.sink.onCommand({
-          command,
-          text,
-          conversationKey,
-          replyTarget,
-          user,
-          platform: "whatsapp",
-        });
+        await args.sink.onCommand({ command, text, conversationKey, replyTarget, user, platform: "whatsapp" });
         continue;
+      }
+      let userText = body;
+      // Quote-reply: WhatsApp sends only the quoted message's id (`context.id`),
+      // not its text. Resolve it from our own history so the agent sees what the
+      // user is replying to (e.g. "can you do this" → which message is "this").
+      const quotedId = msg.context?.id;
+      if (quotedId) {
+        const hist = await args.history.read(conversationKey);
+        const quoted = hist.find((m) => m.id === quotedId);
+        if (quoted) {
+          const quotedText =
+            typeof quoted.content === "string" ? quoted.content : "[an earlier attachment]";
+          userText = `[Replying to an earlier message: "${quotedText}"]\n\n${body}`;
+        }
       }
       await args.history.append(conversationKey, {
         role: "user",
-        content: body,
+        content: userText,
         ts: msg.timestamp ?? msg.id,
+        id: msg.id,
       });
-      await args.sink.onTurn({
-        conversationKey,
-        replyTarget,
-        userText: body,
-        user,
-        platform: "whatsapp",
-      });
+      await args.sink.onTurn({ conversationKey, replyTarget, userText, user, platform: "whatsapp" });
       continue;
     }
 
     // 3. Media → turn with multimodal content stored in history.
     if (MEDIA_TYPES.includes(msg.type as (typeof MEDIA_TYPES)[number])) {
       const conversationKey = conversationKeyOf(msg.from);
-      const mediaObj = (msg as unknown as Record<string, WhatsAppMediaRef>)[
-        msg.type
-      ];
-      const caption =
-        (mediaObj as unknown as { caption?: string })?.caption ?? "";
+      const mediaObj = (msg as unknown as Record<string, WhatsAppMediaRef>)[msg.type];
+      const caption = (mediaObj as unknown as { caption?: string })?.caption ?? "";
       const { parts, notes } = await buildFileContentParts(
         mediaObj ? [mediaObj] : [],
         args.client,
@@ -107,16 +106,13 @@ export async function handleWebhookValue(
       const content: AgentContentPart[] = [];
       if (caption) content.push({ type: "text", text: caption });
       content.push(...parts);
-      if (notes.length > 0)
-        content.push({
-          type: "text",
-          text: `[attachment notes: ${notes.join("; ")}]`,
-        });
+      if (notes.length > 0) content.push({ type: "text", text: `[attachment notes: ${notes.join("; ")}]` });
       if (content.length === 0) continue;
       await args.history.append(conversationKey, {
         role: "user",
         content,
         ts: msg.timestamp ?? msg.id,
+        id: msg.id,
       });
       await args.sink.onTurn({
         conversationKey,

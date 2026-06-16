@@ -86,4 +86,41 @@ describe("WhatsAppClient", () => {
     expect(res.mimeType).toBe("image/png");
     expect(Array.from(res.bytes)).toEqual([1, 2, 3]);
   });
+
+  it("sends a read receipt with a typing indicator", async () => {
+    let sent: any;
+    const client = new WhatsAppClient({
+      accessToken: "TOK",
+      phoneNumberId: "PNID",
+      apiVersion: "v21.0",
+      graphBaseUrl: "https://graph.test",
+      fetchImpl: fakeFetch(async (url, init) => {
+        sent = { url, body: JSON.parse((init?.body as string) ?? "{}") };
+        return new Response(JSON.stringify({ success: true }), { status: 200 });
+      }),
+    });
+    await client.sendReadReceipt("wamid.IN", { typing: true });
+    expect(sent.url).toBe("https://graph.test/v21.0/PNID/messages");
+    expect(sent.body).toEqual({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: "wamid.IN",
+      typing_indicator: { type: "text" },
+    });
+  });
+
+  it("sends a plain read receipt without typing when not requested", async () => {
+    let body: any;
+    const client = new WhatsAppClient({
+      accessToken: "TOK",
+      phoneNumberId: "PNID",
+      fetchImpl: fakeFetch(async (_url, init) => {
+        body = JSON.parse((init?.body as string) ?? "{}");
+        return new Response("{}", { status: 200 });
+      }),
+    });
+    await client.sendReadReceipt("wamid.IN");
+    expect(body.typing_indicator).toBeUndefined();
+    expect(body.status).toBe("read");
+  });
 });

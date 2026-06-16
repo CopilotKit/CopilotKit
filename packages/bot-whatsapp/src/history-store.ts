@@ -6,6 +6,12 @@ export interface StoredMessage {
   content: string | AgentContentPart[];
   /** Sortable timestamp (the inbound message ts, or a monotonic counter). */
   ts: string;
+  /**
+   * Platform message id (WhatsApp `wamid`) when known. Lets a later quote-reply
+   * resolve the message it quotes (the webhook sends only the quoted id, not its
+   * text). Optional — durable stores may omit it.
+   */
+  id?: string;
 }
 
 /**

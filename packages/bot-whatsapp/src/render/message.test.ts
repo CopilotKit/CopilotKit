@@ -129,4 +129,72 @@ describe("renderWhatsAppMessage", () => {
       ]),
     ).toThrow(/too large to round-trip/);
   });
+
+  it("renders value-only buttons (HITL confirm/cancel) encoding the value in the id", () => {
+    const out = renderWhatsAppMessage([
+      node("section", { children: "Create issue?" }),
+      node("button", { children: "Confirm", value: { confirmed: true } }),
+      node("button", { children: "Cancel", value: { confirmed: false } }),
+    ]);
+    const m = out[0] as Record<string, any>;
+    expect(m.type).toBe("interactive");
+    expect(m.interactive.type).toBe("button");
+    expect(m.interactive.action.buttons.map((b: any) => b.reply)).toEqual([
+      { id: 'wa:choice::{"confirmed":true}', title: "Confirm" },
+      { id: 'wa:choice::{"confirmed":false}', title: "Cancel" },
+    ]);
+  });
+
+  // --- renderToIR-shaped IR (the real shape thread.post produces) ---
+  // renderToIR lowers text into `{ type: "text", props: { value } }` leaves and
+  // nests controls inside containers (message > actions > button). These guard
+  // against the shape the flat hand-built fixtures above don't exercise.
+  const text = (value: string): BotNode => ({ type: "text", props: { value } });
+
+  it("renders a message>header>section tree with text-value leaves (issue_list regression)", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: [
+          node("header", { children: [text("Open CPK issues")] }),
+          node("section", { children: [text("*CPK-1* — A\n*CPK-2* — B")] }),
+        ],
+      }),
+    ];
+    const out = renderWhatsAppMessage(ir);
+    expect(out).toHaveLength(1);
+    const m = out[0] as Record<string, any>;
+    expect(m.type).toBe("text");
+    expect(m.text.body).toContain("Open CPK issues");
+    expect(m.text.body).toContain("CPK-1");
+    expect(m.text.body).toContain("CPK-2");
+  });
+
+  it("finds buttons nested in message>actions with text-value titles (show_incident regression)", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: [
+          node("section", { children: [text("An incident needs attention")] }),
+          node("actions", {
+            children: [
+              node("button", { children: [text("Acknowledge")], value: "ack", onClick: { id: "ck:a" } }),
+              node("button", { children: [text("Escalate")], value: "esc", onClick: { id: "ck:e" } }),
+            ],
+          }),
+        ],
+      }),
+    ];
+    const out = renderWhatsAppMessage(ir);
+    const m = out[0] as Record<string, any>;
+    expect(m.type).toBe("interactive");
+    expect(m.interactive.type).toBe("button");
+    expect(m.interactive.body.text).toContain("An incident");
+    expect(m.interactive.action.buttons.map((b: any) => b.reply.title)).toEqual([
+      "Acknowledge",
+      "Escalate",
+    ]);
+    expect(m.interactive.action.buttons.map((b: any) => b.reply.id)).toEqual([
+      'ck:a::"ack"',
+      'ck:e::"esc"',
+    ]);
+  });
 });

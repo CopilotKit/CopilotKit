@@ -50,6 +50,8 @@ export interface InboundMessage {
   id: string; // wamid
   timestamp?: string;
   type: string; // "text" | "interactive" | "image" | "audio" | "document" | "video" | ...
+  /** Present when this message quote-replies another; `id` is the quoted message's wamid. */
+  context?: { id?: string; from?: string };
   text?: { body: string };
   interactive?: {
     type: "button_reply" | "list_reply";
