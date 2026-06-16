@@ -51,7 +51,7 @@ import {
 import { FLEET_FAMILIES } from "./fleet/control-plane/run-view.js";
 import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
-import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
+import { createE2eDemosDriver } from "./probes/drivers/d3-readiness.js";
 import { createE2eSmokeDriver } from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   E2E_D6_DRIVER_KIND,
