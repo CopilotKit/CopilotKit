@@ -2328,10 +2328,10 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot
       '@copilotkit/bot-ui':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot-ui
       discord.js:
         specifier: ^14.16.0
@@ -2362,10 +2362,10 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot
       '@copilotkit/bot-ui':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot-ui
       '@copilotkit/core':
         specifier: workspace:^
