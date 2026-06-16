@@ -88,6 +88,12 @@ export function createRunRenderer(args: {
   const paneStatus = args.assistantStatus;
   const paneMode = paneStatus !== undefined && target.threadTs !== undefined;
   const paneToolStatus = paneStatus?.toolStatus ?? true;
+  // Native streaming outside the pane (e.g. a channel thread): the reply renders
+  // with Slack's native streaming UI, and Slack has no composer-status surface
+  // here, so we skip the legacy "thinking…" placeholder and `:wrench:` tool rows
+  // entirely and let the native stream speak for itself. (paneMode still wins
+  // when present.)
+  const nativeNoStatus = args.nativeStreaming !== undefined && !paneMode;
 
   const setPaneStatus = async (status: string): Promise<void> => {
     if (!paneMode || !target.threadTs) return;
@@ -307,6 +313,9 @@ export function createRunRenderer(args: {
       if (paneMode) {
         // Native status under the composer instead of a placeholder message.
         await setPaneStatus(paneStatus?.thinking || DEFAULT_THINKING_STATUS);
+      } else if (nativeNoStatus) {
+        // Native streaming in a channel: no placeholder; the native stream
+        // (and its built-in streaming indicator) is the only surface.
       } else {
         await startThinking();
       }
@@ -356,6 +365,9 @@ export function createRunRenderer(args: {
         }
         return;
       }
+      // Native streaming (channel): no `:wrench:` rows — the native stream is
+      // the only surface. Tool calls are still captured below for the run-loop.
+      if (nativeNoStatus) return;
       // Dedup by toolCallId so a tool that re-emits START on resume can't
       // post a second status row.
       if (!showToolStatus) return;
@@ -396,6 +408,8 @@ export function createRunRenderer(args: {
       );
       // Pane threads use live status (set on START); no per-call rows to edit.
       if (paneMode) return;
+      // Native streaming (channel): no rows were posted, nothing to update.
+      if (nativeNoStatus) return;
       if (!showToolStatus) return;
       const ts = toolStatusTs.get(event.toolCallId);
       if (!ts) return;

@@ -519,3 +519,87 @@ describe("createRunRenderer — assistant pane status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("");
   });
 });
+
+describe("createRunRenderer — native streaming in a channel (no status)", () => {
+  // A non-pane thread (e.g. a channel mention) with native streaming: Slack
+  // has no composer-status surface here, so the renderer posts NO "thinking…"
+  // placeholder and NO `:wrench:` tool rows — the native stream is the only
+  // surface. Tool calls are still captured for the run-loop.
+  function makeNativeTransport() {
+    let counter = 0;
+    const appended: string[] = [];
+    const transport = {
+      startStream: vi.fn(async () => {
+        counter++;
+        return `ns${counter}`;
+      }),
+      appendStream: vi.fn(async (_ts: string, md: string) => {
+        appended.push(md);
+      }),
+      stopStream: vi.fn(async (_ts: string) => {}),
+    };
+    return { transport, appended };
+  }
+
+  it("posts no placeholder on run start", async () => {
+    const f = makeFakeClient();
+    const nt = makeNativeTransport();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    expect(f.posts).toHaveLength(0);
+  });
+
+  it("posts no :wrench: rows for tool calls, but still captures them", async () => {
+    const f = makeFakeClient();
+    const nt = makeNativeTransport();
+    const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport },
+    });
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "search",
+      toolCallArgs: { q: "x" },
+    } as never);
+    // No placeholder, no `:wrench:`/checkmark rows.
+    expect(f.posts).toHaveLength(0);
+    expect(f.updates).toHaveLength(0);
+    // The run-loop still sees the tool call.
+    expect(getCapturedToolCalls()).toEqual([
+      { toolCallId: "t1", toolCallName: "search", toolCallArgs: { q: "x" } },
+    ]);
+  });
+
+  it("streams the reply via the native transport, not chat.update", async () => {
+    const f = makeFakeClient();
+    const nt = makeNativeTransport();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m", role: "assistant" },
+    } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m", delta: "hello" },
+      textMessageBuffer: "",
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m" } } as never);
+    expect(nt.transport.startStream).toHaveBeenCalledTimes(1);
+    expect(nt.transport.stopStream).toHaveBeenCalledTimes(1);
+    expect(nt.appended.join("")).toContain("hello");
+    // Legacy posting path is never touched.
+    expect(f.posts).toHaveLength(0);
+    expect(f.updates).toHaveLength(0);
+  });
+});
