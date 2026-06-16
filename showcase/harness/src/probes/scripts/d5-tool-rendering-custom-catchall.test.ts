@@ -24,7 +24,7 @@ describe("D5 tool-rendering-custom-catchall — registration", () => {
 
   it("references the tool-rendering fixture", () => {
     const script = getD5Script("tool-rendering-custom-catchall");
-    expect(script?.fixtureFile).toBe("tool-rendering.json");
+    expect(script?.fixtureFile).toBe("tool-rendering-custom-catchall.json");
   });
 
   it("registers preNavigateRoute pointing at the canonical route", () => {

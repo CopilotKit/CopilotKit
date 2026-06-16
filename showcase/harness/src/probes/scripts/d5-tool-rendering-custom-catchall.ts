@@ -318,7 +318,7 @@ export function preNavigateRoute(): string {
 
 registerD5Script({
   featureTypes: ["tool-rendering-custom-catchall"],
-  fixtureFile: "tool-rendering.json",
+  fixtureFile: "tool-rendering-custom-catchall.json",
   buildTurns,
   preNavigateRoute,
 });
