@@ -27,7 +27,7 @@ export function CoverageBar({
   const total = wired + stub + unshipped + unsupported;
   if (total === 0) return null;
 
-  const pctWired = (wired / total) * 100;
+  const pctBeAgent = (wired / total) * 100;
   const pctStub = (stub / total) * 100;
   const pctUnsupported = (unsupported / total) * 100;
   // unshipped fills the rest (solid gray background)
@@ -47,11 +47,11 @@ export function CoverageBar({
       className="w-full h-1.5 rounded-full overflow-hidden flex bg-[var(--text-muted)]/20"
       title={titleParts.join(" / ")}
     >
-      {pctWired > 0 && (
+      {pctBeAgent > 0 && (
         <div
           data-testid="coverage-segment-wired"
           className="h-full bg-[var(--ok)]"
-          style={{ width: `${pctWired}%` }}
+          style={{ width: `${pctBeAgent}%` }}
         />
       )}
       {pctStub > 0 && (

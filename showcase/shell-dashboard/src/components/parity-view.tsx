@@ -5,12 +5,10 @@
  * Composes: stats bar + parity legend + ParityMatrix.
  */
 import { useMemo } from "react";
-import { ParityBadge, type ParityTier } from "./parity-badge";
-import {
-  ParityMatrix,
-  type IntegrationInfo,
-  type FeatureInfo,
-} from "./parity-matrix";
+import { ParityBadge } from "./parity-badge";
+import type { ParityTier } from "./parity-badge";
+import { ParityMatrix } from "./parity-matrix";
+import type { IntegrationInfo, FeatureInfo } from "./parity-matrix";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
 import type { CatalogData } from "@/data/catalog-types";
@@ -82,8 +80,8 @@ function computeDefaultOpenCategories(
     }
   }
 
-  const totalWired = cells.filter((c) => c.status === "wired").length;
-  if (totalWired === 0) {
+  const totalBeAgent = cells.filter((c) => c.status === "wired").length;
+  if (totalBeAgent === 0) {
     return new Set(categories.slice(0, 2).map((c) => c.id));
   }
 
@@ -93,7 +91,7 @@ function computeDefaultOpenCategories(
 
   const result = new Set<string>();
   let accumulated = 0;
-  const threshold = totalWired * 0.6;
+  const threshold = totalBeAgent * 0.6;
 
   for (const cat of sorted) {
     result.add(cat.id);
