@@ -47,16 +47,15 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
 }
 
 describe("CellDrilldown", () => {
-  it("renders all 7 badge dimensions", () => {
+  it("renders all 6 badge dimensions (smoke dropped — redundant w/ health)", () => {
     const live = mapOf([
       row("health:lgp", "health", "green", { ...FRESH }),
       row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
-      row("smoke:lgp", "smoke", "green", { ...FRESH }),
       row("agent:lgp", "agent", "green", { ...FRESH }),
       row("chat:lgp", "chat", "green", { ...FRESH }),
       row("tools:lgp", "tools", "green", { ...FRESH }),
     ]);
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByText, queryByText } = render(
       <CellDrilldown
         slug="lgp"
         featureId="agentic-chat"
@@ -71,11 +70,15 @@ describe("CellDrilldown", () => {
     expect(getByText("CV (Conversation)")).toBeDefined();
     // `RT (Round Trip)` is now the D4 (chat+tools round-trip) row …
     expect(getByText("RT (Round Trip)")).toBeDefined();
-    // … and the e2e row carries the de-crossed `E2E (Demo)` label.
-    expect(getByText("E2E (Demo)")).toBeDefined();
+    // … and the e2e row carries the renamed `UI (Frontend)` label
+    // (was `E2E (Demo)` — taxonomy cleanup).
+    expect(getByText("UI (Frontend)")).toBeDefined();
     expect(getByText("API (Agent)")).toBeDefined();
     expect(getByText("Health")).toBeDefined();
-    expect(getByText("Smoke")).toBeDefined();
+    // The "Smoke" row was dropped: the /smoke endpoint had the same contract
+    // as /health on the same service (pure redundancy) and is no longer
+    // probed or rendered.
+    expect(queryByText("Smoke")).toBeNull();
   });
 
   it("renders a red RT (Round Trip) row for a red D4 fold while the service line stays green (headline drilldown-parity bug)", () => {
@@ -152,7 +155,7 @@ describe("CellDrilldown", () => {
     expect(queryByText("Rollup")).toBeNull();
   });
 
-  it("de-crosses the e2e label: E2E (Demo) renders and exactly ONE row is labelled RT (Round Trip)", () => {
+  it("renames the e2e label to UI (Frontend); exactly ONE row is labelled RT (Round Trip)", () => {
     const live = mapOf([
       row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
       row("chat:lgp", "chat", "green", { ...FRESH }),
@@ -168,7 +171,9 @@ describe("CellDrilldown", () => {
         onClose={() => {}}
       />,
     );
-    expect(getByText("E2E (Demo)")).toBeDefined();
+    // E2E (Demo) was renamed to UI (Frontend); the underlying `e2e:<slug>/<feature>`
+    // probe key is preserved on PocketBase for backward compatibility.
+    expect(getByText("UI (Frontend)")).toBeDefined();
     expect(getAllByText("RT (Round Trip)").length).toBe(1);
   });
 

@@ -157,7 +157,7 @@ describe("CP1: tooltipOpen resets on mouseleave/blur", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "E2E");
+    const rtBadge = findBadgeByName(container, "UI");
     fireEvent.mouseEnter(rtBadge);
     // Allow microtask to flush.
     await Promise.resolve();
@@ -176,7 +176,7 @@ describe("CP1: tooltipOpen resets on mouseleave/blur", () => {
     // and gated on open, never on close).
     expect(mockState.fetchCount).toBe(countAfterEnter);
     // The badge remains in the document after the reset.
-    expect(findBadgeByName(container, "E2E")).toBeInTheDocument();
+    expect(findBadgeByName(container, "UI")).toBeInTheDocument();
   });
 });
 
@@ -196,12 +196,12 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "E2E");
+    const rtBadge = findBadgeByName(container, "UI");
     fireEvent.mouseEnter(rtBadge);
     // Wait for the lazy fetch + state update (waitFor, not a fixed sleep, to
     // avoid flakiness — mirrors the sibling first/error/green_to_red cases).
     await waitFor(() => {
-      const el = findBadgeByName(container, "E2E");
+      const el = findBadgeByName(container, "UI");
       expect(el.getAttribute("title")).toContain("(initial: green)");
     });
   });
@@ -221,14 +221,14 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "E2E");
+    const rtBadge = findBadgeByName(container, "UI");
     fireEvent.mouseEnter(rtBadge);
     await waitFor(() => {
-      const el = findBadgeByName(container, "E2E");
+      const el = findBadgeByName(container, "UI");
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(el.getAttribute("title")!).toMatch(/\(error → red\)/);
     });
-    const updated = findBadgeByName(container, "E2E");
+    const updated = findBadgeByName(container, "UI");
     expect(updated.getAttribute("title")).toContain("(error → red)");
   });
 
@@ -247,14 +247,14 @@ describe("CP2: transitionLine discriminates first/error", () => {
       liveStatus: new Map([[redE2eRow().key, redE2eRow()]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    const rtBadge = findBadgeByName(container, "E2E");
+    const rtBadge = findBadgeByName(container, "UI");
     fireEvent.mouseEnter(rtBadge);
     await waitFor(() => {
-      const el = findBadgeByName(container, "E2E");
+      const el = findBadgeByName(container, "UI");
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(el.getAttribute("title")!).toMatch(/\(green → red\)/);
     });
-    const updated = findBadgeByName(container, "E2E");
+    const updated = findBadgeByName(container, "UI");
     expect(updated.getAttribute("title")).toContain("(green → red)");
   });
 });
@@ -401,7 +401,7 @@ describe("docs-only kind hides ALL badges", () => {
     const { container } = render(<CellStatus ctx={ctx} />);
     const text = container.textContent ?? "";
     expect(text).not.toContain("API");
-    expect(text).not.toContain("E2E");
+    expect(text).not.toContain("UI");
     expect(text).not.toContain("CV");
   });
 });
@@ -493,7 +493,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     });
     // lastSuccessAt 3 h ago > 2 × 1 h period → family silent → glyph.
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
-    const rt = findBadgeByName(container, "RT");
+    const rt = findBadgeByName(container, "UI");
     expect(rt.textContent).toContain("⏱");
     // The badge keeps its degraded label — the glyph is a SUFFIX, not a
     // replacement (spec §7.3 "minimal: suffix only").
@@ -508,7 +508,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
       liveStatus: new Map([[red.key, red]]) as LiveStatusMap,
     });
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
-    const rt = findBadgeByName(container, "RT");
+    const rt = findBadgeByName(container, "UI");
     expect(rt.textContent).toContain("✗");
     expect(rt.textContent).not.toContain("⏱");
   });
@@ -529,7 +529,7 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
       ]) as LiveStatusMap,
     });
     const { container } = renderWithWorkerRuns(ctx, [makeFamily()]);
-    const rt = findBadgeByName(container, "RT");
+    const rt = findBadgeByName(container, "UI");
     expect(rt.textContent).not.toContain("⏱");
   });
 
@@ -543,12 +543,12 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
     const fast = renderWithWorkerRuns(ctx, [
       makeFamily({ periodMs: 900_000, lastSuccessAt }),
     ]);
-    expect(findBadgeByName(fast.container, "RT").textContent).toContain("⏱");
+    expect(findBadgeByName(fast.container, "UI").textContent).toContain("⏱");
     // Same payload but a 30 min period: 40 < 2×30 → not silent → no glyph.
     const slow = renderWithWorkerRuns(ctx, [
       makeFamily({ periodMs: 1_800_000, lastSuccessAt }),
     ]);
-    expect(findBadgeByName(slow.container, "RT").textContent).not.toContain(
+    expect(findBadgeByName(slow.container, "UI").textContent).not.toContain(
       "⏱",
     );
   });
@@ -564,14 +564,14 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
       makeFamily({ lastSuccessAt: null }),
     ]);
     expect(
-      findBadgeByName(neverSucceeded.container, "RT").textContent,
+      findBadgeByName(neverSucceeded.container, "UI").textContent,
     ).toContain("⏱");
     // Zero batches: nothing to reference → never silent → no glyph.
     const zeroBatches = renderWithWorkerRuns(ctx, [
       makeFamily({ lastSuccessAt: null, lastRun: null, inflight: null }),
     ]);
     expect(
-      findBadgeByName(zeroBatches.container, "RT").textContent,
+      findBadgeByName(zeroBatches.container, "UI").textContent,
     ).not.toContain("⏱");
   });
 
@@ -581,6 +581,6 @@ describe("§7.3: clock-glyph suffix on the stale-degraded badge", () => {
       liveStatus: new Map([[row.key, row]]) as LiveStatusMap,
     });
     const { container } = render(<CellStatus ctx={ctx} />);
-    expect(findBadgeByName(container, "RT").textContent).not.toContain("⏱");
+    expect(findBadgeByName(container, "UI").textContent).not.toContain("⏱");
   });
 });
