@@ -61,9 +61,9 @@ describe("LevelStrip", () => {
     );
     const strip = getByTestId("level-strip");
     expect(strip.children).toHaveLength(4);
-    // First letters: U(p), W(ired), C(hats), T(ools)
+    // First letters: U(p), B(E (Agent)), C(hats), T(ools)
     const letters = Array.from(strip.children).map((c) => c.textContent);
-    expect(letters).toEqual(["U", "W", "C", "T"]);
+    expect(letters).toEqual(["U", "B", "C", "T"]);
   });
 
   it("shows green tone when dimension rows are green", () => {
@@ -152,7 +152,7 @@ describe("LevelStrip", () => {
       <LevelStrip integration={integration} liveStatus={live} />,
     );
     const strip = getByTestId("level-strip");
-    const wiredChip = strip.children[1]!;
-    expect(wiredChip.getAttribute("title")).toContain("degraded");
+    const beAgentChip = strip.children[1]!;
+    expect(beAgentChip.getAttribute("title")).toContain("degraded");
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Platform-agnostic JSX bot engine for CopilotKit (createBot, Thread, PlatformAdapter, ActionStore).",
   "license": "MIT",
   "repository": {

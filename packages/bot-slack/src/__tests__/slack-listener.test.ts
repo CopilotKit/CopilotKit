@@ -68,6 +68,7 @@ function fakeStore(
 
 function setup(opts?: {
   ownedThreads?: Array<{ channelId: string; threadTs: string }>;
+  assistantThreads?: Array<{ channel: string; threadTs: string }>;
 }) {
   const store = fakeStore(
     (opts?.ownedThreads ?? []).map((t) => ({
@@ -84,12 +85,18 @@ function setup(opts?: {
     commands.push(cmd);
   });
   const fake = makeFakeApp();
+  const assistantKeys = new Set(
+    (opts?.assistantThreads ?? []).map((t) => `${t.channel}::${t.threadTs}`),
+  );
   attachSlackListener({
     app: fake.app,
     store,
     botUserId: BOT_USER_ID,
     onTurn,
     onCommand,
+    isAssistantThread: opts?.assistantThreads
+      ? (channel, threadTs) => assistantKeys.has(`${channel}::${threadTs}`)
+      : undefined,
   });
   return { ...fake, turns, onTurn, commands, onCommand, store };
 }
@@ -152,6 +159,62 @@ describe("slack-listener", () => {
       replyTarget: { channel: "D1" },
       userText: "hi bot",
     });
+    expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
+  });
+
+  it("skips a pane message (assistant thread) — owned by the Assistant middleware", async () => {
+    const f = setup({
+      assistantThreads: [{ channel: "D1", threadTs: "100.0" }],
+    });
+    await f.fireMessage({
+      type: "message",
+      channel: "D1",
+      channel_type: "im",
+      user: "UATAI001",
+      ts: "300.0",
+      thread_ts: "100.0",
+      text: "in the pane",
+    });
+    // Exactly one turn per pane message is the Assistant middleware's job; the
+    // listener must NOT double-deliver it.
+    expect(f.turns).toHaveLength(0);
+  });
+
+  it("still flows an ordinary threaded DM that is NOT an assistant thread (per-thread gate)", async () => {
+    const f = setup({
+      assistantThreads: [{ channel: "D1", threadTs: "999.0" }],
+    });
+    await f.fireMessage({
+      type: "message",
+      channel: "D1",
+      channel_type: "im",
+      user: "UATAI001",
+      ts: "300.0",
+      thread_ts: "100.0", // a different thread — not the assistant one
+      text: "ordinary threaded dm",
+    });
+    // The guard is per-thread, never per-config: a non-assistant threaded DM
+    // is unaffected and flows as a flat DM (shipped behavior).
+    expect(f.turns).toHaveLength(1);
+    expect(f.turns[0]).toMatchObject({
+      conversation: { channelId: "D1", scope: DM_SCOPE },
+      replyTarget: { channel: "D1" },
+    });
+  });
+
+  it("leaves flat DMs untouched even when an assistant predicate is present", async () => {
+    const f = setup({
+      assistantThreads: [{ channel: "D1", threadTs: "100.0" }],
+    });
+    await f.fireMessage({
+      type: "message",
+      channel: "D1",
+      channel_type: "im",
+      user: "UATAI001",
+      ts: "300.0",
+      text: "flat dm, no thread", // no thread_ts → not a pane message
+    });
+    expect(f.turns).toHaveLength(1);
     expect(f.turns[0]!.replyTarget.threadTs).toBeUndefined();
   });
 

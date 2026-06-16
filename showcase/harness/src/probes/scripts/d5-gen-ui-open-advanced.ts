@@ -117,7 +117,12 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: "Inline expression evaluator",
-      assertions: assertAdvancedIframe,
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertAdvancedIframe` takes `(page, timeoutMs?)`, not
+      // `(page, ctx)`, and ctx is irrelevant to the iframe-mount probe.
+      assertions: async (page) => {
+        await assertAdvancedIframe(page);
+      },
     },
   ];
 }

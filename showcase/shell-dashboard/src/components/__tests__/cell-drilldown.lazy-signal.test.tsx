@@ -347,8 +347,8 @@ describe("CellDrilldown — lazy signal fetch (real PocketBase SDK)", () => {
     const healthBadge = getByTestId("drilldown-badge-health");
     // The e2e row's label-derived testid: `RT (Round Trip)` now belongs to
     // the D4 row (whose fixtures here have no chat/tools data), so the e2e
-    // row must be selected via its de-crossed `E2E (Demo)` label.
-    const e2eBadge = getByTestId("drilldown-badge-e2e--demo-");
+    // row must be selected via its renamed `UI (Frontend)` label.
+    const e2eBadge = getByTestId("drilldown-badge-ui--frontend-");
 
     // The e2e badge's signal arrived → it renders its field and shows NO error.
     await waitFor(
@@ -426,8 +426,8 @@ describe("CellDrilldown — lazy signal fetch (real PocketBase SDK)", () => {
       />,
     );
 
-    // e2e row selected via its de-crossed `E2E (Demo)` label — see above.
-    const e2eBadge = getByTestId("drilldown-badge-e2e--demo-");
+    // e2e row selected via its renamed `UI (Frontend)` label — see above.
+    const e2eBadge = getByTestId("drilldown-badge-ui--frontend-");
     await waitFor(
       () => expect(within(e2eBadge).getByTestId("signal-error")).toBeDefined(),
       { timeout: 5000 },
