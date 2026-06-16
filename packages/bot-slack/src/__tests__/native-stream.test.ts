@@ -11,7 +11,12 @@ function makeFakeTransport(opts?: {
   failStart?: boolean;
   failStartAfter?: number;
 }) {
-  const messages: { ts: string; appends: string[]; stopped: boolean }[] = [];
+  const messages: {
+    ts: string;
+    appends: string[];
+    stopped: boolean;
+    discarded: boolean;
+  }[] = [];
   let counter = 0;
   const transport: NativeStreamTransport = {
     startStream: vi.fn(async () => {
@@ -26,7 +31,7 @@ function makeFakeTransport(opts?: {
       }
       counter++;
       const ts = `S${counter}`;
-      messages.push({ ts, appends: [], stopped: false });
+      messages.push({ ts, appends: [], stopped: false, discarded: false });
       return ts;
     }),
     appendStream: vi.fn(async (ts: string, md: string) => {
@@ -35,6 +40,10 @@ function makeFakeTransport(opts?: {
     stopStream: vi.fn(async (ts: string) => {
       const m = messages.find((x) => x.ts === ts);
       if (m) m.stopped = true;
+    }),
+    discardStream: vi.fn(async (ts: string) => {
+      const m = messages.find((x) => x.ts === ts);
+      if (m) m.discarded = true;
     }),
   };
   return { transport, messages };
@@ -93,6 +102,82 @@ describe("NativeMessageStream", () => {
     await stream.finish();
     expect(transport.startStream).not.toHaveBeenCalled();
     expect(messages).toHaveLength(0);
+  });
+
+  it("prime() opens the stream eagerly; a later append reuses it (one start)", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    await stream.prime();
+    expect(transport.startStream).toHaveBeenCalledTimes(1);
+    expect(transport.appendStream).not.toHaveBeenCalled();
+    expect(stream.firstTs).toBe("S1");
+
+    stream.append("hello");
+    await stream.finish();
+
+    // Still exactly one stream — the eager bubble was reused, not reopened.
+    expect(transport.startStream).toHaveBeenCalledTimes(1);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.appends.join("")).toBe("hello");
+    expect(messages[0]!.stopped).toBe(true);
+    expect(messages[0]!.discarded).toBe(false);
+  });
+
+  it("prime() then finish() with no content discards the empty bubble", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    await stream.prime();
+    await stream.finish();
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.discarded).toBe(true);
+    expect(messages[0]!.stopped).toBe(false);
+  });
+
+  it("prime() falls back to stopStream for an empty bubble when discardStream is absent", async () => {
+    const { transport, messages } = makeFakeTransport();
+    // Strip discardStream — older/partial transports may not implement it.
+    delete (transport as { discardStream?: unknown }).discardStream;
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    await stream.prime();
+    await stream.finish();
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.stopped).toBe(true);
+  });
+
+  it("prime() failover to legacy never throws", async () => {
+    const { transport } = makeFakeTransport({ failStart: true });
+    const fallback = makeFakeFallback();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      minIntervalMs: 0,
+    });
+
+    // Priming a workspace where startStream is unavailable must not throw.
+    await expect(stream.prime()).resolves.toBeUndefined();
+
+    // Subsequent content flows through the legacy fallback.
+    stream.append("via legacy");
+    await stream.finish();
+    expect(fallback.last()).toBe("via legacy");
+    expect(fallback.finished).toBe(true);
   });
 
   it("opens a continuation message when the budget is exceeded", async () => {

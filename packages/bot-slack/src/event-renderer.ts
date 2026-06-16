@@ -262,7 +262,7 @@ export function createRunRenderer(args: {
     });
 
   // Native chat.startStream transport — raw markdown, no mrkdwn translation.
-  const makeNativeStream = (): TextStream => {
+  const makeNativeStream = (): NativeMessageStream => {
     const ns = args.nativeStreaming!;
     return new NativeMessageStream({
       transport: {
@@ -276,17 +276,44 @@ export function createRunRenderer(args: {
         },
         appendStream: (ts, md) => ns.transport.appendStream(ts, md),
         stopStream: (ts) => ns.transport.stopStream(ts),
+        // Forwarded so an eagerly-primed bubble that never gets content is
+        // deleted rather than finalized as an empty message.
+        ...(ns.transport.discardStream
+          ? { discardStream: (ts: string) => ns.transport.discardStream!(ts) }
+          : {}),
       },
       fallback: makeLegacyStream,
       onStartFailure: ns.onStartFailure,
     });
   };
 
+  // Native channel streaming: the stream opened eagerly at RUN_STARTED, held
+  // here until the first text message adopts it (or RUN_FINISHED discards it).
+  let eagerStream: NativeMessageStream | undefined;
+  // Finalize an un-adopted eager bubble: with no content, finish() deletes the
+  // empty streaming message rather than leaving it open. No-op when there's
+  // none (the common case — a text reply adopted it via ensureStream).
+  const discardEagerStream = async (): Promise<void> => {
+    if (!eagerStream) return;
+    const orphan = eagerStream;
+    eagerStream = undefined;
+    await orphan.finish();
+  };
+
   const ensureStream = (messageId: string): TextStream | undefined => {
     if (finalised.has(messageId)) return undefined;
     let s = streams.get(messageId);
     if (!s) {
-      s = args.nativeStreaming ? makeNativeStream() : makeLegacyStream();
+      // Adopt the eagerly-primed channel stream (opened at RUN_STARTED so Slack
+      // shows its streaming bubble before the first token) for the first text
+      // message, so content continues on the already-open placeholder — no
+      // second `startStream`. Subsequent messages get fresh streams.
+      if (eagerStream) {
+        s = eagerStream;
+        eagerStream = undefined;
+      } else {
+        s = args.nativeStreaming ? makeNativeStream() : makeLegacyStream();
+      }
       streams.set(messageId, s);
     }
     return s;
@@ -314,8 +341,18 @@ export function createRunRenderer(args: {
         // Native status under the composer instead of a placeholder message.
         await setPaneStatus(paneStatus?.thinking || DEFAULT_THINKING_STATUS);
       } else if (nativeNoStatus) {
-        // Native streaming in a channel: no placeholder; the native stream
-        // (and its built-in streaming indicator) is the only surface.
+        // Native streaming in a channel: open the stream eagerly so Slack
+        // renders its streaming bubble immediately — the "pending feedback"
+        // the user sees while the agent reasons / calls tools before the first
+        // token. The first text message adopts this stream (see ensureStream);
+        // a run with no text discards the empty bubble on finish. Priming never
+        // throws (a startStream failure falls over to legacy internally).
+        // Defensive: if a prior iteration's bubble is somehow still un-adopted
+        // (RUN_STARTED without an intervening RUN_FINISHED), discard it first so
+        // we never leak an open, never-stopped stream.
+        await discardEagerStream();
+        eagerStream = makeNativeStream();
+        await eagerStream.prime();
       } else {
         await startThinking();
       }
@@ -325,6 +362,9 @@ export function createRunRenderer(args: {
       // placeholder; otherwise (tool/component/HITL output, or nothing)
       // this removes the leftover "thinking…" bubble.
       await clearThinking();
+      // Native channel mode: if no text message adopted the eagerly-primed
+      // stream, the run produced no reply — discard the empty streaming bubble.
+      await discardEagerStream();
       // In a pane thread, a posted reply auto-clears Slack's status; clear it
       // explicitly when the run produced no visible reply.
       if (paneMode && !postedReply) await clearPaneStatus();
@@ -482,6 +522,9 @@ export function createRunRenderer(args: {
       // the next turn) is the user-visible signal now.
       await clearThinking();
       if (paneMode) await clearPaneStatus();
+      // Native channel mode: an eagerly-primed stream that never got text is an
+      // empty bubble — discard it (the next turn / marker is the signal now).
+      await discardEagerStream();
       // For each in-flight text-message stream, append the interrupted
       // marker and drain. Streams that have no content yet are silently
       // dropped (the bot never posted anything for them).

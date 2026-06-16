@@ -523,8 +523,10 @@ describe("createRunRenderer — assistant pane status mode", () => {
 describe("createRunRenderer — native streaming in a channel (no status)", () => {
   // A non-pane thread (e.g. a channel mention) with native streaming: Slack
   // has no composer-status surface here, so the renderer posts NO "thinking…"
-  // placeholder and NO `:wrench:` tool rows — the native stream is the only
-  // surface. Tool calls are still captured for the run-loop.
+  // placeholder and NO `:wrench:` tool rows. Instead it opens the native stream
+  // eagerly at run start (pending feedback before the first token) and the
+  // reply continues on that bubble. Tool calls are still captured for the
+  // run-loop.
   function makeNativeTransport() {
     let counter = 0;
     const appended: string[] = [];
@@ -537,11 +539,12 @@ describe("createRunRenderer — native streaming in a channel (no status)", () =
         appended.push(md);
       }),
       stopStream: vi.fn(async (_ts: string) => {}),
+      discardStream: vi.fn(async (_ts: string) => {}),
     };
     return { transport, appended };
   }
 
-  it("posts no placeholder on run start", async () => {
+  it("opens the stream eagerly on run start (no legacy placeholder)", async () => {
     const f = makeFakeClient();
     const nt = makeNativeTransport();
     const { subscriber: sub } = createRunRenderer({
@@ -550,7 +553,26 @@ describe("createRunRenderer — native streaming in a channel (no status)", () =
       nativeStreaming: { transport: nt.transport },
     });
     await sub.onRunStartedEvent!({} as never);
+    // Native bubble is opened immediately — the "pending feedback" surface —
+    // but nothing is appended yet and no legacy `:hourglass:` message is posted.
+    expect(nt.transport.startStream).toHaveBeenCalledTimes(1);
+    expect(nt.transport.appendStream).not.toHaveBeenCalled();
     expect(f.posts).toHaveLength(0);
+  });
+
+  it("discards the empty bubble when the run produces no text", async () => {
+    const f = makeFakeClient();
+    const nt = makeNativeTransport();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onRunFinishedEvent!({} as never);
+    // The eagerly-opened bubble got no content → it is deleted, not finalized.
+    expect(nt.transport.discardStream).toHaveBeenCalledTimes(1);
+    expect(nt.transport.stopStream).not.toHaveBeenCalled();
   });
 
   it("posts no :wrench: rows for tool calls, but still captures them", async () => {
@@ -578,7 +600,7 @@ describe("createRunRenderer — native streaming in a channel (no status)", () =
     ]);
   });
 
-  it("streams the reply via the native transport, not chat.update", async () => {
+  it("adopts the eager stream for the reply (no second startStream, no chat.update)", async () => {
     const f = makeFakeClient();
     const nt = makeNativeTransport();
     const { subscriber: sub } = createRunRenderer({
@@ -595,8 +617,11 @@ describe("createRunRenderer — native streaming in a channel (no status)", () =
       textMessageBuffer: "",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m" } } as never);
+    // The reply continues on the eagerly-opened bubble — the stream is started
+    // exactly once and finalized (not discarded, since it has content).
     expect(nt.transport.startStream).toHaveBeenCalledTimes(1);
     expect(nt.transport.stopStream).toHaveBeenCalledTimes(1);
+    expect(nt.transport.discardStream).not.toHaveBeenCalled();
     expect(nt.appended.join("")).toContain("hello");
     // Legacy posting path is never touched.
     expect(f.posts).toHaveLength(0);

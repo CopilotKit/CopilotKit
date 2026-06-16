@@ -52,6 +52,12 @@ export interface NativeStreamTransport {
   appendStream(ts: string, markdownText: string): Promise<void>;
   /** `chat.stopStream` — finalize the streamed message at `ts`. */
   stopStream(ts: string): Promise<void>;
+  /**
+   * `chat.delete` — remove a streamed message that was opened eagerly (via
+   * {@link NativeMessageStream.prime}) but never received any content. Optional:
+   * when absent, an empty stream is finalized with `stopStream` instead.
+   */
+  discardStream?(ts: string): Promise<void>;
 }
 
 export interface NativeMessageStreamConfig {
@@ -114,6 +120,24 @@ export class NativeMessageStream implements TextStream {
     return this.firstTsValue;
   }
 
+  /**
+   * Eagerly open the stream before any content, so Slack renders its native
+   * streaming bubble immediately (the "pending feedback" a user sees while the
+   * agent reasons / calls tools before the first token). Idempotent — a no-op
+   * once a message is open or we've failed over to legacy. A `startStream`
+   * failure falls over to legacy exactly like a lazy first flush; the empty
+   * buffer means nothing is posted until real content arrives.
+   */
+  async prime(): Promise<void> {
+    if (this.legacy || this.curTs) return;
+    try {
+      this.curTs = await this.transport.startStream();
+      this.firstTsValue = this.curTs;
+    } catch (err) {
+      this.failOverToLegacy(err, "first");
+    }
+  }
+
   append(fullText: string): void {
     if (this.legacy) {
       this.legacy.append(fullText);
@@ -138,6 +162,17 @@ export class NativeMessageStream implements TextStream {
     }
     // Finalize the streamed message (no-op if we never started one).
     if (this.curTs) {
+      // An eagerly-primed stream that never received content leaves an empty
+      // bubble — discard it (delete) rather than finalize an empty message.
+      // `buffer.length > 0` ⇔ real content arrived (buffer is the full reply).
+      if (this.buffer.length === 0 && this.transport.discardStream) {
+        try {
+          await this.transport.discardStream(this.curTs);
+        } catch (err) {
+          console.error("[native-stream] discardStream failed:", err);
+        }
+        return;
+      }
       try {
         await this.transport.stopStream(this.curTs);
       } catch (err) {

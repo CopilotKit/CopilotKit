@@ -365,6 +365,11 @@ export class SlackAdapter implements PlatformAdapter {
           ts,
         } as unknown as Parameters<WebClient["chat"]["stopStream"]>[0]);
       },
+      // Remove an eagerly-opened streaming bubble that never received content
+      // (a run that produced no text reply) so no empty message is left behind.
+      discardStream: async (ts) => {
+        await this.client.chat.delete({ channel: t.channel, ts });
+      },
     };
   }
 
