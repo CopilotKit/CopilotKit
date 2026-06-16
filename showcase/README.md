@@ -89,6 +89,45 @@ cp showcase/.env.example showcase/.env
 
 Only `OPENAI_API_KEY` is strictly required. Missing optional keys fail gracefully (per-package).
 
+### Seeding env files from 1Password
+
+From the repo root, `pnpm env:seed` scans tracked env templates such as
+`.env.example`, `.env.local.example`, `.env.*.example`, and `env.example`, then
+writes the corresponding ignored local env file by stripping `.example`
+(`env.example` becomes `.env`).
+
+The seeder reads values with the 1Password CLI:
+
+```sh
+# Recommended: create a 1Password Secure Note in the Engineering vault named
+# CopilotKit, then put the whole repo dotenv payload in the note body.
+pnpm env:seed
+
+# Optional: override the default note body source for one run:
+pnpm env:seed -- --dotenv-source "op://Engineering/OtherItem/notesPlain"
+
+# Optional: read the dotenv payload from an attached file named .env:
+pnpm env:seed -- --dotenv-source "op://Engineering/CopilotKit/.env"
+
+# Optional: use one item whose fields are named like env vars as a fallback
+# for keys missing from the dotenv payload:
+pnpm env:seed -- --source op://Engineering/CopilotKit
+# equivalent:
+OP_ENV_SOURCE=op://Engineering/CopilotKit pnpm env:seed
+```
+
+By default, `pnpm env:seed` reads the Secure Note body at
+`op://Engineering/CopilotKit/notesPlain`. Before seeding from a different
+Secure Note body or attachment, verify the reference locally with
+`op read <ref>`. The payload should be dotenv-style `KEY=value` lines for the
+keys requested by tracked templates; extra keys are ignored.
+
+By default the command only fills missing or empty keys, skips targets that are
+not gitignored, and continues when `op` is missing, signed out, or a field is
+unavailable. Use `--force` to overwrite existing local values and `--strict` to
+exit non-zero when any file or key cannot be seeded. Logs include paths, key
+names, and counts only; secret values are never printed.
+
 ## Local CLI — parity testing without Railway
 
 The showcase harness includes a CLI that runs the same probe drivers (liveness, D4, D5) used in CI/Railway against local Docker Compose containers. This lets you debug Dn failures, iterate on new demos, or run background parity checks without pushing to a branch.
