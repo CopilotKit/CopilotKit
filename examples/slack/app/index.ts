@@ -43,6 +43,12 @@ async function main() {
       slack({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
+        // This bot answers with rich Block Kit cards (issue lists, tables,
+        // diagrams) via render tools, so per-tool `:wrench: Calling …` rows are
+        // redundant noise next to the card. Suppress them — the "thinking…"
+        // placeholder covers pre-answer feedback, and text replies stream
+        // natively (Slack's streaming UI). Drop this to see per-tool rows.
+        showToolStatus: false,
         // Assistant-pane behavior is ON by default; this just customizes it.
         // The greeting + chips show when a user opens the pane (matching the
         // app manifest's `assistant_view`); native streaming + status need no
