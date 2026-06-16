@@ -23,6 +23,21 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/reference/v2", options)).toBe("/reference/v2");
   });
 
+  it("does not scope legacy redirect aliases", () => {
+    const options = {
+      slugHrefPrefix: "/mastra",
+      frameworkOverride: "mastra",
+    };
+
+    expect(resolveDocsHref("/integrations/langgraph/quickstart", options)).toBe(
+      "/integrations/langgraph/quickstart",
+    );
+    expect(
+      resolveDocsHref("/docs/integrations/langgraph/quickstart", options),
+    ).toBe("/docs/integrations/langgraph/quickstart");
+    expect(resolveDocsHref("/ag-ui-protocol", options)).toBe("/ag-ui-protocol");
+  });
+
   it("strips retired built-in-agent prefixes on the root surface", () => {
     const options = {
       slugHrefPrefix: "",

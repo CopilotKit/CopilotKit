@@ -12,6 +12,12 @@ const RESERVED_ROUTE_SLUG_SET: ReadonlySet<string> = new Set<string>(
   RESERVED_ROUTE_SLUGS as readonly string[],
 );
 
+const REDIRECT_ALIAS_ROOT_SLUGS: ReadonlySet<string> = new Set<string>([
+  "ag-ui-protocol",
+  "docs",
+  "integrations",
+]);
+
 export interface ResolveDocsHrefOptions {
   slugHrefPrefix: string;
   frameworkOverride?: string | null;
@@ -65,6 +71,8 @@ export function resolveDocsHref(
     firstSegment !== linkRewriteFramework;
   const targetsReservedRoute =
     firstSegment !== undefined && RESERVED_ROUTE_SLUG_SET.has(firstSegment);
+  const targetsRedirectAlias =
+    firstSegment !== undefined && REDIRECT_ALIAS_ROOT_SLUGS.has(firstSegment);
 
   if (slugHrefPrefix === "") {
     return sameFrameworkPath ?? href;
@@ -73,7 +81,8 @@ export function resolveDocsHref(
   if (
     sameFrameworkPath === null &&
     !targetsAnotherFramework &&
-    !targetsReservedRoute
+    !targetsReservedRoute &&
+    !targetsRedirectAlias
   ) {
     return `/${linkRewriteFramework}${href}`;
   }

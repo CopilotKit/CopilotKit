@@ -126,9 +126,10 @@ function resolvePage(slug: string[]): ResolvedPage | null {
 
     // `authored` frameworks own their entire IA — try the per-framework
     // tree first. `generated` is the inverse — root wins, framework
-    // tree is the override.
+    // tree is the override, except quickstart where the root file is
+    // only a routing shim and the page route prefers framework content.
     const candidateOrder =
-      docsMode === "authored"
+      docsMode === "authored" || tail === "quickstart"
         ? [frameworkSlugPath, rootSlugPath]
         : [rootSlugPath, frameworkSlugPath];
 
