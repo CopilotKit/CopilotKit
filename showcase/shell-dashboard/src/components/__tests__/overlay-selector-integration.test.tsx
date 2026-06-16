@@ -446,7 +446,7 @@ describe("Overlay selector integration — real UI components", () => {
   // -------------------------------------------------------------------------
   // 9. Testing-kind features: CV badges hidden
   // -------------------------------------------------------------------------
-  it("testing-kind feature with health: CV badges hidden, API/RT still shown", () => {
+  it("testing-kind feature with health: CV badges hidden, API/BE still shown", () => {
     const ctx = makeTestingCtx();
     const { getByTestId, getByText, queryByText } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
@@ -455,7 +455,7 @@ describe("Overlay selector integration — real UI components", () => {
     // Health layer present
     expect(getByTestId("health-layer")).toBeInTheDocument();
 
-    // API and RT badges still visible for testing-kind
+    // API and BE badges still visible for testing-kind
     expect(getByText("API")).toBeInTheDocument();
     expect(getByText("UI")).toBeInTheDocument();
 
