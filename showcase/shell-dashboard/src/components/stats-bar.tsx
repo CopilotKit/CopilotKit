@@ -26,7 +26,10 @@ function Stat({
   return (
     <div
       className="flex flex-col items-center"
-      data-testid={`stat-${label.toLowerCase()}`}
+      data-testid={`stat-${label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")}`}
     >
       <span
         className={`text-2xl font-bold tabular-nums ${colorClass ?? "text-[var(--text)]"}`}
