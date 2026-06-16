@@ -269,6 +269,35 @@ export interface ServiceEntry {
      */
     repoNameOverride?: { prod?: string; staging?: string };
   };
+  /**
+   * SSOT keys of OTHER services that must be promoted ALONGSIDE this one
+   * whenever a human picks this service from the showcase_promote.yml
+   * dropdown. The drift this exists to prevent: promoting just
+   * `langgraph-typescript` left `showcase-aimock` + `showcase-harness` +
+   * `shell-dashboard` on whatever stale image happened to be in prod
+   * (observed at ~00:46Z 2026-06-15). The reverse case (promoting just
+   * `showcase-aimock`) left every integration on its stale image.
+   *
+   * Population rule: every integration (probeDriver:"agent") carries the
+   * shared-infra deps it runs against — at minimum `aimock`, `harness`,
+   * `dashboard` (SSOT keys, NOT dispatch names; resolve-targets emits the
+   * SSOT-key form of the CSV that bin/railway promote validates against
+   * STAGING_SERVICES). Infra leaves carry no deps (a promote of just the
+   * leaf is a deliberate narrow op — do NOT invert the graph or every
+   * leaf promote would drag the world).
+   *
+   * `service=all` ignores this field entirely (already promotes everything
+   * `probe.prod === true`). The expansion happens ONLY on a single-service
+   * resolve in showcase_promote.yml.
+   *
+   * Validator (`assertPromoteDepsValid`, called at module load): every dep
+   * must resolve to an existing SSOT entry, must be prod-probe-eligible
+   * (`environments.prod.probe !== false`), no self-reference, and no
+   * one-level cycle (a dep cannot itself declare `promoteDeps` pointing
+   * back at the parent — keeps the graph one-level so jq expansion stays
+   * trivial). Empty/undefined is fine and means "no extra services."
+   */
+  promoteDeps?: string[];
 }
 
 /**
@@ -583,6 +612,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ag2",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "de571c97-03fd-486b-8a54-9767a4a53f95",
@@ -602,6 +638,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "agno",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "026d12fb-2844-42af-8f92-b47bc8a06bc8",
@@ -621,6 +664,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "built-in-agent",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
@@ -640,6 +690,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "claude-sdk-python",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
@@ -659,6 +716,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "claude-sdk-typescript",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "bee425e4-9661-4a88-8888-922b8cd4b61d",
@@ -678,6 +742,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "crewai-crews",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "3dab0cc3-cab1-4579-b772-947268088514",
@@ -697,6 +768,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "google-adk",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
@@ -716,6 +794,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-fastapi",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -735,6 +820,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-python",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
@@ -754,6 +846,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-typescript",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
@@ -773,6 +872,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langroid",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
@@ -792,6 +898,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "llamaindex",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "b778856e-9f90-4136-9415-fb2b41173f8d",
@@ -811,6 +924,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "mastra",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
@@ -830,6 +950,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-dotnet",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
@@ -849,6 +976,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-harness-dotnet",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
@@ -868,6 +1002,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-python",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "323ed911-4d28-45ab-8fc0-7d151828b938",
@@ -887,6 +1028,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "pydantic-ai",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "192cd647-6824-4f01-937a-1da675d83805",
@@ -906,6 +1054,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "spring-ai",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
@@ -925,6 +1080,13 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "strands",
     probeDriver: "agent",
+    // Integration → shared-infra dep set. Promoting this integration alone
+    // would otherwise leave aimock/harness/dashboard on whatever stale
+    // image was in prod; expanding to these three (SSOT keys, NOT dispatch
+    // names) in showcase_promote.yml's resolve-targets keeps the four
+    // services in lockstep. Validated at module load by
+    // assertPromoteDepsValid.
+    promoteDeps: ["aimock", "harness", "dashboard"],
     environments: {
       prod: {
         instanceId: "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
@@ -1482,6 +1644,100 @@ export function assertServiceAndInstanceIdsUnique(
   }
 }
 
+/**
+ * Throw on SSOT load if any `promoteDeps` entry is mis-wired. Without this,
+ * a typo in a dep name (or a dep that isn't prod-eligible) silently widens
+ * or narrows the promote scope and we re-introduce exactly the drift the
+ * field exists to prevent. Constraints:
+ *
+ *   (i)   every dep name resolves to an existing SSOT key — a dangling dep
+ *         would otherwise be filtered to nothing by jq and silently dropped;
+ *   (ii)  every dep must be prod-probe-eligible (declares `prod` AND
+ *         `environments.prod.probe !== false`); a non-eligible dep can never
+ *         be promoted and would either fail promote-fleet or get silently
+ *         filtered out — fail loud at module load instead;
+ *   (iii) no self-reference;
+ *   (iv)  graph stays ONE LEVEL: a dep cannot itself declare `promoteDeps`
+ *         pointing back at its parent (a true cycle) AND no dep should
+ *         itself have `promoteDeps` at all (infra leaves are leaves), so the
+ *         jq expansion in resolve-targets is `parent ∪ deps` without
+ *         recursion. We enforce the cycle case loudly; a dep with its own
+ *         `promoteDeps` that does NOT point back is permitted but its deeper
+ *         deps are deliberately NOT expanded.
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertPromoteDepsValid(
+  services: Record<
+    string,
+    {
+      promoteDeps?: string[];
+      environments?: Record<string, { probe?: boolean }>;
+    }
+  > = SERVICES,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    const deps = entry.promoteDeps;
+    if (deps === undefined || deps.length === 0) continue;
+    const seen = new Set<string>();
+    for (const dep of deps) {
+      if (dep === key) {
+        problems.push(`  - "${key}" lists itself in promoteDeps`);
+        continue;
+      }
+      if (seen.has(dep)) {
+        problems.push(
+          `  - "${key}" lists "${dep}" twice in promoteDeps — deduplicate`,
+        );
+        continue;
+      }
+      seen.add(dep);
+      // Own-property lookup so an inherited Object.prototype key
+      // (e.g. "toString") reports as dangling, not as a truthy non-entry.
+      if (!Object.hasOwn(services, dep)) {
+        problems.push(
+          `  - "${key}" promoteDeps "${dep}" is not an SSOT key in SERVICES`,
+        );
+        continue;
+      }
+      const depEntry = services[dep];
+      const prodCfg = depEntry.environments?.prod;
+      if (prodCfg === undefined) {
+        problems.push(
+          `  - "${key}" promoteDeps "${dep}" has no prod env — not promote-eligible`,
+        );
+        continue;
+      }
+      if (prodCfg.probe === false) {
+        problems.push(
+          `  - "${key}" promoteDeps "${dep}" has prod.probe === false — not promote-eligible`,
+        );
+        continue;
+      }
+      // One-level cycle: dep declares promoteDeps pointing back at the
+      // parent. A true cycle would make the jq expansion ambiguous; the
+      // SSOT contract is that deps are infra leaves with no further deps,
+      // and definitely none pointing back. (A dep with its OWN promoteDeps
+      // that does NOT name the parent is permitted but deliberately not
+      // recursively expanded.)
+      const depDeps = depEntry.promoteDeps ?? [];
+      if (depDeps.includes(key)) {
+        problems.push(
+          `  - cycle: "${key}" → "${dep}" → "${key}" (one-level cycle); promoteDeps must be acyclic`,
+        );
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: every promoteDeps entry must be an existing, prod-probe-eligible ` +
+        `SSOT key (no self-reference, no one-level cycle).`,
+    );
+  }
+}
+
 // Module-load assertions: fail any importer if the SSOT drifts into a
 // collision, a mis-wired image consumer, an inconsistent env registry, or
 // a duplicated Railway ID. Tests that exercise the invariants with
@@ -1490,3 +1746,4 @@ assertDispatchNamesUnique();
 assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
+assertPromoteDepsValid();
