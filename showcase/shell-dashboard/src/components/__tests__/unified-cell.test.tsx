@@ -226,7 +226,7 @@ describe("UnifiedCell", () => {
       // No badges rendered
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
 
       // No layer divs rendered
       expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
@@ -313,8 +313,8 @@ describe("UnifiedCell", () => {
       expect(getByTestId("mock-badge-UI")).toBeInTheDocument();
       // BE badge absent (D4 does not exist)
       expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
-      // CV badge present (D5 exists)
-      expect(getByTestId("mock-badge-CV")).toBeInTheDocument();
+      // 1P badge present (D5 exists)
+      expect(getByTestId("mock-badge-1P")).toBeInTheDocument();
     });
 
     it("hides all badges when no test levels exist", () => {
@@ -330,7 +330,7 @@ describe("UnifiedCell", () => {
 
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
 
     it("hides badge when level is null", () => {
@@ -346,13 +346,13 @@ describe("UnifiedCell", () => {
 
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(getByTestId("mock-badge-BE")).toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
   });
 
   // ── Test 4: Shows all three badges when all levels exist ──────────
   describe("all badges visible", () => {
-    it("shows E2E, BE, and CV badges when all three levels exist", () => {
+    it("shows E2E, BE, and 1P badges when all three levels exist", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
@@ -371,7 +371,7 @@ describe("UnifiedCell", () => {
       expect(rtBadge).toBeInTheDocument();
       expect(rtBadge.getAttribute("data-tone")).toBe("amber");
 
-      const cvBadge = getByTestId("mock-badge-CV");
+      const cvBadge = getByTestId("mock-badge-1P");
       expect(cvBadge).toBeInTheDocument();
       expect(cvBadge.getAttribute("data-tone")).toBe("red");
     });
@@ -393,7 +393,7 @@ describe("UnifiedCell", () => {
       expect(queryByTestId("health-layer")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
 
     // ── Test 6: Hides depth chip when depth overlay is not active ───
@@ -459,7 +459,7 @@ describe("UnifiedCell", () => {
       // Raw D6 dimension is green, but D5 is red so the ladder is broken
       // below D6 → d6Effective null. The D6 badge must render a real, VISIBLE
       // not-achieved indicator ("—", gray) — NOT a "?" that the real Badge
-      // hides, and never green; CV stays per-dimension red (diagnostic).
+      // hides, and never green; 1P stays per-dimension red (diagnostic).
       const model = makeModel({
         d3: makeLevel(true, "green"),
         d4: makeLevel(true, "green"),
@@ -482,8 +482,8 @@ describe("UnifiedCell", () => {
       expect(d6Badge.getAttribute("data-tone")).not.toBe("green");
       expect(d6Badge.textContent).toContain("—");
 
-      // CV badge still shows the real per-dimension D5 failure (red).
-      expect(getByTestId("mock-badge-CV").getAttribute("data-tone")).toBe(
+      // 1P badge still shows the real per-dimension D5 failure (red).
+      expect(getByTestId("mock-badge-1P").getAttribute("data-tone")).toBe(
         "red",
       );
     });

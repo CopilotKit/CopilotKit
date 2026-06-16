@@ -1771,7 +1771,7 @@ describe("buildCellModel", () => {
       // The exact bug: D5 red but D6 emitted green in isolation. The raw
       // per-dimension d6.status is green, but the top-of-ladder claim is
       // broken below D6, so d6Effective must NOT be green (and not a false
-      // red — the CV badge already shows the D5 failure).
+      // red — the 1P badge already shows the D5 failure).
       const live = mapOf([
         row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
         row(keyFor("chat", "agno"), "chat", "green"),

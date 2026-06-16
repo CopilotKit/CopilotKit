@@ -70,8 +70,8 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D5</span>
-        Conversation (CV): multi-turn scripted dialogue with tool calls and
-        content assertions
+        Single Pill (1P): one scripted conversation from the canonical aimock
+        fixture set; D6 runs all pills
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D6</span>
@@ -94,7 +94,7 @@ function HealthLegend() {
         <span className="text-[var(--ok)]">D5</span>/
         <span className="text-[var(--amber)]">D5</span>/
         <span className="text-[var(--danger)]">D5</span>
-        conversation check (green pass / amber stale / red fail)
+        single-pill check (green pass / amber stale / red fail)
       </LegendItem>
       <LegendItem>
         <span className="text-[var(--ok)]">D6</span>/

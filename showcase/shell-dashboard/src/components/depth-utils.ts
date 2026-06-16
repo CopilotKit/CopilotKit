@@ -113,7 +113,7 @@ function isD4Green(live: LiveStatusMap, slug: string, now: number): boolean {
  * Check whether all D5 PB rows for a given (slug, catalogFeatureId) are green
  * AND fresh. Returns false if the feature has no D5 mapping or any mapped row
  * is missing/non-green/stale. The staleness gate mirrors `cell-model.ts` so a
- * frozen-green CV row from a stalled driver no longer credits D5.
+ * frozen-green 1P row from a stalled driver no longer credits D5.
  */
 function isD5Green(
   live: LiveStatusMap,
@@ -122,9 +122,9 @@ function isD5Green(
   now: number,
 ): boolean {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  // No D5 mapping = no CV test exists for this feature = cannot be D5.
+  // No D5 mapping = no 1P test exists for this feature = cannot be D5.
   // Previously fell back to a direct key lookup which could resolve true
-  // from stale/shared PB rows, granting D5 to cells without CV tests.
+  // from stale/shared PB rows, granting D5 to cells without 1P tests.
   if (!d5Keys || d5Keys.length === 0) {
     return false;
   }

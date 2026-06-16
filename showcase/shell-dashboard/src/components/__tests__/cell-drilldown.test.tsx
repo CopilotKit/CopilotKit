@@ -67,7 +67,7 @@ describe("CellDrilldown", () => {
     );
     expect(getByTestId("cell-drilldown")).toBeDefined();
     expect(getByText("Parity (Reference)")).toBeDefined();
-    expect(getByText("CV (Conversation)")).toBeDefined();
+    expect(getByText("1P (Single Pill)")).toBeDefined();
     // `BE (Round Trip)` is now the D4 (chat+tools round-trip) row …
     expect(getByText("BE (Round Trip)")).toBeDefined();
     // … and the e2e row carries the renamed `UI (Frontend)` label
