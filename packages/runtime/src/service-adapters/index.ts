@@ -16,3 +16,4 @@ export * from "./anthropic/anthropic-adapter";
 export * from "./experimental/ollama/ollama-adapter";
 export * from "./bedrock/bedrock-adapter";
 export * from "./empty/empty-adapter";
+export * from "./docker/docker-model-runner-adapter";
