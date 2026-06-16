@@ -10,19 +10,17 @@ import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
 /**
- * Driver wrapper around the existing smoke probe. Converts a single YAML-
- * static target (`{ key, url }`) OR a railway-services discovery record
- * (`{ key, name, imageRef, publicUrl, env }`) into the THREE ProbeResults
- * the smoke dimension now emits per tick:
+ * Driver wrapper around the liveness probe. Converts a single YAML-static
+ * target (`{ key, url }`) OR a railway-services discovery record
+ * (`{ key, name, imageRef, publicUrl, env }`) into the TWO ProbeResults
+ * this dimension emits per tick:
  *
- *   1. `smoke:<slug>`  — the RETURN VALUE of `run()`. The invoker runs
+ *   1. `health:<slug>` — the RETURN VALUE of `run()`. The derived /health
+ *      URL is GET-probed for a 200-OK JSON body. The invoker runs
  *      `writer.write()` on the returned result just like every other
- *      driver, so the primary smoke tick participates in the standard
+ *      driver, so the primary tick participates in the standard
  *      status-writer / alert-engine pipeline with no special-casing.
- *   2. `health:<slug>` — side-emission #1 via `ctx.writer.write()`.
- *      Derived /health URL (via `deriveHealthUrl`) is GET-probed for
- *      a 200-OK JSON body, same contract as the smoke tick.
- *   3. `agent:<slug>`  — side-emission #2 via `ctx.writer.write()`. L2
+ *   2. `agent:<slug>` — side-emission via `ctx.writer.write()`. L2
  *      coverage: POSTs to `${backendUrl}/api/copilotkit/` with an empty
  *      JSON body and asserts the response is non-404. Matches the
  *      contract of `checkAgentEndpoint` in the e2e helpers — any
@@ -31,20 +29,30 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *      type, etc.). Green on non-404 2xx-5xx responses, red on 404 or
  *      transport failure.
  *
+ * The previous incarnation of this driver also issued a third HTTP probe
+ * to `/smoke` and emitted a `smoke:<slug>` primary result, but that probe
+ * was the same contract as `/health` (200-OK JSON body) on the same
+ * service — pure redundancy. Dropping it halves the per-tick HTTP cost
+ * on the smoke family and keeps the dashboard taxonomy honest: the
+ * "service is alive" signal is `health:<slug>`, full stop.
+ *
  * Why not return `ProbeResult[]`? The invoker's fan-out and bookkeeping
  * is uniform across ALL drivers — one input, one primary result, one
  * writer.write. Teaching every driver, every test helper, and every
  * fan-out path to handle an array-of-results for a single edge case
- * would bleed smoke-specific semantics into the driver-framework core.
+ * would bleed liveness-specific semantics into the driver-framework core.
  * Writer side-emission is already a first-class capability of the
- * writer-engine pipeline, so using it here keeps smoke's paired-probe
- * behaviour contained to this file.
+ * writer-engine pipeline, so using it here keeps the agent side-emit
+ * contained to this file.
  *
  * Input shapes: the driver accepts TWO inputs.
- *   - Static YAML: `{ key, url }`. `url` is the `/api/smoke` endpoint;
- *     the derived /api/health + agent URLs come from path manipulation.
- *   - Discovery: `{ key, name, imageRef, publicUrl, env }`. The smoke
- *     URL is `${publicUrl}/smoke`; slug is `name` with the `showcase-`
+ *   - Static YAML: `{ key, url }`. `url` is historically the `/api/smoke`
+ *     endpoint; the derived /api/health + agent URLs come from path
+ *     manipulation. The `url` field is kept for backwards-compatibility
+ *     with existing static-mode YAML configs even though the smoke
+ *     endpoint itself is no longer probed.
+ *   - Discovery: `{ key, name, imageRef, publicUrl, env }`. The base
+ *     URL is `publicUrl`; slug is `name` with the `showcase-`
  *     prefix stripped (`showcase-ag2` → `ag2`). `imageRef` + `env` are
  *     ignored by this driver but declared in the schema so the
  *     railway-services record passes through without a translation
@@ -53,16 +61,15 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * Slug derivation priority: (1) if `name` is present, strip the
  * `showcase-` prefix; (2) otherwise split `key` on `:` and take the
  * second segment. This keeps static-YAML ticks emitting the same
- * `smoke:<slug>`/`health:<slug>`/`agent:<slug>` triple the dashboard
- * expects while letting discovery-sourced ticks emit the same triple
- * without the YAML operator hand-editing key strings.
+ * `health:<slug>`/`agent:<slug>` pair the dashboard expects while
+ * letting discovery-sourced ticks emit the same pair without the
+ * YAML operator hand-editing key strings.
  *
  * Timeout: the driver OWNS the timeout, not the probe-invoker. The
  * invoker's `cfg.timeout_ms` guard bounds the whole `run()` call; inside
- * `run()`, each of the three HTTP calls uses the same `timeout_ms` as an
- * AbortController limit so one slow endpoint (smoke OK, health hung)
- * can't gobble the invoker's whole budget and starve sibling targets
- * in the same tick.
+ * `run()`, each of the two HTTP calls uses the same `timeout_ms` as an
+ * AbortController limit so one slow endpoint (health hung) can't gobble
+ * the invoker's whole budget and starve sibling targets in the same tick.
  */
 
 /**
@@ -81,22 +88,27 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * `RailwayServiceInfo` (`{ name, publicUrl, imageRef, env, shape }`)
  * into the input without pre-filtering fields.
  */
-const staticSmokeInputSchema = z
+const staticLivenessInputSchema = z
   .object({
     mode: z.literal("static").optional(),
     key: z.string().min(1),
-    /** Static mode: full `/smoke` URL. */
+    /**
+     * Static mode: historically the `/smoke` URL. Kept for backward
+     * compatibility with existing YAML configs; the driver derives the
+     * `/health` and `/api/copilotkit/` URLs from this path even though
+     * the `/smoke` endpoint itself is no longer probed.
+     */
     url: z.string().url(),
   })
   .strict();
 
-const discoverySmokeInputSchema = z
+const discoveryLivenessInputSchema = z
   .object({
     mode: z.literal("discovery").optional(),
     key: z.string().min(1),
     /** Discovery mode: Railway service name (`showcase-<slug>`). */
     name: z.string().min(1),
-    /** Discovery mode: `https://<domain>` base URL. The driver appends `/smoke` or `/api/health` per shape. */
+    /** Discovery mode: `https://<domain>` base URL. The driver appends `/api/health` per shape. */
     publicUrl: z.string().url(),
     /**
      * Deployment shape tag from the discovery source
@@ -109,11 +121,11 @@ const discoverySmokeInputSchema = z
   .passthrough();
 
 /**
- * Raw schema produced by `smokeInputSchema.parse()` / `.safeParse()`.
+ * Raw schema produced by `livenessInputSchema.parse()` / `.safeParse()`.
  * Both branches leave `mode` optional — `normaliseMode` at the top of
  * `run()` fills in the discriminator from field presence (`url` ⇒
  * static, `name+publicUrl` ⇒ discovery) and produces a
- * `NormalisedSmokeInput` that the rest of the driver narrows against.
+ * `NormalisedLivenessInput` that the rest of the driver narrows against.
  *
  * The union contract is re-asserted at parse time via `.superRefine()`:
  *   - Exactly one of `(url)` OR `(name + publicUrl)` must be present.
@@ -124,12 +136,12 @@ const discoverySmokeInputSchema = z
  *     `shape` with `url` is a structural mistake (static mode predates
  *     shape detection and is always package).
  *
- * Callers doing `smokeInputSchema.safeParse()` in isolation now see a
+ * Callers doing `livenessInputSchema.safeParse()` in isolation now see a
  * unified rejection path for structural invariants regardless of which
  * arm's strictness caught the bad field.
  */
-const smokeInputSchema = z
-  .union([staticSmokeInputSchema, discoverySmokeInputSchema])
+const livenessInputSchema = z
+  .union([staticLivenessInputSchema, discoveryLivenessInputSchema])
   .superRefine((val, ctx) => {
     const raw = val as {
       url?: unknown;
@@ -144,26 +156,26 @@ const smokeInputSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "smoke input: pass either `url` (static) OR `name`+`publicUrl` (discovery), not both",
+          "liveness input: pass either `url` (static) OR `name`+`publicUrl` (discovery), not both",
       });
     }
     if (!hasUrl && !hasDiscovery) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "smoke input: requires either `url` (static) or `name`+`publicUrl` (discovery)",
+          "liveness input: requires either `url` (static) or `name`+`publicUrl` (discovery)",
       });
     }
     if (hasUrl && raw.shape !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "smoke input: `shape` is only valid with discovery mode (`name`+`publicUrl`)",
+          "liveness input: `shape` is only valid with discovery mode (`name`+`publicUrl`)",
       });
     }
   });
 
-type SmokeDriverInput = z.infer<typeof smokeInputSchema>;
+type LivenessDriverInput = z.infer<typeof livenessInputSchema>;
 
 /**
  * Internal, post-normalisation form. `mode` is required here so every
@@ -174,7 +186,7 @@ type SmokeDriverInput = z.infer<typeof smokeInputSchema>;
  * `mode === "discovery"` branch to be a TS error rather than silently
  * typechecking as `unknown`.
  */
-type NormalisedSmokeInput =
+type NormalisedLivenessInput =
   | { mode: "static"; key: string; url: string }
   | {
       mode: "discovery";
@@ -185,16 +197,16 @@ type NormalisedSmokeInput =
     };
 
 /**
- * Shared signal shape for the smoke, health, and agent ProbeResults.
- * `url` is the URL that was ACTUALLY probed (smoke URL, health URL, or
- * agent URL respectively) so dashboards can link operators directly to
- * the endpoint that failed; `status` is the numeric HTTP status (absent
- * on network error / timeout so templates can branch on its presence);
- * `errorDesc` is a human-readable reason that's safe to render in Slack.
- * `latencyMs` is wall-clock measured from `ctx.now()` so fake-timer
- * tests produce deterministic numbers.
+ * Shared signal shape for the health + agent ProbeResults.
+ * `url` is the URL that was ACTUALLY probed (health URL or agent URL
+ * respectively) so dashboards can link operators directly to the endpoint
+ * that failed; `status` is the numeric HTTP status (absent on network
+ * error / timeout so templates can branch on its presence); `errorDesc`
+ * is a human-readable reason that's safe to render in Slack. `latencyMs`
+ * is wall-clock measured from `ctx.now()` so fake-timer tests produce
+ * deterministic numbers.
  */
-export interface SmokeDriverSignal {
+export interface LivenessDriverSignal {
   slug: string;
   url: string;
   status?: number;
@@ -202,92 +214,99 @@ export interface SmokeDriverSignal {
   latencyMs: number;
 }
 
-export const livenessDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> =
-  {
-    kind: "smoke",
-    inputSchema: smokeInputSchema,
-    async run(ctx, rawInput) {
-      // Normalise mode at the boundary. Schema-parsed inputs (orchestrator
-      // path) carry `mode` via the union default; tests that hand a raw
-      // object to `driver.run()` omit it. Field presence is the runtime
-      // discriminator: `url` present ⇒ static, `name`+`publicUrl` ⇒
-      // discovery. After this cast the rest of the function narrows via
-      // `input.mode` alone.
-      const input = normaliseMode(rawInput);
-      const fetchImpl = ctx.fetchImpl ?? globalThis.fetch.bind(globalThis);
-      const timeoutMs = readTimeoutMs(ctx);
-      const slug = deriveSlug(input);
-      // Shape resolution delegates to the shared resolveShape helper in
-      // `discovery/railway-services.ts` — classifier wins on `name`, throws
-      // on explicit-vs-classifier disagreement, honours explicit `shape`
-      // otherwise. Thread `ctx.logger` so the classifier's audit-warn fires
-      // on the driver path too.
-      const shape = resolveShape(
-        input.mode === "discovery"
-          ? { name: input.name, shape: input.shape }
-          : {},
-        { logger: ctx.logger },
-      );
-      const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input, shape);
-      // Primary key for the smoke ProbeResult. In DISCOVERY mode,
-      // `input.key` arrives as `smoke:showcase-ag2` because the
-      // `key_template` in YAML interpolates `${name}` and the template
-      // language has no string-munge function to strip the prefix.
-      // Rewrite to `smoke:<slug>` here so dashboards/alerts that match on
-      // `smoke:ag2` stay intact. In STATIC mode, pass the YAML-authored
-      // key through verbatim so legacy callers keep their exact
-      // `input.key` in the primary result.
-      const primaryKey =
-        input.mode === "discovery" ? `smoke:${slug}` : input.key;
+/**
+ * Backwards-compat alias. The signal shape was named `SmokeDriverSignal`
+ * when the driver still issued a `/smoke` probe; downstream code (tests,
+ * dashboards reading the signal blob) references the old name. Keep the
+ * alias so a rename of the underlying type doesn't ripple through every
+ * call site at once.
+ */
+export type SmokeDriverSignal = LivenessDriverSignal;
 
-      // Sequential issue of smoke + health + agent to keep inflight socket
-      // count bounded at max_concurrency × 3 — Railway's edge has
-      // historically rate-limited at higher parallelism, so we eat the
-      // wall-clock cost to stay well under any edge threshold.
-      const smokeResult = await probeOne({
-        fetchImpl,
-        url: smokeUrl,
-        key: primaryKey,
-        slug,
-        timeoutMs,
-        now: ctx.now,
-        method: "GET",
-      });
+export const livenessDriver: ProbeDriver<
+  LivenessDriverInput,
+  LivenessDriverSignal
+> = {
+  // `kind: "smoke"` is the registry/family identifier the orchestrator
+  // and YAML probe configs route through. The display dimension was
+  // renamed from "Smoke" to "Health" (the smoke endpoint was redundant
+  // with /health), but the registry key stays `smoke` to preserve YAML
+  // back-compat (`config/probes/*.yml` references `kind: smoke`) and the
+  // smoke-family producer wiring in `orchestrator.ts`.
+  kind: "smoke",
+  inputSchema: livenessInputSchema,
+  async run(ctx, rawInput) {
+    // Normalise mode at the boundary. Schema-parsed inputs (orchestrator
+    // path) carry `mode` via the union default; tests that hand a raw
+    // object to `driver.run()` omit it. Field presence is the runtime
+    // discriminator: `url` present ⇒ static, `name`+`publicUrl` ⇒
+    // discovery. After this cast the rest of the function narrows via
+    // `input.mode` alone.
+    const input = normaliseMode(rawInput);
+    const fetchImpl = ctx.fetchImpl ?? globalThis.fetch.bind(globalThis);
+    const timeoutMs = readTimeoutMs(ctx);
+    const slug = deriveSlug(input);
+    // Shape resolution delegates to the shared resolveShape helper in
+    // `discovery/railway-services.ts` — classifier wins on `name`, throws
+    // on explicit-vs-classifier disagreement, honours explicit `shape`
+    // otherwise. Thread `ctx.logger` so the classifier's audit-warn fires
+    // on the driver path too.
+    const shape = resolveShape(
+      input.mode === "discovery"
+        ? { name: input.name, shape: input.shape }
+        : {},
+      { logger: ctx.logger },
+    );
+    const { healthUrl, agentUrl } = deriveUrls(input, shape);
 
-      // Side-emit #1: health tick.
-      const healthKey = `health:${slug}`;
-      const healthResult = await probeOne({
-        fetchImpl,
-        url: healthUrl,
-        key: healthKey,
-        slug,
-        timeoutMs,
-        now: ctx.now,
-        method: "GET",
-      });
-      await sideEmit(ctx, healthResult, healthKey);
+    // Primary key for the health ProbeResult. The driver's primary return
+    // is now health:<slug> (smoke was redundant with health on the same
+    // service and was dropped). In DISCOVERY mode, `input.key` arrives
+    // shaped on the smoke family (`smoke:showcase-ag2` from the YAML
+    // key_template that interpolates `${name}`), so we rewrite to
+    // `health:<slug>` here. In STATIC mode the YAML-authored key is also
+    // smoke-family by convention; rewrite the leading `smoke:` segment to
+    // `health:` so static callers land on the same dashboard row as
+    // discovery-mode emissions. A non-smoke prefix passes through
+    // verbatim — preserves operator-authored keys that already use the
+    // intended `health:` prefix and avoids surprises for ad-hoc YAML.
+    const healthKey = deriveHealthKey(input, slug);
 
-      // Side-emit #2: agent endpoint POST. Non-404 2xx-5xx response is
-      // green (proves the CopilotKit runtime is mounted); 404 and
-      // transport failures are red. This mirrors the L2 `@agent`
-      // assertion in `integration-smoke.spec.ts:311`.
-      const agentKey = `agent:${slug}`;
-      const agentResult = await probeAgent({
-        fetchImpl,
-        url: agentUrl,
-        key: agentKey,
-        slug,
-        timeoutMs,
-        now: ctx.now,
-      });
-      await sideEmit(ctx, agentResult, agentKey);
+    // Sequential issue of health + agent to keep inflight socket count
+    // bounded — Railway's edge has historically rate-limited at higher
+    // parallelism, so we eat the wall-clock cost to stay well under any
+    // edge threshold.
+    const healthResult = await probeOne({
+      fetchImpl,
+      url: healthUrl,
+      key: healthKey,
+      slug,
+      timeoutMs,
+      now: ctx.now,
+      method: "GET",
+    });
 
-      return smokeResult;
-    },
-  };
+    // Side-emit: agent endpoint POST. Non-404 2xx-5xx response is green
+    // (proves the CopilotKit runtime is mounted); 404 and transport
+    // failures are red. This mirrors the L2 `@agent` assertion in
+    // `integration-smoke.spec.ts:311`.
+    const agentKey = `agent:${slug}`;
+    const agentResult = await probeAgent({
+      fetchImpl,
+      url: agentUrl,
+      key: agentKey,
+      slug,
+      timeoutMs,
+      now: ctx.now,
+    });
+    await sideEmit(ctx, agentResult, agentKey);
+
+    return healthResult;
+  },
+};
 
 /**
- * Normalise a driver input into the `SmokeDriverInput` discriminated
+ * Normalise a driver input into the `LivenessDriverInput` discriminated
  * union. Schema-parsed inputs already carry `mode` via the union
  * default, but callers that hand a raw object straight to `driver.run()`
  * (unit tests, ad-hoc integrations) omit it. We detect mode from field
@@ -296,10 +315,10 @@ export const livenessDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> =
  * `.refine()` guards enforced the same invariant and the discriminated
  * union needs to preserve that behaviour for unparsed-input callers.
  */
-function normaliseMode(input: unknown): NormalisedSmokeInput {
+function normaliseMode(input: unknown): NormalisedLivenessInput {
   const raw = input as Record<string, unknown> | null;
   if (!raw || typeof raw !== "object") {
-    throw new Error("smoke driver: input must be an object");
+    throw new Error("liveness driver: input must be an object");
   }
   // Field presence is the sole discriminator. A caller-supplied `raw.mode`
   // ("static" / "discovery") is ignored here — a previous early-return
@@ -309,7 +328,7 @@ function normaliseMode(input: unknown): NormalisedSmokeInput {
   // consistent between schema-parsed and raw inputs, and a bad shape
   // throws loud rather than coercing.
   if (typeof raw.key !== "string" || raw.key.length === 0) {
-    throw new Error("smoke driver: input.key is required");
+    throw new Error("liveness driver: input.key is required");
   }
   if (typeof raw.url === "string") {
     return {
@@ -332,15 +351,31 @@ function normaliseMode(input: unknown): NormalisedSmokeInput {
     };
   }
   throw new Error(
-    "smoke driver: input requires either `url` (static) or `name`+`publicUrl` (discovery)",
+    "liveness driver: input requires either `url` (static) or `name`+`publicUrl` (discovery)",
   );
+}
+
+/**
+ * Build the primary `health:<slug>` ProbeResult key. Single helper so
+ * the rewrite rule lives in one place: discovery mode is always
+ * `health:<slug>` (since `input.key` arrives shaped on the smoke
+ * family); static mode rewrites a leading `smoke:` segment to `health:`
+ * (the historical convention for static YAML) and otherwise passes the
+ * operator-authored key through.
+ */
+function deriveHealthKey(input: NormalisedLivenessInput, slug: string): string {
+  if (input.mode === "discovery") return `health:${slug}`;
+  if (input.key.startsWith("smoke:")) {
+    return `health:${input.key.slice("smoke:".length)}`;
+  }
+  return input.key;
 }
 
 /**
  * Write a side-emit ProbeResult through `ctx.writer`. Absent writer is a
  * wiring issue, not a per-tick failure — log-and-skip so the driver stays
  * usable in unit tests that only care about the primary return value. A
- * writer throw is non-fatal for the same reason: the primary smoke tick
+ * writer throw is non-fatal for the same reason: the primary health tick
  * is what the invoker is waiting on; a side-emit writer hiccup must not
  * take the primary result down with it.
  */
@@ -350,13 +385,13 @@ async function sideEmit<T>(
   key: string,
 ): Promise<void> {
   if (!ctx.writer) {
-    ctx.logger.warn("probe.smoke.writer-missing", { key });
+    ctx.logger.warn("probe.liveness.writer-missing", { key });
     return;
   }
   try {
     await ctx.writer.write(result);
   } catch (err) {
-    ctx.logger.error("probe.smoke.side-emit-writer-failed", {
+    ctx.logger.error("probe.liveness.side-emit-writer-failed", {
       key,
       err: err instanceof Error ? err.message : String(err),
     });
@@ -365,12 +400,10 @@ async function sideEmit<T>(
 
 /**
  * Per-endpoint GET probe — issues one HTTP request with an AbortController
- * timeout, maps the result to a ProbeResult<SmokeDriverSignal>. Shared
- * between the smoke and health code paths so both produce identical
- * shapes (dashboards, templates, tests can all treat the two keys as a
- * matched pair). The `method` parameter lets callers swap GET/POST when
- * a probe semantics differ — currently only GET is used here since the
- * agent POST path has distinct success criteria and lives in `probeAgent`.
+ * timeout, maps the result to a ProbeResult<LivenessDriverSignal>.
+ * The `method` parameter lets callers swap GET/POST when a probe semantic
+ * differs — currently only GET is used here since the agent POST path has
+ * distinct success criteria and lives in `probeAgent`.
  */
 async function probeOne(opts: {
   fetchImpl: typeof fetch;
@@ -380,7 +413,7 @@ async function probeOne(opts: {
   timeoutMs: number;
   now: () => Date;
   method: "GET" | "POST";
-}): Promise<ProbeResult<SmokeDriverSignal>> {
+}): Promise<ProbeResult<LivenessDriverSignal>> {
   const { fetchImpl, url, key, slug, timeoutMs, now, method } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -391,7 +424,7 @@ async function probeOne(opts: {
       signal: controller.signal,
     });
     const latencyMs = now().getTime() - started;
-    const signal: SmokeDriverSignal = {
+    const signal: LivenessDriverSignal = {
       slug,
       url,
       status: res.status,
@@ -417,7 +450,7 @@ async function probeOne(opts: {
       };
     }
     // Green path: sanity-check the body parses. A "200 OK" with an
-    // HTML error page (e.g. misrouted edge) should NOT pass smoke.
+    // HTML error page (e.g. misrouted edge) should NOT pass.
     const parseErr = await verifyJsonBody(res);
     if (parseErr) {
       return {
@@ -452,10 +485,10 @@ async function probeOne(opts: {
     return {
       key,
       state: "red",
-      // B2: drop the redundant outer sanitize wrap — `errorDesc` was already
-      // sanitized on the line above. Double-sanitize is harmless today but
-      // would turn into a silent escape-on-escape regression the moment
-      // sanitizeErrorDesc ever grows a non-idempotent rule.
+      // `errorDesc` was already sanitized on the line above. Double-sanitize
+      // is harmless today but would turn into a silent escape-on-escape
+      // regression the moment sanitizeErrorDesc ever grows a non-idempotent
+      // rule.
       signal: {
         slug,
         url,
@@ -493,7 +526,7 @@ async function probeAgent(opts: {
   slug: string;
   timeoutMs: number;
   now: () => Date;
-}): Promise<ProbeResult<SmokeDriverSignal>> {
+}): Promise<ProbeResult<LivenessDriverSignal>> {
   const { fetchImpl, url, key, slug, timeoutMs, now } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -514,7 +547,7 @@ async function probeAgent(opts: {
       redirect: "follow",
     });
     const latencyMs = now().getTime() - started;
-    const signal: SmokeDriverSignal = {
+    const signal: LivenessDriverSignal = {
       slug,
       url,
       status: res.status,
@@ -560,7 +593,7 @@ async function probeAgent(opts: {
     return {
       key,
       state: "red",
-      // B2: already sanitized above; drop the outer wrap.
+      // already sanitized above; no outer wrap.
       signal: {
         slug,
         url,
@@ -579,14 +612,14 @@ async function probeAgent(opts: {
  * `showcase-` prefix from `name` so `showcase-ag2` → `ag2`. Static
  * shape falls back to splitting the key on `:` — matches the
  * pre-discovery behaviour so static-YAML callers keep emitting the
- * same `smoke:<slug>` rows.
+ * same row keys.
  *
  * When neither field yields a non-empty slug, fall back to the whole
  * key so a hand-wired caller (`{key:"bare", url:...}`) still produces
  * a distinct `health:bare` / `agent:bare` side-tick rather than a
  * blank one.
  */
-function deriveSlug(input: NormalisedSmokeInput): string {
+function deriveSlug(input: NormalisedLivenessInput): string {
   if (input.mode === "discovery") {
     const stripped = input.name.replace(/^showcase-/, "");
     if (stripped.length > 0) return stripped;
@@ -599,24 +632,24 @@ function deriveSlug(input: NormalisedSmokeInput): string {
 }
 
 interface DerivedUrls {
-  smokeUrl: string;
   healthUrl: string;
   agentUrl: string;
 }
 
 /**
- * Derive the three per-target URLs from the input shape.
+ * Derive the two per-target URLs from the input shape.
  *
- *   - Discovery mode (`publicUrl` present): smoke = `${publicUrl}/api/smoke`,
- *     health = `${publicUrl}/api/health`, agent = `${publicUrl}/api/copilotkit/`.
+ *   - Discovery mode (`publicUrl` present): health = `${publicUrl}/api/health`,
+ *     agent = `${publicUrl}/api/copilotkit/`.
  *     The trailing slash on the agent path mirrors the runtime router's
  *     expectation — CopilotKit Hono routes are mounted at
  *     `/api/copilotkit/` with a trailing slash in every showcase.
- *   - Static mode (`url` present): smoke = input URL, health derived
- *     via `deriveHealthUrl`, agent derived by swapping the trailing
- *     `/smoke` for `/api/copilotkit/`.
+ *   - Static mode (`url` present): historically the YAML `url` field
+ *     points at `/smoke`; health is derived via `deriveHealthUrl`, agent
+ *     by swapping the trailing `/smoke` for `/api/copilotkit/`. The
+ *     `/smoke` endpoint itself is no longer probed.
  *
- * Static-mode agent URL derivation is the weak link — the smoke URL
+ * Static-mode agent URL derivation is the weak link — the YAML URL
  * doesn't carry the agent-path convention — but static mode is a
  * fallback for operator-authored test configs, not the production
  * path (which is discovery). When the discovery migration completes,
@@ -624,13 +657,12 @@ interface DerivedUrls {
  * schema extension if needed.
  */
 function deriveUrls(
-  input: NormalisedSmokeInput,
-  shape: ShowcaseServiceShape,
+  input: NormalisedLivenessInput,
+  _shape: ShowcaseServiceShape,
 ): DerivedUrls {
   if (input.mode === "discovery") {
     const base = input.publicUrl.replace(/\/$/, "");
     return {
-      smokeUrl: `${base}/api/smoke`,
       healthUrl: `${base}/api/health`,
       agentUrl: `${base}/api/copilotkit/`,
     };
@@ -638,19 +670,18 @@ function deriveUrls(
   // Static mode. The discriminated union guarantees `url` is present
   // here; static mode predates shape detection and always assumes
   // package shape — the YAML author already picked concrete URLs.
-  const smokeUrl = input.url;
-  const healthUrl = deriveHealthUrl(smokeUrl);
-  const agentUrl = deriveAgentUrl(smokeUrl);
-  return { smokeUrl, healthUrl, agentUrl };
+  const healthUrl = deriveHealthUrl(input.url);
+  const agentUrl = deriveAgentUrl(input.url);
+  return { healthUrl, agentUrl };
 }
 
 /**
- * Derive an agent URL from a smoke URL by swapping the trailing `/smoke`
- * path for `/api/copilotkit/`. Mirrors `deriveHealthUrl`'s approach so a
- * static-mode caller gets a best-effort agent path without hand-editing.
- * Empty string on parse failure — the probe will then hit `` which
- * fetch() rejects as a transport error, flipping the row red with a
- * readable reason.
+ * Derive an agent URL from a (historically `/smoke`-shaped) YAML URL by
+ * swapping the trailing `/smoke` path for `/api/copilotkit/`. Mirrors
+ * `deriveHealthUrl`'s approach so a static-mode caller gets a best-effort
+ * agent path without hand-editing. Empty string on parse failure — the
+ * probe will then hit `` which fetch() rejects as a transport error,
+ * flipping the row red with a readable reason.
  */
 function deriveAgentUrl(url: string): string {
   try {
@@ -674,7 +705,8 @@ function deriveAgentUrl(url: string): string {
  * but a driver-internal HTTP-level timeout is still required so one
  * hung endpoint doesn't starve its sibling probe on the same
  * invocation. Defaults to 10s — matches the YAML probe's
- * `timeout_ms: 10000`.
+ * `timeout_ms: 10000`. `SMOKE_TIMEOUT_MS` is retained as the env
+ * variable name for backwards compatibility with existing deploys.
  */
 function readTimeoutMs(ctx: ProbeContext): number {
   const fromEnv = ctx.env.SMOKE_TIMEOUT_MS;
