@@ -10,7 +10,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "toolCallId": "call_d6_cc_langgraph_typescript_weather_001",
         "context": "langgraph-typescript"
       },
@@ -21,7 +21,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo (first turn). Emits get_weather tool call. The custom wildcard renderer fires for this tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather'].",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "toolName": "get_weather",
         "context": "langgraph-typescript"
       },
@@ -38,7 +38,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo fallback when no get_weather tool registered.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "turnIndex": 0,
         "context": "langgraph-typescript"
       },
@@ -49,7 +49,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price follow-up. After get_stock_price tool result returns. MUST come before the tool-emitting fixture.",
       "match": {
-        "userMessage": "What's the current price of AAPL?",
+        "userMessage": "Quote AAPL through the wildcard renderer",
         "toolCallId": "call_d6_cc_langgraph_typescript_stock_001",
         "context": "langgraph-typescript"
       },
@@ -60,7 +60,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price (second turn). Emits get_stock_price tool call. The custom wildcard renderer fires for this DIFFERENT tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_stock_price']. The cross-tool assertion verifies both tool names rendered through the same testid.",
       "match": {
-        "userMessage": "What's the current price of AAPL?",
+        "userMessage": "Quote AAPL through the wildcard renderer",
         "toolName": "get_stock_price",
         "context": "langgraph-typescript"
       },
@@ -77,7 +77,7 @@
     {
       "_comment": "tool-rendering-custom-catchall \u2014 AAPL fallback when no get_stock_price tool registered.",
       "match": {
-        "userMessage": "What's the current price of AAPL?",
+        "userMessage": "Quote AAPL through the wildcard renderer",
         "turnIndex": 0,
         "context": "langgraph-typescript"
       },

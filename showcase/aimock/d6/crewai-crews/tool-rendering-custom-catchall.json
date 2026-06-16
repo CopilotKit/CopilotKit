@@ -9,17 +9,17 @@
     {
       "_comment": "tool-rendering-custom-catchall sends 'weather in Tokyo' \u2014 first leg emits get_weather tool call. The custom catchall renderer mounts a WeatherCard. toolCallId-keyed follow-up MUST come before the tool-emitting fixture (first-match-wins).",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "toolCallId": "call_d5_get_weather_001",
         "context": "crewai-crews"
       },
       "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy."
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "hasToolResult": false,
         "context": "crewai-crews"
       },
@@ -36,17 +36,17 @@
     {
       "_comment": "tool-rendering-custom-catchall second pill: 'What's the current price of AAPL?' \u2014 emits get_stock_price tool call, custom catchall renderer mounts a StockCard.",
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "Quote AAPL through the wildcard renderer",
         "toolCallId": "call_d5_get_stock_price_001",
         "context": "crewai-crews"
       },
       "response": {
-        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+        "content": "AAPL is trading at $189.42, up 1.27% on the day \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "Quote AAPL through the wildcard renderer",
         "hasToolResult": false,
         "context": "crewai-crews"
       },

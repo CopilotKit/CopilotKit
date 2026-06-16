@@ -3,8 +3,8 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 
 let scriptModule: typeof import("./d5-tool-rendering-custom-catchall.js");
@@ -52,8 +52,13 @@ describe("D5 tool-rendering-custom-catchall — buildTurns", () => {
     };
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(2);
-    expect(turns[0]!.input).toBe("forecast for Tokyo");
-    expect(turns[1]!.input).toBe("What's the current price of AAPL?");
+    // LGP-gold disjoint-prompts pattern (supersedes #5465): both
+    // prompts must be unique substrings that no default-catchall
+    // fixture matcher can satisfy. See PROMPT_TOOL_PAIRS comment.
+    expect(turns[0]!.input).toBe(
+      "Forecast Tokyo through the wildcard renderer",
+    );
+    expect(turns[1]!.input).toBe("Quote AAPL through the wildcard renderer");
     expect(typeof turns[0]!.assertions).toBe("function");
     expect(typeof turns[1]!.assertions).toBe("function");
   });
@@ -136,10 +141,15 @@ describe("D5 tool-rendering-custom-catchall — exported constants", () => {
     expect(mod.CUSTOM_CATCHALL_TESTID).toBe("custom-wildcard-card");
     expect(mod.PROMPT_TOOL_PAIRS).toHaveLength(2);
     expect(mod.PROMPT_TOOL_PAIRS[0].tool).toBe("get_weather");
-    expect(mod.PROMPT_TOOL_PAIRS[0].prompt).toBe("forecast for Tokyo");
+    expect(mod.PROMPT_TOOL_PAIRS[0].prompt).toBe(
+      "Forecast Tokyo through the wildcard renderer",
+    );
     expect(mod.PROMPT_TOOL_PAIRS[1].tool).toBe("get_stock_price");
     expect(mod.PROMPT_TOOL_PAIRS[1].prompt).toBe(
-      "What's the current price of AAPL?",
+      "Quote AAPL through the wildcard renderer",
+    );
+    expect(mod.CUSTOM_CATCHALL_CONTENT_PHRASE).toBe(
+      "rendered through the custom wildcard catchall",
     );
   });
 });
