@@ -20,7 +20,6 @@
       "_comment": "tool-rendering-custom-catchall pill 1: weather in Tokyo \u2014 first leg: emit get_weather tool call. The custom catchall renderer fires for this tool since no per-tool renderer is registered.",
       "match": {
         "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "toolName": "get_weather",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -65,7 +64,6 @@
       "_comment": "tool-rendering-custom-catchall pill 2: AAPL stock price \u2014 first leg: emit get_stock_price tool call.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "toolName": "get_stock_price",
         "context": "claude-sdk-typescript"
       },
       "response": {
