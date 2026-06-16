@@ -7,14 +7,12 @@ on:
       - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/test_e2e-dojo.yml"
-      - ".changeset"
   pull_request:
     branches: [main]
     paths:
       - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/test_e2e-dojo.yml"
-      - ".changeset"
   workflow_dispatch:
     inputs:
       branch:
@@ -54,7 +52,6 @@ jobs:
             ts:
               - 'packages/**'
               - '.github/workflows/test_e2e-dojo.yml'
-              - '.changeset'
             python:
               - 'sdk-python/**'
 

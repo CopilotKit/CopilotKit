@@ -224,7 +224,7 @@ describe("UnifiedCell", () => {
       expect(queryByTestId("mock-depth-chip")).not.toBeInTheDocument();
 
       // No badges rendered
-      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
 
@@ -310,7 +310,7 @@ describe("UnifiedCell", () => {
       );
 
       // E2E badge present (D3 exists)
-      expect(getByTestId("mock-badge-E2E")).toBeInTheDocument();
+      expect(getByTestId("mock-badge-UI")).toBeInTheDocument();
       // RT badge absent (D4 does not exist)
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       // CV badge present (D5 exists)
@@ -328,7 +328,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -344,7 +344,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(getByTestId("mock-badge-RT")).toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -363,7 +363,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const e2eBadge = getByTestId("mock-badge-E2E");
+      const e2eBadge = getByTestId("mock-badge-UI");
       expect(e2eBadge).toBeInTheDocument();
       expect(e2eBadge.getAttribute("data-tone")).toBe("green");
 
@@ -391,7 +391,7 @@ describe("UnifiedCell", () => {
       );
 
       expect(queryByTestId("health-layer")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
       expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
     });
@@ -542,7 +542,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const badge = getByTestId("mock-badge-E2E");
+      const badge = getByTestId("mock-badge-UI");
       expect(badge.getAttribute("data-tone")).toBe("green");
       expect(badge.textContent).toContain("✓");
     });
@@ -559,7 +559,7 @@ describe("UnifiedCell", () => {
       );
 
       // A no-data rung emits label "?", which the real Badge hides → no badge.
-      expect(queryByTestId("mock-badge-E2E")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
     });
   });
 

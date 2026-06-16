@@ -318,6 +318,113 @@ export async function readCascadeState(
 }
 
 /**
+ * Atomic single-`page.evaluate` reader returning BOTH the assistant-bubble
+ * count and the text at the LAST bubble (`count - 1`) in the matched cascade
+ * tier — in ONE browser-side round-trip.
+ *
+ * Why "last" rather than a caller-supplied strict index: multi-step agents
+ * (LangGraph, Mastra, CrewAI, …) emit MULTIPLE assistant bubbles per turn
+ * (tool-call bubble + tool-render bubble + final-text bubble). Reading the
+ * bubble at strict index `turnIndex - 1` would land on an intermediate
+ * tool-call bubble whose scoped-text selectors (`[data-message-content]`,
+ * `.cpk\:prose`, `.prose`, `p`) are EMPTY — the tool-call's content lives
+ * in a sibling node outside the scoped-text cascade — so the cascade-
+ * pollution guard returns null forever and the text-stable conjunct times
+ * out with `reason=text-unstable`. The LAST bubble in a multi-step turn is
+ * the agent's final-text bubble whose `.cpk\:prose` contains the streamed
+ * message text, which is the only bubble whose stable text can settle the
+ * gate.
+ *
+ * Defect-2 protection (un-turn-scoped bubble selection) is preserved by the
+ * caller: `waitForTurnComplete` snapshots a `baselineCount` BEFORE submit
+ * and only treats `count > baselineCount` as "a new bubble for this turn
+ * has appeared", so reading the last bubble cannot leak a leftover from a
+ * prior turn.
+ *
+ * Contract — same as `readCascadeState` but with `idx` resolved internally:
+ *   - count: from whichever tier matched (first tier whose `length > 0`)
+ *   - text:  per-tier scoped text at index `count - 1` within that SAME tier,
+ *            using the same scoped-text cascade as `findAssistantBubbleAt`
+ *            (null when the last bubble's scoped selectors are all empty —
+ *            mid-stream placeholder state).
+ *   - When no tier matches: `{ count: 0, text: null }`.
+ *
+ * Implementation note: the closure body references `querySelectorAll` AND
+ * `textContent` AND the literal `{ count` — the unit-test fakes dispatch on
+ * those substrings to route the evaluate call to the cascade-state branch.
+ */
+export async function readCascadeStateLast(
+  page: Page,
+): Promise<{ count: number; text: string | null }> {
+  try {
+    return await page.evaluate(() => {
+      interface DomElement {
+        readonly textContent: string | null;
+        querySelector(sel: string): DomElement | null;
+      }
+      interface DomNodeList {
+        readonly length: number;
+        item(idx: number): DomElement | null;
+      }
+      const doc = (
+        globalThis as unknown as {
+          document: { querySelectorAll(sel: string): DomNodeList };
+        }
+      ).document;
+      const tiers: Array<{ bubble: string; textSelectors: string[] }> = [
+        {
+          bubble: '[data-testid="copilot-assistant-message"]',
+          textSelectors: ["[data-message-content]", ".cpk\\:prose", ".prose"],
+        },
+        {
+          bubble: '[role="article"][data-message-role="assistant"]',
+          textSelectors: ["[data-message-content]", "p"],
+        },
+        {
+          bubble: '[role="article"]:not([data-message-role="user"])',
+          textSelectors: ["[data-message-content]", "p"],
+        },
+        {
+          bubble: '[data-message-role="assistant"]',
+          textSelectors: ["[data-message-content]", "p"],
+        },
+      ];
+      for (const tier of tiers) {
+        const list = doc.querySelectorAll(tier.bubble);
+        if (list.length > 0) {
+          const count = list.length;
+          // Read the LAST bubble in the matched tier (count - 1) — see
+          // function docstring for why "last" rather than a strict index.
+          const lastIdx = count - 1;
+          const bubble = list.item(lastIdx);
+          if (!bubble) return { count, text: null };
+          for (const textSel of tier.textSelectors) {
+            const scoped = bubble.querySelector(textSel);
+            if (scoped !== null) {
+              const t = scoped.textContent ?? "";
+              if (t.trim().length > 0) {
+                return { count, text: t };
+              }
+            }
+          }
+          // Cascade-pollution guard mirroring `readCascadeState`:
+          // no scoped child has non-empty text — return null rather than
+          // falling back to the whole bubble's textContent (which would
+          // re-introduce LGP suggestion-pill / toolbar pollution).
+          return { count, text: null };
+        }
+      }
+      return { count: 0, text: null };
+    });
+  } catch (err) {
+    console.warn(
+      `[assistant-message-count] readCascadeStateLast: ${(err as Error).message ?? err}`,
+    );
+    return { count: 0, text: null };
+  }
+}
+
+/**
  * Pure sibling of the scoped-text cascade inside `findAssistantBubbleAt`'s
  * `page.evaluate` closure. Kept in lock-step with the closure body so unit
  * tests can exercise the empty-textContent fall-through without JSDOM.
