@@ -166,6 +166,55 @@ function App() {
 }
 ```
 
+### Opting Out of Rendering
+
+Because the hook falls back to the built-in `DefaultToolCallRenderer` when no renderer matches, tool calls paint UI out-of-the-box. To suppress that -- render nothing for a tool call -- register a renderer whose `render` returns `null`. A registered renderer (even one returning `null`) takes priority over the default, so no fallback UI is shown.
+
+Opt out of a single tool by name:
+
+```tsx
+function App() {
+  // Run the tool, but render nothing for it.
+  useFrontendTool(
+    {
+      name: "searchDatabase",
+      parameters: z.object({ query: z.string() }),
+      handler: async ({ query }) => {
+        /* ... */
+      },
+      render: ({ status }) => null,
+    },
+    [],
+  );
+
+  return <ChatInterface />;
+}
+```
+
+Opt out of all unhandled tools with a wildcard renderer. This disables the default renderer globally while still letting any tool with its own named renderer paint:
+
+```tsx
+function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[
+        {
+          // Suppresses the built-in DefaultToolCallRenderer for any
+          // tool call without an exact-name renderer.
+          name: "*",
+          render: ({ status }) => null,
+        },
+      ]}
+    >
+      <YourApp />
+    </CopilotKit>
+  );
+}
+```
+
+You can also opt out conditionally -- return `null` only for certain statuses (for example, render nothing while `InProgress` but show a result on `Complete`), since the `render` function receives the current `status`.
+
 ## Behavior
 
 - **Name-based lookup**: The renderer searches registered render configurations for an exact tool name match first, then falls back to a wildcard (`"*"`) renderer, and finally to the framework's built-in `DefaultToolCallRenderer`.

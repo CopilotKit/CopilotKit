@@ -7,6 +7,10 @@ live site. Changes made here will **not** reach docs.copilotkit.ai. The
 `showcase/scripts/sync-docs-from-main.ts` script is legacy (one-direction, `docs/` → shell-docs)
 and should not be relied on.
 
+Agents should also read [AGENTS.md](AGENTS.md). It exists to prevent future
+edits from landing in this retired tree when the live source is in
+`showcase/shell-docs/src/content/`.
+
 - **CopilotKit docs** → author in `showcase/shell-docs/src/content/`
   (`docs/`, `reference/`, `snippets/`, `framework-overviews/`).
 - **AG-UI protocol docs** → author upstream in
