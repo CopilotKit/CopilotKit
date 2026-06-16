@@ -24,6 +24,7 @@ import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
@@ -58,7 +59,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
   const runtime = new CopilotRuntime({
-    agents: { default: createBuiltInAgent() },
+    agents: createAgentAliases(["default", "voice-demo"], createBuiltInAgent),
     runner: new InMemoryAgentRunner(),
     transcriptionService: new GuardedOpenAITranscriptionService(),
   });

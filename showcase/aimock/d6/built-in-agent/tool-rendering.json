@@ -301,6 +301,58 @@
       }
     },
     {
+      "_comment": "Default/custom catchall probe: forecast for Tokyo — follow-up after get_weather ran. Mirrors the weather-in-Tokyo D5 fixture below but matches the current catchall probe text.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "Default/custom catchall probe: forecast for Tokyo — BIA id-rewrite fallback after get_weather ran.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "Default/custom catchall probe: forecast for Tokyo — first leg emits get_weather.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Default/custom catchall probe: forecast for Tokyo — fallback when the weather tool is unavailable.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
       "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
       "match": {
         "userMessage": "weather in Tokyo",

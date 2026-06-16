@@ -8,6 +8,8 @@ import {
 } from "@/lib/registry";
 import type { Integration, Demo, FeatureCategory } from "@/lib/registry";
 import { CodeBlock } from "@/components/code-block";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import type { RuntimeConfig } from "@/lib/runtime-config.client";
 import demoContentData from "@/data/demo-content.json";
 
 type ViewMode = "preview" | "code";
@@ -151,6 +153,9 @@ export default function DojoPage() {
   );
   const categories = useMemo(() => getFeatureCategories(), []);
 
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(
+    null,
+  );
   const [selectedSlug, setSelectedSlug] = useState(integrations[0]?.slug || "");
   const [selectedDemoId, setSelectedDemoId] = useState(
     integrations[0]?.demos[0]?.id || "",
@@ -257,6 +262,10 @@ export default function DojoPage() {
   const urlHydratedRef = useRef(false);
 
   useEffect(() => {
+    setRuntimeConfig(getRuntimeConfig());
+  }, []);
+
+  useEffect(() => {
     if (!urlHydratedRef.current) {
       const params = new URLSearchParams(window.location.search);
       const urlSlug = params.get("integration");
@@ -285,8 +294,11 @@ export default function DojoPage() {
   }, [integrations, selectedSlug, selectedDemoId]);
 
   const previewUrl =
-    integration && selectedDemo
-      ? `${integration.backend_url}${selectedDemo.route}`
+    runtimeConfig && integration && selectedDemo
+      ? `${
+          runtimeConfig.localBackends[integration.slug] ??
+          integration.backend_url
+        }${selectedDemo.route}`
       : null;
 
   return (

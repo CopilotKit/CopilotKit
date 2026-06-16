@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { waitForCopilotIdle } from "./helpers";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Beautiful Chat", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/beautiful-chat");
+    await gotoDemoAndWaitForRuntime(page, "/demos/beautiful-chat");
     // Wait for a suggestion pill to render before dispatching clicks —
     // otherwise the click can race hydration and silently no-op. Picking
     // any visible pill as the readiness signal works because all 9 pills
@@ -195,6 +197,7 @@ test.describe("Beautiful Chat", () => {
     await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
       timeout: 90_000,
     });
+    await waitForCopilotIdle(page);
 
     // Soft assertion: if the full A2UI pipeline fires, recharts containers
     // should appear. When running against aimock-only (no secondary LLM),

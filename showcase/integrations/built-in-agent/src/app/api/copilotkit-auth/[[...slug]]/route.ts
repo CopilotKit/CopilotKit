@@ -11,6 +11,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
@@ -18,7 +19,7 @@ import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { default: createBuiltInAgent() },
+  agents: createAgentAliases(["default", "auth-demo"], createBuiltInAgent),
   runner: new InMemoryAgentRunner(),
 });
 

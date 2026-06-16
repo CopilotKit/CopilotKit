@@ -1,0 +1,21 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    <InstallSDKSnippet />
+
+  </Step>
+  <Step>
+    ### Expose sub-agents as supervisor tools
+
+    Start by declaring the specialist roles and their system prompts:
+
+    <DemoCode file="src/lib/factory/subagent-tools.ts" region="subagent-setup" />
+
+    Then wrap each specialist in a server tool that the supervisor can invoke
+    during the same Built-in Agent run:
+
+    <DemoCode file="src/lib/factory/subagent-tools.ts" region="subagent-tool-wrappers" />
+
+  </Step>
+</Steps>

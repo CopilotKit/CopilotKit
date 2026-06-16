@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/readonly-state-agent-context.md
 // Demo source: src/app/demos/readonly-state-agent-context/page.tsx
@@ -20,7 +21,10 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
   test.setTimeout(90_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/readonly-state-agent-context");
+    await gotoDemoAndWaitForRuntime(
+      page,
+      "/demos/readonly-state-agent-context",
+    );
   });
 
   test("page loads: context-card + composer render", async ({ page }) => {

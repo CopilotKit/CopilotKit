@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // Shared State (Read + Write) — Preferences + Scratch Pad demo. The page
 // publishes `agent.state.preferences` via setState, and the agent writes
@@ -7,7 +8,7 @@ import { test, expect } from "@playwright/test";
 // "hi" / "plan" catch-alls in feature-parity.json.
 test.describe("Shared State (Read + Write)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/shared-state-read-write");
+    await gotoDemoAndWaitForRuntime(page, "/demos/shared-state-read-write");
   });
 
   test("preferences panel and agent scratch pad both mount", async ({
@@ -72,7 +73,7 @@ test.describe("Shared State (Read + Write)", () => {
     });
     // Negative assertion: the wrong-fixture response is gone.
     await expect(assistantMessage).not.toContainText(
-      /Research the topic.*Outline key points/is,
+      /Research the topic[\s\S]*Outline key points/i,
     );
   });
 });

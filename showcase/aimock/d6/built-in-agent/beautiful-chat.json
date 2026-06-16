@@ -7,6 +7,34 @@
   },
   "fixtures": [
     {
+      "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — actual product prompt sends 'Find flights from SFO to JFK for next Tuesday.'. The beautiful-chat search_flights server tool renders A2UI FlightCard components with United Airlines + Delta.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "toolName": "search_flights",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_bc_search_flights_next_tuesday_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Search Flights follow-up after the A2UI flight tool returns.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "toolCallId": "call_bc_search_flights_next_tuesday_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Two flights shown above — United Airlines at $349 and Delta at $289, both on time."
+      }
+    },
+    {
       "match": {
         "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
         "hasToolResult": false,

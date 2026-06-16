@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Chat Customization (CSS)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/chat-customization-css");
+    await gotoDemoAndWaitForRuntime(page, "/demos/chat-customization-css");
   });
 
   test("scope wrapper and themed chat input render on load", async ({

@@ -1,0 +1,20 @@
+First, register a `BuiltInAgent` with your Copilot runtime route. The
+Built-in Agent runs in-process, so there is no external agent server or
+framework middleware to deploy.
+
+<DemoCode file="src/app/api/copilotkit/route.ts" region="built-in-agent-runtime" />
+
+The showcase factory defaults to GPT 5.4 and lets `OPENAI_MODEL` override it
+for local testing:
+
+<DemoCode file="src/lib/factory/models.ts" region="built-in-agent-model" />
+
+<Accordions>
+  <Accordion title="Install the SDK">
+    If CopilotKit is not already in your app, install the React and runtime
+    packages first:
+
+    <InstallSDKSnippet />
+
+  </Accordion>
+</Accordions>

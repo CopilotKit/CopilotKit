@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Agent Config Object", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/agent-config");
+    await gotoDemoAndWaitForRuntime(page, "/demos/agent-config");
   });
 
   test("page loads with config card and default dropdown values", async ({

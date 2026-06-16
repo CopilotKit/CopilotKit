@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("HITL in chat — booking flow", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/hitl-in-chat");
+    await gotoDemoAndWaitForRuntime(page, "/demos/hitl-in-chat");
   });
 
   test("page loads with chat input", async ({ page }) => {

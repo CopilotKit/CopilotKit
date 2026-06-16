@@ -20,6 +20,11 @@ import { test, expect } from "@playwright/test";
 // (non-body) render contract.
 
 test.describe("Gen UI via useInterrupt (inline time picker)", () => {
+  test.skip(
+    true,
+    "Built-in Agent does not support the lower-level interrupt lifecycle yet; the manifest marks this demo unsupported.",
+  );
+
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {

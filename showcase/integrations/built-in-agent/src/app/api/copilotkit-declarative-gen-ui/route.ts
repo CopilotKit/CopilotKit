@@ -4,6 +4,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
@@ -21,7 +22,10 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // `a2ui_operations` container in the tool result and streams rendered
 // surfaces to the frontend.
 const runtime = new CopilotRuntime({
-  agents: { default: createDeclarativeGenUIAgent() },
+  agents: createAgentAliases(
+    ["default", "declarative-gen-ui"],
+    createDeclarativeGenUIAgent,
+  ),
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,

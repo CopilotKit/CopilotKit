@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // E2E for the voice demo — sample-audio path only.
 //
@@ -17,7 +18,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Voice Input", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/voice");
+    await gotoDemoAndWaitForRuntime(page, "/demos/voice");
   });
 
   test("page loads with sample button, chat composer, and mic affordance", async ({

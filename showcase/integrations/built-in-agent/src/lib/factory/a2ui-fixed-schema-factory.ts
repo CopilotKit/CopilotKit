@@ -1,7 +1,9 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
-import { z } from "zod";
+import { z } from "zod4";
+import { BUILT_IN_AGENT_MODEL_FOR_TANSTACK } from "./models";
+import { convertBuiltInTanStackStream } from "./tanstack-factory";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
@@ -13,8 +15,7 @@ const SURFACE_ID = "flight-fixed-schema";
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
 
 // Fixed flight-card schema. Inlined as a TS const so it ships into the
-// Next.js route bundle without runtime fs access. Mirrors
-// `showcase/integrations/langgraph-python/src/agents/a2ui_schemas/flight_schema.json`.
+// Next.js route bundle without runtime fs access.
 // @region[backend-schema]
 const FLIGHT_SCHEMA: unknown[] = [
   { id: "root", component: "Card", child: "content" },
@@ -135,15 +136,20 @@ short sentence.`;
  */
 export function createA2UIFixedSchemaAgent() {
   return new BuiltInAgent({
-    type: "tanstack",
-    factory: ({ input, abortController }) => {
+    type: "custom",
+    factory: async ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
-      return chat({
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+      const stream = chat({
+        adapter: openaiText(BUILT_IN_AGENT_MODEL_FOR_TANSTACK, {
+          fetch: forwardingFetch,
+        }),
         messages,
         systemPrompts: [A2UI_FIXED_SCHEMA_SYSTEM_PROMPT, ...systemPrompts],
         tools: [displayFlightTool],
         abortController,
+      });
+      return convertBuiltInTanStackStream(stream, abortController.signal, {
+        serverToolNames: new Set(["display_flight"]),
       });
     },
   });

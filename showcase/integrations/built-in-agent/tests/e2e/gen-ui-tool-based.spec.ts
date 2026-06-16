@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // Tool-Based Generative UI demo: a centered <CopilotChat> with two
 // useComponent registrations (render_bar_chart + render_pie_chart) plus
@@ -6,7 +7,7 @@ import { test, expect } from "@playwright/test";
 // has no header / chrome — the chat surface IS the page.
 test.describe("Tool-Based Generative UI", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/gen-ui-tool-based");
+    await gotoDemoAndWaitForRuntime(page, "/demos/gen-ui-tool-based");
   });
 
   test("page loads with chat composer and the three suggestion pills", async ({

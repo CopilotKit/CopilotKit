@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const AIMOCK_TEST_ID =
+  process.env.SHOWCASE_E2E_TEST_ID ??
+  `e2e-built-in-agent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -18,6 +21,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     extraHTTPHeaders: {
       "X-AIMock-Context": "built-in-agent",
+      "X-Test-Id": AIMOCK_TEST_ID,
     },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

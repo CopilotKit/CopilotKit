@@ -3,6 +3,7 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+import { BUILT_IN_AGENT_MODEL_FOR_TANSTACK } from "./models";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
@@ -151,13 +152,12 @@ export function createByocJsonRenderAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
-        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        adapter: openaiText(BUILT_IN_AGENT_MODEL_FOR_TANSTACK, {
+          fetch: forwardingFetch,
+        }),
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
-        modelOptions: {
-          temperature: 0.2,
-        },
         abortController,
       });
 

@@ -4,6 +4,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createOguiAgent } from "@/lib/factory/ogui-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
@@ -24,11 +25,16 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // Open Generative UI for the listed agent(s).
 // @region[minimal-runtime-flag]
 // @region[advanced-runtime-config]
+const createAdvancedOguiAgent = () => createOguiAgent({ profile: "advanced" });
+
 const runtime = new CopilotRuntime({
-  agents: { default: createOguiAgent() },
+  agents: {
+    ...createAgentAliases(["default", "open-gen-ui"], createOguiAgent),
+    ...createAgentAliases(["open-gen-ui-advanced"], createAdvancedOguiAgent),
+  },
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: {
-    agents: ["default"],
+    agents: ["default", "open-gen-ui", "open-gen-ui-advanced"],
   },
 });
 // @endregion[advanced-runtime-config]

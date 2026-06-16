@@ -38,38 +38,10 @@
       }
     },
     {
-      "_comment": "project-planning pill — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the `call_d5_query_notes_project_planning_001` toolCallId chain above never matches the follow-up turn. Anchored on hasToolResult:true so it only fires AFTER query_notes has run (no tool-emit loop) and never swallows the first turn. Must precede the turnIndex:0 tool-emit fixture below.",
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Gated by registered tool, not thread-global turnIndex/hasToolResult, so it still fires when this pill is clicked after another tool-using pill in the same chat thread. The toolCallId follow-up above wins on leg 2.",
       "match": {
         "userMessage": "Find my notes about project planning",
-        "hasToolResult": true,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
-      }
-    },
-    {
-      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
-      "match": {
-        "userMessage": "Find my notes about project planning",
-        "turnIndex": 0,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_query_notes_project_planning_001",
-            "name": "query_notes",
-            "arguments": "{\"keyword\":\"project planning\"}"
-          }
-        ]
-      }
-    },
-    {
-      "_comment": "project-planning pill — first-turn tool-emit fallback for multi-pill demo sessions where a PRIOR pill already left an assistant message in the thread, so turnIndex is not 0 and the fixture above is skipped. Anchored on hasToolResult:false so it only emits query_notes BEFORE any tool has run; the hasToolResult:true content fixture above handles the follow-up turn, so no loop.",
-      "match": {
-        "userMessage": "Find my notes about project planning",
-        "hasToolResult": false,
+        "toolName": "query_notes",
         "context": "built-in-agent"
       },
       "response": {
@@ -94,10 +66,10 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Gated by registered tool, not turnIndex, so sequential pill clicks in one thread still render a second Notes DB card.",
       "match": {
         "userMessage": "Search my notes for anything related to auth",
-        "turnIndex": 0,
+        "toolName": "query_notes",
         "context": "built-in-agent"
       },
       "response": {
@@ -122,10 +94,10 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call.",
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call. Gated by registered tool, not turnIndex, so it works after project-planning/auth have already left tool results in the thread.",
       "match": {
         "userMessage": "Do I have any notes tagged reading",
-        "turnIndex": 0,
+        "toolName": "query_notes",
         "context": "built-in-agent"
       },
       "response": {

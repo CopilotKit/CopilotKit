@@ -4,11 +4,6 @@
 // is the ONLY public API for these URLs in client code — never read
 // process.env.NEXT_PUBLIC_* directly (an ESLint rule enforces this).
 //
-// shell-dojo's `RuntimeConfig` is intentionally empty today (no URL
-// consumers); the module exists to keep the pattern symmetric across
-// shells. When a URL is added on the server side, this reader picks it
-// up via the shared interface.
-
 import type { RuntimeConfig } from "./runtime-config";
 
 export type { RuntimeConfig };
@@ -30,10 +25,10 @@ declare global {
  * values MUST import getRuntimeConfig from runtime-config.ts (the server
  * variant), not this file.
  *
- * shell-dojo's RuntimeConfig is currently `{}` — the placeholder is the
- * empty object that matches the interface.
  */
-const SSR_PLACEHOLDER: RuntimeConfig = {};
+const SSR_PLACEHOLDER: RuntimeConfig = {
+  localBackends: {},
+};
 
 /**
  * Returns the runtime config injected by the root server layout.
@@ -59,6 +54,16 @@ export function getRuntimeConfig(): RuntimeConfig {
     throw new Error(
       "[runtime-config.client] window.__SHOWCASE_CONFIG__ is missing. " +
         "The root layout must inject runtime config before client mount.",
+    );
+  }
+  if (
+    !cfg.localBackends ||
+    typeof cfg.localBackends !== "object" ||
+    Array.isArray(cfg.localBackends)
+  ) {
+    throw new Error(
+      "[runtime-config.client] window.__SHOWCASE_CONFIG__ is malformed: " +
+        'field "localBackends" must be an object.',
     );
   }
   return cfg;

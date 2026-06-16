@@ -19,7 +19,13 @@ x-integration-defaults: &integration-defaults
       condition: service_healthy
   restart: unless-stopped
   healthcheck:
-    test: ["CMD", "curl", "-f", "http://localhost:10000/api/health"]
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "require('http').get('http://127.0.0.1:10000/api/health',r=>process.exit(r.statusCode>=200&&r.statusCode<300?0:1)).on('error',()=>process.exit(1))",
+      ]
     interval: 5s
     timeout: 3s
     retries: 5
@@ -316,7 +322,10 @@ services:
     build:
       context: ../
       dockerfile: showcase/harness/Dockerfile
-    image: showcase-harness:local
+    # Keep a distinct local tag from harness-control-plane. Docker Compose can
+    # race duplicate build targets that write the same local image tag during
+    # isolated D5/D6 runs; both roles still build from the same Dockerfile.
+    image: showcase-harness-worker:local
     # NO fixed container_name: the worker is the scalable unit of the fleet
     # (`--scale harness-pool-worker=N`, N from HARNESS_POOL_COUNT). A fixed
     # container_name would make Docker refuse to create the 2nd+ replica

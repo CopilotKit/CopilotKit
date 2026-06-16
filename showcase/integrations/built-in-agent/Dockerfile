@@ -16,9 +16,6 @@ RUN npx next build
 FROM node:22-slim AS runner
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
-
 RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
  && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
  && mkdir -p /home/app && chown app:app /home/app

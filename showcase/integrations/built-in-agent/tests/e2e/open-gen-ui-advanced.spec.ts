@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/open-gen-ui-advanced.md
 // Demo source: src/app/demos/open-gen-ui-advanced/{page.tsx,
@@ -54,7 +55,7 @@ test.describe("Open Generative UI (advanced)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/open-gen-ui-advanced");
+    await gotoDemoAndWaitForRuntime(page, "/demos/open-gen-ui-advanced");
     // Wait for React hydration: without this the textarea's keydown
     // handler may not yet be attached when fill+Enter runs, so the
     // Enter press becomes a no-op and the iframe never mounts.

@@ -1,31 +1,32 @@
 "use client";
 
-// Agentic Chat (Reasoning) — built-in-agent variant.
+// Reasoning — Custom
 //
-// The built-in tanstack/openai factory normally uses a non-reasoning
-// model (gpt-4o) so REASONING_* events never flow. This demo points at
-// a dedicated route (`/api/copilotkit-reasoning`) whose factory uses a
-// reasoning-capable model (`gpt-5.2`) with `reasoning_effort: "low"`.
-// The runtime's tanstack converter translates the upstream reasoning
-// events into AG-UI REASONING_START / REASONING_MESSAGE_CONTENT /
-// REASONING_END, and CopilotKit renders them via the
-// `reasoningMessage` slot — overridden below for visual emphasis.
+// Pairs with `reasoning-default` so users can compare default vs custom
+// reasoning rendering side by side. Both demos share the same backend
+// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
+// overrides the `reasoningMessage` slot on the `messageView` slot with
+// `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
+// thinking chain.
+//
+// Reasoning is a first-class message type in v2: see
+// packages/react-core/src/v2/components/chat/CopilotChatMessageView.tsx,
+// which discriminates messages by `message.role === "reasoning"` and
+// renders them via the `reasoningMessage` slot (default component:
+// `CopilotChatReasoningMessage`). The slot override below is the public,
+// stable way to customize that output.
+
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { ReasoningBlock } from "./reasoning-block";
+import { useReasoningCustomSuggestions } from "./suggestions";
 
 // @region[reasoning-block-render]
-import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  CopilotChatReasoningMessage,
-} from "@copilotkit/react-core/v2";
-import { ReasoningBlock } from "./reasoning-block";
+const AGENT_ID = "reasoning-custom";
 
-export default function AgenticChatReasoningDemo() {
+export default function ReasoningCustomDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-reasoning"
-      agent="agentic-chat-reasoning"
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -36,12 +37,14 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
+  useReasoningCustomSuggestions();
   return (
     <CopilotChat
-      agentId="agentic-chat-reasoning"
+      agentId={AGENT_ID}
       className="h-full rounded-2xl"
       messageView={{
-        reasoningMessage: ReasoningBlock as typeof CopilotChatReasoningMessage,
+        reasoningMessage:
+          ReasoningBlock as unknown as typeof CopilotChatReasoningMessage,
       }}
     />
   );

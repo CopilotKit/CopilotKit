@@ -1,8 +1,9 @@
 // @region[supervisor-delegation-tools]
 // @region[subagent-setup]
-import { z } from "zod";
+import { z } from "zod4";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+import { BUILT_IN_AGENT_MODEL_FOR_TANSTACK } from "./models";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
@@ -13,10 +14,10 @@ import { forwardingFetch } from "../header-forwarding";
 // They don't share memory or tools with the supervisor — the supervisor
 // only sees the role's return value via the delegate tool below.
 //
-// Tool names match the LangGraph Python reference agent (`subagents.py`):
+// Tool names are part of the demo contract:
 //   research_agent, writing_agent, critique_agent
-// This alignment is load-bearing: the D5 fixtures are recorded against
-// the LGP agent's tool names, and aimock matches on tool name.
+// Keep them stable so the supervisor prompt, frontend renderers, and
+// deterministic test fixtures all agree on the same delegation events.
 const subagentRoles = [
   {
     id: "research_agent",
@@ -40,6 +41,7 @@ const subagentRoles = [
 ] as const;
 // @endregion[subagent-setup]
 
+// @region[subagent-tool-wrappers]
 // Builder takes the parent run's AbortController so subagent `chat()` calls
 // abort with the parent. Constructing tools at module-import time leaves them
 // with their own fresh AbortController, which means a user cancel never reaches
@@ -61,7 +63,9 @@ export function buildSubagentTools(parentAbortController: AbortController) {
       }),
     }).server(async ({ task }) => {
       const text = await chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText(BUILT_IN_AGENT_MODEL_FOR_TANSTACK, {
+          fetch: forwardingFetch,
+        }),
         messages: [{ role: "user", content: task }],
         systemPrompts: [role.systemPrompt],
         abortController: parentAbortController,
@@ -71,4 +75,5 @@ export function buildSubagentTools(parentAbortController: AbortController) {
     }),
   );
 }
+// @endregion[subagent-tool-wrappers]
 // @endregion[supervisor-delegation-tools]

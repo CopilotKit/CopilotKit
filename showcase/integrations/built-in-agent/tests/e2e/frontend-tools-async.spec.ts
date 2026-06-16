@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/frontend-tools-async.md
 // Demo source: src/app/demos/frontend-tools-async/{page.tsx, notes-card.tsx}
@@ -23,7 +24,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/frontend-tools-async");
+    await gotoDemoAndWaitForRuntime(page, "/demos/frontend-tools-async");
   });
 
   test("page loads with composer and 3 pills", async ({ page }) => {
@@ -95,7 +96,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     await expect(page.getByText("I'm your showcase assistant")).toHaveCount(0);
   });
 
-  test("reading pill → Notes DB card with Book recommendations + locked narration", async ({
+  test("reading pill → Notes DB card with Book recommendations + summarized result", async ({
     page,
   }) => {
     await page
@@ -124,17 +125,17 @@ test.describe("Frontend Tools (async query_notes)", () => {
     ).toBeVisible();
     await expect(note.getByText("reading", { exact: true })).toBeVisible();
 
-    // Locked narration leading phrase — proves the deterministic 2nd-turn
-    // fixture wired correctly through the async tool result.
-    await expect(
-      page
-        .locator('[data-testid="copilot-assistant-message"]')
-        .filter({
-          hasText:
-            'You have a note titled "Book recommendations" that is tagged with "reading',
-        })
-        .first(),
-    ).toBeVisible({ timeout: 60_000 });
+    // The assistant must summarize the async frontend-tool result, but
+    // built-in-agent's Responses path can phrase the narration differently
+    // than LangGraph's locked fixture. Assert the stable product contract:
+    // title + tag + note content are all reflected after the card renders.
+    const assistant = page
+      .locator('[data-testid="copilot-assistant-message"]')
+      .filter({ hasText: "Book recommendations" })
+      .first();
+    await expect(assistant).toBeVisible({ timeout: 60_000 });
+    await expect(assistant).toContainText(/reading/i);
+    await expect(assistant).toContainText(/Thinking Fast and Slow/i);
   });
 
   // Regression for the aimock multi-pill bug:

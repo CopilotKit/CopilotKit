@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Pre-Built Popup", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/prebuilt-popup");
+    await gotoDemoAndWaitForRuntime(page, "/demos/prebuilt-popup");
   });
 
   test("page loads with heading and the popup open by default", async ({

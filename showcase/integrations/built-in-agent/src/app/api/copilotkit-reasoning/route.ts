@@ -8,21 +8,29 @@ import {
   createReasoningDefaultRenderAgent,
   createToolRenderingReasoningChainAgent,
 } from "@/lib/factory/reasoning-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
-// Shared runtime for the three reasoning demos. The default tanstack
-// factory uses a non-reasoning model (gpt-4o) — these demos need a
-// reasoning-capable variant so REASONING_* events flow. They live on
-// their own basePath so a single page only spins up the reasoning model
-// when actually viewing a reasoning demo.
+// Compatibility runtime for older built-in-agent reasoning URLs. Current
+// pages use /api/copilotkit, but keeping this endpoint avoids breaking direct
+// links and historical tests.
 const runtime = new CopilotRuntime({
   agents: {
-    "agentic-chat-reasoning": createAgenticChatReasoningAgent(),
-    "reasoning-default-render": createReasoningDefaultRenderAgent(),
-    "tool-rendering-reasoning-chain": createToolRenderingReasoningChainAgent(),
+    ...createAgentAliases(
+      ["agentic-chat-reasoning", "reasoning-custom"],
+      createAgenticChatReasoningAgent,
+    ),
+    ...createAgentAliases(
+      ["reasoning-default-render", "reasoning-default"],
+      createReasoningDefaultRenderAgent,
+    ),
+    ...createAgentAliases(
+      ["tool-rendering-reasoning-chain"],
+      createToolRenderingReasoningChainAgent,
+    ),
   },
   runner: new InMemoryAgentRunner(),
 });

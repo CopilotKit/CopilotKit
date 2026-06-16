@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime, waitForCopilotIdle } from "./helpers";
 
 // Each custom slot wraps the default in a `SlotMarker` that emits
 // `data-slot-label="<slot-path>"`. That attribute is the canonical
@@ -9,7 +10,7 @@ const SLOT_LABEL_ASSISTANT = '[data-slot-label="MessageView.AssistantMessage"]';
 
 test.describe("Chat Slots", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/chat-slots");
+    await gotoDemoAndWaitForRuntime(page, "/demos/chat-slots");
   });
 
   test("custom welcome screen slot renders on first load", async ({ page }) => {
@@ -61,6 +62,7 @@ test.describe("Chat Slots", () => {
     await expect(page.locator(SLOT_LABEL_ASSISTANT).first()).toBeVisible({
       timeout: 45000,
     });
+    await waitForCopilotIdle(page);
   });
 
   test("custom disclaimer slot renders after the first user message", async ({
@@ -85,6 +87,7 @@ test.describe("Chat Slots", () => {
     await expect(page.locator('[data-testid="custom-disclaimer"]')).toBeVisible(
       { timeout: 10000 },
     );
+    await waitForCopilotIdle(page);
   });
 
   test("second assistant turn is also wrapped in the custom slot", async ({

@@ -1,0 +1,18 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    <InstallSDKSnippet />
+
+  </Step>
+  <Step>
+    ### Reuse the same runtime endpoint
+
+    Programmatic control (`copilotkit.runAgent`, `agent.subscribe`,
+    `agent.addMessage`) drives runs through the same in-process Built-in Agent
+    that powers chat UI demos.
+
+    <DemoCode file="src/app/api/copilotkit/route.ts" region="built-in-agent-runtime" />
+
+  </Step>
+</Steps>

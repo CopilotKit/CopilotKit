@@ -13,25 +13,20 @@
 // client-side reader lives in runtime-config.client.ts and reads from
 // window.__SHOWCASE_CONFIG__ which the root layout injects.
 //
-// shell-dojo today has no URL consumers (zero process.env.NEXT_PUBLIC_*
-// reads in this shell). The `RuntimeConfig` interface is intentionally
-// an empty object literal — it exists to keep the runtime-config /
-// layout-injection pattern symmetric across the shells. Adding a URL
-// later means adding a field here, reading it from process.env via
-// `readUrl`, and the client-side reader picks it up automatically
-// through the shared interface.
-
 import { unstable_noStore as noStore } from "next/cache";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface RuntimeConfig {}
+export interface RuntimeConfig {
+  /**
+   * Local-dev backend overrides keyed by integration slug. These let the
+   * dojo iframe a locally running integration instead of the production URL
+   * baked into generated registry.json.
+   */
+  localBackends: Record<string, string>;
+}
 
 /**
  * Resolve the runtime config for shell-dojo. Called once per request
- * by the root layout. Currently returns an empty object since
- * shell-dojo has no URL-dependent consumers; the module exists to keep
- * the pattern symmetric across shells (see shell-dashboard's
- * runtime-config.ts for the full template).
+ * by the root layout.
  *
  * `opts.noStore` (default `true`) controls whether to call
  * `unstable_noStore()`. The Node.js server runtime needs the opt-out
@@ -42,5 +37,76 @@ export function getRuntimeConfig(
   opts: { noStore?: boolean } = {},
 ): RuntimeConfig {
   if (opts.noStore !== false) noStore();
-  return {};
+  return {
+    localBackends: readLocalBackends(),
+  };
+}
+
+function readLocalBackends(): Record<string, string> {
+  const raw =
+    readEnv("SHELL_DOJO_LOCAL_BACKENDS") ??
+    readEnv("NEXT_PUBLIC_LOCAL_BACKENDS");
+  if (!raw) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `SHELL_DOJO_LOCAL_BACKENDS/NEXT_PUBLIC_LOCAL_BACKENDS must be JSON: ${String(err)}`,
+      { cause: err },
+    );
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(
+      "SHELL_DOJO_LOCAL_BACKENDS/NEXT_PUBLIC_LOCAL_BACKENDS must be a JSON object mapping integration slug -> backend URL.",
+    );
+  }
+
+  const out: Record<string, string> = {};
+  for (const [slug, url] of Object.entries(parsed)) {
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      throw new Error(
+        `Invalid local backend slug ${JSON.stringify(slug)}; expected [a-z0-9-]+.`,
+      );
+    }
+    if (typeof url !== "string") {
+      throw new Error(
+        `Local backend for ${slug} must be a string URL; got ${JSON.stringify(url)}.`,
+      );
+    }
+    out[slug] = normalizeBackendUrl(slug, url);
+  }
+  return out;
+}
+
+function normalizeBackendUrl(slug: string, raw: string): string {
+  const value = raw.trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch (err) {
+    throw new Error(
+      `Local backend for ${slug} is not a parseable URL: ${JSON.stringify(raw)}.`,
+      { cause: err },
+    );
+  }
+  if (
+    !/^https?:$/i.test(parsed.protocol) ||
+    !/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ||
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.search !== "" ||
+    parsed.hash !== ""
+  ) {
+    throw new Error(
+      `Local backend for ${slug} must be an http(s) base URL with an explicit scheme and no userinfo, query, or fragment.`,
+    );
+  }
+  return (parsed.origin + parsed.pathname).replace(/\/+$/, "");
+}
+
+function readEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
 }

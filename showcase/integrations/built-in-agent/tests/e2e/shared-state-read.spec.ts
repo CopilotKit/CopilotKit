@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // Shared State (Reading) — Recipe Editor demo. The page publishes
 // `agent.state.recipe` via `agent.setState`; the agent reads (but does
@@ -6,7 +7,7 @@ import { test, expect } from "@playwright/test";
 // in qa/shared-state-read.md and the testids exposed by recipe-card.tsx.
 test.describe("Shared State (Reading)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/shared-state-read");
+    await gotoDemoAndWaitForRuntime(page, "/demos/shared-state-read");
   });
 
   test("recipe card loads with default ingredients and the sidebar mounts", async ({

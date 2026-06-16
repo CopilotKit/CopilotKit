@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { actAndWaitForRuntime } from "./helpers";
 
 /**
  * Auth demo lifecycle. The demo defaults to UNAUTHENTICATED on first
@@ -33,7 +34,9 @@ test.describe("Authentication", () => {
   test("signing in mounts the chat surface with AuthBanner", async ({
     page,
   }) => {
-    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await actAndWaitForRuntime(page, () =>
+      page.locator('[data-testid="auth-sign-in-button"]').click(),
+    );
 
     const banner = page.locator('[data-testid="auth-banner"]');
     await expect(banner).toBeVisible();
@@ -54,7 +57,9 @@ test.describe("Authentication", () => {
   test("authenticated send produces an assistant response", async ({
     page,
   }) => {
-    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await actAndWaitForRuntime(page, () =>
+      page.locator('[data-testid="auth-sign-in-button"]').click(),
+    );
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
 
     const input = page.getByPlaceholder("Type a message");
@@ -69,7 +74,9 @@ test.describe("Authentication", () => {
   test("signing out flips the banner amber and keeps the chat surface mounted", async ({
     page,
   }) => {
-    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await actAndWaitForRuntime(page, () =>
+      page.locator('[data-testid="auth-sign-in-button"]').click(),
+    );
     await expect(
       page.locator('[data-testid="auth-sign-out-button"]'),
     ).toBeVisible();
@@ -99,7 +106,9 @@ test.describe("Authentication", () => {
   test("unauthenticated send surfaces a 401 error without crashing the page", async ({
     page,
   }) => {
-    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await actAndWaitForRuntime(page, () =>
+      page.locator('[data-testid="auth-sign-in-button"]').click(),
+    );
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
     await page.locator('[data-testid="auth-sign-out-button"]').click();
     await expect(
@@ -124,7 +133,9 @@ test.describe("Authentication", () => {
   test("re-signing in from the amber banner clears the error and resumes chat", async ({
     page,
   }) => {
-    await page.locator('[data-testid="auth-sign-in-button"]').click();
+    await actAndWaitForRuntime(page, () =>
+      page.locator('[data-testid="auth-sign-in-button"]').click(),
+    );
     await expect(
       page.locator('[data-testid="auth-sign-out-button"]'),
     ).toBeVisible();

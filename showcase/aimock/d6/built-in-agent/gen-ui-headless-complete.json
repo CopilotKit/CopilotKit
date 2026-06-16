@@ -9,6 +9,7 @@
     {
       "_comment": "headless-complete weather pill narration — matches when the get_weather tool result with id call_d5_headless_weather_001 is the last message. The 'tokyo' textToken assertion is satisfied by the city name. Narration verbatim matches the headless-complete.spec.ts assertion `toContainText('Tokyo is 22°C and partly cloudy.')`.",
       "match": {
+        "userMessage": "What's the weather in Tokyo",
         "toolCallId": "call_d5_headless_weather_001",
         "context": "built-in-agent"
       },
@@ -19,6 +20,7 @@
     {
       "_comment": "headless-complete stock pill narration — matches when the get_stock_price tool result with id call_d5_headless_stock_001 is the last message. textToken 'aapl' satisfied by ticker mention.",
       "match": {
+        "userMessage": "price of AAPL right now",
         "toolCallId": "call_d5_headless_stock_001",
         "context": "built-in-agent"
       },
@@ -29,6 +31,7 @@
     {
       "_comment": "headless-complete highlight pill narration — matches when the highlight_note tool result with id call_d5_headless_highlight_001 is the last message.",
       "match": {
+        "userMessage": "ship the demo on Friday",
         "toolCallId": "call_d5_headless_highlight_001",
         "context": "built-in-agent"
       },
@@ -39,6 +42,7 @@
     {
       "_comment": "headless-complete revenue chart narration — matches when the get_revenue_chart tool result with id call_d5_headless_revenue_chart_001 is the last message.",
       "match": {
+        "userMessage": "chart of revenue over the last six months",
         "toolCallId": "call_d5_headless_revenue_chart_001",
         "context": "built-in-agent"
       },

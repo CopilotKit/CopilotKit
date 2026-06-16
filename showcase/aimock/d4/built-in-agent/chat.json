@@ -881,9 +881,9 @@
       }
     },
     {
-      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). Mirrors the LGP d4 narrowing.",
+      "_comment": "Standalone D4 dice fallback. Keep the terminal period: the D6 reasoning-chain prompt continues with 'and compare it...' and must fall through to its two-step roll_dice fixture instead of this generic one.",
       "match": {
-        "userMessage": "Roll a 20-sided die for me",
+        "userMessage": "Roll a 20-sided die for me.",
         "hasToolResult": false,
         "context": "built-in-agent"
       },
@@ -957,9 +957,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on the exact sent payload, including the exclamation mark, so it does not shadow richer D6 prompts such as shared-state's 'Say hi and introduce yourself.'.",
       "match": {
-        "userMessage": "Say hi",
+        "userMessage": "Say hi!",
         "context": "built-in-agent"
       },
       "response": {

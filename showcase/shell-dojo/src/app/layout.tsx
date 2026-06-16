@@ -13,17 +13,14 @@ export const metadata: Metadata = {
  * `<script>...</script>` tag, where three substrings would otherwise
  * break out of (or corrupt) the parser:
  *
- *   - `<` — guards against the `</script>` breakout (XSS).
+ *   - `<` guards against the `</script>` breakout (XSS).
  *     `JSON.stringify` does NOT escape `<` by default, so a URL
  *     containing `</script>` (e.g. a hostile env value) would
  *     terminate the inline script and inject HTML. Escape every
- *     `<` to `<` so the substring `</script>` can never appear.
- *   - `
-` (LINE SEPARATOR) and `
-` (PARAGRAPH SEPARATOR) —
- *     legal inside JSON strings, but a syntax error inside a JS
- *     string literal in older engines / when the page is parsed as
- *     `text/javascript`. Escape both.
+ *     `<` to `\u003c` so the substring `</script>` can never appear.
+ *   - U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR)
+ *     are legal inside JSON strings, but can be syntax errors inside
+ *     JavaScript string literals in older engines. Escape both.
  *
  * Canonical OWASP-recommended escape for inline JSON in HTML.
  */
@@ -41,9 +38,8 @@ export default function RootLayout({
 }) {
   // Server-side: read live env at request time. `unstable_noStore()`
   // inside getRuntimeConfig opts this segment out of the static cache
-  // so the inline <script> below always reflects the current Railway
-  // env vars. shell-dojo's RuntimeConfig is empty today; the
-  // injection stays for pattern symmetry across all four shells.
+  // so the inline <script> below always reflects current env vars,
+  // including local backend overrides used during development.
   const runtimeConfig = getRuntimeConfig();
   const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
 

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 /**
  * Headless Chat (Complete) — full headless surface in one demo. The
@@ -28,7 +29,7 @@ const ASSERT_TIMEOUT = 45_000;
 
 test.describe("Headless Chat (Complete)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/headless-complete");
+    await gotoDemoAndWaitForRuntime(page, "/demos/headless-complete");
   });
 
   test("page loads with custom composer and four suggestion pills", async ({

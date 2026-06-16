@@ -272,9 +272,9 @@
       }
     },
     {
-      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' structural placeholder. Narrowed to a sentinel substring that no current pill sends, so this underscore-loaded feature-parity fallback cannot shadow readonly-state.json's D6 fixture with the test-asserted leading phrase.",
       "match": {
-        "userMessage": "Based on my recent activity, what should I try next",
+        "userMessage": "recent activity for the feature-parity probe",
         "context": "built-in-agent"
       },
       "response": {

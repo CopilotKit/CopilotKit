@@ -1,0 +1,22 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    <InstallSDKSnippet />
+
+  </Step>
+  <Step>
+    ### Use the tool-based HITL path
+
+    Built-in Agent supports `useHumanInTheLoop` through the same frontend-tool
+    bridge as `useFrontendTool`: the frontend registers the tool schema and
+    render function, then the agent calls it like any other tool.
+
+    <DemoCode file="src/lib/factory/tanstack-factory.ts" region="built-in-agent-tool-bridge" />
+
+    Native graph-paused `useInterrupt` requires a backend graph runtime that
+    can suspend and resume execution, so Built-in Agent marks the interrupt
+    demos unsupported.
+
+  </Step>
+</Steps>
