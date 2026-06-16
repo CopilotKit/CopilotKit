@@ -6,7 +6,7 @@ description: "Register typed renderers for tool calls, by tool name or wildcard"
 ## Overview
 
 `useRenderTool` registers a chat renderer for tool calls.
-You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer.
+You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer. The `parameters` schema is optional — omit it for render-only entries (for example, to opt a tool out of the default rendering with `() => <></>`).
 
 This is part of the v2 tool rendering hook set with [`useComponent`](/reference/hooks/useComponent), [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/hooks/useRenderToolCall).
 
@@ -39,6 +39,23 @@ useRenderTool(
   {
     name: string,
     parameters: z.ZodTypeAny,
+    render: (props) => React.ReactElement,
+    agentId?: string,
+  },
+  deps?: ReadonlyArray<unknown>,
+);
+```
+
+### Named render-only overload (no schema)
+
+When you don't need typed `parameters` — for example, to opt a specific tool out of the default rendering — omit the schema. `parameters` defaults to a pass-through (`z.any()`).
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+useRenderTool(
+  {
+    name: string,
     render: (props) => React.ReactElement,
     agentId?: string,
   },
@@ -102,6 +119,21 @@ function App() {
     },
     [],
   );
+
+  return null;
+}
+```
+
+### Disable rendering for a tool
+
+Omit `parameters` and return an empty fragment to suppress the default UI — for a single tool by name, or for all tool calls with the wildcard.
+
+```tsx
+function App() {
+  // One specific tool…
+  useRenderTool({ name: "searchDocs", render: () => <></> }, []);
+  // …or everything without its own renderer.
+  useRenderTool({ name: "*", render: () => <></> }, []);
 
   return null;
 }
