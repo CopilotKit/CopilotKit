@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/mcp-apps.md
 // Demo source: src/app/demos/mcp-apps/page.tsx
@@ -31,7 +32,7 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   test.setTimeout(180_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/mcp-apps");
+    await gotoDemoAndWaitForRuntime(page, "/demos/mcp-apps");
   });
 
   test("page loads with chat input and no activity iframe rendered", async ({

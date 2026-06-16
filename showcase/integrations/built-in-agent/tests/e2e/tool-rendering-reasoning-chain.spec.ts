@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/tool-rendering-reasoning-chain.md
 // Demo source: src/app/demos/tool-rendering-reasoning-chain/page.tsx
@@ -37,7 +38,10 @@ const PILLS = [
 
 test.describe("Tool Rendering — Reasoning Chain", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/tool-rendering-reasoning-chain");
+    await gotoDemoAndWaitForRuntime(
+      page,
+      "/demos/tool-rendering-reasoning-chain",
+    );
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: SUGGESTION_TIMEOUT,
     });
@@ -91,12 +95,12 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
     ).toBeVisible({ timeout: REASONING_TIMEOUT });
 
     // Narration text comes from the fixture final-content leg.
-    await expect(page.getByText("AAPL is at")).toBeVisible({
-      timeout: TOOL_TIMEOUT,
-    });
-    await expect(page.getByText("MSFT is at")).toBeVisible({
-      timeout: TOOL_TIMEOUT,
-    });
+    await expect(
+      page.locator("p").filter({ hasText: "AAPL is at" }),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      page.locator("p").filter({ hasText: "MSFT is at" }),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
   });
 
   test("Chain of dice rolls pill chains d20 → d6 through the catchall renderer", async ({
@@ -120,9 +124,9 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
     ).toBeVisible({ timeout: REASONING_TIMEOUT });
 
     // Final narration mentions both dice + the contrast framing.
-    await expect(page.getByText(/d20 came up/i)).toBeVisible({
-      timeout: TOOL_TIMEOUT,
-    });
+    await expect(
+      page.locator("p").filter({ hasText: /d20 came up/i }),
+    ).toBeVisible({ timeout: TOOL_TIMEOUT });
   });
 
   test("Flights + destination weather pill chains search_flights → get_weather through branded per-tool renderers", async ({

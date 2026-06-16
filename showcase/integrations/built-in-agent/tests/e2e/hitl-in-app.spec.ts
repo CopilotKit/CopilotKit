@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/hitl-in-app.md
 // Demo source: src/app/demos/hitl-in-app/{page.tsx, approval-dialog.tsx}
@@ -29,7 +30,7 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/hitl-in-app");
+    await gotoDemoAndWaitForRuntime(page, "/demos/hitl-in-app");
   });
 
   test("page loads with 3 tickets, chat input, and no open modal", async ({

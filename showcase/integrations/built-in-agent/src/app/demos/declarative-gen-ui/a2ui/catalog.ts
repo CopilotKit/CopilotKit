@@ -9,7 +9,7 @@
  * components interchangeably.
  *
  * Reference:
- *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
+ *   https://docs.copilotkit.ai/built-in-agent/generative-ui/a2ui
  */
 // @region[create-catalog]
 import { createCatalog } from "@copilotkit/a2ui-renderer";

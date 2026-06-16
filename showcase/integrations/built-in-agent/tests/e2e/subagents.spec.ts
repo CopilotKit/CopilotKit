@@ -1,4 +1,5 @@
 import { expect, Page, test } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // Sub-Agents demo (Phase-1D, multi-agent family).
 //
@@ -83,7 +84,7 @@ test.describe("Sub-Agents", () => {
   test.setTimeout(180_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/subagents");
+    await gotoDemoAndWaitForRuntime(page, "/demos/subagents");
     // Wait for the chat composer + pills to mount before any click
     // dispatches — the suggestion handler attaches asynchronously.
     await expect(

@@ -4,6 +4,11 @@ import { test, expect } from "@playwright/test";
 // `document` field in its state; the frontend renders it token-by-token
 // in a read-only DocumentView panel alongside a CopilotSidebar.
 test.describe("State Streaming", () => {
+  test.skip(
+    true,
+    "Built-in Agent does not support per-token shared-state streaming yet; the manifest marks this demo unsupported.",
+  );
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/shared-state-streaming");
   });

@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Pre-Built Sidebar", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/prebuilt-sidebar");
+    await gotoDemoAndWaitForRuntime(page, "/demos/prebuilt-sidebar");
   });
 
   test("page loads with heading, main content, and sidebar open by default", async ({

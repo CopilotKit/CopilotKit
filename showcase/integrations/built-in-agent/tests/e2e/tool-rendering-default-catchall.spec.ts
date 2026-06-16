@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/tool-rendering-default-catchall.md
 // Demo source: src/app/demos/tool-rendering-default-catchall/page.tsx
@@ -16,7 +17,10 @@ const PILLS = ["Weather in SF", "Find flights", "Roll a d20", "Chain tools"];
 
 test.describe("Tool Rendering — Default Catch-all", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/tool-rendering-default-catchall");
+    await gotoDemoAndWaitForRuntime(
+      page,
+      "/demos/tool-rendering-default-catchall",
+    );
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: SUGGESTION_TIMEOUT,
     });
@@ -115,8 +119,11 @@ test.describe("Tool Rendering — Default Catch-all", () => {
       .toBe(5);
 
     // 5th card's result must contain "20" (the final scripted roll).
-    const lastResult = await cards.nth(4).getAttribute("data-result");
-    expect(lastResult ?? "").toMatch(/"value":\s*20|"result":\s*20/);
+    await expect
+      .poll(async () => cards.nth(4).getAttribute("data-result"), {
+        timeout: TOOL_TIMEOUT,
+      })
+      .toMatch(/"value":\s*20|"result":\s*20/);
 
     // First 4 results are not-20.
     for (let i = 0; i < 4; i++) {

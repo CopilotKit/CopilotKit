@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // Agentic Chat is the minimum-viable CopilotChat demo: a tiny page
 // that wraps `<CopilotChat>` plus three starter-prompt suggestions. The
@@ -6,7 +7,7 @@ import { test, expect } from "@playwright/test";
 // belongs in dedicated demos (frontend-tools, tool-rendering, etc.).
 test.describe("Agentic Chat", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/agentic-chat");
+    await gotoDemoAndWaitForRuntime(page, "/demos/agentic-chat");
   });
 
   test("page loads with chat input and the three starter suggestions", async ({

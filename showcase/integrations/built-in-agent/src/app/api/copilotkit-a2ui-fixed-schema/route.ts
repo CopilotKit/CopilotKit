@@ -4,6 +4,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createA2UIFixedSchemaAgent } from "@/lib/factory/a2ui-fixed-schema-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
@@ -18,7 +19,10 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // rendered surface to the frontend renderer; we just don't want it to also
 // inject a runtime `render_a2ui` tool on top of our own.
 const runtime = new CopilotRuntime({
-  agents: { default: createA2UIFixedSchemaAgent() },
+  agents: createAgentAliases(
+    ["default", "a2ui-fixed-schema"],
+    createA2UIFixedSchemaAgent,
+  ),
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,

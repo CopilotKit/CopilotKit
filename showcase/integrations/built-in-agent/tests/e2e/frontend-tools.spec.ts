@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/frontend-tools.md
 // Demo source: src/app/demos/frontend-tools/page.tsx
@@ -17,7 +18,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Frontend Tools (change_background)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/frontend-tools");
+    await gotoDemoAndWaitForRuntime(page, "/demos/frontend-tools");
   });
 
   test("page loads with chat input and background container", async ({

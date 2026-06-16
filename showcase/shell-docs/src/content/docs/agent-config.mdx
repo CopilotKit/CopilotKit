@@ -20,7 +20,7 @@ Reach for agent config whenever the agent's behaviour depends on user-controllab
 
 If the values are a *channel* the user occasionally tunes (a settings panel, a toolbar of selects), agent config is the right shape. If the values are *content* the agent should write back to (notes, a document, a plan), use [Shared State](/shared-state) instead.
 
-How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state on every run, while in-process agents receive the same object as forwarded properties on the provider — same UX, slightly different wiring on each side.
+How agent config flows from the UI into the agent's reasoning loop depends on your runtime architecture. Agents living behind a runtime read it from agent state or context on every run, while in-process agents can read the same context directly from the runtime input — same UX, slightly different wiring on each side.
 
 <WhenFrameworkHas flag="agent_config_pattern" equals="shared-state">
 
@@ -91,29 +91,23 @@ The agent reads the latest typed config at the start of every turn, rebuilds the
 
 ## How it works
 
-The runtime owns the agent in-process, so config travels through the provider rather than agent state. There's no separate backend service to push state into, and no extra plumbing — the typed object you set on `<CopilotKit>` becomes the input to the agent factory directly.
+The runtime owns the agent in-process, so there is no separate graph state
+channel to configure. The UI publishes a typed object with `useAgentContext`,
+and the Built-in Agent route reads the latest context entry before building the
+system prompt for that turn.
 
-The UI side passes the typed object as `properties` on the provider:
+The provider wraps the config relay and the chat surface:
 
-```tsx title="frontend/src/app/page.tsx — config flows through the provider"
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{ tone, expertise, responseLength }}
-  useSingleEndpoint
->
-  <Demo />
-</CopilotKit>
-```
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + config relay" />
 
-The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
+The relay publishes the typed values on every render:
 
-```ts title="backend/agent factory — synthesise the system prompt per turn"
-export const agentConfigFactory = async (input: AgentFactoryInput) => {
-  const { tone, expertise, responseLength } = input.forwardedProps ?? {};
-  const systemPrompt = buildSystemPrompt(tone, expertise, responseLength);
-  return makeAgent({ systemPrompt /* ... */ });
-};
-```
+<Snippet region="use-agent-context-config" title="frontend/src/app/config-context-relay.tsx — useAgentContext" />
+
+The runtime reads the latest context value and falls back to provider
+`forwardedProps` for apps that still pass config through `properties`:
+
+<Snippet region="agent-config-runtime-context" title="backend/route.ts — read runtime context" />
 
 </WhenFrameworkHas>
 

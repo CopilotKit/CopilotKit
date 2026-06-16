@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/declarative-gen-ui.md
 // Demo source: src/app/demos/declarative-gen-ui/{page.tsx, a2ui/*}
@@ -27,7 +28,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/declarative-gen-ui");
+    await gotoDemoAndWaitForRuntime(page, "/demos/declarative-gen-ui");
   });
 
   test("page loads with chat input and no surface rendered", async ({

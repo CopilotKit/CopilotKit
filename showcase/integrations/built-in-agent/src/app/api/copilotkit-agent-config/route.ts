@@ -1,8 +1,8 @@
 // Dedicated runtime for the Agent Config Object demo.
 //
-// The factory reads `input.forwardedProps` (which the CopilotKit provider
-// populates from its `properties` prop) and prepends a tone/expertise/
-// length-tuned system prompt per turn.
+// The frontend publishes the config with `useAgentContext`; the factory reads
+// the latest context entry and prepends a tone/expertise/length-tuned system
+// prompt per turn.
 
 import {
   BuiltInAgent,
@@ -13,6 +13,8 @@ import {
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
+import { BUILT_IN_AGENT_MODEL_FOR_TANSTACK } from "@/lib/factory/models";
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope; `forwardingFetch`
 // re-attaches them on every outbound LLM call. Required because
@@ -45,6 +47,31 @@ const RESPONSE_LENGTH_GUIDANCE: Record<string, string> = {
     "Provide a thorough answer. Use headings, paragraphs, or longer lists when warranted.",
 };
 
+type AgentConfigProps = {
+  tone?: unknown;
+  expertise?: unknown;
+  responseLength?: unknown;
+};
+
+// @region[agent-config-runtime-context]
+function readAgentConfigFromContext(input: {
+  context?: Array<{ description?: string; value?: unknown }>;
+  forwardedProps?: unknown;
+}): Record<string, unknown> {
+  const contextConfig = [...(input.context ?? [])]
+    .reverse()
+    .find((entry) =>
+      String(entry.description ?? "").includes("Agent response preferences"),
+    )?.value as AgentConfigProps | undefined;
+
+  if (contextConfig && typeof contextConfig === "object") {
+    return contextConfig as Record<string, unknown>;
+  }
+
+  return (input.forwardedProps ?? {}) as Record<string, unknown>;
+}
+// @endregion[agent-config-runtime-context]
+
 function buildConfigSystemPrompt(props: Record<string, unknown>): string {
   const tone = typeof props.tone === "string" ? props.tone : "professional";
   const expertise =
@@ -72,10 +99,12 @@ function createAgentConfigAgent() {
   return new BuiltInAgent({
     type: "tanstack",
     factory: ({ input, abortController }) => {
-      const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
+      const props = readAgentConfigFromContext(input);
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText(BUILT_IN_AGENT_MODEL_FOR_TANSTACK, {
+          fetch: forwardingFetch,
+        }),
         messages,
         systemPrompts: [buildConfigSystemPrompt(props), ...systemPrompts],
         tools: [],
@@ -86,7 +115,10 @@ function createAgentConfigAgent() {
 }
 
 const runtime = new CopilotRuntime({
-  agents: { default: createAgentConfigAgent() },
+  agents: createAgentAliases(
+    ["default", "agent-config-demo"],
+    createAgentConfigAgent,
+  ),
   runner: new InMemoryAgentRunner(),
 });
 

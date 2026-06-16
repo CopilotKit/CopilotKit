@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 /**
  * Headless = bring-your-own-UI. The cell exercises the minimum-viable
@@ -36,7 +37,7 @@ const ASSERT_TIMEOUT = 30_000;
 
 test.describe("Headless Chat (Simple)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/headless-simple");
+    await gotoDemoAndWaitForRuntime(page, "/demos/headless-simple");
   });
 
   test("page loads with custom composer and three suggestion pills", async ({

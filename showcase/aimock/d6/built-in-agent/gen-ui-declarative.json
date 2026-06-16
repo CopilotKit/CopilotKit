@@ -3,14 +3,23 @@
     "description": "D6 fixtures for built-in-agent / gen-ui-declarative",
     "sourceFile": "d5-gen-ui-declarative.ts",
     "created": "2026-05-22",
-    "_note": "BIA's declarative-gen-ui agent (showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts) runs a two-call sequence per pill: (1) outer agent emits a `generate_a2ui` toolcall with a single `brief` string arg; (2) the tool body invokes a SECONDARY LLM (no tools, response_format=json_object) seeded with the catalog system prompt and the brief, which must return a flat A2UI catalog JSON object {surfaceId, catalogId, components, data}; (3) the outer agent emits a short narration after the tool result returns. Each pill therefore needs THREE fixtures: outer turn1 (hasToolResult:false, emits `generate_a2ui` with `{brief}`); secondary call (responseFormat:json_object + userMessage matches the brief substring, emits the flat-catalog JSON as content); outer turn2 (hasToolResult:true, emits narration). Components MUST use the flat catalog shape {id, component, ...catalog-props-at-top-level} per myDefinitions (showcase/integrations/built-in-agent/src/app/demos/declarative-gen-ui/a2ui/definitions.ts); Card has a single `child` slot so multi-child layouts wrap in a basic-catalog Column. PieChart/BarChart props require `title`, `description`, and `data[]`. D5 asserts these testids mount: declarative-card, declarative-status-badge, declarative-metric, declarative-pie-chart, declarative-bar-chart."
+    "_note": "BIA's declarative-gen-ui agent runs a two-call sequence per pill: the outer agent emits generate_a2ui, the tool body invokes a secondary JSON LLM to produce the flat A2UI catalog, then the outer agent narrates after the tool result. Follow-up narrations are keyed by toolCallId and ordered before userMessage fixtures because aimock's hasToolResult check is thread-global; in multi-pill sessions a previous tool result must not make a new pill skip its generate_a2ui leg."
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — outer agent emits generate_a2ui with a brief.",
+      "_comment": "KPI dashboard follow-up after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_decl_kpi_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+      }
+    },
+    {
+      "_comment": "KPI dashboard outer agent emits generate_a2ui with a brief.",
       "match": {
         "userMessage": "KPI dashboard with 3-4 metrics",
-        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -24,10 +33,9 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — secondary LLM (json_object) emits flat A2UI catalog. Card has single `child` slot; wrap the three Metrics in a basic-catalog Column.",
+      "_comment": "KPI dashboard secondary LLM emits flat A2UI catalog.",
       "match": {
         "userMessage": "KPI dashboard with revenue, signups, and churn metrics",
-        "responseFormat": "json_object",
         "context": "built-in-agent"
       },
       "response": {
@@ -35,21 +43,19 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — outer agent narration after tool result.",
+      "_comment": "Pie chart follow-up after generate_a2ui returns.",
       "match": {
-        "userMessage": "KPI dashboard with 3-4 metrics",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_pie_001",
         "context": "built-in-agent"
       },
       "response": {
-        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+        "content": "Pie chart rendered showing sales distribution across North America, Europe, and Asia Pacific."
       }
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — outer agent emits generate_a2ui with a brief.",
+      "_comment": "Pie chart outer agent emits generate_a2ui with a brief.",
       "match": {
         "userMessage": "pie chart of sales by region",
-        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -63,32 +69,29 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — secondary LLM emits flat A2UI catalog with PieChart root.",
+      "_comment": "Pie chart secondary LLM emits flat A2UI catalog.",
       "match": {
         "userMessage": "pie chart showing sales by region",
-        "responseFormat": "json_object",
         "context": "built-in-agent"
       },
       "response": {
-        "content": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Q4 — share of total revenue\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}],\"data\":{}}"
+        "content": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Q4 - share of total revenue\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}],\"data\":{}}"
       }
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — outer agent narration after tool result.",
+      "_comment": "Bar chart follow-up after generate_a2ui returns.",
       "match": {
-        "userMessage": "pie chart of sales by region",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_bar_001",
         "context": "built-in-agent"
       },
       "response": {
-        "content": "Pie chart rendered showing sales distribution across North America, Europe, and Asia Pacific."
+        "content": "Bar chart rendered showing quarterly revenue trending upward from Q1 through Q4."
       }
     },
     {
-      "_comment": "gen-ui-declarative bar-chart pill — outer agent emits generate_a2ui with a brief.",
+      "_comment": "Bar chart outer agent emits generate_a2ui with a brief.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
-        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -102,10 +105,9 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative bar-chart pill — secondary LLM emits flat A2UI catalog with BarChart root.",
+      "_comment": "Bar chart secondary LLM emits flat A2UI catalog.",
       "match": {
         "userMessage": "vertical bar chart comparing quarterly revenue",
-        "responseFormat": "json_object",
         "context": "built-in-agent"
       },
       "response": {
@@ -113,21 +115,19 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative bar-chart pill — outer agent narration after tool result.",
+      "_comment": "Status report follow-up after generate_a2ui returns.",
       "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "hasToolResult": true,
+        "toolCallId": "call_d6_decl_status_001",
         "context": "built-in-agent"
       },
       "response": {
-        "content": "Bar chart rendered showing quarterly revenue trending upward from Q1 through Q4."
+        "content": "System health report rendered: API and Database are healthy, Background Workers are degraded."
       }
     },
     {
-      "_comment": "gen-ui-declarative status-report pill — outer agent emits generate_a2ui with a brief.",
+      "_comment": "Status report outer agent emits generate_a2ui with a brief.",
       "match": {
         "userMessage": "status report on system health",
-        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -141,25 +141,13 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative status-report pill — secondary LLM emits flat A2UI catalog with Card root + Column of StatusBadge children. Card has single `child` slot; wrap the three StatusBadges in a basic-catalog Column.",
+      "_comment": "Status report secondary LLM emits flat A2UI catalog.",
       "match": {
         "userMessage": "system health status report covering API, database, and background workers",
-        "responseFormat": "json_object",
         "context": "built-in-agent"
       },
       "response": {
         "content": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded\",\"variant\":\"warning\"}],\"data\":{}}"
-      }
-    },
-    {
-      "_comment": "gen-ui-declarative status-report pill — outer agent narration after tool result.",
-      "match": {
-        "userMessage": "status report on system health",
-        "hasToolResult": true,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "content": "System health report rendered — API and Database are healthy, Background Workers are degraded."
       }
     }
   ]

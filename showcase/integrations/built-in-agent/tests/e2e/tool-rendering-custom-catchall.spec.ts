@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/tool-rendering-custom-catchall.md
 // Demo source: src/app/demos/tool-rendering-custom-catchall/page.tsx
@@ -17,7 +18,10 @@ const PILLS = ["Weather in SF", "Find flights", "Roll a d20", "Chain tools"];
 
 test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/tool-rendering-custom-catchall");
+    await gotoDemoAndWaitForRuntime(
+      page,
+      "/demos/tool-rendering-custom-catchall",
+    );
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: SUGGESTION_TIMEOUT,
     });
@@ -63,6 +67,36 @@ test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
     await expect(
       card.locator('[data-testid="custom-wildcard-args"]'),
     ).toContainText("San Francisco", { timeout: TOOL_TIMEOUT });
+  });
+
+  test("typed weather prompt renders the tool card before the final narration", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("What's the weather in San Francisco?");
+    await input.press("Enter");
+
+    const card = page
+      .locator(
+        '[data-testid="custom-wildcard-card"][data-tool-name="get_weather"]',
+      )
+      .first();
+    await expect(card).toBeVisible({ timeout: TOOL_TIMEOUT });
+    await expect(
+      card.locator('[data-testid="custom-wildcard-result"]'),
+    ).toContainText("San Francisco", { timeout: TOOL_TIMEOUT });
+
+    const finalNarration = page
+      .locator("p")
+      .filter({ hasText: /San Francisco is .*sunny/i })
+      .first();
+    await expect(finalNarration).toBeVisible({ timeout: TOOL_TIMEOUT });
+
+    const cardBox = await card.boundingBox();
+    const narrationBox = await finalNarration.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(narrationBox).not.toBeNull();
+    expect(cardBox!.y).toBeLessThan(narrationBox!.y);
   });
 
   test("Find flights pill paints the SAME branded wildcard card for search_flights", async ({

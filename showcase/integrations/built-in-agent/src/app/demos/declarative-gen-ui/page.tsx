@@ -10,32 +10,26 @@
  *      `myCatalog`).
  *   2. Pass that catalog to the provider via
  *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
- *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
- *      configured with `injectA2UITool: false` — the backend factory
- *      (`src/lib/factory/a2ui-factory.ts`) owns the `generate_a2ui` tool
- *      explicitly. The A2UI middleware still serialises the registered
- *      catalog schema into the agent's `input.context` so the secondary LLM
- *      inside `generate_a2ui` knows which components are available.
+ *   3. The provider points at the dedicated runtime at
+ *      `/api/copilotkit-declarative-gen-ui`, which renders the A2UI surfaces
+ *      the `declarative-gen-ui` agent produces.
  *
  * Reference:
- *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
+ *   https://docs.copilotkit.ai/built-in-agent/generative-ui/a2ui
  */
 
 // @region[provider-a2ui-prop]
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "./a2ui/catalog";
+import { Chat } from "./chat";
 
 export default function DeclarativeGenUIDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-declarative-gen-ui"
-      agent="default"
+      agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -46,32 +40,4 @@ export default function DeclarativeGenUIDemo() {
     </CopilotKit>
     // @endregion[provider-a2ui-prop]
   );
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Show a KPI dashboard",
-        message:
-          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-      },
-      {
-        title: "Pie chart — sales by region",
-        message: "Show a pie chart of sales by region.",
-      },
-      {
-        title: "Bar chart — quarterly revenue",
-        message: "Render a bar chart of quarterly revenue.",
-      },
-      {
-        title: "Status report",
-        message:
-          "Give me a status report on system health — API, database, and background workers.",
-      },
-    ],
-    available: "always",
-  });
-
-  return <CopilotChat agentId="default" className="h-full rounded-2xl" />;
 }

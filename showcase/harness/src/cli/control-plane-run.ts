@@ -49,7 +49,7 @@ import type { Logger } from "../types/index.js";
 import type { LocalConfig } from "./config.js";
 import type { TestTarget } from "./targets.js";
 import type { TerminalResult } from "./results.js";
-import { demosForSlug } from "./targets.js";
+import { demosForSlug, loadManifest } from "./targets.js";
 
 /** The two fleet levels this runner can drive. */
 export type ControlPlaneLevel = "d5" | "d6";
@@ -130,11 +130,15 @@ function buildLocalServicesJson(
   if (fromEnv && fromEnv.trim().length > 0) {
     return fromEnv;
   }
-  const records = slugs.map((slug) => ({
-    name: `showcase-${slug}`,
-    publicUrl: `http://${slug}:10000`,
-    demos: level === "d5" ? ["agentic-chat"] : demosForSlug(slug, config),
-  }));
+  const records = slugs.map((slug) => {
+    const manifest = loadManifest(slug, config);
+    return {
+      name: `showcase-${slug}`,
+      publicUrl: `http://${slug}:10000`,
+      demos: level === "d5" ? ["agentic-chat"] : demosForSlug(slug, config),
+      notSupportedFeatures: manifest.not_supported_features ?? [],
+    };
+  });
   return JSON.stringify(records);
 }
 

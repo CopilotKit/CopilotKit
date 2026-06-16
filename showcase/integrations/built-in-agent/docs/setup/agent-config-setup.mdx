@@ -1,0 +1,27 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    <InstallSDKSnippet />
+
+  </Step>
+  <Step>
+    ### Pass config through agent context
+
+    Built-in Agent receives `useAgentContext` entries with each run input. Use
+    a small relay component to keep the latest UI config available to the
+    in-process agent.
+
+    <DemoCode file="src/app/demos/agent-config/config-context-relay.tsx" region="use-agent-context-config" />
+
+  </Step>
+  <Step>
+    ### Read config in the runtime route
+
+    The route reads that context before constructing the agent, so model
+    instructions can reflect the current UI controls.
+
+    <DemoCode file="src/app/api/copilotkit-agent-config/route.ts" region="agent-config-runtime-context" />
+
+  </Step>
+</Steps>

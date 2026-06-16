@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 test.describe("Agentic Generative UI", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/gen-ui-agent");
+    await gotoDemoAndWaitForRuntime(page, "/demos/gen-ui-agent");
   });
 
   test("page loads with chat input", async ({ page }) => {

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/tool-rendering.md
 // Demo source: src/app/demos/tool-rendering/page.tsx
@@ -17,7 +18,7 @@ const TOOL_TIMEOUT = 60000;
 
 test.describe("Tool Rendering", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/tool-rendering");
+    await gotoDemoAndWaitForRuntime(page, "/demos/tool-rendering");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: SUGGESTION_TIMEOUT,
     });

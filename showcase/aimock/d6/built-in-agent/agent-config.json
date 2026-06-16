@@ -63,7 +63,8 @@
       },
       "response": {
         "content": "Agent context is the mechanism by which your application's runtime state is surfaced to the underlying language model on every conversational turn. When you use the useAgentContext hook, you register key-value pairs — such as the current user's preferences, the active page, or domain-specific configuration — that are serialized into the system prompt sent alongside each user message. This means the assistant can reference live application data without requiring the user to re-state it manually. For example, if the user has set their preferred tone to 'casual' and their expertise level to 'beginner', those values are injected into the prompt so the model adjusts its register and depth accordingly. The result is a context-aware assistant that adapts to user settings in real time."
-      }
+      },
+      "chunkSize": 9999
     }
   ]
 }

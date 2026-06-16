@@ -17,7 +17,7 @@
  *     and merges them into every request the OpenAI SDK makes.
  *
  * The route handler wraps each request in `withForwardedHeaders`; the
- * tanstack-factory constructs `openaiText("gpt-4o", { fetch: forwardingFetch })`
+ * tanstack-factory constructs `openaiText(model, { fetch: forwardingFetch })`
  * once at module-scope and the custom fetch reads ALS dynamically per
  * outbound call.
  */
@@ -71,6 +71,202 @@ function getForwardedHeaders(): Record<string, string> {
   return headersStorage.getStore() ?? {};
 }
 
+function inputUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  if (
+    input &&
+    typeof input === "object" &&
+    "url" in input &&
+    typeof input.url === "string"
+  ) {
+    return input.url;
+  }
+  return "";
+}
+
+function responseHeadersWithoutContentLength(headers: Headers): Headers {
+  const next = new Headers(headers);
+  next.delete("content-length");
+  return next;
+}
+
+function sseFrameBoundary(value: string):
+  | { index: number; separatorLength: number }
+  | undefined {
+  const lf = value.indexOf("\n\n");
+  const crlf = value.indexOf("\r\n\r\n");
+
+  if (lf === -1 && crlf === -1) return undefined;
+  if (lf === -1) return { index: crlf, separatorLength: 4 };
+  if (crlf === -1) return { index: lf, separatorLength: 2 };
+  return lf < crlf
+    ? { index: lf, separatorLength: 2 }
+    : { index: crlf, separatorLength: 4 };
+}
+
+function normalizeFunctionCallItem(
+  value: unknown,
+  callIdsByItemId: Map<string, string>,
+): void {
+  if (!value || typeof value !== "object") return;
+
+  const item = value as Record<string, unknown>;
+  if (item.type !== "function_call") return;
+
+  const itemId = typeof item.id === "string" ? item.id : undefined;
+  const callId = typeof item.call_id === "string" ? item.call_id : undefined;
+  if (!itemId || !callId) return;
+
+  callIdsByItemId.set(itemId, callId);
+  item.id = callId;
+}
+
+function normalizeResponsesEventIds(
+  value: unknown,
+  callIdsByItemId: Map<string, string>,
+): unknown {
+  if (!value || typeof value !== "object") return value;
+
+  const event = value as Record<string, unknown>;
+
+  normalizeFunctionCallItem(event.item, callIdsByItemId);
+
+  if (typeof event.item_id === "string") {
+    const callId = callIdsByItemId.get(event.item_id);
+    if (callId) event.item_id = callId;
+  }
+
+  const response = event.response;
+  if (response && typeof response === "object") {
+    const output = (response as Record<string, unknown>).output;
+    if (Array.isArray(output)) {
+      output.forEach((item) => normalizeFunctionCallItem(item, callIdsByItemId));
+    }
+  }
+
+  return value;
+}
+
+function normalizeResponsesSseFrame(
+  frame: string,
+  callIdsByItemId: Map<string, string>,
+): string {
+  if (!frame.includes("data:")) return frame;
+
+  const lineEnding = frame.includes("\r\n") ? "\r\n" : "\n";
+  const lines = frame.split(/\r?\n/);
+  const dataLineIndexes: number[] = [];
+  const dataLines: string[] = [];
+
+  lines.forEach((line, index) => {
+    if (!line.startsWith("data:")) return;
+    dataLineIndexes.push(index);
+    dataLines.push(line.slice(5).replace(/^ /, ""));
+  });
+
+  if (dataLines.length === 0) return frame;
+
+  const data = dataLines.join("\n");
+  if (data === "[DONE]") return frame;
+
+  try {
+    const parsed = JSON.parse(data);
+    const normalized = normalizeResponsesEventIds(parsed, callIdsByItemId);
+    const skip = new Set(dataLineIndexes.slice(1));
+    return lines
+      .map((line, index) =>
+        index === dataLineIndexes[0]
+          ? `data: ${JSON.stringify(normalized)}`
+          : line,
+      )
+      .filter((_, index) => !skip.has(index))
+      .join(lineEnding);
+  } catch {
+    return frame;
+  }
+}
+
+function normalizeOpenAIResponsesFunctionCallIds(
+  input: RequestInfo | URL,
+  response: Response,
+): Response {
+  const url = inputUrl(input);
+  const contentType = response.headers.get("content-type") ?? "";
+  if (
+    !url.includes("/responses") ||
+    !contentType.includes("text/event-stream") ||
+    !response.body
+  ) {
+    return response;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const callIdsByItemId = new Map<string, string>();
+  let buffered = "";
+
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      while (true) {
+        const boundary = sseFrameBoundary(buffered);
+        if (boundary) {
+          const frame = buffered.slice(0, boundary.index);
+          const separator = buffered.slice(
+            boundary.index,
+            boundary.index + boundary.separatorLength,
+          );
+          buffered = buffered.slice(
+            boundary.index + boundary.separatorLength,
+          );
+          controller.enqueue(
+            encoder.encode(
+              `${normalizeResponsesSseFrame(frame, callIdsByItemId)}${separator}`,
+            ),
+          );
+          return;
+        }
+
+        const { done, value } = await reader.read();
+        if (done) {
+          buffered += decoder.decode();
+          if (buffered.length > 0) {
+            controller.enqueue(
+              encoder.encode(
+                normalizeResponsesSseFrame(buffered, callIdsByItemId),
+              ),
+            );
+            buffered = "";
+          }
+          controller.close();
+          return;
+        }
+
+        buffered += decoder.decode(value, { stream: true });
+      }
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
+
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeadersWithoutContentLength(response.headers),
+  });
+}
+
+function fetchWithResponsesNormalization(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  return fetch(input, init).then((response) =>
+    normalizeOpenAIResponsesFunctionCallIds(input, response),
+  );
+}
+
 /**
  * fetch wrapper that injects ALS-bound x-* headers into every outbound
  * call. Pass as the `fetch` option to the OpenAI client config.
@@ -78,7 +274,7 @@ function getForwardedHeaders(): Record<string, string> {
 export const forwardingFetch: typeof fetch = (input, init) => {
   const forwarded = getForwardedHeaders();
   if (Object.keys(forwarded).length === 0) {
-    return fetch(input, init);
+    return fetchWithResponsesNormalization(input, init);
   }
   const merged = new Headers(init?.headers);
   for (const [k, v] of Object.entries(forwarded)) {
@@ -94,7 +290,7 @@ export const forwardingFetch: typeof fetch = (input, init) => {
   const runId = forwarded["x-diag-run-id"];
   const diagnosticPresent = runId != null || slug != null;
   if (!diagnosticPresent) {
-    return fetch(input, { ...init, headers: merged });
+    return fetchWithResponsesNormalization(input, { ...init, headers: merged });
   }
   // CVDIAG (outbound-llm): append this layer's hop tag to the breadcrumb
   // and log header presence at the moment the outbound LLM request is
@@ -114,5 +310,5 @@ export const forwardingFetch: typeof fetch = (input, init) => {
       `hop=${hopCount} status=${slug ? "ok" : "miss"} ` +
       `test_id=${forwarded["x-test-id"] ?? "none"} error=`,
   );
-  return fetch(input, { ...init, headers: merged });
+  return fetchWithResponsesNormalization(input, { ...init, headers: merged });
 };

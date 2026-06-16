@@ -1,8 +1,11 @@
 "use client";
 
-// Custom `reasoningMessage` slot renderer for built-in-agent's
-// reasoning chat demo. Surfaces the agent's chain-of-thought inline
-// with a tagged amber banner so the thinking phase is always visible.
+// Custom `reasoningMessage` slot renderer.
+//
+// Receives the `ReasoningMessage` plus (optionally) the full message list and
+// the running state from the slot system. Renders the content inline with a
+// visibly tagged amber banner so the user can always see the agent's thinking
+// chain — this is the focal UI of the demo.
 
 import React from "react";
 import type { ReasoningMessage, Message } from "@ag-ui/core";

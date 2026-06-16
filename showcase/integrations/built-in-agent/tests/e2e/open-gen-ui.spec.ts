@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/open-gen-ui.md
 // Demo source: src/app/demos/open-gen-ui/{page.tsx,suggestions.ts}
@@ -30,7 +31,7 @@ test.describe("Open Generative UI (minimal)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/open-gen-ui");
+    await gotoDemoAndWaitForRuntime(page, "/demos/open-gen-ui");
   });
 
   test("page loads with chat composer and 4 suggestion pills", async ({

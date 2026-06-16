@@ -72,6 +72,17 @@ calendar API, or anything else:
 
 <Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
 
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+  <Callout type="info" title="Built-in Agent support">
+    Built-in Agent supports the tool-based `useHumanInTheLoop` pattern shown
+    above. Graph-paused `useInterrupt` and headless interrupts require a backend
+    graph runtime that can suspend and resume execution, so they are not
+    supported by Built-in Agent.
+  </Callout>
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
 ## Pattern 2 — `useInterrupt` (graph-paused)
 
 With LangGraph's `interrupt()` the pause is enforced by the graph
@@ -93,5 +104,7 @@ interrupt resolution from a custom UI that lives anywhere in the tree
 [headless interrupts guide](/human-in-the-loop/headless) — it shows
 how to compose `useAgent`, `agent.subscribe`, and `copilotkit.runAgent`
 to build your own `useInterrupt` equivalent.
+
+</WhenFrameworkHas>
 
 <IntegrationGrid path="human-in-the-loop" />

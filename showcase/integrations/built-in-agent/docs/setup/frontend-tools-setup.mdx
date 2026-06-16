@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    <InstallSDKSnippet />
+
+  </Step>
+  <Step>
+    ### Register your Built-in Agent runtime
+
+    Frontend tools registered with `useFrontendTool`, `useHumanInTheLoop`, or
+    render hooks are forwarded to the Built-in Agent on each run. The factory
+    keeps server tools authoritative and forwards only the client tools that do
+    not shadow server-side executors.
+
+    <DemoCode file="src/lib/factory/tanstack-factory.ts" region="built-in-agent-tool-bridge" />
+
+  </Step>
+</Steps>

@@ -32,7 +32,6 @@
       "_comment": "headless-simple pill 3: locks the deterministic fun fact.",
       "match": {
         "userMessage": "Give me a fun fact",
-        "turnIndex": 0,
         "context": "built-in-agent"
       },
       "response": {

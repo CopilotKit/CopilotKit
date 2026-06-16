@@ -1,7 +1,6 @@
 // Dedicated runtime for the Multimodal Attachments demo.
 //
-// Reuses the base built-in-agent factory (which already uses gpt-4o, a
-// vision-capable model). AG-UI image / document parts flow through
+// Reuses the base built-in-agent factory. AG-UI image / document parts flow through
 // `convertInputToTanStackAI` natively; no agent-side rewrite is required.
 
 import {
@@ -10,13 +9,17 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+import { createAgentAliases } from "@/lib/factory/agent-aliases";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { default: createBuiltInAgent() },
+  agents: createAgentAliases(
+    ["default", "multimodal-demo"],
+    createBuiltInAgent,
+  ),
   runner: new InMemoryAgentRunner(),
 });
 

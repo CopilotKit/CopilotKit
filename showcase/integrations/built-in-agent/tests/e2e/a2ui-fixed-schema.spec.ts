@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 // QA reference: qa/a2ui-fixed-schema.md
 // Demo source: src/app/demos/a2ui-fixed-schema/{page.tsx, a2ui/*}
@@ -32,7 +33,7 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/a2ui-fixed-schema");
+    await gotoDemoAndWaitForRuntime(page, "/demos/a2ui-fixed-schema");
   });
 
   test("page loads with chat input and no flight card rendered", async ({

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { gotoDemoAndWaitForRuntime } from "./helpers";
 
 /**
  * E2E spec for the Multimodal Attachments demo.
@@ -58,7 +59,7 @@ const IMAGE_PROMPT =
 const PDF_PROMPT = "can you tell me what is in this demo pdf I just attached";
 
 async function openDemo(page: Page) {
-  await page.goto(ROUTE);
+  await gotoDemoAndWaitForRuntime(page, ROUTE);
   await expect(
     page.locator('[data-testid="multimodal-demo-root"]'),
   ).toBeVisible();

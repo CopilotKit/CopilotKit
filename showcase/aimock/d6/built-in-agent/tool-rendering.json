@@ -41,7 +41,6 @@
       "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
         "context": "built-in-agent"
       },
       "response": {
@@ -131,6 +130,23 @@
       }
     },
     {
+      "_comment": "tool-rendering pill: Find flights — first leg. Gated on registered search_flights instead of thread-global hasToolResult/turnIndex so this still emits the card when clicked after another tool-using pill in the same thread.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolName": "search_flights",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
       "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
@@ -144,7 +160,7 @@
     {
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
+        "toolName": "get_stock_price",
         "context": "built-in-agent"
       },
       "response": {
@@ -236,7 +252,7 @@
       "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
+        "toolName": "roll_d20",
         "context": "built-in-agent"
       },
       "response": {
