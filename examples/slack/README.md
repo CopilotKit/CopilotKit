@@ -313,6 +313,13 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
+> **Deploying from this monorepo (e.g. Railway):** this example depends on the
+> published `@copilotkit/bot*` packages (`package.json`), so a standalone build
+> installs them from npm. The pnpm lockfile lives at the **repo root**, so make
+> sure each service's **watch paths** include `pnpm-lock.yaml` and `package.json`
+> (not just `examples/slack/**`) — otherwise a dependency bump won't trigger a
+> redeploy and a frozen install can fail with an out-of-date lockfile.
+
 ## Tests
 
 ```bash
