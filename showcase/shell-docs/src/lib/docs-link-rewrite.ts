@@ -1,5 +1,6 @@
 import { getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
 import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
+import { matchesSeoRedirectSource } from "@/lib/seo-redirects";
 
 const CROSS_FRAMEWORK_SLUGS: ReadonlySet<string> = new Set<string>([
   ...getIntegrations().map((i) => i.slug),
@@ -11,12 +12,6 @@ const CROSS_FRAMEWORK_SLUGS: ReadonlySet<string> = new Set<string>([
 const RESERVED_ROUTE_SLUG_SET: ReadonlySet<string> = new Set<string>(
   RESERVED_ROUTE_SLUGS as readonly string[],
 );
-
-const REDIRECT_ALIAS_ROOT_SLUGS: ReadonlySet<string> = new Set<string>([
-  "ag-ui-protocol",
-  "docs",
-  "integrations",
-]);
 
 export interface ResolveDocsHrefOptions {
   slugHrefPrefix: string;
@@ -71,8 +66,7 @@ export function resolveDocsHref(
     firstSegment !== linkRewriteFramework;
   const targetsReservedRoute =
     firstSegment !== undefined && RESERVED_ROUTE_SLUG_SET.has(firstSegment);
-  const targetsRedirectAlias =
-    firstSegment !== undefined && REDIRECT_ALIAS_ROOT_SLUGS.has(firstSegment);
+  const targetsRedirectAlias = matchesSeoRedirectSource(href);
 
   if (slugHrefPrefix === "") {
     return sameFrameworkPath ?? href;

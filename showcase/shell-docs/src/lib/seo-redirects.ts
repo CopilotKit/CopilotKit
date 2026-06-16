@@ -1048,3 +1048,41 @@ export const seoRedirects: RedirectEntry[] = [
   ...SLUG_RENAME_REDIRECTS,
   ...WILDCARD_REDIRECTS,
 ];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeRedirectPathname(pathname: string): string {
+  const pathOnly = pathname.split(/[?#]/, 1)[0] || "/";
+  return pathOnly.length > 1 && pathOnly.endsWith("/")
+    ? pathOnly.slice(0, -1)
+    : pathOnly;
+}
+
+function redirectSourceToRegExp(source: string): RegExp {
+  const pattern = source
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      if (segment.startsWith(":")) {
+        return segment.endsWith("*") ? "(?:/.*)?" : "/[^/]+";
+      }
+
+      return `/${escapeRegExp(segment)}`;
+    })
+    .join("");
+
+  return new RegExp(`^${pattern || "/"}$`);
+}
+
+const seoRedirectSourceMatchers = seoRedirects.map((entry) =>
+  redirectSourceToRegExp(entry.source),
+);
+
+export function matchesSeoRedirectSource(pathname: string): boolean {
+  const normalizedPathname = normalizeRedirectPathname(pathname);
+  return seoRedirectSourceMatchers.some((matcher) =>
+    matcher.test(normalizedPathname),
+  );
+}

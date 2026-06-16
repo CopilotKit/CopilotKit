@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seoRedirects } from "../seo-redirects";
+import { matchesSeoRedirectSource, seoRedirects } from "../seo-redirects";
 
 describe("seoRedirects", () => {
   it("redirects old DeepAgents integration URLs to the framework root", () => {
@@ -110,5 +110,24 @@ describe("seoRedirects", () => {
         },
       ]),
     );
+  });
+
+  it("matches exact and wildcard redirect source paths", () => {
+    expect(matchesSeoRedirectSource("/a2a-protocol")).toBe(true);
+    expect(matchesSeoRedirectSource("/connect-mcp-servers#learn")).toBe(true);
+    expect(matchesSeoRedirectSource("/langgraph/quickstart")).toBe(true);
+    expect(
+      matchesSeoRedirectSource(
+        "/integrations/langgraph/quickstart?copilot-hosting=self-hosted",
+      ),
+    ).toBe(true);
+    expect(matchesSeoRedirectSource("/guides/self-hosting/")).toBe(true);
+  });
+
+  it("does not match live non-redirect docs paths with similar roots", () => {
+    expect(matchesSeoRedirectSource("/generative-ui/tool-rendering")).toBe(
+      false,
+    );
+    expect(matchesSeoRedirectSource("/custom-look-and-feel/slots")).toBe(false);
   });
 });
