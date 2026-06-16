@@ -416,23 +416,45 @@ export class DiscordAdapter implements PlatformAdapter {
   private async fetchHistory(
     channelId: string,
   ): Promise<DiscordHistoryMessage[]> {
+    const mapMsg = (m: any): DiscordHistoryMessage => ({
+      id: m.id,
+      content: m.content ?? "",
+      authorId: m.author?.id,
+      authorIsBot: Boolean(m.author?.bot),
+      attachments: m.attachments
+        ? Array.from(m.attachments.values()).map((a: any) => ({
+            url: a.url,
+            name: a.name,
+            contentType: a.contentType,
+            size: a.size,
+          }))
+        : [],
+    });
     try {
       const channel = await this.fetchSendable(channelId);
       const fetched = await channel.messages.fetch({ limit: 100 });
-      return [...fetched.values()].reverse().map((m: any) => ({
-        id: m.id,
-        content: m.content ?? "",
-        authorId: m.author?.id,
-        authorIsBot: Boolean(m.author?.bot),
-        attachments: m.attachments
-          ? Array.from(m.attachments.values()).map((a: any) => ({
-              url: a.url,
-              name: a.name,
-              contentType: a.contentType,
-              size: a.size,
-            }))
-          : [],
-      }));
+      const msgs = [...fetched.values()].reverse().map(mapMsg); // oldest→newest
+
+      // A thread's *starter* message (the one the thread was created from) lives
+      // in the PARENT channel and is NOT part of the thread's own message list,
+      // so `messages.fetch` above never returns it. Pull it in so an image/text
+      // on the message a thread was started from is part of the reconstructed
+      // history. (Slack's `conversations.replies` returns the parent
+      // automatically; Discord does not.) Best-effort: the starter may be
+      // deleted, or the thread may have none (e.g. forum/standalone threads).
+      const ch = channel as unknown as {
+        isThread?: () => boolean;
+        fetchStarterMessage?: () => Promise<unknown>;
+      };
+      if (typeof ch.isThread === "function" && ch.isThread()) {
+        try {
+          const starter = await ch.fetchStarterMessage?.();
+          if (starter) msgs.unshift(mapMsg(starter));
+        } catch {
+          /* starter deleted or unavailable — best-effort */
+        }
+      }
+      return msgs;
     } catch (err) {
       console.warn(
         `[bot-discord] fetchHistory failed (channel ${channelId}):`,
