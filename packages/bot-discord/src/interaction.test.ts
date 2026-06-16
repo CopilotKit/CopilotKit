@@ -36,6 +36,22 @@ describe("decodeInteraction", () => {
     expect(evt?.value).toEqual({ confirmed: true });
   });
 
+  it("splits a combined handler+value custom_id (ck:<id>;v:<json>)", () => {
+    // A button with BOTH an onClick and a value (the HITL confirm gate). The
+    // bare id must still dispatch the onClick, AND the value must reach the
+    // awaitChoice waiter — otherwise an approval is read as "declined".
+    const evt = decodeInteraction({
+      isButton: () => true,
+      isStringSelectMenu: () => false,
+      customId: 'ck:abc123;v:{"confirmed":true}',
+      message: baseMsg,
+      channelId: "c1",
+      user: { id: "u1" },
+    });
+    expect(evt?.id).toBe("ck:abc123");
+    expect(evt?.value).toEqual({ confirmed: true });
+  });
+
   it("decodes a string-select with its chosen values", () => {
     const evt = decodeInteraction({
       isButton: () => false,

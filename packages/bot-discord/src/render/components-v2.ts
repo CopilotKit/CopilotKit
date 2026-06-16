@@ -336,7 +336,7 @@ function buildActionRows(
 
 function buildButton(node: BotNode): ButtonBuilder | undefined {
   const props = node.props ?? {};
-  const id = idFromHandler(props.onClick) ?? packValueId(props.value);
+  const id = buttonCustomId(idFromHandler(props.onClick), props.value);
   if (!id) return undefined;
   const btn = new ButtonBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
@@ -418,6 +418,31 @@ function packValueId(value: unknown): string | undefined {
     return undefined;
   }
   return id;
+}
+
+/**
+ * A button can have BOTH an `onClick` (which updates the card in place) AND a
+ * `value` (which resolves an `awaitChoice` waiter) — e.g. the HITL confirm
+ * gate. Discord exposes only a single `custom_id` per button (unlike Slack's
+ * separate `action_id` + `value`), so we pack both into it as
+ * `<handlerId>;v:<json>`; {@link decodeInteraction} splits them back into a
+ * dispatchable id and the bound value. Without this the value is dropped and
+ * `awaitChoice` resolves to `undefined` (every approval reads as "declined").
+ */
+function buttonCustomId(
+  handlerId: string | undefined,
+  value: unknown,
+): string | undefined {
+  const valueId = packValueId(value);
+  if (handlerId && valueId) {
+    const combined = `${handlerId};${valueId}`;
+    if (combined.length <= DISCORD_LIMITS.customId) return combined;
+    console.warn(
+      "[bot-discord] button onClick+value custom_id exceeds the 100-char cap; keeping the handler, dropping the bound value.",
+    );
+    return handlerId;
+  }
+  return handlerId ?? valueId;
 }
 
 const HEX6 = /^#?[0-9a-fA-F]{6}$/;

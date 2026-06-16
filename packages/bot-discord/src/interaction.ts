@@ -25,20 +25,35 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const channelId = i.channelId ?? "";
   const user = toUser(i.user);
 
+  // A button custom_id may be a handler id ("ck:…"), a packed value
+  // ("v:<json>"), or BOTH ("ck:…;v:<json>") when a button carries an onClick AND
+  // a value (e.g. the HITL confirm gate). Split the combined form so the onClick
+  // still dispatches by the bare id AND awaitChoice receives the bound value.
   // For a select, JSON-parse the chosen value so a non-string option value
-  // (number/boolean/object) round-trips back to its original type at the
-  // handler — mirroring bot-slack. Buttons keep the `v:<json>` unpack path.
-  let value: unknown = isSelect ? i.values?.[0] : unpackValue(customId);
-  if (isSelect && typeof value === "string") {
-    try {
-      value = JSON.parse(value);
-    } catch {
-      // Not JSON — keep the raw string.
+  // (number/boolean/object) round-trips to its original type — mirroring bot-slack.
+  let id = customId;
+  let value: unknown;
+  if (isSelect) {
+    value = i.values?.[0];
+    if (typeof value === "string") {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        // Not JSON — keep the raw string.
+      }
+    }
+  } else {
+    const sep = customId.startsWith("ck:") ? customId.indexOf(";v:") : -1;
+    if (sep !== -1) {
+      id = customId.slice(0, sep);
+      value = unpackValue(customId.slice(sep + 1));
+    } else {
+      value = unpackValue(customId);
     }
   }
 
   return {
-    id: customId,
+    id,
     conversationKey: channelId,
     replyTarget: { channelId, ...(i.guildId ? { guildId: i.guildId } : {}) },
     value,
