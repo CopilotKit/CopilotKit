@@ -151,7 +151,10 @@ function collectFromRoot(root, relativeRoot) {
       }
 
       if (entry.isFile()) {
-        files.set(path.relative(absoluteRoot, absolutePath), hashFile(absolutePath));
+        files.set(
+          path.relative(absoluteRoot, absolutePath),
+          hashFile(absolutePath),
+        );
       }
     }
   };

@@ -25,8 +25,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // Open Generative UI for the listed agent(s).
 // @region[minimal-runtime-flag]
 // @region[advanced-runtime-config]
-const createAdvancedOguiAgent = () =>
-  createOguiAgent({ profile: "advanced" });
+const createAdvancedOguiAgent = () => createOguiAgent({ profile: "advanced" });
 
 const runtime = new CopilotRuntime({
   agents: {

@@ -18,7 +18,10 @@ const createBeautifulChatAgent = () =>
 
 // @region[beautiful-chat-runtime-config]
 const runtime = new CopilotRuntime({
-  agents: createAgentAliases(BEAUTIFUL_CHAT_AGENT_IDS, createBeautifulChatAgent),
+  agents: createAgentAliases(
+    BEAUTIFUL_CHAT_AGENT_IDS,
+    createBeautifulChatAgent,
+  ),
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: {
     agents: [...BEAUTIFUL_CHAT_AGENT_IDS],

@@ -60,9 +60,7 @@ export const setStepsTool = toolDefinition({
           status: z.enum(["pending", "in_progress", "completed"]),
         }),
       )
-      .describe(
-        "Ordered list of exactly 3 plan steps with current statuses.",
-      ),
+      .describe("Ordered list of exactly 3 plan steps with current statuses."),
   }),
 }).server(async ({ steps }) => ({ success: true, steps }));
 

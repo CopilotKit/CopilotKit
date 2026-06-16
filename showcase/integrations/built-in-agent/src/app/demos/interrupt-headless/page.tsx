@@ -124,7 +124,10 @@ function useHeadlessInterrupt(agentId: string): {
           },
         })
         .catch((err) => {
-          console.error("[built-in-agent:interrupt-headless] resume failed", err);
+          console.error(
+            "[built-in-agent:interrupt-headless] resume failed",
+            err,
+          );
         });
     },
     [agent, copilotkit, pending],

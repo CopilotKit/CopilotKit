@@ -108,12 +108,7 @@ export function createReasoningDefaultRenderAgent() {
 export function createToolRenderingReasoningChainAgent() {
   return createReasoningAgent({
     systemPrompts: [TOOL_RENDERING_REASONING_CHAIN_SYSTEM_PROMPT],
-    tools: [
-      getWeatherTool,
-      searchFlightsTool,
-      getStockPriceTool,
-      rollDiceTool,
-    ],
+    tools: [getWeatherTool, searchFlightsTool, getStockPriceTool, rollDiceTool],
     reasoningEffort: "medium",
   });
 }

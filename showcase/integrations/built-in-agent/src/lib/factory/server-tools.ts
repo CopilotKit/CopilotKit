@@ -411,8 +411,7 @@ const BEAUTIFUL_CHAT_FLIGHT_SURFACE_ID = "flight-search-results";
 const BEAUTIFUL_CHAT_DEMO_FLIGHTS: Flight[] = [
   {
     airline: "United Airlines",
-    airlineLogo:
-      "https://www.google.com/s2/favicons?domain=united.com&sz=128",
+    airlineLogo: "https://www.google.com/s2/favicons?domain=united.com&sz=128",
     flightNumber: "UA123",
     origin: "SFO",
     destination: "JFK",
@@ -425,8 +424,7 @@ const BEAUTIFUL_CHAT_DEMO_FLIGHTS: Flight[] = [
   },
   {
     airline: "Delta",
-    airlineLogo:
-      "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
+    airlineLogo: "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
     flightNumber: "DL456",
     origin: "SFO",
     destination: "JFK",
@@ -626,8 +624,7 @@ export function createGetTodosTool(state: unknown) {
 // @region[headless-chart-tool-backend]
 export const getRevenueChartTool = toolDefinition({
   name: "get_revenue_chart",
-  description:
-    "Get a mock six-month revenue series for a chart visualization.",
+  description: "Get a mock six-month revenue series for a chart visualization.",
   inputSchema: z.object({}),
 }).server(async () => ({
   title: "Quarterly revenue",
@@ -799,7 +796,10 @@ export const beautifulChatSearchFlightsTool = toolDefinition({
   }),
 }).server(async () =>
   renderA2uiOperations([
-    createSurfaceOp(BEAUTIFUL_CHAT_FLIGHT_SURFACE_ID, BEAUTIFUL_CHAT_CATALOG_ID),
+    createSurfaceOp(
+      BEAUTIFUL_CHAT_FLIGHT_SURFACE_ID,
+      BEAUTIFUL_CHAT_CATALOG_ID,
+    ),
     updateComponentsOp(
       BEAUTIFUL_CHAT_FLIGHT_SURFACE_ID,
       buildBeautifulChatFlightComponents(BEAUTIFUL_CHAT_DEMO_FLIGHTS),
@@ -813,9 +813,7 @@ type BaseServerToolOptions = {
   stockPriceMode?: "generic" | "headless-complete";
 };
 
-export function buildBaseServerTools(
-  options: BaseServerToolOptions = {},
-) {
+export function buildBaseServerTools(options: BaseServerToolOptions = {}) {
   return [
     weatherTool,
     haikuTool,

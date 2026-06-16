@@ -5,10 +5,7 @@ import { chat, maxIterations, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod4";
 import { stateTools } from "./state-tools";
-import {
-  buildBaseServerTools,
-  buildStatefulServerTools,
-} from "./server-tools";
+import { buildBaseServerTools, buildStatefulServerTools } from "./server-tools";
 import { buildSubagentTools } from "./subagent-tools";
 import { BUILT_IN_AGENT_MODEL_FOR_TANSTACK } from "./models";
 import {
@@ -474,7 +471,11 @@ export async function* convertBuiltInTanStackStream(
         "snapshot" in parsedContent
       ) {
         const snapshot = (parsedContent as { snapshot: unknown }).snapshot;
-        if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+        if (
+          snapshot &&
+          typeof snapshot === "object" &&
+          !Array.isArray(snapshot)
+        ) {
           currentState = { ...(snapshot as Record<string, unknown>) };
         }
         yield {
@@ -702,9 +703,7 @@ export function createBuiltInAgent(options: CreateBuiltInAgentOptions = {}) {
       const statefulServerTools = buildStatefulServerTools(input.state);
       const profileServerTools = buildBaseServerTools({
         searchFlightsMode:
-          toolProfile === "beautiful-chat"
-            ? "beautiful-chat-a2ui"
-            : "generic",
+          toolProfile === "beautiful-chat" ? "beautiful-chat-a2ui" : "generic",
         stockPriceMode:
           toolProfile === "headless-complete" ? "headless-complete" : "generic",
       });

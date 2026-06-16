@@ -91,9 +91,9 @@ function responseHeadersWithoutContentLength(headers: Headers): Headers {
   return next;
 }
 
-function sseFrameBoundary(value: string):
-  | { index: number; separatorLength: number }
-  | undefined {
+function sseFrameBoundary(
+  value: string,
+): { index: number; separatorLength: number } | undefined {
   const lf = value.indexOf("\n\n");
   const crlf = value.indexOf("\r\n\r\n");
 
@@ -141,7 +141,9 @@ function normalizeResponsesEventIds(
   if (response && typeof response === "object") {
     const output = (response as Record<string, unknown>).output;
     if (Array.isArray(output)) {
-      output.forEach((item) => normalizeFunctionCallItem(item, callIdsByItemId));
+      output.forEach((item) =>
+        normalizeFunctionCallItem(item, callIdsByItemId),
+      );
     }
   }
 
@@ -217,9 +219,7 @@ function normalizeOpenAIResponsesFunctionCallIds(
             boundary.index,
             boundary.index + boundary.separatorLength,
           );
-          buffered = buffered.slice(
-            boundary.index + boundary.separatorLength,
-          );
+          buffered = buffered.slice(boundary.index + boundary.separatorLength);
           controller.enqueue(
             encoder.encode(
               `${normalizeResponsesSseFrame(frame, callIdsByItemId)}${separator}`,
