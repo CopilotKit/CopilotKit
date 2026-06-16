@@ -144,7 +144,7 @@ function DepthSection({
   const unsupported = catalog.metadata.unsupported ?? 0;
   return (
     <div className="flex items-center gap-4">
-      <Stat value={wired} label="BE (Agent)" colorClass="text-[var(--ok)]" />
+      <Stat value={wired} label="API (HTTP)" colorClass="text-[var(--ok)]" />
       <Stat value={stub} label="Stub" colorClass="text-[var(--amber)]" />
       <Stat
         value={unshipped}
@@ -179,7 +179,7 @@ function DepthSection({
  *
  * Only depths `buildCellModel().achievedDepth` can produce are shown. D0 (wired
  * but no passing rung yet) is rendered so wired-unverified cells stay visible
- * and the row sums to the "BE (Agent)" count; the never-reachable D1/D2 rows are
+ * and the row sums to the "API (HTTP)" count; the never-reachable D1/D2 rows are
  * omitted instead of rendering permanent zeros.
  */
 function DepthDistributionSection({

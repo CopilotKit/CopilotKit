@@ -58,7 +58,7 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D2</span>
-        API: responds to a basic CopilotKit API call
+        API (HTTP): backend service is up and HTTP-reachable
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D3</span>
@@ -66,7 +66,8 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D4</span>
-        Round Trip (BE): single message, full-stack response verification
+        BE (Agent): single message round-trip — agent processes a chat message
+        end-to-end
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D5</span>
