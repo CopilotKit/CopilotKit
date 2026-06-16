@@ -62,6 +62,45 @@ export function createRunRenderer(args: {
   const interruptEventNames =
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
 
+  // ── Typing heartbeat ───────────────────────────────────────────────────
+  // Discord's typing indicator auto-expires after ~10 s. A single
+  // sendTyping() on run start leaves dead air whenever the agent spends
+  // longer than that reasoning or waiting on a slow MCP/tool call before
+  // its first token — the indicator vanishes and the bot looks crashed.
+  // So we refresh typing on an interval for the lifetime of the run and
+  // stop on the first terminal signal (RUN_FINISHED / RUN_ERROR / abort).
+  // Best-effort: a failing sendTyping must never crash the run. A refresh
+  // cap bounds the worst case if no terminal event ever arrives.
+  const TYPING_REFRESH_MS = 8000;
+  const TYPING_MAX_REFRESHES = 40; // ~5.3 min safety cap against a leaked timer
+  let typingTimer: ReturnType<typeof setInterval> | undefined;
+  let typingRefreshes = 0;
+  const sendTypingSafe = (): void => {
+    void Promise.resolve(channel.sendTyping()).catch(() => {
+      /* best-effort */
+    });
+  };
+  const startTyping = (): void => {
+    if (typingTimer) return;
+    typingRefreshes = 0;
+    sendTypingSafe();
+    typingTimer = setInterval(() => {
+      if (++typingRefreshes >= TYPING_MAX_REFRESHES) {
+        stopTyping();
+        return;
+      }
+      sendTypingSafe();
+    }, TYPING_REFRESH_MS);
+    // Don't keep the process alive solely for the typing heartbeat.
+    (typingTimer as { unref?: () => void }).unref?.();
+  };
+  const stopTyping = (): void => {
+    if (typingTimer) {
+      clearInterval(typingTimer);
+      typingTimer = undefined;
+    }
+  };
+
   /** Per-AG-UI-message accumulated text (we accumulate deltas locally). */
   const buffers = new Map<string, string>();
   /** Per-AG-UI-message ChunkedMessageStream. Lazily created on first content. */
@@ -146,18 +185,18 @@ export function createRunRenderer(args: {
   };
 
   const subscriber: AgentSubscriber = {
-    // ── 0. Run lifecycle: typing indicator ────────────────────────────
-    // Discord's typing indicator auto-expires ~10 s; we refresh it on
-    // every RUN_STARTED beat so there's no dead air while the agent
-    // reasons / calls MCP before its first token. Best-effort — a failure
-    // here must never crash the run.
-    async onRunStartedEvent() {
+    // ── 0. Run lifecycle: typing heartbeat ────────────────────────────
+    // Start the typing heartbeat so the indicator stays alive through long
+    // tool/MCP calls (see startTyping above), not just the first ~10 s.
+    onRunStartedEvent() {
       if (aborted) return;
-      try {
-        await channel.sendTyping();
-      } catch {
-        /* best-effort */
-      }
+      startTyping();
+    },
+
+    // Stop the heartbeat once the run completes so the indicator doesn't
+    // linger past the final message.
+    onRunFinishedEvent() {
+      stopTyping();
     },
 
     // ── 1. Text streaming ──────────────────────────────────────────────
@@ -237,6 +276,7 @@ export function createRunRenderer(args: {
     // signal in that case. Best-effort, like the typing call: a failure
     // here must never crash the run.
     async onRunErrorEvent({ event }) {
+      stopTyping();
       if (aborted) return;
       try {
         await channel.send(
@@ -260,6 +300,7 @@ export function createRunRenderer(args: {
       // callbacks see the flag and bail.
       if (aborted) return;
       aborted = true;
+      stopTyping();
       // For each in-flight text-message stream, append the interrupted
       // marker and drain. Streams that have no content yet are silently
       // dropped (the bot never posted anything for them).

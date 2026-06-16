@@ -28,11 +28,36 @@ function fakeChannel() {
 }
 
 describe("createRunRenderer", () => {
-  it("fires a typing indicator on run start", async () => {
+  it("fires a typing indicator on run start", () => {
     const channel = fakeChannel();
     const r = createRunRenderer({ channel: channel as any });
-    await r.subscriber.onRunStartedEvent?.({ event: {} } as any);
+    r.subscriber.onRunStartedEvent?.({ event: {} } as any);
     expect(channel.sendTyping).toHaveBeenCalledTimes(1);
+    // Stop the heartbeat so the interval doesn't dangle past the test.
+    r.subscriber.onRunFinishedEvent?.({ event: {} } as any);
+  });
+
+  it("keeps the typing indicator alive across a long tool call, then stops on finish", () => {
+    vi.useFakeTimers();
+    try {
+      const channel = fakeChannel();
+      const r = createRunRenderer({ channel: channel as any });
+      r.subscriber.onRunStartedEvent?.({ event: {} } as any);
+      // Immediate ping on start.
+      expect(channel.sendTyping).toHaveBeenCalledTimes(1);
+      // Discord typing expires ~10 s; the heartbeat refreshes every 8 s so a
+      // 40 s tool call never goes dead.
+      vi.advanceTimersByTime(8000);
+      expect(channel.sendTyping).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(8000 * 4); // ~40 s total elapsed
+      expect(channel.sendTyping).toHaveBeenCalledTimes(6);
+      // Once the run finishes, the heartbeat stops — no lingering "typing".
+      r.subscriber.onRunFinishedEvent?.({ event: {} } as any);
+      vi.advanceTimersByTime(8000 * 5);
+      expect(channel.sendTyping).toHaveBeenCalledTimes(6);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("streams text deltas into a single edited message", async () => {
