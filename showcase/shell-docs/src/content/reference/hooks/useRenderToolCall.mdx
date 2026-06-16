@@ -196,7 +196,7 @@ To disable rendering for a single tool, register a render-only renderer under th
 
 ```tsx
 function App() {
-  useRenderTool({ name: "searchDatabase", render: () => <></> }, []);
+  useRenderTool({ name: "specificTool", render: () => <></> }, []);
 
   return <YourApp />;
 }
