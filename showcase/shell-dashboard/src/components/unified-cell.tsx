@@ -230,7 +230,7 @@ function HealthLayer({ model }: { model: CellModel }) {
           round-trip). */}
       <TestBadge name="UI" level={model.d3} />
       <TestBadge name="BE" level={model.d4} />
-      <TestBadge name="CV" level={model.d5} />
+      <TestBadge name="1P" level={model.d5} />
       {/*
         D6 is the TOP of the verification ladder, so its badge must reflect the
         LADDER-GATED status (`model.d6Effective`), NOT the raw per-dimension
@@ -240,7 +240,7 @@ function HealthLayer({ model }: { model: CellModel }) {
             is genuinely FAILING — D3/D4 non-green or a mapped D5 red/amber):
             render a VISIBLE not-achieved indicator ("—", gray) — NOT the
             no-data "?" (which the real Badge hides → the badge would vanish).
-            The actual lower-rung failure is already shown by the CV/API/BE
+            The actual lower-rung failure is already shown by the 1P/API/BE
             badges.
           - NO-DATA (d6 does not exist, OR d6Effective null only because the
             ladder is unverified/no-data — e.g. empty live map → D5 mapped but
@@ -248,7 +248,7 @@ function HealthLayer({ model }: { model: CellModel }) {
             badge. A no-data ladder is NOT a failure, so it shows nothing.
           - LADDER INTACT (d6Effective non-null): pass d6Effective through so a
             genuine D6 red/amber/green renders per-dimension.
-        API/BE/CV stay per-dimension (diagnostic); only D6 is gated. See
+        API/BE/1P stay per-dimension (diagnostic); only D6 is gated. See
         `d6Effective` in cell-model.ts.
       */}
       {(() => {

@@ -4,8 +4,8 @@
  *   - CP2: transitionLine discriminates `first` and `error` transitions
  *   - CP5: missing-state tooltip distinguishes opt-out vs absent
  *   - CP7: error-state docs link is clickable when href is present
- *   - CP8: CV badges hidden for testing-kind features
- *   - docs-only kind hides ALL badges (API, BE, CV)
+ *   - CP8: 1P badges hidden for testing-kind features
+ *   - docs-only kind hides ALL badges (API, BE, 1P)
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@testing-library/react";
@@ -104,7 +104,7 @@ function redE2eRow(): StatusRow {
  * A FRESH green D5 (conversation) row for `test/agentic-chat`, keyed exactly
  * as `CellStatus` looks it up (`d5:<slug>/<featureId>`). `observed_at` is
  * `now` so the stale-green downgrade window (E2E_STALE_AFTER_MS) does NOT fire
- * — the CV badge resolves to a real green label and therefore RENDERS (a "?"
+ * — the 1P badge resolves to a real green label and therefore RENDERS (a "?"
  * label would make `Badge` return null, which is exactly the tautology the CP8
  * test must avoid).
  */
@@ -342,30 +342,30 @@ describe("urlsFor: trailing-slash normalization (SSR placeholder leak)", () => {
   });
 });
 
-describe("CP8: CV badges hidden for testing-kind features", () => {
-  it("renders CV for a primary feature but hides it for a testing-kind feature (same green D5 row)", () => {
-    // Non-tautological setup: a FRESH green D5 row is present, so the CV badge
+describe("CP8: 1P badges hidden for testing-kind features", () => {
+  it("renders 1P for a primary feature but hides it for a testing-kind feature (same green D5 row)", () => {
+    // Non-tautological setup: a FRESH green D5 row is present, so the 1P badge
     // resolves to a real (non-"?") label and WOULD render for a `primary`
-    // feature. If CP8 regressed, the testing-kind cell would also render "CV".
+    // feature. If CP8 regressed, the testing-kind cell would also render "1P".
     const liveStatus = new Map([
       [greenD5Row().key, greenD5Row()],
     ]) as LiveStatusMap;
 
-    // Control: a primary feature with the same row DOES render "CV".
+    // Control: a primary feature with the same row DOES render "1P".
     const primary = render(
       <CellStatus
         ctx={makeCtx({ feature: makeFeature({ kind: "primary" }), liveStatus })}
       />,
     );
-    expect(primary.container.textContent ?? "").toContain("CV");
+    expect(primary.container.textContent ?? "").toContain("1P");
 
-    // Subject: a testing-kind feature with the SAME green D5 row hides "CV".
+    // Subject: a testing-kind feature with the SAME green D5 row hides "1P".
     const testing = render(
       <CellStatus
         ctx={makeCtx({ feature: makeFeature({ kind: "testing" }), liveStatus })}
       />,
     );
-    expect(testing.container.textContent ?? "").not.toContain("CV");
+    expect(testing.container.textContent ?? "").not.toContain("1P");
   });
 
   it("renders badge container for primary features (badges null for '?' labels)", () => {
@@ -402,7 +402,7 @@ describe("docs-only kind hides ALL badges", () => {
     const text = container.textContent ?? "";
     expect(text).not.toContain("API");
     expect(text).not.toContain("UI");
-    expect(text).not.toContain("CV");
+    expect(text).not.toContain("1P");
   });
 });
 

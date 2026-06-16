@@ -965,13 +965,13 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
 
   // ── unmapped feature: no direct-key fallback (mirrors cell-model.ts
   //    resolveD5 / depth-utils.ts isD5Green) ──
-  // A feature NOT in CATALOG_TO_D5_KEY has no CV test, so its D5 badge must
+  // A feature NOT in CATALOG_TO_D5_KEY has no 1P test, so its D5 badge must
   // be gray "?" even when a direct `d5:<slug>/<featureId>` row exists in the
   // map. Pre-fix, resolveD5Row fell back to the direct key and rendered the
   // row's tone (green), contradicting the coverage chip (resolveD5 returns
   // exists:false) and deriveDepth (isD5Green returns false). The fallback was
   // removed from isD5Green because it "could resolve true from stale/shared
-  // PB rows, granting D5 to cells without CV tests" — resolveD5Row must match.
+  // PB rows, granting D5 to cells without 1P tests" — resolveD5Row must match.
   it("d5 unmapped feature: present direct-key row does NOT render green (matches chip)", () => {
     // `some-unmapped-feature` is intentionally absent from CATALOG_TO_D5_KEY.
     const live = mapOf([row("d5:agno/some-unmapped-feature", "d5", "green")]);

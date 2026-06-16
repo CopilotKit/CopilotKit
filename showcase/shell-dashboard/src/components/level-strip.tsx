@@ -1,6 +1,6 @@
 "use client";
 /**
- * Per-integration L1-L4 strip: four badges showing Up / BE (Agent) / Chats / Tools.
+ * Per-integration L1-L4 strip: four badges showing Up / API (HTTP) / Chats / Tools.
  * Reads integration-scoped rows from the live-status map.
  *
  * No longer used by Coverage tab (overlay-column-header.tsx).
@@ -63,7 +63,7 @@ export function LevelStrip({
 }) {
   const slug = integration.slug;
   const up = resolveBadge(liveStatus, "health", slug, "Up");
-  const wired = resolveBadge(liveStatus, "agent", slug, "BE (Agent)");
+  const wired = resolveBadge(liveStatus, "agent", slug, "API (HTTP)");
   const chats = resolveBadge(liveStatus, "chat", slug, "Chats");
 
   // Tools n/a gate: only show real state if integration has tool-rendering demo
