@@ -37,7 +37,7 @@ export function IssueList({ heading, issues }: IssueListProps) {
   // One line per issue. WhatsApp renders `*text*` as bold and shows URLs as
   // tappable plain text; there are no real Markdown links.
   const lines = issues.map((i) => {
-    const parts = [`*${i.id}* — ${i.title}`];
+    const parts = [`**${i.id}** — ${i.title}`];
     if (i.state) parts.push(`(${i.state})`);
     if (i.url) parts.push(i.url);
     return parts.join("  ");

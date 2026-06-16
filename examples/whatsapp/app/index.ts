@@ -53,7 +53,23 @@ async function main() {
 
   // WhatsApp has no mention concept; every inbound text turn is for the bot.
   bot.onMessage(async ({ thread }) => {
-    await thread.runAgent();
+    try {
+      await thread.runAgent();
+    } catch (err) {
+      // Fail loud to the user instead of leaving them with silence.
+      console.error("[whatsapp-bot] turn failed:", err);
+      try {
+        await thread.post({
+          type: "section",
+          props: {
+            children:
+              "⚠️ Sorry — something went wrong handling that. Please try again.",
+          },
+        });
+      } catch (postErr) {
+        console.error("[whatsapp-bot] error-reply also failed:", postErr);
+      }
+    }
   });
 
   await bot.start();

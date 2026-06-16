@@ -16,12 +16,14 @@
 import { issueListTool } from "./issue-list.js";
 import { showIncidentTool } from "./show-incident.js";
 import { confirmWriteTool } from "./confirm-write.js";
+import { renderChartTool } from "./render-chart.js";
 import type { BotTool } from "@copilotkit/bot";
 
 export const appTools: BotTool[] = [
   issueListTool,
   showIncidentTool,
   confirmWriteTool,
+  renderChartTool,
 ];
 
-export { issueListTool, showIncidentTool, confirmWriteTool };
+export { issueListTool, showIncidentTool, confirmWriteTool, renderChartTool };
