@@ -4,28 +4,33 @@ import type {
   IncomingTurn,
   InteractionEvent,
   IncomingCommand,
+  IncomingThreadStart,
 } from "./platform-adapter.js";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
-import { InMemoryActionStore, type ActionStore } from "./action-store.js";
-import {
-  toAgentToolDescriptors,
-  parseToolArgs,
-  type BotTool,
-  type ContextEntry,
-} from "./tools.js";
-import {
-  normalizeCommandName,
-  toCommandSpec,
-  type BotCommand,
-  type CommandContext,
-} from "./commands.js";
-import { Thread, type ThreadDeps } from "./thread.js";
+import { InMemoryActionStore } from "./action-store.js";
+import type { ActionStore } from "./action-store.js";
+import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
+import type { BotTool, ContextEntry } from "./tools.js";
+import { normalizeCommandName, toCommandSpec } from "./commands.js";
+import type { BotCommand, CommandContext } from "./commands.js";
+import { Thread } from "./thread.js";
+import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { InteractionContext, IncomingMessage } from "@copilotkit/bot-ui";
+import type {
+  InteractionContext,
+  IncomingMessage,
+  PlatformUser,
+} from "@copilotkit/bot-ui";
 
 export type BotHandler = (ctx: {
   thread: Thread;
   message: IncomingMessage;
+}) => void | Promise<void>;
+
+/** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
+export type ThreadStartHandler = (ctx: {
+  thread: Thread;
+  user?: PlatformUser;
 }) => void | Promise<void>;
 
 export interface CreateBotOptions {
@@ -41,6 +46,12 @@ export interface CreateBotOptions {
 export interface Bot {
   onMention(h: BotHandler): void;
   onMessage(h: BotHandler): void;
+  /**
+   * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
+   * suggested prompts, set a title, or run the agent. Adapters without the
+   * concept never fire this.
+   */
+  onThreadStarted(h: ThreadStartHandler): void;
   /** Handle clicks on a specific action `id`. `ctx.action.value` is typed as `TValue`. */
   onInteraction<TValue = unknown>(
     id: string,
@@ -90,6 +101,7 @@ export function createBot(opts: CreateBotOptions): Bot {
 
   const mentionHandlers: BotHandler[] = [];
   const messageHandlers: BotHandler[] = [];
+  const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
     (ctx: InteractionContext) => void | Promise<void>
@@ -213,6 +225,18 @@ export function createBot(opts: CreateBotOptions): Bot {
         };
         await command.handler(ctx);
       },
+      async onThreadStarted(evt: IncomingThreadStart) {
+        // The adapter has already applied its static defaults (greeting /
+        // prompts) before emitting this, so handlers layer on top and never
+        // race. Zero handlers → no-op.
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+        );
+        for (const h of threadStartedHandlers)
+          await h({ thread, user: evt.user });
+      },
     };
   }
 
@@ -222,6 +246,9 @@ export function createBot(opts: CreateBotOptions): Bot {
     },
     onMessage(h) {
       messageHandlers.push(h);
+    },
+    onThreadStarted(h) {
+      threadStartedHandlers.push(h);
     },
     onInteraction<TValue = unknown>(
       id: string,

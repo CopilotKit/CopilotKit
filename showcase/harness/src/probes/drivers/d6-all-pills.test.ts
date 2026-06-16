@@ -68,7 +68,54 @@ function makePage(script: PageScript = {}): E2eFullPage {
       }
     },
     async evaluate<R>(fn: () => R): Promise<R> {
-      void fn;
+      // The conversation-runner now makes structurally different
+      // page.evaluate calls — `countAssistantMessages` (returns number),
+      // `readCascadeState` (returns `{count, text}`), `readErrorBanner`
+      // (returns `{state, text?}`), `readRunsFinished` (number), and
+      // `captureDiagnostics` (an object). Dispatch on the closure body so
+      // each branch returns the right shape. Mirrors the dispatch table
+      // used by the conversation-runner.test.ts fake (kept in lock-step).
+      const fnBody = typeof fn === "function" ? fn.toString() : "";
+      // SSE counter — readRunsFinished returns a number; surface the
+      // current messageCount so the SSE conjunct in waitForTurnComplete
+      // ticks alongside the DOM count.
+      if (fnBody.includes("__hk_runsFinished")) {
+        return messageCount as unknown as R;
+      }
+      // Error-banner probe — return `{state: "absent"}` (the validated
+      // shape) so readErrorBanner reports absent and fast-fail stays
+      // disarmed in these tests.
+      if (fnBody.includes("copilot-error-banner")) {
+        return { state: "absent" } as unknown as R;
+      }
+      // Atomic cascade-state read — readCascadeState returns
+      // `{count, text}`. The closure body contains BOTH `querySelectorAll`
+      // and `textContent` AND `{ count` in its return literal.
+      if (
+        fnBody.includes("querySelectorAll") &&
+        fnBody.includes("textContent") &&
+        fnBody.includes("{ count")
+      ) {
+        const text =
+          messageCount > 0 ? `assistant-bubble-text-${messageCount}` : null;
+        return { count: messageCount, text } as unknown as R;
+      }
+      // Diagnostics capture (captureDiagnostics) — returns an object
+      // shape consumed by `diagnostics.assistantMsgCount = ...` merge.
+      if (fnBody.includes("userMsgCount") || fnBody.includes("apiRequests")) {
+        return {
+          userMsgCount: 0,
+          apiRequestCount: 0,
+          apiRequests: [],
+          pageErrors: [],
+          chatContainerExists: true,
+          url: "about:blank",
+          title: "",
+          bodyTextSnippet: "",
+        } as unknown as R;
+      }
+      // Default — assistant/user message COUNT (countAssistantMessages
+      // and similar) returns a number.
       return messageCount as unknown as R;
     },
     async click() {},
@@ -1161,7 +1208,44 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
             async press() {
               messageCount++;
             },
-            async evaluate<R>() {
+            async evaluate<R>(fn: () => R): Promise<R> {
+              // Dispatch on closure body — see `makePage` for the
+              // full rationale; this launcher needs the same routing
+              // so readCascadeState/readErrorBanner/captureDiagnostics
+              // each get the right return shape.
+              const fnBody = typeof fn === "function" ? fn.toString() : "";
+              if (fnBody.includes("__hk_runsFinished")) {
+                return messageCount as unknown as R;
+              }
+              if (fnBody.includes("copilot-error-banner")) {
+                return { state: "absent" } as unknown as R;
+              }
+              if (
+                fnBody.includes("querySelectorAll") &&
+                fnBody.includes("textContent") &&
+                fnBody.includes("{ count")
+              ) {
+                const text =
+                  messageCount > 0
+                    ? `assistant-bubble-text-${messageCount}`
+                    : null;
+                return { count: messageCount, text } as unknown as R;
+              }
+              if (
+                fnBody.includes("userMsgCount") ||
+                fnBody.includes("apiRequests")
+              ) {
+                return {
+                  userMsgCount: 0,
+                  apiRequestCount: 0,
+                  apiRequests: [],
+                  pageErrors: [],
+                  chatContainerExists: true,
+                  url: "about:blank",
+                  title: "",
+                  bodyTextSnippet: "",
+                } as unknown as R;
+              }
               return messageCount as unknown as R;
             },
             async click() {},

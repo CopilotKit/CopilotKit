@@ -8,7 +8,7 @@
     {
       "_comment": "tool-rendering-custom-catchall pill 1: weather in Tokyo \u2014 follow-up after get_weather tool result. Must come before the tool-emitting fixture.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "toolCallId": "call_d6_cc_get_weather_001",
         "context": "claude-sdk-typescript"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "tool-rendering-custom-catchall pill 1: weather in Tokyo \u2014 first leg: emit get_weather tool call. The custom catchall renderer fires for this tool since no per-tool renderer is registered.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "toolName": "get_weather",
         "context": "claude-sdk-typescript"
       },
@@ -36,7 +36,7 @@
     {
       "_comment": "tool-rendering-custom-catchall pill 1 fallback: weather in Tokyo without toolName gate.",
       "match": {
-        "userMessage": "check Tokyo weather forecast",
+        "userMessage": "forecast for Tokyo",
         "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },

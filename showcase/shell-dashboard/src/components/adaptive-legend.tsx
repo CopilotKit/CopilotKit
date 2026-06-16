@@ -51,12 +51,18 @@ function HealthLegend() {
     <>
       {/* Depth explanations in ascending order */}
       <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">
+          Health
+        </span>
+        GET /api/health returns 200 OK with JSON body
+      </LegendItem>
+      <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D2</span>
         API: responds to a basic CopilotKit API call
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D3</span>
-        E2E (Demo): demo page loads and round-trips in a browser
+        UI (Frontend): demo page renders in browser (Playwright)
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D4</span>

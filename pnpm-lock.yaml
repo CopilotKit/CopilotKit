@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@copilotkit/bot': workspace:*
+  '@copilotkit/bot-slack': workspace:*
+  '@copilotkit/bot-ui': workspace:*
   '@ag-ui/mcp-middleware>@ag-ui/client': 0.0.53
   streamdown>react: ^19.0.0
   '@types/react': 19.1.8
@@ -430,14 +433,14 @@ importers:
   examples/slack:
     dependencies:
       '@copilotkit/bot':
-        specifier: ~0.0.1
-        version: 0.0.1(encoding@0.1.13)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../packages/bot
       '@copilotkit/bot-slack':
-        specifier: ~0.0.1
-        version: 0.0.1(@types/express@5.0.6)(encoding@0.1.13)
+        specifier: workspace:*
+        version: link:../../packages/bot-slack
       '@copilotkit/bot-ui':
-        specifier: ~0.0.1
-        version: 0.0.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+        specifier: workspace:*
+        version: link:../../packages/bot-ui
       '@copilotkit/runtime':
         specifier: ^1.59.5
         version: 1.59.5(56436085ce2a11549bd479ba7297dde1)
@@ -2291,7 +2294,7 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot-ui':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../bot-ui
       '@copilotkit/core':
         specifier: workspace:^
@@ -2359,10 +2362,10 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../bot
       '@copilotkit/bot-ui':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../bot-ui
       '@copilotkit/core':
         specifier: workspace:^
@@ -5510,19 +5513,6 @@ packages:
         optional: true
       vitest:
         optional: true
-
-  '@copilotkit/bot-slack@0.0.1':
-    resolution: {integrity: sha512-qZK5PAELNas8B6uPP1lJ6hznREZmnIiOnLBDujIo5vz0V21wEMD/z2l8boys0u7Jye3fBHxsnVuhRtMuAWbn1Q==}
-
-  '@copilotkit/bot-ui@0.0.1':
-    resolution: {integrity: sha512-lZmpfvYGoQCokfT9ctnC92iXuSqZ4nuyRO2K9ShlwY6eZBq89s/gj+0E4fH8o5KwqRn9b/jre9cb1K4yreMO2g==}
-
-  '@copilotkit/bot@0.0.1':
-    resolution: {integrity: sha512-KsdY6lBs20uty2ryxu35wQFFojnU/S13M+cK0L9NveE17TZQSwGvzOzBYsnily0Cc6ap6pA0+9RhZqKvU6t7Nw==}
-
-  '@copilotkit/core@1.59.5':
-    resolution: {integrity: sha512-y1mR0dc2bkVtGHrv1Z86OXERH54tzpfpW4JX+RGJiyInMtblz40FWNQoGoQpOc4IwxdPynrMnpoiMVR/FrUI9g==}
-    engines: {node: '>=18'}
 
   '@copilotkit/license-verifier@0.4.2':
     resolution: {integrity: sha512-0+Rdtg4gOwOBFBpZFxYsjgwBcCLja5z03YC6WA3KEntHYhsnoJ2aqNG6c0we8ZExCNYlEO4M7kHIfG5LXzqMYQ==}
@@ -28419,67 +28409,6 @@ snapshots:
       jest: 29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.11)(typescript@5.9.3))
       vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
 
-  '@copilotkit/bot-slack@0.0.1(@types/express@5.0.6)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
-      '@copilotkit/bot': 0.0.1(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/bot-ui': 0.0.1(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      '@copilotkit/core': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      '@slack/bolt': 4.7.3(@types/express@5.0.6)
-      '@slack/types': 2.21.1
-      '@slack/web-api': 7.16.0
-      rxjs: 7.8.1
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@types/express'
-      - bufferutil
-      - debug
-      - encoding
-      - supports-color
-      - utf-8-validate
-
-  '@copilotkit/bot-ui@0.0.1(@ag-ui/core@0.0.53)(encoding@0.1.13)':
-    dependencies:
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - encoding
-
-  '@copilotkit/bot-ui@0.0.1(@ag-ui/core@0.0.57)(encoding@0.1.13)':
-    dependencies:
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.57)(encoding@0.1.13)
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - encoding
-
-  '@copilotkit/bot@0.0.1(encoding@0.1.13)(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
-      '@copilotkit/bot-ui': 0.0.1(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      '@copilotkit/core': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - zod
-
-  '@copilotkit/core@1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      '@tanstack/pacer': 0.20.1
-      phoenix: 1.8.4
-      rxjs: 7.8.1
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - encoding
-      - zod
-
   '@copilotkit/license-verifier@0.4.2': {}
 
   '@copilotkit/runtime@1.59.5(56436085ce2a11549bd479ba7297dde1)':
@@ -28554,22 +28483,6 @@ snapshots:
     dependencies:
       '@ag-ui/client': 0.0.53
       '@ag-ui/core': 0.0.53
-      '@copilotkit/license-verifier': 0.4.2
-      '@segment/analytics-node': 2.3.0(encoding@0.1.13)
-      '@standard-schema/spec': 1.1.0
-      chalk: 4.1.2
-      graphql: 16.12.0
-      partial-json: 0.1.7
-      uuid: 11.1.0
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-
-  '@copilotkit/shared@1.59.5(@ag-ui/core@0.0.57)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.57
       '@copilotkit/license-verifier': 0.4.2
       '@segment/analytics-node': 2.3.0(encoding@0.1.13)
       '@standard-schema/spec': 1.1.0

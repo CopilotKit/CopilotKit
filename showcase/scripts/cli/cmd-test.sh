@@ -122,7 +122,7 @@ cmd_test() {
   # reaped.
   if $use_isolate; then
     trap restore_isolation EXIT
-    apply_isolation "${isolate_name:-}"
+    apply_isolation "${isolate_name:-}" "$slug"
     if $ISOLATE_KEEP; then
       info "--keep set: isolated stack will be left standing after the run (teardown command printed at exit)"
     fi

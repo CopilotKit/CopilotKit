@@ -43,6 +43,23 @@ async function main() {
       slack({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
+        // Assistant-pane behavior is ON by default; this just customizes it.
+        // The greeting + chips show when a user opens the pane (matching the
+        // app manifest's `assistant_view`); native streaming + status need no
+        // config. Pass `assistant: false` / `streaming: "legacy"` to opt out.
+        assistant: {
+          greeting: "Hi! I can triage issues, search docs, and more.",
+          suggestedPrompts: [
+            {
+              title: "Triage my open issues",
+              message: "Triage my open issues",
+            },
+            {
+              title: "What shipped this week?",
+              message: "Summarize what shipped this week",
+            },
+          ],
+        },
       }),
     ],
     // One AG-UI agent per Slack conversation. The backend is a CopilotKit
@@ -81,6 +98,23 @@ async function main() {
   // never fire (and registering both would risk double-handling).
   bot.onMention(async ({ thread, message }) => {
     await thread.runAgent({ context: senderContext(message.user) });
+  });
+
+  // Optional — dynamic behavior when a user opens the assistant pane. The
+  // adapter applies the static `assistant` defaults first (greeting + chips),
+  // then this layers on top: personalize the prompt chips for the opener.
+  bot.onThreadStarted(async ({ thread, user }) => {
+    if (!user?.name) return;
+    await thread.setSuggestedPrompts([
+      {
+        title: `Triage ${user.name}'s issues`,
+        message: "Triage my open issues",
+      },
+      {
+        title: "What shipped this week?",
+        message: "Summarize what shipped this week",
+      },
+    ]);
   });
 
   await bot.start();

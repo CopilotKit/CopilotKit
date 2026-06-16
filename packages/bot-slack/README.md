@@ -93,9 +93,54 @@ posted as `attachments: [{ color, blocks }]`).
 
 ### Streaming
 
-`thread.stream(...)` posts a placeholder and edits it in place via throttled
-`chat.update`, with multi-message chunking, mid-stream bracket auto-close, and
-Markdown → mrkdwn translation, so the in-flight message always renders.
+By default, replies stream via Slack's **native streaming API**
+(`chat.startStream` / `appendStream` / `stopStream`) wherever the reply target
+is a thread — a true streaming UI rendering **raw markdown** (so real tables and
+fenced code render natively), with the same throttle budget and fence-aware
+multi-message continuation as the legacy path. Flat DMs (no thread) and any
+workspace where the streaming API is unavailable fall back automatically to the
+shipped `chat.update` transport (throttled edits, multi-message chunking,
+mid-stream bracket auto-close, Markdown → mrkdwn translation). Pass
+`streaming: "legacy"` to force the `chat.update` transport everywhere. The
+fallback is transparent — **opting in can never break a bot**: the first
+`startStream` failure marks the workspace legacy and redoes the stream the old
+way.
+
+### Assistant pane (agent-native, default-on)
+
+When the Slack app has the **Agents & AI Apps** toggle (an `assistant_view`
+manifest block + the `assistant:write` scope and `assistant_thread_*` events),
+the adapter activates Slack's assistant pane with **zero config**:
+
+- Opening the pane posts a greeting + tappable prompt chips, and each pane
+  conversation is its own thread (replies stay in-thread).
+- While the agent runs, native composer status is shown
+  (`assistant.threads.setStatus`: "is thinking…", "is using \`tool\`…") instead
+  of placeholder/`:wrench:` messages.
+- The pane thread is auto-titled from the first message.
+
+Customize via the `assistant` option, or set `assistant: false` to disable pane
+handling entirely. Apps **without** the toggle behave exactly as before — the
+pane machinery lies dormant.
+
+```ts
+slack({
+  botToken,
+  appToken,
+  assistant: {
+    greeting: "Hi! I can triage issues, search docs, and more.",
+    suggestedPrompts: [
+      { title: "Triage my open issues", message: "Triage my open issues" },
+    ],
+  },
+});
+
+// Dynamic behavior when a user opens the pane (layers on top of the defaults):
+bot.onThreadStarted(async ({ thread, user }) => {
+  await thread.setSuggestedPrompts(promptsFor(user));
+  // await thread.setTitle(...) is also available
+});
+```
 
 ### Interactions (ack-first)
 
@@ -187,11 +232,12 @@ dynamically rather than registering them up front).
 
 ## Exports
 
-`slack`, `SlackAdapter`, `SlackAdapterOptions`; `createRunRenderer`;
-`decodeInteraction`, `conversationKeyOf`; `renderBlockKit`,
+`slack`, `SlackAdapter`, `SlackAdapterOptions`, `SlackAssistantOptions`;
+`createRunRenderer`; `decodeInteraction`, `conversationKeyOf`; `renderBlockKit`,
 `renderSlackMessage`, `SLACK_LIMITS`; `defaultSlackTools`,
 `lookupSlackUserTool`, `defaultSlackContext` (+ the individual context
 entries); `markdownToMrkdwn`; and the
 preserved mechanics (`SlackConversationStore`, `MessageStream`,
-`ChunkedMessageStream`, `attachSlackListener`, `SanitizingHttpAgent`,
-`buildFileContentParts`, `autoCloseOpenMarkdown`, and supporting types).
+`ChunkedMessageStream`, `NativeMessageStream`, `attachSlackListener`,
+`attachAssistant`, `SanitizingHttpAgent`, `buildFileContentParts`,
+`autoCloseOpenMarkdown`, and supporting types).

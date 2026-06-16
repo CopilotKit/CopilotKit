@@ -4,7 +4,8 @@
 
 - Demo is deployed and accessible at `/demos/declarative-gen-ui` on the dashboard host
 - Agent backend is healthy (`/api/copilotkit/health` or the host's `/api/health`); `OPENAI_API_KEY` is set on Railway; `LANGGRAPH_DEPLOYMENT_URL` points at a LangGraph deployment exposing the `a2ui_dynamic` graph (registered as agent name `declarative-gen-ui` — see `src/app/api/copilotkit-declarative-gen-ui/route.ts`)
-- Note: the demo source contains no `data-testid` attributes. Checks below rely on verbatim visible text, DOM structure, and inline-style fingerprints declared in `src/app/demos/declarative-gen-ui/a2ui/renderers.tsx`
+- The demo plays a sales analyst for the fictional **Vantage Threads** company. The dataset and per-question composition rules are registered as agent context in `src/app/demos/declarative-gen-ui/sales-context.ts` — surfaces should reflect those numbers ($4.2M Q2 revenue, 4 regions, 5 reps, 3 at-risk accounts, Meridian Apparel Group as top account)
+- Each custom renderer carries a stable `data-testid`: `declarative-card`, `declarative-metric`, `declarative-pie-chart`, `declarative-bar-chart`, `declarative-status-badge`, `declarative-data-table`, `declarative-info-row` (see `src/app/demos/declarative-gen-ui/a2ui/renderers.tsx`)
 
 ## Test Steps
 
@@ -13,58 +14,59 @@
 - [ ] Navigate to `/demos/declarative-gen-ui`; verify the page renders within 3s and a single `CopilotChat` pane is centered (max-width ~896px, rounded-2xl, full-height)
 - [ ] Verify the chat is wired to `runtimeUrl="/api/copilotkit-declarative-gen-ui"` and `agent="declarative-gen-ui"` (DevTools → Network: sending a message hits that endpoint, not `/api/copilotkit`)
 - [ ] Verify all 4 suggestion pills are visible with verbatim titles:
-  - "Show a KPI dashboard"
-  - "Pie chart — sales by region"
-  - "Bar chart — quarterly revenue"
-  - "Status report"
+  - "Show my sales dashboard"
+  - "Team performance"
+  - "Anything at risk?"
+  - "Top account details"
+- [ ] Verify no pill mentions a chart type — chart steering lives in the system prompt, not the user prompt (OSS-136)
 - [ ] Send "Hello" and verify an assistant text response appears within 10s (no A2UI surface rendered for plain text)
 
 ### 2. Feature-Specific Checks
 
 #### Catalog Wiring (provider `a2ui={{ catalog: myCatalog }}`)
 
-- [ ] DevTools → Network: on first tool-driven response, verify the response stream contains an `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"` (matches `CUSTOM_CATALOG_ID` in `src/agents/a2ui_dynamic.py` and `createCatalog(..., { catalogId: "declarative-gen-ui-catalog" })` in `a2ui/catalog.ts`)
+- [ ] DevTools → Network: on first tool-driven response, verify the response stream contains an `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"` (matches `createCatalog(..., { catalogId: "declarative-gen-ui-catalog" })` in `a2ui/catalog.ts`)
 
-#### `render_a2ui` Tool Call (secondary-LLM pattern)
+#### Hero Pill — Composed Sales Dashboard
 
-- [ ] Click "Show a KPI dashboard"; within 30s verify an A2UI surface renders in-transcript containing at least 3 `Metric` tiles (each: uppercase label with `letterSpacing: 0.12em`, large value in 1.5rem/600 weight, optional `↑`/`↓` trend arrow — green `#189370` for up, red `#FA5F67` for down)
-- [ ] Verify the chat reply text beneath the surface is one short sentence (per `SYSTEM_PROMPT`: "Keep chat replies to one short sentence; let the UI do the talking.")
+- [ ] Click "Show my sales dashboard"; within 60s verify ONE composed surface renders containing ALL of (no surrounding Card — the charts carry their own card chrome):
+  - a bare row of 4 `declarative-metric` KPI tiles (uppercase label, large value, trend arrow with delta — green `↑` for up, red `↓` for down, e.g. "↑ 12% QoQ")
+  - a `declarative-pie-chart` (recharts donut mirroring beautiful-chat: `innerRadius` 40 / `outerRadius` 80, one `.recharts-pie-sector` per slice, tooltip on hover, no legend) showing revenue by region
+  - a `declarative-bar-chart` (recharts, height 200, single blue `#3b82f6` bars with rounded tops, dashed grid) showing monthly revenue
+- [ ] Verify the surface is a single composed dashboard, NOT a lonely single widget — this is the regression OSS-136 was filed about
+- [ ] Verify the pie slices cycle through the shared palette (`#3b82f6`, `#8b5cf6`, `#ec4899`, `#f59e0b`, `#10b981`, `#6366f1`) and bars are uniform blue `#3b82f6` — identical chrome to beautiful-chat's sales dashboard (12px-radius cards, 20px padding, soft shadow)
+- [ ] Verify the chat reply text beneath the surface is one short sentence (per `SYSTEM_PROMPT`: let the UI do the talking)
+- [ ] Verify metric numbers match the Vantage Threads dataset (revenue $4.2M, 186 new customers, 31% win rate, $22.6k avg deal)
 
-#### `PieChart` Renderer (catalog component + `includeBasicCatalog` merge)
+#### Team Performance — DataTable
 
-- [ ] Click "Pie chart — sales by region"; within 30s verify a pie-chart card renders with:
-  - a non-empty title (1rem / 600 weight, color `#010507`) and description (0.85rem, color `#57575B`)
-  - a custom SVG donut (inside the card, `<svg>` with `transform: scaleX(-1)`) containing a grey background `<circle>` plus one stroked `<circle>` per slice (at least 2 slices)
-  - a legend with one row per slice: coloured dot, label, comma-formatted value, percentage ending in `%`; percentages sum to 100% (rounding-tolerant)
-- [ ] Verify the first slice uses brand color `#BEC2FF` and subsequent slices cycle through the `CHART_COLORS` palette (`#85ECCE`, `#FFAC4D`, `#FFF388`, …)
+- [ ] Click "Team performance"; within 60s verify a `declarative-data-table` renders inside a Card: uppercase column headers (Rep / Attainment / Pipeline), one body row per rep (5 reps, Dana Whitfield through Elena Vasquez), tabular numerals
+- [ ] Verify a quota-attainment BarChart renders alongside the table (dashboardy, not a bare table); no StatusBadge or InfoRow
 
-#### `BarChart` Renderer (Recharts + `barSlideIn` keyframe)
+#### At Risk — StatusBadge Cards
 
-- [ ] Click "Bar chart — quarterly revenue"; within 30s verify a bar-chart card renders with a title + description and a recharts `ResponsiveContainer` at height 280
-- [ ] Verify at least 2 `<rect>` bar elements render, X-axis tick labels match the backend `label` values, Y-axis ticks are numeric, and the scoped `@keyframes barSlideIn` animation fires on first paint (bars translate up from `translateY(40px)` to `0`)
-- [ ] Verify bar fills cycle through `CHART_COLORS` and bars have rounded top corners (`radius: [6, 6, 0, 0]`)
+- [ ] Click "Anything at risk?"; within 60s verify a risk panel: a KPI strip of Metric tiles (ARR at risk $615k, accounts at risk 3, biggest exposure Northwind $340k) above three side-by-side account Cards (Northwind Retail, Cascadia Outfitters, Atlas Goods), each with a content-sized `declarative-status-badge` (error = high severity, warning = medium) and a one-line reason + recommended next action
+- [ ] Verify no charts or tables render for this pill
 
-#### `Card` + `InfoRow` + `StatusBadge` + `PrimaryButton` (catch-all custom-component coverage)
+#### Top Account — InfoRow Facts
 
-- [ ] Click "Status report"; within 30s verify the surface contains at least one `Card` (white background, 1px `#DBDBE5` border, 16px border-radius, 20px padding) with a bold title
-- [ ] Verify at least one `StatusBadge` pill renders — uppercase 0.1em-tracked text, rounded-pill (`borderRadius: 999`), one of the 4 variants (`success` green, `warning` orange, `error` red `#FA5F67`, `info` lilac `#BEC2FF`)
-- [ ] Verify at least one `InfoRow` renders inside a Card: label (0.85rem, color `#57575B`) on the left, value (0.9rem, 500 weight, color `#010507`) on the right, separated by a 1px bottom border `#E9E9EF`
-- [ ] If the agent emits a `PrimaryButton`, verify it renders as a black (`#010507`) pill-rounded button with white text; hovering changes background to `#2B2B2B`
+- [ ] Click "Top account details"; within 60s verify a Card for Meridian Apparel Group with at least 3 `declarative-info-row` label/value rows (Owner, Region, ARR, Renewal, Last contact), each separated by a 1px bottom border
+- [ ] Verify a product-line PieChart renders next to the fact card (grounded in Meridian's product mix); no DataTable or StatusBadge
 
-#### Catalog-Component Sampling (all 7 custom components exercised)
+#### Cross-Pill Differentiation (mirrors the D5 probe)
 
-- [ ] Over the 4 suggestion runs above, confirm each catalog component has rendered at least once across the session: `Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, `BarChart`. If any did not, send a follow-up prompt targeting the missing one (e.g. "give me a one-button call-to-action card" to force `PrimaryButton`)
+- [ ] Run all 4 pills in one conversation; verify each pill mounts its distinguishing component fresh (the D5 probe `showcase/harness/src/probes/scripts/d5-gen-ui-declarative.ts` asserts a newly-mounted testid per pill — leftovers from earlier pills must not be the only match)
 
 ### 3. Error Handling
 
 - [ ] Send an empty message; verify it is a no-op (no user bubble, no assistant response)
 - [ ] Send "What is 2+2?"; verify the agent replies in plain text without invoking `generate_a2ui` (no `a2ui_operations` in the response stream, no surface rendered)
-- [ ] DevTools → Console: walk through all flows above; verify no uncaught errors and no React error #31 ("objects are not valid as a React child"), which would indicate a broken `path`-binding on a catalog renderer
+- [ ] DevTools → Console: walk through all flows above; verify no uncaught errors, no React error #31, and no A2UI render-error banners ("Cannot create component root without a type", "Catalog not found")
 
 ## Expected Results
 
-- Chat loads within 3s; plain-text response within 10s; A2UI surfaces render within 30s of prompt
-- `render_a2ui` is called exactly once per surface-producing prompt; result contains a valid `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`
-- All 7 custom catalog components (Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart, BarChart) have been exercised across the suggestion sample
-- Rendered UI matches the `myDefinitions` shape (Zod prop names from `a2ui/definitions.ts` line up with values visible in the DOM)
+- Chat loads within 3s; plain-text response within 10s; A2UI surfaces render within 60s of prompt (secondary-LLM pass can be slow on cold start)
+- `generate_a2ui` is called exactly once per surface-producing prompt; result contains a valid `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`
+- The hero pill produces a composed dashboard (4 KPI tile metrics + 1 PieChart + 1 BarChart in one surface, with NO surrounding Card per OSS-136); pills 2-4 produce their distinguishing component (data-table / status-badge / info-row)
+- Numbers are consistent with the Vantage Threads dataset across all four pills
 - No UI layout breaks, no flash of unstyled content, no uncaught console errors
