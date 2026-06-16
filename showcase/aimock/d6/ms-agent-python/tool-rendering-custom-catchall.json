@@ -41,7 +41,7 @@
         "context": "ms-agent-python"
       },
       "response": {
-        "content": "AAPL is trading at $189.42, up 1.27% on the day \u2014 rendered through the custom wildcard catchall."
+        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
       }
     },
     {
@@ -55,7 +55,7 @@
           {
             "id": "call_d5_get_stock_price_001",
             "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
           }
         ]
       }
