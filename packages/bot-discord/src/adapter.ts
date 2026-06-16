@@ -12,14 +12,12 @@ import type {
   UserQuery,
   CommandSpec,
 } from "@copilotkit/bot";
-import type {
-  AgentContentPart,
-  BotNode,
-  ThreadMessage,
-} from "@copilotkit/bot-ui";
-import { DiscordConversationStore } from "./conversation-store.js";
+import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
+import {
+  DiscordConversationStore,
+  type DiscordHistoryMessage,
+} from "./conversation-store.js";
 import { attachDiscordListener } from "./discord-listener.js";
-import { buildFileContentParts } from "./download-files.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction } from "./interaction.js";
 import {
@@ -75,7 +73,7 @@ export class DiscordAdapter implements PlatformAdapter {
 
   private readonly client: Client;
   private readonly rest: RestLike;
-  private readonly store = new DiscordConversationStore();
+  private readonly store: DiscordConversationStore;
   private botUserId = "";
   private pendingCommands: readonly CommandSpec[] = [];
   private readonly userCache = new Map<string, PlatformUser>();
@@ -102,6 +100,14 @@ export class DiscordAdapter implements PlatformAdapter {
     this.rest =
       injected?.rest ??
       (new REST().setToken(opts.botToken) as unknown as RestLike);
+    // Reconstruct full channel history each turn (bot-slack parity). The store
+    // reads the Discord channel — the source of truth — so the inbound message
+    // and any earlier attachments are part of the rebuilt history.
+    this.store = new DiscordConversationStore({
+      fetchHistory: (channelId) => this.fetchHistory(channelId),
+      botUserId: () => this.botUserId,
+      filesConfig: undefined,
+    });
   }
 
   registerCommands(commands: readonly CommandSpec[]): void {
@@ -127,26 +133,13 @@ export class DiscordAdapter implements PlatformAdapter {
       client: this.client as never,
       botUserId: () => this.botUserId, // read lazily — only known after `ready`
       onTurn: async (turn) => {
-        // Build multimodal content parts when the message carries attachments,
-        // so the agent's model receives the inbound images/files (bot-slack
-        // parity). Leading text part preserves the user's message alongside.
-        let contentParts: AgentContentPart[] | undefined;
-        if (turn.attachments && turn.attachments.length > 0) {
-          const fileParts = await buildFileContentParts(turn.attachments);
-          if (fileParts.length > 0) {
-            contentParts = [
-              ...(turn.userText
-                ? [{ type: "text" as const, text: turn.userText }]
-                : []),
-              ...fileParts,
-            ];
-          }
-        }
+        // The conversation store reconstructs the full channel history each
+        // turn — including the triggering message and ALL its attachments — so
+        // the bridge passes context only; no per-turn content-part building.
         await sink.onTurn({
           conversationKey: turn.conversationKey,
           replyTarget: turn.replyTarget,
           userText: turn.userText,
-          ...(contentParts ? { contentParts } : {}),
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,
@@ -413,6 +406,40 @@ export class DiscordAdapter implements PlatformAdapter {
       throw new Error(`channel ${channelId} is not sendable`);
     }
     return ch as unknown as SendableChannel;
+  }
+
+  /**
+   * Fetch the channel's recent messages OLDEST→NEWEST, normalized for the
+   * conversation store's history reconstruction. Best-effort: on any fetch
+   * error returns [] (bot-slack's fetchHistory does the same).
+   */
+  private async fetchHistory(
+    channelId: string,
+  ): Promise<DiscordHistoryMessage[]> {
+    try {
+      const channel = await this.fetchSendable(channelId);
+      const fetched = await channel.messages.fetch({ limit: 100 });
+      return [...fetched.values()].reverse().map((m: any) => ({
+        id: m.id,
+        content: m.content ?? "",
+        authorId: m.author?.id,
+        authorIsBot: Boolean(m.author?.bot),
+        attachments: m.attachments
+          ? Array.from(m.attachments.values()).map((a: any) => ({
+              url: a.url,
+              name: a.name,
+              contentType: a.contentType,
+              size: a.size,
+            }))
+          : [],
+      }));
+    } catch (err) {
+      console.warn(
+        `[bot-discord] fetchHistory failed (channel ${channelId}):`,
+        err,
+      );
+      return [];
+    }
   }
 }
 

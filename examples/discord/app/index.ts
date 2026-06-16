@@ -90,19 +90,12 @@ async function main() {
   // never fire (and registering both would risk double-handling).
   bot.onMention(async ({ thread, message }) => {
     try {
-      // Discord's conversation store is a stateful in-memory session that does
-      // NOT reconstruct channel history, so the inbound message must be passed
-      // explicitly as the prompt (unlike the Slack example, whose store rebuilds
-      // the thread each run). Without this the agent runs with no user turn and
-      // replies with a generic "Ready."
-      // Prefer multimodal content parts when the message carried attachments
-      // (images/files), so the agent's model receives them; fall back to the
-      // plain text otherwise.
-      const parts = message.contentParts;
-      await thread.runAgent({
-        prompt: parts && parts.length > 0 ? parts : message.text,
-        context: senderContext(message.user),
-      });
+      // Discord's conversation store reconstructs the full channel history each
+      // turn (mirroring the Slack example) — including the triggering message
+      // and any earlier attachments/images — so we pass NO prompt. Passing one
+      // would duplicate the latest user turn already present in the rebuilt
+      // history.
+      await thread.runAgent({ context: senderContext(message.user) });
     } catch (err) {
       console.error("[discord-bot] agent run failed:", err);
       await thread
