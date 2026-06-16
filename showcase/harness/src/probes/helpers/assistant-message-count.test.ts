@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Page } from "playwright";
 import {
   readCascadeState,
+  readCascadeStateLast,
   resolveBubbleTextFromSelectors,
 } from "./assistant-message-count.js";
 import type { BubbleTextElement } from "./assistant-message-count.js";
@@ -407,6 +408,207 @@ describe("readCascadeState", () => {
     } as unknown as Page;
 
     const r = await readCascadeState(page, 0);
+    expect(r).toEqual({ count: 0, text: null });
+  });
+});
+
+/**
+ * Unit coverage for `readCascadeStateLast` — Class B fallback path.
+ *
+ * Class B = single-bubble tool-only responses (gen-UI, recharts SVG, A2UI
+ * cards) whose scoped text selectors are ALL empty but whose `bubble.textContent`
+ * contains the rendered content in non-cascade children. The cascade-pollution
+ * guard in `readCascadeState` / `findAssistantBubbleAt` returns null in this
+ * shape (and rightly so — those readers can target intermediate bubbles
+ * mid-stream where whole-bubble text would flap across bubbles). For the LAST
+ * bubble specifically, by RUN_FINISHED the content has mounted and is stable,
+ * so `readCascadeStateLast` recovers it via a whole-bubble-minus-toolbar
+ * fallback.
+ *
+ * The closure body is exercised via the same `makePageForCascade` fake used
+ * by the `readCascadeState` suite — we don't unit-test the production
+ * closure directly (no JSDOM), but the fake mirrors the browser-side
+ * `globalThis.document.querySelectorAll(...).item(i)` shape and bubble
+ * `querySelector` / `textContent` access so the closure body executes as it
+ * would in Playwright.
+ */
+describe("readCascadeStateLast", () => {
+  const CANONICAL = '[data-testid="copilot-assistant-message"]';
+  const TOOLBAR_SEL = '[data-testid="copilot-assistant-toolbar"]';
+
+  function leafNode(textContent: string | null): StubNode {
+    return {
+      textContent,
+      querySelector(_sel: string): StubNode | null {
+        return null;
+      },
+    };
+  }
+
+  function bubbleWithScopedAndToolbar(
+    wholeTextContent: string | null,
+    scopedChildren: Record<string, { textContent: string | null }>,
+    toolbarText: string | null,
+  ): StubNode {
+    return {
+      textContent: wholeTextContent,
+      querySelector(sel: string): StubNode | null {
+        if (sel === TOOLBAR_SEL) {
+          return toolbarText === null ? null : leafNode(toolbarText);
+        }
+        const hit = scopedChildren[sel];
+        if (!hit) return null;
+        return leafNode(hit.textContent);
+      },
+    };
+  }
+
+  it("returns scoped text when last bubble's scoped selectors have content (no fallback path)", async () => {
+    const b0 = bubbleWithScopedAndToolbar(
+      "ignored-whole",
+      { "[data-message-content]": { textContent: "scoped-final-text" } },
+      "Copy Like Dislike",
+    );
+    const doc = makeDoc({ [CANONICAL]: [b0] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 1, text: "scoped-final-text" });
+  });
+
+  it("falls back to bubble.textContent MINUS toolbar when ALL scoped selectors are empty (Class B)", async () => {
+    // Reproduces the live Class B failure mode confirmed on
+    // showcase-ms-agent-python-staging /demos/beautiful-chat:
+    //   - canonical bubble matches, count=1
+    //   - [data-message-content], .cpk:prose, .prose are ALL empty
+    //   - bubble.textContent has 347+ chars of recharts SVG/text content
+    //   - toolbar.textContent appears as a trailing suffix of bubble.textContent
+    // Pre-fix the cascade returned text:null and the settle gate timed out
+    // with `text-unstable`. Post-fix we return wholeText minus the toolbar
+    // suffix, which is stable by RUN_FINISHED.
+    const wholeText =
+      "Monthly Sales for Q1 2026Breakdown of income generated each month.JanuaryFebruaryMarch0255075100Copy Like Dislike";
+    const toolbarText = "Copy Like Dislike";
+    const b = bubbleWithScopedAndToolbar(
+      wholeText,
+      {
+        "[data-message-content]": { textContent: "" },
+        ".cpk\\:prose": { textContent: "" },
+        ".prose": { textContent: "  " },
+      },
+      toolbarText,
+    );
+    const doc = makeDoc({ [CANONICAL]: [b] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r.count).toBe(1);
+    expect(r.text).not.toBeNull();
+    expect(r.text).toBe(
+      "Monthly Sales for Q1 2026Breakdown of income generated each month.JanuaryFebruaryMarch0255075100",
+    );
+    // Toolbar text must NOT appear in the returned text.
+    expect(r.text?.includes("Copy Like Dislike")).toBe(false);
+  });
+
+  it("Class B fallback works when there is no toolbar (headless / custom-composer bubbles)", async () => {
+    const wholeText = "Tool render output with no toolbar mounted yet.";
+    const b = bubbleWithScopedAndToolbar(
+      wholeText,
+      { "[data-message-content]": { textContent: "" } },
+      null, // no toolbar
+    );
+    const doc = makeDoc({ [CANONICAL]: [b] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 1, text: wholeText });
+  });
+
+  it("Class B fallback does NOT strip toolbar text when toolbar text is not a trailing suffix (defensive)", async () => {
+    // If the DOM shape ever changes such that toolbar text is NOT the
+    // trailing slice of bubble.textContent, we must not silently mangle
+    // the content. The suffix check guards this: when toolbarText is not
+    // a suffix, we return the whole bubble text as-is.
+    const wholeText = "Toolbar in the middleCopy Like Dislike of the bubble";
+    const toolbarText = "Copy Like Dislike";
+    const b = bubbleWithScopedAndToolbar(
+      wholeText,
+      { "[data-message-content]": { textContent: "" } },
+      toolbarText,
+    );
+    const doc = makeDoc({ [CANONICAL]: [b] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r.count).toBe(1);
+    // Toolbar text NOT at suffix → returned whole-bubble text unchanged.
+    expect(r.text).toBe(wholeText);
+  });
+
+  it("returns text:null when scoped selectors AND bubble.textContent are both empty", async () => {
+    // Pure placeholder state — nothing has mounted yet. The settle gate's
+    // `text !== null && text.trim().length > 0` check should keep polling.
+    const b = bubbleWithScopedAndToolbar(
+      "",
+      { "[data-message-content]": { textContent: "" } },
+      "",
+    );
+    const doc = makeDoc({ [CANONICAL]: [b] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 1, text: null });
+  });
+
+  it("returns text:null when bubble.textContent is whitespace-only after toolbar-strip", async () => {
+    // Edge case: toolbar text IS the entire whole-bubble text, so after
+    // stripping we're left with whitespace. Don't lock onto an empty value.
+    const b = bubbleWithScopedAndToolbar(
+      "Copy Like Dislike",
+      { "[data-message-content]": { textContent: "" } },
+      "Copy Like Dislike",
+    );
+    const doc = makeDoc({ [CANONICAL]: [b] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 1, text: null });
+  });
+
+  it("reads the LAST bubble (not the first) on multi-bubble responses with scoped text", async () => {
+    const b0 = bubbleWithScopedAndToolbar(
+      "ignored-whole-0",
+      { "[data-message-content]": { textContent: "first bubble" } },
+      "",
+    );
+    const b1 = bubbleWithScopedAndToolbar(
+      "ignored-whole-1",
+      { "[data-message-content]": { textContent: "last bubble final" } },
+      "",
+    );
+    const doc = makeDoc({ [CANONICAL]: [b0, b1] });
+    const page = makePageForCascade(doc);
+
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 2, text: "last bubble final" });
+  });
+
+  it("returns {count:0, text:null} when no tier matches at all", async () => {
+    const doc = makeDoc({});
+    const page = makePageForCascade(doc);
+    const r = await readCascadeStateLast(page);
+    expect(r).toEqual({ count: 0, text: null });
+  });
+
+  it("swallows page.evaluate throws and returns {count:0, text:null}", async () => {
+    const page: Page = {
+      async evaluate(): Promise<unknown> {
+        throw new Error("browser-eval-blew-up");
+      },
+    } as unknown as Page;
+
+    const r = await readCascadeStateLast(page);
     expect(r).toEqual({ count: 0, text: null });
   });
 });
