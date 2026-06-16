@@ -16,52 +16,46 @@ const schema = z.object({
     .string()
     .optional()
     .describe("Short title shown as the image's filename/caption."),
+  // A PLAIN object (mirrors bot-slack's working tool). Do NOT wrap this in a
+  // z.union([...]) — a top-level union becomes an `anyOf` in the JSON schema the
+  // model receives, which confuses tool-calling into sending empty args ("{}").
   chartSpec: z
-    .union([
-      z.object({
-        type: z
-          .string()
-          .describe(
-            "'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar'.",
-          ),
-        data: z
-          .object({
-            labels: z
-              .array(z.string())
-              .describe(
-                "X-axis / category labels, e.g. ['2026-01','2026-02'].",
-              ),
-            datasets: z
-              .array(
-                z
-                  .object({
-                    label: z
-                      .string()
-                      .optional()
-                      .describe("Series name in the legend, e.g. 'Sev1'."),
-                    data: z
-                      .array(z.number())
-                      .describe("One numeric value per label."),
-                  })
-                  // Allow Chart.js dataset extras: stack, backgroundColor, fill…
-                  .passthrough(),
-              )
-              .min(1)
-              .describe("One entry per data series."),
-          })
-          .describe("Chart.js data — inline the actual numbers."),
-        options: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe(
-            "Optional Chart.js options. Stacked bar: " +
-              "{ scales: { x: { stacked: true }, y: { stacked: true } } }.",
-          ),
-      }),
-      // Some models still hand back the config as a JSON string; tolerate it
-      // and parse in the handler.
-      z.string(),
-    ])
+    .object({
+      type: z
+        .string()
+        .describe("'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar'."),
+      data: z
+        .object({
+          labels: z
+            .array(z.string())
+            .describe("X-axis / category labels, e.g. ['2026-01','2026-02']."),
+          datasets: z
+            .array(
+              z
+                .object({
+                  label: z
+                    .string()
+                    .optional()
+                    .describe("Series name in the legend, e.g. 'Sev1'."),
+                  data: z
+                    .array(z.number())
+                    .describe("One numeric value per label."),
+                })
+                // Allow Chart.js dataset extras: stack, backgroundColor, fill…
+                .passthrough(),
+            )
+            .min(1)
+            .describe("One entry per data series."),
+        })
+        .describe("Chart.js data — inline the actual numbers."),
+      options: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe(
+          "Optional Chart.js options. Stacked bar: " +
+            "{ scales: { x: { stacked: true }, y: { stacked: true } } }.",
+        ),
+    })
     .describe("A Chart.js config with all values inlined."),
 });
 
@@ -94,6 +88,11 @@ export const renderChartTool = defineBotTool({
       }
     } else {
       spec = chartSpec as Record<string, unknown>;
+    }
+    // Guard: never hand `renderChart` an empty/invalid spec (it would throw an
+    // opaque "Cannot read properties of undefined" inside the browser).
+    if (!spec || typeof spec !== "object" || !("type" in spec)) {
+      return "Chart render failed: chartSpec must be a Chart.js config object with a `type` and `data` (e.g. { type: 'pie', data: { labels, datasets } }).";
     }
     try {
       const png = await renderChart(spec);
