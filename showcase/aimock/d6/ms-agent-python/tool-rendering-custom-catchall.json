@@ -45,10 +45,9 @@
       }
     },
     {
-      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 emit get_stock_price tool call. The custom wildcard renderer catches this as the second tool through the same testid.",
+      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 emit get_stock_price tool call. The custom wildcard renderer catches this as the second tool through the same testid. No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true here); the toolCallId narration fixture above wins after the stock tool result arrives.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "hasToolResult": false,
         "context": "ms-agent-python"
       },
       "response": {

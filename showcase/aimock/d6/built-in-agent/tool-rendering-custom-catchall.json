@@ -45,10 +45,9 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer.",
+      "_comment": "tool-rendering-custom-catchall \u2014 second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer. No hasToolResult gate (the Tokyo tool result from the previous prompt makes hasToolResult permanently true here); the toolCallId narration fixture above wins after the stock tool result arrives.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
