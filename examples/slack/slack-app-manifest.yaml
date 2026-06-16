@@ -6,6 +6,22 @@ features:
   bot_user:
     display_name: CopilotKit Triage
     always_online: true
+  # App Home: enable the Messages tab so users can DM the bot (and so the tab
+  # isn't read-only — otherwise Slack shows "Sending messages to this app has
+  # been turned off").
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  # Enables the assistant pane ("Agents & AI Apps"). The greeting + chips here
+  # mirror the `assistant` option in app/index.ts.
+  assistant_view:
+    assistant_description: On-call triage assistant — query/file Linear issues and find/write Notion pages.
+    suggested_prompts:
+      - title: Triage my open issues
+        message: Triage my open issues
+      - title: What shipped this week?
+        message: Summarize what shipped this week
   slash_commands:
     - command: /agent
       description: Talk to the AG-UI agent from any channel
@@ -20,6 +36,7 @@ oauth_config:
     bot:
       # --- Read what the user said ---
       - app_mentions:read # see @mentions of the bot
+      - assistant:write # assistant pane: status, title, suggested prompts
       - channels:history # read messages in public channels bot is in
       - groups:history # read messages in private channels bot is in
       - im:history # read DMs
@@ -50,7 +67,9 @@ settings:
   event_subscriptions:
     bot_events:
       - app_mention
-      - message.im # DMs to the bot (for later, when we add DM flow)
+      - assistant_thread_started # user opened the assistant pane
+      - assistant_thread_context_changed # the channel/context the user is viewing
+      - message.im # DMs to the bot + assistant-pane messages
   interactivity:
     is_enabled: true
   socket_mode_enabled: true

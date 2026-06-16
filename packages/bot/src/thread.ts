@@ -90,6 +90,33 @@ export class Thread implements ThreadInterface {
     return adapter.postFile(this.deps.replyTarget, args);
   }
 
+  /** Pin suggested prompts (returns `{ ok: false }` on surfaces without support). */
+  async setSuggestedPrompts(
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.setSuggestedPrompts) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support suggested prompts`,
+      };
+    }
+    return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+  }
+
+  /** Name this conversation (returns `{ ok: false }` on surfaces without support). */
+  async setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.setThreadTitle) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support thread titles`,
+      };
+    }
+    return adapter.setThreadTitle(this.deps.replyTarget, title);
+  }
+
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
   async getMessages(): Promise<ThreadMessage[]> {
     return (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [];
