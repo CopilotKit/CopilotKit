@@ -297,7 +297,10 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       // with the rest of the harness (turn-indexed, defect-2 safe —
       // see `d5-gen-ui-custom.ts` for the same pattern).
       assertions: async (page, ctx) => {
-        await assertCustomCatchall(page, allExpected);
+        await assertCustomCatchall(page, allExpected, {
+          requireContentPhrase: true,
+          timeoutMs: POLL_TIMEOUT_MS,
+        });
         const phrase = CUSTOM_CATCHALL_CONTENT_PHRASE;
         if (!ctx.text.includes(phrase)) {
           throw new Error(
