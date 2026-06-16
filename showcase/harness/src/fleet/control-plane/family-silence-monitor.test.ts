@@ -6,12 +6,12 @@ import {
   SILENCE_ALERT_RATE_LIMIT_MS,
   SILENCE_PERIOD_MULTIPLIER,
 } from "./family-silence-monitor.js";
-import {
-  FLEET_FAMILIES,
-  type FamilySummaryEntry,
-  type FamilySummaryResponse,
-  type InflightState,
-  type RunBatch,
+import { FLEET_FAMILIES } from "./run-view.js";
+import type {
+  FamilySummaryEntry,
+  FamilySummaryResponse,
+  InflightState,
+  RunBatch,
 } from "./run-view.js";
 import type { ProducerSchedule } from "./control-plane.js";
 import type { JobProducer } from "./job-producer.js";
@@ -302,6 +302,57 @@ describe("family-silence monitor — silence alert", () => {
       `has never completed a run since ${iso(oldest)}`,
     );
     expect(posts[0]).toContain("last attempt: failed (worker-crashed-mid-job)");
+  });
+
+  it("does not alert when the family runs every cycle with cell-level reds but no commError (chronic-reds, worker healthy)", async () => {
+    // Regression for the D5/D6 family-silence false-alarm: the monitor reads
+    // §5.2.1 `lastSuccessAt`, whose new semantic counts a batch where every
+    // job reached a terminal state with no commError — i.e. cells red is
+    // fine. Synthesize the dashboard's observed shape: lastSuccessAt is fresh
+    // (one tick ago), lastRun outcome="failed" (chronic content reds), no
+    // inflight. The silence banner must STAY SILENT.
+    const now = BASE + 5 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(now, {
+            lastSuccessAt: iso(now - PERIOD),
+            lastRun: batch({
+              outcome: "failed",
+              enqueuedAt: iso(now - PERIOD - 120_000),
+              finishedAt: iso(now - PERIOD),
+              jobs: { total: 18, done: 1, failed: 17, reclaimed: 0 },
+              cells: { total: 180, passed: 50, failed: 130 },
+              commErrorKinds: [],
+            }),
+          }),
+        ),
+    });
+    await monitor.tick(now);
+    expect(posts).toEqual([]);
+  });
+
+  it("still alerts when the family STOPS emitting results entirely (real outage)", async () => {
+    // Negative case to preserve: a real worker outage (lastSuccessAt very
+    // stale, fresh inflight that's also stalled) must still trip the banner.
+    const now = BASE + 5 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(now, {
+            lastSuccessAt: iso(now - 4 * PERIOD),
+            lastRun: batch({
+              outcome: "failed",
+              enqueuedAt: iso(now - 4 * PERIOD - 120_000),
+              finishedAt: iso(now - 4 * PERIOD),
+              commErrorKinds: ["worker-crashed-mid-job"],
+            }),
+          }),
+        ),
+    });
+    await monitor.tick(now);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
   });
 
   it("zero-batch family never alerts", async () => {

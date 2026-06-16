@@ -12,11 +12,18 @@ import type {
 } from "../helpers/d5-registry.js";
 import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
 import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
+import type { Page as PlaywrightPage } from "playwright";
+import { countAssistantMessages } from "../helpers/assistant-message-count.js";
 import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page,
 } from "../helpers/conversation-runner.js";
+import {
+  installPrePaintFromEnv,
+  messagesOverrideFromEnv,
+} from "../helpers/init-scripts.js";
+import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import {
   formatCvdiag,
   appendHop,
@@ -25,10 +32,8 @@ import {
   X_DIAG_RUN_ID,
   X_DIAG_HOPS,
 } from "../helpers/cv-diag.js";
-import {
-  writeDiagEvent,
-  type DiagSinkClient,
-} from "../../storage/diag-sink.js";
+import { writeDiagEvent } from "../../storage/diag-sink.js";
+import type { DiagSinkClient } from "../../storage/diag-sink.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
@@ -472,8 +477,20 @@ const defaultLauncher: E2eFullBrowserLauncher =
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -598,8 +615,20 @@ export function createPooledE2eFullLauncher(
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -1676,11 +1705,19 @@ async function runFeature(opts: {
       hydrationMs: Date.now() - hydrationStart,
     });
 
-    const turns = script.buildTurns(buildCtx);
+    const defaultTurns = script.buildTurns(buildCtx);
+    // BUBBLE_RACE_MESSAGES env override (bubble-race-repro integration
+    // tests only — no-op in production). When set, replaces the demo's
+    // default turn sequence with one `{ input: <string> }` per env
+    // message so per-scenario test inputs flow through ONE channel
+    // rather than scattering test logic across each defect commit.
+    const turnsOverride = messagesOverrideFromEnv();
+    const turns = turnsOverride ?? defaultTurns;
     logger.debug("probe.e2e-full.runFeature.turns-built", {
       turnCount: turns.length,
       featureType: buildCtx.featureType,
       slug: buildCtx.integrationSlug,
+      bubbleRaceMessagesOverride: turnsOverride !== undefined,
     });
     const conversation = await runConversation(page, turns);
 
@@ -1784,6 +1821,18 @@ async function captureDiagnostics(
     }
     return { pageClosed: true };
   }
+  // Read the assistant-message count Node-side via the shared cascade
+  // BEFORE entering page.evaluate, then merge it into the diagnostics
+  // object. Routing through `countAssistantMessages` here is what
+  // closes defect 3 by construction — the conversation runner reads
+  // its settled count via the same helper, so diagnostics and runner
+  // can no longer report mismatched counts for the same frame.
+  // `page.evaluate` cannot await a Node-side helper from inside the
+  // browser context, so the call is hoisted out (per plan §2.2/N6).
+  const assistantMsgCount = await countAssistantMessages(
+    page as unknown as PlaywrightPage,
+  );
+
   try {
     diagnostics = await page.evaluate(() => {
       type EvalElement = {
@@ -1811,9 +1860,6 @@ async function captureDiagnostics(
         location: { href: string };
       };
 
-      const assistantMsgs = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
       const userMsgs = win.document.querySelectorAll(
         '[data-testid="copilot-user-message"]',
       );
@@ -1841,7 +1887,6 @@ async function captureDiagnostics(
       );
 
       return {
-        assistantMsgCount: assistantMsgs.length,
         userMsgCount: userMsgs.length,
         apiRequestCount: apiEntries.length,
         apiRequests: apiEntries.slice(0, 5),
@@ -1856,6 +1901,15 @@ async function captureDiagnostics(
     });
   } catch {
     // Page may be closed or crashed — can't gather DOM diagnostics.
+  }
+
+  // Merge the shared-cascade count Node-side. Done only when the
+  // browser-side evaluate succeeded so a crashed/closed page still
+  // produces the same `undefined` diagnostics as before this refactor
+  // — preserving the prior failure shape exactly. The browser-diag
+  // merge below independently hydrates a fresh object when needed.
+  if (diagnostics) {
+    diagnostics.assistantMsgCount = assistantMsgCount;
   }
 
   const browserDiag = page.getDiagnostics?.();

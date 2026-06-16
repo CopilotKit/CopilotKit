@@ -340,7 +340,7 @@ function formatTransitionLine(row: {
 }
 
 /**
- * Shared status row: API / E2E / CV badges (D2 API / D3 E2E / D5 Conversation).
+ * Shared status row: API / UI / 1P badges (D2 API / D3 UI / D5 Single Pill).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
  * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
@@ -379,28 +379,28 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
         dimensionKey={keyFor("agent", ctx.integration.slug)}
       />
       <LiveBadge
-        name="E2E"
+        name="UI"
         badge={cell.e2e}
         dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
       />
       {/*
-        CP8: CV producers (`e2e-deep`) only emit rows for primary features
-        per spec; testing-kind features never get a CV row, so the badge
+        CP8: 1P producers (`e2e-deep`) only emit rows for primary features
+        per spec; testing-kind features never get a 1P row, so the badge
         would render a perpetual gray "?" that adds noise without
         information. Hide for `isTesting` so operators only see badges
         backed by real data.
 
-        CP9: CV badges intentionally have no `href` — there is no
+        CP9: 1P badges intentionally have no `href` — there is no
         per-feature drilldown URL convention in shell-dashboard today.
         When a drilldown route exists (e.g. a per-(slug, feature) D5 run
         history page), wire the URL through `keyFor` here.
-        TODO(showcase-dashboard): CV drilldown URL — see
+        TODO(showcase-dashboard): 1P drilldown URL — see
         docs/spec §5.6 follow-up.
       */}
       {!isTesting && (
         <>
           <LiveBadge
-            name="CV"
+            name="1P"
             badge={cell.d5}
             dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
           />

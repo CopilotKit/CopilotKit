@@ -44,6 +44,13 @@ export interface Thread {
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */
   lookupUser(query: string): Promise<PlatformUser | undefined>;
+  /** Pin suggested prompts (capability-gated; returns `{ ok: false }` on surfaces without support). */
+  setSuggestedPrompts(
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }>;
+  /** Name this conversation (capability-gated; returns `{ ok: false }` on surfaces without support). */
+  setTitle(title: string): Promise<{ ok: boolean; error?: string }>;
 }
 export interface InteractionContext<TValue = unknown> {
   thread: Thread;

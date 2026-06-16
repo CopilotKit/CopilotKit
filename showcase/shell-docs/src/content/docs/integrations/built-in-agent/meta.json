@@ -6,6 +6,7 @@
     "index",
     "quickstart",
     "build-with-agents",
+    "---Concepts---",
     "---Basics---",
     "prebuilt-components",
     "custom-look-and-feel",
@@ -24,11 +25,11 @@
     "model-selection",
     "advanced-configuration",
     "telemetry",
-    "---Backend---",
-    "copilot-runtime", "custom-agent", "ag-ui",
+    "---Runtime---",
     "---Premium Features---",
     "...premium",
-    "---Troubleshooting---",
-    "...troubleshooting"
+    "---Deploy---",
+    "---Platforms---",
+    "---Other---"
   ]
 }

@@ -21,7 +21,8 @@ import {
   useRenderActivityMessage,
   useRenderToolCall,
 } from "@copilotkit/react-core/v2";
-import type { Message, ToolResult } from "@copilotkit/shared";
+import type { ToolMessage } from "@ag-ui/core";
+import type { Message } from "@copilotkit/shared";
 import { ActivityWrapper } from "./message-activity";
 import { AssistantBubble } from "./message-assistant";
 import { UserBubble } from "./message-user";
@@ -36,10 +37,10 @@ export function MessageList({ messages }: { messages: Message[] }) {
   // Without this the renderer can't see a result and the card stays in the
   // "in-progress" state forever.
   const toolMessagesByCallId = useMemo(() => {
-    const map = new Map<string, ToolResult>();
+    const map = new Map<string, ToolMessage>();
     for (const m of messages) {
       if (m.role === "tool" && "toolCallId" in m && m.toolCallId) {
-        map.set(m.toolCallId, m as ToolResult);
+        map.set(m.toolCallId, m as ToolMessage);
       }
     }
     return map;

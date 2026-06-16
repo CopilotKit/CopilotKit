@@ -157,6 +157,14 @@ export interface BusEvents {
    */
   "internal.backup.init-failed": { err: string; bucket: string };
   /**
+   * Emitted by `subscribeDeployResults` when `writer.write(...)` rejects
+   * for a deploy.result-derived ProbeResult. Mirrors other `*.failed`
+   * surfaces (probes.reload.failed / rules.reload.failed / writer.failed)
+   * so alerting subscribers can observe deploy-writer failures as a
+   * first-class bus event rather than only via the error log line.
+   */
+  "deploy.writer.failed": { err: string };
+  /**
    * Emitted by the alert engine when a rule's `suppress.when` expression
    * throws at evaluation time (R24 bucket-a#7). Fail-closed semantics:
    * the triggering alert is suppressed on eval error to avoid spamming

@@ -52,7 +52,7 @@ describe("D5 tool-rendering-default-catchall — buildTurns", () => {
     };
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(1);
-    expect(turns[0]!.input).toBe("weather in Tokyo");
+    expect(turns[0]!.input).toBe("forecast for Tokyo");
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 });

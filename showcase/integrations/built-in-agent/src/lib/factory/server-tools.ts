@@ -817,6 +817,8 @@ export function buildBaseServerTools(
   options: BaseServerToolOptions = {},
 ) {
   return [
+    weatherTool,
+    haikuTool,
     queryDataTool,
     manageTodosTool,
     getWeatherTool,
@@ -845,6 +847,8 @@ export const beautifulChatServerTools = buildBaseServerTools({
 });
 
 export const serverToolAudit = [
+  "weather",
+  "haiku",
   "query_data",
   "manage_todos",
   "get_todos",

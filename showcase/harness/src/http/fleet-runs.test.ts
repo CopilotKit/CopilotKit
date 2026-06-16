@@ -22,24 +22,25 @@ import {
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_SCHEDULE_ID,
   FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
-  type ProducerSchedule,
 } from "../fleet/control-plane/control-plane.js";
+import type { ProducerSchedule } from "../fleet/control-plane/control-plane.js";
 import {
   FLEET_FAMILIES,
   createMemoizedFamilySummary,
-  type FamilySummaryResponse,
-  type ProbeJobRecord,
-  type RunBatch,
-  type RunViewDeps,
+} from "../fleet/control-plane/run-view.js";
+import type {
+  FamilySummaryResponse,
+  ProbeJobRecord,
+  RunBatch,
+  RunViewDeps,
 } from "../fleet/control-plane/run-view.js";
 import {
   HISTORY_MEMO_MAX_KEYS,
   HISTORY_RATE_LIMIT_MAX,
   createLruTtlMemo,
   registerFleetRunsRoutes,
-  type FamilyHistoryResponse,
-  type RunDetailResponse,
 } from "./fleet-runs.js";
+import type { FamilyHistoryResponse, RunDetailResponse } from "./fleet-runs.js";
 
 // ───────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -126,6 +127,13 @@ function batchFixture(
     batchGapMs?: number;
     rowGapMs?: number;
     newestMs?: number;
+    /**
+     * Optional per-batch `result` payload. Returning a value with a `commError`
+     * is how a fixture flags a batch as a real worker outage (the §5.2.1
+     * terminal-completion predicate excludes batches with any commError, so
+     * those batches do NOT count toward `lastSuccessAt`).
+     */
+    resultFor?: (batchIdx: number) => unknown;
   } = {},
 ): ProbeJobRecord[] {
   const batchGapMs = opts.batchGapMs ?? 3_600_000;
@@ -134,6 +142,7 @@ function batchFixture(
   const rows: ProbeJobRecord[] = [];
   for (let b = 0; b < batchCount; b++) {
     const status = opts.statusFor ? opts.statusFor(b) : "done";
+    const result = opts.resultFor ? opts.resultFor(b) : undefined;
     for (let r = 0; r < size; r++) {
       const createdMs =
         newestMs - b * batchGapMs - (opts.sameMsWithinBatch ? 0 : r * rowGapMs);
@@ -147,6 +156,7 @@ function batchFixture(
           ...(status === "done" || status === "failed"
             ? { finishedAt: new Date(createdMs + 30_000).toISOString() }
             : {}),
+          ...(result !== undefined ? { result } : {}),
         }),
       );
     }
@@ -367,7 +377,7 @@ describe("GET /api/runs", () => {
     );
     expect(status).toBe(200);
     expect(body.families.map((f) => f.family).sort()).toEqual(
-      [...FLEET_FAMILIES.map((f) => f.family)].sort(),
+      FLEET_FAMILIES.map((f) => f.family).sort(),
     );
     for (const fam of FLEET_FAMILIES) {
       const entry = body.families.find((f) => f.family === fam.family);
@@ -437,13 +447,17 @@ describe("GET /api/runs", () => {
     expect(d5?.lastRun?.redsCleared).toBeNull();
   });
 
-  it("lastSuccessAt walk-back extends past page 1: a completed batch beyond the first 200 rows is found (gate-assigned T5 multi-page coverage)", async () => {
-    // 20 failed batches × 10 rows fill page 1 exactly (200 rows, NOT
-    // exhausted); the only completed batch sits on page 2 — the walk-back
-    // extension must fetch beyond page 1 to find it.
+  it("lastSuccessAt walk-back extends past page 1: a terminal-completion batch beyond the first 200 rows is found (gate-assigned T5 multi-page coverage)", async () => {
+    // 20 outage batches × 10 rows fill page 1 exactly (200 rows, NOT
+    // exhausted); the only terminal-completion batch sits on page 2 — the
+    // walk-back extension must fetch beyond page 1 to find it. Each page-1
+    // batch carries a `commError` on its result so it does NOT satisfy the
+    // §5.2.1 terminal-completion predicate (cells-red without commError WOULD
+    // qualify; that's the whole point of the redefinition).
     const failed = batchFixture("d6", 20, 10, {
       statusFor: () => "failed",
       batchGapMs: 3_600_000,
+      resultFor: () => ({ commError: { kind: "worker-crashed-mid-job" } }),
     });
     const completedCreatedMs = NOW_MS - 600_000 - 20 * 3_600_000;
     const completed: ProbeJobRecord[] = [];

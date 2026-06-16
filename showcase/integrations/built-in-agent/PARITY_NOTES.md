@@ -49,3 +49,11 @@ regressions.
 `manifest.yaml` uses `docs_mode: generated`. Highlights point at existing
 built-in-agent frontend files plus TypeScript route/factory files, and the
 bundler extracts `// @region[...]` blocks where available.
+
+## When to update this file
+
+- Adding a Strategy-B adaptation → document the primitive substitution here.
+- Adding a per-demo UI divergence vs. LGP → document the rationale.
+- Lifting a manifest quarantine → remove the corresponding entry above and
+  flip `not_supported_features` in `manifest.yaml` in the same commit.
+- Adding an NSF banner → list the demo + testid here.

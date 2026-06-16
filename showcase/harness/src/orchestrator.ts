@@ -9,6 +9,7 @@ import {
   assertSafeKey,
 } from "./storage/alert-state-store.js";
 import { createEventBus } from "./events/event-bus.js";
+import type { DeployResultEvent } from "./events/event-bus.js";
 import { createRuleLoader } from "./rules/rule-loader.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import { createRenderer } from "./render/renderer.js";
@@ -16,6 +17,7 @@ import { createAlertEngine } from "./alerts/alert-engine.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import type { Scheduler } from "./scheduler/scheduler.js";
 import { createStatusWriter } from "./writers/status-writer.js";
+import type { StatusWriter } from "./writers/status-writer.js";
 import { createSlackWebhookTarget } from "./targets/slack-webhook.js";
 import { createMetricsRegistry } from "./http/metrics.js";
 import {
@@ -36,7 +38,7 @@ import { createProbeRunWriter, sweepStaleRuns } from "./probes/run-history.js";
 import type { ProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
-import { livenessDriver } from "./probes/drivers/liveness.js";
+import { livenessDriver } from "./probes/drivers/d2-liveness.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
@@ -49,7 +51,7 @@ import {
   e2eReadinessDriver,
   createE2eDemosDriver,
   createPooledE2eDemosLauncher,
-} from "./probes/drivers/e2e-readiness.js";
+} from "./probes/drivers/d3-readiness.js";
 import {
   e2eFullDriver,
   createE2eFullDriver,
@@ -147,6 +149,225 @@ export interface BootOptions {
   fleetEnumerate?: ServiceEnumerator;
 }
 
+/**
+ * Load the deploy-webhook HMAC secrets from env and fail loud if absent
+ * in any deployable boot mode.
+ *
+ * Background: `POST /webhooks/deploy` is only registered when
+ * `webhookSecrets.length > 0` (see `buildServer` at
+ * `src/http/server.ts:119`). Pre-fix, the FATAL-CONFIG guard only fired
+ * when `NODE_ENV === "production"` — so any deploy that booted with a
+ * non-"production" NODE_ENV (unset, "prod", or set after the check by a
+ * launch hook) silently shipped with `webhookSecrets = []`, the gate
+ * skipped route registration, and every notify-harness POST from the
+ * `Showcase: Verify Deploy` workflow returned 404 without a peep.
+ *
+ * Predicate: throw unless either
+ *   - at least one of SHARED_SECRET / SHARED_SECRET_PREV is set to a
+ *     non-empty string, OR
+ *   - we are explicitly in a non-deployable mode: `NODE_ENV === "test"`
+ *     or the escape-hatch `HARNESS_ALLOW_NO_SECRET === "1"` (local dev).
+ *
+ * The escape hatch is intentionally narrow: NODE_ENV must be EXACTLY
+ * "test" (not "testing", not unset). Any other NODE_ENV value — incl.
+ * the unset case staging deploys hit — is treated as deployable and
+ * must carry a real secret.
+ *
+ * Called from BOTH boot paths (worker `boot()` and control-plane
+ * `runControlPlane`) so the deploy webhook is registered uniformly and
+ * a missing secret fails loud regardless of which role is selected.
+ */
+export function loadWebhookSecrets(logger_: typeof logger = logger): string[] {
+  const sharedSecret = process.env.SHARED_SECRET;
+  const sharedSecretPrev = process.env.SHARED_SECRET_PREV;
+  const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
+    (s): s is string => typeof s === "string" && s.length > 0,
+  );
+
+  if (webhookSecrets.length > 0) return webhookSecrets;
+
+  const isTestMode = process.env.NODE_ENV === "test";
+  const escapeHatch = process.env.HARNESS_ALLOW_NO_SECRET === "1";
+  if (isTestMode || escapeHatch) {
+    // CB-2 (Slot 2 #28): when the escape hatch fires with a real-looking
+    // NODE_ENV (anything except "test"), log at `warn` so a production
+    // typo (e.g. NODE_ENV=staging + HARNESS_ALLOW_NO_SECRET=1) is visible
+    // in dashboards / log alerting. Pure local-dev (NODE_ENV=test) stays
+    // at info level so a normal unit-test boot doesn't spam warnings.
+    const logLevel = escapeHatch && !isTestMode ? "warn" : "info";
+    logger_[logLevel]("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set to a non-empty value",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+      escapeHatch,
+    });
+    return webhookSecrets;
+  }
+
+  logger_.error("orchestrator.FATAL-CONFIG", {
+    msg: "SHARED_SECRET required — refusing to boot",
+    nodeEnv: process.env.NODE_ENV ?? "(unset)",
+  });
+  throw new Error(
+    "FATAL-CONFIG: SHARED_SECRET (or SHARED_SECRET_PREV) is required — refusing to boot " +
+      "in any deployable mode (gate at src/http/server.ts:119 only registers " +
+      "POST /webhooks/deploy when webhookSecrets.length > 0, so booting without " +
+      "a secret would silently 404 every notify-harness POST from the " +
+      "Showcase: Verify Deploy workflow). " +
+      "Set SHARED_SECRET (or SHARED_SECRET_PREV) in the env, or set " +
+      "NODE_ENV=test / HARNESS_ALLOW_NO_SECRET=1 for local dev. " +
+      `Current NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}.`,
+  );
+}
+
+/**
+ * Resolve the PocketBase URL with the SAME symmetric fail-loud predicate
+ * as `loadWebhookSecrets`: throw unless either
+ *   - POCKETBASE_URL is set to a non-empty string, OR
+ *   - we are explicitly in a non-deployable mode: `NODE_ENV === "test"`
+ *     OR the escape-hatch `HARNESS_ALLOW_NO_PB_URL === "1"` (local dev).
+ *
+ * R1-F3 fix: pre-fix the inline guard only fired when
+ * `NODE_ENV === "production"`, so a staging / unset / "development" deploy
+ * silently bound to `http://localhost:8090` and every PB read/write hit a
+ * non-existent host. That was asymmetric with `loadWebhookSecrets` (which
+ * already used the test-or-escape-hatch predicate) — now both checks share
+ * one predicate so staging deploys fail loud on either misconfig.
+ *
+ * NOTE: the legacy single-purpose `HARNESS_ALLOW_NO_SECRET` flag is kept
+ * separate (this skill could unify them under a single HARNESS_DEV_LOCAL
+ * but doing so in this PR risks a tooling-env footgun — defer).
+ *
+ * Called from BOTH boot paths (worker `boot()` and the CP's
+ * `resolveFleetPbConfig`) so neither role can silently bind to a fake PB.
+ */
+export function loadPocketbaseUrl(logger_: typeof logger = logger): string {
+  const rawPbUrl = process.env.POCKETBASE_URL;
+  if (typeof rawPbUrl === "string" && rawPbUrl.length > 0) return rawPbUrl;
+
+  const isTestMode = process.env.NODE_ENV === "test";
+  const escapeHatch = process.env.HARNESS_ALLOW_NO_PB_URL === "1";
+  if (isTestMode || escapeHatch) {
+    const logLevel = escapeHatch && !isTestMode ? "warn" : "info";
+    logger_[logLevel]("orchestrator.pocketbase-url-default", {
+      msg: "POCKETBASE_URL unset — defaulting to http://localhost:8090",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+      escapeHatch,
+    });
+    return "http://localhost:8090";
+  }
+
+  logger_.error("orchestrator.FATAL-CONFIG", {
+    msg: "POCKETBASE_URL required — refusing to boot",
+    nodeEnv: process.env.NODE_ENV ?? "(unset)",
+  });
+  throw new Error(
+    "FATAL-CONFIG: POCKETBASE_URL is required — refusing to boot " +
+      "in any deployable mode. A missing POCKETBASE_URL pre-fix silently " +
+      "bound the orchestrator to http://localhost:8090, causing every " +
+      "PB read/write to fail against a non-existent host. " +
+      "Set POCKETBASE_URL in the env, or set " +
+      "NODE_ENV=test / HARNESS_ALLOW_NO_PB_URL=1 for local dev. " +
+      `Current NODE_ENV=${process.env.NODE_ENV ?? "(unset)"}.`,
+  );
+}
+
+/**
+ * Resolve `OPS_TRIGGER_TOKEN` with the SAME fail-loud-at-top discipline as
+ * `loadWebhookSecrets` / `loadPocketbaseUrl`: a set-but-empty (or
+ * whitespace-only) value is a misconfiguration and throws; unset means
+ * "router intentionally disabled" and returns `undefined`; a real value is
+ * returned trimmed (matches the auth-layer's symmetric trim — see
+ * R3-A.5).
+ *
+ * R3-F1 fix: pre-fix the empty-string check lived AFTER pb / bus /
+ * scheduler / writer / S3 uploader allocations in BOTH boot paths
+ * (worker `boot()` and `runControlPlane`), so a typo'd
+ * `OPS_TRIGGER_TOKEN=` allocated expensive resources before throwing.
+ * Hoisting via this helper puts the check next to the other fail-loud
+ * predicates at the top of each boot path.
+ *
+ * Returns the trimmed token string, or `undefined` when the env var is
+ * unset (intentional disable — callers log "router-disabled" and omit
+ * the /api/probes router).
+ */
+export function loadOpsTriggerToken(
+  logger_: typeof logger = logger,
+): string | undefined {
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken === undefined) return undefined;
+  if (rawTriggerToken.trim() === "") {
+    logger_.error("orchestrator.FATAL-CONFIG", {
+      msg: "OPS_TRIGGER_TOKEN set but empty — refusing to boot",
+    });
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  // R3-A.5: trim defense-in-depth so the value passed downstream matches
+  // exactly what the bearer-auth middleware compares against (see auth.ts).
+  return rawTriggerToken.trim();
+}
+
+/**
+ * Subscribe to `deploy.result` events on the given bus, routing each event
+ * through `writer.write(deployEventToProbeResult(...))` so the deploy
+ * webhook POST emits a `status.changed` row on the dashboard.
+ *
+ * R1-F1 fix: pre-fix this subscription lived inline in worker `boot()`
+ * only — the CP `runControlPlane` path registered POST /webhooks/deploy
+ * (after B2) but had no subscriber, so a valid signed POST returned 202
+ * and the event vanished. Extracted so BOTH boot paths can share the
+ * exact same handler logic.
+ *
+ * The returned function is the bus unsubscribe handle — callers append
+ * it to their teardown array (worker `boot()`'s `busUnsubs`); the CP
+ * path keeps it alive for the lifetime of the bus (no per-handler
+ * teardown is needed; the bus itself drops with the process).
+ */
+export function subscribeDeployResults(
+  bus: ReturnType<typeof createEventBus>,
+  writer: Pick<StatusWriter, "write">,
+  logger_: typeof logger = logger,
+): () => void {
+  const deployCtx = {
+    now: () => new Date(),
+    logger: logger_,
+    env: process.env as Readonly<Record<string, string | undefined>>,
+  };
+  return bus.on("deploy.result", (event: DeployResultEvent) => {
+    // R3-F2: a synchronous throw inside `deployEventToProbeResult`
+    // (malformed event, unexpected type drift, etc.) pre-fix bypassed
+    // the `.catch` below — the bus saw the throw and we lost both the
+    // log AND the `deploy.writer.failed` emit. Mirror the rejection
+    // path here so alert rules / metrics subscribers observe sync
+    // throws the same way they observe async write failures.
+    let result;
+    try {
+      result = deployEventToProbeResult(event, deployCtx);
+    } catch (err) {
+      logErrorWithStack(
+        logger_,
+        "orchestrator.deploy-writer-failed",
+        err as unknown,
+      );
+      bus.emit("deploy.writer.failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+    writer.write(result).catch((err) => {
+      logErrorWithStack(logger_, "orchestrator.deploy-writer-failed", err);
+      // R2-F2: emit a bus event in addition to logging so alert rules /
+      // metrics subscribers can observe deploy-writer write failures as a
+      // first-class signal (matching other `*.failed` surfaces like
+      // `writer.failed`, `probes.reload.failed`, `rules.reload.failed`).
+      bus.emit("deploy.writer.failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
+  });
+}
+
 export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;
@@ -158,24 +379,28 @@ export async function boot(opts: BootOptions = {}): Promise<{
    */
   bus: ReturnType<typeof createEventBus>;
 }> {
-  // HF13-A2: fail loud on missing POCKETBASE_URL in production. Pre-fix the
-  // `?? "http://localhost:8090"` fallback silently bound a prod orchestrator
-  // to a non-existent localhost PB — no status reads, no state writes, no
-  // alerts. Shell-dashboard's `pb.ts` uses a `pbIsMisconfigured` sentinel and
-  // fails loud; orchestrator was asymmetric. Now it throws on boot in prod so
-  // the deploy CI (or Railway health-check) catches it immediately instead of
-  // discovering it hours later via silent alert suppression.
-  const rawPbUrl = process.env.POCKETBASE_URL;
-  if (!rawPbUrl && process.env.NODE_ENV === "production") {
-    logger.error("orchestrator.FATAL-CONFIG", {
-      msg: "POCKETBASE_URL required in production",
-      nodeEnv: process.env.NODE_ENV,
-    });
-    throw new Error(
-      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
-    );
-  }
-  const pbUrl = rawPbUrl ?? "http://localhost:8090";
+  // R1-F2: hoist all fail-loud config validation to the TOP of boot() —
+  // BEFORE any pb client / bus / scheduler / writer / S3 uploader allocations.
+  // Pre-fix `loadWebhookSecrets` lived AFTER the entire scheduler+writer
+  // setup, and `POCKETBASE_URL` had a narrower predicate than SHARED_SECRET
+  // (only NODE_ENV=production), so a misconfigured staging boot allocated
+  // expensive resources, mounted file watchers, and registered scheduler
+  // entries before throwing. Now both checks fire here, before anything that
+  // would need teardown.
+  //
+  // R1-F3: `loadPocketbaseUrl` replaces the inline production-only guard
+  // with the same test-or-escape-hatch predicate `loadWebhookSecrets` uses,
+  // so staging/development/unset NODE_ENV fail loud on BOTH config misses
+  // instead of just SHARED_SECRET.
+  //
+  // R3-F1: hoist `OPS_TRIGGER_TOKEN` set-but-empty fail-loud here too.
+  // Pre-fix this check lived AFTER pb / bus / scheduler / writer / S3
+  // uploader allocations, so a typo'd `OPS_TRIGGER_TOKEN=` allocated
+  // expensive resources before throwing. Now all three fail-loud config
+  // predicates fire at the top, before anything that would need teardown.
+  const pbUrl = loadPocketbaseUrl(logger);
+  const webhookSecrets = loadWebhookSecrets(logger);
+  const triggerToken = loadOpsTriggerToken(logger);
   // These authenticate against `/api/collections/_superusers/auth-with-password`
   // in pb-client, so the env var names intentionally mirror "superuser" —
   // previously `POCKETBASE_WRITER_*`, renamed to eliminate the naming drift
@@ -234,7 +459,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     opts.configDir ?? path.resolve(process.cwd(), "config/alerts");
   // L1-L4 per-starter dimensions (agent/chat/tools) don't have dedicated probe
   // modules today — their signals flow through the same smoke/e2e-smoke drivers
-  // as side-emissions (see probes/drivers/liveness.ts). The safe-field sets for
+  // as side-emissions (see probes/drivers/d2-liveness.ts). The safe-field sets for
   // them mirror smoke's sanitized-errorDesc allow-list so triple-brace
   // {{{signal.errorDesc}}} in the red-tick YAMLs loads. Keep these in lockstep
   // with LIVENESS_SLACK_SAFE_FIELDS — any new sanitized field added there SHOULD
@@ -599,7 +824,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // we compute a PER-CFG env overlay via `envForCfg(cfg, baseEnv)` and
     // hand it to `buildProbeInvoker` as the invoker's `env`. Drivers
     // read the timeout via `ctx.env.E2E_DEMOS_TIMEOUT_MS` (see
-    // drivers/e2e-readiness.ts — `TIMEOUT_ENV_VAR`).
+    // drivers/d3-readiness.ts — `TIMEOUT_ENV_VAR`).
     //
     // Pre-fix this loop wrote `process.env.E2E_DEMOS_TIMEOUT_MS = ...`
     // directly. Three problems with that:
@@ -752,48 +977,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
       });
   });
 
-  // Route deploy.result webhook events through the writer so they emit status.changed.
-  const deployCtx = {
-    now: () => new Date(),
-    logger,
-    env: process.env as Readonly<Record<string, string | undefined>>,
-  };
-  busUnsubs.push(
-    bus.on("deploy.result", (event) => {
-      const result = deployEventToProbeResult(event, deployCtx);
-      writer
-        .write(result)
-        .catch((err) =>
-          logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
-        );
-    }),
-  );
-
-  const sharedSecret = process.env.SHARED_SECRET;
-  const sharedSecretPrev = process.env.SHARED_SECRET_PREV;
-  const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
-    (s): s is string => typeof s === "string" && s.length > 0,
-  );
-  // R5-G4 D5: empty webhookSecrets silently disables auth on the
-  // deploy.result webhook — anyone who knows the URL can POST. Mirror
-  // the POCKETBASE_URL fail-loud pattern: in production the missing
-  // config is a deploy bug that must surface immediately. In dev/test
-  // emit an info log so developers see the bypass.
-  if (webhookSecrets.length === 0) {
-    if (process.env.NODE_ENV === "production") {
-      logger.error("orchestrator.FATAL-CONFIG", {
-        msg: "SHARED_SECRET required in production",
-        nodeEnv: process.env.NODE_ENV,
-      });
-      throw new Error(
-        "FATAL-CONFIG: SHARED_SECRET required in production (NODE_ENV=production)",
-      );
-    }
-    logger.info("orchestrator.webhook-auth-bypass", {
-      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
-      nodeEnv: process.env.NODE_ENV ?? "(unset)",
-    });
-  }
+  // R1-F1: route deploy.result webhook events through the writer so they
+  // emit status.changed. Extracted into `subscribeDeployResults` so the CP
+  // boot path (runControlPlane) shares the IDENTICAL handler — pre-fix the
+  // subscription lived only here, so a valid signed POST against the CP host
+  // returned 202 and the event vanished (no dashboard row written).
+  busUnsubs.push(subscribeDeployResults(bus, writer, logger));
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the
@@ -803,31 +992,15 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // in stop() so post-shutdown probes also read correctly.
   let schedulerRunning = false;
 
-  // F1: only mount the /api/probes router when an OPS_TRIGGER_TOKEN is
-  // configured. The router's bearer-auth middleware is fail-loud at
-  // construction (MissingAuthTokenError) — wiring it unconditionally would
-  // break every test / dev boot that doesn't set the env var. When unset we
-  // log at info level so operators can see the routes were intentionally
-  // skipped, then flag it as a hardening concern in the boot summary.
-  //
-  // R2-B.3: distinguish "unset" (intentional disable) from "set-but-empty"
-  // (misconfiguration). An operator who mistypes `OPS_TRIGGER_TOKEN=`
-  // (no value) ships an empty string AND would otherwise see a silent-skip
-  // log instead of the load-bearing fail-loud error. Whitespace-only is
-  // treated identically: trim() then reject if zero-length.
-  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
-  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
-    throw new Error(
-      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
-    );
-  }
-  // R3-A.5: trim defense-in-depth. The auth layer (auth.ts) also trims
-  // both sides at construction, but normalising here keeps the orchestrator
-  // contract honest — the value passed downstream is the same one the
-  // bearer-auth middleware will compare against. Pre-fix, a "  abc  "
-  // token boot'd successfully but the auth layer's asymmetric trimming
-  // (presented trimmed, expected verbatim) silently 401'd every request.
-  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  // F1 / R2-B.3 / R3-A.5 / R3-F1: only mount the /api/probes router when
+  // an OPS_TRIGGER_TOKEN is configured. The router's bearer-auth
+  // middleware is fail-loud at construction (MissingAuthTokenError) —
+  // wiring it unconditionally would break every test / dev boot that
+  // doesn't set the env var. When unset we log at info level so operators
+  // can see the routes were intentionally skipped, then flag it as a
+  // hardening concern in the boot summary. Set-but-empty (incl.
+  // whitespace-only) is rejected fail-loud by `loadOpsTriggerToken` at
+  // the top of boot() — see the hoisted call above.
   const probesDeps = triggerToken
     ? {
         scheduler,
@@ -2331,10 +2504,27 @@ export async function runControlPlane(
     poolCount: config.poolCount,
   });
 
+  // R1-F2: hoist all fail-loud config validation to the TOP of
+  // runControlPlane — BEFORE any pb client / queue / bus / scheduler /
+  // aggregator / fleet-health allocations. Pre-fix `loadWebhookSecrets`
+  // ran AFTER pb+claim+bus+queue+scheduler were already constructed, so
+  // a misconfigured CP boot allocated five resources before throwing.
+  // Now both checks fire here; if either throws, no teardown is needed.
+  //
+  // R1-F3: `resolveFleetPbConfig` now defers to `loadPocketbaseUrl` so
+  // the CP path's POCKETBASE_URL predicate matches `loadWebhookSecrets`'
+  // semantics (test-or-escape-hatch instead of production-only).
+  //
+  // R3-F1: hoist `OPS_TRIGGER_TOKEN` set-but-empty fail-loud here too.
+  // Pre-fix this check lived AFTER pb / claim / bus / queue / scheduler /
+  // statusWriter / aggregator / fleet-health allocations, so a typo'd
+  // `OPS_TRIGGER_TOKEN=` allocated all of those before throwing.
+  const webhookSecrets = loadWebhookSecrets(logger);
+  const triggerToken = loadOpsTriggerToken(logger);
+  const pbCfg = resolveFleetPbConfig();
+
   const env = process.env;
   const port = opts.port ?? (Number(env.PORT ?? 8080) || 8080);
-
-  const pbCfg = resolveFleetPbConfig();
   const pb = createPbClient({
     url: pbCfg.url,
     email: pbCfg.email,
@@ -2360,6 +2550,13 @@ export async function runControlPlane(
   });
   const scheduler = createScheduler({ logger });
 
+  // A metrics registry on the CP role lets /metrics expose webhook
+  // rejection / HMAC-failure counters from the deploy webhook (same surface
+  // the worker boot exposes). Cheap (in-process counters only, no scrape
+  // server) and matches the worker buildServer call's wiring.
+  // (R1-F2: `webhookSecrets` hoisted to the top — see above.)
+  const metrics = createMetricsRegistry();
+
   // S5 aggregator — the ONLY authoritative dashboard writer — over the
   // UNCHANGED status + run-history pipelines (preserves the dashboard row
   // shapes exactly; see result-aggregator.ts). It is the single sink for BOTH
@@ -2375,6 +2572,24 @@ export async function runControlPlane(
     logger,
     writtenBy: "fleet-cp",
   });
+
+  // Track CP-side bus subscriptions so stop() / bind-failure teardown can
+  // release them symmetrically (mirrors worker `boot()`'s `busUnsubs`
+  // pattern). Pre-fix the CP path discarded the unsub returned by
+  // `subscribeDeployResults`, so a repeated boot/stop cycle (e.g. tests
+  // that exercise the CP role multiple times) leaked the deploy.result
+  // handler against the prior writer.
+  const cpUnsubs: Array<() => void> = [];
+
+  // R1-F1: subscribe `deploy.result` events through the CP's status writer
+  // so a valid signed POST against the CP host actually writes the
+  // deploy-overall dashboard row. Pre-fix this subscription only existed in
+  // worker `boot()` — after B2 mounted the route on the CP, signed POSTs
+  // returned 202 but the bus event had no listener and the dashboard row
+  // never landed. R2-F1: the returned unsub is captured into `cpUnsubs` so
+  // stop() and the bind-failure teardown release the listener.
+  cpUnsubs.push(subscribeDeployResults(bus, statusWriter, logger));
+
   // REQ-B: read the CURRENT dashboard status-row colour for an aggregate key.
   // Validates the read value against the known State set; a never-observed key
   // (no row) returns null, never a fabricated green. Self-defensive: a lookup
@@ -2933,13 +3148,10 @@ export async function runControlPlane(
   // Token handling mirrors boot() exactly (fail-safe): unset → router omitted;
   // set-but-empty (incl. whitespace-only) → fail-loud at boot so a mistyped
   // `OPS_TRIGGER_TOKEN=` can't silently ship an insecure/always-reject route.
-  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
-  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
-    throw new Error(
-      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
-    );
-  }
-  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  // R3-F1: the empty-string / whitespace-only fail-loud check is now hoisted
+  // via `loadOpsTriggerToken(logger)` at the TOP of runControlPlane (above)
+  // — `triggerToken` here is already either undefined (intentional disable)
+  // or a trimmed non-empty string. Re-bind locally is unnecessary.
   const probesDeps = triggerToken
     ? {
         scheduler,
@@ -2981,6 +3193,14 @@ export async function runControlPlane(
     schedulerJobCount: () => scheduler.list().length,
     schedulerIsStopped: () => scheduler.isStopped(),
     bus,
+    // B2 fix: register POST /webhooks/deploy on the CP role too — the public
+    // Railway host running the CP role is the one that receives the
+    // notify-harness POST after every main deploy. Pre-fix the gate at
+    // http/server.ts:119 silently skipped registration because these two were
+    // omitted from the CP buildServer call (worker boot path had them), so
+    // every POST returned 404 since at least 2026-06-12.
+    webhookSecrets,
+    metrics,
     probes: probesDeps,
     // §5.2 unconditional CP mount: unlike `probes` (token-gated), the
     // read-only fleet-runs routes are ALWAYS supplied on the control-plane
@@ -3028,6 +3248,18 @@ export async function runControlPlane(
           unwatchErr instanceof Error ? unwatchErr.message : String(unwatchErr),
       });
     }
+    // R2-F1: release every CP-side bus subscription so a failed bind never
+    // leaves the deploy.result handler attached against a now-stale writer.
+    for (const u of cpUnsubs) {
+      try {
+        u();
+      } catch (unsubErr) {
+        logger.error("fleet.control-plane.bus-unsub-after-bind-failure", {
+          err: unsubErr instanceof Error ? unsubErr.message : String(unsubErr),
+        });
+      }
+    }
+    cpUnsubs.length = 0;
     await controlPlane.stop().catch((stopErr) =>
       logger.error("fleet.control-plane.stop-after-bind-failure", {
         err: stopErr instanceof Error ? stopErr.message : String(stopErr),
@@ -3102,6 +3334,20 @@ export async function runControlPlane(
           err: err instanceof Error ? err.message : String(err),
         });
       }
+      // R2-F1: release every CP-side bus subscription so a repeated
+      // boot/stop cycle never leaks the deploy.result handler against the
+      // prior status writer (mirrors worker `boot()`'s `busUnsubs` drain).
+      for (const u of cpUnsubs) {
+        try {
+          u();
+        } catch (unsubErr) {
+          logger.error("fleet.control-plane.bus-unsub-on-stop-failed", {
+            err:
+              unsubErr instanceof Error ? unsubErr.message : String(unsubErr),
+          });
+        }
+      }
+      cpUnsubs.length = 0;
       // controlPlane.stop() clears its own internal fleet-health + consumer
       // intervals (REQ-B seams now own that lifecycle).
       await controlPlane.stop();
@@ -3199,18 +3445,13 @@ function resolveFleetPbConfig(): {
   email?: string;
   password?: string;
 } {
-  const rawPbUrl = process.env.POCKETBASE_URL;
-  if (!rawPbUrl && process.env.NODE_ENV === "production") {
-    logger.error("orchestrator.FATAL-CONFIG", {
-      msg: "POCKETBASE_URL required in production",
-      nodeEnv: process.env.NODE_ENV,
-    });
-    throw new Error(
-      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
-    );
-  }
+  // R1-F3: use the shared `loadPocketbaseUrl` so the CP path's
+  // POCKETBASE_URL predicate matches `loadWebhookSecrets`' semantics
+  // (throw unless NODE_ENV=test OR HARNESS_ALLOW_NO_PB_URL=1). Pre-fix
+  // the predicate was production-only, so a staging/unset/"development"
+  // boot silently bound to http://localhost:8090.
   return {
-    url: rawPbUrl ?? "http://localhost:8090",
+    url: loadPocketbaseUrl(logger),
     email: process.env.POCKETBASE_SUPERUSER_EMAIL,
     password: process.env.POCKETBASE_SUPERUSER_PASSWORD,
   };

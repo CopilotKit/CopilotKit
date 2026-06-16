@@ -10,11 +10,11 @@ import { gotoDemoAndWaitForRuntime } from "./helpers";
 //     `messageView.reasoningMessage` slot (<ReasoningBlock>).
 //   - Per-tool renderers wired via `useRenderTool` for `get_weather` and
 //     `search_flights`, plus a `useDefaultRenderTool` catchall that
-//     paints `get_stock_price` and `roll_dice`.
+//     paints `get_stock_price` and `roll_d20`.
 //
 // Every pill drives a CHAINED two-tool flow:
 //   - Stocks: get_stock_price(AAPL) → get_stock_price(MSFT) → comparison.
-//   - Dice: roll_dice(sides=20) → roll_dice(sides=6) → contrast.
+//   - Dice: roll_d20(sides=20) → roll_d20(sides=6) → contrast.
 //   - Flights+weather: search_flights(SFO,JFK) → get_weather(JFK) → plan.
 //
 // Aimock fixtures live in showcase/aimock/d5-all.json (and the matching
@@ -113,7 +113,7 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
       .click();
 
     const diceCards = page.locator(
-      '[data-testid="custom-catchall-card"][data-tool-name="roll_dice"]',
+      '[data-testid="custom-catchall-card"][data-tool-name="roll_d20"]',
     );
     await expect
       .poll(async () => diceCards.count(), { timeout: TOOL_TIMEOUT })
@@ -217,7 +217,7 @@ test.describe("Tool Rendering — Reasoning Chain", () => {
       .first()
       .click();
     const diceCards = page.locator(
-      '[data-testid="custom-catchall-card"][data-tool-name="roll_dice"]',
+      '[data-testid="custom-catchall-card"][data-tool-name="roll_d20"]',
     );
     await expect
       .poll(async () => diceCards.count(), { timeout: TOOL_TIMEOUT })

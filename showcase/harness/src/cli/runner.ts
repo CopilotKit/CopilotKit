@@ -38,7 +38,7 @@ import {
 } from "./results.js";
 import type { TerminalResult, PbWriteConfig } from "./results.js";
 
-import { livenessDriver } from "../probes/drivers/liveness.js";
+import { livenessDriver } from "../probes/drivers/d2-liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
 import {
   createE2eFullDriver,

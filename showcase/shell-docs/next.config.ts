@@ -75,6 +75,14 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
+      // The BIA index.mdx is reachable through the content fallback as
+      // `/index`, which would duplicate the home page under a second
+      // URL. Canonicalize it to the root.
+      {
+        source: "/index",
+        destination: "/",
+        permanent: true,
+      },
       {
         source: "/frontend-actions",
         destination: "/frontend-tools",
@@ -100,63 +108,52 @@ const nextConfig: NextConfig = {
         destination: "/concepts/oss-vs-enterprise",
         permanent: true,
       },
-      // Quickstart needs a real backing page when hit without a stored
-      // framework. `SidebarLink` rewrites `/quickstart` → `/<framework>/quickstart`
-      // when a framework is selected; users who land here cold (or who
-      // explicitly picked the bare CopilotKit / Built-in Agent view)
-      // get the Built-in Agent quickstart by default. 308 keeps the
-      // sidebar's `/quickstart` href intact while always sending the
-      // user to a real guide.
-      {
-        source: "/quickstart",
-        destination: "/built-in-agent/quickstart",
-        permanent: true,
-      },
-
       // /unselected/* tree retired. Files moved to integrations/built-in-agent/
       // (BIA replaced the old "unselected" slot as the default integration).
-      // Per-path entries below cover BIA-canonical mappings (direct moves +
-      // slug renames from SUBPATH_RENAMES in seo-redirects.ts); the catch-all
-      // at the bottom routes everything else into /built-in-agent/ to preserve
-      // SEO equity, since these legacy URLs historically served BIA content.
+      // The Built-in Agent docs are served at the ROOT surface (no
+      // framework prefix), so per-path entries below map directly onto
+      // root URLs (direct moves + slug renames from SUBPATH_RENAMES in
+      // seo-redirects.ts); the catch-all at the bottom routes everything
+      // else to the root to preserve SEO equity, since these legacy URLs
+      // historically served BIA content.
       {
         source: "/unselected",
-        destination: "/built-in-agent",
+        destination: "/",
         permanent: true,
       },
       {
         source: "/unselected/quickstart",
-        destination: "/built-in-agent/quickstart",
+        destination: "/quickstart",
         permanent: true,
       },
       {
         source: "/unselected/advanced-configuration",
-        destination: "/built-in-agent/advanced-configuration",
+        destination: "/advanced-configuration",
         permanent: true,
       },
       {
         source: "/unselected/mcp-servers",
-        destination: "/built-in-agent/mcp-servers",
+        destination: "/mcp-servers",
         permanent: true,
       },
       {
         source: "/unselected/model-selection",
-        destination: "/built-in-agent/model-selection",
+        destination: "/model-selection",
         permanent: true,
       },
       {
         source: "/unselected/server-tools",
-        destination: "/built-in-agent/server-tools",
+        destination: "/server-tools",
         permanent: true,
       },
       {
         source: "/unselected/shared-state",
-        destination: "/built-in-agent/shared-state",
+        destination: "/shared-state",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/mcp-apps",
-        destination: "/built-in-agent/generative-ui/mcp-apps",
+        destination: "/generative-ui/mcp-apps",
         permanent: true,
       },
       // Cat C promotions whose canonical home moved off the unselected
@@ -174,8 +171,9 @@ const nextConfig: NextConfig = {
       // custom-agent: consolidate two divergent shell-docs copies onto the
       // structurally-complete backend/custom-agent.mdx (508 lines, matches
       // upstream snippet). The integrations/built-in-agent/custom-agent.mdx
-      // copy (240 lines, missing 5 sections) was retired; redirect both
-      // historical paths.
+      // copy (240 lines, missing 5 sections) was retired; redirect all
+      // historical paths, including the bare root URL the BIA sidebar's
+      // Backend section links to.
       {
         source: "/built-in-agent/custom-agent",
         destination: "/backend/custom-agent",
@@ -184,6 +182,38 @@ const nextConfig: NextConfig = {
       {
         source: "/integrations/built-in-agent/custom-agent",
         destination: "/backend/custom-agent",
+        permanent: true,
+      },
+      {
+        source: "/custom-agent",
+        destination: "/backend/custom-agent",
+        permanent: true,
+      },
+
+      // ----------------------------------------------------------------
+      // Built-in Agent served at the root: /built-in-agent/<page> moved
+      // to /<page>. Specific entries first (they must win over the
+      // catch-all), then the catch-all that strips the prefix.
+      // ----------------------------------------------------------------
+      // BIA's AG-UI backend page lives at /backend/ag-ui at the root —
+      // the bare /ag-ui segment is owned by the AG-UI protocol docs
+      // (src/app/ag-ui/), so the page can't keep its old slug.
+      {
+        source: "/built-in-agent/ag-ui",
+        destination: "/backend/ag-ui",
+        permanent: true,
+      },
+      // Tutorials are retired (see /tutorials/:path* below). Preserve the
+      // old middleware behavior of sending framework-scoped tutorial URLs
+      // to the quickstart rather than bouncing them through /tutorials → /.
+      {
+        source: "/built-in-agent/tutorials/:path*",
+        destination: "/quickstart",
+        permanent: true,
+      },
+      {
+        source: "/built-in-agent/:path*",
+        destination: "/:path*",
         permanent: true,
       },
       // troubleshooting/migrate-to-* in unselected → existing
@@ -222,97 +252,99 @@ const nextConfig: NextConfig = {
         destination: "/human-in-the-loop",
         permanent: true,
       },
-      // agent-app-context was concept-per-framework only; no canonical
-      // root home. Send legacy URLs to `/` rather than 404 — readers
-      // who stored the old link will land on docs and can navigate.
+      // agent-app-context now has a root home: the BIA-authored page is
+      // served at the bare URL.
       {
         source: "/unselected/agent-app-context",
-        destination: "/",
+        destination: "/agent-app-context",
         permanent: true,
       },
       // Slug-rename entries (mirror SUBPATH_RENAMES in seo-redirects.ts).
       // These MUST come before the catch-all so the rename wins. Each
-      // historical slug under /unselected/ has been renamed under
-      // /built-in-agent/; e.g. agentic-chat-ui → prebuilt-components.
+      // historical slug under /unselected/ has been renamed at the root
+      // BIA surface; e.g. agentic-chat-ui → prebuilt-components.
       {
         source: "/unselected/agentic-chat-ui",
-        destination: "/built-in-agent/prebuilt-components",
+        destination: "/prebuilt-components",
         permanent: true,
       },
       {
         source: "/unselected/use-agent-hook",
-        destination: "/built-in-agent/programmatic-control",
+        destination: "/programmatic-control",
         permanent: true,
       },
       {
         source: "/unselected/frontend-actions",
-        destination: "/built-in-agent/frontend-tools",
+        destination: "/frontend-tools",
         permanent: true,
       },
+      // No coding-agents page exists any more; match the root-level
+      // R19 (/vibe-coding-mcp) and R18 (/mcp) rules in seo-redirects.ts.
       {
         source: "/unselected/vibe-coding-mcp",
-        destination: "/built-in-agent/coding-agents",
+        destination: "/build-with-agents",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/agentic",
-        destination:
-          "/built-in-agent/generative-ui/your-components/display-only",
+        destination: "/generative-ui/your-components/display-only",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/backend-tools",
-        destination: "/built-in-agent/generative-ui/tool-rendering",
+        destination: "/generative-ui/tool-rendering",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/frontend-tools",
-        destination: "/built-in-agent/frontend-tools",
+        destination: "/frontend-tools",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/render-only",
-        destination:
-          "/built-in-agent/generative-ui/your-components/display-only",
+        destination: "/generative-ui/your-components/display-only",
         permanent: true,
       },
       {
         source: "/unselected/generative-ui/tool-based",
-        destination: "/built-in-agent/generative-ui/tool-rendering",
+        destination: "/generative-ui/tool-rendering",
         permanent: true,
       },
       {
         source: "/unselected/custom-look-and-feel/bring-your-own-components",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
       {
         source:
           "/unselected/custom-look-and-feel/customize-built-in-ui-components",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
       {
         source: "/unselected/custom-look-and-feel/markdown-rendering",
-        destination: "/built-in-agent/custom-look-and-feel/slots",
+        destination: "/custom-look-and-feel/slots",
         permanent: true,
       },
+      // The /guides tree no longer exists anywhere (the old destination
+      // 404'd through the BIA route); send readers home instead.
       {
         source: "/unselected/guide",
-        destination: "/built-in-agent/guides",
+        destination: "/",
         permanent: true,
       },
       {
         source: "/unselected/mcp",
-        destination: "/built-in-agent/coding-agents",
+        destination: "/build-with-agents",
         permanent: true,
       },
-      // Catch-all: route remaining /unselected/* paths into /built-in-agent/.
-      // BIA is the canonical owner of the legacy unselected/ content tree;
-      // matches P1×unselected in seo-redirects.ts.
+      // Catch-all: route remaining /unselected/* paths to the root.
+      // BIA is the canonical owner of the legacy unselected/ content
+      // tree, and BIA is served at the root; matches P1×unselected in
+      // seo-redirects.ts.
       {
         source: "/unselected/:path*",
-        destination: "/built-in-agent/:path*",
+        destination: "/:path*",
         permanent: true,
       },
 
@@ -487,21 +519,11 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
 
-      // Root `/generative-ui/your-components/*` pages do not exist in
-      // the unscoped docs tree, so keep those bare redirects. Do not
-      // redirect `/:framework/generative-ui/your-components/*`: several
-      // framework-scoped docs, including Built-in Agent, are authored at
-      // those paths and should render directly.
-      {
-        source: "/generative-ui/your-components/display-only",
-        destination: "/generative-ui/tool-based",
-        permanent: false,
-      },
-      {
-        source: "/generative-ui/your-components/interactive",
-        destination: "/human-in-the-loop",
-        permanent: false,
-      },
+      // No bare redirects for `/generative-ui/your-components/*`: the
+      // Built-in Agent docs are served at the root, and BIA authors real
+      // pages at those paths (display-only, interactive). Framework-scoped
+      // variants (`/:framework/generative-ui/your-components/*`) also
+      // render directly.
     ];
   },
 };

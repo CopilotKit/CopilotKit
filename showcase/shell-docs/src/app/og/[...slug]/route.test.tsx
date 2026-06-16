@@ -22,24 +22,32 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+// Default loadDoc behavior: only the bare `quickstart` slug resolves.
+// Re-applied in beforeEach because individual tests install their own
+// slug-keyed implementations and `vi.clearAllMocks()` does not restore
+// the factory implementation.
+const defaultLoadDoc = (slug: string) =>
+  slug === "quickstart"
+    ? {
+        source: "",
+        filePath: "quickstart.mdx",
+        fm: {
+          title: "Quickstart",
+          description: "Build with CopilotKit.",
+        },
+      }
+    : null;
+
 vi.mock("@/lib/docs-render", () => ({
-  loadDoc: vi.fn((slug: string) =>
-    slug === "quickstart"
-      ? {
-          source: "",
-          filePath: "quickstart.mdx",
-          fm: {
-            title: "Quickstart",
-            description: "Build with CopilotKit.",
-          },
-        }
-      : null,
-  ),
+  loadDoc: vi.fn(),
 }));
 
 vi.mock("@/lib/registry", () => ({
-  getDocsFolder: vi.fn(),
+  // Identity fallback mirrors the real helper (slug → folder of the
+  // same name unless overridden).
+  getDocsFolder: vi.fn((slug: string) => slug),
   getIntegration: vi.fn(() => null),
+  ROOT_FRAMEWORK: "built-in-agent",
 }));
 
 const imageResponseMock = vi.mocked(ImageResponse);
@@ -57,6 +65,7 @@ function callOgRoute(slug: string[]) {
 describe("shell-docs OG route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    loadDocMock.mockImplementation(defaultLoadDoc);
     imageResponseMock.mockImplementation(function MockImageResponse() {
       return new Response("png", {
         status: 200,
@@ -106,24 +115,50 @@ describe("shell-docs OG route", () => {
 
   it("still resolves framework-scoped docs before rendering", async () => {
     getIntegrationMock.mockReturnValueOnce({ name: "LangGraph" } as never);
-    getDocsFolderMock.mockReturnValueOnce("langgraph");
-    loadDocMock
-      .mockImplementationOnce(() => null)
-      .mockImplementationOnce(() => ({
-        source: "",
-        filePath: "integrations/langgraph/quickstart.mdx",
-        fm: {
-          title: "LangGraph Quickstart",
-          description: "Framework scoped docs.",
-        },
-      }));
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "integrations/langgraph/quickstart"
+        ? {
+            source: "",
+            filePath: "integrations/langgraph/quickstart.mdx",
+            fm: {
+              title: "LangGraph Quickstart",
+              description: "Framework scoped docs.",
+            },
+          }
+        : null,
+    );
 
     const response = await callOgRoute(["langgraph", "quickstart", "og.png"]);
 
     expect(response.status).toBe(200);
-    expect(loadDocMock).toHaveBeenNthCalledWith(
-      2,
+    expect(loadDocMock).toHaveBeenLastCalledWith(
       "integrations/langgraph/quickstart",
+    );
+    expect(getDocsFolderMock).toHaveBeenCalledWith("langgraph");
+  });
+
+  it("serves the root surface from the Built-in Agent override when one exists", async () => {
+    // `/server-tools` has no bare root MDX — the BIA-authored page is
+    // what the live route renders, so the OG image must read the same
+    // file.
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "integrations/built-in-agent/server-tools"
+        ? {
+            source: "",
+            filePath: "integrations/built-in-agent/server-tools.mdx",
+            fm: {
+              title: "Server Tools",
+              description: "Define tools on the Built-in Agent.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callOgRoute(["server-tools", "og.png"]);
+
+    expect(response.status).toBe(200);
+    expect(loadDocMock).toHaveBeenCalledWith(
+      "integrations/built-in-agent/server-tools",
     );
   });
 });

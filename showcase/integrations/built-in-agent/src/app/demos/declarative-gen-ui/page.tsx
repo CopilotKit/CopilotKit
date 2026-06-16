@@ -15,7 +15,7 @@
  *      the `declarative-gen-ui` agent produces.
  *
  * Reference:
- *   https://docs.copilotkit.ai/built-in-agent/generative-ui/a2ui
+ *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
 // @region[provider-a2ui-prop]

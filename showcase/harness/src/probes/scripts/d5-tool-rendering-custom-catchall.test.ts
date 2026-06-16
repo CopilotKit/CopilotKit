@@ -52,7 +52,7 @@ describe("D5 tool-rendering-custom-catchall — buildTurns", () => {
     };
     const turns = scriptModule.buildTurns(ctx);
     expect(turns).toHaveLength(2);
-    expect(turns[0]!.input).toBe("weather in Tokyo");
+    expect(turns[0]!.input).toBe("forecast for Tokyo");
     expect(turns[1]!.input).toBe("What's the current price of AAPL?");
     expect(typeof turns[0]!.assertions).toBe("function");
     expect(typeof turns[1]!.assertions).toBe("function");
@@ -136,7 +136,7 @@ describe("D5 tool-rendering-custom-catchall — exported constants", () => {
     expect(mod.CUSTOM_CATCHALL_TESTID).toBe("custom-wildcard-card");
     expect(mod.PROMPT_TOOL_PAIRS).toHaveLength(2);
     expect(mod.PROMPT_TOOL_PAIRS[0].tool).toBe("get_weather");
-    expect(mod.PROMPT_TOOL_PAIRS[0].prompt).toBe("weather in Tokyo");
+    expect(mod.PROMPT_TOOL_PAIRS[0].prompt).toBe("forecast for Tokyo");
     expect(mod.PROMPT_TOOL_PAIRS[1].tool).toBe("get_stock_price");
     expect(mod.PROMPT_TOOL_PAIRS[1].prompt).toBe(
       "What's the current price of AAPL?",
