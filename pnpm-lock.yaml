@@ -196,13 +196,13 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../../packages/bot
       '@copilotkit/bot-discord':
         specifier: workspace:~
         version: link:../../packages/bot-discord
       '@copilotkit/bot-ui':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../../packages/bot-ui
       '@copilotkit/runtime':
         specifier: ^1.59.5
@@ -2328,10 +2328,10 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../bot
       '@copilotkit/bot-ui':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../bot-ui
       discord.js:
         specifier: ^14.16.0
