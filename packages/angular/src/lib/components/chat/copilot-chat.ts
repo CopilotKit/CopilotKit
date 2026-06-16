@@ -72,7 +72,7 @@ export class CopilotChat implements ChatState {
   readonly injector = inject(Injector);
 
   protected messages = computed(() => this.agentStore().messages());
-  protected isRunning = computed(() => this.agentStore().isRunning());
+  readonly isRunning = computed(() => this.agentStore().isRunning());
   protected showCursor = signal<boolean>(false);
 
   private generatedThreadId: string = randomUUID();
@@ -140,9 +140,56 @@ export class CopilotChat implements ChatState {
     }
   }
 
+  stopCurrentRun(): void {
+    const agent = this.agentStore().agent;
+    if (!agent) return;
+
+    try {
+      this.copilotKit.core.stopAgent({ agent });
+    } catch (error) {
+      console.error("CopilotChat: stopAgent failed", error);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        console.error("CopilotChat: abortRun fallback failed", abortError);
+      }
+    }
+  }
+
+  private getActiveRunCompletionPromise(
+    agent: AbstractAgent,
+  ): Promise<void> | undefined {
+    if (!("activeRunCompletionPromise" in agent)) return undefined;
+
+    return (agent as unknown as { activeRunCompletionPromise?: Promise<void> })
+      .activeRunCompletionPromise;
+  }
+
+  private async waitForActiveRunToSettle(): Promise<void> {
+    const agent = this.agentStore().agent;
+    const activeRunCompletionPromise = agent
+      ? this.getActiveRunCompletionPromise(agent)
+      : undefined;
+
+    if (this.isRunning() && activeRunCompletionPromise) {
+      try {
+        await activeRunCompletionPromise;
+      } catch (error) {
+        console.error(
+          "CopilotChat: in-flight run rejected while queuing send",
+          error,
+        );
+      }
+    }
+  }
+
   async submitInput(value: string): Promise<void> {
     const agent = this.agentStore().agent;
     if (!agent || !value.trim()) return;
+
+    this.inputValue.set("");
+
+    await this.waitForActiveRunToSettle();
 
     // Add user message
     const userMessage: Message = {
@@ -151,9 +198,6 @@ export class CopilotChat implements ChatState {
       content: value,
     };
     agent.addMessage(userMessage);
-
-    // Clear the input
-    this.inputValue.set("");
 
     // Show cursor while processing
     this.showCursor.set(true);
