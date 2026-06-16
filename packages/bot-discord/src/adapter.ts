@@ -27,7 +27,10 @@ import {
   renderDiscordMessage,
 } from "./render/components-v2.js";
 import { registerCommands as putCommands, type RestLike } from "./commands.js";
-import { ChunkedMessageStream } from "./chunked-message-stream.js";
+import {
+  ChunkedMessageStream,
+  STREAM_PLACEHOLDERS,
+} from "./chunked-message-stream.js";
 import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import type { ReplyTarget } from "./types.js";
@@ -321,18 +324,34 @@ export class DiscordAdapter implements PlatformAdapter {
     try {
       const channel = await this.fetchSendable(t.channelId);
       const fetched = await channel.messages.fetch({ limit: 100 });
-      return [...fetched.values()].reverse().map((m: any) => ({
-        text: m.content ?? "",
-        ts: m.id,
-        isBot: Boolean(m.author?.bot),
-        user: m.author
-          ? {
-              id: m.author.id,
-              name: m.author.globalName ?? m.author.username,
-              handle: m.author.username,
-            }
-          : undefined,
-      }));
+      return (
+        [...fetched.values()]
+          .reverse()
+          // Drop the bot's own streaming placeholders ("_thinking…_" /
+          // "_…(continued)_") so they don't pollute the read_thread history
+          // (bot-slack parity — it filters its own status/placeholders too).
+          .filter(
+            (m: any) =>
+              !(
+                Boolean(m.author?.bot) &&
+                (STREAM_PLACEHOLDERS as readonly string[]).includes(
+                  m.content ?? "",
+                )
+              ),
+          )
+          .map((m: any) => ({
+            text: m.content ?? "",
+            ts: m.id,
+            isBot: Boolean(m.author?.bot),
+            user: m.author
+              ? {
+                  id: m.author.id,
+                  name: m.author.globalName ?? m.author.username,
+                  handle: m.author.username,
+                }
+              : undefined,
+          }))
+      );
     } catch (err) {
       console.error(
         `[bot-discord] getMessages failed (channel ${t.channelId}):`,

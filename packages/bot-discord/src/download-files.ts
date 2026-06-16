@@ -101,8 +101,9 @@ function mediaPartType(
  * fetching. Images map to an image part; text/* MIME types and text-named
  * files (.txt, .csv, .json, .md, .log, .tsv, .yaml) — including ones reported
  * with a generic binary MIME like application/octet-stream — map to a text
- * part (truncated to `maxTextBytes`); other binary content is silently
- * skipped.
+ * part (truncated to `maxTextBytes`); other binary content is skipped with a
+ * short text note explaining why (bot-slack parity), so the model knows a file
+ * was dropped.
  *
  * At most `maxFiles` attachments (default 5) are processed; any beyond that cap
  * are ignored without fetching, bounding the multimodal payload a single
@@ -122,7 +123,15 @@ export async function buildFileContentParts(
   // bounding the multimodal payload / token budget (bot-slack parity).
   for (const att of attachments.slice(0, maxFiles)) {
     // Gate on the reported size — skip (without fetching) if it exceeds the cap.
-    if (att.size > maxBytes) continue;
+    // Surface the skip as a note so the model knows a file was dropped and why
+    // (bot-slack parity).
+    if (att.size > maxBytes) {
+      parts.push({
+        type: "text",
+        text: `[attachment "${att.name}" skipped: ~${Math.round(att.size / 1e6)} MB exceeds the ${Math.round(maxBytes / 1e6)} MB limit]`,
+      });
+      continue;
+    }
 
     const mime = (att.contentType ?? "").toLowerCase().split(";")[0]!.trim();
     const media = mediaPartType(mime);
@@ -133,22 +142,44 @@ export async function buildFileContentParts(
     // Discord sometimes reports for .csv/.json/etc. uploads.
     const textName = !media && !textMime && TEXT_EXT_RE.test(att.name);
 
-    // Skip binary types we don't represent.
-    if (!media && !textMime && !textName) continue;
+    // Skip binary types we don't represent — surface as a note.
+    if (!media && !textMime && !textName) {
+      parts.push({
+        type: "text",
+        text: `[attachment "${att.name}" skipped: unsupported type ${mime || "unknown"}]`,
+      });
+      continue;
+    }
 
     let res: Response;
     try {
       res = await fetchImpl(att.url);
     } catch {
+      parts.push({
+        type: "text",
+        text: `[attachment "${att.name}" skipped: download failed]`,
+      });
       continue;
     }
-    if (!res.ok) continue;
+    if (!res.ok) {
+      parts.push({
+        type: "text",
+        text: `[attachment "${att.name}" skipped: download failed]`,
+      });
+      continue;
+    }
 
     const bytes = new Uint8Array(await res.arrayBuffer());
 
     // Double-check the actual downloaded size — the reported `att.size` can
     // lie (or be absent), so re-gate on the real byte length.
-    if (bytes.length > maxBytes) continue;
+    if (bytes.length > maxBytes) {
+      parts.push({
+        type: "text",
+        text: `[attachment "${att.name}" skipped: ~${Math.round(bytes.length / 1e6)} MB exceeds the ${Math.round(maxBytes / 1e6)} MB limit]`,
+      });
+      continue;
+    }
 
     if (media) {
       // Binary media part — base64-encoded, exact same shape as bot-slack.

@@ -9,6 +9,15 @@ import { discordMarkdown } from "./markdown.js";
 const DISCORD_HARD_LIMIT = 2000;
 
 /**
+ * Placeholder texts posted for streaming messages: the first chunk shows
+ * "_thinking…_" and later (continuation) chunks show "_…(continued)_" until
+ * real content lands. Exported as a shared const so the producer here and the
+ * history filter in adapter.ts (which excludes the bot's own placeholders from
+ * `read_thread`) never drift apart. The `…` is a real U+2026 ellipsis.
+ */
+export const STREAM_PLACEHOLDERS = ["_thinking…_", "_…(continued)_"] as const;
+
+/**
  * Soft chunk limit. Sits ~100 chars below the hard limit to leave headroom
  * for the per-chunk transform, which can both append a closer ("\n```") and
  * prepend a continuation re-opener ("```longlangname\n").
@@ -212,7 +221,8 @@ export class ChunkedMessageStream {
     const chunkCount = this.boundaries.length + 1;
     while (this.streams.length < chunkCount) {
       const i = this.streams.length;
-      const placeholder = i === 0 ? "_thinking…_" : "_…(continued)_";
+      const placeholder =
+        i === 0 ? STREAM_PLACEHOLDERS[0] : STREAM_PLACEHOLDERS[1];
       const id = await this.postPlaceholder(placeholder);
       this.streams.push(
         new MessageStream({

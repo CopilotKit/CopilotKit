@@ -206,6 +206,50 @@ describe("DiscordAdapter", () => {
     fetchSpy.mockRestore();
   });
 
+  it("getMessages excludes the bot's own streaming placeholders from history", async () => {
+    // Mix: a user message, a real bot reply, and a bot streaming placeholder.
+    // fetch() returns a Map-like with values(); getMessages reverses + filters.
+    const messages = [
+      {
+        id: "m1",
+        content: "hey bot",
+        author: { id: "u1", bot: false, username: "ann", globalName: "Ann" },
+      },
+      {
+        id: "m2",
+        content: "_thinking…_", // bot placeholder — must be excluded
+        author: { id: "bot-1", bot: true, username: "bot" },
+      },
+      {
+        id: "m3",
+        content: "here is the real answer",
+        author: { id: "bot-1", bot: true, username: "bot" },
+      },
+    ];
+    const channel = {
+      id: "c1",
+      send: vi.fn(async () => ({ id: "x" })), // fetchSendable requires `send`
+      messages: {
+        fetch: vi.fn(async () => new Map(messages.map((m) => [m.id, m]))),
+      },
+    };
+    const client = {
+      ...fakeClient(),
+      channels: { fetch: vi.fn(async () => channel) },
+    };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    const out = await a.getMessages({ channelId: "c1" } as never);
+    const texts = out.map((m) => m.text);
+    expect(texts).toContain("hey bot");
+    expect(texts).toContain("here is the real answer");
+    expect(texts).not.toContain("_thinking…_");
+    expect(out).toHaveLength(2);
+  });
+
   it("interactionCreate dispatch failures are caught, not left unhandled", async () => {
     const client = fakeClient();
     const a = new DiscordAdapter(

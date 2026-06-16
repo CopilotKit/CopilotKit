@@ -42,7 +42,7 @@ describe("buildFileContentParts", () => {
     expect(JSON.stringify(parts[0])).toContain("a,b");
   });
 
-  it("skips a file over the size cap without fetching", async () => {
+  it("skips a file over the size cap without fetching (notes the skip)", async () => {
     const fetchImpl = vi.fn();
     const parts = await buildFileContentParts(
       [
@@ -55,7 +55,12 @@ describe("buildFileContentParts", () => {
       ],
       { fetchImpl, maxBytes: 10_000_000 },
     );
-    expect(parts).toEqual([]);
+    // The file is gated pre-fetch but surfaced to the model as a skip note.
+    expect(parts).toHaveLength(1);
+    const note = parts[0] as { type: "text"; text: string };
+    expect(note.type).toBe("text");
+    expect(note.text).toContain("skipped");
+    expect(note.text).toContain("big.bin");
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -79,7 +84,12 @@ describe("buildFileContentParts", () => {
       { fetchImpl, maxBytes: 10 },
     );
     expect(fetchImpl).toHaveBeenCalledOnce();
-    expect(parts).toEqual([]);
+    // Dropped post-fetch but surfaced to the model as a skip note.
+    expect(parts).toHaveLength(1);
+    const note = parts[0] as { type: "text"; text: string };
+    expect(note.type).toBe("text");
+    expect(note.text).toContain("skipped");
+    expect(note.text).toContain("x.png");
   });
 
   it("truncates a text body larger than maxTextBytes", async () => {
@@ -124,6 +134,63 @@ describe("buildFileContentParts", () => {
     const parts = await buildFileContentParts(attachments, { fetchImpl });
     expect(parts).toHaveLength(5);
     expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
+  it("surfaces an oversize skip as a note while still emitting a co-attached valid image", async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => pngBytes.buffer,
+    })) as any;
+    const parts = await buildFileContentParts(
+      [
+        {
+          url: "https://cdn/big.png",
+          name: "big.png",
+          contentType: "image/png",
+          size: 50, // exceeds the tiny maxBytes below
+        },
+        {
+          url: "https://cdn/ok.png",
+          name: "ok.png",
+          contentType: "image/png",
+          size: pngBytes.length,
+        },
+      ],
+      { fetchImpl, maxBytes: 10 },
+    );
+    // The oversize file becomes a skip note; the valid one still becomes image.
+    const note = parts.find(
+      (p): p is { type: "text"; text: string } => p.type === "text",
+    );
+    expect(note).toBeDefined();
+    expect(note!.text).toContain("skipped");
+    expect(note!.text).toContain("big.png");
+    expect(parts.some((p) => p.type === "image")).toBe(true);
+    // Only the valid file was fetched — the oversize one was gated pre-fetch.
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("surfaces an unsupported binary type as a note", async () => {
+    const fetchImpl = vi.fn();
+    const parts = await buildFileContentParts(
+      [
+        {
+          url: "https://cdn/app.bin",
+          name: "app.bin",
+          contentType: "application/octet-stream",
+          size: 3,
+        },
+      ],
+      { fetchImpl },
+    );
+    expect(parts).toHaveLength(1);
+    const note = parts[0] as { type: "text"; text: string };
+    expect(note.type).toBe("text");
+    expect(note.text).toContain("unsupported type");
+    expect(note.text).toContain("app.bin");
+    // Unsupported types are gated pre-fetch.
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("decodes a .csv reported as application/octet-stream as a text part", async () => {
