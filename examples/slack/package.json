@@ -19,6 +19,7 @@
     "@copilotkit/bot": "~0.0.1",
     "@copilotkit/bot-slack": "~0.0.1",
     "@copilotkit/bot-ui": "~0.0.1",
+    "@copilotkit/bot-whatsapp": "workspace:~",
     "@copilotkit/runtime": "^1.59.5",
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",

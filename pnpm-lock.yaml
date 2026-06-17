@@ -392,6 +392,9 @@ importers:
       '@copilotkit/bot-ui':
         specifier: ~0.0.1
         version: 0.0.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      '@copilotkit/bot-whatsapp':
+        specifier: workspace:~
+        version: link:../../packages/bot-whatsapp
       '@copilotkit/runtime':
         specifier: ^1.59.5
         version: 1.59.5(4c17f358ce8005944aeca87c7a73a8ac)
@@ -23872,7 +23875,7 @@ packages:
       '@vitest/ui': 4.1.5
       happy-dom: '*'
       jsdom: '*'
-      vite: '>=6.4.2'
+      vite: 7.3.2
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -43206,7 +43209,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.15.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.15.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -49591,7 +49594,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.15.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.15.2):
     dependencies:
       axios: 1.15.2(debug@4.4.3)
 
