@@ -116,8 +116,11 @@ export function markdownToChat(input: string): string {
   // Markdown links [text](url) → <url|text>. Drop links whose URL uses a
   // disallowed scheme (javascript:, data:, …) and keep only the visible
   // text, so a crafted link can't smuggle an executable href through Chat.
+  // The URL group tolerates one level of balanced `(...)` so links to pages
+  // whose path contains parens (Wikipedia/MSDN, e.g. `.../Foo_(bar)`) aren't
+  // truncated at the first `)` and don't leak a stray `)` into the output.
   body = body.replace(
-    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
     (_m, t: string, u: string) => (isSafeUrl(u) ? `<${u}|${t}>` : t),
   );
 

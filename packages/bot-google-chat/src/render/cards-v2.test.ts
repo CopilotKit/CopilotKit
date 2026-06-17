@@ -77,6 +77,37 @@ describe("renderGoogleChatMessage", () => {
     expect(fnA).not.toBe(fnB);
   });
 
+  it("gives handler-less buttons in two SEPARATE action sets card-wide-distinct ids", () => {
+    // Each `renderActionsWidget` call indexes its own buttons from 0, so a
+    // per-set index would collide across sets. The card-wide allocator must
+    // keep every handler-less button's function id distinct.
+    const button = (label: string): BotNode => ({
+      type: "button",
+      props: { children: [text(label)] },
+    });
+    const actionsA: BotNode = {
+      type: "actions",
+      props: { children: [button("A1"), button("A2")] },
+    };
+    const actionsB: BotNode = {
+      type: "actions",
+      props: { children: [button("B1"), button("B2")] },
+    };
+
+    const out = renderGoogleChatMessage([actionsA, actionsB]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const buttonLists = widgets.filter((w) => w.buttonList !== undefined);
+    expect(buttonLists).toHaveLength(2);
+
+    const fnIds = buttonLists.flatMap((w) =>
+      w.buttonList.buttons.map((b: any) => b.onClick.action.function),
+    );
+    expect(fnIds).toHaveLength(4);
+    // All four are distinct card-wide.
+    expect(new Set(fnIds).size).toBe(4);
+  });
+
   it("renders an actions/button node as a buttonList widget with the ck: id in onClick.action.function", () => {
     // Simulate a button whose onClick has been stamped with a ck: id by the action registry.
     const ckId = "ck:abc123";
@@ -316,6 +347,66 @@ describe("renderGoogleChatMessage", () => {
     const opens = (html.match(/<(b|i|s)>/g) ?? []).length;
     const closes = (html.match(/<\/(b|i|s)>/g) ?? []).length;
     expect(opens).toBe(closes);
+  });
+
+  it("closes a dangling <a> when a link is cut by the per-paragraph budget", () => {
+    // A long run of text then one very long link, so the budget cut lands
+    // inside the anchor. The output must not leave an unbalanced/dangling <a>.
+    const filler = "word ".repeat(900); // ~4500 chars of plain text
+    const longUrl = "https://x.com/" + "a".repeat(200);
+    const out = renderGoogleChatMessage([
+      section(`${filler}[clickable](${longUrl})`),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html.length).toBeLessThanOrEqual(GCHAT_LIMITS.textParagraph);
+    // Anchors are balanced: every `<a …>` has a matching `</a>`.
+    const aOpens = (html.match(/<a\b[^>]*>/g) ?? []).length;
+    const aCloses = (html.match(/<\/a>/g) ?? []).length;
+    expect(aOpens).toBe(aCloses);
+    // And no trailing unterminated `<…`.
+    expect(html.lastIndexOf("<")).toBeLessThanOrEqual(html.lastIndexOf(">"));
+  });
+
+  it("does not collapse a single over-long link to just an ellipsis", () => {
+    // The whole paragraph is one link longer than the budget; the cut lands
+    // inside the opening tag. Rather than emit only "…", fall back to the
+    // (escaped) visible text so the content survives.
+    const longUrl = "https://x.com/" + "a".repeat(5000);
+    const out = renderGoogleChatMessage([
+      section(`[the visible link text](${longUrl})`),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html.length).toBeLessThanOrEqual(GCHAT_LIMITS.textParagraph);
+    expect(html).not.toBe("…");
+    expect(html).toContain("the visible link text");
+    // No dangling anchor.
+    const aOpens = (html.match(/<a\b[^>]*>/g) ?? []).length;
+    const aCloses = (html.match(/<\/a>/g) ?? []).length;
+    expect(aOpens).toBe(aCloses);
+  });
+
+  it("keeps balanced parens in a link URL (Wikipedia-style) intact in the card href", () => {
+    const out = renderGoogleChatMessage([
+      section("[wiki](https://en.wikipedia.org/wiki/Foo_(bar))"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html).toContain(
+      '<a href="https://en.wikipedia.org/wiki/Foo_(bar)">wiki</a>',
+    );
+    // No stray `)` leaking after the anchor.
+    expect(html).not.toContain("</a>)");
   });
 
   it("gives handler-less buttons bounded, sanitized, distinct fallback ids", () => {

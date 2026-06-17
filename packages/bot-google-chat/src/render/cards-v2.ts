@@ -127,8 +127,11 @@ export function markdownToCardHtml(input: string): string {
   // HTML-escaped above. Drop links whose URL uses a disallowed scheme
   // (javascript:, data:, …) and emit only the (still-escaped) visible text,
   // so a crafted link can't smuggle an executable href into the card.
+  // The URL group tolerates one level of balanced `(...)` so links to pages
+  // whose path contains parens (Wikipedia/MSDN, e.g. `.../Foo_(bar)`) aren't
+  // truncated at the first `)` and don't leak a stray `)` into the card.
   body = body.replace(
-    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
     (_m, t: string, u: string) =>
       isSafeUrl(unescapeHtml(u))
         ? `<a href="${u.replace(/"/g, "&quot;")}">${t}</a>`
@@ -184,14 +187,26 @@ function safeTruncateHtml(html: string, max: number): string {
 
   let truncated = html.slice(0, cut);
 
-  // Close any tags left open by the cut. We only ever emit <b>/<i>/<s>, so
-  // track those; append closers (innermost first) for the still-open ones.
+  // Degenerate case: backing out of a mid-tag cut left no visible content
+  // (e.g. the whole string is one over-long `<a href="…">…` link, and the cut
+  // landed inside the opening tag). Returning just "…" would drop the text
+  // entirely, so fall back to the escaped, length-bounded link/visible TEXT.
+  if (truncated.length === 0) {
+    const textOnly = html.replace(/<[^>]*>/g, "");
+    const room = Math.max(0, max - 1);
+    return escapeHtml(textOnly.slice(0, room)) + "…";
+  }
+
+  // Close any tags left open by the cut. We emit <b>/<i>/<s> and attributed
+  // <a href="…"> anchors, so track all four; append closers (innermost first)
+  // for the still-open ones. The anchor regex matches the attributed opening
+  // tag (`<a …>`) as well as the closing `</a>`.
   const open: string[] = [];
-  const tagRe = /<(\/?)(b|i|s)>/g;
+  const tagRe = /<(\/?)(?:(b|i|s)|(a)\b[^>]*)>/g;
   let m: RegExpExecArray | null;
   while ((m = tagRe.exec(truncated)) !== null) {
     const isClose = m[1] === "/";
-    const tag = m[2] ?? "";
+    const tag = m[2] ?? m[3] ?? "";
     if (isClose) {
       const idx = open.lastIndexOf(tag);
       if (idx !== -1) open.splice(idx, 1);
@@ -242,26 +257,34 @@ function idFromHandler(handler: unknown): string | undefined {
 
 /**
  * Derive a button's Google Chat `onClick.action.function` id: prefer the
- * registry-stamped ck: id, else a fallback that stays unique per button.
+ * registry-stamped ck: id, else a card-wide-unique fallback.
  *
- * The fallback incorporates the button's `index` within its action set so two
- * handler-less buttons that share a value (or both lack one) still emit
- * distinct function ids — `decodeInteraction` keys `InteractionEvent.id` off
- * this field, so collisions would make clicks indistinguishable.
+ * `decodeInteraction` keys `InteractionEvent.id` off this field, so two
+ * handler-less buttons (whether they share a value or both lack one) must emit
+ * distinct ids or their clicks become indistinguishable. The per-set index is
+ * NOT unique card-wide — `renderActionsWidget` runs independently per action
+ * set and restarts at 0 each time — so handler-less buttons draw their id from
+ * `nextFallbackId`, a card-wide monotonic allocator threaded down from
+ * `renderGoogleChatMessage`.
  */
-function buttonFunctionId(props: Record<string, unknown>, index: number): string {
+function buttonFunctionId(
+  props: Record<string, unknown>,
+  nextFallbackId: () => string,
+): string {
   const fromHandler = idFromHandler(props.onClick);
   if (fromHandler) return fromHandler;
-  // No registry id: use a bounded, opaque, per-button id. We deliberately do
-  // NOT fold the (possibly large, quote/brace-laden) value into the function
+  // No registry id: use a bounded, opaque, card-wide-unique id. We deliberately
+  // do NOT fold the (possibly large, quote/brace-laden) value into the function
   // id — an unbounded id with special chars risks a rejected card or a
-  // mismatched id on click. The value is still carried in `parameters`, and
-  // `${index}` keeps distinct buttons distinct.
-  return `ck-fallback-${index}`;
+  // mismatched id on click. The value is still carried in `parameters`.
+  return nextFallbackId();
 }
 
 /** Render an `actions` node into a `buttonList` widget, or return null if no buttons. */
-function renderActionsWidget(node: BotNode): Widget | null {
+function renderActionsWidget(
+  node: BotNode,
+  nextFallbackId: () => string,
+): Widget | null {
   const buttonNodes = childrenOf(node).filter(
     (c) => typeof c.type === "string" && c.type === "button",
   );
@@ -276,9 +299,9 @@ function renderActionsWidget(node: BotNode): Widget | null {
     );
   }
 
-  const buttons = items.map((btn, index) => {
+  const buttons = items.map((btn) => {
     const props = btn.props ?? {};
-    const functionId = buttonFunctionId(props, index);
+    const functionId = buttonFunctionId(props, nextFallbackId);
     // Omit the `value` parameter entirely when there's no value — emitting
     // `{ key: "value", value: "" }` makes decodeInteraction read `""` (and
     // JSON.parse("") throws → value becomes ""), so a value-less click would
@@ -303,7 +326,10 @@ function renderActionsWidget(node: BotNode): Widget | null {
 }
 
 /** Render a single IR node into zero or more widgets. */
-function renderNodeWidgets(node: BotNode): Widget[] {
+function renderNodeWidgets(
+  node: BotNode,
+  nextFallbackId: () => string,
+): Widget[] {
   if (typeof node.type !== "string") return [];
   const widgets: Widget[] = [];
 
@@ -311,7 +337,7 @@ function renderNodeWidgets(node: BotNode): Widget[] {
     case "message": {
       // Flatten message container children.
       for (const child of childrenOf(node)) {
-        widgets.push(...renderNodeWidgets(child));
+        widgets.push(...renderNodeWidgets(child, nextFallbackId));
       }
       break;
     }
@@ -326,14 +352,14 @@ function renderNodeWidgets(node: BotNode): Widget[] {
       // Render any nested actions/button children as a buttonList widget.
       for (const child of childrenOf(node)) {
         if (typeof child.type === "string" && child.type === "actions") {
-          const w = renderActionsWidget(child);
+          const w = renderActionsWidget(child, nextFallbackId);
           if (w) widgets.push(w);
         }
       }
       break;
     }
     case "actions": {
-      const w = renderActionsWidget(node);
+      const w = renderActionsWidget(node, nextFallbackId);
       if (w) widgets.push(w);
       break;
     }
@@ -420,7 +446,16 @@ export function renderGoogleChatMessage(ir: BotNode[]): {
   const headerNode = nodes.find((n) => n.type === "header");
   const bodyNodes = nodes.filter((n) => n.type !== "header");
 
-  const widgets: Widget[] = bodyNodes.flatMap(renderNodeWidgets);
+  // Card-wide monotonic allocator for handler-less button fallback ids. The
+  // per-action-set index restarts at 0 each `renderActionsWidget` call, so it
+  // can't make ids unique across action sets in one card; this sequence does.
+  // Deterministic (sequential, not random) so renders stay stable/testable.
+  let fallbackSeq = 0;
+  const nextFallbackId = () => `ck-fallback-${fallbackSeq++}`;
+
+  const widgets: Widget[] = bodyNodes.flatMap((n) =>
+    renderNodeWidgets(n, nextFallbackId),
+  );
 
   // Clamp widgets to the per-card budget. When some overflow, reserve one slot
   // for a trailing indicator so the truncation is visible (and still respects

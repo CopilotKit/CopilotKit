@@ -73,6 +73,11 @@ describe("markdownToChat", () => {
   it("keeps a relative link (no scheme)", () => {
     expect(markdownToChat("[rel](/path/to/page)")).toBe("</path/to/page|rel>");
   });
+  it("keeps balanced parens in a link URL (Wikipedia-style) intact", () => {
+    expect(
+      markdownToChat("[wiki](https://en.wikipedia.org/wiki/Foo_(bar))"),
+    ).toBe("<https://en.wikipedia.org/wiki/Foo_(bar)|wiki>");
+  });
 
   // ── Fix 2: sentinel control bytes are stripped from input ─────────────────
   it("strips sentinel control bytes from the input without corrupting prose", () => {
