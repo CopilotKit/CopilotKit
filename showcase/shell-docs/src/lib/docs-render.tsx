@@ -568,7 +568,10 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
  * the literal `index` → "" rewrite, so links resolve at
  * `/<framework>/<topic>` and the framework root at `/<framework>`.
  */
-export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+export function buildFrameworkOnlyNav(
+  folder: string,
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
   const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
   if (!fs.existsSync(frameworkDir)) return [];
   const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
@@ -604,10 +607,69 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
     }
     return node;
   };
-  return appendSharedRootSections(nodes.map(rewrite));
+  return dropEmptySections(
+    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+  );
+}
+
+/**
+ * Build the sidebar for the ROOT surface (the bare-URL docs, served by
+ * the default framework — Built-in Agent). Same as
+ * `buildFrameworkOnlyNav` but folds the agnostic root sections
+ * (`ROOT_SURFACE_SECTIONS`) into the tree so navigating from a BIA page
+ * to an agnostic page (e.g. `/concepts/architecture`, `/backend/ag-ui`)
+ * keeps ONE coherent sidebar instead of swapping IAs.
+ *
+ * Scoped to the root surface only: `buildFrameworkOnlyNav`'s default
+ * keeps the Platforms-only behavior for deepagents, and generated
+ * frameworks are untouched.
+ */
+export function buildRootSurfaceNav(folder: string): NavNode[] {
+  return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
 }
 
 const SHARED_ROOT_SECTIONS = ["Platforms"];
+
+// Sections pulled from the root `meta.json` into the Built-in Agent
+// sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
+// BIA is the default framework and its docs render at the bare root
+// URLs, so its sidebar must also navigate the agnostic pages that live
+// outside BIA's authored tree (Concepts, the Runtime/backend pages,
+// Deploy, What's New, Migrate, …). Without this, landing on an agnostic
+// page like `/concepts/architecture` swaps the sidebar to the root
+// `meta.json` IA — the jarring "two docs colliding" flip.
+//
+// Each title slots into a matching empty `---Section---` placeholder in
+// BIA's `meta.json` when present (so position is author-controlled),
+// otherwise the section appends at the end. "Platforms" stays in the
+// list so the root surface keeps the shared platform guides.
+const ROOT_SURFACE_SECTIONS = [
+  "Concepts",
+  "Runtime",
+  "Deploy",
+  "Platforms",
+  "Other",
+];
+
+/**
+ * Remove section headers that have no entries before the next section
+ * header (or end of tree). `buildRootSurfaceNav` relies on empty
+ * `---Section---` placeholders in BIA's meta.json that get filled by
+ * `appendSharedRootSections`; any placeholder whose section isn't in
+ * the active shared list (e.g. when `buildFrameworkOnlyNav` is called
+ * with the default Platforms-only list) would otherwise render as a
+ * dangling header. This also guards against authored metas that leave a
+ * trailing empty section.
+ */
+function dropEmptySections(navTree: NavNode[]): NavNode[] {
+  return navTree.filter((node, i) => {
+    if (node.type !== "section") return true;
+    const next = navTree[i + 1];
+    // Keep the section only if a non-section node follows it before the
+    // next section boundary.
+    return next !== undefined && next.type !== "section";
+  });
+}
 
 function sectionRange(
   navTree: NavNode[],
@@ -634,6 +696,19 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
   });
 }
 
+// A nav node whose slug carries a route-group segment like `(other)`.
+// Route groups are organizational-only — the segment is stripped from
+// the real URL — so folding them into a sidebar would emit a bogus
+// `/(other)/…` href (and duplicate pages that also live at their
+// stripped URL). `appendSharedRootSections` drops these when folding
+// root sections into a framework sidebar.
+function isRouteGroupNode(node: NavNode): boolean {
+  if (node.type === "section") return false;
+  return node.slug
+    .split("/")
+    .some((seg) => seg.startsWith("(") && seg.endsWith(")"));
+}
+
 function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
   if (node.type === "page") {
     return hasPageSlug(navTree, node.slug) ? null : node;
@@ -653,17 +728,21 @@ function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
  * those shared sections in every framework sidebar without duplicating
  * entries across each authored integration's meta.json.
  */
-function appendSharedRootSections(navTree: NavNode[]): NavNode[] {
+function appendSharedRootSections(
+  navTree: NavNode[],
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
   let nextNavTree = navTree;
   const rootNavTree = buildNavTree(CONTENT_DIR);
 
-  for (const sectionTitle of SHARED_ROOT_SECTIONS) {
+  for (const sectionTitle of sharedSections) {
     const rootRange = sectionRange(rootNavTree, sectionTitle);
     if (!rootRange) continue;
 
     const section = rootNavTree[rootRange.start];
     const missingNodes = rootNavTree
       .slice(rootRange.start + 1, rootRange.end)
+      .filter((node) => !isRouteGroupNode(node))
       .map((node) => filterMissingPages(node, nextNavTree))
       .filter((node): node is NavNode => node !== null);
     if (missingNodes.length === 0) continue;

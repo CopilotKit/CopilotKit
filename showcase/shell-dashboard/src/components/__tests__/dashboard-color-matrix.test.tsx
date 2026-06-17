@@ -21,7 +21,7 @@
  *
  * Covered:
  *   (1) per-depth single-key pass→green/fail→red/missing→(no badge) for
- *       API(d3)/RT(d4)/CV(d5)/D6, asserted as RENDERED badge tone+glyph.
+ *       API(d3)/BE(d4)/1P(d5)/D6, asserted as RENDERED badge tone+glyph.
  *   (2) D6 enum fan-out rollup — beautiful-chat 5-key all-pass/any-fail/
  *       all-missing/partial → documented chip color; the 1:1 + rename
  *       mappings (headless-complete, chat-customization-css, gen-ui-tool-based).
@@ -203,13 +203,13 @@ const CHIP_CLASS: Record<ChipColor, string> = {
 //     asserted as the RENDERED badge tone class + glyph.
 // ===========================================================================
 
-describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
+describe("(1) per-depth badge rendering — UI/BE/1P/D6", () => {
   // agentic-chat is 1:1 mapped (CATALOG_TO_D5_KEY["agentic-chat"] =
   // ["agentic-chat"]) so each depth is a single key, isolating one badge.
   const FEATURE = "agentic-chat";
 
   interface DepthCase {
-    badge: "UI" | "RT" | "CV" | "D6";
+    badge: "UI" | "BE" | "1P" | "D6";
     /** rows that set THIS depth's state; gate rows added automatically. */
     rows: StatusRow[];
     expectStatus: TestStatus;
@@ -231,9 +231,9 @@ describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
       rows: [row(keyFor("e2e", SLUG, FEATURE), "e2e", "red")],
       expectStatus: "red",
     },
-    // RT (d4) — chat/tools; green requires gate green first
+    // BE (d4) — chat/tools; green requires gate green first
     {
-      badge: "RT",
+      badge: "BE",
       rows: [
         row(keyFor("e2e", SLUG, FEATURE), "e2e", "green"),
         row(keyFor("chat", SLUG), "chat", "green"),
@@ -241,16 +241,16 @@ describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
       expectStatus: "green",
     },
     {
-      badge: "RT",
+      badge: "BE",
       rows: [
         row(keyFor("e2e", SLUG, FEATURE), "e2e", "green"),
         row(keyFor("chat", SLUG), "chat", "red"),
       ],
       expectStatus: "red",
     },
-    // CV (d5) — single enum key (agentic-chat→agentic-chat)
+    // 1P (d5) — single enum key (agentic-chat→agentic-chat)
     {
-      badge: "CV",
+      badge: "1P",
       rows: [
         ...gateGreen(FEATURE),
         row(keyFor("d5", SLUG, FEATURE), "d5", "green"),
@@ -258,7 +258,7 @@ describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
       expectStatus: "green",
     },
     {
-      badge: "CV",
+      badge: "1P",
       rows: [
         ...gateGreen(FEATURE),
         row(keyFor("d5", SLUG, FEATURE), "d5", "red"),
@@ -290,7 +290,7 @@ describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
     it(`${c.badge} ${c.expectStatus} → tone ${BADGE_RENDER[c.expectStatus ?? "null"].tone}, glyph ${BADGE_RENDER[c.expectStatus ?? "null"].glyph}`, () => {
       const live = mapOf(c.rows);
       const { container } = renderCell(live, FEATURE, ["health"]);
-      // Find the badge by its leading label text (E2E/RT/CV/D6).
+      // Find the badge by its leading label text (UI/BE/1P/D6).
       const labels = Array.from(container.querySelectorAll("span")).filter(
         (s) => s.textContent === c.badge,
       );
@@ -305,26 +305,26 @@ describe("(1) per-depth badge rendering — UI/RT/CV/D6", () => {
     });
   }
 
-  it("missing depth → no badge rendered (RT absent when chat/tools missing)", () => {
-    // Only e2e present → d4 (RT) does not exist → no RT badge.
+  it("missing depth → no badge rendered (BE absent when chat/tools missing)", () => {
+    // Only e2e present → d4 (BE) does not exist → no BE badge.
     const live = mapOf([row(keyFor("e2e", SLUG, FEATURE), "e2e", "green")]);
     const { container } = renderCell(live, FEATURE, ["health"]);
     const rtLabels = Array.from(container.querySelectorAll("span")).filter(
-      (s) => s.textContent === "RT",
+      (s) => s.textContent === "BE",
     );
     expect(rtLabels.length).toBe(0);
   });
 
   it("no-data depth (mapped, unemitted) → no badge (glyph '?' → Badge null)", () => {
-    // Gate green, D5 mapped but unemitted → d5.status null → CV glyph "?"
-    // → Badge returns null. The CV badge must NOT render.
+    // Gate green, D5 mapped but unemitted → d5.status null → 1P glyph "?"
+    // → Badge returns null. The 1P badge must NOT render.
     const live = mapOf(gateGreen(FEATURE));
     const model = wiredModel(live, FEATURE);
     expect(model.d5?.exists).toBe(true);
     expect(model.d5?.status).toBeNull();
     const { container } = renderCell(live, FEATURE, ["health"]);
     const cvLabels = Array.from(container.querySelectorAll("span")).filter(
-      (s) => s.textContent === "CV",
+      (s) => s.textContent === "1P",
     );
     expect(cvLabels.length).toBe(0);
   });

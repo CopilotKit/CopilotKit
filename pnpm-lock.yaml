@@ -5,9 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@copilotkit/bot': workspace:*
-  '@copilotkit/bot-slack': workspace:*
-  '@copilotkit/bot-ui': workspace:*
   '@ag-ui/mcp-middleware>@ag-ui/client': 0.0.53
   streamdown>react: ^19.0.0
   '@types/react': 19.1.8
@@ -387,17 +384,17 @@ importers:
   examples/slack:
     dependencies:
       '@copilotkit/bot':
-        specifier: workspace:*
-        version: link:../../packages/bot
+        specifier: ~0.0.2
+        version: 0.0.2(encoding@0.1.13)(zod@3.25.76)
       '@copilotkit/bot-discord':
         specifier: ~0.0.1
         version: link:../../packages/bot-discord
       '@copilotkit/bot-slack':
-        specifier: workspace:*
-        version: link:../../packages/bot-slack
+        specifier: ~0.0.2
+        version: 0.0.2(@types/express@5.0.6)(encoding@0.1.13)
       '@copilotkit/bot-ui':
-        specifier: workspace:*
-        version: link:../../packages/bot-ui
+        specifier: ~0.0.2
+        version: 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
       '@copilotkit/runtime':
         specifier: ^1.59.5
         version: 1.59.5(56436085ce2a11549bd479ba7297dde1)
@@ -2251,7 +2248,7 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot-ui':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot-ui
       '@copilotkit/core':
         specifier: workspace:^
@@ -2319,10 +2316,10 @@ importers:
         specifier: 0.0.57
         version: 0.0.57
       '@copilotkit/bot':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot
       '@copilotkit/bot-ui':
-        specifier: workspace:*
+        specifier: workspace:~
         version: link:../bot-ui
       '@copilotkit/core':
         specifier: workspace:^
@@ -3865,8 +3862,8 @@ packages:
     peerDependencies:
       zod: '>=3.22.3'
 
-  '@ai-sdk/openai@3.0.71':
-    resolution: {integrity: sha512-j6eBAa5oHFZ4U5CxpIV3T4zXNM/BviodNCZCL1qHkA4aqkwK9iQ18TWYz2DZcXpw4BO5pikKzqpXORxb1EnZGA==}
+  '@ai-sdk/openai@3.0.69':
+    resolution: {integrity: sha512-T/J3ED6ERDsine+crkXHfraisSG20k6BkBdgjvXCvySYnnJ19IaLIOsQPYfvXdOsKrl0LVNghooTV/nKCA7SmQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: '>=3.22.3'
@@ -3891,12 +3888,6 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.27':
     resolution: {integrity: sha512-ubkAJ+xODouwtmN1tYlvTPphH1hPOBfZaEQe8U7skGvFAnIRs9PPpsq57bC2+Ky/MB4yzhd6YOsxTAx9sGpazw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: '>=3.22.3'
-
-  '@ai-sdk/provider-utils@4.0.29':
-    resolution: {integrity: sha512-uhukHaCBvqkwBHkT8C2PrnqKTCoLn3pdHXqtcR9I8ErH+flbzgW4o7VHSNIup9LRu+WBvZIZDQLsx6rwl2tiOA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: '>=3.22.3'
@@ -5477,6 +5468,19 @@ packages:
       vitest:
         optional: true
 
+  '@copilotkit/bot-slack@0.0.2':
+    resolution: {integrity: sha512-CgkmTFSfJSvZft2tdBsCSeBhA2G1RyIihMpbILcSZdo+rElq4aUkqvQJzQ8ASERWspp6unpVr+Sz9swZMR1OFg==}
+
+  '@copilotkit/bot-ui@0.0.2':
+    resolution: {integrity: sha512-Xzq03QcKE2bnkDNQ3Re8fG8oP9QwMi7+7ueZQyC36omKANbg5UCIHLV3O8cEgGXkr4fEXLin0u7UOB17JlIWpg==}
+
+  '@copilotkit/bot@0.0.2':
+    resolution: {integrity: sha512-qv1o3+Jq1t8Yqr5lEiSjkeo0rTt/dTHni5elU3M09wRPnHTtIiVO7BKXtFE0Lb9Geypl/Z7vkrFEcpy3uef/AQ==}
+
+  '@copilotkit/core@1.60.1':
+    resolution: {integrity: sha512-5IuY5PaCh1v4//pj7BRTiMGGJAEa97NHH1IE756ku5pE+ZEcSnhgWE3j5lXiFQZC1YzNuMo9amiZtV8DQ+wDMQ==}
+    engines: {node: '>=18'}
+
   '@copilotkit/license-verifier@0.4.2':
     resolution: {integrity: sha512-0+Rdtg4gOwOBFBpZFxYsjgwBcCLja5z03YC6WA3KEntHYhsnoJ2aqNG6c0we8ZExCNYlEO4M7kHIfG5LXzqMYQ==}
 
@@ -5515,6 +5519,11 @@ packages:
 
   '@copilotkit/shared@1.59.5':
     resolution: {integrity: sha512-QMIaJDuSdrA4LuzkgmBzXodXkFJTZY9HrPXf1FbeWu5V4pGZ97Jk5gbuKLQaGbmkVt6dDX9aGBBu0ujCqpsf3w==}
+    peerDependencies:
+      '@ag-ui/core': '>=0.0.48'
+
+  '@copilotkit/shared@1.60.1':
+    resolution: {integrity: sha512-8KTxK6xnuxmFjGy9pHkHOMDElQl5Smisx0q8hx8je1NEkwrxFKrCK653APqn83QyQLifdPBqExXEUpGkqhoGcw==}
     peerDependencies:
       '@ag-ui/core': '>=0.0.48'
 
@@ -24988,10 +24997,10 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/openai@3.0.71(zod@3.25.76)':
+  '@ai-sdk/openai@3.0.69(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.29(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@3.0.22(zod@3.25.76)':
@@ -25016,13 +25025,6 @@ snapshots:
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.27(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.8
-      zod: 3.25.76
-
-  '@ai-sdk/provider-utils@4.0.29(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
@@ -28379,6 +28381,60 @@ snapshots:
       jest: 29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.11)(typescript@5.9.3))
       vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
 
+  '@copilotkit/bot-slack@0.0.2(@types/express@5.0.6)(encoding@0.1.13)':
+    dependencies:
+      '@ag-ui/client': 0.0.57
+      '@ag-ui/core': 0.0.57
+      '@copilotkit/bot': 0.0.2(encoding@0.1.13)(zod@3.25.76)
+      '@copilotkit/bot-ui': 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      '@copilotkit/core': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)
+      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      '@slack/bolt': 4.7.3(@types/express@5.0.6)
+      '@slack/types': 2.21.1
+      '@slack/web-api': 7.16.0
+      rxjs: 7.8.1
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@types/express'
+      - bufferutil
+      - debug
+      - encoding
+      - supports-color
+      - utf-8-validate
+
+  '@copilotkit/bot-ui@0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)':
+    dependencies:
+      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+    transitivePeerDependencies:
+      - '@ag-ui/core'
+      - encoding
+
+  '@copilotkit/bot@0.0.2(encoding@0.1.13)(zod@3.25.76)':
+    dependencies:
+      '@ag-ui/client': 0.0.57
+      '@ag-ui/core': 0.0.57
+      '@copilotkit/bot-ui': 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      '@copilotkit/core': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)
+      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - encoding
+      - zod
+
+  '@copilotkit/core@1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)':
+    dependencies:
+      '@ag-ui/client': 0.0.57
+      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+      '@tanstack/pacer': 0.20.1
+      phoenix: 1.8.4
+      rxjs: 7.8.1
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - '@ag-ui/core'
+      - encoding
+      - zod
+
   '@copilotkit/license-verifier@0.4.2': {}
 
   '@copilotkit/runtime@1.59.5(56436085ce2a11549bd479ba7297dde1)':
@@ -28394,7 +28450,7 @@ snapshots:
       '@ai-sdk/google': 3.0.33(zod@3.25.76)
       '@ai-sdk/google-vertex': 3.0.120(zod@3.25.76)
       '@ai-sdk/mcp': 1.0.21(zod@3.25.76)
-      '@ai-sdk/openai': 3.0.71(zod@3.25.76)
+      '@ai-sdk/openai': 3.0.69(zod@3.25.76)
       '@copilotkit/license-verifier': 0.4.2
       '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
       '@graphql-yoga/plugin-defer-stream': 3.18.0(graphql-yoga@5.18.0(graphql@16.12.0))(graphql@16.12.0)
@@ -28453,6 +28509,22 @@ snapshots:
     dependencies:
       '@ag-ui/client': 0.0.53
       '@ag-ui/core': 0.0.53
+      '@copilotkit/license-verifier': 0.4.2
+      '@segment/analytics-node': 2.3.0(encoding@0.1.13)
+      '@standard-schema/spec': 1.1.0
+      chalk: 4.1.2
+      graphql: 16.12.0
+      partial-json: 0.1.7
+      uuid: 11.1.0
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - encoding
+
+  '@copilotkit/shared@1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)':
+    dependencies:
+      '@ag-ui/client': 0.0.57
+      '@ag-ui/core': 0.0.57
       '@copilotkit/license-verifier': 0.4.2
       '@segment/analytics-node': 2.3.0(encoding@0.1.13)
       '@standard-schema/spec': 1.1.0

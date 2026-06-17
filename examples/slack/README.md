@@ -343,6 +343,13 @@ bot), private networking, env-var split, and auto-deploy on push — lives in
 [`RAILWAY.md`](./RAILWAY.md). The Dockerfiles (`Dockerfile.runtime`,
 `Dockerfile.bot`) and `railway.*.toml` it references are in this directory.
 
+> **Deploying from this monorepo (e.g. Railway):** this example depends on the
+> published `@copilotkit/bot*` packages (`package.json`), so a standalone build
+> installs them from npm. The pnpm lockfile lives at the **repo root**, so make
+> sure each service's **watch paths** include `pnpm-lock.yaml` and `package.json`
+> (not just `examples/slack/**`) — otherwise a dependency bump won't trigger a
+> redeploy and a frozen install can fail with an out-of-date lockfile.
+
 ## Tests
 
 ```bash
