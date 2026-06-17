@@ -293,7 +293,7 @@ export function getDemo(
 const CATEGORY_LABELS: Record<string, string> = {
   popular: "Most Popular",
   "agent-framework": "Agent Frameworks",
-  "enterprise-platform": "Enterprise",
+  "enterprise-platform": "Intelligence Platform",
   "provider-sdk": "Provider SDKs",
   protocol: "Protocols & Standards",
   emerging: "Emerging",

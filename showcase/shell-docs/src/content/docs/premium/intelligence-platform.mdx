@@ -1,19 +1,19 @@
 ---
-title: "How the Enterprise Intelligence Platform Works"
-description: "Architecture of the Enterprise Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
+title: "How the Intelligence Platform Works"
+description: "Architecture of the Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
 icon: "lucide/Server"
 doc_type: explanation
 premium: true
 ---
-## What is the Enterprise Intelligence Platform?
+## What is the Intelligence Platform?
 
-The Enterprise Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other premium capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
+The Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other production capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
 
-This page covers the logical architecture that applies to both deployment modes, plus the operational concerns specific to running the platform in your own cluster. Self-hosting is a premium deployment mode: it gives you data residency and compliance control at the cost of running a production Kubernetes workload.
+This page covers the logical architecture that applies to both deployment modes, plus the operational concerns specific to running the platform in your own cluster. Self-hosting gives you data residency and compliance control at the cost of running a production Kubernetes workload.
 
 <OpsPlatformCTA
   variant="inline"
-  title="Try the Enterprise Intelligence Platform"
+  title="Try the Intelligence Platform"
   body="Spin up a hosted project on Copilot Cloud — no credit card, free Developer tier."
   surface="docs_learn_intelligence_platform"
 />
@@ -34,7 +34,7 @@ The Helm chart deploys three Deployments:
 
 ### Multi-tenancy model
 
-The Enterprise Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
+The Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
 
 Self-hosted deployments choose a tenancy posture via `auth.deploymentMode`:
 
@@ -114,5 +114,5 @@ HorizontalPodAutoscaler is enabled for `app-api` by default (minimum 2, maximum 
 ## Next steps
 
 - **Step-by-step guide:** [Self-Hosting Intelligence](/premium/self-hosting) — install the `copilot-intelligence` Helm chart, configure external dependencies, and verify the deployment
-- **Premium features overview:** [CopilotKit Premium](/premium/overview) — what's gated behind the Intelligence license
+- **Intelligence Platform overview:** [Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
 - **Use threads in your app:** [How Threads & Persistence Work](/premium/threads-explained) — the event-replay architecture that the Intelligence runtime serves

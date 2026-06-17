@@ -13,7 +13,7 @@ export interface CopilotKitProps extends CopilotKitProviderProps {
   publicApiKey?: string;
 
   /**
-   * Your public license key for accessing premium CopilotKit features.
+   * Your public license key for accessing Intelligence Platform features.
    */
   publicLicenseKey?: string;
 

@@ -61,7 +61,7 @@ const data: FrameworkOverviewData = {
   cta: {
     variant: "card",
     title: "Bring your Agent Framework agents to production",
-    body: "Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform.",
+    body: "Add persistent threads, observability, and the inspector with the Intelligence Platform.",
     ctaLabel: "Create a free account",
     surface: "docs_microsoft_agent_framework_overview",
   },

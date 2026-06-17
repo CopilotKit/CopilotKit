@@ -5,10 +5,10 @@ description: "React hook for listing, managing, and syncing conversation threads
 
 ## Overview
 
-`useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
+`useThreads` is a React hook for managing conversation threads on the Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
 
 <Callout type="warn">
-  Thread persistence runs on the Enterprise Intelligence Platform, which is
+  Thread persistence runs on the Intelligence Platform, which is
   accessed with a `publicLicenseKey`. That key is **not yet supported on React
   Native** (see [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider)),
   so `useThreads` is documented here for API parity but is not yet usable on

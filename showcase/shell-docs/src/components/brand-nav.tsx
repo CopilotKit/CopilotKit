@@ -11,7 +11,7 @@ import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 
-// Enterprise Intelligence Platform sign-up CTA. UTM params let marketing
+// Intelligence Platform sign-up CTA. UTM params let marketing
 // attribute navbar-driven sign-ups distinctly from in-content SignupLink
 // and OpsPlatformCTA clicks. Exported so MobileTopNav reuses the same URL.
 export const INTELLIGENCE_CTA_HREF =

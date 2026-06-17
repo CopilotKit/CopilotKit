@@ -251,14 +251,15 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
   });
 
-  it("uses the generated Enterprise section for authored framework nav", () => {
+  it("uses the generated Intelligence Platform section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
       false,
     );
-    expect(sectionPages(navTree, "Enterprise")).toEqual([
-      "How the Enterprise Intelligence Platform Works",
+    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
+      "How the Intelligence Platform Works",
       "How Threads & Persistence Work",
       "Observability",
       "Self-Hosting Intelligence",
