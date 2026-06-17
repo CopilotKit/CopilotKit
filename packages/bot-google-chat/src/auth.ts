@@ -82,10 +82,12 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   // Chat webhook JWTs are signed by the Chat system service account, NOT
   // Google's standard federated OIDC keys, so we must verify against that
   // account's x509 certs rather than verifyIdToken's default cert source.
-  // Certs rotate slowly; a simple in-memory cache (no TTL) is acceptable for v1.
+  // Google rotates these signing keys ~daily, so the in-memory cache must
+  // self-heal: on a verification failure we treat the cache as possibly stale,
+  // refetch once, and retry (see verify below).
   let cachedCerts: Certificates | undefined;
-  async function getCerts(): Promise<Certificates> {
-    if (cachedCerts) return cachedCerts;
+  async function getCerts(forceRefresh = false): Promise<Certificates> {
+    if (cachedCerts && !forceRefresh) return cachedCerts;
     const res = await fetch(CHAT_CERT_URL);
     if (!res.ok) {
       throw new Error(`failed to fetch Chat x509 certs: ${res.status}`);
@@ -98,13 +100,25 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
     async verify(header) {
       const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
       if (!token) throw new UnauthorizedError("missing bearer token");
+      // Validates signature against the Chat system certs AND enforces the
+      // required audience and issuer in one call.
       try {
         const certs = await getCerts();
-        // Validates signature against the Chat system certs AND enforces the
-        // required audience and issuer in one call.
         await client.verifySignedJwtWithCertsAsync(token, certs, audience, [CHAT_ISSUER]);
-      } catch (e) {
-        throw new UnauthorizedError(`token verification failed: ${(e as Error).message}`);
+      } catch {
+        // Verification failed: the cached certs may be stale after a Google key
+        // rotation. Clear the cache, refetch once, and retry a single time
+        // before deciding the token is genuinely bad.
+        console.warn(
+          "bot-google-chat: JWT verification failed; refetching Chat x509 certs (possible key rotation) and retrying once",
+        );
+        cachedCerts = undefined;
+        try {
+          const freshCerts = await getCerts(true);
+          await client.verifySignedJwtWithCertsAsync(token, freshCerts, audience, [CHAT_ISSUER]);
+        } catch (e) {
+          throw new UnauthorizedError(`token verification failed: ${(e as Error).message}`);
+        }
       }
     },
   };
