@@ -113,7 +113,7 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
   {
     specId: "S6",
     from: "generative-ui/backend-tools",
-    to: "generative-ui/tool-rendering",
+    to: "generative-ui/tool-rendering/custom",
   },
   { specId: "S7", from: "generative-ui/frontend-tools", to: "frontend-tools" },
   {
@@ -124,7 +124,7 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
   {
     specId: "S9",
     from: "generative-ui/tool-based",
-    to: "generative-ui/tool-rendering",
+    to: "generative-ui/tool-rendering/custom",
   },
   {
     specId: "S10",
@@ -936,6 +936,22 @@ const FOLDER_INDEX: RedirectEntry[] = [
   // index broken.
 ];
 
+// /generative-ui/tool-rendering is now a sidebar folder, with the previous
+// page body moved to /generative-ui/tool-rendering/custom. Keep the old page
+// URL working at both the root and framework-scoped surfaces.
+const TOOL_RENDERING_SECTION_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "TR-section-root",
+    source: "/generative-ui/tool-rendering",
+    destination: "/generative-ui/tool-rendering/custom",
+  },
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `TR-section×${fw}`,
+    source: `/${fw}/generative-ui/tool-rendering`,
+    destination: `/${fw}/generative-ui/tool-rendering/custom`,
+  })),
+];
+
 // ---------------------------------------------------------------------------
 // Slug-rename catch-alls — bare /{old-slug}/* → /{new-slug}/*
 // Covers upstream URLs that hit a renamed framework root or any
@@ -1058,6 +1074,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
   ...FOLDER_INDEX,
+  ...TOOL_RENDERING_SECTION_REDIRECTS,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),
   // 3. Wildcard catch-alls last — order matters: most-specific wildcard first

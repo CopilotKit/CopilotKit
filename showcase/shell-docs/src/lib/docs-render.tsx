@@ -954,6 +954,7 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "generative-ui/a2ui": "A2UI",
   "generative-ui/mcp-apps": "MCPApps",
   "generative-ui/tool-rendering": "ToolRendering",
+  "generative-ui/tool-rendering/custom": "ToolRendering",
   "generative-ui/your-components/display-only": "DisplayOnly",
   "generative-ui/your-components/interactive": "Interactive",
   inspector: "Inspector",

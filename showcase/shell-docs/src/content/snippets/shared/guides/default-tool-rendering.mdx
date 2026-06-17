@@ -1,40 +1,117 @@
-`useDefaultRenderTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+`useDefaultRenderTool` provides a catch-all renderer for any tool that does
+not have its own named renderer. Use it when you want every unhandled tool call
+to show a visible card in the chat.
 
-- Displaying all tool calls during development
-- Rendering MCP (Model Context Protocol) tools
-- Providing a generic fallback UI for unexpected tools
+## Enable the built-in renderer
+
+Call `useDefaultRenderTool()` with no arguments to use CopilotKit's built-in
+`DefaultToolCallRenderer` as the wildcard renderer. It shows the tool name,
+current status, arguments, and result without custom UI code.
 
 ```tsx title="app/page.tsx"
 import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-// ...
 
-const YourMainContent = () => {
-  // ...
-  // [!code highlight:15]
+function YourMainContent() {
+  useDefaultRenderTool();
+
+  return <ChatInterface />;
+}
+```
+
+<Callout type="info">
+  Without a default renderer or a named renderer for a tool, tool calls still run
+  but do not paint UI in the chat.
+</Callout>
+
+## Customize the fallback renderer
+
+Pass a `render` function when you want one branded fallback UI for every
+unhandled tool. The fallback receives the tool `name`, parsed `parameters`,
+current `status`, and final `result`.
+
+```tsx title="app/page.tsx"
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
   useDefaultRenderTool({
-    render: ({ name, args, status, result }) => {
+    render: ({ name, parameters, status, result }) => {
       return (
         <div style={{ color: "black" }}>
           <span>
-            {status === "complete" ? "✓" : "⏳"}
+            {status === "complete" ? "Done" : "Running"}
+            {" "}
             {name}
           </span>
           {status === "complete" && result && (
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+            <pre>{JSON.stringify({ parameters, result }, null, 2)}</pre>
           )}
         </div>
       );
     },
   });
-  // ...
-};
+
+  return <ChatInterface />;
+}
 ```
 
-<Callout type="info">
-  Unlike `useRenderToolCall`, which targets a specific tool by name,
-  `useDefaultRenderTool` catches **all** tools that don't have a dedicated
-  renderer.
-</Callout>
+## Disable default rendering
+
+To suppress tool-call UI, register a renderer that returns `null`. A registered
+renderer takes priority over the built-in default renderer, even when that
+registered renderer returns nothing.
+
+For a single frontend tool, return `null` from that tool's renderer. Include
+`status` in the signature when the renderer may later become conditional:
+
+```tsx title="app/page.tsx"
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+function App() {
+  useFrontendTool(
+    {
+      name: "searchDatabase",
+      parameters: z.object({ query: z.string() }),
+      handler: async ({ query }) => {
+        /* ... */
+      },
+      render: ({ status }) => null,
+    },
+    [],
+  );
+
+  return <ChatInterface />;
+}
+```
+
+For all otherwise-unhandled tools, register a wildcard renderer that returns
+`null`:
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKit,
+  defineToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+
+const suppressUnhandledToolCalls = defineToolCallRenderer({
+  name: "*",
+  render: ({ status }) => null,
+});
+
+function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[suppressUnhandledToolCalls]}
+    >
+      <YourApp />
+    </CopilotKit>
+  );
+}
+```
+
+You can also make the opt-out conditional. For example, return `null` while
+`status` is in progress, then render a result card when the call completes.
 
 <Callout type="info">
   In v2, use [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool)

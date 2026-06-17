@@ -58,4 +58,21 @@ describe("seoRedirects", () => {
       ]),
     );
   });
+
+  it("redirects bare tool rendering section URLs to the custom rendering page", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "TR-section-root",
+          source: "/generative-ui/tool-rendering",
+          destination: "/generative-ui/tool-rendering/custom",
+        },
+        {
+          id: "TR-section×mastra",
+          source: "/mastra/generative-ui/tool-rendering",
+          destination: "/mastra/generative-ui/tool-rendering/custom",
+        },
+      ]),
+    );
+  });
 });
