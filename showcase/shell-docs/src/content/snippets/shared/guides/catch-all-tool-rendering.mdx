@@ -20,18 +20,17 @@ and final `result`:
 The catch-all can also be a deliberate opt-out. Return `null` when you want
 otherwise-unhandled tool calls to run without painting UI in the chat.
 
-Register the catch-all anywhere under `CopilotKit`. Keep the full renderer
-signature in place when the renderer may later become conditional:
+Create a small hook, then call it from any component rendered under
+`CopilotKit`. Keep the full renderer signature in place when the renderer may
+later become conditional:
 
-```tsx title="app/page.tsx"
+```tsx title="app/use-suppress-catch-all-tool-rendering.ts"
 import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
-function ToolRenderingRegistration() {
+export function useSuppressCatchAllToolRendering() {
   useDefaultRenderTool({
     render: ({ name, parameters, status, result }) => null,
   });
-
-  return null;
 }
 ```
 
