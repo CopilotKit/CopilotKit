@@ -1,3 +1,5 @@
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 using System.ClientModel;
 using System.ComponentModel;
 using System.Text.Json;
@@ -13,7 +15,7 @@ using OpenAI;
 /// owns a pre-authored component tree (see
 /// `src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts` + flight_schema.json)
 /// and the agent only streams *data* into the data model via a dedicated
-/// `search_flights` tool that emits an <c>a2ui_operations</c> container.
+/// `display_flight` tool that emits an <c>a2ui_operations</c> container.
 /// The A2UI middleware detects that container in the tool result and
 /// forwards rendered surfaces to the frontend.
 /// </summary>
@@ -47,10 +49,7 @@ public class A2uiFixedSchemaAgent
 
         _openAiClient = new(
             new ApiKeyCredential(githubToken),
-            new OpenAIClientOptions
-            {
-                Endpoint = new Uri(endpoint),
-            });
+            AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
     public AIAgent Create()
@@ -61,15 +60,14 @@ public class A2uiFixedSchemaAgent
             chatClient,
             name: "A2uiFixedSchemaAgent",
             description: @"You help users find flights. When asked about a flight, call
-`search_flights` with origin, destination, airline, and price.
+`display_flight` with origin, destination, airline, and price.
 Use short airport codes (e.g. ""SFO"", ""JFK"") for origin/destination and a price
 string like ""$289"". Keep any chat reply to one short sentence.",
             tools: [
-                AIFunctionFactory.Create(SearchFlights, options: new() { Name = "search_flights", SerializerOptions = _jsonSerializerOptions })
+                AIFunctionFactory.Create(DisplayFlight, options: new() { Name = "display_flight", SerializerOptions = _jsonSerializerOptions })
             ]);
     }
 
-    // @region[backend-schema-json-load]
     // The fixed-schema flight component tree. .NET doesn't ship a
     // JSON-loading helper analogous to LangGraph Python's
     // `a2ui.load_schema(...)`, so the schema is declared inline as a
@@ -128,35 +126,38 @@ string like ""$289"". Keep any chat reply to one short sentence.",
     };
     // @endregion[backend-schema-json-load]
 
-    // @region[backend-render-operations]
     [Description("Show a flight card for the given trip. Use short airport codes (e.g. SFO, JFK) for origin/destination and a price string like $289.")]
-    private string SearchFlights(
+    private object DisplayFlight(
         [Description("Origin airport code (e.g. SFO)")] string origin,
         [Description("Destination airport code (e.g. JFK)")] string destination,
         [Description("Airline name")] string airline,
         [Description("Price string (e.g. $289)")] string price)
     {
-        _logger.LogInformation("FixedSchema SearchFlights: {Origin} -> {Destination} on {Airline} at {Price}", origin, destination, airline, price);
+        _logger.LogInformation("FixedSchema DisplayFlight: {Origin} -> {Destination} on {Airline} at {Price}", origin, destination, airline, price);
 
         var operations = new object[]
         {
-            new { type = "create_surface", surfaceId = SurfaceId, catalogId = CatalogId },
-            new { type = "update_components", surfaceId = SurfaceId, components = FlightSchema },
+            new { version = "v0.9", createSurface = new { surfaceId = SurfaceId, catalogId = CatalogId } },
+            new { version = "v0.9", updateComponents = new { surfaceId = SurfaceId, components = FlightSchema } },
             new
             {
-                type = "update_data_model",
-                surfaceId = SurfaceId,
-                data = new
+                version = "v0.9",
+                updateDataModel = new
                 {
-                    origin,
-                    destination,
-                    airline,
-                    price,
+                    surfaceId = SurfaceId,
+                    path = "/",
+                    value = new
+                    {
+                        origin,
+                        destination,
+                        airline,
+                        price,
+                    },
                 },
             },
         };
 
-        return JsonSerializer.Serialize(new { a2ui_operations = operations });
+        return new { a2ui_operations = operations };
     }
     // @endregion[backend-render-operations]
 }

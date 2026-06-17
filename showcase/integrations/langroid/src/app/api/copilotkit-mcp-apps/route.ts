@@ -27,10 +27,19 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps` });
 
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the unified
+// Langroid agent on "/" — the same backend the main route registers it
+// against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+
 // @region[runtime-mcpapps-config]
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts for the same-shape mismatch rationale.
+  // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+  // plain Records. Fixed in source, pending release.
   agents: {
+    "headless-complete": headlessCompleteAgent,
     "mcp-apps": mcpAppsAgent,
     default: mcpAppsAgent,
   },

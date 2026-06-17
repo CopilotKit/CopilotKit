@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall: weather in Tokyo \u2014 follow-up after get_weather tool result. The built-in DefaultToolCallRenderer fires for this tool. Must come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_dc_get_weather_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22 degrees C and partly cloudy. The built-in default catchall renderer should display a tool render card with status pill."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall: weather in Tokyo \u2014 first leg: emit get_weather tool call. The DefaultToolCallRenderer renders this since no custom renderer is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall: weather in Tokyo fallback without toolName gate.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

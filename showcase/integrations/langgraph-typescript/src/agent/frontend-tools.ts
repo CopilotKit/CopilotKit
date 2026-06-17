@@ -7,22 +7,33 @@
  * and the handler executes in the browser.
  */
 
+// region: setup
 import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
 
+// CopilotKit forwards frontend tools to the agent via
+// `state.copilotkit.actions`. `CopilotKitStateAnnotation` adds that
+// channel to your graph's state; `convertActionsToDynamicStructuredTools`
+// turns the forwarded action schemas into LangChain tools you can bind
+// at model-invocation time.
 const AgentStateAnnotation = CopilotKitStateAnnotation;
 export type AgentState = typeof AgentStateAnnotation.State;
 
 const SYSTEM_PROMPT = "You are a helpful, concise assistant.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+  const model = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),
@@ -46,3 +57,4 @@ const memory = new MemorySaver();
 export const graph = workflow.compile({
   checkpointer: memory,
 });
+// endregion

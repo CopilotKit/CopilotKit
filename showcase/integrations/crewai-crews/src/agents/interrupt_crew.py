@@ -11,6 +11,7 @@ slot (or cancels).
 No backend tools — `schedule_meeting` is satisfied entirely by the frontend.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
 from crewai import Agent, Crew, Process, Task
@@ -81,3 +82,6 @@ class InterruptScheduling:
         if _cached_crew is None:
             _cached_crew = _build_crew()
         return _cached_crew
+
+
+# @endregion[backend-interrupt-tool]

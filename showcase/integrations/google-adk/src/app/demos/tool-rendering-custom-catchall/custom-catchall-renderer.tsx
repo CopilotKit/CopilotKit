@@ -1,67 +1,161 @@
 "use client";
 
 import React from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./_components/card";
+import { Badge } from "./_components/badge";
 
-// Narrow union to match what the runtime + page actually emit. The v2
-// `DefaultRenderProps` runtime status enum is `"inProgress" | "executing"
-// | "complete"` and the page collapses both pre-completion variants to
-// `"executing"`. There is no `"incomplete"` state today; including it
-// here would create a dead branch that hides the lack of UX for
-// truly-failed tool calls (which would surface via a different
-// mechanism, not this status enum).
-interface CustomCatchallRendererProps {
+// ShadCN-styled catch-all renderer for the tool-rendering-custom-catchall
+// cell. A single wildcard renderer handles every tool call — name,
+// status, arguments, and result rendered inside a shadcn <Card />.
+
+export type CatchallToolStatus = "inProgress" | "executing" | "complete";
+
+export interface CustomCatchallRendererProps {
   name: string;
-  args: Record<string, unknown>;
-  result: unknown;
-  status: "executing" | "complete";
+  status: CatchallToolStatus;
+  parameters: unknown;
+  result: string | undefined;
 }
-
-const FALLBACK_RESULT_LABEL = "tool returned no payload";
 
 export function CustomCatchallRenderer({
   name,
-  args,
-  result,
   status,
+  parameters,
+  result,
 }: CustomCatchallRendererProps) {
-  const formatted =
-    result === undefined || result === null
-      ? FALLBACK_RESULT_LABEL
-      : typeof result === "string"
-        ? result
-        : JSON.stringify(result, null, 2);
+  const parsedResult = parseResult(result);
+  const done = status === "complete";
 
   return (
-    <div
-      data-testid="custom-catchall-card"
-      className="my-2 rounded-xl border border-[#1A73E8]/20 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 shadow-sm"
+    <Card
+      data-testid="custom-wildcard-card"
+      data-tool-name={name}
+      data-status={status}
+      className="my-3 overflow-hidden"
     >
-      <header className="flex items-center justify-between mb-3">
-        <span className="text-[11px] uppercase tracking-wider text-[#1A73E8] font-medium">
-          tool · {name}
-        </span>
-        <span
-          className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-            status === "complete"
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-              : "bg-amber-50 text-amber-700 border border-amber-200"
-          }`}
-        >
-          {status}
-        </span>
-      </header>
-      <div className="text-xs text-[#57575B] mb-1">arguments</div>
-      <pre className="text-xs text-[#010507] bg-white border border-[#E9E9EF] rounded-lg p-2.5 overflow-x-auto font-mono">
-        {JSON.stringify(args ?? {}, null, 2)}
-      </pre>
-      {status === "complete" && (
-        <>
-          <div className="text-xs text-[#57575B] mt-3 mb-1">result</div>
-          <pre className="text-xs text-[#010507] bg-white border border-[#E9E9EF] rounded-lg p-2.5 overflow-x-auto font-mono whitespace-pre-wrap">
-            {formatted}
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-neutral-200 bg-neutral-50/60 py-3">
+        <div className="flex items-center gap-2">
+          <CardTitle
+            data-testid="custom-wildcard-tool-name"
+            className="font-mono text-sm text-neutral-900"
+          >
+            {name}
+          </CardTitle>
+          <CardDescription className="text-[10px] uppercase tracking-wider text-neutral-500">
+            tool call
+          </CardDescription>
+        </div>
+        <StatusBadge status={status} />
+      </CardHeader>
+
+      <CardContent className="grid gap-3 p-4 text-sm">
+        <Section label="Arguments">
+          <pre
+            data-testid="custom-wildcard-args"
+            className="overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2.5 font-mono text-xs text-neutral-900"
+          >
+            {safeStringify(parameters)}
           </pre>
-        </>
-      )}
+        </Section>
+
+        <Section label="Result">
+          {done ? (
+            <pre
+              data-testid="custom-wildcard-result"
+              className="overflow-x-auto rounded-md border border-emerald-200 bg-emerald-50 p-2.5 font-mono text-xs text-neutral-900"
+            >
+              {parsedResult !== undefined
+                ? safeStringify(parsedResult)
+                : "(empty)"}
+            </pre>
+          ) : (
+            <p className="text-xs italic text-neutral-500">
+              waiting for tool to finish…
+            </p>
+          )}
+        </Section>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+        {label}
+      </div>
+      {children}
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: CatchallToolStatus }) {
+  const { label, variant, dot } = describeStatus(status);
+  return (
+    <Badge data-testid="custom-wildcard-status" variant={variant}>
+      <span
+        className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`}
+        aria-hidden
+      />
+      {label}
+    </Badge>
+  );
+}
+
+function describeStatus(status: CatchallToolStatus): {
+  label: string;
+  variant: "warning" | "secondary" | "success";
+  dot: string;
+} {
+  switch (status) {
+    case "inProgress":
+      return {
+        label: "streaming",
+        variant: "warning",
+        dot: "bg-amber-500 animate-pulse",
+      };
+    case "executing":
+      return {
+        label: "running",
+        variant: "secondary",
+        dot: "bg-neutral-500 animate-pulse",
+      };
+    case "complete":
+      return {
+        label: "done",
+        variant: "success",
+        dot: "bg-emerald-500",
+      };
+  }
+}
+
+function parseResult(result: string | undefined): unknown {
+  if (result === undefined || result === null) return undefined;
+  if (typeof result !== "string") return result;
+  try {
+    return JSON.parse(result);
+  } catch {
+    return result;
+  }
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }

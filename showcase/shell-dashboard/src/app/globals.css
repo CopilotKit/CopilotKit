@@ -107,7 +107,7 @@ tr.grid-row:hover > td {
   color: var(--text);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.12s;

@@ -1,15 +1,19 @@
-"""LangGraph agent for the Interrupt-based Generative UI demo.
+"""LangGraph agent for the Human-in-the-Loop (Interrupt-based) booking demo.
 
 Defines a backend tool `schedule_meeting(topic, attendee)` that uses
-langgraph's `interrupt()` primitive to pause the run and surface the
-meeting context to the frontend. The frontend `useInterrupt` renderer
-shows a time picker and resolves with `{chosen_time, chosen_label}` or
-`{cancelled: true}`, which this tool turns into a human-readable result.
+LangGraph's `interrupt()` primitive to pause the run and surface a
+structured booking payload to the frontend. The frontend `useInterrupt`
+renderer shows a time picker inline in the chat and resolves with
+`{chosen_time, chosen_label}` or `{cancelled: true}`, which this tool
+turns into a human-readable result the agent uses to confirm the booking.
 """
 
+# @region[backend-interrupt-tool]
 from __future__ import annotations
 
-from typing import Any, Optional
+from datetime import datetime, time, timedelta
+from typing import Any, List, Optional
+from zoneinfo import ZoneInfo
 
 from langchain.agents import create_agent
 from langchain_core.tools import tool
@@ -27,8 +31,37 @@ SYSTEM_PROMPT = (
     "cancelled."
 )
 
+# Demo-only fixed timezone. A real app would use the user's calendar +
+# locale (e.g. zoneinfo.ZoneInfo(user.timezone) and Google Calendar /
+# Outlook availability); we hardcode Pacific so screenshots are stable.
+_DEMO_TZ = ZoneInfo("America/Los_Angeles")
 
-# @region[backend-interrupt-tool]
+
+def _candidate_slots() -> List[dict]:
+    """Upcoming candidate slots, relative to "now" so the picker never
+    shows stale dates."""
+    now = datetime.now(_DEMO_TZ)
+    tomorrow = (now + timedelta(days=1)).date()
+    # Skip a week when the result would collide with `tomorrow` — i.e.
+    # today is Mon (0 days away, picker would show two slots both
+    # labelled "Monday") or Sun (1 day away, picker would show
+    # "Tomorrow" and "Monday" both pointing at the same date).
+    days_to_monday = (7 - now.weekday()) % 7
+    if days_to_monday <= 1:
+        days_to_monday += 7
+    next_monday = (now + timedelta(days=days_to_monday)).date()
+    candidates = [
+        ("Tomorrow 10:00 AM", tomorrow, time(10, 0)),
+        ("Tomorrow 2:00 PM", tomorrow, time(14, 0)),
+        ("Monday 9:00 AM", next_monday, time(9, 0)),
+        ("Monday 3:30 PM", next_monday, time(15, 30)),
+    ]
+    return [
+        {"label": label, "iso": datetime.combine(d, t, _DEMO_TZ).isoformat()}
+        for label, d, t in candidates
+    ]
+
+
 @tool
 def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
     """Ask the user to pick a time slot for a call, via an in-chat picker.
@@ -41,10 +74,17 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
         Human-readable result string describing the chosen slot or
         indicating the user cancelled.
     """
-    # langgraph's `interrupt()` pauses execution and forwards the payload to
-    # the client. The frontend v2 `useInterrupt` hook renders the picker and
-    # calls `resolve(...)` with the user's selection, which comes back here.
-    response: Any = interrupt({"topic": topic, "attendee": attendee})
+    # `interrupt()` pauses the LangGraph run and forwards a structured
+    # payload to the client. The frontend v2 `useInterrupt` hook renders
+    # the picker inline in the chat, then calls `resolve(...)` with the
+    # user's selection — that value comes back here as `response`.
+    response: Any = interrupt(
+        {
+            "topic": topic,
+            "attendee": attendee,
+            "slots": _candidate_slots(),
+        }
+    )
 
     if isinstance(response, dict):
         if response.get("cancelled"):
@@ -54,10 +94,12 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
             return f"Meeting scheduled for {chosen_label}: {topic}"
 
     return f"User did not pick a time. Meeting NOT scheduled: {topic}"
+
+
 # @endregion[backend-interrupt-tool]
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
     model=model,

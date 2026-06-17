@@ -23,3 +23,5 @@ shell-dashboard/src/data/*.json
 # Eval local artifacts
 .eval-results/
 .eval-baseline.json
+
+next-env.d.ts

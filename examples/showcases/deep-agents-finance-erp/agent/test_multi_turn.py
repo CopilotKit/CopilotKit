@@ -37,7 +37,9 @@ async def test_raw_langgraph():
     ):
         event_count_1 += 1
     state1 = await graph.aget_state(config)
-    print(f"Turn 1: {event_count_1} events, {len(state1.values.get('messages', []))} messages, next={state1.next}")
+    print(
+        f"Turn 1: {event_count_1} events, {len(state1.values.get('messages', []))} messages, next={state1.next}"
+    )
 
     # Turn 2
     event_count_2 = 0
@@ -48,7 +50,9 @@ async def test_raw_langgraph():
     ):
         event_count_2 += 1
     state2 = await graph.aget_state(config)
-    print(f"Turn 2: {event_count_2} events, {len(state2.values.get('messages', []))} messages, next={state2.next}")
+    print(
+        f"Turn 2: {event_count_2} events, {len(state2.values.get('messages', []))} messages, next={state2.next}"
+    )
     print(f"RESULT: {'PASS' if event_count_2 > 0 else 'FAIL'}")
     print()
     return event_count_2 > 0
@@ -60,7 +64,12 @@ async def test_agui_integration():
     print("TEST 2: ag_ui_langgraph integration multi-turn")
     print("=" * 60)
 
-    from ag_ui.core.types import RunAgentInput, UserMessage, AssistantMessage, ToolMessage as AGUIToolMessage
+    from ag_ui.core.types import (
+        RunAgentInput,
+        UserMessage,
+        AssistantMessage,
+        ToolMessage as AGUIToolMessage,
+    )
     from copilotkit import LangGraphAGUIAgent
     from copilotkit.langgraph import copilotkit_customize_config
     from frontend_tools import ui_tools, hitl_tools
@@ -125,13 +134,15 @@ async def test_agui_integration():
     if not turn1_messages:
         # Try parsing events as raw dicts
         for evt in events_1:
-            if hasattr(evt, 'type') and str(evt.type) == "EventType.MESSAGES_SNAPSHOT":
-                turn1_messages = evt.messages if hasattr(evt, 'messages') else []
+            if hasattr(evt, "type") and str(evt.type) == "EventType.MESSAGES_SNAPSHOT":
+                turn1_messages = evt.messages if hasattr(evt, "messages") else []
 
     print(f"Turn 1 messages captured: {len(turn1_messages)}")
 
     if not turn1_messages:
-        print("WARNING: Could not capture messages from turn 1. Constructing manually...")
+        print(
+            "WARNING: Could not capture messages from turn 1. Constructing manually..."
+        )
         # Get state directly from the graph
         config = {"configurable": {"thread_id": thread_id}}
         state = await agent_graph.aget_state(config)
@@ -141,12 +152,20 @@ async def test_agui_integration():
         # Construct AG-UI messages from checkpoint
         turn1_messages = []
         for msg in checkpoint_msgs:
-            role = "human" if msg.type == "human" else ("assistant" if msg.type == "ai" else "tool")
-            turn1_messages.append({
-                "id": msg.id,
-                "role": role,
-                "content": msg.content if isinstance(msg.content, str) else str(msg.content),
-            })
+            role = (
+                "human"
+                if msg.type == "human"
+                else ("assistant" if msg.type == "ai" else "tool")
+            )
+            turn1_messages.append(
+                {
+                    "id": msg.id,
+                    "role": role,
+                    "content": msg.content
+                    if isinstance(msg.content, str)
+                    else str(msg.content),
+                }
+            )
 
     # --- Turn 2 ---
     msg2_id = str(uuid.uuid4())
@@ -155,14 +174,29 @@ async def test_agui_integration():
         if isinstance(m, dict):
             role_str = m.get("role", "human")
             if role_str in ("human", "user"):
-                all_messages.append(UserMessage(id=m["id"], role="user", content=m.get("content", "")))
+                all_messages.append(
+                    UserMessage(id=m["id"], role="user", content=m.get("content", ""))
+                )
             elif role_str == "assistant":
-                all_messages.append(AssistantMessage(id=m["id"], role="assistant", content=m.get("content", "")))
+                all_messages.append(
+                    AssistantMessage(
+                        id=m["id"], role="assistant", content=m.get("content", "")
+                    )
+                )
             elif role_str == "tool":
-                all_messages.append(AGUIToolMessage(id=m["id"], role="tool", content=m.get("content", ""), tool_call_id=m.get("tool_call_id", "")))
+                all_messages.append(
+                    AGUIToolMessage(
+                        id=m["id"],
+                        role="tool",
+                        content=m.get("content", ""),
+                        tool_call_id=m.get("tool_call_id", ""),
+                    )
+                )
         else:
             all_messages.append(m)
-    all_messages.append(UserMessage(id=msg2_id, role="user", content="And what is 3+3?"))
+    all_messages.append(
+        UserMessage(id=msg2_id, role="user", content="And what is 3+3?")
+    )
 
     input2 = RunAgentInput(
         thread_id=thread_id,
@@ -207,7 +241,9 @@ async def test_agui_integration():
         print("RESULT: PASS")
     elif len(events_2) > 0:
         print("RESULT: PARTIAL — events emitted but no text/tool content")
-        print("  This means ag_ui_langgraph is running but the graph produces no new content")
+        print(
+            "  This means ag_ui_langgraph is running but the graph produces no new content"
+        )
     else:
         print("RESULT: FAIL — no events emitted")
     print()

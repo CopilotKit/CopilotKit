@@ -1,13 +1,13 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵMAX_SOCKET_RETRIES,
 } from "@copilotkit/core";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 

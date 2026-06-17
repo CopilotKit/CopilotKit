@@ -13,7 +13,8 @@
 // - src/app/api/copilotkit-ogui/route.ts (scoping pattern)
 // - src/app/api/copilotkit-mcp-apps/route.ts (mcpApps config pattern)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -31,26 +32,21 @@ const beautifulChatAgent = new LangGraphAgent({
 });
 
 const agents: Record<string, LangGraphAgent> = {
-  // The page's <CopilotKit agent="beautiful-chat"> resolves here.
   "beautiful-chat": beautifulChatAgent,
-  // Internal components (headless-chat, example-canvas) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // graph so those component hooks resolve instead of throwing
-  // "Agent 'default' not found". This matches the canonical's
-  // `agents: { default: defaultAgent }` shape.
-  default: beautifulChatAgent,
 };
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
-  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
+  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
   a2ui: {
-    // The backend graph has its own `generate_a2ui` tool, so we must NOT
-    // inject the runtime's default A2UI tool on top (that would double-bind
-    // the tool slot and confuse the LLM).
-    injectA2UITool: false,
+    // Inject the dynamic `generate_a2ui` tool into the agent
+    injectA2UITool: true,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   mcpApps: {
     servers: [

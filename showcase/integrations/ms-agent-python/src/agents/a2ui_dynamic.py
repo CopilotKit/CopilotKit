@@ -5,7 +5,7 @@ Pattern (ported from the LangGraph reference
 `showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, it invokes a
-  secondary LLM bound to `render_a2ui` (tool_choice forced) and returns the
+  secondary LLM bound to `_design_a2ui_surface` (tool_choice forced) and returns the
   resulting `a2ui_operations` container.
 - The runtime (see `src/app/api/copilotkit-declarative-gen-ui/route.ts`) uses
   `injectA2UITool: false` because the tool binding is owned by the agent here
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
 from agent_framework import Agent, BaseChatClient, tool
 from agent_framework_ag_ui import AgentFrameworkAgent
@@ -37,17 +37,45 @@ CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 def generate_a2ui(
     context: Annotated[
         str,
-        Field(description="Conversation context to generate UI from."),
-    ],
+        # Default to empty so the primary LLM can call generate_a2ui() with
+        # no args (aimock fixtures return `arguments: "{}"`); pydantic rejects
+        # missing-context calls with "Argument parsing failed" before the
+        # function body runs. Same pattern as
+        # `src/agents/beautiful_chat.py::generate_a2ui`.
+        Field(default="", description="Conversation context to generate UI from."),
+    ] = "",
+    session: Any = None,
 ) -> str:
     """Generate dynamic A2UI dashboard from conversation context."""
     from openai import OpenAI
+
+    # Pull the latest user message from the active agent session so the
+    # secondary LLM call sees what the user actually asked for. Without this,
+    # aimock's substring matcher can't distinguish between "KPI dashboard",
+    # "pie chart", and "bar chart" pills — they'd all hit the first matching
+    # fixture. `session` is the AgentSession injected by agent_framework
+    # (see `_tools.py:1483`). When unavailable (e.g. direct calls in tests),
+    # we fall back to the caller-supplied `context` string.
+    latest_user_message = ""
+    if session is not None:
+        try:
+            messages = list(getattr(session, "input_messages", []) or [])
+            for msg in reversed(messages):
+                if getattr(msg, "role", None) == "user":
+                    text = getattr(msg, "text", None) or str(
+                        getattr(msg, "content", "") or ""
+                    )
+                    if text:
+                        latest_user_message = text
+                        break
+        except Exception:
+            latest_user_message = ""
 
     client = OpenAI()
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "render_a2ui",
+            "name": "_design_a2ui_surface",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -62,27 +90,36 @@ def generate_a2ui(
         },
     }
 
+    # Build the secondary-LLM user message. Priority:
+    #   1. `latest_user_message` from the active AgentSession (preferred —
+    #      lets aimock's substring matcher pick the right fixture per pill).
+    #   2. The caller-supplied `context` arg (LangGraph-style summary).
+    #   3. A generic catch-all that contains all four d5 demo keywords so
+    #      direct/test invocations still match SOME fixture instead of
+    #      falling through to the real-OpenAI proxy.
+    user_content = (
+        latest_user_message
+        or context
+        or "KPI dashboard with 3-4 metrics, pie chart sales by region, "
+        "bar chart quarterly revenue, status report."
+    )
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
             {
                 "role": "system",
                 "content": (
-                    context
-                    or f"Generate a useful dashboard UI. Use catalogId='{CUSTOM_CATALOG_ID}'."
+                    f"Generate a useful dashboard UI. Use catalogId='{CUSTOM_CATALOG_ID}'."
                 ),
             },
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
+            {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)

@@ -22,6 +22,7 @@ from ag_ui.core import (
     StateSnapshotEvent,
 )
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
+from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.langgraph_agui_agent import (
     LangGraphAGUIAgent,
     CustomEventNames,
@@ -74,6 +75,7 @@ def track_parent_dispatches(agent):
 
 # ---------- Custom event: ManuallyEmitMessage ----------
 
+
 class TestManuallyEmitMessage:
     """copilotkit_manually_emit_message → TEXT_MESSAGE_START/CONTENT/END sequence."""
 
@@ -91,7 +93,7 @@ class TestManuallyEmitMessage:
             )
             agent._dispatch_event(event)
 
-        types = [getattr(e, 'type', None) for e in dispatched]
+        types = [getattr(e, "type", None) for e in dispatched]
         assert EventType.TEXT_MESSAGE_START in types
         assert EventType.TEXT_MESSAGE_CONTENT in types
         assert EventType.TEXT_MESSAGE_END in types
@@ -110,7 +112,7 @@ class TestManuallyEmitMessage:
             )
             agent._dispatch_event(event)
 
-        message_events = [e for e in dispatched if hasattr(e, 'message_id')]
+        message_events = [e for e in dispatched if hasattr(e, "message_id")]
         for e in message_events:
             assert e.message_id == "msg-456"
 
@@ -128,12 +130,15 @@ class TestManuallyEmitMessage:
             )
             agent._dispatch_event(event)
 
-        content_events = [e for e in dispatched if e.type == EventType.TEXT_MESSAGE_CONTENT]
+        content_events = [
+            e for e in dispatched if e.type == EventType.TEXT_MESSAGE_CONTENT
+        ]
         assert len(content_events) == 1
         assert content_events[0].delta == "specific content"
 
 
 # ---------- Custom event: ManuallyEmitToolCall ----------
+
 
 class TestManuallyEmitToolCall:
     """copilotkit_manually_emit_tool_call → TOOL_CALL_START/ARGS/END sequence."""
@@ -152,7 +157,7 @@ class TestManuallyEmitToolCall:
             )
             agent._dispatch_event(event)
 
-        types = [getattr(e, 'type', None) for e in dispatched]
+        types = [getattr(e, "type", None) for e in dispatched]
         assert EventType.TOOL_CALL_START in types
         assert EventType.TOOL_CALL_ARGS in types
         assert EventType.TOOL_CALL_END in types
@@ -171,7 +176,7 @@ class TestManuallyEmitToolCall:
             )
             agent._dispatch_event(event)
 
-        tool_events = [e for e in dispatched if hasattr(e, 'tool_call_id')]
+        tool_events = [e for e in dispatched if hasattr(e, "tool_call_id")]
         for e in tool_events:
             assert e.tool_call_id == "tc-456"
 
@@ -214,6 +219,7 @@ class TestManuallyEmitToolCall:
 
 # ---------- Custom event: ManuallyEmitState ----------
 
+
 class TestManuallyEmitState:
     """copilotkit_manually_emit_intermediate_state → StateSnapshotEvent."""
 
@@ -230,11 +236,12 @@ class TestManuallyEmitState:
             agent._dispatch_event(event)
 
         assert agent.active_run["manually_emitted_state"] == {"progress": 50}
-        types = [getattr(e, 'type', None) for e in dispatched]
+        types = [getattr(e, "type", None) for e in dispatched]
         assert EventType.STATE_SNAPSHOT in types
 
 
 # ---------- Custom event: copilotkit_exit ----------
+
 
 class TestCopilotKitExit:
     """copilotkit_exit → CustomEvent with name='Exit'."""
@@ -250,13 +257,16 @@ class TestCopilotKitExit:
             agent._dispatch_event(event)
 
         exit_events = [
-            e for e in dispatched
-            if e.type == EventType.CUSTOM and getattr(e, 'name', None) == EXIT_OUTPUT_NAME
+            e
+            for e in dispatched
+            if e.type == EventType.CUSTOM
+            and getattr(e, "name", None) == EXIT_OUTPUT_NAME
         ]
         assert len(exit_events) == 1
 
 
 # ---------- Unknown custom events ----------
+
 
 class TestUnknownCustomEvent:
     """Unknown custom event names should pass through to super() without crashing."""
@@ -273,6 +283,7 @@ class TestUnknownCustomEvent:
 
 
 # ---------- Emit filtering (independent of tool calls) ----------
+
 
 class TestEmitFilteringIndependent:
     """Test that both emit-messages and emit-tool-calls can be set independently."""
@@ -336,6 +347,7 @@ class TestEmitFilteringIndependent:
 
 
 # ---------- copilotkit state namespace ----------
+
 
 class TestLanggraphDefaultMergeState:
     """langgraph_default_merge_state adds copilotkit namespace with actions and context."""
@@ -426,7 +438,9 @@ class TestLanggraphDefaultMergeState:
             result = agent.langgraph_default_merge_state({}, [], MagicMock())
 
         action_names = [a.get("name") for a in result["copilotkit"]["actions"]]
-        assert action_names.count("tool_a") == 1, "Duplicate tool names should not appear in copilotkit.actions"
+        assert action_names.count("tool_a") == 1, (
+            "Duplicate tool names should not appear in copilotkit.actions"
+        )
         assert action_names.count("tool_b") == 1
 
     def test_copilotkit_actions_ordering_matches_tools(self, agent):
@@ -447,6 +461,7 @@ class TestLanggraphDefaultMergeState:
 
 
 # ---------- Reasoning content preservation ----------
+
 
 class TestReasoningContentPreservation:
     """Verify that LangGraphAGUIAgent does not drop or mutate reasoning events."""
@@ -477,13 +492,14 @@ class TestReasoningContentPreservation:
             )
             agent._dispatch_event(event)
 
-        types = [getattr(e, 'type', None) for e in dispatched]
+        types = [getattr(e, "type", None) for e in dispatched]
         assert EventType.TOOL_CALL_START in types
         assert EventType.TOOL_CALL_ARGS in types
         assert EventType.TOOL_CALL_END in types
 
 
 # ---------- AG-UI-style (unprefixed) event integration ----------
+
 
 class TestAGUIStyleEventIntegration:
     """Verify that AG-UI-native (unprefixed) events flow correctly through CopilotKit.
@@ -498,10 +514,14 @@ class TestAGUIStyleEventIntegration:
         mock_graph.get_state = MagicMock()
         agent = LangGraphAGUIAgent(name="test", graph=mock_graph)
         agent.active_run = {
-            "id": "run-1", "thread_id": "t1",
-            "reasoning_process": None, "node_name": "agent",
-            "has_function_streaming": False, "model_made_tool_call": False,
-            "state_reliable": True, "streamed_messages": [],
+            "id": "run-1",
+            "thread_id": "t1",
+            "reasoning_process": None,
+            "node_name": "agent",
+            "has_function_streaming": False,
+            "model_made_tool_call": False,
+            "state_reliable": True,
+            "streamed_messages": [],
             "manually_emitted_state": None,
             "schema_keys": {
                 "input": ["messages", "tools"],
@@ -516,6 +536,7 @@ class TestAGUIStyleEventIntegration:
         """on_custom_event/"manually_emit_message" through CopilotKit should produce
         TEXT_MESSAGE_START/CONTENT/END via the AG-UI base handler — not suppressed."""
         import asyncio
+
         agent = self._make_agent()
         lg_event = {
             "event": "on_custom_event",
@@ -540,6 +561,7 @@ class TestAGUIStyleEventIntegration:
         """on_custom_event/"manually_emit_tool_call" through CopilotKit should produce
         TOOL_CALL_START/ARGS/END via the AG-UI base handler."""
         import asyncio
+
         agent = self._make_agent()
         lg_event = {
             "event": "on_custom_event",
@@ -564,6 +586,7 @@ class TestAGUIStyleEventIntegration:
         """on_custom_event/"exit" through CopilotKit should emit a CUSTOM event —
         the exit signal is not suppressed by the CopilotKit layer."""
         import asyncio
+
         agent = self._make_agent()
         lg_event = {
             "event": "on_custom_event",
@@ -603,3 +626,36 @@ class TestAGUIStyleEventIntegration:
         assert EventType.CUSTOM in types
         assert EventType.TEXT_MESSAGE_START not in types
         assert dispatched[0] is original
+
+
+class TestAgentMetadata:
+    """Regression coverage for info() serializing LangGraphAGUIAgent metadata."""
+
+    def test_dict_repr_includes_type_without_parent_support(self, agent):
+        """dict_repr should not depend on AG-UI's base class implementing dict_repr."""
+        assert agent.dict_repr() == {
+            "name": "test",
+            "description": "",
+            "type": "langgraph_agui",
+        }
+
+    def test_remote_endpoint_info_serializes_langgraph_agui_agent(self):
+        """sdk.info should include LangGraphAGUIAgent metadata without raising."""
+        mock_graph = MagicMock()
+        mock_graph.get_state = MagicMock()
+        agent = LangGraphAGUIAgent(
+            name="demo",
+            graph=mock_graph,
+            description="demo agent",
+        )
+        sdk = CopilotKitRemoteEndpoint(agents=[agent], actions=[])
+
+        info = sdk.info(context={"properties": {}, "frontend_url": None, "headers": {}})
+
+        assert info["agents"] == [
+            {
+                "name": "demo",
+                "description": "demo agent",
+                "type": "langgraph_agui",
+            }
+        ]

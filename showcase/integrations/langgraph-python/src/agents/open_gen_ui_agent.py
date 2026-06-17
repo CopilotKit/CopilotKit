@@ -58,7 +58,7 @@ rendered visualisation.
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4.1", model_kwargs={"parallel_tool_calls": False}),
+    model=ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False}),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

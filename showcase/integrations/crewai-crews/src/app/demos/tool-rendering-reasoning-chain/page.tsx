@@ -1,8 +1,16 @@
 "use client";
 
 // Tool Rendering — REASONING CHAIN variant.
-// Composes per-tool renderers (weather/flights) with a custom
-// reasoningMessage slot to show sequential tool calls + reasoning.
+//
+// A single cell that composes two previously-separate patterns:
+//
+//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
+//      the same approach used by the `reasoning-custom` cell.
+//   2. Sequential tool calls rendered with:
+//        get_weather     → <WeatherCard />
+//        search_flights  → <FlightListCard />
+//        *               → <CustomCatchallRenderer />
+//      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
 import {
@@ -21,6 +29,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -34,15 +43,6 @@ interface FlightSearchResult {
   origin?: string;
   destination?: string;
   flights?: Flight[];
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -123,12 +123,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
       {
-        title: "Flights SFO -> JFK",
-        message: "Find flights from SFO to JFK.",
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
+      {
+        title: "Flights + destination weather",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

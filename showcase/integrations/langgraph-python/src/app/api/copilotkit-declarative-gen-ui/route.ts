@@ -1,8 +1,4 @@
-// Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// cell. Splitting into its own endpoint (mirroring beautiful-chat) lets us set
-// `a2ui.injectA2UITool: false` — the backend agent owns the `generate_a2ui`
-// tool itself, so double-binding from the runtime would duplicate the tool
-// slot and confuse the LLM.
+// Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema) cell.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -26,7 +22,11 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
-    injectA2UITool: false,
+    injectA2UITool: true,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

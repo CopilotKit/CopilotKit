@@ -166,7 +166,9 @@ export function useOverlays(): UseOverlaysReturn {
   const [overlays, setOverlays] = useState<OverlaySet>(
     () => new Set(DEFAULT_OVERLAYS) as OverlaySet,
   );
-  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">("matrix");
+  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">(
+    "matrix",
+  );
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
@@ -247,6 +249,9 @@ export function useOverlays(): UseOverlaysReturn {
       setActiveTabRaw(tab);
       setSelectedProbeIdRaw(null);
       writeHash(tab, overlays, null, true);
+      // Persist the current overlay set for symmetry with toggle/updateOverlays
+      // so the user's overlay selection survives across tab switches + reloads.
+      saveToStorage(overlays);
     },
     [overlays],
   );

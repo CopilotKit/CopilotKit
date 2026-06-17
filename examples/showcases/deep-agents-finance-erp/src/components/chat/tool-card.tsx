@@ -175,7 +175,7 @@ function SpecializedToolCard({
 
   return (
     <div
-      className={`rounded-lg border border-border bg-card p-3 my-2 transition-all duration-200 ${
+      className={`animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-border bg-card p-3 my-2 transition-all duration-300 ease-out ${
         isComplete ? "opacity-80" : ""
       } ${hasExpandableContent ? "cursor-pointer" : ""}`}
       onClick={hasExpandableContent ? () => setExpanded(!expanded) : undefined}
@@ -286,7 +286,7 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
   const isComplete = status === "complete";
 
   return (
-    <div className="my-2 rounded-lg border border-border bg-card p-3">
+    <div className="my-2 animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-border bg-card p-3 duration-300 ease-out">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div

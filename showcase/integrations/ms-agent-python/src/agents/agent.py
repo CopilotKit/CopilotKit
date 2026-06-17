@@ -5,6 +5,7 @@ and HITL schedule meeting tool.
 Adapted from examples/integrations/ms-agent-framework-python/agent/src/agent.py
 """
 
+# @region[weather-tool-backend]
 from __future__ import annotations
 
 import json
@@ -89,17 +90,23 @@ def get_sales_todos() -> str:
     return json.dumps(result)
 
 
-# @region[weather-tool-backend]
 @tool(
     name="get_weather",
     description="Get the current weather for a location. Use this to render the frontend weather card.",
 )
 def get_weather(
-    location: Annotated[str, Field(description="The city or region to describe. Use fully spelled out names.")],
+    location: Annotated[
+        str,
+        Field(
+            description="The city or region to describe. Use fully spelled out names."
+        ),
+    ],
 ) -> str:
     """Return weather data as JSON for UI rendering."""
     result = get_weather_impl(location)
     return json.dumps(result)
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -108,7 +115,9 @@ def get_weather(
     description="Query the database. Takes natural language. Always call before showing a chart or graph.",
 )
 def query_data(
-    query: Annotated[str, Field(description="Natural language query to run against the database.")],
+    query: Annotated[
+        str, Field(description="Natural language query to run against the database.")
+    ],
 ) -> str:
     """Query the database and return results as JSON."""
     result = query_data_impl(query)
@@ -122,7 +131,9 @@ def query_data(
 )
 def schedule_meeting(
     reason: Annotated[str, Field(description="Reason for scheduling the meeting.")],
-    duration_minutes: Annotated[int, Field(description="Duration of the meeting in minutes.")] = 30,
+    duration_minutes: Annotated[
+        int, Field(description="Duration of the meeting in minutes.")
+    ] = 30,
 ) -> str:
     """Request human approval to schedule a meeting."""
     result = schedule_meeting_impl(reason, duration_minutes)
@@ -156,7 +167,9 @@ def search_flights(
     ),
 )
 def generate_a2ui(
-    context: Annotated[str, Field(description="Conversation context to generate UI from.")],
+    context: Annotated[
+        str, Field(description="Conversation context to generate UI from.")
+    ],
 ) -> str:
     """Generate dynamic A2UI dashboard from conversation context."""
     from openai import OpenAI
@@ -165,7 +178,7 @@ def generate_a2ui(
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "render_a2ui",
+            "name": "_design_a2ui_surface",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -184,14 +197,17 @@ def generate_a2ui(
         model="gpt-4.1",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            {
+                "role": "user",
+                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+            },
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)
@@ -237,7 +253,15 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
               after that summary unless the user asks. ALWAYS send this conversational summary so the message persists.
             """.strip()
         ),
-        tools=[manage_sales_todos, get_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui],
+        tools=[
+            manage_sales_todos,
+            get_sales_todos,
+            get_weather,
+            query_data,
+            schedule_meeting,
+            search_flights,
+            generate_a2ui,
+        ],
     )
 
     return AgentFrameworkAgent(

@@ -1,5 +1,6 @@
 "use client";
 
+// @region[use-agent-simple]
 import React, { useState } from "react";
 import {
   CopilotKit,
@@ -9,6 +10,21 @@ import {
   useRenderToolCall,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+
+// `crypto.randomUUID()` is only exposed in secure contexts in browsers
+// (HTTPS or localhost). The D6 probe loads this page over plain http://
+// against an internal hostname, which makes `randomUUID` undefined and
+// crashes the page. Fall back to a Math.random-based UUIDv4 when the
+// native API isn't available.
+function generateUUID(): string {
+  const g = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (g?.randomUUID) return g.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export default function HeadlessSimpleDemo() {
   return (
@@ -34,7 +50,6 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 }
 
 function HeadlessChat() {
-  // @region[use-agent-simple]
   // @region[headless-hooks]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
@@ -54,11 +69,11 @@ function HeadlessChat() {
   // @endregion[headless-hooks]
   // @endregion[use-agent-simple]
 
-  const send = () => {
-    const text = input.trim();
+  const send = (override?: string) => {
+    const text = (override ?? input).trim();
     if (!text || agent.isRunning) return;
     agent.addMessage({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       content: text,
     });
@@ -69,6 +84,26 @@ function HeadlessChat() {
     setInput("");
   };
 
+  // Mirrors `SAMPLES` in
+  // `showcase/integrations/langgraph-python/src/app/demos/headless-simple/empty-state.tsx`.
+  // The D5 probe (`harness/src/probes/scripts/d5-headless-simple.ts`) clicks
+  // `button >> text="Say hello in one short sentence."` — keep the first entry
+  // (and ideally the full set) byte-identical with LGP to avoid drift.
+  const suggestions = [
+    {
+      title: "Say hello in one short sentence.",
+      message: "Say hello in one short sentence.",
+    },
+    {
+      title: "Tell me a one-line joke.",
+      message: "Tell me a one-line joke.",
+    },
+    {
+      title: "Give me a fun fact.",
+      message: "Give me a fun fact.",
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-3">
       <h1 className="text-xl font-semibold">Headless Chat (Simple)</h1>
@@ -77,11 +112,26 @@ function HeadlessChat() {
         {agent.messages.length === 0 && (
           <div className="text-sm text-gray-400">No messages yet. Say hi!</div>
         )}
+        {/*
+          The `data-testid="headless-message-{user,assistant}"` markers below
+          are intentionally NOT unique within a conversation — they repeat
+          once per message in the list. This mirrors the canonical LGP
+          implementation (see
+          `showcase/integrations/langgraph-python/src/app/demos/headless-simple/message-bubble.tsx`
+          and `.../headless-complete/chat/message-{user,assistant}.tsx`) so
+          downstream selectors stay byte-identical across integrations.
+          Role discrimination for the D6 conversation-runner cascade is
+          driven by `data-message-role` (see harness probes), not by the
+          testids; tests that need to address a single bubble should use
+          `.last()`, `.nth(i)`, or a `data-message-role`-scoped selector
+          rather than expecting strict-mode uniqueness on the testid.
+        */}
         {agent.messages.map((m) => {
           if (m.role === "user") {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-user"
                 data-message-role="user"
                 className="self-end rounded-lg bg-blue-600 px-3 py-2 text-white max-w-[80%]"
               >
@@ -95,6 +145,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-assistant"
                 data-message-role="assistant"
                 className="self-start max-w-[90%]"
               >
@@ -116,8 +167,22 @@ function HeadlessChat() {
         )}
         {/* @endregion[message-list-simple] */}
       </div>
+      <div data-testid="headless-suggestions" className="flex flex-wrap gap-2">
+        {suggestions.map((s) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => send(s.message)}
+            disabled={agent.isRunning}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-2">
         <textarea
+          data-testid="headless-composer"
           className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
           rows={2}
           value={input}
@@ -132,7 +197,7 @@ function HeadlessChat() {
         />
         <button
           className="rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium disabled:opacity-50"
-          onClick={send}
+          onClick={() => send()}
           disabled={agent.isRunning || !input.trim()}
         >
           Send

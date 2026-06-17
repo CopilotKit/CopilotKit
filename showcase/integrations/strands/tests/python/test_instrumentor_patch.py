@@ -95,8 +95,7 @@ def test_agent_server_guards_use_if_raise_not_assert():
         "so tests can monkey-patch the guard cleanly"
     )
     assert "_assert_instrumentor_patched" in source, (
-        "agent_server.py must expose _assert_instrumentor_patched() "
-        "for the same reason"
+        "agent_server.py must expose _assert_instrumentor_patched() for the same reason"
     )
 
     # Check that neither of the guard strings appears behind an ``assert``.
@@ -107,7 +106,7 @@ def test_agent_server_guards_use_if_raise_not_assert():
 
     forbidden_patterns = [
         r'^\s*assert\s+"strands"\s+not\s+in\s+sys\.modules\b',
-        r'^\s*assert\s+_ThreadingInstrumentor\.instrument\s+is\b',
+        r"^\s*assert\s+_ThreadingInstrumentor\.instrument\s+is\b",
     ]
     for pat in forbidden_patterns:
         assert not re.search(pat, source, flags=re.MULTILINE), (
@@ -149,6 +148,7 @@ def test_agent_server_module_installs_patch():
         def _decorator(self, *a, **k):
             def _wrap(fn):
                 return fn
+
             return _wrap
 
         get = post = put = delete = patch = _decorator
@@ -171,7 +171,7 @@ def test_agent_server_module_installs_patch():
 
     fake_strands = types.ModuleType("strands")
     fake_strands.Agent = _AcceptsAnything  # type: ignore[attr-defined]
-    fake_strands.tool = lambda f=None, **_: (f if callable(f) else (lambda g: g))  # type: ignore[attr-defined]
+    fake_strands.tool = lambda f=None, **_: f if callable(f) else (lambda g: g)  # type: ignore[attr-defined]
 
     fake_hooks = types.ModuleType("strands.hooks")
     for name in (
@@ -365,7 +365,11 @@ def test_real_strands_agent_signature_integration():
         "strands.models.openai",
     ]:
         mod = sys.modules.get(mod_name)
-        if mod is not None and isinstance(mod, types.ModuleType) and not getattr(mod, "__file__", None):
+        if (
+            mod is not None
+            and isinstance(mod, types.ModuleType)
+            and not getattr(mod, "__file__", None)
+        ):
             sys.modules.pop(mod_name, None)
 
     try:

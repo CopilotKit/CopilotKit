@@ -1,6 +1,6 @@
 /**
  * Dedicated runtime for reasoning demos
- * (`agentic-chat-reasoning`, `reasoning-default-render`,
+ * (`reasoning-default`, `reasoning-custom`,
  * `tool-rendering-reasoning-chain`).
  *
  * Proxies to the Claude agent_server's `/reasoning` endpoint, which enables
@@ -24,9 +24,16 @@ function createReasoningAgent() {
 }
 
 const agents: Record<string, AbstractAgent> = {
-  "agentic-chat-reasoning": createReasoningAgent(),
-  "reasoning-default-render": createReasoningAgent(),
-  "tool-rendering-reasoning-chain": createReasoningAgent(),
+  "reasoning-default": createReasoningAgent(),
+  "reasoning-custom": createReasoningAgent(),
+  // Reasoning-chain owns its tools backend-side (get_stock_price,
+  // roll_dice, search_flights, get_weather) — the page registers
+  // render-only hooks, so the plain /reasoning pass-through stalled the
+  // chain after the first call (no tool result ever came back). The
+  // dedicated endpoint runs the agentic loop with extended thinking.
+  "tool-rendering-reasoning-chain": new HttpAgent({
+    url: `${AGENT_URL}/tool-rendering-reasoning-chain`,
+  }),
   default: createReasoningAgent(),
 };
 

@@ -12,7 +12,7 @@ description: "Low-level React hook for accessing the CopilotKit context"
   hooks like `useAgent` or `useFrontendTool` instead.
 </Callout>
 
-**Throws an error** if used outside of a `CopilotKitProvider` (or the `<CopilotKit>` wrapper component).
+**Throws an error** if used outside of a `CopilotKit` (or the `<CopilotKit>` wrapper component).
 
 ## Signature
 
@@ -39,7 +39,7 @@ This hook takes no parameters.
     - Runtime connection management
     - Event subscription via `subscribe()`
 
-    The core instance is created once per `CopilotKitProvider` and is stable across re-renders.
+    The core instance is created once per `CopilotKit` and is stable across re-renders.
 
   </PropertyReference>
 
@@ -186,7 +186,7 @@ function ToolExecutionIndicator() {
 
 ## Behavior
 
-- **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKitProvider` or the `<CopilotKit>` wrapper component.
+- **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKit` or the `<CopilotKit>` wrapper component.
 - **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` events, so components re-render when the runtime connection completes or fails.
 - **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
 - **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
@@ -195,4 +195,4 @@ function ToolExecutionIndicator() {
 
 - [`useAgent`](/reference/hooks/useAgent) -- High-level hook for accessing agent instances
 - [`useFrontendTool`](/reference/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
-- [`CopilotKitProvider`](/reference/v2) -- The provider component that creates the context
+- [`CopilotKit`](/reference/v2) -- The provider component that creates the context

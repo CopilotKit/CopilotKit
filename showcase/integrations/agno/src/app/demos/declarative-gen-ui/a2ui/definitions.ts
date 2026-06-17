@@ -11,10 +11,10 @@
  * `includeBasicCatalog: true` so the built-in A2UI primitives (Text, Row,
  * Column, Image, Card, Button, …) come along for free.
  */
+// @region[definitions-zod]
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
-// @region[definitions-zod]
 export const myDefinitions = {
   Card: {
     description:

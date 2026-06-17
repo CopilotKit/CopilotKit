@@ -86,17 +86,13 @@ if len(_tool_by_name_mutable) != len(ALL_TOOLS):
         ident = f"{cls.__module__}.{cls.__qualname__}"
         by_name.setdefault(name, []).append(ident)
     dupes = {name: idents for name, idents in by_name.items() if len(idents) > 1}
-    raise RuntimeError(
-        f"Duplicate tool request names in ALL_TOOLS: {dupes!r}"
-    )
+    raise RuntimeError(f"Duplicate tool request names in ALL_TOOLS: {dupes!r}")
 
 # Freeze the lookup table. Post-import mutation would silently corrupt
 # dispatch (e.g. a test monkeypatching one entry could shadow a real
 # tool class at runtime). ``MappingProxyType`` makes the map read-only
 # at the interpreter level — attempts to assign raise ``TypeError``.
-_TOOL_BY_NAME: Mapping[str, type[ToolMessage]] = MappingProxyType(
-    _tool_by_name_mutable
-)
+_TOOL_BY_NAME: Mapping[str, type[ToolMessage]] = MappingProxyType(_tool_by_name_mutable)
 
 
 def _sse_line(event: Any) -> str:
@@ -219,11 +215,7 @@ def _execute_backend_tool(
         # strings, secrets, or stack frames).
         logger.exception("Tool %s execution failed", tool_name)
         return json.dumps(
-            {
-                "error": (
-                    f"Tool {tool_name} failed: {exc.__class__.__name__}"
-                )
-            }
+            {"error": (f"Tool {tool_name} failed: {exc.__class__.__name__}")}
         )
 
 
@@ -246,15 +238,9 @@ async def _run_backend_tool(
         # sanitized errors so the UI shows a clear, non-leaky failure.
         logger.exception("Tool %s construction failed", tool_name)
         return json.dumps(
-            {
-                "error": (
-                    f"Tool {tool_name} failed: {exc.__class__.__name__}"
-                )
-            }
+            {"error": (f"Tool {tool_name} failed: {exc.__class__.__name__}")}
         )
-    return await asyncio.to_thread(
-        _execute_backend_tool, tool_instance, tool_name
-    )
+    return await asyncio.to_thread(_execute_backend_tool, tool_instance, tool_name)
 
 
 def _agui_messages_to_openai(
@@ -294,11 +280,13 @@ def _agui_messages_to_openai(
             if isinstance(msg, dict):
                 content = content or msg.get("content", "")
             if tool_call_id:
-                oai_msgs.append({
-                    "role": "tool",
-                    "tool_call_id": str(tool_call_id),
-                    "content": str(content),
-                })
+                oai_msgs.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": str(tool_call_id),
+                        "content": str(content),
+                    }
+                )
             continue
 
         if role == "assistant":
@@ -326,14 +314,16 @@ def _agui_messages_to_openai(
                         fn_name = getattr(fn, "name", "") if fn else ""
                         fn_args = getattr(fn, "arguments", "") if fn else ""
                     if tc_id and fn_name:
-                        oai_tcs.append({
-                            "id": str(tc_id),
-                            "type": "function",
-                            "function": {
-                                "name": str(fn_name),
-                                "arguments": str(fn_args),
-                            },
-                        })
+                        oai_tcs.append(
+                            {
+                                "id": str(tc_id),
+                                "type": "function",
+                                "function": {
+                                    "name": str(fn_name),
+                                    "arguments": str(fn_args),
+                                },
+                            }
+                        )
                 if oai_tcs:
                     oai_msg["tool_calls"] = oai_tcs
                     # OpenAI requires content to be null (not missing)
@@ -352,16 +342,17 @@ def _agui_messages_to_openai(
             if isinstance(msg, dict):
                 content = content or msg.get("content")
             if content is not None:
-                oai_msgs.append({
-                    "role": role,
-                    "content": str(content),
-                })
+                oai_msgs.append(
+                    {
+                        "role": role,
+                        "content": str(content),
+                    }
+                )
             continue
 
         # Unknown role — skip with a debug log.
         logger.debug(
-            "Skipping message with unrecognized role %r in "
-            "_agui_messages_to_openai",
+            "Skipping message with unrecognized role %r in _agui_messages_to_openai",
             role,
         )
 
@@ -379,7 +370,9 @@ def _build_openai_tools() -> list[dict[str, Any]]:
     tools: list[dict[str, Any]] = []
     for tool_cls in ALL_TOOLS:
         name = tool_cls.default_value("request")
-        purpose = tool_cls.default_value("purpose") if hasattr(tool_cls, "purpose") else ""
+        purpose = (
+            tool_cls.default_value("purpose") if hasattr(tool_cls, "purpose") else ""
+        )
 
         # Build parameters from model fields, excluding metadata.
         properties: dict[str, Any] = {}
@@ -389,7 +382,9 @@ def _build_openai_tools() -> list[dict[str, Any]]:
                 continue
             # Simple type mapping — sufficient for aimock fixture matching.
             annotation = field_info.annotation
-            if annotation is str or (hasattr(annotation, "__origin__") is False and annotation is str):
+            if annotation is str or (
+                hasattr(annotation, "__origin__") is False and annotation is str
+            ):
                 prop = {"type": "string"}
             elif annotation is int:
                 prop = {"type": "integer"}
@@ -397,7 +392,10 @@ def _build_openai_tools() -> list[dict[str, Any]]:
                 prop = {"type": "number"}
             elif annotation is bool:
                 prop = {"type": "boolean"}
-            elif annotation is list or (hasattr(annotation, "__origin__") and getattr(annotation, "__origin__", None) is list):
+            elif annotation is list or (
+                hasattr(annotation, "__origin__")
+                and getattr(annotation, "__origin__", None) is list
+            ):
                 prop = {"type": "array"}
             else:
                 prop = {"type": "string"}
@@ -508,9 +506,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     # only. For every other demo ``forwarded_props`` is empty / missing
     # the keys and ``extract_agent_config_properties`` returns None, so
     # behavior is unchanged.
-    agent_config_props = extract_agent_config_properties(
-        run_input.forwarded_props
-    )
+    agent_config_props = extract_agent_config_properties(run_input.forwarded_props)
     system_prompt = SYSTEM_PROMPT
     if agent_config_props is not None:
         system_prompt = build_agent_config_system_prompt(
@@ -525,9 +521,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     # tool_calls. This prevented aimock's toolCallId fixture matcher from
     # finding follow-up tool results, breaking the gen-ui-headless flow
     # (frontend tool → follow-up narration never arrived).
-    oai_messages = _agui_messages_to_openai(
-        run_input.messages or [], system_prompt
-    )
+    oai_messages = _agui_messages_to_openai(run_input.messages or [], system_prompt)
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
     oai_tools = _get_openai_tools()
 
@@ -552,26 +546,34 @@ async def handle_run(request: Request) -> StreamingResponse:
             if not text:
                 return []
             return [
-                _sse_line(TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=msg_id,
-                )),
-                _sse_line(TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=msg_id,
-                    delta=text,
-                )),
-                _sse_line(TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END,
-                    message_id=msg_id,
-                )),
+                _sse_line(
+                    TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=msg_id,
+                    )
+                ),
+                _sse_line(
+                    TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=msg_id,
+                        delta=text,
+                    )
+                ),
+                _sse_line(
+                    TextMessageEndEvent(
+                        type=EventType.TEXT_MESSAGE_END,
+                        message_id=msg_id,
+                    )
+                ),
             ]
 
-        yield _sse_line(RunStartedEvent(
-            type=EventType.RUN_STARTED,
-            thread_id=thread_id,
-            run_id=run_id,
-        ))
+        yield _sse_line(
+            RunStartedEvent(
+                type=EventType.RUN_STARTED,
+                thread_id=thread_id,
+                run_id=run_id,
+            )
+        )
 
         # Call the LLM directly via the OpenAI client. This replaced
         # langroid's ``agent.llm_response_async(flattened_string)`` to
@@ -592,25 +594,29 @@ async def handle_run(request: Request) -> StreamingResponse:
             asyncio.TimeoutError,
         ) as exc:
             logger.exception("_call_openai failed mid-stream")
-            err_payload = json.dumps({
-                "error": f"Agent run failed: {exc.__class__.__name__}"
-            })
+            err_payload = json.dumps(
+                {"error": f"Agent run failed: {exc.__class__.__name__}"}
+            )
             for line in emit_text_block(str(uuid.uuid4()), err_payload):
                 yield line
-            yield _sse_line(RunFinishedEvent(
-                type=EventType.RUN_FINISHED,
-                thread_id=thread_id,
-                run_id=run_id,
-            ))
+            yield _sse_line(
+                RunFinishedEvent(
+                    type=EventType.RUN_FINISHED,
+                    thread_id=thread_id,
+                    run_id=run_id,
+                )
+            )
             return
 
         if response is None:
             # Empty response — just finish
-            yield _sse_line(RunFinishedEvent(
-                type=EventType.RUN_FINISHED,
-                thread_id=thread_id,
-                run_id=run_id,
-            ))
+            yield _sse_line(
+                RunFinishedEvent(
+                    type=EventType.RUN_FINISHED,
+                    thread_id=thread_id,
+                    run_id=run_id,
+                )
+            )
             return
 
         # ``response`` is an OpenAI ChatCompletionMessage. ``.content``
@@ -653,29 +659,37 @@ async def handle_run(request: Request) -> StreamingResponse:
                 # Emitting the triple (START → tool calls → END) mirrors
                 # what LangGraph and google-adk adapters produce.
                 tc_parent_id = str(uuid.uuid4())
-                yield _sse_line(TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=tc_parent_id,
-                ))
+                yield _sse_line(
+                    TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=tc_parent_id,
+                    )
+                )
 
                 for call_id, tool_name, tool_args in calls_to_emit:
-                    yield _sse_line(ToolCallStartEvent(
-                        type=EventType.TOOL_CALL_START,
-                        tool_call_id=call_id,
-                        tool_call_name=tool_name,
-                        parent_message_id=tc_parent_id,
-                    ))
+                    yield _sse_line(
+                        ToolCallStartEvent(
+                            type=EventType.TOOL_CALL_START,
+                            tool_call_id=call_id,
+                            tool_call_name=tool_name,
+                            parent_message_id=tc_parent_id,
+                        )
+                    )
 
-                    yield _sse_line(ToolCallArgsEvent(
-                        type=EventType.TOOL_CALL_ARGS,
-                        tool_call_id=call_id,
-                        delta=json.dumps(tool_args),
-                    ))
+                    yield _sse_line(
+                        ToolCallArgsEvent(
+                            type=EventType.TOOL_CALL_ARGS,
+                            tool_call_id=call_id,
+                            delta=json.dumps(tool_args),
+                        )
+                    )
 
-                    yield _sse_line(ToolCallEndEvent(
-                        type=EventType.TOOL_CALL_END,
-                        tool_call_id=call_id,
-                    ))
+                    yield _sse_line(
+                        ToolCallEndEvent(
+                            type=EventType.TOOL_CALL_END,
+                            tool_call_id=call_id,
+                        )
+                    )
 
                     # For backend tools, execute and emit the result as a
                     # ToolCallResultEvent so the CopilotKit runtime can
@@ -691,31 +705,41 @@ async def handle_run(request: Request) -> StreamingResponse:
                             )
 
                         if result:
-                            yield _sse_line(ToolCallResultEvent(
-                                type=EventType.TOOL_CALL_RESULT,
-                                tool_call_id=call_id,
-                                message_id=str(uuid.uuid4()),
-                                content=result,
-                            ))
+                            yield _sse_line(
+                                ToolCallResultEvent(
+                                    type=EventType.TOOL_CALL_RESULT,
+                                    tool_call_id=call_id,
+                                    message_id=str(uuid.uuid4()),
+                                    content=result,
+                                )
+                            )
 
                 # Close the parent message that wraps the tool calls.
-                yield _sse_line(TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END,
-                    message_id=tc_parent_id,
-                ))
+                yield _sse_line(
+                    TextMessageEndEvent(
+                        type=EventType.TEXT_MESSAGE_END,
+                        message_id=tc_parent_id,
+                    )
+                )
 
-            yield _sse_line(RunFinishedEvent(
-                type=EventType.RUN_FINISHED,
-                thread_id=thread_id,
-                run_id=run_id,
-            ))
+            yield _sse_line(
+                RunFinishedEvent(
+                    type=EventType.RUN_FINISHED,
+                    thread_id=thread_id,
+                    run_id=run_id,
+                )
+            )
             return
 
         # Check if the response contains a tool call parsed from content
         tool_msg = _try_parse_tool(content)
 
         if tool_msg is not None:
-            tool_name = tool_msg.default_value("request") if hasattr(tool_msg, "default_value") else getattr(tool_msg, "request", "unknown")
+            tool_name = (
+                tool_msg.default_value("request")
+                if hasattr(tool_msg, "default_value")
+                else getattr(tool_msg, "request", "unknown")
+            )
             tool_call_id = str(uuid.uuid4())
 
             # Build tool arguments (exclude metadata fields and unset/None
@@ -736,28 +760,36 @@ async def handle_run(request: Request) -> StreamingResponse:
             # Runtime middleware-sse-parser cannot attach the tool call
             # to a parent message and silently drops it.
             ct_parent_id = str(uuid.uuid4())
-            yield _sse_line(TextMessageStartEvent(
-                type=EventType.TEXT_MESSAGE_START,
-                message_id=ct_parent_id,
-            ))
+            yield _sse_line(
+                TextMessageStartEvent(
+                    type=EventType.TEXT_MESSAGE_START,
+                    message_id=ct_parent_id,
+                )
+            )
 
-            yield _sse_line(ToolCallStartEvent(
-                type=EventType.TOOL_CALL_START,
-                tool_call_id=tool_call_id,
-                tool_call_name=tool_name,
-                parent_message_id=ct_parent_id,
-            ))
+            yield _sse_line(
+                ToolCallStartEvent(
+                    type=EventType.TOOL_CALL_START,
+                    tool_call_id=tool_call_id,
+                    tool_call_name=tool_name,
+                    parent_message_id=ct_parent_id,
+                )
+            )
 
-            yield _sse_line(ToolCallArgsEvent(
-                type=EventType.TOOL_CALL_ARGS,
-                tool_call_id=tool_call_id,
-                delta=json.dumps(tool_args),
-            ))
+            yield _sse_line(
+                ToolCallArgsEvent(
+                    type=EventType.TOOL_CALL_ARGS,
+                    tool_call_id=tool_call_id,
+                    delta=json.dumps(tool_args),
+                )
+            )
 
-            yield _sse_line(ToolCallEndEvent(
-                type=EventType.TOOL_CALL_END,
-                tool_call_id=tool_call_id,
-            ))
+            yield _sse_line(
+                ToolCallEndEvent(
+                    type=EventType.TOOL_CALL_END,
+                    tool_call_id=tool_call_id,
+                )
+            )
 
             # If it's a backend tool, execute it and stream the result
             # as text. We already have the instantiated ``tool_msg`` (it
@@ -783,41 +815,52 @@ async def handle_run(request: Request) -> StreamingResponse:
                         "asyncio.to_thread failed executing backend tool %s",
                         tool_name,
                     )
-                    err_payload = json.dumps({
-                        "error": (
-                            f"Tool {tool_name} failed: "
-                            f"{exc.__class__.__name__}"
+                    err_payload = json.dumps(
+                        {
+                            "error": (
+                                f"Tool {tool_name} failed: {exc.__class__.__name__}"
+                            )
+                        }
+                    )
+                    yield _sse_line(
+                        ToolCallResultEvent(
+                            type=EventType.TOOL_CALL_RESULT,
+                            tool_call_id=tool_call_id,
+                            message_id=str(uuid.uuid4()),
+                            content=err_payload,
                         )
-                    })
-                    yield _sse_line(ToolCallResultEvent(
-                        type=EventType.TOOL_CALL_RESULT,
-                        tool_call_id=tool_call_id,
-                        message_id=str(uuid.uuid4()),
-                        content=err_payload,
-                    ))
-                    yield _sse_line(TextMessageEndEvent(
-                        type=EventType.TEXT_MESSAGE_END,
-                        message_id=ct_parent_id,
-                    ))
-                    yield _sse_line(RunFinishedEvent(
-                        type=EventType.RUN_FINISHED,
-                        thread_id=thread_id,
-                        run_id=run_id,
-                    ))
+                    )
+                    yield _sse_line(
+                        TextMessageEndEvent(
+                            type=EventType.TEXT_MESSAGE_END,
+                            message_id=ct_parent_id,
+                        )
+                    )
+                    yield _sse_line(
+                        RunFinishedEvent(
+                            type=EventType.RUN_FINISHED,
+                            thread_id=thread_id,
+                            run_id=run_id,
+                        )
+                    )
                     raise
                 if result:
-                    yield _sse_line(ToolCallResultEvent(
-                        type=EventType.TOOL_CALL_RESULT,
-                        tool_call_id=tool_call_id,
-                        message_id=str(uuid.uuid4()),
-                        content=result,
-                    ))
+                    yield _sse_line(
+                        ToolCallResultEvent(
+                            type=EventType.TOOL_CALL_RESULT,
+                            tool_call_id=tool_call_id,
+                            message_id=str(uuid.uuid4()),
+                            content=result,
+                        )
+                    )
 
             # Close the parent message that wraps the tool call.
-            yield _sse_line(TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END,
-                message_id=ct_parent_id,
-            ))
+            yield _sse_line(
+                TextMessageEndEvent(
+                    type=EventType.TEXT_MESSAGE_END,
+                    message_id=ct_parent_id,
+                )
+            )
         else:
             # Plain text response — stream it. emit_text_block handles the
             # empty-delta guard (AG-UI requires non-empty deltas, e.g. a
@@ -825,11 +868,13 @@ async def handle_run(request: Request) -> StreamingResponse:
             for line in emit_text_block(message_id, content):
                 yield line
 
-        yield _sse_line(RunFinishedEvent(
-            type=EventType.RUN_FINISHED,
-            thread_id=thread_id,
-            run_id=run_id,
-        ))
+        yield _sse_line(
+            RunFinishedEvent(
+                type=EventType.RUN_FINISHED,
+                thread_id=thread_id,
+                run_id=run_id,
+            )
+        )
 
     return StreamingResponse(
         event_stream(),
@@ -914,7 +959,9 @@ def _try_parse_tool(content: str) -> ToolMessage | None:
     # Check for OpenAI function_call style
     if isinstance(data, dict):
         name = data.get("name") or (data.get("function", {}) or {}).get("name")
-        args = data.get("arguments") or (data.get("function", {}) or {}).get("arguments", {})
+        args = data.get("arguments") or (data.get("function", {}) or {}).get(
+            "arguments", {}
+        )
         if name:
             if isinstance(args, (str, bytes, bytearray)):
                 # Mirror ``_parse_tool_args``: real OpenAI/httpx stacks can

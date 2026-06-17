@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * MCP Apps demo (Google ADK).
+ * MCP Apps demo.
  *
  * MCP Apps are MCP servers that expose tools with associated UI resources.
  * The CopilotKit runtime is wired with `mcpApps: { servers: [...] }`
@@ -19,11 +19,8 @@
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { Chat } from "./chat";
 
 export default function MCPAppsDemo() {
   // @region[no-frontend-renderer-needed]
@@ -31,7 +28,7 @@ export default function MCPAppsDemo() {
   // CopilotKitProvider auto-registers the built-in `MCPAppsActivityRenderer`
   // for the "mcp-apps" activity type. A plain <CopilotChat /> is enough.
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent="mcp_apps">
+    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent="mcp-apps">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -40,23 +37,4 @@ export default function MCPAppsDemo() {
     </CopilotKit>
   );
   // @endregion[no-frontend-renderer-needed]
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
-      },
-    ],
-    available: "always",
-  });
-
-  return <CopilotChat agentId="mcp_apps" className="h-full rounded-2xl" />;
 }

@@ -3,8 +3,9 @@ import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CopilotKit } from "../copilotkit";
 import { useCopilotContext } from "../../../context/copilot-context";
-import { useCopilotChatConfiguration } from "../../../v2";
+import { useCopilotChatConfiguration, useAgent } from "../../../v2";
 import type { CopilotKitProps } from "../copilotkit-props";
+import type { AbstractAgent } from "@ag-ui/client";
 
 /**
  * Probe that reads hasExplicitThreadId from the CopilotChatConfigurationProvider
@@ -103,5 +104,68 @@ describe("v1 <CopilotKit> bridge → hasExplicitThreadId", () => {
       "user-picked-thread",
     );
     expect(screen.getByTestId("explicit").textContent).toBe("true");
+  });
+});
+
+/**
+ * Regression coverage for issue #5041 (and #4739) at the customer-facing
+ * surface: a threadId prop on <CopilotKit> must end up on the underlying
+ * agent so that ProxiedCopilotRuntimeAgent ships it in /agent/run,
+ * /agent/connect, /agent/stop. The cloning-revert in May 2026 broke this
+ * for headless useAgent and V1 chat; CopilotChatConfigurationProvider got
+ * the value but useAgent never copied it down onto agent.threadId.
+ */
+describe("v1 <CopilotKit> → useAgent → agent.threadId", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  function AgentProbe({
+    onCapture,
+  }: {
+    onCapture: (agent: AbstractAgent) => void;
+  }) {
+    const { agent } = useAgent({ agentId: "default" });
+    React.useEffect(() => {
+      onCapture(agent);
+    });
+    return null;
+  }
+
+  it("sets agent.threadId to the explicit threadId from the <CopilotKit> prop", () => {
+    let captured: AbstractAgent | null = null;
+    render(
+      <CopilotKitAny publicApiKey="test-key" threadId="customer-thread-id">
+        <AgentProbe onCapture={(agent) => (captured = agent)} />
+      </CopilotKitAny>,
+    );
+
+    expect(captured).not.toBeNull();
+    expect((captured as unknown as AbstractAgent).threadId).toBe(
+      "customer-thread-id",
+    );
+  });
+
+  it("leaves the agent's auto-minted threadId untouched when no threadId prop is supplied", () => {
+    // Without an explicit threadId, the ThreadsProvider mints a placeholder
+    // UUID that's marked non-explicit. The agent should keep its own
+    // constructor-generated UUID rather than adopt the placeholder, so the
+    // backend isn't asked to look up a thread it never created.
+    let captured: AbstractAgent | null = null;
+    render(
+      <CopilotKitAny publicApiKey="test-key">
+        <AgentProbe onCapture={(agent) => (captured = agent)} />
+      </CopilotKitAny>,
+    );
+
+    expect(captured).not.toBeNull();
+    expect((captured as unknown as AbstractAgent).threadId).toBeTruthy();
+    expect((captured as unknown as AbstractAgent).threadId).not.toBe(
+      "mock-thread-id",
+    );
   });
 });

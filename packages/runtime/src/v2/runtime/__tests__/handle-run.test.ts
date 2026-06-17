@@ -1,12 +1,7 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  HttpAgent,
-  RunAgentInput,
-} from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
@@ -292,6 +287,29 @@ describe("handleRunAgent", () => {
     expect(useSpy).not.toHaveBeenCalled();
   });
 
+  it("does not apply A2UIMiddleware when a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createMockRunner(),
+      // Config object present but explicitly disabled — the run path must
+      // honor the opt-out, not just `!!runtime.a2ui`.
+      a2ui: { enabled: false, injectA2UITool: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
   describe("IntelligenceAgentRunner realtime credentials path", () => {
     /** Loose mock type for CopilotKitIntelligence — avoids `as any` while the class has private fields. */
     interface MockIntelligencePlatform {
@@ -413,6 +431,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
     });
 
@@ -934,6 +953,11 @@ describe("handleRunAgent", () => {
               id: "assistant-1",
               role: "assistant",
               content: '{"title":"**Order refund** status"}',
+            },
+            {
+              id: "tool-1",
+              role: "tool",
+              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
             },
           ],
         }),

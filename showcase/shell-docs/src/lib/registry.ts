@@ -33,6 +33,23 @@ export interface Integration {
   copilotkit_version: string;
   backend_url: string;
   deployed: boolean;
+  /**
+   * How shell-docs renders this framework's docs pages.
+   * - `generated` (default): data-driven `FrameworkOverview` + agnostic
+   *   root MDX merged with per-framework overrides. Kept for the three
+   *   "ready" frameworks (langgraph-{python,typescript}, google-adk).
+   * - `authored`: render the per-framework MDX tree under
+   *   `content/docs/integrations/<docsFolder>/` with its own sidebar
+   *   (built from that folder's meta.json). Root MDX may still be used
+   *   as a fallback for intentionally shared pages.
+   * - `hidden`: exclude from the docs site entirely — no `/<slug>`
+   *   route, no switcher entry. Single toggle for "framework has no
+   *   v1 docs to port" (or otherwise should not appear in docs yet).
+   *
+   * Source of truth: `showcase/integrations/<slug>/manifest.yaml`'s
+   * `docs_mode` field.
+   */
+  docs_mode?: "generated" | "authored" | "hidden";
   generative_ui?: string[];
   interaction_modalities?: string[];
   /**
@@ -85,16 +102,85 @@ export interface Registry {
 
 const registry = registryData as Registry;
 
+/**
+ * The soft-default framework whose authored docs are served at the ROOT
+ * URL surface (`/quickstart`, `/server-tools`, …) instead of under a
+ * `/<framework>/` prefix. `/built-in-agent/:path*` permanently
+ * redirects to `/:path*` (next.config.ts).
+ *
+ * Client components must not import this (registry.json would leak into
+ * the client bundle) — they use DEFAULT_FRAMEWORK in
+ * `components/framework-provider.tsx`, which mirrors this value.
+ */
+export const ROOT_FRAMEWORK = "built-in-agent";
+
+const DOCS_ONLY_INTEGRATIONS: Integration[] = [
+  {
+    name: "Deep Agents",
+    slug: "deepagents",
+    category: "popular",
+    language: "python",
+    description:
+      "LangChain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
+    partner_docs: null,
+    repo: "",
+    copilotkit_version: "",
+    backend_url: "",
+    deployed: true,
+    docs_mode: "authored",
+    sort_order: 13,
+    features: [],
+    demos: [],
+  },
+];
+
+function allIntegrations(): Integration[] {
+  const registeredSlugs = new Set(registry.integrations.map((i) => i.slug));
+  return [
+    ...registry.integrations,
+    ...DOCS_ONLY_INTEGRATIONS.filter((i) => !registeredSlugs.has(i.slug)),
+  ];
+}
+
 export function getRegistry(): Registry {
   return registry;
 }
 
 export function getIntegrations(): Integration[] {
-  return registry.integrations;
+  return allIntegrations();
 }
 
 export function getIntegration(slug: string): Integration | undefined {
-  return registry.integrations.find((i) => i.slug === slug);
+  return allIntegrations().find((i) => i.slug === slug);
+}
+
+/**
+ * Frameworks that have no `showcase/integrations/<slug>/` package (and
+ * therefore no `manifest.yaml`) but DO have a `frameworkOverviews`
+ * entry and/or per-framework docs MDX. These are the "docs-only"
+ * frameworks (`a2a`, `agent-spec`, `deepagents`). They never come
+ * through the registry, so `docs_mode` resolution falls through to
+ * this map. Keep entries here in sync with
+ * `showcase/shell-docs/src/data/frameworks/index.ts` if a new docs-
+ * only framework is added.
+ */
+const DOCS_ONLY_FRAMEWORK_MODES: Record<string, "generated" | "authored"> = {
+  a2a: "generated",
+  "agent-spec": "generated",
+  deepagents: "authored",
+};
+
+/**
+ * Resolve the docs rendering mode for a framework slug. The integration
+ * record's `docs_mode` wins; docs-only frameworks fall back to the map
+ * above; everything else defaults to `generated` for backwards
+ * compatibility with manifests that haven't been updated yet.
+ */
+export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
+  const integration = getIntegration(slug);
+  if (integration?.docs_mode) return integration.docs_mode;
+  if (DOCS_ONLY_FRAMEWORK_MODES[slug]) return DOCS_ONLY_FRAMEWORK_MODES[slug];
+  return "generated";
 }
 
 /**
@@ -184,7 +270,7 @@ export function getFeatureCategories(): FeatureCategory[] {
 
 export function getIntegrationsByCategory(): Record<string, Integration[]> {
   const grouped: Record<string, Integration[]> = {};
-  for (const integration of registry.integrations) {
+  for (const integration of getIntegrations()) {
     if (!grouped[integration.category]) {
       grouped[integration.category] = [];
     }

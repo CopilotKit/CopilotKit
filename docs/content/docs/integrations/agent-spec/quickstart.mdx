@@ -10,6 +10,14 @@ import {
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 
+<OpsPlatformCTA
+  variant="card"
+  title="Ship Agent Spec to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_agent_spec_quickstart"
+/>
+
 ## Prerequisites
 
 - Node.js 20+
@@ -18,18 +26,21 @@ import {
 ## Getting started
 
 <Steps>
-  <TailoredContent
-    className="step"
-    id="agent-spec-quickstart-path"
-    header={
-      <div>
-        <p className="text-xl font-semibold">Choose your starting point</p>
-        <p className="text-base">
-          You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
-        </p>
-      </div>
-    }
-  >
+  <Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_agent_spec_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+  </Step>
+
+  <Step>
+      ### Choose your starting point
+
+      You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
+
+      <TailoredContent
+          className="step"
+          id="agent-spec-quickstart-path"
+      >
     <TailoredContentOption
       id="starter"
       title="Start from scratch"
@@ -453,6 +464,7 @@ import {
     </Step>
     </TailoredContentOption>
   </TailoredContent>
+  </Step>
 </Steps>
 
 ## Tools and tool registry
@@ -500,3 +512,4 @@ Follow per-adapter tutorials: [LangGraph integration](/agent-spec/langgraph) and
 - Agent Spec docs: https://oracle.github.io/agent-spec/development/docs_home.html
 - Agent Spec x AG-UI tutorial: https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html
 - Agent Spec Tracing: https://oracle.github.io/agent-spec/development/agentspec/tracing.html
+

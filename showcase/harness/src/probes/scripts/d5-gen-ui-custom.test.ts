@@ -54,6 +54,20 @@ function makeAssertionPage(opts: {
   };
 }
 
+/**
+ * Synthetic turn ctx for direct `turn.assertions(page, ctx)` invocations
+ * in unit tests. The runner sources ctx from `waitForTurnComplete`'s
+ * return value in production; tests that drive `turn.assertions`
+ * directly must supply their own ctx since the contract is now
+ * required (Phase 5 cutover).
+ */
+function syntheticCtx(
+  text = "",
+  bubbleIndex = 0,
+): { bubbleIndex: number; text: string } {
+  return { bubbleIndex, text };
+}
+
 describe("d5-gen-ui-custom script", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -120,7 +134,9 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).rejects.toThrow(/no <svg> rendered/);
+    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
+      /no <svg> rendered/,
+    );
   });
 
   it("pie chart: assertion FAILS when SVG has too few drawing children", async () => {
@@ -146,7 +162,9 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).rejects.toThrow(/1 drawing children/);
+    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
+      /1 drawing children/,
+    );
   });
 
   it("pie chart: assertion FAILS when assistant follow-up is missing expected tokens", async () => {
@@ -175,7 +193,12 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).rejects.toThrow(/missing tokens/);
+    await expect(
+      turn.assertions!(
+        page,
+        syntheticCtx("Done — let me know if you want anything else."),
+      ),
+    ).rejects.toThrow(/missing tokens/);
   });
 
   it("pie chart: assertion PASSES on a healthy donut render with full narration", async () => {
@@ -204,7 +227,14 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn.assertions!(
+        page,
+        syntheticCtx(
+          "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books.",
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   // --- Haiku card path (all non-LGP integrations) ---
@@ -230,7 +260,7 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).rejects.toThrow(
+    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
       /no haiku card or rendered component/,
     );
   });
@@ -262,7 +292,9 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).rejects.toThrow(/zero children/);
+    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
+      /zero children/,
+    );
   });
 
   it("haiku: assertion PASSES on a healthy haiku card render (no narration check)", async () => {
@@ -295,7 +327,9 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn.assertions!(page, syntheticCtx()),
+    ).resolves.toBeUndefined();
   });
 
   it("haiku: assertion PASSES with fallback selector (no testid)", async () => {
@@ -328,6 +362,8 @@ describe("d5-gen-ui-custom script", () => {
       },
     });
 
-    await expect(turn.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn.assertions!(page, syntheticCtx()),
+    ).resolves.toBeUndefined();
   });
 });

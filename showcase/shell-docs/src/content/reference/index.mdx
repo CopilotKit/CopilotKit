@@ -10,7 +10,7 @@ The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface 
 The v2 API uses the [`<CopilotKit>`](/reference/components/CopilotKit) provider. Wrap your application with it to configure the runtime connection:
 
 ```tsx
-// CopilotKit is imported from the root package, not from the v2 subpackage
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
@@ -22,18 +22,20 @@ function App() {
 ```
 
 <Accordions>
-<Accordion title="Advanced: Using CopilotKitProvider directly">
+<Accordion title="Advanced: Using CopilotKit directly">
 
 <Callout type="warn">
-  `CopilotKitProvider` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core` instead.
+  `CopilotKit` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core/v2` instead.
 </Callout>
 
-If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKitProvider` from `@copilotkit/react-core/v2`:
+If you need direct control over the v2 provider (e.g. for custom integrations), import `CopilotKit` from `@copilotkit/react-core/v2`:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit">
   <App />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ### Props
@@ -118,14 +120,14 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={(event) => {
     console.error(`[${event.code}]`, event.error.message, event.context);
   }}
 >
   <App />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 </PropertyReference>

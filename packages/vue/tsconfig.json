@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
+      "@copilotkit/shared": [
+        "../shared/dist/index.d.mts",
+        "../shared/src/index.ts"
+      ],
+      "@copilotkit/web-inspector": [
+        "../web-inspector/dist/index.d.mts",
+        "../web-inspector/src/index.ts"
+      ]
+    },
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*", "src/**/*.vue"],
+  "exclude": ["dist", "node_modules", "src/**/__tests__/**"]
+}

@@ -1,25 +1,17 @@
 "use client";
 
+// @region[bar-chart-renderer]
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useComponent,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { BarChart, barChartPropsSchema } from "./bar-chart";
 import { PieChart, pieChartPropsSchema } from "./pie-chart";
-
-export default function ControlledGenUiDemo() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-      <Chat />
-    </CopilotKit>
-  );
-}
+import { useSuggestions } from "./suggestions";
 
 function Chat() {
-  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",
@@ -37,23 +29,7 @@ function Chat() {
   });
   // @endregion[pie-chart-renderer]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Sales bar chart",
-        message: "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
-      },
-      {
-        title: "Traffic pie chart",
-        message: "Show me a pie chart of website traffic by source.",
-      },
-      {
-        title: "Market share",
-        message: "Show a pie chart of smartphone market share by brand.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <div className="flex justify-center items-center h-screen w-full">
@@ -64,5 +40,13 @@ function Chat() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ControlledGenUiDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <Chat />
+    </CopilotKit>
   );
 }

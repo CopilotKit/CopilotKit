@@ -8,6 +8,8 @@ model at runtime via a `display_flight` tool. The tool result is an
 detects and forwards to the frontend renderer.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 import json
 import os
 from pathlib import Path
@@ -23,7 +25,6 @@ SURFACE_ID = "flight-fixed-schema"
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
 
-# @region[backend-schema-json-load]
 # Schemas are JSON so they can be authored and reviewed independently of the
 # Python code. `_load_schema` is just a thin `json.load` wrapper.
 def _load_schema(path: Path) -> list[dict]:
@@ -48,7 +49,6 @@ async def display_flight(
     the Next.js runtime detects this shape in the tool result and forwards
     the ops to the frontend renderer.
     """
-    # @region[backend-render-operations]
     # The A2UI middleware detects the `a2ui_operations` container in this
     # tool result and forwards the ops to the frontend renderer. The frontend
     # catalog resolves component names to the local React components.

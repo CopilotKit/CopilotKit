@@ -23,7 +23,12 @@ interface PendingChange {
  * when the user clicks COMMIT. CANCEL discards all pending changes.
  */
 export function BaselineTab() {
-  const { cells: liveCells, status: connStatus, error, updateCell } = useBaseline();
+  const {
+    cells: liveCells,
+    status: connStatus,
+    error,
+    updateCell,
+  } = useBaseline();
   const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState<Map<string, PendingChange>>(new Map());
   const [committing, setCommitting] = useState(false);
@@ -37,7 +42,11 @@ export function BaselineTab() {
     for (const [key, change] of pending) {
       const existing = merged.get(key);
       if (existing) {
-        merged.set(key, { ...existing, status: change.status, tags: change.tags });
+        merged.set(key, {
+          ...existing,
+          status: change.status,
+          tags: change.tags,
+        });
       }
     }
     return merged;
@@ -52,10 +61,18 @@ export function BaselineTab() {
 
     for (const cell of displayCells.values()) {
       switch (cell.status) {
-        case "works": works++; break;
-        case "possible": possible++; break;
-        case "impossible": impossible++; break;
-        case "unknown": unknown++; break;
+        case "works":
+          works++;
+          break;
+        case "possible":
+          possible++;
+          break;
+        case "impossible":
+          impossible++;
+          break;
+        case "unknown":
+          unknown++;
+          break;
       }
     }
 
@@ -63,15 +80,25 @@ export function BaselineTab() {
     const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
     return {
-      works, possible, impossible, unknown, total,
-      worksPct: pct(works), possiblePct: pct(possible),
-      impossiblePct: pct(impossible), unknownPct: pct(unknown),
+      works,
+      possible,
+      impossible,
+      unknown,
+      total,
+      worksPct: pct(works),
+      possiblePct: pct(possible),
+      impossiblePct: pct(impossible),
+      unknownPct: pct(unknown),
     };
   }, [displayCells]);
 
   // Accumulate a change locally instead of writing to PB
   const handleLocalUpdate = useCallback(
-    async (key: string, status: BaselineStatus, tags: BaselineTag[]): Promise<void> => {
+    async (
+      key: string,
+      status: BaselineStatus,
+      tags: BaselineTag[],
+    ): Promise<void> => {
       setPending((prev) => {
         const next = new Map(prev);
         next.set(key, { status, tags });
@@ -94,7 +121,9 @@ export function BaselineTab() {
         succeeded++;
       } catch (err) {
         failed++;
-        showErrorToast(`Failed to save ${key}: ${err instanceof Error ? err.message : "unknown error"}`);
+        showErrorToast(
+          `Failed to save ${key}: ${err instanceof Error ? err.message : "unknown error"}`,
+        );
       }
     }
     setCommitting(false);
@@ -112,7 +141,9 @@ export function BaselineTab() {
         }
         return next;
       });
-      showErrorToast(`${failed} of ${changes.size} changes failed. Retry or cancel.`);
+      showErrorToast(
+        `${failed} of ${changes.size} changes failed. Retry or cancel.`,
+      );
     }
   }, [updateCell]);
 
@@ -134,8 +165,12 @@ export function BaselineTab() {
       {/* Header bar — sticky top z-30 */}
       <div className="sticky top-0 z-30 px-8 py-3 flex flex-col gap-2 bg-[var(--bg-surface)] border-b border-[var(--border)]">
         {connStatus === "error" && (
-          <div className="px-3 py-1.5 rounded text-xs text-[var(--danger)] border border-[var(--danger)]/20" style={{ backgroundColor: "rgba(248,113,113,0.08)" }}>
-            Baseline data unavailable: {error ?? "connection failed"}. Grid shows default values.
+          <div
+            className="px-3 py-1.5 rounded text-xs text-[var(--danger)] border border-[var(--danger)]/20"
+            style={{ backgroundColor: "rgba(248,113,113,0.08)" }}
+          >
+            Baseline data unavailable: {error ?? "connection failed"}. Grid
+            shows default values.
           </div>
         )}
         <div className="flex items-center gap-4">
@@ -167,14 +202,24 @@ export function BaselineTab() {
 
           {/* Stats */}
           <div className="flex gap-4 text-[11px]">
-            <span>✅ {stats.works} ({stats.worksPct}%)</span>
-            <span>🛠️ {stats.possible} ({stats.possiblePct}%)</span>
-            <span>❌ {stats.impossible} ({stats.impossiblePct}%)</span>
-            <span>❓ {stats.unknown} ({stats.unknownPct}%)</span>
+            <span>
+              ✅ {stats.works} ({stats.worksPct}%)
+            </span>
+            <span>
+              🛠️ {stats.possible} ({stats.possiblePct}%)
+            </span>
+            <span>
+              ❌ {stats.impossible} ({stats.impossiblePct}%)
+            </span>
+            <span>
+              ❓ {stats.unknown} ({stats.unknownPct}%)
+            </span>
           </div>
 
           {connStatus === "connecting" && (
-            <span className="text-[11px] text-[var(--text-muted)]">Connecting...</span>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              Connecting...
+            </span>
           )}
 
           {/* Commit / Cancel bar — right-aligned, visible when there are pending changes */}
@@ -205,7 +250,11 @@ export function BaselineTab() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto pb-12">
-        <BaselineGrid cells={displayCells} editing={editing} onUpdate={handleLocalUpdate} />
+        <BaselineGrid
+          cells={displayCells}
+          editing={editing}
+          onUpdate={handleLocalUpdate}
+        />
       </div>
       <BaselineLegend />
       <BaselineToastContainer />

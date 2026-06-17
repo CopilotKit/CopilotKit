@@ -97,6 +97,8 @@ function makeFakeWriter(): ProbeRunWriter & {
   const recentMap = new Map<string, ProbeRunRecord[]>();
   return {
     start: async () => ({ id: "row1" }),
+    findByJobId: async () => null,
+    update: async () => {},
     finish: async () => {},
     recent: async (probeId, _limit) => recentMap.get(probeId) ?? [],
     setRecent: (probeId, runs) => recentMap.set(probeId, runs),
@@ -896,6 +898,8 @@ describe("GET /api/probes/:id — R2-A.9 graceful degradation", () => {
     const sched = makeFakeScheduler();
     const writer: ProbeRunWriter = {
       start: async () => ({ id: "x" }),
+      findByJobId: async () => null,
+      update: async () => {},
       finish: async () => {},
       recent: async () => {
         throw new Error("PB transient outage");
@@ -956,13 +960,13 @@ describe("POST /api/probes/:id/trigger — B2 featureTypes validation", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        filter: { featureTypes: ["hitl-steps"] },
+        filter: { featureTypes: ["hitl-text-input"] },
       }),
     });
     expect(res.status).toBe(200);
     // Verify featureTypes is threaded through to scheduler.trigger opts
     expect(sched.lastTriggerOpts).toEqual({
-      filter: { featureTypes: ["hitl-steps"] },
+      filter: { featureTypes: ["hitl-text-input"] },
     });
   });
 
@@ -1344,7 +1348,10 @@ describe("POST /api/probes/:id/trigger — rate-limit TOCTOU & rollback", () => 
       }),
     ]);
     // Exactly one must have succeeded; the other must be 429.
-    const statuses = [first.status, second.status].sort();
+    // Use a numeric comparator — default `Array.prototype.sort()` is
+    // lexicographic and would order [200, 429] correctly only by
+    // accident (and would mis-order something like [200, 1000]).
+    const statuses = [first.status, second.status].sort((a, b) => a - b);
     expect(statuses).toEqual([200, 429]);
   });
 

@@ -61,7 +61,7 @@ class ManageTodosInput(BaseModel):
         ...,
         description=(
             "Full list of todo objects to replace the current app state. "
-            'Each todo must have id, title, description, emoji, and status '
+            "Each todo must have id, title, description, emoji, and status "
             '(one of "pending" | "completed").'
         ),
     )

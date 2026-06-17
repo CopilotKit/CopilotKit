@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / tool-rendering-custom-catchall",
+    "sourceScript": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "updated": "2026-06-15",
+    "note": "Restructured to canonical pattern: toolCallId-keyed narration BEFORE userMessage-only tool-emit fixtures, first-match-wins. Previously used hasToolResult:true/false gates which break on the multi-prompt AAPL turn (the Tokyo tool result from turn 1 makes hasToolResult permanently true)."
+  },
+  "fixtures": [
+    {
+      "_comment": "Custom catchall turn 1 follow-up: after get_weather tool result. Keyed by toolCallId so it only fires on the post-tool leg; ordered before the tool-emit fixture below for first-match-wins.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d6_lr_cc_weather_001",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "Custom catchall turn 1: weather in Tokyo \u2014 emit get_weather tool call. The custom wildcard renderer fires for this tool. Matches on userMessage+context alone (no hasToolResult gate); the toolCallId narration above wins after the tool result arrives.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_lr_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Custom catchall turn 2 follow-up: after get_stock_price tool result. Keyed by toolCallId; must come before the tool-emit fixture below.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_lr_cc_stock_001",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "Custom catchall turn 2: AAPL stock price \u2014 emit get_stock_price tool call. Both this and get_weather must render through the same custom-wildcard-card testid. No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true).",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_lr_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { CellMatrix } from "../cell-matrix";
 import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
+import { E2E_STALE_AFTER_MS } from "@/lib/staleness";
 
 // Mock localStorage
 const storageMap = new Map<string, string>();
@@ -31,6 +32,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Recent timestamp so green e2e rows are not treated as stale by the
+// staleness downgrade in cell-model.ts (which compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
@@ -42,8 +47,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -286,8 +291,21 @@ describe("CellMatrix", () => {
   });
 
   it("filters to rows with regressions when filter=regressions", () => {
-    // lgp/agentic-chat has D5 mapping → maxPossible=6, achieved=2 → regression
-    // lgp/no-d5-feature has NO D5 mapping → maxPossible=4, achieved=4 → no regression
+    // Uses buildCellModel D3/D4/D5 depth model (not the old D0-D6 ladder).
+    //
+    // lgp/agentic-chat: e2e GREEN (D3), chat GREEN (D4), and an EMITTED RED
+    //   D5 row. "agentic-chat" maps to a CATALOG_TO_D5_KEY so ceiling=5;
+    //   achieved=4 < ceiling=5 AND the next rung (D5) has emitted data
+    //   (status='red') → genuine REGRESSION (unification C requires emitted
+    //   data above achievedDepth, so a no-data D5 would NOT count).
+    //
+    // lgp/no-d5-feature: e2e GREEN (D3), chat GREEN (D4), "no-d5-feature" has
+    //   NO CATALOG_TO_D5_KEY mapping → ceiling=4. achieved=4 === ceiling=4 →
+    //   NOT a regression.
+    const regressFeatures = [
+      { id: "agentic-chat", name: "Agentic Chat", category: "chat-ui" },
+      { id: "no-d5-feature", name: "No D5 Feature", category: "platform" },
+    ];
     const regressCells: CatalogCell[] = [
       {
         id: "lgp/agentic-chat",
@@ -313,10 +331,12 @@ describe("CellMatrix", () => {
       },
     ];
     const live = mapOf([
-      row("health:lgp", "health", "green"),
-      row("agent:lgp", "agent", "green"),
+      row("e2e:lgp/agentic-chat", "e2e", "green"),
       row("e2e:lgp/no-d5-feature", "e2e", "green"),
       row("chat:lgp", "chat", "green"),
+      // Emitted RED D5 keeps agentic-chat a genuine regression under the
+      // refined (unification C) rule — a missing D5 row would be no-data.
+      row("d5:lgp/agentic-chat", "d5", "red"),
     ]);
     const oneIntegration = [
       { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
@@ -325,7 +345,7 @@ describe("CellMatrix", () => {
       <CellMatrix
         cells={regressCells}
         categories={categories}
-        features={features}
+        features={regressFeatures}
         integrations={oneIntegration}
         liveStatus={live}
         defaultOpenCategories={new Set(["chat-ui", "platform"])}
@@ -333,9 +353,9 @@ describe("CellMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // agentic-chat has regression (achieved=2 < maxPossible=6) → visible
+    // agentic-chat: achieved=4 < ceiling=5, D5 emitted red → regression → visible
     expect(queryByText("Agentic Chat")).not.toBeNull();
-    // no-d5-feature at ceiling (achieved=4 === maxPossible=4) → hidden
+    // no-d5-feature: achieved=4 === ceiling=4 → at ceiling → hidden
     expect(queryByText("No D5 Feature")).toBeNull();
   });
 
@@ -578,5 +598,117 @@ describe("CellMatrix", () => {
     // Click same cell again to toggle off
     fireEvent.click(getByTestId("cell-btn-lgp-agentic-chat"));
     expect(queryByTestId("cell-drilldown")).toBeNull();
+  });
+
+  it("filter pass and render path share ONE `now` across a staleness boundary", () => {
+    // The filter pass and the render-path buildCellModel must agree on which
+    // green rows are stale. The e2e:lgp/agentic-chat row's observed_at sits
+    // EXACTLY on the e2e staleness boundary relative to the FIRST clock tick:
+    // a `now` at the base reads fresh (D3 green → achievedDepth 4, a
+    // regression that the filter includes), but a `now` advanced past the
+    // boundary reads stale (D3 amber → gate fails → achievedDepth 0). We stub
+    // Date.now to advance on EACH call, straddling the boundary. With a single
+    // hoisted `now` (called once per render) the filter and render see the
+    // same pre-boundary tick, so the included row renders at depth 4. Pre-fix
+    // the render path called Date.now() again, landing past the boundary and
+    // rendering depth 0 — a chip/filter disagreement.
+    const base = 1_700_000_000_000;
+    // observed_at is exactly E2E_STALE_AFTER_MS before `base`: at now=base it
+    // is NOT stale (now - observed === maxAge, and isStale uses strict `>`),
+    // but at now=base+1 (or later) it IS stale.
+    const observedAt = new Date(base - E2E_STALE_AFTER_MS).toISOString();
+    // Fresh timestamp for D4 (chat) — its window is 1h, far tighter than the
+    // 6h e2e window, so it must NOT sit on the e2e boundary or it would read
+    // stale-degraded at base and cap achievedDepth below 4 regardless.
+    const freshObservedAt = new Date(base).toISOString();
+    let tick = 0;
+    // First call → base (fresh); every subsequent call → well past boundary.
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => (tick++ === 0 ? base : base + 60_000));
+
+    try {
+      const boundaryCells: CatalogCell[] = [
+        {
+          id: "lgp/agentic-chat",
+          integration: "lgp",
+          integration_name: "LangGraph Python",
+          feature: "agentic-chat",
+          feature_name: "Agentic Chat",
+          status: "wired",
+          max_depth: 3,
+          category: "chat-ui",
+          category_name: "Chat & UI",
+        },
+      ];
+      const boundaryFeatures = [
+        { id: "agentic-chat", name: "Agentic Chat", category: "chat-ui" },
+      ];
+      const oneIntegration = [
+        { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
+      ];
+      // D3 green (boundary observed_at), D4 green, D5 emitted red → fresh-read
+      // achievedDepth 4 < ceiling 5 with emitted D5 data = a regression the
+      // filter INCLUDES. A stale-read collapses D3 to amber (achievedDepth 0).
+      const live: LiveStatusMap = new Map();
+      for (const r of [
+        {
+          id: "id-e2e",
+          key: "e2e:lgp/agentic-chat",
+          dimension: "e2e",
+          state: "green" as const,
+          signal: {},
+          observed_at: observedAt,
+          transitioned_at: observedAt,
+          fail_count: 0,
+          first_failure_at: null,
+        },
+        {
+          id: "id-chat",
+          key: "chat:lgp",
+          dimension: "chat",
+          state: "green" as const,
+          signal: {},
+          observed_at: freshObservedAt,
+          transitioned_at: freshObservedAt,
+          fail_count: 0,
+          first_failure_at: null,
+        },
+        {
+          id: "id-d5",
+          key: "d5:lgp/agentic-chat",
+          dimension: "d5",
+          state: "red" as const,
+          signal: {},
+          observed_at: observedAt,
+          transitioned_at: observedAt,
+          fail_count: 1,
+          first_failure_at: observedAt,
+        },
+      ] satisfies StatusRow[]) {
+        live.set(r.key, r);
+      }
+
+      const { getAllByTestId } = render(
+        <CellMatrix
+          cells={boundaryCells}
+          categories={[{ id: "chat-ui", name: "Chat & UI" }]}
+          features={boundaryFeatures}
+          integrations={oneIntegration}
+          liveStatus={live}
+          defaultOpenCategories={new Set(["chat-ui"])}
+          filter="regressions"
+          referenceSlug="lgp"
+        />,
+      );
+
+      // The cell was included by the filter (fresh read). The render-path chip
+      // must reflect the SAME fresh `now`: depth 4, NOT the stale depth 0.
+      const chips = getAllByTestId("depth-chip");
+      expect(chips.length).toBe(1);
+      expect(chips[0].getAttribute("data-depth")).toBe("4");
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 });

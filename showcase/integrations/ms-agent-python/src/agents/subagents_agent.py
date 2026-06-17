@@ -23,6 +23,8 @@ read the prior list out of a per-request `ContextVar` populated by an
 `session.metadata` on every turn) before the supervisor runs.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import asyncio
@@ -31,10 +33,11 @@ import json
 import logging
 import threading
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from textwrap import dedent
 from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import (
     Agent,
     AgentContext,
@@ -142,7 +145,6 @@ async def capture_current_state(
 # ---------------------------------------------------------------------------
 
 
-# @region[subagent-setup]
 # Each sub-agent is a full-fledged `Agent(...)` with its own system
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees their return value (final text content).
@@ -161,15 +163,15 @@ _CRITIQUE_INSTRUCTIONS = (
 )
 
 
-def _make_sub_agent(
-    chat_client: BaseChatClient, name: str, instructions: str
-) -> Agent:
+def _make_sub_agent(chat_client: BaseChatClient, name: str, instructions: str) -> Agent:
     return Agent(
         client=chat_client,
         name=name,
         instructions=instructions,
         tools=[],
     )
+
+
 # @endregion[subagent-setup]
 
 
@@ -202,9 +204,7 @@ async def _invoke_sub_agent_async(sub_agent_name: str, task: str) -> str:
                 fallback = str(content_text).strip()
                 if fallback:
                     return fallback
-    raise RuntimeError(
-        f"sub-agent '{sub_agent_name}' returned no text content"
-    )
+    raise RuntimeError(f"sub-agent '{sub_agent_name}' returned no text content")
 
 
 def _invoke_sub_agent(sub_agent_name: str, task: str) -> str:
@@ -248,9 +248,7 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
     try:
         result_text = _invoke_sub_agent(sub_agent_name, task)
     except Exception as exc:
-        logger.exception(
-            "subagents: %s delegation failed", sub_agent_name
-        )
+        logger.exception("subagents: %s delegation failed", sub_agent_name)
         delegations.append(
             {
                 "id": entry_id,
@@ -260,18 +258,14 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
                 # Surface only the exception class — sub-agent error
                 # messages can leak chat client URLs / quota details
                 # in deployed environments.
-                "result": (
-                    f"sub-agent error: {exc.__class__.__name__}"
-                ),
+                "result": (f"sub-agent error: {exc.__class__.__name__}"),
             }
         )
         # Mirror the contextvar so a follow-up sub-agent call within the
         # same supervisor turn sees this entry.
         _current_delegations.set(delegations)
         return state_update(
-            text=(
-                f"{sub_agent_name} failed; surfaced in delegation log."
-            ),
+            text=(f"{sub_agent_name} failed; surfaced in delegation log."),
             state={"delegations": delegations},
         )
 
@@ -296,7 +290,6 @@ def _delegate(sub_agent_name: str, task: str) -> Content:
 # ---------------------------------------------------------------------------
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call synchronously runs the
 # matching sub-agent (via `_delegate`), appends the entry to the
@@ -365,6 +358,8 @@ def critique_agent(
 ) -> Content:
     """Delegate a critique task to the critique sub-agent."""
     return _delegate("critique_agent", task)
+
+
 # @endregion[supervisor-delegation-tools]
 
 
@@ -383,9 +378,12 @@ SUPERVISOR_PROMPT = dedent(
       - writing_agent:  turns facts + a brief into a polished draft.
       - critique_agent: reviews a draft and suggests improvements.
 
-    For most non-trivial user requests, delegate in sequence:
-    research -> write -> critique. Pass the relevant facts/draft
-    through the `task` argument of each tool.
+    For every non-trivial user request, delegate in sequence:
+    research_agent -> writing_agent -> critique_agent.
+    IMPORTANT: call EACH sub-agent EXACTLY ONCE per user request.
+    After critique_agent returns, do NOT call any sub-agent again -- return
+    a concise final answer to the user that incorporates the critique.
+    Pass the relevant facts/draft through the `task` argument of each tool.
 
     Keep your own messages short — explain the plan once, delegate,
     then return a concise summary once done. The UI shows the user a
@@ -394,7 +392,71 @@ SUPERVISOR_PROMPT = dedent(
 ).strip()
 
 
-def create_subagents_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
+def _tool_call_ids(message: dict[str, Any]) -> set[str]:
+    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
+    if not isinstance(tool_calls, list):
+        return set()
+
+    ids: set[str] = set()
+    for call in tool_calls:
+        if isinstance(call, dict) and isinstance(call.get("id"), str):
+            ids.add(call["id"])
+    return ids
+
+
+def _tool_result_ids(messages: list[dict[str, Any]], start_index: int) -> set[str]:
+    ids: set[str] = set()
+    for message in messages[start_index + 1 :]:
+        if message.get("role") == "user":
+            break
+        if message.get("role") != "tool":
+            continue
+        call_id = message.get("tool_call_id") or message.get("toolCallId")
+        if isinstance(call_id, str):
+            ids.add(call_id)
+    return ids
+
+
+def _drop_orphan_assistant_tool_calls(messages: Any) -> list[dict[str, Any]]:
+    """Remove historical assistant tool calls that lack tool result messages.
+
+    The MS Agent Framework AG-UI bridge can preserve the assistant tool-call
+    snapshot while omitting the corresponding tool-role results. OpenAI rejects
+    that history on the next turn, so keep the final assistant text/state but
+    omit malformed historical tool-call entries before the supervisor runs.
+    """
+    if not isinstance(messages, list):
+        return []
+
+    clean: list[dict[str, Any]] = []
+    for index, message in enumerate(messages):
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") == "assistant":
+            call_ids = _tool_call_ids(message)
+            if call_ids and not call_ids.issubset(_tool_result_ids(messages, index)):
+                continue
+        clean.append(message)
+    return clean
+
+
+class SubagentsFrameworkAgent(AgentFrameworkAgent):
+    """AgentFrameworkAgent that removes invalid historical tool-call snapshots."""
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        patched_input = dict(input_data)
+        patched_input["messages"] = _drop_orphan_assistant_tool_calls(
+            input_data.get("messages")
+        )
+
+        async for event in super().run(patched_input):
+            yield event
+
+
+def create_subagents_agent(chat_client: BaseChatClient) -> SubagentsFrameworkAgent:
     """Instantiate the Sub-Agents demo supervisor."""
     # Build (and cache) the three sub-agents so the @tool entry points
     # can find them via the module-level registry.
@@ -413,10 +475,11 @@ def create_subagents_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         name="subagents_supervisor",
         instructions=SUPERVISOR_PROMPT,
         tools=[research_agent, writing_agent, critique_agent],
+        default_options={"allow_multiple_tool_calls": False},
         middleware=[capture_current_state],
     )
 
-    return AgentFrameworkAgent(
+    return SubagentsFrameworkAgent(
         agent=base_agent,
         name="CopilotKitMSAgentSubagentsSupervisor",
         description=(

@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / tool-rendering-custom-catchall",
+    "sourceScript": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "updated": "2026-06-15",
+    "note": "Dropped hasToolResult:false on tool-emit fixtures \u2014 the Tokyo tool result from turn 1 stays in the thread, making hasToolResult permanently true on the AAPL turn \u2192 no fixture match \u2192 30s timeout. toolCallId-keyed narration above still wins on iteration 2."
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up after get_weather tool result. Must come BEFORE the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d6_li_cc_weather_001",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo first leg: emit get_weather tool call. The custom catchall renderer fires for this tool since there's no per-tool renderer registered.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_li_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price follow-up after get_stock_price tool result. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_li_cc_stock_001",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price first leg: emit get_stock_price tool call. Second prompt in the cross-tool assertion pair.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_li_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -11,10 +11,10 @@ import {
 export default function PrebuiltPopupDemo() {
   return (
     // @region[popup-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt_popup">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
       <MainContent />
       <CopilotPopup
-        agentId="prebuilt_popup"
+        agentId="prebuilt-popup"
         defaultOpen={true}
         labels={{
           chatInputPlaceholder: "Ask the popup anything...",
@@ -44,7 +44,17 @@ function MainContent() {
 
 function Suggestions() {
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
+    suggestions: [
+      { title: "Say hi", message: "Say hi from the popup!" },
+      {
+        title: "Limerick",
+        message: "Write me a quick limerick.",
+      },
+      {
+        title: "Is 17 prime?",
+        message: "Walk me through whether 17 is prime.",
+      },
+    ],
     available: "always",
   });
   return null;

@@ -19,6 +19,15 @@
     {
       "match": {
         "userMessage": "Book a 30-minute onboarding call for Alice",
+        "toolCallId": "call_d5_book_call_001__cancelled"
+      },
+      "response": {
+        "content": "Denied — Alice's onboarding call was not booked because no time slot was selected."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
         "hasToolResult": true
       },
       "response": {

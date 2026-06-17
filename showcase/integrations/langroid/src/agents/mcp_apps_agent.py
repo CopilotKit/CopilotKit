@@ -89,9 +89,7 @@ Do NOT:
 # ---------------------------------------------------------------------------
 
 
-def _agui_messages_to_openai(
-    messages: Any, system_prompt: str
-) -> list[dict[str, Any]]:
+def _agui_messages_to_openai(messages: Any, system_prompt: str) -> list[dict[str, Any]]:
     """Translate AG-UI typed messages into OpenAI chat completion shape.
 
     Mirrors the conversion in ``agents.agui_adapter`` but is duplicated
@@ -103,9 +101,7 @@ def _agui_messages_to_openai(
         return out
     for msg in messages:
         role = (
-            getattr(msg, "role", None)
-            if not isinstance(msg, dict)
-            else msg.get("role")
+            getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
         )
         if not isinstance(role, str):
             continue
@@ -250,9 +246,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         body = await request.json()
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.exception(
-            "mcp-apps: failed to parse body (error_id=%s)", error_id
-        )
+        logger.exception("mcp-apps: failed to parse body (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid JSON body",
@@ -264,9 +258,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         run_input = RunAgentInput(**body)
     except (pydantic.ValidationError, TypeError, ValueError) as exc:
-        logger.exception(
-            "mcp-apps: invalid RunAgentInput (error_id=%s)", error_id
-        )
+        logger.exception("mcp-apps: invalid RunAgentInput (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid RunAgentInput payload",
@@ -377,9 +369,7 @@ async def handle_run(request: Request) -> StreamingResponse:
                 )
             )
             yield _sse_line(
-                TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END, message_id=msg_id
-                )
+                TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=msg_id)
             )
 
         yield _sse_line(

@@ -29,39 +29,38 @@ const mockState = {
 // Updated: useBaseline now calls getFullList({batch: 1000}) instead of
 // paginated getList. Mock returns a plain array (same as useLiveStatus pattern).
 vi.mock("../../lib/pb", () => {
-  return {
-    pbIsMisconfigured: false,
-    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
-    pb: {
-      collection: (_name: string) => ({
-        getFullList: vi.fn(async () => {
-          mockState.getFullListCalls += 1;
-          if (mockState.failRemaining > 0) {
-            mockState.failRemaining -= 1;
-            throw new Error("PB getFullList failed");
-          }
-          return [...mockState.initial];
-        }),
-        subscribe: vi.fn(async (_topic: string, cb: Listener) => {
-          mockState.subscribeCalls += 1;
-          mockState.listener = cb;
-          return async () => {
-            mockState.unsubscribeCalls += 1;
-            mockState.listener = null;
-          };
-        }),
-        update: vi.fn(
-          async (id: string, data: Record<string, unknown>) => {
-            mockState.updateCalls.push({ id, data });
-            if (mockState.updateFailNext) {
-              mockState.updateFailNext = false;
-              throw new Error("PB update failed");
-            }
-            return { ...data, id };
-          },
-        ),
+  const pb = {
+    collection: (_name: string) => ({
+      getFullList: vi.fn(async () => {
+        mockState.getFullListCalls += 1;
+        if (mockState.failRemaining > 0) {
+          mockState.failRemaining -= 1;
+          throw new Error("PB getFullList failed");
+        }
+        return [...mockState.initial];
       }),
-    },
+      subscribe: vi.fn(async (_topic: string, cb: Listener) => {
+        mockState.subscribeCalls += 1;
+        mockState.listener = cb;
+        return async () => {
+          mockState.unsubscribeCalls += 1;
+          mockState.listener = null;
+        };
+      }),
+      update: vi.fn(async (id: string, data: Record<string, unknown>) => {
+        mockState.updateCalls.push({ id, data });
+        if (mockState.updateFailNext) {
+          mockState.updateFailNext = false;
+          throw new Error("PB update failed");
+        }
+        return { ...data, id };
+      }),
+    }),
+  };
+  return {
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
+    getPb: () => pb,
   };
 });
 
@@ -179,9 +178,7 @@ describe("useBaseline", () => {
     });
 
     await waitFor(() => {
-      expect(
-        result.current.cells.get(cell.key as string),
-      ).toMatchObject({
+      expect(result.current.cells.get(cell.key as string)).toMatchObject({
         status: "impossible",
       });
     });
@@ -233,16 +230,10 @@ describe("useBaseline", () => {
     });
 
     await act(async () => {
-      await result.current.updateCell(
-        cell.key as string,
-        "possible",
-        ["cpk"],
-      );
+      await result.current.updateCell(cell.key as string, "possible", ["cpk"]);
     });
 
-    expect(
-      result.current.cells.get(cell.key as string),
-    ).toMatchObject({
+    expect(result.current.cells.get(cell.key as string)).toMatchObject({
       status: "possible",
       tags: ["cpk"],
     });
@@ -265,20 +256,14 @@ describe("useBaseline", () => {
 
     await act(async () => {
       try {
-        await result.current.updateCell(
-          cell.key as string,
-          "impossible",
-          [],
-        );
+        await result.current.updateCell(cell.key as string, "impossible", []);
       } catch {
         // Expected
       }
     });
 
     // Should revert to original
-    expect(
-      result.current.cells.get(cell.key as string),
-    ).toMatchObject({
+    expect(result.current.cells.get(cell.key as string)).toMatchObject({
       status: "works",
       tags: [],
     });

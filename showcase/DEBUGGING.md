@@ -1,6 +1,15 @@
 # Showcase Local Debugging Playbook
 
-Quick-reference for running, debugging, and iterating on showcase integrations locally.
+Tagline: per-failure-mode debugging strategies, the debugging loop, integration
+patterns, anti-patterns, and production-side ops (harness probe logging,
+triggering probes manually, isolated-stack ops).
+
+For the canonical cell red→green SOP and the `bin/showcase test` invocation
+table (control-plane vs `--direct`), see
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green). This document
+covers the per-failure-mode investigation strategies that complement the SOP,
+plus production / harness ops (probe triggering, Railway log access, isolated
+stack cleanup).
 
 ## Prerequisites
 
@@ -46,12 +55,24 @@ This is the iterative process for going from a red probe to green. Each section 
 
 ### Phase 1: Establish the Red Baseline
 
-Start the infrastructure and run the failing test to see the exact error:
+Run the failing test in an isolated stack to see the exact error. This is the
+production-equivalent path — control-plane pipeline, per-slug rebuild only,
+no interference with the shared `showcase-*` stack:
 
 ```sh
-showcase up aimock mastra        # or whatever slug is failing
+showcase test mastra:<demo> --d5 --isolate --verbose
+```
+
+For the older shared-stack workflow (e.g. if you already have the stack up and
+want to iterate without a fresh build), the equivalent two-step is:
+
+```sh
+showcase up aimock mastra
 showcase test mastra --d5 --verbose
 ```
+
+But `--isolate` is the canonical SOP. See
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green).
 
 What to look for in the output -- the specific probe name and error message. Common patterns:
 
@@ -70,9 +91,19 @@ showcase logs aimock --grep "fixture|match|NO match|404"
 
 What the log lines mean:
 
-- **"matched fixture X at turnIndex N"** -- aimock found a fixture for this request and is returning it. If the same turnIndex repeats, the supervisor is stuck in a loop (re-sending the same request and getting the same canned response).
-- **"NO match"** -- the request pattern doesn't match any fixture. This means either the fixture is missing, or the request shape has changed (different model, different system prompt, different tool definitions).
-- **Repeated matches at the same turnIndex** -- the agent's retry/loop logic is firing because it didn't get the response it expected from the previous turn. The fixture chain is broken somewhere upstream.
+- **"matched fixture X"** (with the chosen discriminator — `turnIndex`,
+  `hasToolResult`, `toolCallId`, `sequenceIndex`, or just `userMessage`) --
+  aimock found a fixture for this request and is returning it. If the same
+  discriminator repeats turn-after-turn, the agent is stuck in a loop
+  (re-sending the same request and getting the same canned response).
+- **"NO match"** -- the request pattern doesn't match any fixture. This means
+  either the fixture is missing, or the request shape has changed (different
+  model, different system prompt, different tool definitions), or the chosen
+  discriminator (often `toolCallId` strict-equality) silently misses against a
+  backend that rewrites IDs.
+- **Repeated matches at the same discriminator value** -- the agent's
+  retry/loop logic is firing because it didn't get the response it expected
+  from the previous turn. The fixture chain is broken somewhere upstream.
 
 ### Phase 3: The aimock Edit-Build-Deploy-Test Cycle
 
@@ -138,7 +169,17 @@ showcase recreate aimock
 showcase test <slug> --d5 --verbose
 ```
 
-Fixtures are baked into the aimock Docker image at build time. Simply editing the JSON file on disk does nothing until the container is recreated with the updated files. This is the most common "why isn't my fix working?" mistake.
+Fixtures are baked into the aimock Docker image at build time AND cached in
+memory at container startup. Simply editing the JSON file on disk does nothing
+until the container is recreated (or restarted in the case of a volume-mounted
+isolated stack). This is the most common "why isn't my fix working?" mistake.
+
+In an `--isolate` stack, aimock reads its fixtures from a volume mount, so a
+fresh isolated slot picks up edits at startup automatically. But within a
+warm slot, edits require an explicit
+`docker restart showcase-iso<N>-aimock`. See
+[`GOTCHAS.md`](./GOTCHAS.md#-isolate--aimock-operational-edge-cases) for the
+operational details.
 
 ### Phase 6: Verify Green
 
@@ -276,23 +317,92 @@ showcase diff-logs aimock --since last-test --grep "fixture"
 
 This filters out all log output from before your test started, showing only what happened during the test run itself.
 
-## Isolated Test Runs (`--isolate`)
+## Isolated Verification Runs (`--isolate`)
 
-The `--isolate` flag on `showcase test` lets you run tests without interfering with an already-running local stack (or other isolated runs). It works by creating temporary overlay files rather than mutating originals in place.
+`bin/showcase test <slug> --d6 --isolate <name>` is the canonical, default way
+to verify a slug's D6 state. It brings up a fully isolated stack — its own
+aimock, PocketBase, dashboard, integration, and harness control-plane +
+pool-worker — on offset ports in its own docker compose project, then runs the
+canonical `harness/src/probes/drivers/d6-all-pills.ts` driver: it enqueues
+per-pill jobs, the isolated worker claims them, and asserts per-pill. This is
+**identical to the non-isolate path** — same driver, same per-pill assertions —
+just namespaced so it never disturbs the shared long-lived `showcase-*` stack.
+
+```sh
+showcase test <slug> --d6 --isolate <name>
+```
+
+Verify with this flow rather than hand-driving the browser. The point of the
+isolated driver is the identical-tests invariant: the same assertions run the
+same way for every integration, so a result is comparable across integrations
+and to production. Manual clicking is non-reproducible and tests something
+subtly different each run.
 
 ### How it works
 
-1. **Temp overlay directory**: `apply_isolation` copies `docker-compose.local.yml` and `shared/local-ports.json` to `$TMPDIR/showcase-isolate-$$/`. The originals are never touched. Shell variables (`COMPOSE_FILE`, `COMPOSE_CMD`, `PORTS_FILE`) and the `LOCAL_PORTS_FILE` env var passed to the TS harness all point at the temp copies.
+1. **`<name>` and slot/offset**: `<name>` names the isolated compose project and
+   must start with a lowercase letter or digit, then lowercase letters, digits,
+   `-` or `_` (`[a-z0-9][a-z0-9_-]*`, a docker compose project-name constraint;
+   uppercase is normalized to lowercase with a warning). The name `showcase` is
+   reserved — it is the default stack's own compose project name, so the CLI
+   refuses it. Use a distinct name per run. The slot and port
+   offset are **auto-assigned** — each run atomically claims a slot via `mkdir`
+   under `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots/N`
+   and derives its offset as `(slot + 1) * 200`
+   (slot 0 → +200, slot 1 → +400, ...). Up to 46 concurrent runs are supported.
+   Do not assign slots manually.
 
-2. **Slot-based port allocation**: Concurrent `--isolate` runs acquire unique port ranges via atomic `mkdir /tmp/showcase-isolate-slots/N`. Slot 0 adds a +200 offset to all ports, slot 1 adds +400, slot 2 adds +600, etc. Up to 46 concurrent isolated runs are supported. Each slot directory contains a `pid` file for stale-slot detection.
+2. **Full isolated stack, shared stack untouched**: every service runs under the
+   `<name>` compose project on the offset ports, so containers, networks, and
+   volumes are fully namespaced. The default/long-lived `showcase-*` project is
+   left completely alone — an isolated run is safe to launch alongside it (or
+   alongside other isolated runs).
 
-3. **Project name scoping**: Each isolated run passes `--project-name <name>` to docker compose, so containers, networks, and volumes are fully namespaced. No collision with the base `showcase` project or other isolated runs.
+3. **PocketBase authenticates out of the box**: the host CLI's default
+   PocketBase superuser (`admin@example.com` / `showcase-local-dev`) matches the
+   `POCKETBASE_SUPERUSER_EMAIL` the compose stack seeds, so a fresh isolated PB
+   authenticates with no manual setup. A mismatch here is what previously 400'd
+   on pb-auth and left the d6 control-plane enqueuing zero jobs.
 
-4. **Cleanup**: `restore_isolation` removes the temp directory and releases the slot. It is registered via `trap EXIT` before any mutation occurs, so cleanup runs even on crashes or `Ctrl-C`.
+4. **Scratch overlay + cleanup**: `apply_isolation` writes offset copies of
+   `docker-compose.local.yml` and `shared/local-ports.json` into a per-run
+   scratch dir at
+   `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/runs/<name>/`
+   (originals are never touched).
+   `restore_isolation`, registered via `trap EXIT` before any mutation, tears
+   the stack down and frees the slot on exit — even on crashes or `Ctrl-C` —
+   unless `--keep` is set (see Cleanup below).
 
-### Parallel runs are safe
+### Interpreting results
 
-Multiple agents or terminal sessions can each run `showcase test <slug> --isolate` simultaneously. Each gets its own port range and project namespace. No coordination is needed beyond the atomic slot allocation.
+Per-pill FAILs reflect real demo/feature issues for that integration, not
+artifacts of isolation. Because the driver asserts per-pill identically across
+integrations, a FAIL is the same signal you'd get from the shared stack or
+production for that pill.
+
+### Cleanup
+
+By default the isolated stack tears down on exit and frees its slot
+automatically — the normal case needs no cleanup, and each fresh run gets a
+clean PocketBase volume (which is what keeps pb-auth deterministic).
+
+With `--keep`, the isolated stack survives the run (success or failure): the
+stack is left standing, and the per-run scratch dir and slot are preserved
+(live containers keep the slot from being reaped). That protection applies
+only while the containers are RUNNING — if they stop (manual `docker stop`,
+daemon restart, host reboot), the next isolate run's sweep reclaims the slot,
+composing the stopped containers and named volumes down and removing the
+scratch dir. Inspect a kept stack before stopping it; it does not survive a
+reboot. At exit a survival notice
+prints the stack's host ports (aimock, dashboard, PocketBase) plus the manual
+teardown command
+(`docker compose -p <name> down --remove-orphans --volumes && rm -rf <run-dir> <slot-dir>`).
+The teardown includes `--volumes`: isolated stacks are ephemeral, so the
+project-scoped named volumes (e.g. `<name>_showcase-pb-data`) are removed along
+with the containers and networks — the same flags the automatic (non-`--keep`)
+teardown uses, so a kept stack leaves nothing behind once torn down. The
+`rm -rf` clears the per-run scratch dir and the slot reservation (the notice
+prints the real paths).
 
 ### Troubleshooting
 
@@ -303,11 +413,11 @@ Multiple agents or terminal sessions can each run `showcase test <slug> --isolat
   rm -f showcase/docker-compose.local.yml.iso-bak showcase/shared/local-ports.json.iso-bak
   ```
 
-  The new isolate behavior auto-detects and cleans up these stale backups on startup, but a manual restore is the safest fix if things look wrong.
+  The current isolate behavior auto-detects and cleans up these stale backups on startup, but a manual restore is the safest fix if things look wrong.
 
-- **Temp files**: Overlay directories live at `$TMPDIR/showcase-isolate-*/`. They are cleaned up on normal exit; if a run was killed with `SIGKILL`, the directory may linger. Safe to remove manually.
+- **Scratch files**: Per-run overlay directories live at `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/runs/<name>/`. They are cleaned up on normal exit; if a run was killed with `SIGKILL`, the directory may linger. Safe to remove manually.
 
-- **Slot directories**: Located at `/tmp/showcase-isolate-slots/`. Each numbered subdirectory is a claimed slot. If slots accumulate from killed processes, clean them with `rm -rf /tmp/showcase-isolate-slots/*`.
+- **Slot directories**: Located at `${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots/`. Each numbered subdirectory is a claimed slot. Slots from killed processes are auto-reaped on the next isolate run (a slot whose compose project has no live containers is reclaimed); to clean them manually, run `rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/copilotkit/showcase/slots"/*`.
 
 ## Environment Variables
 
@@ -370,11 +480,15 @@ Look at the agent's event emission code. Every event that creates a message need
 
 **When**: A feature fails and you're about to blame the framework.
 
-**Do**: Run `showcase test langgraph-python --d5` in the SAME environment first. If langgraph-python also fails, the problem is infrastructure (stale aimock, broken fixtures, Docker state), not the framework. This saves hours of framework-specific debugging that turns out to be a shared issue.
+**Do**: Run `showcase test langgraph-python:<demo> --d5 --isolate` in the SAME
+environment first. If langgraph-python also fails on the same cell, the
+problem is infrastructure (stale aimock, broken fixtures, Docker state, probe
+bug), not the framework. This saves hours of framework-specific debugging that
+turns out to be a shared issue.
 
 ```sh
-showcase test langgraph-python --d5   # gold standard check
-showcase test <slug> --d5             # then your target
+showcase test langgraph-python:<demo> --d5 --isolate   # gold standard check
+showcase test <slug>:<demo> --d5 --isolate             # then your target
 ```
 
 ### Strategy 6: Check custom renderers for missing testids
@@ -439,11 +553,13 @@ for item in items:
 ```
 
 **How to read it:**
+
 - `fail_count=1` → just flipped red on the last cycle (likely flapper)
 - `fail_count>=3` → consistently failing (likely a real bug)
 - `fail_count=0` with `state!=green` → transitional state, check again next cycle
 
 **Categorize errors** to find the root cause pattern:
+
 - `page.fill: Timeout` → React hydration too slow (probe infrastructure issue)
 - `assistant did not respond within 30000ms` → backend or aimock not returning
 - `chat input not found` → selector cascade failed (page didn't render)
@@ -451,6 +567,7 @@ for item in items:
 - `auth: after clicking sign-out` → auth probe timing race
 
 **Cross-reference with deploy history** to identify deploy churn:
+
 ```sh
 gh run list --branch main --limit 10 -R CopilotKit/CopilotKit --workflow "Showcase: Build & Push"
 ```
@@ -458,8 +575,9 @@ gh run list --branch main --limit 10 -R CopilotKit/CopilotKit --workflow "Showca
 If a feature flipped red right when a deploy happened and `fail_count=1`, it's deploy churn — the Railway service restarted mid-probe. Wait one cycle and re-check.
 
 **Get per-service flapping rates** from the harness API (last 10 probe runs):
+
 ```sh
-curl -s 'https://showcase-harness-production.up.railway.app/api/probes/probe:e2e-deep' | \
+curl -s 'https://showcase-harness-production.up.railway.app/api/probes/probe:d6-all-pills-e2e' | \
   python3 -c "
 import json, sys
 data = json.load(sys.stdin)
@@ -467,7 +585,7 @@ runs = [r for r in data.get('runs', []) if r.get('state') == 'completed' and r.g
 stats = {}
 for run in runs:
     for svc in run['summary'].get('services', []):
-        slug = svc.get('slug','?').replace('e2e-deep:showcase-','')
+        slug = svc.get('slug','?').replace('d6-all-pills-e2e:showcase-','')
         result = svc.get('result', '?')
         stats.setdefault(slug, {'green': 0, 'red': 0})
         stats[slug]['green' if result == 'green' else 'red'] += 1
@@ -479,6 +597,157 @@ for slug in sorted(stats):
 ```
 
 **Key insight**: If ALL integrations flap at similar rates (50-70% green), the problem is systemic (probe infrastructure), not per-integration code bugs. If only one integration is consistently red while others are green, it's a real code bug in that integration.
+
+## Integration Patterns
+
+These are canonical. Do not deviate.
+
+### HITL (hitl-steps, hitl-approve-deny, hitl-text-input)
+
+Backend agent has `tools=[]` (no backend tools). Frontend registers tools via
+`useHumanInTheLoop` or `useFrontendTool`. CopilotKit injects frontend tool
+definitions into the LLM call. Every HITL integration follows this pattern
+without exception.
+
+### gen-ui-custom
+
+`langgraph-python` uses the chart pattern (`useComponent` with
+`render_pie_chart`). All other integrations should also demonstrate meaningful
+custom generative UI. Do not replace charts/data-viz with trivial text-only
+components just to pass tests.
+
+### tool-rendering
+
+Frontend registers `useRenderTool` for `get_weather`. The v2 API uses
+`parameters` (not `args`) in the render callback. Backend has the actual tool.
+
+### shared-state
+
+Backend calls `set_notes` tool, must forward tool result back to LLM for the
+follow-up text response. Frameworks that don't auto-cycle (crewai, langroid)
+need explicit tool-execution loops.
+
+## Docker Compose Environment
+
+All providers must be routed through aimock. Required env vars in
+`x-integration-defaults`:
+
+```
+OPENAI_API_KEY / OPENAI_BASE_URL          -> http://aimock:4010/v1
+ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL    -> http://aimock:4010
+GOOGLE_API_KEY / GOOGLE_GEMINI_BASE_URL   -> http://aimock:4010
+SPRING_AI_OPENAI_BASE_URL                 -> http://aimock:4010
+```
+
+Missing any of these means that provider's integrations bypass aimock and hit
+real APIs (or fail with an empty key).
+
+## Production Debugging
+
+### Harness probe logging
+
+The harness emits structured logs at INFO level for probe lifecycle events:
+
+- `probe.tick-start` / `probe.tick-complete` — probe run lifecycle
+- `probe.target-start` / `probe.target-complete` — per-service results
+- `probe.d6-all-pills.service-start` / `probe.d6-all-pills.service-complete` — D5 per-service
+- `probe.d6-all-pills.feature-complete` — per-feature pass/fail with error details
+- `probe.run-summary` — single line with all service results
+- `probe.d6-all-pills.pool-abort-release` — browser pool starvation events
+
+View with: `RAILWAY_PROJECT_ID=6f8c6bff-a80d-4f8f-b78d-50b32bcf4479 railway logs --service showcase-harness --tail 200`
+
+### Debug-level probe logging
+
+For detailed conversation-runner traces (selector resolution, DOM text
+extraction, settle polling, per-turn lifecycle), set `LOG_LEVEL=debug` on the
+showcase-harness Railway service. This enables `console.debug(...)` output from
+the conversation runner and D5 scripts.
+
+To enable temporarily: set the env var in Railway dashboard → showcase-harness
+→ Variables → `LOG_LEVEL=debug`. The service auto-restarts. Remember to unset
+after debugging — debug output is verbose.
+
+### Triggering probes manually
+
+```
+curl -sf -X POST "https://showcase-harness-production.up.railway.app/api/probes/probe:d6-all-pills-e2e/trigger" \
+  -H "Authorization: Bearer $OPS_TRIGGER_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+Retrieve `OPS_TRIGGER_TOKEN`: `RAILWAY_PROJECT_ID=6f8c6bff-a80d-4f8f-b78d-50b32bcf4479 railway variables --service showcase-harness --json | python3 -c "import json,sys; print(json.load(sys.stdin)['OPS_TRIGGER_TOKEN'])"`
+
+Rate limit: 5 minutes per probe ID.
+
+### Testing package.json changes
+
+When `package.json` changes (new deps, version bumps), volume mounts don't
+cover `node_modules`. You MUST rebuild the Docker image:
+`bin/showcase rebuild <slug>`, then re-test. A passing `bin/showcase test`
+against a volume-mounted container does NOT validate the build.
+
+## Anti-Patterns
+
+Earned by bugs. Do not repeat.
+
+- **NEVER** change a demo's fundamental functionality to pass a test. The demo IS the point.
+- **NEVER** replace chart/data-viz gen-ui with trivial text components.
+- **NEVER** anchor multi-turn disambiguation on `toolCallId` strict equality
+  when the backend rewrites IDs (Anthropic, TanStack). Use `turnIndex` or
+  `hasToolResult` instead.
+- **NEVER** modify `response.content` to match what a real LLM emits. The
+  canonical narration is fixture-author truth; the d5 probe asserts on it.
+  Tune `match` keys, not the response.
+- **NEVER** use raw `docker build`. Symlinks break. Use `bin/showcase rebuild`.
+- **NEVER** assume "agent says done" means "D5 is green." Always run the actual test.
+- **NEVER** add a backend tool for something that should be a frontend HITL tool.
+- **NEVER** use `--direct` for cell-flip value-tests. It bypasses the queue/worker
+  pipeline staging actually runs and has misled investigations in the past.
+
+## Aimock Fixture Deployment
+
+When adding or modifying fixture files in `showcase/aimock/`, the
+`showcase-aimock` image must be rebuilt so production picks up the changes. CI
+handles this automatically — any push to `main` that touches
+`showcase/aimock/**` triggers the Build & Deploy workflow to rebuild and
+redeploy the image.
+
+For manual iteration (e.g. testing a fixture change before merging), build and
+push directly:
+
+```
+docker build --platform linux/amd64 -f showcase/aimock/Dockerfile -t ghcr.io/copilotkit/showcase-aimock:latest showcase/aimock/ --push
+```
+
+After pushing, redeploy the Railway service so it pulls the new image (the CI
+workflow does this automatically via `serviceInstanceRedeploy`).
+
+When adding a **new** fixture file, update both:
+
+1. `showcase/docker-compose.local.yml` — add a volume mount for the new file
+2. `showcase/aimock/Dockerfile` — add a `COPY` line for the new file
+
+## Dev Iteration Speed
+
+Each integration service bind-mounts its host `src/` directory into the
+container via the `volumes` entry in `docker-compose.local.yml`:
+
+```yaml
+volumes:
+  - ./integrations/<slug>/src:/app/src
+```
+
+This means **source edits take effect on container restart** without rebuilding
+the Docker image. The workflow becomes:
+
+1. Edit code under `showcase/integrations/<slug>/src/`
+2. Restart the container: `bin/showcase restart <slug>`
+3. Re-run the test: `bin/showcase test <slug> --d5`
+
+Use `bin/showcase rebuild <slug>` only when you change dependencies
+(requirements.txt, package.json) or non-src files (Dockerfile, entrypoint). For
+pure `src/` changes, restart is sufficient and much faster.
 
 ## Quick Diagnostic Commands
 

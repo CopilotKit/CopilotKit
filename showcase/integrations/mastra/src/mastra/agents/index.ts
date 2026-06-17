@@ -1,4 +1,10 @@
-import { openai } from "@ai-sdk/openai";
+// Header-forwarding shim: the ag-ui/mastra adapter does not propagate
+// inbound x-* headers (e.g. x-aimock-context) to the Vercel AI SDK provider.
+// `@/mastra/_header_forwarding` re-exports `openai` with a fetch wrapper
+// that merges ALS-bound headers into every outbound LLM call. The
+// CopilotKit route is responsible for binding the per-request snapshot via
+// `withForwardedHeaders(req, () => handleRequest(req))`.
+import { openai } from "@/mastra/_header_forwarding";
 import { Agent } from "@mastra/core/agent";
 import {
   weatherTool,
@@ -10,6 +16,7 @@ import {
   searchFlightsTool,
   generateA2uiTool,
   setNotesTool,
+  setStepsTool,
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
@@ -95,6 +102,31 @@ export const SubagentsAgentState = z.object({
     .default([]),
 });
 // @endregion[subagents-state-schema]
+
+// @region[gen-ui-agent-state-schema]
+/**
+ * Shared-state schema for the Gen UI Agent demo.
+ *
+ * `steps` is WRITTEN by the agent (via the `set_steps` tool) and READ by
+ * the UI via `useAgent({ updates: [OnStateChanged] })`. Mastra includes
+ * the `steps` field in its working-memory schema, so after each run-cycle
+ * the AG-UI adapter emits a `STATE_SNAPSHOT` and the UI re-renders the
+ * progress card.
+ *
+ * Status transitions: pending -> in_progress -> completed.
+ */
+export const GenUiAgentState = z.object({
+  steps: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        status: z.enum(["pending", "in_progress", "completed"]),
+      }),
+    )
+    .default([]),
+});
+// @endregion[gen-ui-agent-state-schema]
 
 export const weatherAgent = new Agent({
   id: "weather-agent",
@@ -218,6 +250,57 @@ The \`set_notes\` tool persists the notes to working memory itself — you do NO
   }),
 });
 // @endregion[shared-state-rw-agent]
+
+// @region[gen-ui-agent]
+/**
+ * Mastra agent backing the Gen UI Agent demo.
+ *
+ * Mirrors the LangGraph (python + typescript) gen-ui-agent reference: the
+ * agent plans a task as 3 steps and walks each pending -> in_progress ->
+ * completed, calling `set_steps` after every transition. The frontend
+ * subscribes to `state.steps` via `useAgent` (v2) and renders a live
+ * progress card.
+ *
+ * State-emission mechanism: same pattern as `sharedStateReadWriteAgent` —
+ * the `set_steps` tool writes the new steps array to working memory via
+ * `writeStepsToWorkingMemory`, and the AG-UI Mastra adapter emits a
+ * `STATE_SNAPSHOT` after each run-cycle. The working-memory schema below
+ * pins `steps` into the snapshot so the UI sees `agent.state.steps`.
+ *
+ * Recursion budget: the prompt drives one initial set_steps + two per step
+ * (in_progress + completed) = 7 tool calls + 1 final assistant message, so
+ * the Mastra agent's internal step loop sees ~8 LLM turns. Mastra's default
+ * is well above that, so we don't override it here.
+ */
+export const genUiAgent = new Agent({
+  id: "gen-ui-agent",
+  name: "Gen UI Agent",
+  tools: { setStepsTool },
+  model: openai("gpt-4o-mini"),
+  instructions: `You are an agentic planner. For each user request, follow this exact sequence:
+1. Plan exactly 3 concrete steps and call \`set_steps\` ONCE with all three steps at status="pending".
+2. Step 1: call \`set_steps\` with step 1 at status="in_progress", then call \`set_steps\` again with step 1 at status="completed".
+3. Step 2: call \`set_steps\` with step 2 at status="in_progress", then call \`set_steps\` again with step 2 at status="completed".
+4. Step 3: call \`set_steps\` with step 3 at status="in_progress", then call \`set_steps\` again with step 3 at status="completed".
+5. Send ONE final conversational assistant message summarizing the plan, then stop. Do not call any more tools after step 3 is completed.
+
+Rules: never call set_steps in parallel — always wait for one call to return before the next. Always pass the FULL list of steps (with their current statuses) to set_steps; never a diff. After all three steps are completed you MUST send a final assistant message and terminate.
+
+The \`set_steps\` tool persists the steps to working memory itself — you do NOT need to also call \`updateWorkingMemory\`. Just call \`set_steps\` and the UI will update.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "gen-ui-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: GenUiAgentState,
+      },
+    },
+  }),
+});
+// @endregion[gen-ui-agent]
 
 // @region[subagents-supervisor]
 /**
@@ -404,6 +487,7 @@ Example response (sales dashboard):
  * route) so the vision-tier cost is scoped to exactly the cell that
  * exercises it.
  */
+// @region[backend-interrupt-tool]
 // @region[interrupt-agent]
 /**
  * Scheduling agent for the interrupt-adapted demos (gen-ui-interrupt,
@@ -444,6 +528,7 @@ Keep responses short and friendly. After you finish executing tools, always send
   }),
 });
 // @endregion[interrupt-agent]
+// @endregion[backend-interrupt-tool]
 
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",

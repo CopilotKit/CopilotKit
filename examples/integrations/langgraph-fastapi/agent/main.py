@@ -19,6 +19,7 @@ import uvicorn
 from src.agent import graph
 from copilotkit import LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+
 app = FastAPI()
 
 

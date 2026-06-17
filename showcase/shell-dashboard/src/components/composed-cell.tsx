@@ -1,5 +1,8 @@
 "use client";
 /**
+ * @deprecated Use UnifiedCell from @/components/unified-cell instead.
+ * Retained for backwards compatibility during transition.
+ *
  * ComposedCell — overlay-aware cell renderer.
  *
  * Composes different content layers (Links, Depth, Health, Docs) based on
@@ -12,13 +15,14 @@ import type { CellContext } from "@/components/feature-grid";
 import { CellStatus, DocsRow, urlsFor } from "@/components/cell-pieces";
 import { CellDrilldown } from "@/components/cell-drilldown";
 import { CommandCell } from "@/components/command-cell";
+import { LinkPreview } from "@/components/link-preview";
 import { DepthChip } from "@/components/depth-chip";
 import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
-import { keyFor } from "@/lib/live-status";
+import { keyFor, CATALOG_TO_D5_KEY } from "@/lib/live-status";
 
-/** Overlay types — defined locally; canonical types live in a sibling module. */
-export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
+import type { Overlay } from "@/lib/overlay-types";
+export type { Overlay };
 
 export interface ComposedCellProps {
   ctx: CellContext;
@@ -39,23 +43,27 @@ function LinksLayer({ ctx }: { ctx: CellContext }) {
 
   return (
     <div className="flex items-center justify-center gap-1.5">
-      <a
-        href={links.demoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
-      </a>
-      <a
-        href={links.codeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="whitespace-nowrap text-[var(--accent)] hover:underline"
-      >
-        <span className="text-[var(--text-muted)]">Code</span>{" "}
-        <span>{"</>"}</span>
-      </a>
+      <LinkPreview href={links.demoUrl}>
+        <a
+          href={links.demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
+        </a>
+      </LinkPreview>
+      <LinkPreview href={links.codeUrl}>
+        <a
+          href={links.codeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Code</span>{" "}
+          <span>{"</>"}</span>
+        </a>
+      </LinkPreview>
     </div>
   );
 }
@@ -110,7 +118,6 @@ function DepthLayer({
         <DepthChip
           depth={depth.achieved}
           status={catalogCell.status}
-          regression={depth.isRegression}
           maxDepth={depth.maxPossible}
         />
       </button>
@@ -130,7 +137,7 @@ function DepthLayer({
 }
 
 /**
- * Render the Health layer: RT, CV, FP badge chips via CellStatus.
+ * Render the Health layer: BE, 1P, FP badge chips via CellStatus.
  */
 function HealthLayer({ ctx }: { ctx: CellContext }) {
   return (
@@ -250,20 +257,31 @@ function arePropsEqual(
 
   if (p.liveStatus === n.liveStatus) return true;
 
-  // Map identity changed — verify only the rows this cell reads. Mirrors
-  // the lookups in resolveCell + LevelStrip-adjacent helpers; D5 is
-  // resolved through CATALOG_TO_D5_KEY, so we walk the same indirection
-  // here to avoid false-negative skips. Keep this list in sync with
-  // resolveCell + resolveD5Row in lib/live-status.ts.
+  // Map identity changed — verify only the rows this cell reads. The sole
+  // consumer of liveStatus in this cell is DepthLayer → deriveDepth(), so we
+  // watch exactly the keys deriveDepth reads: health:<slug> (D1),
+  // agent:<slug> (D2), e2e:<slug>/<featureId> (D3), chat:<slug> + tools:<slug>
+  // (D4), and the d5:/d6:<slug>/<featureType> per-cell rows (D5/D6). Keep this
+  // list in sync with deriveDepth in components/depth-utils.ts.
   const slug = p.integration.slug;
   const featureId = p.feature.id;
   const directKeys = [
     keyFor("health", slug),
+    keyFor("agent", slug),
     keyFor("e2e", slug, featureId),
-    keyFor("smoke", slug),
-    keyFor("d5", slug, featureId),
-    keyFor("d6", slug, featureId),
+    keyFor("chat", slug),
+    keyFor("tools", slug),
   ];
+  // D5 + D6 per-cell sub-keys (both map catalog featureId → featureType via
+  // CATALOG_TO_D5_KEY). An unmapped feature has no per-cell rows, so nothing
+  // is added — deriveDepth returns no D5/D6 advancement for it either way.
+  const featureKeys = CATALOG_TO_D5_KEY[featureId];
+  if (featureKeys && featureKeys.length > 0) {
+    for (const ft of featureKeys) {
+      directKeys.push(keyFor("d5", slug, ft));
+      directKeys.push(keyFor("d6", slug, ft));
+    }
+  }
   for (const k of directKeys) {
     if (prev.ctx.liveStatus.get(k) !== next.ctx.liveStatus.get(k)) return false;
   }

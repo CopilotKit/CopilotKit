@@ -4,7 +4,7 @@
 
 - Demo is deployed and accessible at `/demos/a2ui-fixed-schema` on the dashboard host
 - Agent backend is healthy; `OPENAI_API_KEY` is set on Railway; `LANGGRAPH_DEPLOYMENT_URL` points at a LangGraph deployment exposing the `a2ui_fixed` graph (registered as agent name `a2ui-fixed-schema` — see `src/app/api/copilotkit-a2ui-fixed-schema/route.ts`)
-- Note: the demo source contains no `data-testid` attributes. Checks below rely on verbatim visible text, DOM structure, and the two JSON schemas under `src/agents/a2ui_schemas/`
+- Note: the demo source contains no `data-testid` attributes. Checks below rely on verbatim visible text, DOM structure, and the JSON schema at `src/agents/a2ui_schemas/flight_schema.json`
 
 ## Test Steps
 
@@ -32,18 +32,9 @@
   - `Button` renders full-width with label "Book flight" (black `#010507` background, white text, 12px radius)
 - [ ] Verify all four data-model fields resolved correctly (origin=`SFO`, destination=`JFK`, airline=`United`, price=`$289`) — each is a `{ path: "/..." }` binding in the schema and must reach the DOM as a plain string via the `GenericBinder` (no literal `{path}` leak and no React error #31)
 
-#### Book-Flight Interaction (stateful `Button` override)
+#### Book-Flight Button (inert — pure presentation)
 
-- [ ] Click the "Book flight" button inside the rendered card; verify it transitions to the confirmed state WITHOUT re-rendering the surface:
-  - button background becomes the mint tint `rgba(133, 236, 206, 0.15)` with border `#85ECCE4D`
-  - label text changes to "Booked" (color `#189370`)
-  - a green check SVG (`polyline 20 6 9 17 4 12`, stroke `#189370`) appears to the left of the label
-  - button is disabled; further clicks are no-ops
-- [ ] Note: the agent-side action handler for `book_flight` is intentionally not wired (see comment in `src/agents/a2ui_fixed.py` — SDK doesn't yet accept `action_handlers=`). So the `booked_schema.json` swap is NOT expected to occur. Verify only the local optimistic button state change.
-
-#### Booked Schema Readiness (`booked_schema.json` — wired-but-inert)
-
-- [ ] Verify `src/agents/a2ui_schemas/booked_schema.json` exists and declares a 3-node tree (`root` Column with children `title` + `detail`, both `Text` with path bindings `/title` and `/detail`). No runtime check — the schema is kept so the handoff is ready once the SDK supports `action_handlers`. Log a test note if this file is ever removed.
+- [ ] Verify the "Book flight" button is rendered with the schema-declared label and is clickable, but the click is a no-op: the agent is not invoked, no schema swap occurs, and the button does not transition to a "Booked" state. Schema-swap-on-action will be wired up once the Python SDK exposes `action_handlers=` on `a2ui.render` (see comment in `src/agents/a2ui_fixed.py`).
 
 #### Follow-up Prompt (data-model refresh)
 
@@ -59,6 +50,6 @@
 
 - Chat loads within 3s; plain-text response within 10s; flight card renders within 20s of the search prompt
 - `display_flight` is called exactly once per search prompt; result contains an `a2ui_operations` container with `catalogId: "copilotkit://flight-fixed-catalog"` and the full 12-node flight schema
-- All five custom renderers in `a2ui/renderers.tsx` (`Title`, `Airport`, `Arrow`, `AirlineBadge`, `PriceTag`, plus the stateful `Button` override) render at least once per search-flights run
-- Clicking "Book flight" produces a local optimistic confirmation (mint background + check icon + disabled state)
+- All custom renderers in `a2ui/renderers.tsx` (`Card`, `Title`, `Airport`, `Arrow`, `AirlineBadge`, `PriceTag`, `Button`) render at least once per search-flights run
+- Clicking "Book flight" is a no-op (inert presentation button — see comment in `src/agents/a2ui_fixed.py`)
 - No UI layout breaks, no `{path}` leak into the DOM, no uncaught console errors

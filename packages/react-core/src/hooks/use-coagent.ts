@@ -1,7 +1,7 @@
 /**
  * <Callout type="info">
  *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the CoAgents <span className="text-blue-500">[getting started guide](/coagents/quickstart/langgraph)</span>.
+ *   on that see the CoAgents <span className="text-blue-500">[getting started guide](/langgraph-python/quickstart)</span>.
  * </Callout>
  * <Frame className="my-12">
  *   <img
@@ -35,18 +35,21 @@
  *
  * ```
  *
- * `useCoAgent` returns an object with the following properties:
+ * In CopilotKit v2, `useCoAgent` is a thin compatibility wrapper over the v2
+ * [`useAgent`](/reference/hooks/useAgent) hook. It returns an object with the
+ * following properties:
  *
  * ```tsx
  * const {
  *   name,     // The name of the agent currently being used.
  *   nodeName, // The name of the current LangGraph node.
+ *   threadId, // The ID of the thread the agent is running in.
  *   state,    // The current state of the agent.
  *   setState, // A function to update the state of the agent.
  *   running,  // A boolean indicating if the agent is currently running.
  *   start,    // A function to start the agent.
  *   stop,     // A function to stop the agent.
- *   run,      // A function to re-run the agent. Takes a HintFunction to inform the agent why it is being re-run.
+ *   run,      // A function to (re-)run the agent. Maps to the v2 agent's `runAgent()`.
  * } = agent;
  * ```
  *
@@ -89,9 +92,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
-import { type AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { useAgentNodeName } from "./use-agent-nodename";
 
 interface UseCoagentOptionsBase {
@@ -179,8 +182,8 @@ export interface UseCoagentReturnType<T> {
    */
   stop: () => void;
   /**
-   * A function to re-run the agent. The hint function can be used to provide a hint to the agent
-   * about why it is being re-run again.
+   * A function to (re-)run the agent. In v2 this maps to the underlying
+   * agent's `runAgent()`.
    */
   run: (...args: any[]) => Promise<any>;
 }
@@ -202,7 +205,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of the agent, allowing for a dynamic and interactive experience.
  * We call these shared state experiences "agentic copilots". To get started using agentic copilots, which
- * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart/langgraph.
+ * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/langgraph-python/quickstart.
  */
 export function useCoAgent<T = any>(
   options: UseCoagentOptions<T>,

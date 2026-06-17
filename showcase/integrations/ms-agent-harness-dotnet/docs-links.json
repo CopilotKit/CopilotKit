@@ -1,0 +1,9 @@
+{
+  "framework": "ms-agent-harness-dotnet",
+  "features": {
+    "beautiful-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework",
+      "shell_docs_path": "/"
+    }
+  }
+}

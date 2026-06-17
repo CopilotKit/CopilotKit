@@ -115,6 +115,74 @@ describe("CopilotChat perf — re-render regression", () => {
     renderCounts.clear();
   });
 
+  // @tanstack/virtual-core 3.13.18 has a latent bug: `scrollToIndex` schedules
+  // a nested rAF that calls `this.targetWindow.requestAnimationFrame(verify)`
+  // with no null-check. The virtualizer's cleanup (run on React unmount) sets
+  // `targetWindow = null`, so if the outer rAF fires after unmount, the inner
+  // schedule throws `Cannot read properties of null (reading 'requestAnimationFrame')`.
+  //
+  // Vitest reports this as an unhandled error and exits non-zero even though
+  // every test passes. We wrap rAF (on BOTH globalThis and window — they're
+  // separate bindings in vitest+jsdom; tanstack uses `targetWindow.rAF` which
+  // resolves to `window.rAF`) so callbacks that hit the known tanstack bug
+  // are swallowed. After each test we drain pending callbacks and replace rAF
+  // with a no-op to keep stragglers from leaking into the next test.
+  const realRAF = globalThis.requestAnimationFrame;
+  const realWindowRAF =
+    typeof window !== "undefined" ? window.requestAnimationFrame : realRAF;
+
+  const isKnownTanstackTeardownError = (err: unknown): boolean => {
+    const message =
+      (err as { message?: string } | null | undefined)?.message ?? "";
+    return (
+      message.includes("Cannot read properties of null") &&
+      message.includes("requestAnimationFrame")
+    );
+  };
+
+  const wrapRAF = (real: typeof requestAnimationFrame) =>
+    ((cb: FrameRequestCallback) =>
+      real((time) => {
+        try {
+          cb(time);
+        } catch (err) {
+          if (isKnownTanstackTeardownError(err)) return;
+          throw err;
+        }
+      })) as typeof requestAnimationFrame;
+
+  const noopRAF = ((_cb: FrameRequestCallback) =>
+    0) as typeof requestAnimationFrame;
+
+  const installSafeRAF = () => {
+    globalThis.requestAnimationFrame = wrapRAF(realRAF);
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame = wrapRAF(realWindowRAF);
+    }
+  };
+
+  const installNoopRAF = () => {
+    globalThis.requestAnimationFrame = noopRAF;
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame = noopRAF;
+    }
+  };
+
+  afterEach(async () => {
+    // Best-effort drain of already-queued rAF callbacks.
+    await act(async () => {
+      await new Promise<void>((r) => realRAF(() => r()));
+      await new Promise<void>((r) => realRAF(() => r()));
+    });
+    // Neuter rAF so callbacks scheduled during RTL cleanup are harmless.
+    installNoopRAF();
+  });
+
+  beforeEach(() => {
+    // Install the error-swallowing wrap on rAF for the upcoming test.
+    installSafeRAF();
+  });
+
   it("completed messages do not re-render when a new message is added", async () => {
     const agent = new MockStepwiseAgent();
     renderWithSpy(agent);

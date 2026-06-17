@@ -4,9 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  createContext,
-  useContext,
-  type ReactNode,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -14,15 +11,18 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ReactNode } from "react";
+// Context extracted to ../context.ts for cross-platform reuse (React Native)
+import { CopilotKitContext, LicenseContext } from "../context";
+import type { CopilotKitContextValue } from "../context";
+export type { CopilotKitContextValue } from "../context";
+export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-  type DebugConfig,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
+import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -37,6 +37,7 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -56,6 +57,11 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+// Stable frozen defaults keep provider effects from re-running just because a
+// caller omitted an object prop on a rerender.
+const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
+const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
+const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
@@ -81,34 +87,6 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
   "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
   "4. jsFunctions (reusable helper functions)\n" +
   "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
-
-// Define the context value interface - idiomatic React naming
-export interface CopilotKitContextValue {
-  copilotkit: CopilotKitCoreReact;
-  /**
-   * Set of tool call IDs currently being executed.
-   * This is tracked at the provider level to ensure tool execution events
-   * are captured even before child components mount.
-   */
-  executingToolCallIds: ReadonlySet<string>;
-}
-
-// Empty set for default context value
-const EMPTY_SET: ReadonlySet<string> = new Set();
-
-// Create the CopilotKit context
-const CopilotKitContext = createContext<CopilotKitContextValue>({
-  copilotkit: null!,
-  executingToolCallIds: EMPTY_SET,
-});
-
-const LicenseContext = createContext<LicenseContextValue>(
-  createLicenseContextValue(null),
-);
-
-export const useLicenseContext = (): LicenseContextValue =>
-  useContext(LicenseContext);
-
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
@@ -118,17 +96,13 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
-  /**
-   * The Copilot Cloud public API key.
-   */
+  /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /**
-   * Alias for `publicApiKey`
-   **/
+  /** Your public license key for accessing premium CopilotKit features. */
   publicLicenseKey?: string;
   /**
    * Signed license token for offline verification of premium features.
-   * Obtain from https://cloud.copilotkit.ai.
+   * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
@@ -219,6 +193,12 @@ export interface CopilotKitProviderProps {
      * schema if configured. Set to false to disable.
      */
     includeSchema?: boolean;
+    /**
+     * Options for the A2UI error-recovery status UI (OSS-162): how long before
+     * the transient "Retrying…" hint appears, after how many attempts, and how
+     * much retry/debug detail to surface. When omitted, sane defaults apply.
+     */
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -268,14 +248,14 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers: headersProp = {},
+  headers: headersProp = EMPTY_HEADERS,
   credentials,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
-  properties = {},
-  agents__unsafe_dev_only: agents = {},
-  selfManagedAgents = {},
+  properties = EMPTY_PROPERTIES,
+  agents__unsafe_dev_only: agents = EMPTY_AGENTS,
+  selfManagedAgents = EMPTY_AGENTS,
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
@@ -370,11 +350,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     if (runtimeA2UIEnabled) {
+      // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
+      // building skeleton → retrying → hard-failure → painted surface, all on one
+      // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
+      // debug exposure); the server can override debugExposure via the middleware.
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
           catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
+          recovery: a2ui?.recovery,
         }),
       );
     }
@@ -642,15 +627,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [onError]);
 
   useEffect(() => {
-    if (!onErrorRef.current) return;
-
     const subscription = copilotkit.subscribe({
       onError: (event) => {
-        onErrorRef.current?.({
-          error: event.error,
-          code: event.code,
-          context: event.context,
-        });
+        if (onErrorRef.current) {
+          onErrorRef.current(event);
+        } else {
+          console.error(
+            `[CopilotKit] Error (${event.code}):`,
+            event.error,
+            event.context ?? {},
+          );
+        }
       },
     });
 
@@ -816,25 +803,5 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 };
 
-// Hook to use the CopilotKit instance - returns the full context value
-export const useCopilotKit = (): CopilotKitContextValue => {
-  const context = useContext(CopilotKitContext);
-  const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
-  if (!context) {
-    throw new Error("useCopilotKit must be used within CopilotKitProvider");
-  }
-  useEffect(() => {
-    const subscription = context.copilotkit.subscribe({
-      onRuntimeConnectionStatusChanged: () => {
-        forceUpdate();
-      },
-    });
-    return () => {
-      subscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return context;
-};
+// Re-export useCopilotKit from context for backward compatibility
+export { useCopilotKit } from "../context";

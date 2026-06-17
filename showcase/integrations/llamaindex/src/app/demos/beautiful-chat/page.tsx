@@ -1,92 +1,51 @@
 "use client";
 
 /**
- * Beautiful Chat — a polished CopilotChat starter surface for the
- * LlamaIndex showcase.
+ * Beautiful Chat — the flagship CopilotKit showcase cell, ported verbatim
+ * from the 4084 reference clone. The 4084 version lived as its own Next.js
+ * frontend at `demos/beautiful-chat/frontend/` with a full `src/components`
+ * tree + A2UI catalog. Here the same tree is colocated under the cell and
+ * re-wired with relative imports.
  *
- * This is a simplified port of the LangGraph "Beautiful Chat" demo. The
- * canonical version (langgraph-python/src/app/demos/beautiful-chat/) bundles
- * a full design-system clone of the landing-page starter — layout shell,
- * canvas, generative-ui charts, and a hooks tree. That breadth lives outside
- * the parity scope here; the goal of this cell is "pretty agentic chat
- * starter you can copy into a new project," which the slim layout below
- * already delivers.
+ * Providers: layout-level `CopilotKit` + `ThemeProvider` wrappers from the
+ * original 4084 root layout are applied here instead, because the unified
+ * 4085 shell does not give each cell its own layout.tsx.
  *
- * Backend: src/agents/beautiful_chat_agent.py mounted at /beautiful-chat on
- * the agent_server, routed through the shared /api/copilotkit endpoint.
+ * Runtime: this cell uses its own dedicated runtime endpoint
+ * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
+ * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * same combined-runtime shape the canonical starter uses — without bleeding
+ * those global flags into other cells sharing the main `/api/copilotkit`
+ * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-export default function BeautifulChatDemo() {
+import { ThemeProvider } from "./hooks/use-theme";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+import { HomePage } from "./home-page";
+
+export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="beautiful-chat">
-      <PageShell />
-    </CopilotKit>
-  );
-}
-
-function PageShell() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco today?",
-      },
-      {
-        title: "Quick haiku",
-        message: "Write me a short haiku about building with AI agents.",
-      },
-      {
-        title: "Pep talk",
-        message: "Give me a one-sentence pep talk before I ship a new feature.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <div
-      className="min-h-screen w-full"
-      style={{
-        background:
-          "linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #faf5ff 100%)",
-      }}
-    >
-      <div className="mx-auto flex h-screen w-full max-w-5xl flex-col gap-6 p-6 md:p-10">
-        <header className="flex flex-col gap-1">
-          <span
-            className="text-xs font-semibold uppercase tracking-[0.18em]"
-            style={{ color: "#6366f1" }}
-          >
-            CopilotKit · LlamaIndex
-          </span>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
-            Beautiful Chat
-          </h1>
-          <p className="max-w-xl text-sm text-slate-600 md:text-base">
-            A polished agentic-chat starter — brand-tinted background,
-            suggestion pills, and a clean rounded chat surface. Use it as a
-            template for your own LlamaIndex-powered copilot.
-          </p>
-        </header>
-
-        <div
-          className="flex-1 overflow-hidden rounded-3xl border border-white/60 bg-white/80 shadow-xl backdrop-blur"
-          style={{ boxShadow: "0 30px 80px -40px rgba(99,102,241,0.35)" }}
-        >
-          <CopilotChat
-            agentId="beautiful-chat"
-            className="h-full"
-            input={{ disclaimer: () => null, className: "pb-6" }}
-          />
-        </div>
-      </div>
-    </div>
+    <ThemeProvider>
+      <CopilotKit
+        runtimeUrl="/api/copilotkit-beautiful-chat"
+        agent="beautiful-chat"
+        a2ui={{ catalog: demonstrationCatalog }}
+        openGenerativeUI={{}}
+        /*
+         * `useSingleEndpoint` defaults to true (the single-POST-endpoint
+         * protocol). The canonical reference sets it to false to use the
+         * v2 multi-endpoint protocol (GET /info + POST /agent/{name}/connect),
+         * which requires a Hono-based endpoint via `createCopilotEndpoint`.
+         * The 4085 showcase uses `copilotRuntimeNextJSAppRouterEndpoint`
+         * (single-endpoint), which matches the other 4085 cells — so we
+         * use its default behavior here. Functionally equivalent for this demo.
+         */
+      >
+        <HomePage />
+      </CopilotKit>
+    </ThemeProvider>
   );
 }

@@ -8,6 +8,10 @@ All module-level side effects (agent construction, model init,
 so import failures are localized and testable.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
+# @region[backend-render-operations]
+# @region[weather-tool-backend]
 import json
 import logging
 import os
@@ -59,6 +63,16 @@ from tools import (
     schedule_meeting_impl,
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
+)
+
+# gen-ui-agent specialization (set_steps tool + state hook + prompt addendum).
+# The shared Strands backend serves every demo; this module lives in its own
+# file so the gen-ui-agent surface area is reviewable in isolation, matching
+# the wave-2 BYOC pattern (byoc_hashbrown.py / byoc_json_render.py).
+from agents.gen_ui_agent import (
+    GEN_UI_AGENT_PROMPT,
+    set_steps,
+    steps_state_from_args,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,7 +331,6 @@ class _A2uiError(TypedDict):
 # ---- Tools --------------------------------------------------------------
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """Get current weather for a location.
@@ -329,6 +342,8 @@ def get_weather(location: str):
         Weather information as JSON string
     """
     return json.dumps(get_weather_impl(location))
+
+
 # @endregion[weather-tool-backend]
 
 
@@ -373,6 +388,19 @@ def get_sales_todos():
     return "Check the sales pipeline provided in the context."
 
 
+# @region[backend-interrupt-tool]
+# @region[backend-tool-call]
+# Strands has no native interrupt primitive, so the gen-ui-interrupt and
+# interrupt-headless demos register `schedule_meeting` as a frontend tool
+# via `useFrontendTool`. Its async handler returns a Promise that only
+# resolves once the user picks a slot or cancels in the in-chat picker
+# (the Strands shim for LangGraph's `interrupt()` / `resolve()` pair).
+#
+# This `@tool` declaration is the backend's contract with the LLM: the
+# docstring and signature are what the model sees when deciding to call
+# `schedule_meeting`. CopilotKit's runtime routes the call to the frontend
+# handler registered with `useFrontendTool` (same name), so the local
+# `schedule_meeting_impl` body acts as a fallback for non-UI invocations.
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
@@ -387,6 +415,10 @@ def schedule_meeting(reason: str):
         Meeting scheduling result as JSON string
     """
     return json.dumps(schedule_meeting_impl(reason))
+
+
+# @endregion[backend-tool-call]
+# @endregion[backend-interrupt-tool]
 
 
 @tool
@@ -413,7 +445,6 @@ def search_flights(flights: list[dict]):
     return json.dumps(result)
 
 
-# @region[backend-render-operations]
 # The `generate_a2ui` tool runs a secondary LLM call with a forced
 # `render_a2ui` tool, then converts that tool call's args into the
 # A2UI `a2ui_operations` container via
@@ -485,44 +516,56 @@ def generate_a2ui(context: str) -> str:
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=[
-                {"role": "system", "content": context or "Generate a useful dashboard UI."},
-                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+                {
+                    "role": "system",
+                    "content": context or "Generate a useful dashboard UI.",
+                },
+                {
+                    "role": "user",
+                    "content": "Generate a dynamic A2UI dashboard based on the conversation.",
+                },
             ],
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
     except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
         logger.exception("generate_a2ui: OpenAI API call failed")
-        return json.dumps(_A2uiError(
-            error="a2ui_llm_error",
-            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
-            remediation=(
-                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
-                "See server logs for the full traceback."
-            ),
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_llm_error",
+                message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+                remediation=(
+                    "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                    "See server logs for the full traceback."
+                ),
+            )
+        )
 
     if not response.choices:
         logger.warning("generate_a2ui: OpenAI response contained no choices")
-        return json.dumps(_A2uiError(
-            error="a2ui_empty_response",
-            message="Secondary A2UI LLM returned no choices.",
-            remediation="Retry; if this persists, check OpenAI status.",
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_empty_response",
+                message="Secondary A2UI LLM returned no choices.",
+                remediation="Retry; if this persists, check OpenAI status.",
+            )
+        )
 
     tool_calls = response.choices[0].message.tool_calls
     if not tool_calls:
         logger.warning(
             "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
         )
-        return json.dumps(_A2uiError(
-            error="a2ui_no_tool_call",
-            message="Secondary A2UI LLM did not call render_a2ui.",
-            remediation=(
-                "Retry the request. If this persists, verify the tool_choice "
-                "schema matches the OpenAI API contract."
-            ),
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_no_tool_call",
+                message="Secondary A2UI LLM did not call render_a2ui.",
+                remediation=(
+                    "Retry the request. If this persists, verify the tool_choice "
+                    "schema matches the OpenAI API contract."
+                ),
+            )
+        )
 
     tool_call = tool_calls[0]
     try:
@@ -531,14 +574,18 @@ def generate_a2ui(context: str) -> str:
         logger.exception(
             "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
         )
-        return json.dumps(_A2uiError(
-            error="a2ui_invalid_arguments",
-            message=f"Could not parse render_a2ui arguments: {exc}",
-            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
-        ))
+        return json.dumps(
+            _A2uiError(
+                error="a2ui_invalid_arguments",
+                message=f"Could not parse render_a2ui arguments: {exc}",
+                remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+            )
+        )
 
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
+
+
 # @endregion[backend-render-operations]
 
 
@@ -646,7 +693,6 @@ async def notes_state_from_args(context):
 # entry the moment the tool returns.
 
 
-# @region[subagent-setup]
 # Each sub-agent is a single-shot OpenAI completion driven by its own
 # system prompt. They don't share memory or tools with the supervisor —
 # the supervisor only sees the returned text. We keep the prompts in a
@@ -754,9 +800,7 @@ def _invoke_subagent_llm(system_prompt: str, task: str) -> str:
         )
     except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
         logger.exception("sub-agent: OpenAI call failed")
-        raise RuntimeError(
-            f"sub-agent call failed: {exc.__class__.__name__}"
-        ) from exc
+        raise RuntimeError(f"sub-agent call failed: {exc.__class__.__name__}") from exc
 
     if not response.choices:
         raise RuntimeError("sub-agent returned no choices")
@@ -795,7 +839,6 @@ def _run_subagent(name: str, task: str) -> str:
         return f"{_SUBAGENT_FAILURE_MARKER}{exc.__class__.__name__}"
 
 
-# @region[supervisor-delegation-tools]
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; ``_run_subagent`` synchronously runs the
 # matching sub-agent (a single-shot OpenAI completion), and the result
@@ -839,6 +882,8 @@ def critique_agent(task: str) -> str:
         task: The draft to critique.
     """
     return _run_subagent("critique_agent", task)
+
+
 # @endregion[supervisor-delegation-tools]
 
 
@@ -852,8 +897,13 @@ def _make_subagent_state_from_result(sub_agent_name: str):
     """
 
     async def _hook(context):
-        thread_id = getattr(getattr(context, "input_data", None), "thread_id", None) or "default"
-        existing = _seed_delegations_from_state(thread_id, getattr(context.input_data, "state", None))
+        thread_id = (
+            getattr(getattr(context, "input_data", None), "thread_id", None)
+            or "default"
+        )
+        existing = _seed_delegations_from_state(
+            thread_id, getattr(context.input_data, "state", None)
+        )
 
         # Pull the task argument out of tool_input.
         raw_input = getattr(context, "tool_input", None)
@@ -882,7 +932,9 @@ def _make_subagent_state_from_result(sub_agent_name: str):
         # ``_SUBAGENT_FAILURE_MARKER`` block above for the full rationale.
         if result_text.startswith(_SUBAGENT_FAILURE_MARKER):
             status = "failed"
-            failure_class = result_text[len(_SUBAGENT_FAILURE_MARKER):].strip() or "RuntimeError"
+            failure_class = (
+                result_text[len(_SUBAGENT_FAILURE_MARKER) :].strip() or "RuntimeError"
+            )
             display_result = f"Sub-agent call failed ({failure_class})."
         else:
             status = "completed"
@@ -1077,9 +1129,7 @@ async def sales_state_from_args(context):
     # narrowly logged.
     raw_input = getattr(context, "tool_input", None)
     if raw_input is None:
-        logger.warning(
-            "sales_state_from_args: context has no tool_input attribute"
-        )
+        logger.warning("sales_state_from_args: context has no tool_input attribute")
         return None
 
     tool_input = raw_input
@@ -1376,9 +1426,7 @@ def _build_model() -> OpenAIModel:
     """Construct the OpenAI model, failing fast on missing credentials."""
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY must be set for the strands showcase agent"
-        )
+        raise RuntimeError("OPENAI_API_KEY must be set for the strands showcase agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
         model_id="gpt-4o",
@@ -1398,6 +1446,9 @@ SYSTEM_PROMPT = (
     "- Search flights and display rich A2UI cards (via search_flights tool)\n"
     "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
     "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "- Plan and execute multi-step tasks with a live progress card by "
+    "calling `set_steps` on every status transition (see planner mode "
+    "instructions below)\n"
     "- Remember things the user tells you by calling `set_notes` with the FULL "
     "updated list of short note strings (existing notes + new). The UI "
     "renders these in a notes panel.\n"
@@ -1410,7 +1461,8 @@ SYSTEM_PROMPT = (
     "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
     "mentioning, updating, or discussing todos with the user.\n"
     "When the user shares preferences (name, tone, language, interests), they will be "
-    "supplied in a system-style block at the top of every turn — respect them."
+    "supplied in a system-style block at the top of every turn — respect them.\n\n"
+    + GEN_UI_AGENT_PROMPT
 )
 
 
@@ -1451,6 +1503,14 @@ def build_showcase_agent(
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
             ),
+            # gen-ui-agent — the planner writes the full step list to
+            # `state["steps"]` via `set_steps` on every transition. Emit a
+            # snapshot the moment the tool fires so the UI's progress card
+            # re-renders pending → in_progress → completed in-place without
+            # waiting for the text response to stream.
+            "set_steps": ToolBehavior(
+                state_from_args=steps_state_from_args,
+            ),
             # Sub-Agents — every delegation appends to
             # `state["delegations"]`. Use `state_from_result` rather than
             # `state_from_args` so the entry carries the sub-agent's
@@ -1481,6 +1541,7 @@ def build_showcase_agent(
             generate_a2ui,
             set_theme_color,
             set_notes,
+            set_steps,
             research_agent,
             writing_agent,
             critique_agent,

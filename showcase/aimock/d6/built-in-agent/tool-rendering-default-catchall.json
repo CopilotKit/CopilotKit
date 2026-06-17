@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 'weather in Tokyo'. Emits get_weather tool call. The built-in default catchall renderer fires for this tool. The D5 assertion checks copilot-tool-render testid with data-tool-name='get_weather' and a status pill. hasToolResult:false on the tool-emitting fixture.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 follow-up after get_weather tool result.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 the default catchall renderer should display the tool card with a status pill above."
+      }
+    }
+  ]
+}

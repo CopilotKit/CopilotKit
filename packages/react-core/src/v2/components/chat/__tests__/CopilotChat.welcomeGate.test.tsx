@@ -9,8 +9,7 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 /**
  * Mock agent that records every connectAgent() invocation and resolves
- * immediately with an empty run result. Tracking lives on the class so
- * per-thread clones (from useAgent's WeakMap) share the counter.
+ * immediately with an empty run result.
  */
 class TrackingAgent extends MockStepwiseAgent {
   static connectCalls: Array<{
@@ -107,7 +106,6 @@ describe("CopilotChat welcome / connect integration", () => {
         expect(TrackingAgent.connectCalls.length).toBeGreaterThan(0);
       });
 
-      // The per-thread clone carries threadId; agentId is the default.
       expect(
         TrackingAgent.connectCalls.some((c) => c.threadId === "real-thread"),
       ).toBe(true);

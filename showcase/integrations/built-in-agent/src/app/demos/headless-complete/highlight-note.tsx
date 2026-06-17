@@ -29,6 +29,7 @@ export function HighlightNote({ text, color }: HighlightNoteProps) {
   const cls = COLOR_CLASSES[color] ?? COLOR_CLASSES.yellow;
   return (
     <div
+      data-testid="headless-highlight-card"
       className={`mt-2 mb-2 inline-block rounded-xl border px-3 py-2 text-sm font-medium shadow-sm ${cls}`}
     >
       <span className="mr-2 text-[10px] uppercase tracking-[0.14em] text-[#57575B]">

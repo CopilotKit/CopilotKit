@@ -4,8 +4,10 @@
     "monorepo": {
       "packages": [
         "@copilotkit/a2ui-renderer",
+        "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/react-core",
+        "@copilotkit/react-native",
         "@copilotkit/react-textarea",
         "@copilotkit/react-ui",
         "@copilotkit/runtime",
@@ -14,6 +16,7 @@
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
+        "@copilotkit/vue",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
@@ -22,6 +25,16 @@
     "angular": {
       "packages": ["@copilotkitnext/angular"],
       "versionSource": "@copilotkitnext/angular",
+      "sharedVersion": false
+    },
+    "bot": {
+      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
+      "versionSource": "@copilotkit/bot",
+      "sharedVersion": true
+    },
+    "bot-slack": {
+      "packages": ["@copilotkit/bot-slack"],
+      "versionSource": "@copilotkit/bot-slack",
       "sharedVersion": false
     }
   }

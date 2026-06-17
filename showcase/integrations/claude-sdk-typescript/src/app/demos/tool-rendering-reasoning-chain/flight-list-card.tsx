@@ -2,6 +2,14 @@
 
 import React from "react";
 
+// Rich per-tool renderer for the `search_flights` backend tool.
+//
+// Registered in page.tsx via `useRenderTool({ name: "search_flights", ... })`,
+// this card shows the search origin/destination and a short list of
+// flight results. It only renders once the backend returns; while the
+// tool is still running it shows a compact loading state so the chat
+// doesn't look frozen.
+
 export interface Flight {
   airline?: string;
   flight?: string;

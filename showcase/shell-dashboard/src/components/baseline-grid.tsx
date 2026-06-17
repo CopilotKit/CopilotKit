@@ -60,10 +60,13 @@ function sortedPartners() {
 
 /** Get display name for a feature slug, falling back to Title Case. */
 function featureLabel(slug: string): string {
-  return FEATURE_LABELS[slug] ?? slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return (
+    FEATURE_LABELS[slug] ??
+    slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,11 +81,7 @@ interface CategorySectionProps {
   editing: boolean;
   activeCell: string | null;
   onCellClick: (key: string) => void;
-  onSave: (
-    key: string,
-    status: BaselineStatus,
-    tags: BaselineTag[],
-  ) => void;
+  onSave: (key: string, status: BaselineStatus, tags: BaselineTag[]) => void;
   colSpan: number;
 }
 
@@ -120,60 +119,60 @@ function CategorySection({
             ? "color-mix(in srgb, var(--bg-surface) 50%, var(--bg-muted))"
             : undefined;
           return (
-          <tr
-            key={featureSlug}
-            className="grid-row border-t border-[var(--border)]"
-            style={stripeBg ? { backgroundColor: stripeBg } : undefined}
-          >
-            {/* Feature name — sticky left */}
-            <td
-              className="sticky left-0 z-10 px-4 py-2 border-r border-[var(--border)] align-top min-w-[140px]"
-              style={{ backgroundColor: stripeBg ?? "var(--bg-surface)" }}
+            <tr
+              key={featureSlug}
+              className="grid-row border-t border-[var(--border)]"
+              style={stripeBg ? { backgroundColor: stripeBg } : undefined}
             >
-              <span className="text-[11px] font-medium text-[var(--text)]">
-                {featureLabel(featureSlug)}
-              </span>
-            </td>
+              {/* Feature name — sticky left */}
+              <td
+                className="sticky left-0 z-10 px-4 py-2 border-r border-[var(--border)] align-top min-w-[140px]"
+                style={{ backgroundColor: stripeBg ?? "var(--bg-surface)" }}
+              >
+                <span className="text-[11px] font-medium text-[var(--text)]">
+                  {featureLabel(featureSlug)}
+                </span>
+              </td>
 
-            {/* Partner cells */}
-            {partners.map((partner) => {
-              const key = `${partner.slug}:${featureSlug}`;
-              const cell = cells.get(key);
-              const status = cell?.status ?? "unknown";
-              const tags = cell?.tags ?? [];
-              const isActive = activeCell === key;
+              {/* Partner cells */}
+              {partners.map((partner) => {
+                const key = `${partner.slug}:${featureSlug}`;
+                const cell = cells.get(key);
+                const status = cell?.status ?? "unknown";
+                const tags = cell?.tags ?? [];
+                const isActive = activeCell === key;
 
-              return (
-                <td
-                  key={partner.slug}
-                  onClick={editing ? () => onCellClick(key) : undefined}
-                  className={`relative border-l border-[var(--border)] px-3 py-2 align-top text-center bg-[var(--bg)] ${
-                    editing ? "cursor-pointer hover:bg-[var(--bg-muted)]" : ""
-                  }`}
-                >
-                  <BaselineCellView
-                    status={status}
-                    tags={tags}
-                    editing={editing}
-                  />
-                  {isActive && (
-                    <span
-                      className="absolute inset-0 outline outline-2 outline-[var(--accent)] rounded pointer-events-none"
-                      aria-hidden
-                    />
-                  )}
-                  {isActive && editing && (
-                    <BaselinePopover
+                return (
+                  <td
+                    key={partner.slug}
+                    onClick={editing ? () => onCellClick(key) : undefined}
+                    className={`relative border-l border-[var(--border)] px-3 py-2 align-top text-center bg-[var(--bg)] ${
+                      editing ? "cursor-pointer hover:bg-[var(--bg-muted)]" : ""
+                    }`}
+                  >
+                    <BaselineCellView
                       status={status}
                       tags={tags}
-                      onSave={(s, t) => onSave(key, s, t)}
-                      onClose={() => onCellClick("")}
+                      editing={editing}
                     />
-                  )}
-                </td>
-              );
-            })}
-          </tr>
+                    {isActive && (
+                      <span
+                        className="absolute inset-0 outline outline-2 outline-[var(--accent)] rounded pointer-events-none"
+                        aria-hidden
+                      />
+                    )}
+                    {isActive && editing && (
+                      <BaselinePopover
+                        status={status}
+                        tags={tags}
+                        onSave={(s, t) => onSave(key, s, t)}
+                        onClose={() => onCellClick("")}
+                      />
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
           );
         })}
     </Fragment>
@@ -189,19 +188,15 @@ export function BaselineGrid({ cells, editing, onUpdate }: Props) {
 
   const partners = useMemo(() => sortedPartners(), []);
 
-  const handleCellClick = useCallback(
-    (key: string) => {
-      setActiveCell((prev) => (prev === key ? null : key));
-    },
-    [],
-  );
+  const handleCellClick = useCallback((key: string) => {
+    setActiveCell((prev) => (prev === key ? null : key));
+  }, []);
 
   const handleSave = useCallback(
     (key: string, status: BaselineStatus, tags: BaselineTag[]) => {
       setActiveCell(null);
       onUpdate(key, status, tags).catch((err: unknown) => {
-        const msg =
-          err instanceof Error ? err.message : "Failed to save cell";
+        const msg = err instanceof Error ? err.message : "Failed to save cell";
         showErrorToast(msg);
       });
     },

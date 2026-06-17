@@ -42,8 +42,7 @@ const FEATURE_DISPLAY_NAMES: Record<string, string> = {
   "in-chat-hitl-usehumanintheloop-ergonomic-api":
     "In-Chat HITL useHumanInTheLoop (Ergonomic API)",
   "in-chat-hitl-booking": "In-Chat HITL Booking",
-  "in-chat-human-in-the-loop-original":
-    "In-Chat Human in the Loop (Original)",
+  "in-chat-human-in-the-loop-original": "In-Chat Human in the Loop (Original)",
   "in-app-human-in-the-loop-frontend-tools-async-hitl":
     "In-App Human in the Loop (Frontend Tools Async HITL)",
   "in-chat-hitl-useinterrupt-low-level-primitive":
@@ -78,11 +77,7 @@ const ALL_FEATURE_SLUGS = Object.values(FEATURE_CATEGORIES).flat();
 /*  Partners that get 🛠️ [ALL] for everything                         */
 /* ------------------------------------------------------------------ */
 
-const ALL_PARTNERS = new Set([
-  "Cloudflare",
-  "OpenAI Agents SDK",
-  "n8n",
-]);
+const ALL_PARTNERS = new Set(["Cloudflare", "OpenAI Agents SDK", "n8n"]);
 
 /* ------------------------------------------------------------------ */
 /*  Features where LangChain-Python is ✅ and most others are          */
@@ -130,9 +125,7 @@ function buildNotionRows(): Record<string, string>[] {
   for (const featureSlug of ALL_FEATURE_SLUGS) {
     const displayName = FEATURE_DISPLAY_NAMES[featureSlug];
     if (!displayName) {
-      throw new Error(
-        `Missing display name for feature slug: ${featureSlug}`,
-      );
+      throw new Error(`Missing display name for feature slug: ${featureSlug}`);
     }
 
     const row: Record<string, string> = {
@@ -174,9 +167,11 @@ function getCellValue(featureSlug: string, partner: string): string {
   }
 
   // HITL features: mostly 🛠️ [DEMO]
-  if (featureSlug.startsWith("in-chat-hitl") ||
-      featureSlug.startsWith("in-app-human") ||
-      featureSlug === "in-chat-human-in-the-loop-original") {
+  if (
+    featureSlug.startsWith("in-chat-hitl") ||
+    featureSlug.startsWith("in-app-human") ||
+    featureSlug === "in-chat-human-in-the-loop-original"
+  ) {
     if (partner === "LangChain - Python") {
       return "✅";
     }
@@ -272,9 +267,7 @@ const entries = parseNotionData(rows, PARTNER_NAMES);
 // Verify expected count
 const expectedCount = ALL_FEATURE_SLUGS.length * PARTNER_NAMES.length;
 if (entries.length !== expectedCount) {
-  console.error(
-    `Expected ${expectedCount} entries but got ${entries.length}`,
-  );
+  console.error(`Expected ${expectedCount} entries but got ${entries.length}`);
   process.exit(1);
 }
 

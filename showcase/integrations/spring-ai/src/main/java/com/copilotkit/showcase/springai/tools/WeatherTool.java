@@ -1,5 +1,6 @@
 package com.copilotkit.showcase.springai.tools;
 
+// @region[weather-tool-backend]
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -9,7 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-// @region[weather-tool-backend]
 /**
  * Server-side weather tool that calls the Open-Meteo API.
  * Registered as "get_weather" in AgentConfig.

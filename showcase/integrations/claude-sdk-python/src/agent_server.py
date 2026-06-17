@@ -37,6 +37,19 @@ import os
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# (and before the ``anthropic`` SDK) imports. The Claude SDK Python
+# integration constructs ``anthropic.AsyncAnthropic`` inside ``run_agent``
+# per request, but installing the hook at module-import time guarantees
+# every future httpx client (including sub-agent calls) auto-attaches the
+# forwarded-header hook.
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+
 import uvicorn
 from ag_ui.core import RunAgentInput
 from dotenv import load_dotenv
@@ -197,7 +210,7 @@ async def shared_state_read_write_endpoint(request: Request) -> StreamingRespons
 async def reasoning_endpoint(request: Request) -> StreamingResponse:
     """Reasoning demo backend — emits AG-UI REASONING_MESSAGE_* events.
 
-    Shared by the agentic-chat-reasoning and reasoning-default-render
+    Shared by the reasoning-custom and reasoning-default
     demos. Both demos hit the same backend; the difference is purely
     on the frontend slot configuration.
     """

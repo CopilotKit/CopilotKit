@@ -2,9 +2,11 @@
 title: "CSS Customization"
 icon: "lucide/Palette"
 description: "Theme CopilotKit components via CSS variables and class overrides."
-hideTOC: true
 snippet_cell: chat-customization-css
+snippet_framework: langgraph-python
 ---
+
+<InlineDemo demo="chat-customization-css" />
 
 ## What is this?
 
@@ -20,15 +22,13 @@ If you need to change behavior, not just look, see
 [slots](/custom-look-and-feel/slots) or
 [fully headless UI](/custom-look-and-feel/headless-ui).
 
-<InlineDemo demo="chat-customization-css" />
-
 ## Scoping the theme
 
 The demo keeps all of its styling in a sibling `theme.css` file and applies it
 only to the wrapper div holding `<CopilotChat>`. Importing the stylesheet from
 the page module is enough; Next.js bundles it with the route:
 
-<Snippet region="theme-css-import" title="frontend/src/app/page.tsx — import the theme" />
+<Snippet region="theme-css-import" title="frontend/src/app/page.tsx: import the theme" />
 
 Scoping every selector under a wrapper class keeps the overrides from leaking
 into the rest of the app.
@@ -39,13 +39,13 @@ The easiest way to change the colors used in the Copilot UI components is to
 override CopilotKit CSS variables. The demo sets them on the scope wrapper so
 they cascade into every nested chat component:
 
-<Snippet region="css-variables" title="frontend/src/app/theme.css — variable overrides" />
+<Snippet region="design-tokens" title="frontend/src/app/theme.css: design-token overrides" />
 
 Once you've found the right variable, you can also apply the overrides inline
 via the `CopilotKitCSSProperties` helper:
 
 ```tsx
-import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
+import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 
 <div
   style={
@@ -62,13 +62,80 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
 
 | CSS Variable | Description |
 |-------------|-------------|
-| `--copilot-kit-primary-color` | Main brand/action color — used for buttons, interactive elements |
-| `--copilot-kit-contrast-color` | Color that contrasts with primary — used for text on primary elements |
+| `--copilot-kit-primary-color` | Main brand/action color for buttons and interactive elements |
+| `--copilot-kit-contrast-color` | Color that contrasts with primary, used for text on primary elements |
 | `--copilot-kit-background-color` | Main page/container background color |
-| `--copilot-kit-secondary-color` | Secondary background — used for cards, panels, elevated surfaces |
+| `--copilot-kit-secondary-color` | Secondary background for cards, panels, and elevated surfaces |
 | `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
 | `--copilot-kit-separator-color` | Border color for dividers and containers |
 | `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
+| `--copilot-kit-shadow-sm` / `-md` / `-lg` | Elevation shadows for subtle surfaces, cards, and modals |
+
+<Callout type="info" title="Two token systems">
+  The `--copilot-kit-*` variables above style the **v1** component CSS
+  (`@copilotkit/react-ui`). The newer **v2** components
+  (`@copilotkit/react-core/v2`) are Tailwind + shadcn-based and use a
+  separate set of design tokens. See [v2 design
+  tokens](#v2-design-tokens-shadcn) below.
+</Callout>
+
+## v2 Design Tokens (shadcn)
+
+The v2 components (`@copilotkit/react-core/v2`) ship a Tailwind v4 theme built
+on the standard shadcn/ui token set. Instead of the `--copilot-kit-*`
+variables, they read [oklch](https://oklch.com) color tokens that are scoped to
+the `[data-copilotkit]` root and wired into Tailwind utilities through an
+`@theme inline` block. This means you can re-skin the entire v2 UI by
+overriding a handful of CSS custom properties. Every component picks the
+change up automatically.
+
+Override them on the `[data-copilotkit]` element (or any ancestor) the same way
+you would in a shadcn project:
+
+```css title="globals.css"
+[data-copilotkit] {
+  --primary: oklch(0.55 0.22 264); /* accent / action color */
+  --primary-foreground: oklch(0.99 0 0); /* text on primary */
+  --background: oklch(1 0 0); /* surface background */
+  --foreground: oklch(0.145 0 0); /* primary text */
+  --muted: oklch(0.97 0 0); /* subtle backgrounds */
+  --border: oklch(0.922 0 0); /* dividers, outlines */
+  --radius: 0.625rem; /* global corner radius */
+}
+
+/* Dark mode is keyed off a `.dark` ancestor */
+.dark [data-copilotkit] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+}
+```
+
+### Reference
+
+These are the most commonly overridden v2 tokens. Each light value has a
+matching dark-mode value under `.dark [data-copilotkit]`. The full set
+(popover, accent, destructive, chart, and sidebar variants) lives in
+`@copilotkit/react-core/v2/styles.css`.
+
+| Token | Description |
+|-------|-------------|
+| `--background` / `--foreground` | Base surface background and primary text color |
+| `--primary` / `--primary-foreground` | Accent/action color and the text rendered on top of it |
+| `--secondary` / `--secondary-foreground` | Secondary surfaces (cards, panels) and their text |
+| `--muted` / `--muted-foreground` | Subtle backgrounds and de-emphasized text |
+| `--accent` / `--accent-foreground` | Hover/active states and their text |
+| `--border` / `--input` / `--ring` | Divider/outline color, input borders, focus ring |
+| `--destructive` / `--destructive-foreground` | Error/danger color and its text |
+| `--card` / `--popover` (+ `-foreground`) | Elevated surface backgrounds and their text |
+| `--sidebar-*` | The sidebar's own background/foreground/border/ring set |
+| `--radius` | Base corner radius; `--radius-sm/md/lg/xl` derive from it |
+
+<Callout type="info" title="oklch values">
+  v2 tokens use the `oklch()` color space, which keeps perceived lightness
+  consistent across hues. You can still pass `hsl()`, `rgb()`, or hex; any
+  valid CSS color works.
+</Callout>
 
 ## Custom CSS
 
@@ -90,13 +157,12 @@ can target specific pieces of the UI from your own stylesheet:
 ```
 
 The demo's `theme.css` wraps every selector under `.chat-css-demo-scope` so
-the overrides don't leak out. Here's the user/assistant bubble block from
+the overrides don't leak out. Here's the user message bubble block from
 that file:
 
 <Snippet
-  file="src/app/demos/chat-customization-css/theme.css"
-  lines="30-57"
-  title="frontend/src/app/theme.css — user + assistant message bubbles"
+  region="user-message"
+  title="frontend/src/app/theme.css: user message bubbles"
 />
 
 ### Reference
@@ -104,6 +170,7 @@ that file:
 | CSS Class | Description |
 |-----------|-------------|
 | `.copilotKitMessages` | Main container for all chat messages |
+| `.copilotKitMessage` | Base class applied to every message bubble (user and assistant) |
 | `.copilotKitInput` | Text input container with typing area and send button |
 | `.copilotKitUserMessage` | Styling for user messages |
 | `.copilotKitAssistantMessage` | Styling for AI responses |

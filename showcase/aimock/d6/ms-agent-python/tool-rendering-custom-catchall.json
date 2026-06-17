@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / tool-rendering-custom-catchall",
+    "sourceFile": "harness/fixtures/d5/tool-rendering.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 follow-up content after get_weather tool ran. MUST come before tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 1: weather in Tokyo \u2014 emit get_weather tool call. The custom wildcard renderer will catch this since there is no per-tool renderer registered.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 follow-up content after get_stock_price tool ran. MUST come before tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d5_get_stock_price_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2: AAPL stock price \u2014 emit get_stock_price tool call. The custom wildcard renderer catches this as the second tool through the same testid. No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true here); the toolCallId narration fixture above wins after the stock tool result arrives.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

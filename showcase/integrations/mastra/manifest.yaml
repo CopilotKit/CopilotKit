@@ -4,14 +4,14 @@ category: popular
 language: typescript
 logo: /logos/mastra.svg
 description: >-
-  TypeScript-native agent framework with built-in tool management,
-  agent memory, and workflow orchestration. Integrates with CopilotKit
-  via the AG-UI protocol adapter.
+  TypeScript-native agent framework with built-in tool management, agent memory,
+  and workflow orchestration. Integrates with CopilotKit via the AG-UI protocol
+  adapter.
 partner_docs: https://docs.copilotkit.ai/integrations/mastra
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/mastra
 copilotkit_version: 2.0.0
-backend_url: https://showcase-mastra-production.up.railway.app
 deployed: true
+docs_mode: authored
 sort_order: 20
 generative_ui:
   - constrained-explicit
@@ -24,6 +24,13 @@ interaction_modalities:
 managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
+not_supported_features:
+  - shared-state-streaming
+  - gen-ui-interrupt
+  - interrupt-headless
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
@@ -33,7 +40,6 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - gen-ui-agent
-  - shared-state-streaming
   - readonly-state-agent-context
   - prebuilt-sidebar
   - prebuilt-popup
@@ -42,8 +48,6 @@ features:
   - headless-simple
   - frontend-tools
   - frontend-tools-async
-  - agentic-chat-reasoning
-  - reasoning-default-render
   - agent-config
   - declarative-gen-ui
   - a2ui-fixed-schema
@@ -62,9 +66,7 @@ features:
   - hitl
   - hitl-in-chat-booking
   - mcp-apps
-  - tool-rendering-reasoning-chain
-  - gen-ui-interrupt
-  - interrupt-headless
+  - shared-state-read
 a2ui_pattern: llm-driven
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -74,7 +76,8 @@ demos:
     description: Copy-paste command to scaffold the canonical Mastra starter
     tags:
       - chat-ui
-    command: "npx degit CopilotKit/CopilotKit/showcase/integrations/mastra my-copilotkit-app"
+    command: "npx degit CopilotKit/CopilotKit/showcase/integrations/mastra
+      my-copilotkit-app"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -89,7 +92,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat HITL (useHumanInTheLoop — ergonomic API)
-    description: Interactive approval/decision surface rendered inline in the chat via the high-level `useHumanInTheLoop` hook
+    description:
+      Interactive approval/decision surface rendered inline in the chat
+      via the high-level `useHumanInTheLoop` hook
     tags:
       - interactivity
     route: /demos/hitl-in-chat
@@ -101,7 +106,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat
+    description:
+      Agent requests approval via useFrontendTool with an async handler;
+      the approval UI pops up as an app-level modal OUTSIDE the chat
     tags:
       - interactivity
     route: /demos/hitl-in-app
@@ -120,11 +127,16 @@ demos:
     animated_preview_url:
     highlight:
       - src/mastra/tools/index.ts
+      - shared-tools/get-weather.ts
+      - shared-tools/query-data.ts
+      - shared-tools/schedule-meeting.ts
+      - shared-tools/search-flights.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
     name: Tool Rendering (Default Catch-all)
-    description: Out-of-the-box tool rendering — backend defines tools; frontend adds zero custom renderers
+    description: Out-of-the-box tool rendering — backend defines tools; frontend
+      adds zero custom renderers
     tags:
       - generative-ui
     route: /demos/tool-rendering-default-catchall
@@ -204,10 +216,8 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
-      - src/app/demos/chat-slots/custom-disclaimer.tsx
-      - src/app/demos/chat-slots/custom-assistant-message.tsx
       - src/app/api/copilotkit/route.ts
+      - src/app/demos/chat-slots/slot-wrappers.tsx
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -241,7 +251,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools-async
     name: Frontend Tools (Async)
-    description: useFrontendTool with an async handler — agent awaits a client-side async operation and uses the returned result
+    description:
+      useFrontendTool with an async handler — agent awaits a client-side
+      async operation and uses the returned result
     tags:
       - interactivity
     route: /demos/frontend-tools-async
@@ -250,30 +262,11 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: agentic-chat-reasoning
-    name: Reasoning
-    description: Visible reasoning/thinking chain alongside the final answer (via custom reasoningMessage slot)
-    tags:
-      - generative-ui
-    route: /demos/agentic-chat-reasoning
-    animated_preview_url:
-    highlight:
-      - src/app/demos/agentic-chat-reasoning/page.tsx
-      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: reasoning-default-render
-    name: Reasoning (Default Render)
-    description: Built-in CopilotChatReasoningMessage renders without a custom slot
-    tags:
-      - generative-ui
-    route: /demos/reasoning-default-render
-    animated_preview_url:
-    highlight:
-      - src/app/demos/reasoning-default-render/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: agent-config
     name: Agent Config Object
-    description: Forward a typed config object (tone / expertise / response length) from the provider to the agent via useAgentContext
+    description:
+      Forward a typed config object (tone / expertise / response length)
+      from the provider to the agent via useAgentContext
     tags:
       - platform
     route: /demos/agent-config
@@ -286,7 +279,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI — Dynamic Schema)
-    description: Dynamic A2UI surfaces generated by the `generate_a2ui` tool; frontend supplies a typed catalog (Card, Metric, PieChart, BarChart, …)
+    description: Dynamic A2UI surfaces generated by the `generate_a2ui` tool;
+      frontend supplies a typed catalog (Card, Metric, PieChart, BarChart, …)
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -300,7 +294,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
     name: A2UI Fixed Schema
-    description: Frontend-owned component tree; agent streams data into the data model (flight card built from Card > Column > Title/Airport/Arrow/AirlineBadge/PriceTag/Button)
+    description: Frontend-owned component tree; agent streams data into the data
+      model (flight card built from Card > Column >
+      Title/Airport/Arrow/AirlineBadge/PriceTag/Button)
     tags:
       - generative-ui
     route: /demos/a2ui-fixed-schema
@@ -314,21 +310,30 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
     name: Headless Chat (Complete)
-    description: Full chat-from-scratch on useAgent — custom bubbles, manual generative-UI composition via useRenderToolCall / useRenderActivityMessage / useRenderCustomMessages
+    description: Full chat-from-scratch on useAgent — custom bubbles, manual
+      generative-UI composition via useRenderToolCall / useRenderActivityMessage
+      / useRenderCustomMessages
     tags:
       - chat-ui
     route: /demos/headless-complete
     animated_preview_url:
     highlight:
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
-      - src/app/demos/headless-complete/tool-renderers.tsx
-      - src/app/demos/headless-complete/message-list.tsx
       - src/mastra/agents/index.ts
       - src/app/api/copilotkit/route.ts
+      - src/app/demos/headless-complete/chat/chat.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
+      - src/app/demos/headless-complete/hooks/use-frontend-components.ts
+      - src/app/demos/headless-complete/hooks/use-headless-suggestions.ts
+      - src/app/demos/headless-complete/attachments/use-attachments-config.ts
+      - src/app/demos/headless-complete/tools/weather-card.tsx
+      - src/app/demos/headless-complete/tools/stock-card.tsx
+      - src/app/demos/headless-complete/tools/chart-card.tsx
+      - src/app/demos/headless-complete/tools/highlight-note.tsx
   - id: auth
     name: Authentication
-    description: Bearer-token gate enforced by the V2 runtime's onRequest hook — unauthenticated requests 401 before reaching the agent
+    description: Bearer-token gate enforced by the V2 runtime's onRequest hook —
+      unauthenticated requests 401 before reaching the agent
     tags:
       - platform
     route: /demos/auth
@@ -341,7 +346,9 @@ demos:
       - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
-    description: Bidirectional shared state — UI writes preferences via agent.setState; backend reads them every turn and writes notes back via the set_notes tool
+    description: Bidirectional shared state — UI writes preferences via
+      agent.setState; backend reads them every turn and writes notes back via
+      the set_notes tool
     tags:
       - agent-state
     route: /demos/shared-state-read-write
@@ -355,7 +362,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
-    description: Supervisor Mastra Agent delegates to research / writing / critique sub-agents; every delegation appended to a live UI log via shared state
+    description:
+      Supervisor Mastra Agent delegates to research / writing / critique
+      sub-agents; every delegation appended to a live UI log via shared state
     tags:
       - agent-capabilities
     route: /demos/subagents
@@ -368,7 +377,9 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: beautiful-chat
     name: Beautiful Chat (Flagship)
-    description: Flagship CopilotKit showcase combining A2UI, Open Generative UI, and MCP Apps in one cell
+    description:
+      Flagship CopilotKit showcase combining A2UI, Open Generative UI,
+      and MCP Apps in one cell
     tags:
       - chat-ui
       - generative-ui
@@ -377,26 +388,6 @@ demos:
     highlight:
       - src/app/demos/beautiful-chat/page.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
-  - id: byoc-hashbrown
-    name: BYOC — Hashbrown
-    description: Bring-your-own-component dashboard rendered via @hashbrownai/react useUiKit + useJsonParser
-    tags:
-      - generative-ui
-    route: /demos/byoc-hashbrown
-    animated_preview_url:
-    highlight:
-      - src/app/demos/byoc-hashbrown/page.tsx
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
-  - id: byoc-json-render
-    name: BYOC — JSON Render
-    description: Bring-your-own-component dashboard rendered from a streamed JSON envelope into a frontend-owned catalog
-    tags:
-      - generative-ui
-    route: /demos/byoc-json-render
-    animated_preview_url:
-    highlight:
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/api/copilotkit-byoc-json-render/route.ts
   - id: multimodal
     name: Multimodal Attachments
     description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-4o)
@@ -410,7 +401,9 @@ demos:
       - src/app/api/copilotkit-multimodal/route.ts
   - id: open-gen-ui
     name: Open Generative UI
-    description: Agent-authored HTML + CSS streamed into a sandboxed iframe via the runtime's openGenerativeUI flag
+    description:
+      Agent-authored HTML + CSS streamed into a sandboxed iframe via the
+      runtime's openGenerativeUI flag
     tags:
       - generative-ui
     route: /demos/open-gen-ui
@@ -420,7 +413,9 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
     name: Open Generative UI (Advanced)
-    description: Open Generative UI with host-side sandbox functions wired through the iframe bridge
+    description:
+      Open Generative UI with host-side sandbox functions wired through
+      the iframe bridge
     tags:
       - generative-ui
     route: /demos/open-gen-ui-advanced
@@ -453,7 +448,10 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl
     name: Human in the Loop (Step Selection)
-    description: Step-selection HITL surface rendered inline via `useHumanInTheLoop` (the LangGraph-specific `useLangGraphInterrupt` branch is a no-op on Mastra)
+    description:
+      Step-selection HITL surface rendered inline via `useHumanInTheLoop`
+      (the LangGraph-specific `useLangGraphInterrupt` branch is a no-op on
+      Mastra)
     tags:
       - interactivity
     route: /demos/hitl
@@ -463,7 +461,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)
-    description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow (alias of hitl-in-chat)
+    description: Time-picker card rendered inline via useHumanInTheLoop for a
+      booking flow (alias of hitl-in-chat)
     tags:
       - interactivity
     route: /demos/hitl-in-chat
@@ -474,7 +473,8 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: mcp-apps
     name: MCP Apps
-    description: MCP server-driven UI rendered inline via the runtime's mcpApps config and the built-in activity renderer
+    description: MCP server-driven UI rendered inline via the runtime's mcpApps
+      config and the built-in activity renderer
     tags:
       - generative-ui
     route: /demos/mcp-apps
@@ -485,7 +485,8 @@ demos:
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain
-    description: Sequential tool calls rendered with per-tool components plus a reasoning chain rendered inline via a custom reasoningMessage slot
+    description: Sequential tool calls rendered with per-tool components plus a
+      reasoning chain rendered inline via a custom reasoningMessage slot
     tags:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain
@@ -499,7 +500,10 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: Gen UI Interrupt (Frontend Tool)
-    description: In-chat time-picker via useFrontendTool with an async handler that blocks until the user picks a slot — Strategy B adaptation of the LangGraph interrupt primitive
+    description:
+      In-chat time-picker via useFrontendTool with an async handler that
+      blocks until the user picks a slot — Strategy B adaptation of the
+      LangGraph interrupt primitive
     tags:
       - interactivity
     route: /demos/gen-ui-interrupt
@@ -507,11 +511,13 @@ demos:
     highlight:
       - src/mastra/agents/index.ts
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (Frontend Tool)
-    description: Time-picker popup rendered outside the chat in the app surface — headless variant of the Strategy B interrupt adaptation
+    description:
+      Time-picker popup rendered outside the chat in the app surface —
+      headless variant of the Strategy B interrupt adaptation
     tags:
       - interactivity
     route: /demos/interrupt-headless

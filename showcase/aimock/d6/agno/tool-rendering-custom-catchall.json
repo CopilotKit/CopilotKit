@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "updated": "2026-06-15",
+    "note": "Dropped hasToolResult:false gate on tool-emit fixtures. Reason: the D5 probe runs 'forecast for Tokyo' first, leaving a get_weather tool result in the thread. aimock's hasToolResult is messages.some(m=>m.role==='tool'), so it becomes permanently true on the AAPL turn \u2014 hasToolResult:false would never match \u2192 no fixture \u2192 30s timeout. The toolCallId-gated narration fixtures still win on iteration 2 (last message is tool with matching id), so the tool-emit fixtures only fire on the first leg of each prompt."
+  },
+  "fixtures": [
+    {
+      "_comment": "custom-catchall turn 1 follow-up: after get_weather tool result. Keyed by toolCallId. MUST come before the tool-emitting fixture below (first-match-wins).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d6_agno_cc_weather_001",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 1: 'weather in Tokyo' \u2014 emit get_weather tool call. The custom wildcard renderer fires for this tool because no per-tool renderer is registered. Probe asserts [data-testid='custom-wildcard-card'][data-tool-name='get_weather'] mounts. No hasToolResult gate: matches on userMessage+context alone; the toolCallId narration above wins after the tool result arrives.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2 follow-up: after get_stock_price tool result. Keyed by toolCallId. MUST come before the tool-emitting fixture below.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_agno_cc_stock_001",
+        "context": "agno"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall turn 2: 'What's the current price of AAPL?' \u2014 emit get_stock_price tool call. Probe asserts BOTH get_weather and get_stock_price rendered through custom-wildcard-card (cross-tool snapshot). No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true here).",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

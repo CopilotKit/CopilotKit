@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for pydantic-ai / tool-rendering-default-catchall",
+    "sourceFile": "harness/src/probes/scripts/d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 weather in Tokyo follow-up after get_weather ran. Keyed on toolCallId so it fires after the tool result returns. Must come BEFORE the tool-emitting fixture.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 weather in Tokyo first leg: emit get_weather tool call. The probe sends 'weather in Tokyo' and asserts the built-in default catchall renderer fires.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

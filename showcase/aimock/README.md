@@ -1,5 +1,12 @@
 # Showcase aimock
 
+Tagline: aimock fixture-directory layout, context-routing semantics, schema
+validation, drift-risk surface, and the manual add/update fixture flow. For
+service reconstruction (Railway image / startCommand / fixture URLs) see
+[`./RAILWAY.md`](./RAILWAY.md). For matcher semantics / fixture-authoring
+gotchas (sequenceIndex, hasToolResult, context mirroring) see
+[`../GOTCHAS.md`](../GOTCHAS.md).
+
 Deterministic LLM fixture server for showcase E2E testing. Replaces real LLM API calls (OpenAI, Anthropic, Gemini) with pre-recorded responses so Playwright tests can run PR-gated in CI without API keys and without rate limits or non-determinism.
 
 Railway pulls [`ghcr.io/copilotkit/aimock:latest`](https://github.com/orgs/CopilotKit/packages/container/package/aimock) directly (no wrapper image). The fixtures in this directory are loaded at boot via GitHub raw URLs configured in the Railway service's `startCommand`.
@@ -9,6 +16,24 @@ Railway pulls [`ghcr.io/copilotkit/aimock:latest`](https://github.com/orgs/Copil
 aimock ([`@copilotkit/aimock`](https://www.npmjs.com/package/@copilotkit/aimock)) is a general-purpose LLM mock server. It speaks the OpenAI, Anthropic, and Gemini REST shapes (including SSE streaming), loads fixtures from disk at startup, and responds to incoming chat completions by matching the user's message text against fixture `match` criteria.
 
 The showcase deployment runs aimock in proxy mode — `--proxy-only` with real upstream URLs configured for each provider. Unmatched requests are forwarded to the real API; matched requests short-circuit with the fixture response. This makes the sidecar safe to deploy as a general-purpose smoke-test aid: tests that hit fixture-matched prompts get deterministic responses, and anything else just falls through.
+
+## Directory Structure
+
+```
+showcase/aimock/
+  shared/              Fixtures loaded by ALL integrations (smoke, universal prompts)
+  d4/                  D4-depth fixtures — per-integration, single-demo coverage
+    <slug>/            One directory per integration slug (e.g. langgraph-python/)
+  d6/                  D6-depth fixtures — per-integration, all-pills coverage
+    <slug>/            One directory per integration slug
+  feature-parity.json  Legacy flat fixture file (pre-context-routing)
+  smoke.json           Minimal smoke fixture
+  README.md            This file
+```
+
+**Context routing.** D4 and D6 fixtures use aimock's `--context-field` flag to scope fixture matching by integration. Each integration's dev server passes its slug as the `context` value in LLM requests (via `X-AIMock-Context` header or request body field). Aimock only considers fixtures whose `match.context` equals the incoming context value, so `d4/langgraph-python/` fixtures never interfere with `d4/mastra/` fixtures even if they share the same `userMessage` pattern.
+
+**Per-integration isolation.** Every `<slug>/` directory contains fixtures specific to that integration. This prevents cross-contamination: if `mastra` needs a different tool name than `langgraph-python` for the same demo, each has its own fixture file. The `shared/` directory holds fixtures that apply regardless of context (e.g., smoke checks, universal greeting prompts).
 
 ## Fixtures in this directory
 

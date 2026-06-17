@@ -38,7 +38,11 @@ from langchain_core.messages import (
 )
 from langchain.agents.middleware import ModelRequest
 
-from copilotkit.copilotkit_lg_middleware import CopilotKitMiddleware
+from copilotkit.copilotkit_lg_middleware import (
+    CopilotKitMiddleware,
+    _extract_forwarded_headers_from_config,
+)
+from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +304,74 @@ def test_expose_state_emits_valid_json_payload():
     assert parsed == {"liked": ["a", "b"], "count": 3, "nested": {"k": "v"}}
 
 
+def test_expose_state_true_never_surfaces_forwarded_headers():
+    """``copilotkit_forwarded_headers`` is a transport-layer plumbing key — it
+    must NEVER reach the LLM prompt via the ``expose_state`` path either, even
+    when ``expose_state=True`` would otherwise serialize every non-reserved
+    top-level state key.
+    """
+    middleware = CopilotKitMiddleware(expose_state=True)
+    request = _make_request(
+        state={
+            "messages": [],
+            "liked": ["a"],
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            },
+        }
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    body = seen.system_message.content if seen.system_message else ""
+    # The genuine user key is still surfaced.
+    assert '"liked"' in body
+    # The transport-layer wrapper and its header values are not.
+    assert "copilotkit_forwarded_headers" not in body, (
+        "copilotkit_forwarded_headers must never appear in expose_state output"
+    )
+    assert "x-aimock-context" not in body, (
+        "forwarded header values must never appear in expose_state output"
+    )
+    assert "x-aimock-strict" not in body
+    assert "showcase/d6" not in body
+
+
+def test_expose_state_allowlist_never_surfaces_forwarded_headers():
+    """``copilotkit_forwarded_headers`` must NEVER reach the LLM prompt via the
+    ``expose_state`` path — including the explicit allowlist form. The sibling
+    ``test_expose_state_allowlist_can_override_reserved_keys`` pins that users
+    CAN allowlist other reserved keys (e.g. ``thread_id``) on purpose; this key
+    is the one exception, because it is a transport-layer wrapper for forwarded
+    request headers and rendering it would leak the raw headers into the prompt.
+    """
+    middleware = CopilotKitMiddleware(
+        expose_state=frozenset({"copilotkit_forwarded_headers"})
+    )
+    request = _make_request(
+        state={
+            "messages": [],
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            },
+        }
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    body = seen.system_message.content if seen.system_message else ""
+    assert "copilotkit_forwarded_headers" not in body, (
+        "copilotkit_forwarded_headers must never appear in allowlist output"
+    )
+    assert "x-aimock-context" not in body, (
+        "forwarded header values must never appear in allowlist output"
+    )
+    assert "x-aimock-strict" not in body
+    assert "showcase/d6" not in body
+
+
 # ---------------------------------------------------------------------------
 # Async wrapper parity
 # ---------------------------------------------------------------------------
@@ -362,9 +434,7 @@ def test_before_agent_injects_app_context_system_message():
     middleware = CopilotKitMiddleware()
     state = {
         "messages": [HumanMessage("hi")],
-        "copilotkit": {
-            "context": [{"description": "viewer role", "value": "admin"}]
-        },
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
     }
     runtime = MagicMock(name="runtime", context=None)
 
@@ -389,7 +459,8 @@ def test_before_agent_idempotent_does_not_duplicate_context():
 
     sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
     app_context_messages = [
-        m for m in sys_messages
+        m
+        for m in sys_messages
         if isinstance(m.content, str) and m.content.startswith("App Context:")
     ]
     assert len(app_context_messages) == 1
@@ -407,6 +478,80 @@ def test_before_agent_uses_runtime_context_when_state_context_empty():
     assert any("/dashboard" in s for s in sys_contents)
 
 
+def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
+    """``copilotkit_forwarded_headers`` is a transport-layer plumbing key that
+    langgraph-api auto-copies from ``configurable`` into ``context``. It must
+    never be rendered into the LLM prompt as App Context — the forwarded-headers
+    httpx conveyance path reads it from a separate ContextVar.
+
+    When that key is the ONLY thing in ``runtime.context``, ``before_agent``
+    must treat it as empty App Context and not inject an "App Context:" system
+    message at all.
+    """
+    middleware = CopilotKitMiddleware()
+    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
+    runtime = MagicMock(
+        name="runtime",
+        context={
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+                "x-aimock-strict": "true",
+            }
+        },
+    )
+
+    result = middleware.before_agent(state, runtime)
+
+    # Contract: when ``runtime.context`` contains ONLY
+    # ``copilotkit_forwarded_headers``, the strip leaves an empty App Context,
+    # so ``before_agent`` MUST short-circuit and return None (no App Context
+    # system message). A non-None result here means the strip regressed and
+    # the transport-layer wrapper is being injected into the prompt.
+    #
+    # NOTE: an earlier version of this test guarded the leak assertions with
+    # ``if result is not None``, which silently passed if the strip stopped
+    # short-circuiting — exactly the regression we need to catch. Assert
+    # explicitly instead.
+    assert result is None, (
+        "expected short-circuit (no App Context message) when only "
+        "copilotkit_forwarded_headers is present in runtime.context"
+    )
+
+
+def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
+    """When ``runtime.context`` contains both a genuine app key AND the
+    transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
+    system message must still be injected with the real key, but the forwarded
+    headers must be filtered out.
+    """
+    middleware = CopilotKitMiddleware()
+    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
+    runtime = MagicMock(
+        name="runtime",
+        context={
+            "user_tier": "pro",
+            "copilotkit_forwarded_headers": {
+                "x-aimock-context": "showcase/d6",
+            },
+        },
+    )
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is not None
+    sys_contents = _system_contents(result["messages"])
+    # The genuine app context is still surfaced.
+    assert any("App Context:" in s for s in sys_contents)
+    assert any("user_tier" in s and "pro" in s for s in sys_contents)
+    # The transport-layer wrapper is stripped from the rendered prompt.
+    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+        "copilotkit_forwarded_headers must be filtered out of the App Context message"
+    )
+    assert not any("x-aimock-context" in s for s in sys_contents), (
+        "forwarded header values must never appear in a system prompt"
+    )
+
+
 # ---------------------------------------------------------------------------
 # after_model — frontend tool-call interception
 # ---------------------------------------------------------------------------
@@ -419,9 +564,7 @@ def test_after_model_no_frontend_tools_is_noop():
             HumanMessage("hi"),
             AIMessage(
                 content="",
-                tool_calls=[
-                    {"id": "1", "name": "backend_only", "args": {}}
-                ],
+                tool_calls=[{"id": "1", "name": "backend_only", "args": {}}],
             ),
         ],
         "copilotkit": {"actions": []},
@@ -563,3 +706,592 @@ def test_bedrock_fix_repairs_string_args_to_dicts():
 
     repaired = next(m for m in messages if isinstance(m, AIMessage))
     assert repaired.tool_calls[0]["args"] == {"q": "hello"}
+
+
+# ---------------------------------------------------------------------------
+# _extract_forwarded_headers_from_config — raw x-* header extraction
+# ---------------------------------------------------------------------------
+
+
+class TestExtractForwardedHeadersFromConfig:
+    """Verify that raw x-* keys on config["configurable"] and config["context"]
+    are extracted and pushed into the header-propagation ContextVar."""
+
+    def _patch_get_config(self, monkeypatch, config: dict):
+        """Patch langgraph.config.get_config to return *config*."""
+        monkeypatch.setattr(
+            "copilotkit.copilotkit_lg_middleware.get_config",
+            lambda: config,
+            raising=False,
+        )
+        # Also patch at the import site inside the function's local scope:
+        # _extract_forwarded_headers_from_config does a local import, so we
+        # need to patch the module it imports from.
+        import langgraph.config as _lg_config
+
+        monkeypatch.setattr(_lg_config, "get_config", lambda: config)
+
+    def setup_method(self):
+        """Reset forwarded headers before each test."""
+        set_forwarded_headers({})
+
+    def test_raw_x_header_on_configurable_is_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "x-aimock-context": "showcase/d5",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "showcase/d5"
+
+    def test_raw_x_header_on_context_is_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "x-aimock-strict": "true",
+                },
+                "configurable": {},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-strict"] == "true"
+
+    def test_non_x_keys_on_configurable_are_not_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "user_id": "u-42",
+                    "checkpoint_ns": "",
+                    "x-aimock-context": "test",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert "thread_id" not in headers
+        assert "user_id" not in headers
+        assert "checkpoint_ns" not in headers
+        assert headers == {"x-aimock-context": "test"}
+
+    def test_wrapper_dict_still_works(self, monkeypatch):
+        """Backward compat: the copilotkit_forwarded_headers wrapper dict
+        is still the preferred source."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-strict": "true",
+                        "x-custom-trace": "abc",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-strict"] == "true"
+        assert headers["x-custom-trace"] == "abc"
+
+    def test_wrapper_dict_takes_precedence_over_raw_key(self, monkeypatch):
+        """When both the wrapper dict and a raw key provide the same header,
+        the wrapper-dict value wins."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-wrapper",
+                    },
+                    "x-aimock-context": "from-raw",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "from-wrapper"
+
+    def test_wrapper_dict_keys_lowercased_at_insertion(self, monkeypatch):
+        """Wrapper-dict keys must be lowercased at insertion so that
+        documented context > configurable precedence holds regardless of
+        the casing the agent author used."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {
+                        "X-Trace": "from-context",
+                    },
+                },
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-trace": "from-configurable",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        # Context wins via first-write-wins (both lowercase to "x-trace").
+        assert headers["x-trace"] == "from-context"
+        # Only the lowercased key exists — no mixed-case duplicate.
+        assert "X-Trace" not in headers
+
+    def test_multiple_raw_x_headers_extracted(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-aimock-context": "showcase/d5",
+                    "x-aimock-strict": "true",
+                    "x-request-id": "req-123",
+                    "thread_id": "t-1",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {
+            "x-aimock-context": "showcase/d5",
+            "x-aimock-strict": "true",
+            "x-request-id": "req-123",
+        }
+
+    def test_no_headers_when_config_has_no_x_keys(self, monkeypatch):
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                    "user_id": "u-42",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_runtime_error_clears_contextvar(self):
+        """When get_config() raises RuntimeError (not inside a runnable),
+        the function clears the ContextVar so stale headers from a prior
+        request do not leak through."""
+        set_forwarded_headers({"x-stale": "leftover"})
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_non_string_values_are_skipped(self, monkeypatch):
+        """Only string values are extracted; lists/dicts/ints are ignored."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-valid": "yes",
+                    "x-list-value": ["a", "b"],
+                    "x-int-value": 42,
+                    "x-dict-value": {"nested": True},
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {"x-valid": "yes"}
+
+    def test_contextvar_cleared_when_no_headers(self, monkeypatch):
+        """When the current call has no x-* headers, the ContextVar must be
+        reset to an empty dict so stale headers from a previous call in the
+        same async context do not leak through."""
+        # Pre-populate the ContextVar with stale headers.
+        set_forwarded_headers({"x-stale": "leftover"})
+        assert get_forwarded_headers() == {"x-stale": "leftover"}
+
+        # Config has no x-* keys at all.
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "thread_id": "t-1",
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_exception_safety_unexpected_config_shape(self, monkeypatch):
+        """If the config has an unexpected shape that raises during
+        extraction, the function must not propagate the exception — header
+        forwarding is best-effort and must never block the LLM call.
+        Additionally, stale headers from a prior request must be cleared."""
+
+        class _ExplodingDict:
+            """A dict-like that raises on .get() to simulate unexpected shapes."""
+
+            def get(self, key, default=None):
+                raise TypeError(f"boom on {key}")
+
+        import langgraph.config as _lg_config
+
+        monkeypatch.setattr(_lg_config, "get_config", lambda: _ExplodingDict())
+
+        # Pre-populate stale headers.
+        set_forwarded_headers({"x-stale": "leftover"})
+
+        # Must not raise.
+        _extract_forwarded_headers_from_config()
+
+        # The ContextVar must be cleared so stale headers don't leak.
+        headers = get_forwarded_headers()
+        assert headers == {}
+
+    def test_context_wins_over_configurable_in_wrapper_dict(self, monkeypatch):
+        """When both config["context"] and config["configurable"] have
+        copilotkit_forwarded_headers with the same key, the context value
+        wins (LangGraph >=0.6.0 introduced context as the newer preferred
+        mechanism)."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-context",
+                    },
+                },
+                "configurable": {
+                    "copilotkit_forwarded_headers": {
+                        "x-aimock-context": "from-configurable",
+                    },
+                },
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers["x-aimock-context"] == "from-context"
+
+    # -- F1: Integration test — wrap_model_call invokes header extraction ------
+
+    def test_wrap_model_call_invokes_header_extraction(self, monkeypatch):
+        """Removing the _extract_forwarded_headers_from_config() call from
+        wrap_model_call would cause this test to fail, proving the call site
+        is exercised end-to-end."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {"x-aimock-context": "via-wrap-model-call"},
+            },
+        )
+
+        captured_headers: dict[str, str] = {}
+
+        def handler(request):
+            captured_headers.update(get_forwarded_headers())
+            return "model-response"
+
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []})
+        middleware.wrap_model_call(request, handler)
+
+        assert captured_headers.get("x-aimock-context") == "via-wrap-model-call"
+
+    # -- F2: Integration test — awrap_model_call (async) invokes extraction ----
+
+    def test_awrap_model_call_invokes_header_extraction(self, monkeypatch):
+        """Same as the sync test above but exercising the async code path."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {"x-aimock-context": "via-awrap-model-call"},
+            },
+        )
+
+        captured_headers: dict[str, str] = {}
+
+        async def handler(request):
+            captured_headers.update(get_forwarded_headers())
+            return "model-response"
+
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []})
+        asyncio.run(middleware.awrap_model_call(request, handler))
+
+        assert captured_headers.get("x-aimock-context") == "via-awrap-model-call"
+
+    # -- F3: Wrapper dict on config["context"] only (LangGraph >=0.6.0) --------
+
+    def test_wrapper_dict_on_context_only(self, monkeypatch):
+        """The copilotkit_forwarded_headers wrapper dict on config['context']
+        (not configurable) must also be extracted — this is the LangGraph
+        >=0.6.0 path."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {
+                    "copilotkit_forwarded_headers": {"x-aimock-strict": "true"},
+                },
+                "configurable": {},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-strict") == "true"
+
+    # -- F6: None values for context / configurable (the `or {}` fallback) -----
+
+    def test_none_context_falls_back_to_configurable(self, monkeypatch):
+        """config['context'] = None must not crash; headers from configurable
+        should still be extracted via the `or {}` fallback."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": None,
+                "configurable": {"x-aimock-context": "via-raw"},
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-context") == "via-raw"
+
+    def test_none_configurable_falls_back_to_context(self, monkeypatch):
+        """config['configurable'] = None must not crash; headers from context
+        should still be extracted via the `or {}` fallback."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "context": {"x-aimock-context": "via-context"},
+                "configurable": None,
+            },
+        )
+        _extract_forwarded_headers_from_config()
+        headers = get_forwarded_headers()
+        assert headers.get("x-aimock-context") == "via-context"
+
+
+# ---------------------------------------------------------------------------
+# Auto-A2UI — middleware injects + executes generate_a2ui when the frontend
+# registered a catalog (surfaced into state["ag-ui"]["a2ui_schema"])
+# ---------------------------------------------------------------------------
+#
+# Contract: the developer passes nothing — using the middleware is enough.
+# generate_a2ui is advertised to the model only when an A2UI catalog is
+# present, is built from the agent's own (inferred) model, and is executed by
+# the middleware itself (it is never in the agent's static tool registry).
+
+from langgraph.prebuilt.tool_node import ToolCallRequest  # noqa: E402
+from copilotkit.copilotkit_lg_middleware import (  # noqa: E402
+    get_a2ui_tools,
+    _a2ui_tools_by_thread,
+)
+
+_a2ui_unavailable = pytest.mark.skipif(
+    get_a2ui_tools is None,
+    reason=(
+        "ag-ui-langgraph without get_a2ui_tools; the single-arg "
+        "A2UIToolParams API needs the OSS-248 release (>=0.0.41)"
+    ),
+)
+
+
+def _make_tool_request(name: str, *, tool: Any = None, state: dict | None = None):
+    return ToolCallRequest(
+        tool_call={"name": name, "id": "tc-1", "args": {}},
+        tool=tool,
+        state=state if state is not None else {"messages": []},
+        runtime=MagicMock(name="runtime"),
+    )
+
+
+def _run_wrap_tool(middleware: CopilotKitMiddleware, request: ToolCallRequest):
+    handler = _CapturingHandler()
+    middleware.wrap_tool_call(request, handler)
+    return handler.received
+
+
+# A2UI is opt-in: injection requires the inject_a2ui_tool flag (forwarded by the
+# A2UI middleware and surfaced into ag-ui state). The catalog/schema only binds
+# generated surfaces; it is not the gate.
+_A2UI_STATE = {
+    "messages": [],
+    "ag-ui": {"a2ui_schema": "<components/>", "inject_a2ui_tool": True},
+}
+
+
+@_a2ui_unavailable
+class TestAutoA2UI:
+    def setup_method(self) -> None:
+        # Isolate the module-level bridge between tests (thread id is None in
+        # unit tests, so all calls share _DEFAULT_THREAD_KEY).
+        _a2ui_tools_by_thread.clear()
+
+    def test_not_injected_without_flag(self):
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state={"messages": []}, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        assert [t["name"] for t in seen.tools] == ["backend"]
+
+    def test_not_injected_when_flag_absent_even_with_catalog(self):
+        """Opt-in: a catalog alone never triggers injection without the flag."""
+        middleware = CopilotKitMiddleware()
+        state = {"messages": [], "ag-ui": {"a2ui_schema": "<components/>"}}
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" not in names
+        assert "backend" in names
+
+    def test_injected_when_flag_present(self):
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state=dict(_A2UI_STATE), tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "backend" in names
+        assert "generate_a2ui" in names
+
+    def test_executed_via_wrap_tool_call_with_inferred_model(self):
+        middleware = CopilotKitMiddleware()
+        # Model call infers the model + stashes the built tool.
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("generate_a2ui", tool=None)
+        )
+
+        assert received.tool is not None
+        assert received.tool.name == "generate_a2ui"
+
+    def test_other_tool_call_passes_through_untouched(self):
+        middleware = CopilotKitMiddleware()
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+
+        backend_tool = MagicMock(name="backend")
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("backend", tool=backend_tool)
+        )
+
+        assert received.tool is backend_tool
+
+    def test_bridge_cleared_after_agent_stops_execution(self):
+        middleware = CopilotKitMiddleware()
+        _run_wrap(middleware, _make_request(state=dict(_A2UI_STATE), tools=[]))
+        middleware.after_agent(dict(_A2UI_STATE), MagicMock(name="runtime"))
+
+        received = _run_wrap_tool(
+            middleware, _make_tool_request("generate_a2ui", tool=None)
+        )
+
+        assert received.tool is None
+
+    # --- catalog sourced from wherever the frontend passed it ----------------
+
+    def test_injected_from_copilotkit_context(self):
+        """CopilotKit runtime-proxy path: catalog arrives as a context entry
+        (the flag still gates injection)."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            "messages": [],
+            "ag-ui": {"inject_a2ui_tool": True},
+            "copilotkit": {
+                "context": [
+                    {
+                        "description": "A2UI catalog capabilities: available "
+                        "catalog IDs and custom component definitions.",
+                        "value": "Available A2UI catalog:\n- my-custom-catalog\n"
+                        "  - Card: {...}\n  - Metric: {...}",
+                    }
+                ]
+            },
+        }
+        request = _make_request(state=state, tools=[{"name": "backend"}])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "backend" in names
+
+    def test_resolve_catalog_from_context_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "copilotkit": {
+                    "context": [
+                        {
+                            "description": "A2UI catalog capabilities",
+                            "value": "Available A2UI catalog:\n- declarative-gen-ui-catalog\n  ...",
+                        }
+                    ]
+                }
+            }
+        )
+        assert catalog_id == "declarative-gen-ui-catalog"
+        assert schema and "declarative-gen-ui-catalog" in schema
+
+    def test_resolve_catalog_from_native_schema_extracts_catalog_id(self):
+        schema, catalog_id = CopilotKitMiddleware._resolve_a2ui_catalog(
+            {
+                "ag-ui": {
+                    "a2ui_schema": json.dumps({"catalogId": "cat-x", "components": []})
+                }
+            }
+        )
+        # Native path: toolkit reads a2ui_schema from state, so no guide needed.
+        assert schema is None
+        assert catalog_id == "cat-x"
+
+    def test_resolve_catalog_none_when_absent(self):
+        assert CopilotKitMiddleware._resolve_a2ui_catalog({"messages": []}) is None
+
+    # --- A2UI injectA2UITool flag (forwarded → ag-ui state) ------------------
+
+    def test_inject_decision_reads_ag_ui_flag(self):
+        read = CopilotKitMiddleware._a2ui_inject_decision
+        assert read({"ag-ui": {"inject_a2ui_tool": True}}) is True
+        assert read({"ag-ui": {"inject_a2ui_tool": "render_x"}}) == "render_x"
+        assert read({"ag-ui": {"inject_a2ui_tool": False}}) is False
+        # No flag at all → None (opt-in: no injection).
+        assert read({"ag-ui": {}}) is None
+        assert read({"messages": []}) is None
+
+    def test_render_tool_dropped_when_ours_injected(self):
+        """When we inject generate_a2ui, the runtime's render_a2ui (forwarded as
+        a frontend action) is not advertised — the model sees one A2UI tool."""
+        middleware = CopilotKitMiddleware()
+        state = {
+            **_A2UI_STATE,
+            "copilotkit": {
+                "actions": [{"name": "render_a2ui"}, {"name": "fe_tool"}],
+            },
+        }
+        request = _make_request(state=state, tools=[])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        assert "generate_a2ui" in names
+        assert "fe_tool" in names
+        assert "render_a2ui" not in names
+
+    def test_not_injected_when_agent_already_defines_tool(self):
+        """Agent already exposes generate_a2ui → don't double-inject."""
+        middleware = CopilotKitMiddleware()
+        existing = MagicMock()
+        existing.name = "generate_a2ui"
+        request = _make_request(state=dict(_A2UI_STATE), tools=[existing])
+
+        seen, _ = _run_wrap(middleware, request)
+
+        names = [getattr(t, "name", None) or t.get("name") for t in seen.tools]
+        # Only the agent's own tool — no second generate_a2ui appended.
+        assert names.count("generate_a2ui") == 1

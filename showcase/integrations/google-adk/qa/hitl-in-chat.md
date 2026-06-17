@@ -1,4 +1,4 @@
-# QA: Human in the Loop — Google ADK
+# QA: Human in the Loop (in-chat) — Google ADK
 
 ## Prerequisites
 
@@ -9,41 +9,64 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to the HITL demo page (`/demos/hitl`) > _Note: the URL path `/demos/hitl` is intentionally shorter than the feature id `hitl-in-chat`._
+- [ ] Navigate to the HITL in-chat demo page (`/demos/hitl-in-chat`)
 - [ ] Verify the chat interface loads in a centered max-w-4xl container
 - [ ] Verify the chat input placeholder "Type a message" is visible
-- [ ] Send a basic message
-- [ ] Verify the agent responds
 
-### 2. Feature-Specific Checks
+### 2. Suggestions
 
-#### Suggestions
+- [ ] Verify "Book a call with sales" suggestion pill is visible
+- [ ] Verify "Schedule a 1:1 with Alice" suggestion pill is visible
+- [ ] Click the "Book a call with sales" suggestion
+- [ ] Verify the message
+      "Please book an intro call with the sales team to discuss pricing."
+      is sent
 
-- [ ] Verify "Simple plan" suggestion button is visible
-- [ ] Verify "Complex plan" suggestion button is visible
-- [ ] Click the "Simple plan" suggestion
-- [ ] Verify it triggers a message about planning a trip to Mars in 5 steps
+### 3. Time-picker card (book_call HITL flow)
 
-#### Step Selection and Approval
+The `book_call` HITL tool is defined on the frontend via
+`useHumanInTheLoop`. The ADK agent (`hitl_in_chat_book_call_agent`) is
+instructed to call that tool with `topic` + `attendee` args; the frontend
+renders a `TimePickerCard` and forwards the user's choice back to the agent
+as the tool result.
 
-The HITL demo renders a single StepSelector card regardless of whether
-the underlying flow uses an interrupt hook or a frontend HITL tool. The
-framework-specific hook name is an implementation detail covered in each
-package's demo source; QA below validates the user-visible card behavior.
+- [ ] Send "Schedule a 1:1 with Alice next week to review Q2 goals."
+- [ ] Within 60s, the time-picker card renders
+      (`data-testid="time-picker-card"`)
+- [ ] Verify the card shows "With Alice" (attendee from tool args)
+- [ ] Verify four time slots are visible (`data-testid="time-picker-slot"`)
+- [ ] Click the first time slot
+- [ ] Verify the card transitions to the picked state
+      (`data-testid="time-picker-picked"`) showing "Booked for ..."
+- [ ] Verify the agent's follow-up confirmation arrives within 30s and
+      mentions Alice / the booked label
 
-- [ ] Send "Plan a trip to Mars in 5 steps"
-- [ ] Verify the StepSelector card appears (`data-testid="select-steps"`)
-- [ ] Verify step items are displayed with checkboxes (`data-testid="step-item"`)
-- [ ] Verify step text is visible (`data-testid="step-text"`)
-- [ ] Verify the selected count display shows "N/N selected"
-- [ ] Toggle a step checkbox off and verify the count decreases
-- [ ] Toggle it back on and verify the count increases
-- [ ] Click "Perform Steps (N)" / "Confirm (N)" button
-- [ ] Verify the agent continues processing after confirmation
-- [ ] In a new conversation, trigger the same flow and click "Reject" (where present)
-- [ ] Verify the card reflects the decision (Accepted / Rejected) and buttons disable
+### 4. Sales-team flow (second suggestion)
 
-### 3. Error Handling
+- [ ] Send
+      "Please book an intro call with the sales team to discuss pricing."
+- [ ] Time-picker card renders within 60s
+- [ ] Verify the card mentions the sales team
+- [ ] Pick a slot; the picked-state card appears
+- [ ] Agent's follow-up confirmation arrives mentioning "sales team"
+
+### 5. Back-to-back flow (regression check)
+
+- [ ] In the same session (no refresh), trigger both flows back-to-back:
+  - Flow A: "Schedule a 1:1 with Alice next week to review Q2 goals."
+  - Flow B: "Please book an intro call with the sales team to discuss pricing."
+- [ ] Verify a SECOND time-picker card appears for Flow B
+- [ ] Pick a slot in the new card; verify the sales-specific confirmation
+      arrives without conflating with the Alice flow
+
+### 6. Cancel path
+
+- [ ] Trigger a booking flow
+- [ ] Click "None of these work"
+- [ ] Verify the cancelled-state card appears
+      (`data-testid="time-picker-cancelled"`) reading "Cancelled — no time picked."
+
+### 7. Error Handling
 
 - [ ] Send an empty message (should be handled gracefully)
 - [ ] Verify no console errors during normal usage
@@ -51,7 +74,6 @@ package's demo source; QA below validates the user-visible card behavior.
 ## Expected Results
 
 - Chat loads within 3 seconds
-- Agent responds within 10 seconds
-- Step selector renders with toggleable checkboxes
-- Accept/Reject flow completes without errors
+- Time-picker card appears within 60 seconds of the booking message
+- Agent confirmation arrives within 30s of slot selection
 - No UI errors or broken layouts

@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / tool-rendering-default-catchall",
+    "sourceScript": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 weather in Tokyo follow-up after get_weather tool result. The built-in default catchall renderer renders [data-testid='copilot-tool-render'] with [data-tool-name='get_weather']. Must come BEFORE the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_li_dc_weather_001",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the default catchall renderer."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall \u2014 weather in Tokyo first leg: emit get_weather tool call. The built-in catchall fires because no user-supplied per-tool renderer is registered for get_weather.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_li_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

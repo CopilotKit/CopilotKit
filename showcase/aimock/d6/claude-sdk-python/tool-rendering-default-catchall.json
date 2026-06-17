@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / tool-rendering-default-catchall",
+    "sourceScript": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 follow-up content after get_weather tool result. MUST come before the tool-emitting fixture below (first-match-wins). The built-in default renderer (copilot-tool-render testid) fires for get_weather since no user-supplied renderer is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 first leg: emit get_weather tool call.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 fallback when get_weather tool not registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

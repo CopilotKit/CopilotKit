@@ -1,6 +1,11 @@
+// @region[backend-render-operations]
+// @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { openai } from "@ai-sdk/openai";
+// Use the header-forwarding `openai` so backend tool LLM calls (e.g.
+// generateText inside generateA2ui) carry the inbound aimock context
+// headers. See `_header_forwarding.ts`.
+import { openai } from "@/mastra/_header_forwarding";
 import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,
@@ -16,13 +21,13 @@ import {
 // Re-export the dedicated tool sets defined in their own modules so the
 // barrel keeps a single import surface for callers under `@/mastra/tools`.
 export { setNotesTool } from "./shared-state-read-write";
+export { setStepsTool } from "./gen-ui-agent";
 export {
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
 } from "./subagents";
 
-// @region[weather-tool-backend]
 export const weatherTool = createTool({
   id: "get_weather",
   description: "Get current weather for a location",
@@ -145,7 +150,6 @@ export const searchFlightsTool = createTool({
   execute: async ({ flights }) => JSON.stringify(searchFlightsImpl(flights)),
 });
 
-// @region[backend-render-operations]
 // The `generate-a2ui` tool runs a secondary LLM call with a forced
 // `render_a2ui` tool, then converts that tool call's args into the
 // A2UI `a2ui_operations` container that the middleware forwards to
@@ -169,17 +173,28 @@ export const generateA2uiTool = createTool({
       contextEntries,
     });
 
+    // Normalize each incoming message role to the `user`/`assistant` pair
+    // `generateText` accepts here. An unsound `as "user" | "assistant"` cast
+    // would let a `system`/`tool` role slip through mis-typed (the `??` only
+    // guards null/undefined), so map explicitly: anything that is not
+    // `assistant` collapses to `user`.
+    const toRole = (role: unknown): "user" | "assistant" =>
+      role === "assistant" ? "assistant" : "user";
+
     const result = await generateText({
       model: openai("gpt-4.1"),
       system: prep.systemPrompt,
       messages: prep.messages.map((m) => ({
-        role: (m.role as "user" | "assistant") ?? "user",
+        role: toRole(m.role),
         content: (m.content as string) ?? "",
       })),
       tools: {
         render_a2ui: aiTool({
           description: "Render a dynamic A2UI v0.9 surface.",
-          parameters: z.object({
+          // AI SDK v5 renamed the tool schema key from `parameters` to
+          // `inputSchema`; under v5 a `parameters` key is ignored, so the
+          // render_a2ui schema would never reach the model.
+          inputSchema: z.object({
             surfaceId: z.string().describe("Unique surface identifier."),
             catalogId: z.string().describe("The catalog ID."),
             components: z
@@ -197,11 +212,23 @@ export const generateA2uiTool = createTool({
 
     const toolCall = result.toolCalls?.[0];
     if (!toolCall) {
-      return JSON.stringify({ error: "LLM did not call render_a2ui" });
+      // The forced `render_a2ui` tool was not called, so there are no
+      // operations to forward. Returning a `{ error }` JSON string would look
+      // like a successful tool result to the frontend/runtime, which cannot
+      // then distinguish it from a real A2UI payload. Throw instead so the
+      // Mastra runtime surfaces this as a genuine tool error.
+      const message = "generate-a2ui: LLM did not call render_a2ui";
+      console.error(message, { finishReason: result.finishReason });
+      throw new Error(message);
     }
 
+    // AI SDK v5 renamed the typed tool-call arguments from `.args` to
+    // `.input` (the `ai` v4 shape was `toolCall.args`). Read `.input` so the
+    // a2ui builder gets the render_a2ui arguments instead of `undefined`.
     return JSON.stringify(
-      buildA2uiOperationsFromToolCall(toolCall.args as Record<string, unknown>),
+      buildA2uiOperationsFromToolCall(
+        toolCall.input as Record<string, unknown>,
+      ),
     );
   },
 });

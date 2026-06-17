@@ -13,6 +13,7 @@
   { "slug": "llamaindex", "name": "LlamaIndex" },
   { "slug": "mastra", "name": "Mastra" },
   { "slug": "ms-agent-dotnet", "name": "MS Agent .NET" },
+  { "slug": "ms-agent-harness-dotnet", "name": "MS Agent Harness .NET" },
   { "slug": "ms-agent-python", "name": "MS Agent Python" },
   { "slug": "pydantic-ai", "name": "Pydantic AI" },
   { "slug": "spring-ai", "name": "Spring AI" },

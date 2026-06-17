@@ -3,17 +3,19 @@
 import React, { Suspense } from "react";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "./scarf-pixel";
-import { useRB2B } from "@/lib/hooks/use-rb2b";
+import { CopyTracker } from "./copy-tracker";
 import { useGoogleAnalytics } from "../hooks/use-google-analytics";
 import { ThemeOverride } from "@/components/theme-override";
 
 export function ProvidersWrapper({ children }: { children: React.ReactNode }) {
-  useRB2B();
   useGoogleAnalytics();
 
   return (
     <Suspense fallback={null}>
-      <PostHogProvider>{children}</PostHogProvider>
+      <PostHogProvider>
+        <CopyTracker />
+        {children}
+      </PostHogProvider>
       <ThemeOverride />
       <ScarfPixel />
     </Suspense>

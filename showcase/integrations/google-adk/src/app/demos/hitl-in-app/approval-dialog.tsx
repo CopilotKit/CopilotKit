@@ -1,62 +1,93 @@
 "use client";
 
-import React from "react";
+// @region[approval-dialog]
+// Modal dialog rendered at the APP level (portal'd to <body>) — not
+// inside the chat bubble tree. The caller supplies `pending` (the
+// message/context the agent wants approval for) and an `onResolve`
+// completion callback. The user's click on Approve / Reject fires the
+// callback, which resolves the pending frontend-tool Promise back in
+// the parent page.
 
-export interface ApprovalRequest {
-  id: string;
-  summary: string;
-  reason: string;
-  resolve: (decision: { accepted: boolean; reason?: string }) => void;
-}
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
-export function ApprovalDialog({ request }: { request: ApprovalRequest }) {
-  return (
+export type PendingApproval = {
+  message: string;
+  context?: string;
+};
+
+type Props = {
+  pending: PendingApproval;
+  onResolve: (result: { approved: boolean; reason?: string }) => void;
+};
+
+export function ApprovalDialog({ pending, onResolve }: Props) {
+  const [reason, setReason] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const content = (
     <div
       data-testid="approval-dialog-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#010507]/40 backdrop-blur-sm"
     >
       <div
         data-testid="approval-dialog"
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200"
+        className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm"
       >
-        <header className="mb-3">
-          <h3 className="text-lg font-semibold text-slate-900">
-            Action requires approval
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            The agent has paused and is waiting on you.
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+          Action requires your approval
+        </div>
+        <h2 className="mb-3 text-lg font-semibold text-[#010507]">
+          {pending.message}
+        </h2>
+        {pending.context && (
+          <p className="mb-4 rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] p-3 text-sm text-[#57575B]">
+            {pending.context}
           </p>
-        </header>
-        <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 mb-2">
-          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-            Proposed action
-          </div>
-          <div className="text-sm font-medium text-slate-900">
-            {request.summary}
-          </div>
-        </div>
-        <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 mb-4">
-          <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-            Reason
-          </div>
-          <div className="text-sm text-slate-700">{request.reason}</div>
-        </div>
-        <div className="flex gap-2">
+        )}
+        <label className="mb-1 block text-xs font-medium text-[#57575B]">
+          Note (optional)
+        </label>
+        <textarea
+          data-testid="approval-dialog-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Add a short note the assistant will see…"
+          className="mb-4 w-full resize-none rounded-xl border border-[#DBDBE5] px-3 py-2 text-sm text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33]"
+          rows={2}
+        />
+        <div className="flex items-center justify-end gap-2">
           <button
-            data-testid="approval-dialog-reject"
             type="button"
-            className="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            onClick={() => request.resolve({ accepted: false })}
+            data-testid="approval-dialog-reject"
+            onClick={() =>
+              onResolve({
+                approved: false,
+                reason: reason.trim() || undefined,
+              })
+            }
+            className="rounded-xl border border-[#DBDBE5] bg-white px-4 py-2 text-sm font-medium text-[#57575B] hover:bg-[#FAFAFC] transition-colors"
           >
             Reject
           </button>
           <button
-            data-testid="approval-dialog-approve"
             type="button"
-            className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
-            onClick={() => request.resolve({ accepted: true })}
+            data-testid="approval-dialog-approve"
+            onClick={() =>
+              onResolve({
+                approved: true,
+                reason: reason.trim() || undefined,
+              })
+            }
+            className="rounded-xl bg-[#010507] px-4 py-2 text-sm font-medium text-white hover:bg-[#2B2B2B] transition-colors"
           >
             Approve
           </button>
@@ -64,4 +95,7 @@ export function ApprovalDialog({ request }: { request: ApprovalRequest }) {
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
+// @endregion[approval-dialog]

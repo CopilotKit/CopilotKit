@@ -4,6 +4,8 @@ import {
   fillAndVerifySend,
   readUserMessageCount,
   waitForContentAndSend,
+  readErrorBanner,
+  AssistantErroredError,
 } from "./conversation-runner.js";
 import type { ConversationTurn, Page } from "./conversation-runner.js";
 
@@ -19,8 +21,13 @@ import type { ConversationTurn, Page } from "./conversation-runner.js";
  * the same value repeats across a quiet window of `assistantSettleMs`.
  *
  * To keep tests deterministic and fast we set `assistantSettleMs` to a
- * small value (50 ms) and use vitest's fake timers where the runner's
- * polling loop would otherwise dominate wall time.
+ * small value (50 ms) so the runner's real-timer polling loop completes
+ * quickly. These tests use REAL timers throughout (no `vi.useFakeTimers`);
+ * scripted `evaluate` count sequences — not clock manipulation — drive the
+ * settle and fast-fail paths deterministically. Multi-turn and multi-poll
+ * tests carry an explicit generous per-test timeout (third `it` arg) so
+ * their cumulative real-sleep cost cannot collide with vitest's 5000 ms
+ * default on a loaded CI runner.
  */
 
 interface PageScript {
@@ -30,7 +37,7 @@ interface PageScript {
   evaluateValues?: number[];
   // Optional override for `page.evaluate` so tests can spy on its
   // semantics directly when they need to.
-  evaluate?: (fn: () => unknown) => Promise<unknown>;
+  evaluate?: (fn: () => unknown, arg?: unknown) => Promise<unknown>;
   // Errors to throw on individual page-API calls.
   throwOnFill?: Error;
   throwOnPress?: Error;
@@ -45,6 +52,26 @@ interface PageScript {
   // pulls the next value from the queue; last value repeats forever.
   // Used by skipFill tests to simulate async textarea population.
   inputValues?: string[];
+  // Scripted return values for the error-banner visibility probe (reads
+  // that reference `copilot-error-banner`). Each invocation pulls the
+  // next value; once exhausted the last value repeats forever. A `true`
+  // (or `{ visible: true }`) means the
+  // `[data-testid="copilot-error-banner"]` is visible.
+  // Used by fast-fail tests to simulate the chat error banner appearing
+  // mid-settle without any new assistant message arriving. Each entry may
+  // be a bare boolean (text defaults to "Something went wrong" when
+  // visible) OR an object carrying explicit `text`, so tests can model a
+  // banner whose TEXT changes across polls (a re-armed new/changed error)
+  // — not just its visibility.
+  errorBannerValues?: Array<boolean | { visible: boolean; text?: string }>;
+  // When true, the fake exposes a `page.reload()` that RE-SEEDS the
+  // assistant-message and error-banner queues from their original scripted
+  // values — modelling a real Playwright reload tearing down and re-painting
+  // the DOM. Used by turn-1 fast-fail tests to verify a SUSTAINED real banner
+  // still fast-fails on the bounded cold-start retry's 2nd attempt (the banner
+  // re-paints fresh after the reload, so the 2nd settle re-snapshots a clean
+  // baseline and fast-fails again — #5142 stays intact across the retry).
+  reloadReplaysQueues?: boolean;
 }
 
 /**
@@ -59,21 +86,168 @@ function wrapEvaluateForUserMessages(
   inner: (...args: any[]) => Promise<any>,
 ): Page["evaluate"] {
   let userCalls = 0;
-  return (async <R>(fn: () => R): Promise<R> => {
-    if (fn.toString().includes("copilot-user-message")) {
+  // Track the most recent assistant-count value returned by `inner` so the
+  // post-cutover `waitForTurnComplete` primitive's auxiliary reads (SSE
+  // run-finished counter, bubble-text-at-index) can be synthesised from the
+  // SAME scripted count progression the test author provided. This mirrors
+  // `makePage`'s branch dispatch so tests that use this helper see the same
+  // shape from every read branch as tests that use `makePage` directly.
+  let latestCount = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return async function (this: unknown, fn: (...a: any[]) => unknown) {
+    // Playwright's real Page accepts (fn, arg); the structural Page
+    // surface erases the second arg. Grab it via `arguments` so any
+    // probe that passes a runtime arg (e.g. `findAssistantBubbleAt`'s
+    // bubbleIndex) still reaches the inner / synthesised branches.
+    // eslint-disable-next-line prefer-rest-params
+    const argRuntime = (arguments as unknown as IArguments)[1] as
+      | number
+      | undefined;
+    const body = fn.toString();
+    if (body.includes("copilot-user-message")) {
       return userCalls++ as never;
     }
-    return inner(fn) as Promise<R>;
-  }) as Page["evaluate"];
+    // Error-banner visibility probe: these helpers never simulate a
+    // banner, so return the runner-expected `{ visible: false }` shape
+    // explicitly. Previously this read fell through to `inner(fn)`, which
+    // returns an assistant-count NUMBER — the runner only worked because
+    // `(someNumber).visible` is `undefined` (falsy). Returning the real
+    // shape exercises the genuine "no banner" path instead of relying on
+    // that accident.
+    if (body.includes("copilot-error-banner")) {
+      return { visible: false } as never;
+    }
+    // SSE run-finished counter read (`waitForTurnComplete` conjunct 1).
+    // Synthesised from the latest observed assistant count: whenever the
+    // assistant DOM has N bubbles, the server must have flushed N
+    // RUN_FINISHED events. This keeps existing single-queue inner scripts
+    // (0 → 1 stable) satisfying the SSE conjunct without per-test
+    // augmentation — exact parity with `makePage`'s `__hk_runsFinished`
+    // branch.
+    if (body.includes("__hk_runsFinished")) {
+      return latestCount as never;
+    }
+    // Atomic cascade-state read (`readCascadeState`): returns BOTH the
+    // count and the indexed text from the SAME cascade tier in ONE
+    // round-trip. Routed BEFORE the legacy text-only branch because the
+    // closure body matches BOTH dispatch heuristics (`querySelectorAll`
+    // + `textContent`); the distinguishing substring is the literal
+    // `{ count` the closure uses to construct its return object. We
+    // forward to `inner` to drain the count progression the test author
+    // scripted, then synthesise the text from the resulting latestCount.
+    if (
+      body.includes("querySelectorAll") &&
+      body.includes("textContent") &&
+      body.includes("{ count")
+    ) {
+      // eslint-disable-next-line prefer-rest-params
+      const innerArgsCascade = Array.from(arguments as unknown as IArguments);
+      const innerResult = (await (
+        inner as (...a: unknown[]) => Promise<unknown>
+      )(...innerArgsCascade)) as unknown;
+      if (typeof innerResult === "number") {
+        latestCount = innerResult;
+      }
+      const idx = argRuntime ?? 0;
+      const text =
+        idx < 0 || idx >= latestCount
+          ? null
+          : `assistant-bubble-text-${latestCount}`;
+      return { count: latestCount, text } as never;
+    }
+    // Assistant-bubble TEXT read (`findAssistantBubbleAt`). Mirror
+    // `makePage`'s text branch: return a non-empty placeholder whenever
+    // a bubble at the requested index exists (latestCount surpasses idx),
+    // null otherwise. The text value tracks the latest count so the
+    // text-stable conjunct of `waitForTurnComplete` holds as soon as the
+    // count stops changing.
+    if (body.includes("querySelectorAll") && body.includes("textContent")) {
+      const idx = argRuntime ?? 0;
+      if (idx < 0 || idx >= latestCount) return null as never;
+      return `assistant-bubble-text-${latestCount}` as never;
+    }
+    // Default branch: forward to the inner script (and the runtime arg,
+    // so a script that needs it isn't silently passed `undefined`). Cache
+    // the result as the new `latestCount` for the synthesised SSE/text
+    // branches above.
+    // eslint-disable-next-line prefer-rest-params
+    const innerArgs = Array.from(arguments as unknown as IArguments);
+    const result = (await (inner as (...a: unknown[]) => Promise<unknown>)(
+      ...innerArgs,
+    )) as unknown;
+    if (typeof result === "number") {
+      latestCount = result;
+    }
+    return result as never;
+  } as Page["evaluate"];
+}
+
+/**
+ * Mirror the text-shaping `readErrorBanner` applies to a banner's
+ * `textContent` before the SUT sees it. The SUT compares this value across
+ * polls (`textChanged`) to re-arm fast-fail. Keeping this in one place lets
+ * the fake track the production contract exactly: when `readErrorBanner`
+ * returns the FULL text (and truncates only the thrown message), this returns
+ * the full text too.
+ */
+function shapeBannerProbeText(text: string): string {
+  // `readErrorBanner` returns the FULL `textContent` — truncation is applied
+  // downstream only to the thrown message (`BANNER_MESSAGE_MAX_LENGTH`), never
+  // to the value compared across polls. The fake mirrors that contract.
+  return text;
+}
+
+/**
+ * Detect whether an `evaluate` callback body is the atomic `readCascadeState`
+ * closure. The production closure builds a `{ count, text }` object and so its
+ * stringified body contains the literal `{ count` — distinct from the legacy
+ * count-only and text-only branches whose bodies don't construct that object.
+ *
+ * Hand-rolled `page.evaluate` fakes use this to return the `{ count, text }`
+ * shape instead of a raw number when the runner's `waitForTurnComplete` is
+ * making its single atomic cascade read.
+ */
+function isReadCascadeStateBody(body: string): boolean {
+  return (
+    body.includes("querySelectorAll") &&
+    body.includes("textContent") &&
+    body.includes("{ count")
+  );
+}
+
+/**
+ * Synthesise a cascade-state result from a scalar count, mirroring the shape
+ * `readCascadeState` returns. Hand-rolled fakes use this to translate their
+ * legacy count-only return value into the atomic `{ count, text }` shape.
+ */
+function cascadeStateOf(
+  count: number,
+  idx: number,
+): { count: number; text: string | null } {
+  const text =
+    idx < 0 || idx >= count ? null : `assistant-bubble-text-${count}`;
+  return { count, text };
 }
 
 function makePage(script: PageScript = {}): Page {
   const queue = [...(script.evaluateValues ?? [])];
   const userQueue = [...(script.userMessageValues ?? [])];
   const inputQueue = [...(script.inputValues ?? [])];
+  const errorBannerQueue = [...(script.errorBannerValues ?? [])];
   // Auto-succeed counter: first user-message read = 0 (baseline),
   // subsequent reads = 1 (growth detected → verify loop succeeds).
   let autoUserCalls = 0;
+  // Track the most recent assistant-count value drained from the queue.
+  // The post-cutover `waitForTurnComplete` primitive makes THREE reads
+  // per poll iteration (SSE counter, count, text). Tests script
+  // `evaluateValues` as count progressions; the SSE counter is
+  // auto-derived from the latest count (any time the assistant DOM has
+  // grown to N bubbles, the server must have flushed N RUN_FINISHED
+  // events) and the text branch returns a non-empty placeholder
+  // whenever the count surpasses the requested index. This keeps
+  // existing single-queue test scripts working without per-test
+  // SSE/text augmentation.
+  let latestCount = 0;
   return {
     async waitForSelector() {
       // No-op — the runner uses this only to confirm the chat input exists.
@@ -86,14 +260,57 @@ function makePage(script: PageScript = {}): Page {
       if (script.throwOnPress) throw script.throwOnPress;
       script.recorded?.presses.push(_key);
     },
-    async evaluate(fn) {
-      if (script.evaluate) return script.evaluate(fn) as never;
+    async evaluate(fn: () => unknown) {
+      // The structural Page surface declares evaluate as single-arg, but
+      // Playwright's real Page accepts (fn, arg) — `findAssistantBubbleAt`
+      // calls it with a bubbleIndex as the second arg. We grab the optional
+      // second runtime arg via `arguments` since the structural signature
+      // erases it.
+      // eslint-disable-next-line prefer-rest-params
+      const argRuntime = (arguments as unknown as IArguments)[1] as
+        | number
+        | undefined;
+      if (script.evaluate) return script.evaluate(fn, argRuntime) as never;
 
       // Detect whether the evaluate call is reading user messages or
       // assistant messages by inspecting the function body. The
       // readUserMessageCount function references "copilot-user-message"
-      // while readMessageCount references "copilot-assistant-message".
+      // while countAssistantMessages references "copilot-assistant-message".
       const fnBody = fn.toString();
+      // SSE run-finished counter read (`waitForTurnComplete` conjunct
+      // 1). The page-side counter is exposed by attachSseInterceptor in
+      // production; in this unit test we synthesise it as the latest
+      // observed assistant count so any scripted count progression
+      // (0 → 1 → 1 → …) trivially satisfies "SSE caught up to turn N"
+      // whenever the corresponding bubble exists in the DOM.
+      if (fnBody.includes("__hk_runsFinished")) {
+        return latestCount as never;
+      }
+      // Error-banner visibility probe references "copilot-error-banner".
+      // Routed before the message-count branches so it gets its own
+      // scripted queue. Defaults to `false` (no banner) when unscripted
+      // so existing tests are unaffected.
+      if (fnBody.includes("copilot-error-banner")) {
+        const entry =
+          errorBannerQueue.length === 0
+            ? false
+            : errorBannerQueue.length === 1
+              ? errorBannerQueue[0]!
+              : errorBannerQueue.shift()!;
+        const visible = typeof entry === "boolean" ? entry : entry.visible;
+        const text =
+          typeof entry === "boolean" ? "Something went wrong" : entry.text;
+        // Faithfully model the browser-side read contract of
+        // `readErrorBanner`: the probe returns the banner's `textContent` and
+        // the SUT uses that value for the cross-poll `textChanged`
+        // comparison. The fake mirrors whatever shape `readErrorBanner`
+        // yields — see `shapeBannerProbeText` above.
+        const resolved = visible ? (text ?? "Something went wrong") : undefined;
+        return {
+          visible,
+          ...(visible ? { text: shapeBannerProbeText(resolved!) } : {}),
+        } as never;
+      }
       if (fnBody.includes("copilot-user-message")) {
         if (userQueue.length > 0) {
           if (userQueue.length === 1) return userQueue[0]! as never;
@@ -107,12 +324,71 @@ function makePage(script: PageScript = {}): Page {
         return autoUserCalls++ as never;
       }
 
+      // Atomic cascade-state read (`readCascadeState`): returns BOTH the
+      // count and the indexed text from the SAME cascade tier in ONE
+      // round-trip. Routed BEFORE the legacy text-only branch because the
+      // closure body matches BOTH dispatch heuristics (`querySelectorAll`
+      // + `textContent`); the distinguishing substring is the literal
+      // `{ count` the closure uses to construct its return object.
+      //
+      // The drain happens INLINE here (rather than at the default-branch
+      // tail like the legacy 3-call flow) because the post-cutover
+      // `waitForTurnComplete` makes only TWO reads per poll (SSE counter
+      // + cascade-state), so this is the call that must advance the
+      // scripted count progression for each poll.
+      if (
+        fnBody.includes("querySelectorAll") &&
+        fnBody.includes("textContent") &&
+        fnBody.includes("{ count")
+      ) {
+        let drained: number;
+        if (queue.length === 0) {
+          drained = 0;
+        } else if (queue.length === 1) {
+          drained = queue[0]!;
+        } else {
+          drained = queue.shift()!;
+        }
+        latestCount = drained;
+        const idx = argRuntime ?? 0;
+        const text =
+          idx < 0 || idx >= latestCount
+            ? null
+            : `assistant-bubble-text-${latestCount}`;
+        return { count: latestCount, text } as never;
+      }
+      // Assistant-bubble TEXT read (`findAssistantBubbleAt`). The
+      // production helper passes a 0-based bubbleIndex as the second
+      // arg to page.evaluate; the playwright Page surface accepts
+      // (fn, arg) — both reach this fake via the rest param. Return
+      // a non-empty placeholder whenever a bubble at that index exists
+      // (i.e. latestCount surpasses the requested index), null
+      // otherwise — matches the production cascade's null-when-index-
+      // out-of-range behaviour. The text value mirrors the latest count
+      // so the `waitForTurnComplete` text-stable conjunct holds as soon
+      // as the count stops changing.
+      if (
+        fnBody.includes("querySelectorAll") &&
+        fnBody.includes("textContent")
+      ) {
+        const idx = argRuntime ?? 0;
+        if (idx < 0 || idx >= latestCount) return null as never;
+        return `assistant-bubble-text-${latestCount}` as never;
+      }
+
       // Drain one value per call. Once exhausted, freeze on the last
       // value so any post-script poll sees the steady-state count
       // (matches a real assistant message that has finished streaming).
-      if (queue.length === 0) return 0 as never;
-      if (queue.length === 1) return queue[0]! as never;
-      return queue.shift()! as never;
+      let value: number;
+      if (queue.length === 0) {
+        value = 0;
+      } else if (queue.length === 1) {
+        value = queue[0]!;
+      } else {
+        value = queue.shift()!;
+      }
+      latestCount = value;
+      return value as never;
     },
     // inputValue is only provided when the script includes inputValues,
     // mirroring the optional nature of the Page interface member.
@@ -122,6 +398,22 @@ function makePage(script: PageScript = {}): Page {
             if (inputQueue.length === 0) return "";
             if (inputQueue.length === 1) return inputQueue[0]!;
             return inputQueue.shift()!;
+          },
+        }
+      : {}),
+    // reload is only provided when the script opts in. It re-seeds the
+    // assistant-message and error-banner queues from their original scripted
+    // values so the post-reload settle replays the same scripted sequence —
+    // modelling a real DOM teardown + re-paint. Auto-user-message growth is
+    // reset too so the re-send's fillAndVerifySend sees a fresh user bubble.
+    ...(script.reloadReplaysQueues
+      ? {
+          async reload(): Promise<void> {
+            queue.length = 0;
+            queue.push(...(script.evaluateValues ?? []));
+            errorBannerQueue.length = 0;
+            errorBannerQueue.push(...(script.errorBannerValues ?? []));
+            autoUserCalls = 0;
           },
         }
       : {}),
@@ -208,7 +500,10 @@ describe("runConversation", () => {
     expect(order).toEqual([1, 2, 3]);
     expect(recorded.fills).toEqual(["first", "second", "third"]);
     expect(recorded.presses).toEqual(["Enter", "Enter", "Enter"]);
-  });
+    // 3 turns × real settle polling ≈ 3.5s locally; explicit generous
+    // per-test timeout keeps it clear of vitest's 5000ms default on a
+    // loaded CI runner.
+  }, 20_000);
 
   it("turn-2 assertion failure: returns failure_turn=2 and error, stops further turns", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
@@ -253,7 +548,9 @@ describe("runConversation", () => {
     expect(turn3Ran).toBe(false);
     // The third input was never typed.
     expect(recorded.fills).toEqual(["first", "second"]);
-  });
+    // Drives 2 turns through real settle polling (~2.1s locally); explicit
+    // timeout keeps it clear of the 5000ms default on a loaded CI runner.
+  }, 20_000);
 
   it("assistant never responds: turn fails with timeout error", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
@@ -275,9 +572,909 @@ describe("runConversation", () => {
     expect(result.total_turns).toBe(1);
     expect(result.failure_turn).toBe(1);
     expect(result.error).toBeDefined();
-    expect(result.error!.toLowerCase()).toContain("timeout");
+    // `waitForTurnComplete` surfaces the failure as
+    // "turn N did not complete within Xms (reason=…)" — the canonical
+    // settle-deadline message. Either the historical "timeout" word or the
+    // current "did not complete within" phrase satisfies the contract: the
+    // assertion is "the runner timed out waiting for the assistant", not the
+    // exact wording of the message.
+    expect(result.error!.toLowerCase()).toMatch(
+      /timeout|did not complete within/i,
+    );
     // Failed turn's duration is not recorded (spec: length === turns_completed).
     expect(result.turn_durations_ms).toHaveLength(0);
+  });
+
+  it("fast-fails when the copilot-error-banner becomes visible and STAYS for 2+ polls mid-settle", async () => {
+    // The turn submits but NO new assistant message ever arrives — the
+    // assistant-message count stays pinned at the baseline (0). Without
+    // the fast-fail path the runner would poll until the full
+    // `responseTimeoutMs` (here 5000ms) expires and throw a generic
+    // timeout. Instead, a FRESH error banner becomes visible mid-settle and
+    // STAYS visible (not present at baseline → differs-from-baseline state).
+    // Under the unified rule, ALL banner detection is debounced behind a
+    // 2-consecutive-poll counter (no more immediate `isNewBanner` path), so
+    // the banner must persist across 2 polls before the runner short-circuits
+    // with a distinguished "chat errored" failure. The scripted queue keeps
+    // the banner visible from poll2 onward (last value repeats), satisfying
+    // the 2-consecutive-poll debounce.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count never grows past baseline.
+      evaluateValues: [0],
+      // Banner NOT visible at baseline, then appears at poll2 and STAYS
+      // (last value `true` repeats forever) → 2+ consecutive
+      // differs-from-baseline polls → fast-fail under the unified debounce.
+      errorBannerValues: [false, false, true],
+      // This is turn 1, so the bounded cold-start retry fires once on the
+      // fast-fail. The banner SURVIVES the reload (re-seeded queues re-paint
+      // the same fresh banner) → the 2nd attempt fast-fails again and the
+      // distinguished AssistantErroredError is re-thrown. #5142 stays intact.
+      reloadReplaysQueues: true,
+      recorded,
+    });
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "trigger error", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(result.turns_completed).toBe(0);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toBeDefined();
+    // Distinguished error — NOT the generic "timeout" message. The runner
+    // surfaces the thrown error's MESSAGE, which for a banner fast-fail is
+    // an `AssistantErroredError`. Assert the exact distinguished marker AND
+    // the scripted banner text (not merely the substring "error", which a
+    // generic timeout would also contain). Comparing against a freshly
+    // constructed `AssistantErroredError` message proves the runner threw
+    // that error type with the banner text — the string IS its `.message`.
+    expect(result.error).toBe(
+      new AssistantErroredError("Something went wrong").message,
+    );
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error).toContain("Something went wrong");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Contract guard: the banner fast-fail path throws an
+    // `AssistantErroredError` (an `Error` subclass) carrying this exact
+    // message, so the driver can classify it distinctly from a timeout.
+    const expected = new AssistantErroredError("Something went wrong");
+    expect(expected).toBeInstanceOf(AssistantErroredError);
+    expect(expected).toBeInstanceOf(Error);
+    expect(result.error).toBe(expected.message);
+    // The whole point: bail well before the 5000ms responseTimeout. The
+    // bounded turn-1 cold-start retry adds a SECOND fast-fail cycle, so the
+    // bound is 3000ms (two fast-fail cycles) — still far under the 5000ms
+    // settle timeout, proving we never burned the full wall-clock.
+    expect(elapsed).toBeLessThan(3000);
+    // Failed turn's duration is not recorded.
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("does NOT fast-fail on a stale banner whose text is UNCHANGED from baseline", async () => {
+    // A banner that was visible BEFORE the turn was submitted (a stale
+    // banner left over from a prior turn) whose TEXT never changes must
+    // NOT be mistaken for this turn's error. CopilotKit error banners
+    // persist across turns, so an unchanged same-text banner is the
+    // expected steady state — only a NEW or text-CHANGED banner re-arms
+    // the fast-fail. The assistant responds normally (count grows past
+    // baseline and settles) → the turn must SUCCEED despite the
+    // ever-present, same-text banner.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count: baseline=0, then grows to 1 and stays → settles.
+      evaluateValues: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+      // Banner visible the ENTIRE time with the SAME text, including at
+      // baseline. Same text across polls ⇒ stale ⇒ must NOT fast-fail.
+      errorBannerValues: [{ visible: true, text: "Old error" }],
+      recorded,
+    });
+
+    const result = await runConversation(
+      page,
+      [{ input: "hello", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("RE-ARMS fast-fail when a baseline banner's TEXT changes mid-settle (new error)", async () => {
+    // Multi-turn regression: CopilotKit error banners persist across
+    // turns, so a banner can ALREADY be visible at this turn's baseline
+    // (a stale leftover from a prior errored turn). If a NEW error then
+    // occurs this turn, the banner's TEXT changes — but NO new assistant
+    // message arrives, so the count stays pinned at baseline. The old
+    // boolean snapshot (`errorBannerAtBaseline`) disabled the ENTIRE
+    // fast-fail path whenever a banner was present at baseline, so the
+    // 2nd+ errored turn silently paid the full responseTimeout. The fix
+    // snapshots the baseline banner TEXT and re-arms detection when the
+    // visible banner's text DIFFERS from baseline — fast-failing on the
+    // new error even though a stale banner was already up.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count never grows past baseline (no new message).
+      evaluateValues: [0],
+      // Banner visible at baseline as "Old error" (stale), then its TEXT
+      // changes to "New error" mid-settle (a fresh error this turn).
+      errorBannerValues: [
+        { visible: true, text: "Old error" },
+        { visible: true, text: "Old error" },
+        { visible: true, text: "New error" },
+      ],
+      // Turn 1 → the bounded cold-start retry fires on the fast-fail. The
+      // re-seeded queues replay the same baseline-stale-then-changed sequence,
+      // so the 2nd attempt re-arms and fast-fails on "New error" again. #5142
+      // (and the baseline-text re-arm fix) stay intact across the retry.
+      reloadReplaysQueues: true,
+      recorded,
+    });
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "trigger new error", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(result.turns_completed).toBe(0);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toBeDefined();
+    // Fast-failed on the NEW banner text, not the stale one.
+    expect(result.error).toBe(new AssistantErroredError("New error").message);
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error).toContain("New error");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Bailed well before the 5000ms responseTimeout — the whole point. The
+    // bounded cold-start retry adds a 2nd fast-fail cycle, so the bound is
+    // 3000ms (two cycles), still far under the 5000ms settle timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("does NOT fast-fail when a persisted banner's text FLICKERS for a single poll then reverts (succeeding turn)", async () => {
+    // Finding 2 (streaming false-POSITIVE): a banner that is visible at
+    // baseline (persisted from a prior turn) can have its text transiently
+    // mutate mid-stream — a countdown tick, a momentary empty during a
+    // re-render — while THIS turn is actually SUCCEEDING. An undebounced
+    // `textChanged` check would fire a SPURIOUS `AssistantErroredError` on a
+    // succeeding turn (a false RED, strictly worse than a slow-fail). The fix
+    // debounces ONLY the text-changed path: a changed text must persist
+    // across 2 consecutive polls before it fast-fails. A single-poll flicker
+    // that reverts must NOT fast-fail, so the turn settles normally.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count stays AT baseline (0) through the flicker poll so the
+      // flicker is evaluated while no response has yet been produced —
+      // exercising the real debounce-reset path, NOT the success-in-flight
+      // disarm. THEN it grows to 1 and freezes so the turn settles AFTER the
+      // flicker poll has been seen. `waitForTurnComplete` makes THREE
+      // page.evaluate reads per poll: (1) the SSE counter
+      // `window.__hk_runsFinished`, (2) `countAssistantMessages` (DOM count),
+      // (3) `findAssistantBubbleAt(idx).textContent`. Only the count read
+      // drains this scripted `evaluateValues` queue — the SSE counter is
+      // synthesized from the latest observed count in the fake (so it tracks
+      // the count trivially) and the text branch returns a non-empty
+      // placeholder whenever the count surpasses the requested index. The
+      // queue values therefore describe the SUCCESSIVE COUNT READS the fake
+      // returns: poll1=0, poll2=0, poll3=0, poll4=0 (the flicker poll — count
+      // still at baseline, so debounce path runs), poll5=1, then frozen at 1
+      // → count change resets lastChangeAt, settle fires after settleMs.
+      evaluateValues: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+      // Banner sequence (1st entry = baseline snapshot, rest = per-poll):
+      //   baseline "Old", poll1 "Old", poll2 "flicker" (transient!),
+      //   poll3+ "Old" (reverted, frozen). The flicker lasts exactly ONE
+      //   poll then reverts — must NOT trip the debounced fast-fail.
+      errorBannerValues: [
+        { visible: true, text: "Old" },
+        { visible: true, text: "Old" },
+        { visible: true, text: "flicker" },
+        { visible: true, text: "Old" },
+      ],
+      recorded,
+    });
+
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "succeeding turn with banner flicker",
+          responseTimeoutMs: 5000,
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+
+    // The flicker reverted, so NO spurious AssistantErroredError — the turn
+    // settled normally and SUCCEEDED.
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("STILL fast-fails when a baseline banner's changed text is STABLE across 2 consecutive polls (genuine new error, debounced)", async () => {
+    // Finding 2 regression guard: debouncing the text-changed path must NOT
+    // suppress a GENUINE new error. A real new error's banner text changes
+    // and then PERSISTS (it doesn't flicker back). The debounce requires the
+    // changed text to be stable across 2 consecutive polls — a genuine error
+    // satisfies that with one extra ~poll-interval of latency, then
+    // fast-fails. This complements the round-1 re-arm test (which freezes on
+    // the new text) by making the 2-poll-stability requirement explicit.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count never grows past baseline (no new message arrives).
+      evaluateValues: [0],
+      // baseline "Old", poll1 "Old", then "New" appears at poll2 and
+      // PERSISTS (poll3 still "New", then frozen on "New"). Stable across
+      // ≥2 consecutive polls ⇒ genuine error ⇒ fast-fail.
+      errorBannerValues: [
+        { visible: true, text: "Old" },
+        { visible: true, text: "Old" },
+        { visible: true, text: "New" },
+        { visible: true, text: "New" },
+      ],
+      // Turn 1 → the bounded cold-start retry fires; re-seeded queues replay
+      // the same stable-new-error sequence so the 2nd attempt fast-fails again.
+      reloadReplaysQueues: true,
+      recorded,
+    });
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "trigger stable new error", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(result.turns_completed).toBe(0);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toBeDefined();
+    expect(result.error).toBe(new AssistantErroredError("New").message);
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error).toContain("New");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Debounce adds ~1 poll of latency; the bounded cold-start retry adds a
+    // 2nd fast-fail cycle — still far under the 5000ms responseTimeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("does NOT fast-fail when a FRESH banner appears for a SINGLE poll then disappears (succeeding turn)", async () => {
+    // Unified-rule scenario 1 (the common false-RED on the old code): on a
+    // turn with NO banner at baseline, a brand-new error banner can flicker
+    // visible for exactly ONE poll (a transient toast that auto-dismisses,
+    // a single re-render glitch) while the turn is actually SUCCEEDING. The
+    // OLD code fast-failed IMMEDIATELY on any fresh banner (`isNewBanner`,
+    // no debounce) → a spurious AssistantErroredError. The unified rule
+    // debounces ALL banner detection (new AND changed) behind a 2-consecutive
+    // -poll counter, so a single-poll fresh-banner flicker that reverts does
+    // NOT fast-fail and the turn settles normally.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count stays AT baseline (0) through the flicker poll so the
+      // fresh-banner flicker is evaluated while no response has yet been
+      // produced — exercising the real debounce-reset path, NOT the
+      // success-in-flight disarm. THEN it grows to 1 and freezes → settles
+      // AFTER the flicker poll is reached. `waitForTurnComplete` makes THREE
+      // page.evaluate reads per poll: (1) SSE counter
+      // `window.__hk_runsFinished`, (2) `countAssistantMessages` (DOM count),
+      // (3) `findAssistantBubbleAt(idx).textContent`. Only the count read
+      // drains this scripted `evaluateValues` queue — the SSE counter and
+      // text branch are synthesized from the latest count in the fake. So
+      // the queue values are the SUCCESSIVE COUNT READS: poll1=0, poll2=0,
+      // poll3=0, poll4=0 (the flicker poll — count still at baseline, so the
+      // debounce path runs), poll5=1, frozen at 1 → count change resets
+      // lastChangeAt, settle fires after settleMs.
+      evaluateValues: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+      // No banner at baseline. A FRESH banner appears for exactly ONE poll
+      // (poll2) then disappears (poll3+ not visible). Single isolated poll ⇒
+      // must NOT fast-fail under the unified debounce.
+      errorBannerValues: [
+        false,
+        false,
+        { visible: true, text: "transient" },
+        false,
+      ],
+      recorded,
+    });
+
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "succeeding turn with fresh-banner flicker",
+          responseTimeoutMs: 5000,
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+
+    // The fresh banner flickered for one poll then vanished → no spurious
+    // AssistantErroredError; the turn settled and SUCCEEDED.
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("fast-fails when a CHANGING-text persisted banner stays in a differs-from-baseline state across 2+ polls (countdown/timestamp mutation)", async () => {
+    // Unified-rule scenario 3 (the value-debounce false-NEGATIVE on the old
+    // code): a genuine error whose banner text MUTATES every poll (a retry
+    // countdown "retrying 3 → 2 → 1", a live timestamp, a rotating
+    // request-id) and never repeats the SAME changed value across two polls.
+    // The OLD value-based `pendingChangedText` debounce keyed on the exact
+    // text matching across 2 polls, so a per-poll-mutating error NEVER
+    // matched → never fast-failed → burned the full 30s. The unified rule
+    // keys on "differs from baseline" (a boolean state), not an exact value,
+    // so a banner that stays in the differs-from-baseline state for 2
+    // consecutive polls fast-fails even while its text keeps changing.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    // Text mutates on EVERY poll and never repeats the prior poll's value
+    // within the (short) timeout window. The OLD value-based debounce keyed
+    // on the SAME changed text repeating across 2 consecutive polls, so a
+    // per-poll-unique sequence NEVER matched → it would have burned the full
+    // timeout (here 800ms ⇒ no generic-timeout flake under the unified rule,
+    // which fast-fails on the 2nd consecutive differs-from-baseline poll).
+    // Enough distinct values to outlast the 800ms / 100ms ≈ 8-poll budget so
+    // the old code can't accidentally hit a frozen-last-value repeat.
+    const mutating = Array.from({ length: 20 }, (_, i) => ({
+      visible: true as const,
+      text: `err-${i + 1}`,
+    }));
+    const page = makePage({
+      // Assistant count never grows past baseline (no real response).
+      evaluateValues: [0],
+      // baseline "err-0"; then text mutates every poll ("err-1", "err-2",
+      // …) — each DIFFERS from baseline, none repeats the prior poll's value.
+      // errorStateNow is true on every poll ⇒ 2 consecutive ⇒ fast-fail
+      // under the unified rule (on the value-debounce old code this never
+      // fired and the turn burned the full timeout).
+      errorBannerValues: [{ visible: true, text: "err-0" }, ...mutating],
+      recorded,
+    });
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "trigger mutating error", responseTimeoutMs: 800 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(result.turns_completed).toBe(0);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Fast-failed on the 2nd consecutive differs-from-baseline poll (~200ms
+    // into the settle), well under the 800ms responseTimeout — the whole
+    // point of the fix. On the old value-debounce code this NEVER matched a
+    // repeated changed value and the turn TIMED OUT, so the error would
+    // contain "timeout" and the assertions above would fail. (The wall-clock
+    // here includes ~600ms of fixed harness boot/selector overhead, so we
+    // assert the not-a-timeout error shape above rather than a tight elapsed
+    // bound; <2000ms still proves we beat the responseTimeout settle path.)
+    expect(elapsed).toBeLessThan(2000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop (20 mutating banner polls); explicit
+    // timeout for CI headroom.
+  }, 20_000);
+
+  it("does NOT fast-fail when the assistant PRODUCED a response while a banner is also visible/sustained (success-in-flight wins)", async () => {
+    // Unified-rule scenario 6 (the old code let the banner win over a real
+    // response): an error banner can be visible AND sustained while the
+    // assistant ALSO produced a response this turn (count grew past
+    // baseline). A partial/non-fatal warning banner alongside a real answer
+    // must NOT force-fail the turn. The unified rule's condition (b) makes
+    // success-in-flight win: if the message count has grown past baseline,
+    // the turn never fast-fails — the settle path governs, and the turn
+    // SUCCEEDS.
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count grows past baseline IMMEDIATELY (baseline=0, then 1
+      // and frozen) → a real response is in flight from the first poll on.
+      evaluateValues: [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      // A FRESH, SUSTAINED banner is visible every poll (would fast-fail
+      // under the unified debounce if condition (b) didn't gate it on "no
+      // response produced"). Because the count grew, it must be ignored.
+      errorBannerValues: [
+        false,
+        { visible: true, text: "warn" },
+        { visible: true, text: "warn" },
+        { visible: true, text: "warn" },
+      ],
+      recorded,
+    });
+
+    const result = await runConversation(
+      page,
+      [{ input: "response plus banner", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+
+    // Success-in-flight wins: count grew past baseline, so the sustained
+    // banner is ignored and the turn settles as a SUCCESS.
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("cold-start retry: a turn-1 banner that clears after page.reload() RECOVERS (turn succeeds)", async () => {
+    // Flap-band fix #71. A showcase cold-start can paint a transient error
+    // banner on the FIRST turn (the agent backend / runtime is still warming
+    // up) that clears on its own a beat later. PR #5142's fast-fail correctly
+    // bails on a sustained banner, but on turn 1 a single bounded retry —
+    // reload the page, re-send the same message — recovers the would-be flap
+    // without masking a real failure. This test models attempt 1 fast-failing
+    // on a fresh sustained banner, then `page.reload()` flips the page into a
+    // clean state where the assistant responds and the turn SETTLES.
+    let reloaded = false;
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    let userCalls = 0;
+    let bannerReadsBeforeReload = 0;
+    let assistantCallsAfterReload = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill(_selector, value) {
+        recorded.fills.push(value);
+      },
+      async press(_selector, key) {
+        recorded.presses.push(key);
+      },
+      async reload() {
+        reloaded = true;
+        // Reset send-verification baseline so the re-send's fillAndVerifySend
+        // observes fresh user-message growth.
+        userCalls = 0;
+      },
+      async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          // After reload: banner gone → attempt 2 settles cleanly.
+          if (reloaded) return { visible: false } as never;
+          // Before reload: NOT visible on the baseline snapshot (first read),
+          // then a FRESH banner appears and STAYS (differs-from-baseline on 2+
+          // consecutive polls) → AssistantErroredError fast-fail on attempt 1.
+          bannerReadsBeforeReload++;
+          if (bannerReadsBeforeReload <= 1) return { visible: false } as never;
+          return {
+            visible: true,
+            text: "cold start: backend warming up",
+          } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          // Monotonic growth so fillAndVerifySend sees the user bubble.
+          return userCalls++ as never;
+        }
+        // Assistant-message count. Before reload: pinned at baseline 0 (no
+        // response) so attempt 1 cannot settle and the fresh banner fast-fails.
+        // After reload: grows to 1 and freezes → settles.
+        let count: number;
+        if (!reloaded) {
+          count = 0;
+        } else {
+          assistantCallsAfterReload++;
+          count = assistantCallsAfterReload > 1 ? 1 : 0;
+        }
+        if (isReadCascadeStateBody(body)) {
+          return cascadeStateOf(count, (arg as number) ?? 0) as never;
+        }
+        return count as never;
+      },
+    };
+
+    const result = await runConversation(
+      page,
+      [{ input: "hello cold start", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+
+    // The retry recovered the flap: the turn SUCCEEDED.
+    expect(reloaded).toBe(true);
+    expect(result.turns_completed).toBe(1);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    // Message was re-sent after the reload (filled twice: original + retry).
+    expect(recorded.fills).toEqual(["hello cold start", "hello cold start"]);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("cold-start retry does NOT mask a real failure: a banner that SURVIVES the reload still fast-fails", async () => {
+    // The bound that keeps #5142 intact: the cold-start retry fires AT MOST
+    // ONCE, only on turn 1, only for an AssistantErroredError. If the error
+    // banner is a REAL sustained failure that survives the page.reload() and
+    // re-send, the second `waitForTurnComplete` invocation throws a
+    // `TurnNotCompleteError` that the runner translates into the distinguished
+    // `AssistantErroredError` (via the post-settle `readErrorBanner` check) —
+    // the turn fails with that error, NOT a generic timeout, and NOT a false
+    // success.
+    let reloadCount = 0;
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    let userCalls = 0;
+    // Per-attempt banner-read counter, reset on each reload. Each
+    // `waitForTurnComplete` invocation snapshots the banner ONCE at its
+    // baseline (first read) — that must be NOT visible so the subsequent
+    // sustained banner reads as a differs-from-baseline NEW error and
+    // fast-fails. A genuine failure does this on BOTH attempts.
+    let bannerReadsThisAttempt = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill(_selector, value) {
+        recorded.fills.push(value);
+      },
+      async press(_selector, key) {
+        recorded.presses.push(key);
+      },
+      async reload() {
+        reloadCount++;
+        userCalls = 0;
+        bannerReadsThisAttempt = 0;
+      },
+      async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          // NOT visible on each attempt's baseline snapshot (first read),
+          // then a SUSTAINED banner that the reload does NOT clear — a REAL
+          // failure. Differs-from-baseline across 2+ consecutive polls →
+          // fast-fails on BOTH attempts.
+          bannerReadsThisAttempt++;
+          if (bannerReadsThisAttempt <= 1) return { visible: false } as never;
+          return { visible: true, text: "real backend failure" } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          return userCalls++ as never;
+        }
+        // Assistant never produces a response on either attempt.
+        if (isReadCascadeStateBody(body)) {
+          return cascadeStateOf(0, (arg as number) ?? 0) as never;
+        }
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "still broken", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    // The retry happened AT MOST ONCE (bounded) — and did not mask the error.
+    expect(reloadCount).toBe(1);
+    expect(result.turns_completed).toBe(0);
+    expect(result.total_turns).toBe(1);
+    expect(result.failure_turn).toBe(1);
+    // Distinguished AssistantErroredError survives the retry — NOT a timeout,
+    // NOT a false success.
+    expect(result.error).toBe(
+      new AssistantErroredError("real backend failure").message,
+    );
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // Re-sent exactly once (original + one retry), proving the retry is bounded.
+    expect(recorded.fills).toEqual(["still broken", "still broken"]);
+    // Bailed via fast-fail on BOTH attempts; well under the 5000ms timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
+
+  it("cold-start retry: a skipSend turn-1 banner FAST-FAILS without retry (the retry only fires for plain-fill turns)", async () => {
+    // Flap-band #71. The cold-start retry can ONLY recover a turn it can
+    // RE-ISSUE: a plain-fill turn (reload + re-fill + re-send). A `skipSend`
+    // turn's submission is issued entirely by `preFill` (e.g. a
+    // sample-attachment button auto-sends via the agent surface — the textarea
+    // is never touched), which a reload would wipe and the skipSend path never
+    // re-issues. Skipping the reload (the earlier fix) left a no-op retry that
+    // re-submitted nothing, could not recover, and risked false-settling
+    // against attempt 1's stale DOM. So the retry is GATED to plain-fill turns:
+    // a skipSend cold-start banner now fast-fails with `AssistantErroredError`
+    // (no retry, no reload, no false-settle) — PR #5142's fast-fail, the
+    // pre-retry behavior for skipSend, NOT a regression.
+    let reloaded = false;
+    let preFillCalls = 0;
+    let bannerReads = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      // Defense-in-depth stub. Today the production skipSend branch in
+      // `sendTurnMessage` (conversation-runner.ts) explicitly does NOT call
+      // `waitForContentAndSend` — skipSend's submission came from `preFill`
+      // and the textarea is never touched — so `page.inputValue` is not
+      // exercised on this code path. We still stub it so that if the
+      // production runner ever grows a pre-submit textarea-content
+      // verification on the skipSend path, this test fails with the
+      // BANNER-FAST-FAIL assertion it's designed to pin, not with the
+      // `"page.inputValue is required"` contract throw from
+      // `waitForContentAndSend` (see the sibling "throws when page.inputValue
+      // is not implemented" test). Do NOT strip as unused.
+      async inputValue() {
+        return "stub-prefilled-text";
+      },
+      async reload() {
+        // Must NEVER be reached for a skipSend turn — the retry is gated off.
+        reloaded = true;
+      },
+      async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          bannerReads++;
+          // NOT visible on the baseline snapshot, then a fresh banner appears
+          // and STAYS across ≥2 consecutive polls → AssistantErroredError
+          // fast-fail. No retry follows for a skipSend turn.
+          if (bannerReads <= 1) return { visible: false } as never;
+          return {
+            visible: true,
+            text: "cold start: backend warming up",
+          } as never;
+        }
+        // Assistant never produces a response — the only exit is the fast-fail.
+        if (isReadCascadeStateBody(body)) {
+          return cascadeStateOf(0, (arg as number) ?? 0) as never;
+        }
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "skip-send sample",
+          skipSend: true,
+          responseTimeoutMs: 5000,
+          preFill: async () => {
+            preFillCalls++;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    // No retry: the page was never reloaded and the turn failed via fast-fail.
+    expect(reloaded).toBe(false);
+    expect(preFillCalls).toBe(1);
+    expect(result.turns_completed).toBe(0);
+    expect(result.failure_turn).toBe(1);
+    // The distinguished banner fast-fail error propagated (NOT a settle
+    // timeout, NOT a false-settle).
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error).toContain("cold start: backend warming up");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // A SINGLE fast-fail cycle (no second attempt) — well under the timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+  }, 20_000);
+
+  it("cold-start retry shares a single turn deadline — a retried turn does NOT run ~2× the budget (FF20)", async () => {
+    // Flap-band #71/FF20. The first settle wait and the retry settle wait must
+    // share ONE turn deadline. Without it the retry gets a fresh full
+    // `turnTimeoutMs`, so a turn that fast-fails then settle-times-out on retry
+    // burns ~2× the budget. Here the banner fast-fails attempt 1, the reload
+    // succeeds, then the assistant NEVER responds so the retry settle-times-out.
+    // With the shared deadline the total stays close to ONE turnTimeoutMs.
+    const TURN_TIMEOUT = 1000;
+    let reloaded = false;
+    let bannerReads = 0;
+    let userCalls = 0;
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async reload() {
+        reloaded = true;
+        bannerReads = 0;
+        userCalls = 0;
+      },
+      async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          bannerReads++;
+          // Fresh sustained banner on attempt 1 → fast-fail. After the reload
+          // the banner is gone (so the retry does NOT fast-fail; it instead
+          // burns the remaining budget waiting for a response that never comes).
+          if (reloaded) return { visible: false } as never;
+          if (bannerReads <= 1) return { visible: false } as never;
+          return { visible: true, text: "cold start" } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          return userCalls++ as never;
+        }
+        // Assistant never responds → the retry settle-times-out.
+        if (isReadCascadeStateBody(body)) {
+          return cascadeStateOf(0, (arg as number) ?? 0) as never;
+        }
+        return 0 as never;
+      },
+    };
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "deadline test", responseTimeoutMs: TURN_TIMEOUT }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(reloaded).toBe(true);
+    // Turn failed (assistant never settled), but the KEY assertion: the retry
+    // shared the turn deadline, so total elapsed is ~1× the budget, not ~2×.
+    expect(result.failure_turn).toBe(1);
+    // Shared deadline: total ≈ 1× budget + the small retry floor + send-verify
+    // overhead, comfortably under the OLD ~2× (two fresh full budgets would be
+    // ≥ 2000ms here).
+    expect(elapsed).toBeLessThan(TURN_TIMEOUT * 1.8);
+  }, 20_000);
+
+  it("cold-start retry: settle floor honours settleMs so the retry does NOT misclassify as text-unstable (R8F1)", async () => {
+    // R8F1 Concern A. The cold-start retry's `timeoutMs` is
+    // `Math.max(floor, turnDeadline - Date.now())`. The OLD floor
+    // (`3 * POLL_INTERVAL_MS` = 300ms) was strictly less than the default
+    // `assistantSettleMs` (1500ms), so when the first attempt nearly
+    // exhausted the budget the retry would enter `waitForTurnComplete` with
+    // `timeoutMs=300, settleMs=1500` — a MATHEMATICALLY IMPOSSIBLE gate
+    // (the loop must hold text stable for `settleMs` but times out before
+    // any settle window can complete). Every retry under exhausted budget
+    // was GUARANTEED to misclassify as `reason=text-unstable`, hiding the
+    // real cause (budget exhausted) and — in the assistant-recovers case —
+    // failing a turn that would have succeeded with a real settle window.
+    //
+    // With the new floor (`settleMs + POLL_INTERVAL_MS`) the retry gets a
+    // real settle window even when the first attempt exhausted the budget,
+    // so an assistant that responds promptly post-reload can SUCCEED.
+    const TURN_TIMEOUT = 500;
+    const SETTLE_MS = 400; // > 3 * POLL_INTERVAL_MS (300) — under the OLD floor the gate would be impossible
+    let reloaded = false;
+    let bannerReads = 0;
+    let userCalls = 0;
+    let assistantCount = 0;
+    let pollsSinceReload = 0;
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page: Page & { reload: () => Promise<void> } = {
+      async waitForSelector() {},
+      async fill(_selector, value) {
+        recorded.fills.push(value);
+      },
+      async press(_selector, key) {
+        recorded.presses.push(key);
+      },
+      async reload() {
+        reloaded = true;
+        // Burn most of the first attempt's budget BEFORE reload completes
+        // so the retry inherits a tiny remaining slice of the turn deadline.
+        // This is what the OLD floor failed to compensate for.
+        await new Promise((r) => setTimeout(r, TURN_TIMEOUT));
+        bannerReads = 0;
+        userCalls = 0;
+        assistantCount = 0;
+        pollsSinceReload = 0;
+      },
+      async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+        const body = fn.toString();
+        if (body.includes("copilot-error-banner")) {
+          bannerReads++;
+          // First attempt: a banner is visible across ≥2 polls → fast-fail.
+          // Post-reload: banner is gone (the cold-start condition cleared).
+          if (reloaded) return { visible: false } as never;
+          if (bannerReads <= 1) return { visible: false } as never;
+          return { visible: true, text: "cold start" } as never;
+        }
+        if (body.includes("copilot-user-message")) {
+          return userCalls++ as never;
+        }
+        if (body.includes("__hk_runsFinished")) {
+          return assistantCount as never;
+        }
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          // Post-reload: grow to 1 on the first cascade read then hold
+          // stable so the retry's settle gate has time to converge under
+          // the NEW floor (settleMs + POLL_INTERVAL_MS = 500ms).
+          if (reloaded) {
+            pollsSinceReload++;
+            if (pollsSinceReload >= 1) assistantCount = 1;
+          }
+          return cascadeStateOf(assistantCount, (arg as number) ?? 0) as never;
+        }
+        if (body.includes("querySelectorAll") && body.includes("textContent")) {
+          const idx = (arg as number) ?? 0;
+          if (idx < 0 || idx >= assistantCount) return null as never;
+          return `assistant-bubble-text-${assistantCount}` as never;
+        }
+        return 0 as never;
+      },
+    };
+
+    const result = await runConversation(
+      page,
+      [{ input: "cold-then-recovers", responseTimeoutMs: TURN_TIMEOUT }],
+      { assistantSettleMs: SETTLE_MS },
+    );
+
+    // The page WAS reloaded (cold-start retry fired) AND the turn
+    // RECOVERED on the retry — proving the floor honoured `settleMs` so
+    // the post-reload assistant had a real chance to settle. Under the
+    // OLD 300ms floor with settleMs=400, the retry would have been
+    // mathematically unable to complete a settle window and the turn
+    // would have failed with `reason=text-unstable`.
+    expect(reloaded).toBe(true);
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.error).toBeUndefined();
+    expect(result.turns_completed).toBe(1);
+    // The fill was issued twice — original + retry — proving the bounded
+    // retry executed and re-sent.
+    expect(recorded.fills).toEqual([
+      "cold-then-recovers",
+      "cold-then-recovers",
+    ]);
+  }, 20_000);
+
+  it("cold-start retry null-narrowing guard throws translatedErr (AssistantErroredError), not settleErr (R8F1 — source pin)", async () => {
+    // R8F1 Concern B. The null-narrowing guard in the cold-start retry
+    // path is entered specifically because
+    // `translatedErr instanceof AssistantErroredError`. The OLD code
+    // threw `settleErr` (the original `TurnNotCompleteError` or
+    // `BannerVisibleError`) instead of `translatedErr` — losing the
+    // distinguished error class that downstream consumers (and PR #5142's
+    // fast-fail surface) pin on. The fix throws `translatedErr` so the
+    // AssistantErroredError surface is preserved on this fail-loud path.
+    //
+    // The branch is structurally unreachable via the public API today
+    // (`resolveChatInputSelector` throws rather than returns `null`, and
+    // the per-turn resolve at the top of the try block always runs before
+    // a turn enters the fast-fail catch). The guard is defensive against
+    // a future refactor that ever lets `chatInputSelector` reach the
+    // retry path as `null`. Pin the contract at the SOURCE level: assert
+    // the file contains the corrected `throw translatedErr;` inside the
+    // null-narrowing block and does NOT contain the regressed
+    // `throw settleErr;` form. A regression that swaps the two would fail
+    // this test even though the runtime branch is dead code today.
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const sourcePath = fileURLToPath(
+      new URL("./conversation-runner.ts", import.meta.url),
+    );
+    const source = readFileSync(sourcePath, "utf8");
+
+    // Locate the null-narrowing guard block. The block is uniquely
+    // identified by the `chatInputSelector === null` check inside the
+    // retry path. Extract the next non-whitespace statement after that
+    // check — it MUST be `throw translatedErr;`.
+    const guardMatch = source.match(
+      /if \(chatInputSelector === null\) \{\s*throw (\w+);/,
+    );
+    expect(guardMatch).not.toBeNull();
+    expect(guardMatch![1]).toBe("translatedErr");
+    expect(guardMatch![1]).not.toBe("settleErr");
+
+    // Belt-and-suspenders: scan the whole file for any remaining
+    // `throw settleErr;` — the only place `settleErr` ever flowed was
+    // this guard, so its absence proves the regression cannot resurface
+    // by accident.
+    expect(source).not.toMatch(/throw\s+settleErr\s*;/);
   });
 
   it("empty turns array: returns zeroes immediately", async () => {
@@ -290,6 +1487,69 @@ describe("runConversation", () => {
     expect(result.error).toBeUndefined();
     expect(result.turn_durations_ms).toEqual([]);
   });
+
+  it("RE-ARMS fast-fail when two banners share a 300-char prefix but differ after char 300 (truncation false-negative)", async () => {
+    // Finding 1 (truncation false-negative): a stale baseline banner and a
+    // NEW error banner can share an identical 300-char prefix (e.g. the same
+    // human-readable error copy) and differ only in a trailing suffix (a
+    // request-id, a timestamp, a distinct error code). If banner text is
+    // truncated to 300 chars BEFORE the `textChanged` comparison, the two
+    // distinct errors compare EQUAL → no fast-fail → the turn burns the full
+    // responseTimeout. The fix compares the FULL banner text, so a difference
+    // past char 300 still re-arms the fast-fail.
+    const prefix300 = "ERR " + "A".repeat(300 - 4); // exactly 300 chars
+    expect(prefix300.length).toBe(300);
+    const baselineText = prefix300 + "AAA"; // 303 chars
+    const newErrorText = prefix300 + "BBB"; // 303 chars, same first 300
+    // Sanity: the two differ ONLY after char 300.
+    expect(baselineText.slice(0, 300)).toBe(newErrorText.slice(0, 300));
+    expect(baselineText).not.toBe(newErrorText);
+
+    const recorded = { fills: [] as string[], presses: [] as string[] };
+    const page = makePage({
+      // Assistant count never grows past baseline (no new message arrives).
+      evaluateValues: [0],
+      // Banner visible at baseline with `baselineText` (stale), then its text
+      // changes to `newErrorText` mid-settle — differing only past char 300.
+      errorBannerValues: [
+        { visible: true, text: baselineText },
+        { visible: true, text: baselineText },
+        { visible: true, text: newErrorText },
+      ],
+      // Turn 1 → the bounded cold-start retry fires; re-seeded queues replay
+      // the same prefix-collision sequence so the 2nd attempt re-arms on the
+      // full-text comparison and fast-fails again. The truncation-false-negative
+      // fix stays intact across the retry.
+      reloadReplaysQueues: true,
+      recorded,
+    });
+
+    const start = Date.now();
+    const result = await runConversation(
+      page,
+      [{ input: "trigger suffix-only error", responseTimeoutMs: 5000 }],
+      { assistantSettleMs: 50 },
+    );
+    const elapsed = Date.now() - start;
+
+    expect(result.turns_completed).toBe(0);
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toBeDefined();
+    // Fast-failed on the NEW error (differs only past char 300) — proves the
+    // comparison used the FULL text, not a 300-char truncation.
+    expect(result.error).toContain("copilot-error-banner visible");
+    expect(result.error!.toLowerCase()).not.toContain("timeout");
+    // The thrown message is truncated for log hygiene, so it carries the
+    // shared prefix; the distinguishing suffix may be elided. What matters is
+    // that we fast-failed at all (timeout would mean the bug reproduced).
+    expect(result.error).toContain(prefix300.slice(0, 50));
+    // Bailed well before the 5000ms responseTimeout — the whole point. The
+    // bounded cold-start retry adds a 2nd fast-fail cycle, so the bound is
+    // 3000ms (two cycles), still far under the 5000ms settle timeout.
+    expect(elapsed).toBeLessThan(3000);
+    expect(result.turn_durations_ms).toHaveLength(0);
+    // Real multi-poll settle loop; explicit timeout for CI headroom.
+  }, 20_000);
 
   it("falls through the chat-input selectors and uses the first that resolves", async () => {
     // Track which selectors were tried. The first that doesn't throw wins.
@@ -463,23 +1723,35 @@ describe("runConversation", () => {
 
   it("survives transient evaluate() errors (caught + treated as count=0)", async () => {
     // page.evaluate throws on the very first read (baseline) but recovers
-    // on subsequent reads. The runner's readMessageCount catch returns 0
-    // on error so the baseline becomes 0 and the turn still settles when
-    // the count grows.
+    // on subsequent reads. The runner's `countAssistantMessages` swallows
+    // evaluate errors and returns 0 so the baseline becomes 0 and the turn
+    // still settles when the count grows.
     let assistantCalls = 0;
     let userCalls = 0;
     const page: Page = {
       async waitForSelector() {},
       async fill() {},
       async press() {},
-      async evaluate(fn) {
+      async evaluate(fn, ...rest: unknown[]) {
+        const body = fn.toString();
         // User-message reads return a monotonically increasing count
         // so fillAndVerifySend sees growth and doesn't retry.
-        if (fn.toString().includes("copilot-user-message")) {
+        if (body.includes("copilot-user-message")) {
           return userCalls++ as never;
+        }
+        // Error-banner visibility probe: return the runner-expected
+        // `{ visible: false }` shape (mirrors `wrapEvaluateForUserMessages`).
+        // Without this branch the read fell through to the assistant-count
+        // path and returned a NUMBER — the no-banner path only "passed" by
+        // the accident that `(number).visible` is `undefined` (falsy).
+        if (body.includes("copilot-error-banner")) {
+          return { visible: false } as never;
         }
         assistantCalls++;
         if (assistantCalls === 1) throw new Error("evaluate boom");
+        if (isReadCascadeStateBody(body)) {
+          return cascadeStateOf(1, (rest[0] as number) ?? 0) as never;
+        }
         return 1 as never;
       },
     };
@@ -498,33 +1770,65 @@ describe("runConversation", () => {
     // count from 0 to 2 across consecutive evaluate() invocations.
     const queriedSelectors: string[] = [];
     let evalCount = 0;
+    // A minimal `NodeList`-shaped object: `length` for the cascade-tier
+    // selector (count read) AND `item(idx)` returning a synthetic bubble
+    // for the atomic `readCascadeState` closure's per-tier text read.
+    // The synthetic bubble's `querySelector` resolves the first scoped
+    // selector to a non-empty `textContent` so the settle gate's
+    // text-stable conjunct fires once the count grows past baseline.
+    const matchList = (
+      length: number,
+    ): {
+      length: number;
+      item: (i: number) => {
+        textContent: string;
+        querySelector: (s: string) => { textContent: string } | null;
+      } | null;
+    } => ({
+      length,
+      item(i: number) {
+        if (i < 0 || i >= length) return null;
+        return {
+          textContent: `bubble-${i}`,
+          querySelector(_s: string) {
+            return { textContent: `bubble-${i}` };
+          },
+        };
+      },
+    });
     const fakeDocument = {
-      querySelectorAll: (sel: string): { length: number } => {
+      querySelectorAll: (sel: string) => {
         queriedSelectors.push(sel);
         // Canonical testid: 0 (forces fallback path).
         if (sel === '[data-testid="copilot-assistant-message"]') {
-          return { length: 0 };
+          return matchList(0);
         }
         // Tagged-assistant articles: 0 (forces narrowed-article path).
         if (sel === '[role="article"][data-message-role="assistant"]') {
-          return { length: 0 };
+          return matchList(0);
         }
         // Narrowed-article selector excludes user-tagged articles.
         // First call (baseline) → 0; subsequent calls → 2 (settled).
         if (sel === '[role="article"]:not([data-message-role="user"])') {
-          return { length: evalCount === 0 ? 0 : 2 };
+          return matchList(evalCount === 0 ? 0 : 2);
         }
         // Headless tier: present in cascade for custom-composer demos
         // (e.g. headless-simple) that don't use [role="article"].
         // Returns 0 here so the narrowed-article tier is the one that
         // actually drives the settle loop.
         if (sel === '[data-message-role="assistant"]') {
-          return { length: 0 };
+          return matchList(0);
         }
         // ANY other [role="article"] selector means we leaked the
         // unscoped fallback that this fix was supposed to remove.
-        return { length: 999 };
+        return matchList(999);
       },
+      // The error-banner probe (readErrorBanner) calls
+      // document.querySelector — returning null exercises the genuine
+      // "no banner" path. Without this the call throws a TypeError that
+      // readErrorBanner silently swallows, so the probe was never really
+      // tested here.
+      querySelector: (): null => null,
     };
 
     let userMsgCalls1 = 0;
@@ -538,17 +1842,37 @@ describe("runConversation", () => {
         if (fn.toString().includes("copilot-user-message")) {
           return userMsgCalls1++ as never;
         }
+        // The SSE run-finished counter (`window.__hk_runsFinished`) is
+        // read by `waitForTurnComplete`'s SSE conjunct. The bare-document
+        // fake doesn't seed that global, so without an explicit branch the
+        // SSE check returns 0 forever and the turn times out. Mirror
+        // `makePage`'s synthesis rule: once the assistant DOM has any
+        // bubbles, the server must have flushed at least that many
+        // RUN_FINISHED events. Use the narrowed-article post-baseline
+        // count (2) once the test has stepped past its baseline read.
+        if (fn.toString().includes("__hk_runsFinished")) {
+          return (evalCount === 0 ? 0 : 2) as never;
+        }
         // Patch globalThis.document with our fake for the duration
         // of the evaluate call. The selector-fn closes over
         // globalThis at runtime, mirroring the browser-side execution.
+        // Also stub getComputedStyle so the error-banner probe runs its
+        // real code path (returning a visible style) instead of throwing
+        // a swallowed TypeError on the missing global.
         const originalDoc = (globalThis as { document?: unknown }).document;
+        const originalGCS = (globalThis as { getComputedStyle?: unknown })
+          .getComputedStyle;
         (globalThis as { document?: unknown }).document = fakeDocument;
+        (globalThis as { getComputedStyle?: unknown }).getComputedStyle =
+          (() => ({ display: "block", visibility: "visible" })) as unknown;
         try {
           const r = fn();
           evalCount++;
           return r as never;
         } finally {
           (globalThis as { document?: unknown }).document = originalDoc;
+          (globalThis as { getComputedStyle?: unknown }).getComputedStyle =
+            originalGCS;
         }
       },
     };
@@ -578,17 +1902,44 @@ describe("runConversation", () => {
     // tagged.length > 0 short-circuits the function.
     const queriedSelectors: string[] = [];
     let evalCount = 0;
+    // See sibling test above for `matchList` rationale — provides
+    // both `length` AND `item(idx)` so the atomic `readCascadeState`
+    // closure can read per-tier scoped text in the same call.
+    const matchList = (
+      length: number,
+    ): {
+      length: number;
+      item: (i: number) => {
+        textContent: string;
+        querySelector: (s: string) => { textContent: string } | null;
+      } | null;
+    } => ({
+      length,
+      item(i: number) {
+        if (i < 0 || i >= length) return null;
+        return {
+          textContent: `bubble-${i}`,
+          querySelector(_s: string) {
+            return { textContent: `bubble-${i}` };
+          },
+        };
+      },
+    });
     const fakeDocument = {
-      querySelectorAll: (sel: string): { length: number } => {
+      querySelectorAll: (sel: string) => {
         queriedSelectors.push(sel);
         if (sel === '[data-testid="copilot-assistant-message"]') {
-          return { length: 0 };
+          return matchList(0);
         }
         if (sel === '[role="article"][data-message-role="assistant"]') {
-          return { length: evalCount === 0 ? 1 : 2 };
+          return matchList(evalCount === 0 ? 1 : 2);
         }
-        return { length: 999 };
+        return matchList(999);
       },
+      // The error-banner probe (readErrorBanner) calls
+      // document.querySelector — returning null exercises the genuine
+      // "no banner" path instead of a swallowed TypeError.
+      querySelector: (): null => null,
     };
 
     let userMsgCalls2 = 0;
@@ -601,14 +1952,30 @@ describe("runConversation", () => {
         if (fn.toString().includes("copilot-user-message")) {
           return userMsgCalls2++ as never;
         }
+        // Seed the SSE run-finished counter for the same reason as the
+        // sibling narrowed-fallback test — `waitForTurnComplete`'s SSE
+        // conjunct must converge or the turn times out. Tagged-assistant
+        // count is 1 at baseline and 2 thereafter, so any post-baseline
+        // poll has at least 2 RUN_FINISHED equivalents.
+        if (fn.toString().includes("__hk_runsFinished")) {
+          return (evalCount === 0 ? 1 : 2) as never;
+        }
+        // Patch document + getComputedStyle so the error-banner probe
+        // runs its real "no banner" path (see the narrowing test above).
         const originalDoc = (globalThis as { document?: unknown }).document;
+        const originalGCS = (globalThis as { getComputedStyle?: unknown })
+          .getComputedStyle;
         (globalThis as { document?: unknown }).document = fakeDocument;
+        (globalThis as { getComputedStyle?: unknown }).getComputedStyle =
+          (() => ({ display: "block", visibility: "visible" })) as unknown;
         try {
           const r = fn();
           evalCount++;
           return r as never;
         } finally {
           (globalThis as { document?: unknown }).document = originalDoc;
+          (globalThis as { getComputedStyle?: unknown }).getComputedStyle =
+            originalGCS;
         }
       },
     };
@@ -728,6 +2095,73 @@ describe("runConversation", () => {
     expect(result.error).toBeUndefined();
     expect(recorded.fills).toEqual(["hello"]);
     expect(recorded.presses).toEqual(["Enter"]);
+  });
+
+  it("preFill mounts the chat input — resolution is deferred past preFill (auth-shape regression)", async () => {
+    // Idiomatic auth demos (langgraph-python) render a SignInCard until
+    // the user clicks "Sign in with demo token". The chat input only
+    // mounts AFTER that click, which preFill performs. Before this
+    // ordering fix, runConversation resolved the input cascade up
+    // front and timed out before preFill ever ran. This test pins the
+    // post-fix invariant: cascade probe throws while unmounted,
+    // preFill makes it visible, the runner then resolves and proceeds.
+    let chatMounted = false;
+    let assistantCalls = 0;
+    const order: string[] = [];
+    const page: Page = {
+      async waitForSelector(selector) {
+        order.push(`waitForSelector:${selector}`);
+        if (!chatMounted) {
+          throw new Error(`no match for ${selector}`);
+        }
+      },
+      async fill(_selector, value) {
+        order.push(`fill:${value}`);
+      },
+      async press() {
+        order.push("press");
+      },
+      evaluate: wrapEvaluateForUserMessages(async () => {
+        // Baseline read returns 0; subsequent assistant reads return
+        // 1 so the message-count growth check settles.
+        assistantCalls += 1;
+        return (assistantCalls === 1 ? 0 : 1) as never;
+      }),
+    };
+
+    const turns: ConversationTurn[] = [
+      {
+        input: "hello",
+        preFill: async () => {
+          order.push("preFill:click-sign-in");
+          chatMounted = true;
+        },
+      },
+    ];
+
+    const result = await runConversation(page, turns, {
+      assistantSettleMs: 30,
+    });
+
+    expect(result.turns_completed).toBe(1);
+    expect(result.failure_turn).toBeUndefined();
+    // The runner probes the chat-input cascade at BOOT (before preFill
+    // runs), expecting it to fail when the chat tree hasn't mounted yet
+    // (the auth shape). When boot probing fails the runner defers to
+    // post-preFill resolution — preFill runs, mounts the chat, and the
+    // cascade succeeds on retry. What matters: preFill runs, AT LEAST
+    // ONE post-preFill waitForSelector resolves (proving the cascade
+    // recovered), AND the conversation completes turn 1 cleanly.
+    // (We do NOT assert "no waitForSelector before preFill" — the boot
+    // probe is intentional and the failure is handled gracefully.)
+    const preFillIdx = order.indexOf("preFill:click-sign-in");
+    expect(preFillIdx).toBeGreaterThanOrEqual(0);
+    // Some waitForSelector call must run AFTER preFill — that's the
+    // cascade retry that resolves once the chat input mounted.
+    const postPreFillWait = order
+      .slice(preFillIdx + 1)
+      .find((s) => s.startsWith("waitForSelector:"));
+    expect(postPreFillWait).toBeDefined();
   });
 
   it("stringifies non-Error throws (e.g. a thrown string) into result.error", async () => {
@@ -949,7 +2383,9 @@ describe("skipFill turns", () => {
     // Turn 1 Enter (from waitForContentAndSend) + Turn 2 Enter
     // (from fillAndVerifySend).
     expect(recorded.presses).toEqual(["Enter", "Enter"]);
-  });
+    // Drives 2 turns through real settle polling (~1.6s locally); explicit
+    // timeout for CI headroom.
+  }, 20_000);
 
   it("skipFill turn times out when textarea stays empty", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
@@ -1061,5 +2497,81 @@ describe("waitForContentAndSend", () => {
     await waitForContentAndSend(page, "textarea", 5000);
 
     expect(recorded.presses).toEqual(["Enter"]);
+  });
+});
+
+describe("readErrorBanner shape handling", () => {
+  /**
+   * Build a minimal `Page` whose `evaluate` returns a scripted value
+   * regardless of what the production reader actually queries. Used to
+   * smuggle "unknown shape" / "legacy shape" / "primitive" return values
+   * into `readErrorBanner` so we can assert how each branch classifies
+   * the raw value coming back from the browser side.
+   */
+  function pageReturning(raw: unknown): Page {
+    return {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(_fn: () => unknown) {
+        return raw as never;
+      },
+    };
+  }
+
+  it("maps an unknown object shape to unreadable (not absent)", async () => {
+    const result = await readErrorBanner(pageReturning({ foo: "bar" }));
+    expect(result.state).toBe("unreadable");
+    if (result.state === "unreadable") {
+      expect(result.detail.length).toBeGreaterThan(0);
+      expect(result.detail).toContain("unknown shape");
+    }
+  });
+
+  it("maps a non-object primitive return to unreadable", async () => {
+    const result = await readErrorBanner(pageReturning("not an object at all"));
+    expect(result.state).toBe("unreadable");
+    if (result.state === "unreadable") {
+      expect(result.detail.length).toBeGreaterThan(0);
+      expect(result.detail).toContain("unknown shape");
+    }
+  });
+
+  it("maps null return to unreadable", async () => {
+    const result = await readErrorBanner(pageReturning(null));
+    expect(result.state).toBe("unreadable");
+    if (result.state === "unreadable") {
+      expect(result.detail.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("caps detail at <= 200 chars even for objects with many keys", async () => {
+    const fat: Record<string, unknown> = {};
+    for (let i = 0; i < 200; i++) fat[`key_${i}`] = i;
+    const result = await readErrorBanner(pageReturning(fat));
+    expect(result.state).toBe("unreadable");
+    if (result.state === "unreadable") {
+      expect(result.detail.length).toBeLessThanOrEqual(200);
+    }
+  });
+
+  it("still honours the new {state:'absent'} shape", async () => {
+    const result = await readErrorBanner(pageReturning({ state: "absent" }));
+    expect(result.state).toBe("absent");
+  });
+
+  it("still honours the legacy {visible:false} shape", async () => {
+    const result = await readErrorBanner(pageReturning({ visible: false }));
+    expect(result.state).toBe("absent");
+  });
+
+  it("still honours the legacy {visible:true,text} shape", async () => {
+    const result = await readErrorBanner(
+      pageReturning({ visible: true, text: "boom" }),
+    );
+    expect(result.state).toBe("visible");
+    if (result.state === "visible") {
+      expect(result.text).toBe("boom");
+    }
   });
 });

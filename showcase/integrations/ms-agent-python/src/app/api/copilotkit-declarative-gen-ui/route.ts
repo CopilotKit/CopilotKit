@@ -9,7 +9,8 @@
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts
 // - src/agents/a2ui_dynamic.py (backend agent, mounted at `/a2ui_dynamic`)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -38,7 +39,10 @@ const runtime = new CopilotRuntime({
     // to emit — and it still detects the `a2ui_operations` container in
     // the tool result and streams rendered surfaces to the frontend.
     injectA2UITool: false,
-    openGenerativeUI: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

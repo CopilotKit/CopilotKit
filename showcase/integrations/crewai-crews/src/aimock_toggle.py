@@ -123,9 +123,7 @@ class AimockReport(TypedDict):
     key_source: NotRequired[Literal["existing", "dummy"]]
 
 
-_EnvClassification = Literal[
-    "missing", "blank", "truthy", "falsy", "unknown"
-]
+_EnvClassification = Literal["missing", "blank", "truthy", "falsy", "unknown"]
 
 
 def _classify(value: Optional[str]) -> _EnvClassification:
@@ -216,9 +214,7 @@ def configure_aimock(
         # differs so the error message can point at the right fix
         # (set the var vs fix the existing value).
         url_state = (
-            "unset"
-            if aimock_url_class == "missing"
-            else "empty or whitespace-only"
+            "unset" if aimock_url_class == "missing" else "empty or whitespace-only"
         )
         if use_aimock_class == "truthy":
             logger.warning(

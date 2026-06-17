@@ -5,13 +5,14 @@ Backs the three tool-rendering cells:
   - tool-rendering-default-catchall  (no frontend renderers)
   - tool-rendering-custom-catchall   (wildcard renderer on frontend)
   - tool-rendering                   (per-tool + catch-all on frontend)
-  - tool-rendering-reasoning-chain   (testing — also streams reasoning)
 
-All cells share this backend — they differ only in how the frontend
-renders the same tool calls. Kept separate from `main.py` so the
-tool-rendering demo has a tightly-scoped tool set.
+All three share this backend — they differ only in how the frontend
+renders the same tool calls. The `tool-rendering-reasoning-chain` cell
+has its own agent (`tool_rendering_reasoning_chain_agent.py`) because
+it routes through the OpenAI Responses API for reasoning streaming.
 """
 
+# @region[weather-tool-backend]
 from random import choice, randint
 
 from langchain.agents import create_agent
@@ -19,47 +20,27 @@ from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
-# Multi-tool chaining prompt.
+# Multi-tool-per-question prompt.
 #
-# The goal of this demo is to surface MULTIPLE tool-call cards per turn so
-# the rendering patterns (per-tool + catch-all) get exercised visibly. The
-# prompt nudges the model toward an explore-then-enrich pattern (e.g.
-# `get_weather("Tokyo")` -> `search_flights(..., "Tokyo")`) without forcing
-# a rigid recipe: we describe the *habit*, not a chain.
+# This backend serves the tool-rendering demos, whose JOB is to show the
+# rendering patterns (per-tool, catch-all, default fallback). The agent
+# may call multiple tools per turn when the user asks for them. The
+# `roll_d20` tool accepts a deterministic `value` parameter so the
+# aimock fixtures can script the exact dice sequence the e2e tests
+# assert against.
 SYSTEM_PROMPT = (
-    "You are a helpful travel & lifestyle concierge. You have mock tools "
-    "for weather, flights, stock prices, and dice rolls - they all return "
-    "fake data, so call them liberally.\n\n"
-    "Your habit is to CHAIN tools when one answer naturally invites another. "
-    "For a single user question, call at least TWO tools in succession when "
-    "the topic allows before composing your final reply. Examples of "
-    "helpful chains you should default to:\n"
-    "  - 'What's the weather in Tokyo?' -> call get_weather('Tokyo'), then "
-    "call search_flights(origin='SFO', destination='Tokyo') so the user "
-    "also sees how to get there.\n"
-    "  - 'How is AAPL doing?' -> call get_stock_price('AAPL'), then call "
-    "get_stock_price on a related ticker (e.g. 'MSFT' or 'GOOGL') for "
-    "comparison.\n"
-    "  - 'Roll a d20' -> call roll_dice(20), then call roll_dice again with "
-    "a different number of sides so the user sees a contrast.\n"
-    "  - 'Find flights from SFO to JFK' -> call search_flights, then call "
-    "get_weather on the destination city.\n\n"
-    "Only skip chaining when the user has clearly asked for a single, "
-    "atomic answer and more tool calls would feel intrusive. Never "
-    "fabricate data that a tool could provide."
+    "You are a travel & lifestyle concierge. Use the mock tools for "
+    "weather, flights, stock prices, or d20 rolls when the user asks; "
+    "otherwise reply in plain text. For flights, default origin to 'SFO' "
+    "if the user only names a destination. Call multiple tools in one "
+    "turn if asked. After tools return, summarize in one short sentence. "
+    "Never fabricate data a tool could provide."
 )
 
 
-# @region[weather-tool-backend]
 @tool
 def get_weather(location: str) -> dict:
-    """Get the current weather for a given location.
-
-    Useful on its own for weather questions, and a great companion to
-    `search_flights` - always consider checking the weather at a
-    destination the user is flying to, and checking flights to any
-    city whose weather the user has just asked about.
-    """
+    """Get the current weather for a given location."""
     return {
         "city": location,
         "temperature": 68,
@@ -67,18 +48,14 @@ def get_weather(location: str) -> dict:
         "wind_speed": 10,
         "conditions": "Sunny",
     }
+
+
 # @endregion[weather-tool-backend]
 
 
 @tool
 def search_flights(origin: str, destination: str) -> dict:
-    """Search mock flights from an origin airport to a destination airport.
-
-    Pairs naturally with `get_weather`: after searching flights, check
-    the weather at the destination so the user can plan. When the user
-    mentions a city without a matching origin, default the origin to
-    'SFO'.
-    """
+    """Search mock flights from an origin airport to a destination airport."""
     return {
         "origin": origin,
         "destination": destination,
@@ -109,36 +86,52 @@ def search_flights(origin: str, destination: str) -> dict:
 
 
 @tool
-def get_stock_price(ticker: str) -> dict:
+def get_stock_price(
+    ticker: str,
+    price_usd: float | None = None,
+    change_pct: float | None = None,
+) -> dict:
     """Get a mock current price for a stock ticker.
 
-    When the user asks about a single ticker, consider also pulling a
-    related ticker for context (e.g. if they ask about 'AAPL', also
-    fetch 'MSFT' or 'GOOGL' so the reply can compare).
+    The optional `price_usd` and `change_pct` arguments let the LLM (or
+    aimock fixture) script a deterministic ticker quote for testing —
+    when supplied, the tool echoes them back verbatim. When omitted (or
+    `None`), the tool returns mock random values. Mirrors the
+    deterministic-`value` pattern on `roll_d20`.
     """
     return {
         "ticker": ticker.upper(),
-        "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-        "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+        "price_usd": (
+            round(float(price_usd), 2)
+            if price_usd is not None
+            else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+        ),
+        "change_pct": (
+            round(float(change_pct), 2)
+            if change_pct is not None
+            else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+        ),
     }
 
 
 @tool
-def roll_dice(sides: int = 6) -> dict:
-    """Roll a single die with the given number of sides.
+def roll_d20(value: int = 0) -> dict:
+    """Roll a 20-sided die.
 
-    When the user asks for a roll, consider rolling twice with different
-    numbers of sides so the reply can show a contrast (e.g. a d6 AND a
-    d20).
+    The `value` argument lets the LLM (or aimock fixture) script a
+    deterministic roll for testing — the tool simply echoes it back as
+    the result. When called without `value` (or with 0), the tool
+    returns a random natural d20 roll.
     """
-    return {"sides": sides, "result": randint(1, max(2, sides))}
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
+    return {"sides": 20, "value": rolled, "result": rolled}
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5.4")
 
 graph = create_agent(
     model=model,
-    tools=[get_weather, search_flights, get_stock_price, roll_dice],
+    tools=[get_weather, search_flights, get_stock_price, roll_d20],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

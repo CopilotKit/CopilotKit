@@ -86,7 +86,11 @@ def _normalize_state(raw: Any) -> dict[str, Any]:
 
     prefs = raw.get("preferences") if isinstance(raw.get("preferences"), dict) else {}
     notes_raw = raw.get("notes")
-    notes = [n for n in notes_raw if isinstance(n, str)] if isinstance(notes_raw, list) else []
+    notes = (
+        [n for n in notes_raw if isinstance(n, str)]
+        if isinstance(notes_raw, list)
+        else []
+    )
     return {"preferences": prefs, "notes": notes}
 
 
@@ -243,11 +247,13 @@ def _agui_messages_to_openai(
             if isinstance(msg, dict):
                 content = content or msg.get("content", "")
             if tool_call_id:
-                oai_msgs.append({
-                    "role": "tool",
-                    "tool_call_id": str(tool_call_id),
-                    "content": str(content),
-                })
+                oai_msgs.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": str(tool_call_id),
+                        "content": str(content),
+                    }
+                )
             continue
 
         if role == "assistant":
@@ -274,14 +280,16 @@ def _agui_messages_to_openai(
                         fn_name = getattr(fn, "name", "") if fn else ""
                         fn_args = getattr(fn, "arguments", "") if fn else ""
                     if tc_id and fn_name:
-                        oai_tcs.append({
-                            "id": str(tc_id),
-                            "type": "function",
-                            "function": {
-                                "name": str(fn_name),
-                                "arguments": str(fn_args),
-                            },
-                        })
+                        oai_tcs.append(
+                            {
+                                "id": str(tc_id),
+                                "type": "function",
+                                "function": {
+                                    "name": str(fn_name),
+                                    "arguments": str(fn_args),
+                                },
+                            }
+                        )
                 if oai_tcs:
                     oai_msg["tool_calls"] = oai_tcs
                     if "content" not in oai_msg:
@@ -297,10 +305,12 @@ def _agui_messages_to_openai(
             if isinstance(msg, dict):
                 content = content or msg.get("content")
             if content is not None:
-                oai_msgs.append({
-                    "role": role,
-                    "content": str(content),
-                })
+                oai_msgs.append(
+                    {
+                        "role": role,
+                        "content": str(content),
+                    }
+                )
             continue
 
     return oai_msgs
@@ -382,9 +392,7 @@ async def handle_run(request: Request) -> StreamingResponse:
         system_message = f"{_SYSTEM_PROMPT}\n\n{prefs_msg}"
 
     # Build OpenAI-format messages from the AG-UI message history.
-    oai_messages = _agui_messages_to_openai(
-        run_input.messages or [], system_message
-    )
+    oai_messages = _agui_messages_to_openai(run_input.messages or [], system_message)
     thread_id = run_input.thread_id or str(uuid.uuid4())
 
     async def event_stream() -> AsyncGenerator[str, None]:
@@ -410,13 +418,9 @@ async def handle_run(request: Request) -> StreamingResponse:
         )
 
         try:
-            response = await _call_openai(
-                oai_messages, [_SET_NOTES_TOOL_SPEC]
-            )
+            response = await _call_openai(oai_messages, [_SET_NOTES_TOOL_SPEC])
         except Exception as exc:  # noqa: BLE001 — surface as RunError + finish
-            logger.exception(
-                "shared-state-read-write: _call_openai failed"
-            )
+            logger.exception("shared-state-read-write: _call_openai failed")
             yield _sse_line(
                 RunErrorEvent(
                     type=EventType.RUN_ERROR,
@@ -482,10 +486,13 @@ async def handle_run(request: Request) -> StreamingResponse:
             # This mirrors LangGraph's tool execution loop: the assistant
             # message (with tool_calls) + the tool result message go back
             # to the LLM for the natural-language acknowledgement.
-            raw_args = getattr(
-                getattr(response.tool_calls[0], "function", None),
-                "arguments", "{}"
-            ) if response.tool_calls else "{}"
+            raw_args = (
+                getattr(
+                    getattr(response.tool_calls[0], "function", None), "arguments", "{}"
+                )
+                if response.tool_calls
+                else "{}"
+            )
             follow_up_messages = oai_messages + [
                 {
                     "role": "assistant",
@@ -496,7 +503,9 @@ async def handle_run(request: Request) -> StreamingResponse:
                             "type": "function",
                             "function": {
                                 "name": "set_notes",
-                                "arguments": raw_args if isinstance(raw_args, str) else json.dumps(raw_args),
+                                "arguments": raw_args
+                                if isinstance(raw_args, str)
+                                else json.dumps(raw_args),
                             },
                         }
                     ],

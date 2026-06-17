@@ -1,6 +1,6 @@
 # Aimock sidecar for per-package e2e testing in CI.
 #
-# Boots aimock with the shared feature-parity fixture so per-package
+# Boots aimock with the depth-organized fixture directories so per-package
 # Playwright tests get deterministic LLM responses.
 #
 # Usage:
@@ -14,9 +14,21 @@ services:
   aimock:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
-      - ../aimock/feature-parity.json:/fixtures/default.json:ro
+      - ../aimock/shared:/fixtures/shared:ro
+      - ../aimock/d4:/fixtures/d4:ro
+      - ../aimock/d6:/fixtures/d6:ro
     command:
-      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
+      [
+        "--fixtures",
+        "/fixtures/shared",
+        "--fixtures",
+        "/fixtures/d4",
+        "--fixtures",
+        "/fixtures/d6",
+        "--host",
+        "0.0.0.0",
+        "--validate-on-load",
+      ]
     ports:
       - "4010:4010"
     healthcheck:

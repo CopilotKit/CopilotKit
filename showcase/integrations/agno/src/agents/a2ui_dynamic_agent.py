@@ -30,6 +30,8 @@ from agno.models.openai import OpenAIChat
 from agno.run import RunContext
 from dotenv import load_dotenv
 
+from agents._header_forwarding import get_forwarded_headers
+
 from tools import (
     build_a2ui_operations_from_tool_call,
     RENDER_A2UI_TOOL_SCHEMA,
@@ -96,14 +98,22 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     catalog_context = "\n\n".join(context_text_parts)
 
     system_prompt = (
-        catalog_context
-        if catalog_context
-        else "Generate a useful dashboard UI."
+        catalog_context if catalog_context else "Generate a useful dashboard UI."
     )
     if context and context.strip():
         system_prompt = f"{system_prompt}\n\nConversation context:\n{context}"
 
-    client = openai.OpenAI()
+    # Forward the request-scoped CopilotKit ``x-*`` headers (notably
+    # ``x-aimock-context``) onto this SECONDARY OpenAI call explicitly.
+    # agno runs under uvloop in prod, where the executor-contextvar shim is
+    # inert; relying on the global httpx hook + ContextVar alone is fragile
+    # across loop types. Reading the captured headers here (on the request
+    # context that invoked the tool) and passing them as ``default_headers``
+    # makes the secondary call carry the context REGARDLESS of loop type, so
+    # aimock can match the fixture instead of returning 503 on an empty
+    # ``x-aimock-context``.
+    forwarded_headers = get_forwarded_headers()
+    client = openai.OpenAI(default_headers=forwarded_headers or None)
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -111,8 +121,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
             {
                 "role": "user",
                 "content": (
-                    "Generate a dynamic A2UI dashboard based on the "
-                    "conversation."
+                    "Generate a dynamic A2UI dashboard based on the conversation."
                 ),
             },
         ],

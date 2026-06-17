@@ -20,6 +20,8 @@ the supervisor with the sub-agent's output so it can chain (research
 The handler is wired up by ``agent_server.py`` at ``POST /subagents``.
 """
 
+# @region[supervisor-delegation-tools]
+# @region[subagent-setup]
 from __future__ import annotations
 
 import functools
@@ -71,7 +73,6 @@ class Delegation(TypedDict):
 # =====================================================================
 
 
-# @region[subagent-setup]
 # In Langroid, each sub-agent is a `lr.ChatAgent` with a single-task
 # `system_message` and no tools. The supervisor only ever sees the
 # sub-agent's final-message content — no shared memory, no shared tools.
@@ -152,6 +153,8 @@ def _build_sub_agent(name: str) -> lr.ChatAgent:
         system_message=system_prompt,
     )
     return lr.ChatAgent(agent_config)
+
+
 # @endregion[subagent-setup]
 
 
@@ -193,7 +196,6 @@ async def _invoke_sub_agent(name: str, task: str) -> str:
 # =====================================================================
 
 
-# @region[supervisor-delegation-tools]
 # In Langroid, the supervisor delegates by emitting a tool call against
 # one of these `ToolMessage` subclasses. The SSE adapter intercepts the
 # call (rather than letting Langroid dispatch to `.handle`), runs the
@@ -283,9 +285,7 @@ _SUPERVISOR_PROMPT = (
 def _create_supervisor() -> lr.ChatAgent:
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
     llm_config = lm.OpenAIGPTConfig(chat_model=model, stream=False)
-    agent_config = lr.ChatAgentConfig(
-        llm=llm_config, system_message=_SUPERVISOR_PROMPT
-    )
+    agent_config = lr.ChatAgentConfig(llm=llm_config, system_message=_SUPERVISOR_PROMPT)
     agent = lr.ChatAgent(agent_config)
     agent.enable_message(list(_SUPERVISOR_TOOLS))
     return agent
@@ -318,11 +318,15 @@ def _build_conversation(messages: Any) -> str:
     if not messages:
         return ""
     for msg in messages:
-        role = getattr(msg, "role", None) if hasattr(msg, "role") else (
-            msg.get("role") if isinstance(msg, dict) else None
+        role = (
+            getattr(msg, "role", None)
+            if hasattr(msg, "role")
+            else (msg.get("role") if isinstance(msg, dict) else None)
         )
-        content = getattr(msg, "content", None) if hasattr(msg, "content") else (
-            msg.get("content") if isinstance(msg, dict) else None
+        content = (
+            getattr(msg, "content", None)
+            if hasattr(msg, "content")
+            else (msg.get("content") if isinstance(msg, dict) else None)
         )
         if isinstance(role, str) and isinstance(content, str):
             parts.append(f"{role}: {content}")
@@ -360,9 +364,7 @@ def _extract_sub_agent_calls(response: Any) -> list[tuple[str, str, str]]:
     return out
 
 
-def _append_delegation(
-    state: dict[str, Any], *, sub_agent: str, task: str
-) -> str:
+def _append_delegation(state: dict[str, Any], *, sub_agent: str, task: str) -> str:
     entry_id = str(uuid.uuid4())
     entry: Delegation = {
         "id": entry_id,
@@ -418,9 +420,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     try:
         run_input = RunAgentInput(**body)
     except Exception as exc:  # noqa: BLE001
-        logger.exception(
-            "subagents: invalid RunAgentInput (error_id=%s)", error_id
-        )
+        logger.exception("subagents: invalid RunAgentInput (error_id=%s)", error_id)
         return JSONResponse(
             {
                 "error": "Invalid RunAgentInput payload",
@@ -530,9 +530,7 @@ async def handle_run(request: Request) -> StreamingResponse:
                     )
                 )
 
-                entry_id = _append_delegation(
-                    state, sub_agent=sub_name, task=task
-                )
+                entry_id = _append_delegation(state, sub_agent=sub_name, task=task)
                 yield _sse_line(
                     StateSnapshotEvent(
                         type=EventType.STATE_SNAPSHOT,
@@ -555,9 +553,7 @@ async def handle_run(request: Request) -> StreamingResponse:
                             snapshot=state,
                         )
                     )
-                    results.append(
-                        f"[{sub_name} failed: {exc}]"
-                    )
+                    results.append(f"[{sub_name} failed: {exc}]")
                     continue
 
                 _update_delegation(
@@ -603,9 +599,7 @@ async def handle_run(request: Request) -> StreamingResponse:
                 )
             )
             yield _sse_line(
-                TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END, message_id=msg_id
-                )
+                TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=msg_id)
             )
 
         yield _sse_line(

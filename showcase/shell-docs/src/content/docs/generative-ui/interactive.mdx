@@ -3,7 +3,10 @@ title: Interactive components
 icon: "lucide/CirclePause"
 description: Create approval flows where the agent pauses and waits for human input.
 hideTOC: true
+snippet_cell: gen-ui-interrupt
 ---
+
+<InlineDemo demo="gen-ui-interrupt" />
 
 ## What is this?
 
@@ -17,5 +20,48 @@ Use interactive generative UI when you need:
 - User decisions that the agent should know about
 - Confirmation dialogs with structured responses
 - Any flow where the agent pauses for human judgment
+
+## How it works in code
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+<FrameworkSetup concept="human-in-the-loop-setup" />
+
+On the frontend, register an interrupt renderer with `useInterrupt`. When the
+agent pauses, your component mounts inline in the chat, captures the user's
+choice, and resumes the run with that input.
+
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
+
+On the backend, the agent calls into the interrupt primitive and waits for
+the resumed response before continuing the graph.
+
+<Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+<FrameworkSetup concept="human-in-the-loop-setup" />
+
+This framework implements the same interactive pause shape with a
+Promise-based frontend tool. The agent calls `schedule_meeting`, the client
+renders the picker, and the tool result resolves only after the user chooses a
+slot or cancels.
+
+<Snippet region="frontend-promise-handler" title="frontend/src/app/page.tsx — Promise-based frontend tool" />
+
+<Snippet region="backend-tool-call" title="backend — agent instructed to call schedule_meeting" />
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+> **Not available on this framework.** Interactive generative UI requires
+> either a native interrupt primitive or a Promise-resolving frontend tool.
+> For tool-call-based approval flows, use
+> [Human-in-the-loop](../human-in-the-loop) instead.
+
+</WhenFrameworkHas>
 
 <IntegrationGrid path="human-in-the-loop" />

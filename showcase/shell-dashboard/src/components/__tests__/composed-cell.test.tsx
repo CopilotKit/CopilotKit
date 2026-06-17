@@ -2,6 +2,7 @@
  * Unit tests for ComposedCell — overlay-aware cell renderer that composes
  * different content layers based on which overlays are currently active.
  */
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import { ComposedCell } from "../composed-cell";
@@ -31,6 +32,16 @@ vi.mock("@/components/cell-pieces", () => ({
       feature: { id: string };
       shellUrl: string;
     }) => <div data-testid="mock-docs-row">{feature.id}</div>,
+  ),
+}));
+
+vi.mock("@/components/link-preview", () => ({
+  LinkPreview: vi.fn(
+    ({ children, href }: { children: React.ReactNode; href: string }) => (
+      <span data-testid="mock-link-preview" data-href={href}>
+        {children}
+      </span>
+    ),
   ),
 }));
 
@@ -309,6 +320,22 @@ describe("ComposedCell", () => {
       "npx copilotkit@latest",
     );
     expect(queryByText("Demo")).not.toBeInTheDocument();
+  });
+
+  it("wraps Demo and Code links with LinkPreview", () => {
+    const ctx = makeCtx();
+    const { getAllByTestId } = render(
+      <ComposedCell ctx={ctx} overlays={overlaySet("links")} />,
+    );
+
+    const previews = getAllByTestId("mock-link-preview");
+    expect(previews).toHaveLength(2);
+    expect(previews[0].getAttribute("data-href")).toBe(
+      "https://demo.test/preview",
+    );
+    expect(previews[1].getAttribute("data-href")).toBe(
+      "https://demo.test/code",
+    );
   });
 
   it("renders empty div when only parity overlay is active", () => {

@@ -40,8 +40,7 @@ DEFAULT_RESPONSE_LENGTH = "concise"
 TONE_RULES = {
     "professional": "Use neutral, precise language. No emoji. Short sentences.",
     "casual": (
-        "Use friendly, conversational language. Contractions OK. "
-        "Light humor welcome."
+        "Use friendly, conversational language. Contractions OK. Light humor welcome."
     ),
     "enthusiastic": (
         "Use upbeat, energetic language. Exclamation points OK. Emoji OK."
@@ -50,19 +49,13 @@ TONE_RULES = {
 
 EXPERTISE_RULES = {
     "beginner": "Assume no prior knowledge. Define jargon. Use analogies.",
-    "intermediate": (
-        "Assume common terms are understood; explain specialized terms."
-    ),
-    "expert": (
-        "Assume technical fluency. Use precise terminology. Skip basics."
-    ),
+    "intermediate": ("Assume common terms are understood; explain specialized terms."),
+    "expert": ("Assume technical fluency. Use precise terminology. Skip basics."),
 }
 
 LENGTH_RULES = {
     "concise": "Respond in 1-3 sentences.",
-    "detailed": (
-        "Respond in multiple paragraphs with examples where relevant."
-    ),
+    "detailed": ("Respond in multiple paragraphs with examples where relevant."),
 }
 
 

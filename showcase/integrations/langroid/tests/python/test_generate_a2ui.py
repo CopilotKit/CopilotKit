@@ -219,20 +219,10 @@ def test_tool_error_kind_values_pinned():
     accidental addition / removal is caught at unit-test time."""
     assert _ToolErrorKind.GET_WEATHER_FAILED.value == "get_weather_failed"
     assert _ToolErrorKind.QUERY_DATA_FAILED.value == "query_data_failed"
-    assert (
-        _ToolErrorKind.MANAGE_SALES_TODOS_FAILED.value
-        == "manage_sales_todos_failed"
-    )
-    assert (
-        _ToolErrorKind.GET_SALES_TODOS_FAILED.value == "get_sales_todos_failed"
-    )
-    assert (
-        _ToolErrorKind.SCHEDULE_MEETING_FAILED.value
-        == "schedule_meeting_failed"
-    )
-    assert (
-        _ToolErrorKind.SEARCH_FLIGHTS_FAILED.value == "search_flights_failed"
-    )
+    assert _ToolErrorKind.MANAGE_SALES_TODOS_FAILED.value == "manage_sales_todos_failed"
+    assert _ToolErrorKind.GET_SALES_TODOS_FAILED.value == "get_sales_todos_failed"
+    assert _ToolErrorKind.SCHEDULE_MEETING_FAILED.value == "schedule_meeting_failed"
+    assert _ToolErrorKind.SEARCH_FLIGHTS_FAILED.value == "search_flights_failed"
     assert {m.value for m in _ToolErrorKind} == {
         "get_weather_failed",
         "query_data_failed",
@@ -249,9 +239,7 @@ def test_tool_error_kind_values_pinned():
 
 
 def test_a2ui_error_accepts_full_shape():
-    err = _a2ui_error(
-        error=_A2uiErrorKind.LLM_ERROR, message="m", remediation="r"
-    )
+    err = _a2ui_error(error=_A2uiErrorKind.LLM_ERROR, message="m", remediation="r")
     assert err == {
         "error": "a2ui_llm_error",
         "message": "m",
@@ -276,7 +264,9 @@ def test_a2ui_error_rejects_non_string_message():
     ``message`` would break the frontend's error renderer."""
     with pytest.raises(ValueError):
         _a2ui_error(
-            error=_A2uiErrorKind.LLM_ERROR, message=123, remediation="r"  # type: ignore[arg-type]
+            error=_A2uiErrorKind.LLM_ERROR,
+            message=123,
+            remediation="r",  # type: ignore[arg-type]
         )
     with pytest.raises(ValueError):
         _a2ui_error(
@@ -368,11 +358,13 @@ def test_generate_a2ui_happy_path_json_string_arguments_also_work():
     JSON string makes it into ``a2ui_operations[0].surfaceId`` — so that a
     regression where the parsed dict was dropped on the floor gets caught."""
     fake_llm = MagicMock()
-    args_json = json.dumps({
-        "surfaceId": "s1",
-        "catalogId": "copilotkit://app-dashboard-catalog",
-        "components": [{"id": "root", "type": "Container"}],
-    })
+    args_json = json.dumps(
+        {
+            "surfaceId": "s1",
+            "catalogId": "copilotkit://app-dashboard-catalog",
+            "components": [{"id": "root", "type": "Container"}],
+        }
+    )
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args_json)]
     )
@@ -473,7 +465,7 @@ def test_generate_a2ui_llm_exception_message_is_truncated_to_200_chars():
     # The <detail> portion must be at most 200 chars (truncated from 5000).
     prefix = "Secondary A2UI LLM call failed: ConnectionError: "
     assert result["message"].startswith(prefix)
-    detail = result["message"][len(prefix):]
+    detail = result["message"][len(prefix) :]
     # Pin the exact truncation: source slices ``str(exc)[:200]`` with a huge
     # input, so the detail must be EXACTLY the first 200 chars of the
     # stressor string, not merely <=200 (which would accept a regression
@@ -489,6 +481,7 @@ def test_generate_a2ui_llm_construction_failure_returns_full_error_shape():
     """Failure inside ``_get_a2ui_llm`` (e.g. missing provider-specific API
     key at construction time) must surface as a structured tool result
     rather than propagate as an uncaught exception."""
+
     def _raise(*_a, **_kw):
         raise ValueError("no API key for provider X")
 
@@ -575,9 +568,12 @@ def test_build_a2ui_operations_wrapper_catches_expected_errors(exc_cls, exc_args
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args)]
     )
-    with patch("agents.agent._get_a2ui_llm", return_value=fake_llm), patch(
-        "agents.agent.build_a2ui_operations_from_tool_call",
-        side_effect=exc_cls(*exc_args),
+    with (
+        patch("agents.agent._get_a2ui_llm", return_value=fake_llm),
+        patch(
+            "agents.agent.build_a2ui_operations_from_tool_call",
+            side_effect=exc_cls(*exc_args),
+        ),
     ):
         result = generate_a2ui_via_llm(context="")
     _assert_full_error_shape(result)
@@ -600,9 +596,12 @@ def test_build_a2ui_operations_boundary_validates_return_shape():
         tool_calls=[_oai_tool_call(arguments=args)]
     )
     # Patch the builder to return a malformed dict lacking "a2ui_operations".
-    with patch("agents.agent._get_a2ui_llm", return_value=fake_llm), patch(
-        "agents.agent.build_a2ui_operations_from_tool_call",
-        return_value={"unexpected_key": "foo"},
+    with (
+        patch("agents.agent._get_a2ui_llm", return_value=fake_llm),
+        patch(
+            "agents.agent.build_a2ui_operations_from_tool_call",
+            return_value={"unexpected_key": "foo"},
+        ),
     ):
         result = generate_a2ui_via_llm(context="")
     _assert_full_error_shape(result)
@@ -916,7 +915,8 @@ def test_agent_module_imports_cleanly_without_openai_env(tmp_path):
     # otherwise inherit, but keep everything else (PATH, HOME, etc.) so the
     # interpreter can actually start.
     env = {
-        k: v for k, v in os.environ.items()
+        k: v
+        for k, v in os.environ.items()
         if not k.startswith(("OPENAI_", "LANGROID_", "A2UI_"))
     }
     # Ensure the child can import ``agents.agent`` via the package's src/
@@ -929,9 +929,7 @@ def test_agent_module_imports_cleanly_without_openai_env(tmp_path):
     src_dir = pkg_root / "src"
     existing_pp = env.get("PYTHONPATH", "")
     new_pp = f"{pkg_root}{os.pathsep}{src_dir}"
-    env["PYTHONPATH"] = (
-        f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
-    )
+    env["PYTHONPATH"] = f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
 
     # Run the import from ``tmp_path`` so any stray ``.env`` file in the
     # project root isn't auto-loaded by ``dotenv.load_dotenv`` (which would
@@ -959,9 +957,7 @@ def test_generate_a2ui_tool_handle_returns_json_str_of_operations():
     must return a JSON string of whatever ``generate_a2ui_via_llm`` returned
     (a2ui_operations dict on success, or an error dict on failure)."""
     happy_result = {"a2ui_operations": [{"type": "create_surface"}]}
-    with patch(
-        "agents.agent.generate_a2ui_via_llm", return_value=happy_result
-    ) as stub:
+    with patch("agents.agent.generate_a2ui_via_llm", return_value=happy_result) as stub:
         tool = GenerateA2UITool(context="whatever")
         out = tool.handle()
     stub.assert_called_once_with(context="whatever")
@@ -1292,7 +1288,9 @@ def test_no_tool_call_warn_log(caplog):
     )
 
 
-def test_legacy_function_call_with_none_arguments_warns_and_returns_invalid_arguments(caplog):
+def test_legacy_function_call_with_none_arguments_warns_and_returns_invalid_arguments(
+    caplog,
+):
     """Legacy-slot fallthrough: ``function_call`` is present but its
     ``arguments`` attr is ``None``. The updated source emits a WARN and
     surfaces ``_ARGS_MISSING`` → ``a2ui_invalid_arguments`` (symmetric with
@@ -1642,11 +1640,12 @@ def test_tool_handle_wraps_recursion_error_on_deep_nesting():
     structured-error dump uses the raw ``json.dumps`` so the error
     envelope still serializes even when ``_json_dumps`` is patched.
     """
-    with patch(
-        "agents.agent.generate_a2ui_via_llm",
-        return_value={"a2ui_operations": [{"deep": "stub"}]},
-    ), patch(
-        "agents.agent._json_dumps", side_effect=RecursionError("max depth")
+    with (
+        patch(
+            "agents.agent.generate_a2ui_via_llm",
+            return_value={"a2ui_operations": [{"deep": "stub"}]},
+        ),
+        patch("agents.agent._json_dumps", side_effect=RecursionError("max depth")),
     ):
         tool = GenerateA2UITool(context="")
         out = tool.handle()
@@ -1690,9 +1689,12 @@ def test_build_a2ui_boundary_rejects_malformed_shapes(builder_return, case):
     fake_llm.chat.return_value = _llm_response(
         tool_calls=[_oai_tool_call(arguments=args)]
     )
-    with patch("agents.agent._get_a2ui_llm", return_value=fake_llm), patch(
-        "agents.agent.build_a2ui_operations_from_tool_call",
-        return_value=builder_return,
+    with (
+        patch("agents.agent._get_a2ui_llm", return_value=fake_llm),
+        patch(
+            "agents.agent.build_a2ui_operations_from_tool_call",
+            return_value=builder_return,
+        ),
     ):
         result = generate_a2ui_via_llm(context="")
     _assert_full_error_shape(result)
@@ -1728,6 +1730,7 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
     # attribute access) still work downstream; we only intercept
     # construction kwargs for assertion.
     import agents.agent as agent_mod
+
     real_config_cls = agent_mod.lm.OpenAIGPTConfig
 
     def _spy_config(**kwargs):
@@ -1743,8 +1746,9 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
         def enable_message(self, tools):
             enable_message_calls.append(tools)
 
-    with patch("agents.agent.lm.OpenAIGPTConfig", side_effect=_spy_config), patch(
-        "agents.agent.lr.ChatAgent", _FakeAgent
+    with (
+        patch("agents.agent.lm.OpenAIGPTConfig", side_effect=_spy_config),
+        patch("agents.agent.lr.ChatAgent", _FakeAgent),
     ):
         agent = create_agent()
 
@@ -1778,6 +1782,7 @@ def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
     captured_config_kwargs: list[dict] = []
 
     import agents.agent as agent_mod
+
     real_config_cls = agent_mod.lm.OpenAIGPTConfig
 
     def _spy_config(**kwargs):
@@ -1791,8 +1796,9 @@ def test_create_agent_default_model_when_langroid_model_unset(monkeypatch):
         def enable_message(self, tools):
             pass
 
-    with patch("agents.agent.lm.OpenAIGPTConfig", side_effect=_spy_config), patch(
-        "agents.agent.lr.ChatAgent", _FakeAgent
+    with (
+        patch("agents.agent.lm.OpenAIGPTConfig", side_effect=_spy_config),
+        patch("agents.agent.lr.ChatAgent", _FakeAgent),
     ):
         create_agent()
 
@@ -1822,7 +1828,8 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
     caught here even if the AST walker's scoping missed it.
     """
     env = {
-        k: v for k, v in os.environ.items()
+        k: v
+        for k, v in os.environ.items()
         if not k.startswith(("OPENAI_", "LANGROID_", "A2UI_"))
     }
     # Include the integration root (for the ``tools`` symlink) and src/
@@ -1831,9 +1838,7 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
     src_dir = pkg_root / "src"
     existing_pp = env.get("PYTHONPATH", "")
     new_pp = f"{pkg_root}{os.pathsep}{src_dir}"
-    env["PYTHONPATH"] = (
-        f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
-    )
+    env["PYTHONPATH"] = f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
 
     result = subprocess.run(
         [sys.executable, "-c", "import agents.agent"],
@@ -1843,8 +1848,7 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
         text=True,
     )
     assert result.returncode == 0, (
-        f"import agents.agent failed: stdout={result.stdout!r} "
-        f"stderr={result.stderr!r}"
+        f"import agents.agent failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     # Tight regex: an unconditional ``"openai" not in ...`` check is
     # fragile — langroid's own ``OpenAIGPTConfig`` (imported at module
@@ -1867,6 +1871,5 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
     ):
         for pat in regression_patterns:
             assert not re.search(pat, stream_val), (
-                f"{stream_name} matched regression pattern {pat!r}: "
-                f"{stream_val!r}"
+                f"{stream_name} matched regression pattern {pat!r}: {stream_val!r}"
             )

@@ -1,61 +1,51 @@
 "use client";
 
+/**
+ * Beautiful Chat — the flagship CopilotKit showcase cell, ported verbatim
+ * from the 4084 reference clone. The 4084 version lived as its own Next.js
+ * frontend at `demos/beautiful-chat/frontend/` with a full `src/components`
+ * tree + A2UI catalog. Here the same tree is colocated under the cell and
+ * re-wired with relative imports.
+ *
+ * Providers: layout-level `CopilotKit` + `ThemeProvider` wrappers from the
+ * original 4084 root layout are applied here instead, because the unified
+ * 4085 shell does not give each cell its own layout.tsx.
+ *
+ * Runtime: this cell uses its own dedicated runtime endpoint
+ * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
+ * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * same combined-runtime shape the canonical starter uses — without bleeding
+ * those global flags into other cells sharing the main `/api/copilotkit`
+ * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
+ */
+
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-export default function BeautifulChatDemo() {
+import { ThemeProvider } from "./hooks/use-theme";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+import { HomePage } from "./home-page";
+
+export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="beautiful_chat">
-      <DemoContent />
-    </CopilotKit>
-  );
-}
-
-function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Sales pulse", message: "Show me Q3 revenue split by region." },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK next Friday.",
-      },
-      {
-        title: "Book a sync",
-        message: "Book me a 30-minute sync with our designer.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#fef9f3] via-[#f6efff] to-[#e9f3ff]">
-      <header className="px-8 pt-10 pb-6 max-w-5xl mx-auto">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Beautiful chat — Google ADK
-        </div>
-        <h1 className="mt-2 text-3xl md:text-4xl font-semibold tracking-tight bg-gradient-to-r from-[#1e1b4b] via-[#5b21b6] to-[#1d4ed8] bg-clip-text text-transparent">
-          Sales copilot, polished by default
-        </h1>
-        <p className="mt-2 text-slate-600 max-w-2xl">
-          Brand fonts, theme tokens, suggestion pills, and live charts —
-          delivered by a Gemini 2.5 Flash agent with the canonical
-          sales-pipeline tools wired up on the backend.
-        </p>
-      </header>
-      <main className="max-w-5xl mx-auto px-8 pb-12">
-        <div className="rounded-3xl bg-white/70 backdrop-blur-sm border border-white/80 shadow-xl shadow-slate-200/40 overflow-hidden h-[600px]">
-          <CopilotChat
-            agentId="beautiful_chat"
-            className="h-full"
-            labels={{ chatInputPlaceholder: "Ask the sales copilot..." }}
-          />
-        </div>
-      </main>
-    </div>
+    <ThemeProvider>
+      <CopilotKit
+        runtimeUrl="/api/copilotkit-beautiful-chat"
+        agent="beautiful-chat"
+        a2ui={{ catalog: demonstrationCatalog }}
+        openGenerativeUI={{}}
+        /*
+         * `useSingleEndpoint` defaults to true (the single-POST-endpoint
+         * protocol). The canonical reference sets it to false to use the
+         * v2 multi-endpoint protocol (GET /info + POST /agent/{name}/connect),
+         * which requires a Hono-based endpoint via `createCopilotEndpoint`.
+         * The 4085 showcase uses `copilotRuntimeNextJSAppRouterEndpoint`
+         * (single-endpoint), which matches the other 4085 cells — so we
+         * use its default behavior here. Functionally equivalent for this demo.
+         */
+      >
+        <HomePage />
+      </CopilotKit>
+    </ThemeProvider>
   );
 }

@@ -22,13 +22,13 @@
  * typing indicator, input bar) live in sibling files.
  */
 
+// @region[page-send-message]
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CopilotKitProvider,
   CopilotChatConfigurationProvider,
   useAgent,
   useCopilotKit,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";
 import { MessageList } from "./message-list";
@@ -63,7 +63,6 @@ export default function HeadlessCompleteDemo() {
 // agent, wires up the connect/run/stop lifecycle, and hands the pure
 // presentational pieces their props.
 function Chat() {
-  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();
@@ -93,22 +92,25 @@ function Chat() {
   const messages = agent.messages as Message[];
   const isRunning = agent.isRunning;
 
-  const handleSubmit = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isRunning) return;
-    setInput("");
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-    });
-    try {
-      await copilotkit.runAgent({ agent });
-    } catch (err) {
-      console.error("headless-complete: runAgent failed", err);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, input, isRunning]);
+  const handleSubmit = useCallback(
+    async (override?: string) => {
+      const text = (override ?? input).trim();
+      if (!text || isRunning) return;
+      setInput("");
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+      });
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch (err) {
+        console.error("headless-complete: runAgent failed", err);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [agent, input, isRunning],
+  );
 
   const handleStop = useCallback(() => {
     try {
@@ -146,32 +148,48 @@ function ChatBody({
   isRunning: boolean;
   input: string;
   setInput: (next: string) => void;
-  handleSubmit: () => void;
+  handleSubmit: (override?: string) => void;
   handleStop: () => void;
 }) {
   useHeadlessCompleteToolRenderers();
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      {
-        title: "Haiku about coding",
-        message: "Write a haiku about coding.",
-      },
-      {
-        title: "Highlight a note",
-        message: "Highlight 'meeting at 3pm' in yellow.",
-      },
-    ],
-    available: "always",
-  });
+  // Canonical 4-pill prompts shared with the LangGraph Python
+  // headless-complete demo. The D6 gen-ui-headless-complete probe drives
+  // these in order (weather → stock → highlight → revenue chart); keep in
+  // sync with `showcase/integrations/langgraph-python/src/app/demos/
+  // headless-complete/hooks/use-headless-suggestions.ts`.
+  const suggestions = [
+    { title: "Weather", message: "What's the weather in Tokyo?" },
+    { title: "Stock price", message: "What's the price of AAPL right now?" },
+    {
+      title: "Highlight a note",
+      message: "Highlight this note for me: 'ship the demo on Friday'.",
+    },
+    {
+      title: "Revenue chart",
+      message: "Show me a chart of revenue over the last six months.",
+    },
+  ];
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <MessageList messages={messages} isRunning={isRunning} />
+      <div
+        data-testid="headless-suggestions"
+        className="flex flex-wrap gap-2 px-4 py-2 border-t border-[#E9E9EF] bg-white"
+      >
+        {suggestions.map((s) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => handleSubmit(s.message)}
+            disabled={isRunning}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
       <InputBar
         value={input}
         onChange={setInput}

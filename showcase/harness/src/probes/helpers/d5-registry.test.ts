@@ -171,7 +171,7 @@ describe("isD5FeatureType", () => {
       "shared-state-write",
       "hitl-approve-deny",
       "hitl-text-input",
-      "gen-ui-headless",
+      "headless-simple",
       "gen-ui-custom",
       "mcp-apps",
       "subagents",

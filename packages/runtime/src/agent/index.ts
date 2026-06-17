@@ -1,8 +1,6 @@
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
   RunAgentInput,
-  EventType,
   Message,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -20,9 +18,9 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import {
-  streamText,
+import type {
   LanguageModel,
   ModelMessage,
   AssistantModelMessage,
@@ -34,12 +32,12 @@ import {
   TextPart,
   ImagePart,
   FilePart,
-  tool as createVercelAISDKTool,
   ToolChoice,
   ToolSet,
-  stepCountIs,
 } from "ai";
-import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
+import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
+import { createMCPClient } from "@ai-sdk/mcp";
+import type { MCPClient } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -52,10 +50,8 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
-import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPClientTransportOptions,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
 
@@ -117,16 +113,15 @@ export type ModelSpecifier = string | LanguageModel;
  * MCP Client configuration for HTTP transport
  */
 export interface MCPClientConfigHTTP {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "http";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
   /**
-   * Optional transport options for HTTP client
+   * Optional transport options for the underlying
+   * `StreamableHTTPClientTransport`. The SDK's documented extension point
+   * for per-request customization is `options.fetch` — pass a wrapped fetch
+   * here if you need static + dynamic headers on outbound MCP requests.
    */
   options?: StreamableHTTPClientTransportOptions;
 }
@@ -135,17 +130,11 @@ export interface MCPClientConfigHTTP {
  * MCP Client configuration for SSE transport
  */
 export interface MCPClientConfigSSE {
-  /**
-   * Type of MCP client
-   */
+  /** Type of MCP client */
   type: "sse";
-  /**
-   * URL of the MCP server
-   */
+  /** URL of the MCP server */
   url: string;
-  /**
-   * Optional HTTP headers (e.g., for authentication)
-   */
+  /** Optional HTTP headers (e.g., for authentication) */
   headers?: Record<string, string>;
 }
 
@@ -1104,7 +1093,7 @@ export class BuiltInAgent extends AbstractAgent {
       }
 
       // Set up MCP clients if configured and process the stream
-      const mcpClients: Array<{ close: () => Promise<void> }> = [];
+      const mcpClients: MCPClient[] = [];
 
       (async () => {
         let terminalEventEmitted = false;
@@ -1187,9 +1176,13 @@ export class BuiltInAgent extends AbstractAgent {
             }
           }
 
-          // Initialize MCP clients and get their tools
-          if (this.config.mcpServers && this.config.mcpServers.length > 0) {
-            for (const serverConfig of this.config.mcpServers) {
+          // Initialize MCP clients and get their tools from
+          // `config.mcpServers` — the user-supplied static array.
+          const allMcpServers: MCPClientConfig[] = [
+            ...(this.config.mcpServers ?? []),
+          ];
+          if (allMcpServers.length > 0) {
+            for (const serverConfig of allMcpServers) {
               let transport;
 
               if (serverConfig.type === "http") {
@@ -1206,15 +1199,35 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               if (transport) {
-                const mcpClient = await createMCPClient({ transport });
+                // A single MCP server being unavailable (down, 5xx, timeout,
+                // bad auth) must NOT fail the whole run — skip it and continue
+                // with the healthy servers and the agent's own tools. The run
+                // degrades gracefully instead of erroring out.
+                let mcpClient;
+                try {
+                  mcpClient = await createMCPClient({ transport });
+                } catch (err) {
+                  console.error(
+                    `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
+                    err,
+                  );
+                  continue;
+                }
+                // Track it so it's closed on cleanup even if tools() fails.
                 mcpClients.push(mcpClient);
-
-                // Get tools from this MCP server and merge with existing tools
-                const mcpTools = await mcpClient.tools();
-                streamTextParams.tools = {
-                  ...streamTextParams.tools,
-                  ...mcpTools,
-                } as ToolSet;
+                try {
+                  // Get tools from this MCP server and merge with existing tools
+                  const mcpTools = await mcpClient.tools();
+                  streamTextParams.tools = {
+                    ...streamTextParams.tools,
+                    ...mcpTools,
+                  } as ToolSet;
+                } catch (err) {
+                  console.error(
+                    `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
+                    err,
+                  );
+                }
               }
             }
           }

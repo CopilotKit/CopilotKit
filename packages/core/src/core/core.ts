@@ -1,5 +1,5 @@
 import type { AbstractAgent, Context, State } from "@ag-ui/client";
-import { type AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { Throttler } from "@tanstack/pacer";
 import type {
   FrontendTool,
@@ -10,8 +10,13 @@ import type {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
-import type { CopilotKitCoreAddAgentParams } from "./agent-registry";
+import type {
+  CopilotKitCoreAddAgentParams,
+  CopilotKitCoreRegisterProxiedAgentParams,
+  CopilotKitCoreRegisterProxiedAgentResult,
+} from "./agent-registry";
 import { AgentRegistry } from "./agent-registry";
+import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
@@ -49,7 +54,11 @@ export interface CopilotKitCoreConfig {
   debug?: DebugConfig;
 }
 
-export type { CopilotKitCoreAddAgentParams };
+export type {
+  CopilotKitCoreAddAgentParams,
+  CopilotKitCoreRegisterProxiedAgentParams,
+  CopilotKitCoreRegisterProxiedAgentResult,
+};
 export type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
@@ -185,16 +194,6 @@ export interface CopilotKitCoreSubscriber {
     agentId: string;
     prevStore: ɵThreadStore;
   }) => void | Promise<void>;
-  /**
-   * Fired immediately before each agent run, including per-thread clones that
-   * are not in the agent registry and therefore not surfaced via onAgentsChanged.
-   * Subscribers that track agent events (e.g. the web inspector) can use this
-   * to subscribe to the concrete agent instance that will emit events.
-   */
-  onAgentRunStarted?: (event: {
-    copilotkit: CopilotKitCore;
-    agent: AbstractAgent;
-  }) => void | Promise<void>;
 }
 
 // Subscription object returned by subscribe() and subscribeToAgentWithOptions()
@@ -308,6 +307,7 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
+  getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
 
   // References to delegate subsystems
@@ -321,13 +321,6 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
-
-  /**
-   * Subscribe the state manager to an agent (including per-thread clones).
-   * Called by RunHandler before executing an agent so that events from
-   * clones are tracked in stateByRun/messageToRun.
-   */
-  subscribeAgentToStateManager(agent: AbstractAgent): void;
 }
 
 export class CopilotKitCore {
@@ -415,14 +408,45 @@ export class CopilotKitCore {
         // is asynchronously populated and the empty-map notification fires
         // before the published agents are merged in.
         const currentAgentIds = new Set(Object.keys(agents));
+        // Each iteration is wrapped so a throw on one id does not stall
+        // cleanup for the rest of the set. Both registries' unregister
+        // paths are idempotent, so re-attempts on the next
+        // onAgentsChanged are safe.
         for (const agentId of Object.keys(this.threadStoreRegistry.getAll())) {
           if (
             this.previousAgentIds.has(agentId) &&
             !currentAgentIds.has(agentId)
           ) {
-            this.threadStoreRegistry.unregister(agentId);
+            try {
+              this.threadStoreRegistry.unregister(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                err,
+              );
+            }
           }
         }
+
+        // Symmetric cleanup for state-manager subscriptions: any agentId
+        // that disappeared from the registry (e.g. via `unregister()` from
+        // a registerProxiedAgent caller) should release its StateManager
+        // subscription. Without this, the subscription leaks — events from
+        // a still-running observable on the removed agent would continue
+        // to populate stateByRun/messageToRun for the dead id.
+        for (const agentId of this.previousAgentIds) {
+          if (!currentAgentIds.has(agentId)) {
+            try {
+              this.stateManager.unsubscribeFromAgent(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: stateManager.unsubscribeFromAgent failed for "${agentId}":`,
+                err,
+              );
+            }
+          }
+        }
+
         this.previousAgentIds = currentAgentIds;
       },
     });
@@ -492,7 +516,7 @@ export class CopilotKitCore {
   /**
    * Snapshot accessors
    */
-  get context(): Readonly<Record<string, Context>> {
+  get context(): Readonly<Record<string, ScopedContext>> {
     return this.contextStore.context;
   }
 
@@ -598,12 +622,24 @@ export class CopilotKitCore {
     return this.agentRegistry.a2uiEnabled;
   }
 
+  /**
+   * Agent ids the runtime applies A2UI to. `undefined` means A2UI applies to
+   * every agent (or is disabled — check `a2uiEnabled`).
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this.agentRegistry.a2uiAgents;
+  }
+
   get openGenerativeUIEnabled(): boolean {
     return this.agentRegistry.openGenerativeUIEnabled;
   }
 
   get licenseStatus(): RuntimeLicenseStatus | undefined {
     return this.agentRegistry.licenseStatus;
+  }
+
+  get telemetryDisabled(): boolean {
+    return this.agentRegistry.telemetryDisabled;
   }
 
   /**
@@ -658,19 +694,54 @@ export class CopilotKitCore {
     this.agentRegistry.removeAgent__unsafe_dev_only(id);
   }
 
+  /**
+   * Register a proxied agent against an existing runtime agent. The proxy is
+   * exposed under `agentId` (local registry id) and routes outbound runtime
+   * requests to `runtimeAgentId`. Throws if `agentId` is already taken.
+   *
+   * Returns the minted proxy and an `unregister` handle for cleanup.
+   *
+   * Use this to mount multiple frontend agents against a single runtime
+   * agent (e.g. one per chat window) without implicit per-thread cloning.
+   *
+   * @example
+   * const { agent, unregister } = copilotkit.registerProxiedAgent({
+   *   agentId: "chat-1",
+   *   runtimeAgentId: "default",
+   * });
+   * // ... <CopilotChat agentId="chat-1" />
+   * // on cleanup:
+   * unregister();
+   */
+  registerProxiedAgent(
+    params: CopilotKitCoreRegisterProxiedAgentParams,
+  ): CopilotKitCoreRegisterProxiedAgentResult {
+    return this.agentRegistry.registerProxiedAgent(params);
+  }
+
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
   }
 
   /**
-   * Context management (delegated to ContextStore)
+   * Context management (delegated to ContextStore).
+   * Pass `agentIds` to restrict the entry to runs of specific agents;
+   * omit it for context every agent should receive.
    */
-  addContext(context: Context): string {
+  addContext(context: ScopedContext): string {
     return this.contextStore.addContext(context);
   }
 
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
+  }
+
+  /**
+   * Build the context array for a run of the given agent, dropping entries
+   * scoped to other agents and stripping the scoping metadata.
+   */
+  getContextForAgent(agentId?: string): Context[] {
+    return this.contextStore.getContextForAgent(agentId);
   }
 
   /**
@@ -1007,12 +1078,6 @@ export class CopilotKitCore {
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
-  }
-
-  subscribeAgentToStateManager(agent: AbstractAgent): void {
-    // isClone: true — use composite agentId:threadId key, keeping the clone's
-    // subscription independent of the registry agent's bare-agentId subscription.
-    this.stateManager.subscribeToAgent(agent, { isClone: true });
   }
 
   /**

@@ -1,0 +1,35 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig({
+  entry: [
+    "src/index.ts",
+    "src/components/index.ts",
+    "src/polyfills.ts",
+    "src/polyfills/streams.ts",
+    "src/polyfills/encoding.ts",
+    "src/polyfills/crypto.ts",
+    "src/polyfills/dom.ts",
+    "src/polyfills/location.ts",
+  ],
+  format: ["esm", "cjs"],
+  dts: true,
+  sourcemap: true,
+  target: "es2022",
+  outDir: "dist",
+  external: [
+    "react",
+    "react-native",
+    "@ag-ui/client",
+    "@copilotkit/react-core",
+    "@copilotkit/core",
+    "@copilotkit/shared",
+    "@ag-ui/client",
+    "@gorhom/bottom-sheet",
+    "react-native-streamdown",
+    "react-native-gesture-handler",
+    "react-native-reanimated",
+    "react-native-enriched-markdown",
+    "react-native-worklets",
+    "remend",
+  ],
+});

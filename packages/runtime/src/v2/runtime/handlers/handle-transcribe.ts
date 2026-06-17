@@ -87,7 +87,7 @@ async function extractAudioFromFormData(
   request: Request,
 ): Promise<{ file: File } | { error: Response }> {
   const formData = await request.formData();
-  const audioFile = formData.get("audio") as File | null;
+  let audioFile = formData.get("audio") as File | null;
 
   if (!audioFile || !(audioFile instanceof File)) {
     const err = TranscriptionErrors.invalidRequest(
@@ -102,6 +102,19 @@ async function extractAudioFromFormData(
       VALID_AUDIO_TYPES,
     );
     return { error: createErrorResponse(err) };
+  }
+
+  // Browser MediaRecorder Blobs often arrive at the server with their
+  // `type` field empty (and `application/octet-stream` is also accepted by
+  // isValidAudioType for compatibility). OpenAI Whisper rejects files
+  // without a recognizable MIME / extension with a 502 "Invalid file
+  // format" — even though the bytes themselves are valid WebM Opus.
+  // Stamp `audio/webm` (the standard MediaRecorder default in Chromium /
+  // Firefox / Safari) so Whisper can pick the right decoder.
+  if (!audioFile.type || audioFile.type === "application/octet-stream") {
+    audioFile = new File([audioFile], audioFile.name || "recording.webm", {
+      type: "audio/webm",
+    });
   }
 
   return { file: audioFile };

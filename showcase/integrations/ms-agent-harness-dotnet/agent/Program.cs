@@ -1,0 +1,104 @@
+using System.ClientModel;
+using System.Text.Json.Serialization;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.Options;
+using OpenAI;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolverChain.Add(BeautifulChatSerializerContext.Default);
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+builder.Services.AddAGUI();
+
+var app = builder.Build();
+
+// Forward D5/aimock x-* headers from incoming AG-UI requests to outgoing
+// OpenAI calls until the .NET SDK owns this propagation centrally.
+app.UseMiddleware<AimockHeaderMiddleware>();
+
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+// CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
+// to emit the outbound-LLM header-forwarding breadcrumb.
+CvDiag.Logger = loggerFactory.CreateLogger("CvDiag");
+var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
+var openAiClient = CreateOpenAiClient(builder.Configuration, loggerFactory.CreateLogger("Program"));
+
+var beautifulChatFactory = new BeautifulChatAgentFactory(
+    builder.Configuration,
+    openAiClient,
+    jsonOptions.Value.SerializerOptions,
+    loggerFactory.CreateLogger<BeautifulChatAgentFactory>());
+
+app.MapAGUI("/beautiful-chat", beautifulChatFactory.Create());
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+await app.RunAsync();
+
+static OpenAIClient CreateOpenAiClient(IConfiguration configuration, ILogger logger)
+{
+    // Use the shared resolver so the primary OpenAI client and the secondary
+    // tool-calling HTTP client (A2uiSecondaryToolCaller) agree on which
+    // upstream endpoint to hit. Previously this method only consulted the
+    // OPENAI_BASE_URL env var, while ApiKeyResolver.ResolveEndpoint also
+    // checks configuration[OPENAI_BASE_URL] (appsettings.json / user-secrets)
+    // — that divergence let the primary client silently fall back to the
+    // public Azure endpoint while the secondary client used aimock.
+    var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
+    var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
+    var endpointConfig = configuration["OPENAI_BASE_URL"];
+
+    if (!string.IsNullOrEmpty(endpointEnv))
+    {
+        logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL env: {Endpoint}", endpoint);
+    }
+    else if (!string.IsNullOrEmpty(endpointConfig))
+    {
+        logger.LogInformation("Using OpenAI endpoint from configuration OPENAI_BASE_URL: {Endpoint}", endpoint);
+    }
+    else
+    {
+        logger.LogInformation("OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
+    }
+
+    var apiKey = ApiKeyResolver.ResolveApiKey(configuration, logger);
+
+    return new OpenAIClient(
+        new ApiKeyCredential(apiKey),
+        AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
+}
+
+public class WeatherInfo
+{
+    [JsonPropertyName("temperature")]
+    public int Temperature { get; init; }
+
+    [JsonPropertyName("conditions")]
+    public string Conditions { get; init; } = string.Empty;
+
+    [JsonPropertyName("humidity")]
+    public int Humidity { get; init; }
+
+    [JsonPropertyName("wind_speed")]
+    public int WindSpeed { get; init; }
+
+    [JsonPropertyName("feels_like")]
+    public int FeelsLike { get; init; }
+
+    [JsonPropertyName("city")]
+    public string City { get; init; } = string.Empty;
+}
+
+public partial class Program { }
+
+[JsonSerializable(typeof(WeatherInfo))]
+[JsonSerializable(typeof(BeautifulChatTodo))]
+[JsonSerializable(typeof(List<BeautifulChatTodo>))]
+[JsonSerializable(typeof(BeautifulChatFlight))]
+[JsonSerializable(typeof(List<BeautifulChatFlight>))]
+internal partial class BeautifulChatSerializerContext : JsonSerializerContext
+{
+}

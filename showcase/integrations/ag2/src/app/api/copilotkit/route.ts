@@ -28,7 +28,6 @@ const sharedAgentNames = [
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -39,13 +38,26 @@ const sharedAgentNames = [
   "chat-customization-css",
   "headless-simple",
   "readonly-state-agent-context",
-  "reasoning-default-render",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "frontend_tools",
   "frontend-tools-async",
   "hitl-in-app",
   "hitl-in-chat",
+];
+
+// Reasoning agent names — backed by the reasoning-enabled AG2 agent at
+// /reasoning. Emits AG-UI REASONING_MESSAGE_* events that the frontend
+// renders via the `reasoningMessage` slot (built-in card for
+// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
+// The demo pages use the ids `reasoning-default` / `reasoning-custom`; both
+// share the one reasoning backend. `agentic-chat-reasoning` and
+// `reasoning-default-render` are legacy aliases kept for any cell that still
+// references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
   "agentic-chat-reasoning",
 ];
 
@@ -59,6 +71,7 @@ const dedicatedAgents: Record<string, string> = {
   "headless-complete": "/headless-complete/",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain/",
   "agent-config-demo": "/agent-config/",
+  "gen-ui-agent": "/gen-ui-agent/",
 };
 
 // Interrupt-adapted demos: gen-ui-interrupt and interrupt-headless share the
@@ -69,6 +82,9 @@ const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 const agents: Record<string, AbstractAgent> = {};
 for (const name of sharedAgentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 for (const [name, path] of Object.entries(dedicatedAgents)) {
   agents[name] = createAgent(path);

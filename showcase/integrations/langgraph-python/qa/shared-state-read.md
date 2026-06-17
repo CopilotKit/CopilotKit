@@ -25,7 +25,7 @@
 - [ ] Verify the default ingredients are displayed:
   - [ ] Carrots (3 large, grated) with carrot emoji
   - [ ] All-Purpose Flour (2 cups) with wheat emoji
-- [ ] Verify the default instruction is displayed: "Preheat oven to 350 F"
+- [ ] Verify the default instruction is displayed: "Preheat oven to 350°F (175°C)"
 
 #### Suggestions
 

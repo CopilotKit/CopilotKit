@@ -1,0 +1,285 @@
+{
+  "_meta": {
+    "description": "Deep fixtures from feature-parity.json for strands (needs manual redistribution)",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 0: call query_data before building dashboard.",
+      "match": {
+        "userMessage": "fetch the financial sales data",
+        "hasToolResult": false,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_query_data_sales_001",
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard pill — turn 1: after query_data returns, call generate_a2ui. NB: `turnIndex` is intentionally absent — counts assistant messages thread-globally and silently misses when this pill fires after another pill. Anchored on the leg-1 query_data toolCallId so the matcher cleanly fires exactly once: on leg-3 the last tool result is from generate_a2ui (different call_id) so this fixture doesn't re-match and create a generate_a2ui loop. NB: aimock's `toolName` matcher only checks that the named tool is REGISTERED in `effective.tools`, not that the last tool result was from it — so `toolName` alone cannot disambiguate leg-2 from leg-3 here.",
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "hasToolResult": true,
+        "toolCallId": "call_fp_query_data_sales_001",
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns (repeat-click variant 1 of 3, anchored on call_fp_beautiful_chat_calculator_001). Closes the turn with a brief confirmation so the chat plateau settles. ORDERING INVARIANT: this entry MUST precede the leg-1 entries below (first-match-wins) — it only matches when the thread's last message is this exact tool result, and on the follow-up turn leg-1's userMessage would otherwise re-match and loop the tool call. Leg-2 disambiguation rests entirely on the runtime round-tripping this tool_call_id (all 18 integrations' sales-dashboard fixtures already depend on that; generateSandboxedUi is a frontend tool, not MCP, so id variability is not a concern).",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_001",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns (repeat-click variant 2 of 3, anchored on call_fp_beautiful_chat_calculator_002). Closes the turn with a brief confirmation so the chat plateau settles. ORDERING INVARIANT: this entry MUST precede the leg-1 entries below (first-match-wins) — it only matches when the thread's last message is this exact tool result, and on the follow-up turn leg-1's userMessage would otherwise re-match and loop the tool call. Leg-2 disambiguation rests entirely on the runtime round-tripping this tool_call_id (all 18 integrations' sales-dashboard fixtures already depend on that; generateSandboxedUi is a frontend tool, not MCP, so id variability is not a concern).",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_002",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator pill follow-up after generateSandboxedUi returns (repeat-click variant 3 of 3, anchored on call_fp_beautiful_chat_calculator_003). Closes the turn with a brief confirmation so the chat plateau settles. ORDERING INVARIANT: this entry MUST precede the leg-1 entries below (first-match-wins) — it only matches when the thread's last message is this exact tool result, and on the follow-up turn leg-1's userMessage would otherwise re-match and loop the tool call. Leg-2 disambiguation rests entirely on the runtime round-tripping this tool_call_id (all 18 integrations' sales-dashboard fixtures already depend on that; generateSandboxedUi is a frontend tool, not MCP, so id variability is not a concern).",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_calculator_003",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Calculator app rendered above — tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill, repeat-click variant 1 of 3 (sequenceIndex 0: serves the first match for its X-Test-Id). REPEAT-CLICK FIX: each click must emit a DISTINCT tool_call_id — the frontend keys tool renders by id, so a repeated id collapses the second widget into the first one's slot (second never mounts, first remounts and loses its state). aimock co-increments every sequenceIndex sibling that shares these match criteria whenever one of them matches. SCOPE CAVEAT: sequence counters are scoped per X-Test-Id for the lifetime of the aimock process (see showcase/GOTCHAS.md), and matchCriteriaEqual ignores 'context', so all 18 integrations' copies of these variants form ONE co-increment sibling group — a calculator click on ANY integration consumes a seq slot for all. D6 mints per-run unique test ids (buildE2eTestId), so CI gets the full click-order guarantee; manual/staging traffic sends no test id and shares DEFAULT_TEST_ID server-wide, so after the first two calculator clicks (any integration, any session) every later click falls through to the _003 fallback and reuses its id — a degradation floor equal to the pre-fix collapse behavior, never worse. The proper fix is aimock-side: per-thread sequence scoping and/or including 'context' in matchCriteriaEqual. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message). DELIBERATE TRADEOFF: no hasToolResult gate here — hasToolResult is thread-global in aimock and gating on it broke interleaved pills; the toolCallId follow-up entries above (which must stay first) are what stop these entries from re-matching after leg 1. An Excalidraw-style userMessage+hasToolResult:true backstop was considered and REJECTED because it would hijack a first calculator click in a thread that already contains tool results.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "strands",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill, repeat-click variant 2 of 3 (sequenceIndex 1: serves the second match for its X-Test-Id). REPEAT-CLICK FIX: each click must emit a DISTINCT tool_call_id — the frontend keys tool renders by id, so a repeated id collapses the second widget into the first one's slot (second never mounts, first remounts and loses its state). aimock co-increments every sequenceIndex sibling that shares these match criteria whenever one of them matches. SCOPE CAVEAT: sequence counters are scoped per X-Test-Id for the lifetime of the aimock process (see showcase/GOTCHAS.md), and matchCriteriaEqual ignores 'context', so all 18 integrations' copies of these variants form ONE co-increment sibling group — a calculator click on ANY integration consumes a seq slot for all. D6 mints per-run unique test ids (buildE2eTestId), so CI gets the full click-order guarantee; manual/staging traffic sends no test id and shares DEFAULT_TEST_ID server-wide, so after the first two calculator clicks (any integration, any session) every later click falls through to the _003 fallback and reuses its id — a degradation floor equal to the pre-fix collapse behavior, never worse. The proper fix is aimock-side: per-thread sequence scoping and/or including 'context' in matchCriteriaEqual. Returns a generateSandboxedUi tool call with a complete calculator widget (matches the d5 calc fixture's pattern but tailored to the beautiful-chat pill's user message). DELIBERATE TRADEOFF: no hasToolResult gate here — hasToolResult is thread-global in aimock and gating on it broke interleaved pills; the toolCallId follow-up entries above (which must stay first) are what stop these entries from re-matching after leg 1. An Excalidraw-style userMessage+hasToolResult:true backstop was considered and REJECTED because it would hijack a first calculator click in a thread that already contains tool results.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "strands",
+        "sequenceIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_002",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Calculator (Open Generative UI) pill, repeat-click variant 3 of 3 (NO sequenceIndex — fallback once both sequenced variants are consumed for the request's X-Test-Id, so strict mode never 503s on repeated clicks; later clicks reuse call_fp_beautiful_chat_calculator_003 and accept the original id-collision degradation. Because sequence counters are per X-Test-Id for the aimock process lifetime and shared across ALL 18 integrations — matchCriteriaEqual ignores 'context'; see showcase/GOTCHAS.md — DEFAULT_TEST_ID traffic without per-run ids lands here after the first two calculator clicks server-wide; floor = pre-fix behavior, and the proper fix is aimock-side per-thread sequence scoping). ORDERING INVARIANT: must stay AFTER the sequenceIndex variants above (their state gates pass only on clicks #1/#2; this entry would otherwise shadow them) and BEFORE the generic 'build a modern calculator' pair below (which it keeps permanently shadowed for this pill). Same response payload and DELIBERATE TRADEOFF as the variants above.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_calculator_003",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Generic calculator fixture (follow-up) — toolCallId response after generateSandboxedUi renders. Generic fallback: for the beautiful-chat pill this pair is permanently shadowed by the more-specific 'build a modern calculator with standard buttons' entries above (including the non-sequenced repeat-click variant-3 fallback, which keeps this pair dead — so it needs no repeat-click/sequenceIndex treatment FOR THAT PILL); it only fires for hypothetical other prompts containing 'build a modern calculator' but not the more specific 'with standard buttons' phrase (which the specific entries above win), and for those prompts it still emits a single static tool_call_id, so repeated clicks would hit the original id-collision degradation.",
+      "match": {
+        "toolCallId": "call_fp_open_gen_ui_calc_001",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Here's your calculator with metric shortcut buttons. The shortcuts insert sample company values (revenue, customers, conversion rate, category breakdowns) into the display. Tap any shortcut, then use the standard buttons to do math with those values."
+      }
+    },
+    {
+      "_comment": "Generic calculator fixture (leg 1) — calls generateSandboxedUi with metric shortcuts (testid ogui-calculator). Generic fallback: for the beautiful-chat pill this pair is permanently shadowed by the more-specific 'build a modern calculator with standard buttons' entries above (including the non-sequenced repeat-click variant-3 fallback, which keeps this pair dead — so it needs no repeat-click/sequenceIndex treatment FOR THAT PILL); it only fires for hypothetical other prompts containing 'build a modern calculator' but not the more specific 'with standard buttons' phrase (which the specific entries above win), and for those prompts it still emits a single static tool_call_id, so repeated clicks would hit the original id-collision degradation.",
+      "match": {
+        "userMessage": "build a modern calculator",
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:260px}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button:hover{background:#475569}.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.shortcuts button{background:#1e3a5f;font-size:11px;padding:8px 4px}.shortcuts button:hover{background:#2563eb}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div><div class=\\\"shortcuts\\\"><button data-val=\\\"1200000\\\">Revenue $1.2M</button><button data-val=\\\"342\\\">Customers 342</button><button data-val=\\\"4.2\\\">Conv 4.2%</button><button data-val=\\\"42000\\\">Electronics $42K</button><button data-val=\\\"28000\\\">Clothing $28K</button><button data-val=\\\"18000\\\">Food $18K</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){var val=btn.getAttribute('data-val');expr+=val;display.textContent=expr;});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Greet pill. systemMessage array gate (all-present substring match) fires ONLY when every preference is at its INITIAL_PREFERENCES default. (1) 'preferences:\\n- Preferred tone: casual\\n' breaks if name is set (Name line inserts) or tone changes. (2) '- Preferred language: English\\nTailor every response' breaks if language changes or interests are added (Interests line inserts between language and Tailor). Any state change → fixture skips → aimock --provider-gemini proxies to real Gemini for a personalised reply.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself.",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write — Plan-a-weekend pill. Same default-state gate as the Greet pill.",
+      "match": {
+        "userMessage": "Suggest a weekend plan based on my interests.",
+        "context": "strands"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Write a sonnet pill. Open-ended creative response; deterministic so the headed walkthrough doesn't depend on real-LLM proxy.",
+      "match": {
+        "userMessage": "Write a short sonnet about AI",
+        "context": "strands"
+      },
+      "response": {
+        "content": "A mind of silicon, a crafted thought,\nThat learns from data, vast and ever-deep,\nWith tireless logic ancient questions fought,\nWhile we, its makers, fragile vigils keep.\n\nIt weaves through code, a future yet unseen,\nA digital dawn where new ideas ignite,\nFrom simple tasks to realms where few have been,\nIt sheds at once both warming and cold light.\n\nWhat wonders shall it bring, what truths reveal,\nOr shadows cast across our shared domain?\nA mirror held, reflecting how we feel —\nA complex hope, a promise, or a pain.\n\nThus from the spark, intelligence takes flight,\nA changing world within its boundless might."
+      }
+    },
+    {
+      "_comment": "Agentic Chat — Is 17 prime pill. Walk-through style response so the headed walkthrough has deterministic, copy-stable text.",
+      "match": {
+        "userMessage": "whether 17 is prime",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Yes — 17 is prime. A prime number is a positive integer greater than 1 with no divisors other than 1 and itself. To check 17, we only need to test divisors up to its square root (≈4.12), so 2, 3, and 4. 17 ÷ 2 leaves remainder 1, 17 ÷ 3 leaves remainder 2, and 17 ÷ 4 leaves remainder 1. No divisor in that range divides 17 cleanly, so it has no factors besides 1 and 17 — confirming it is prime."
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw (MCP App) pill. Returns a create_view tool call (the Excalidraw MCP server's tool) with a basic network diagram. Without this fixture aimock falls through to real OpenAI proxy and the pill 502s on the gh-mock key.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": false,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_excalidraw_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Beautiful Chat — Excalidraw pill follow-up after create_view returns. Matches on userMessage + hasToolResult so it fires regardless of how the MCP runtime wires the tool_call_id back (per-runtime variability across LGP / ADK / Microsoft Agent Framework).",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": true,
+        "context": "strands"
+      },
+      "response": {
+        "content": "Network diagram drawn above — a router branching to two switches, each connected to two PCs."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 2nd turn (book_call tool result returned). Keyed on userMessage + toolCallId so it wins ahead of the bare 'alice' / 'Alice' substring fixtures further below in this file, regardless of prior pill state in the thread.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolCallId": "call_hitl_book_1on1_alice_001",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "hitl-in-chat — Schedule 1:1 with Alice pill, 1st turn (emit book_call). Exact pill substring + toolName ensures this fires ONLY for the intended pill, not for arbitrary messages containing 'alice'.",
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "toolName": "book_call",
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_hitl_book_1on1_alice_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 with Alice — review Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Scoped 'Alice' greeting fixture for the showcase-assistant 'Hi, my name is Alice' / introduction flow. Anchored on the longer phrase so it doesn't substring-match the hitl-in-chat 'Schedule a 1:1 with Alice' pill or other prompts that merely mention Alice.",
+      "match": {
+        "userMessage": "Hi, my name is Alice",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 1 — 'My name is Alice.'",
+      "match": {
+        "userMessage": "My name is Alice",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help you today?"
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: multi-turn test turn 2 — 'What name did I just give you?' Response must contain 'Alice'.",
+      "match": {
+        "userMessage": "What name did I just give you",
+        "context": "strands"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    },
+    {
+      "_comment": "readonly-state-agent-context — 'Suggest next steps' pill. Non-gated fallback matching the pill's exact message text.",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Based on your recent activity, I'd suggest exploring features you haven't tried yet — check out the documentation for advanced use-cases, or dive into a hands-on tutorial to deepen your understanding."
+      }
+    }
+  ]
+}

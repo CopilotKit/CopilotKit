@@ -42,7 +42,7 @@ export function InvoiceApprovalCard(props: Props) {
 
   if (status === ToolCallStatus.InProgress) {
     return (
-      <div className="my-2 rounded-2xl border border-border bg-card p-5">
+      <div className="my-2 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border bg-card p-5 duration-300 ease-out">
         <div className="flex items-center gap-2 text-muted-foreground">
           <DollarSign className="h-4 w-4 animate-pulse" />
           <span className="text-sm">Reviewing invoices...</span>
@@ -64,7 +64,7 @@ export function InvoiceApprovalCard(props: Props) {
 
   return (
     <div
-      className={`my-2 rounded-2xl border bg-card p-5 ${isComplete ? "border-border/50 opacity-80" : "border-border"}`}
+      className={`my-2 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border bg-card p-5 duration-300 ease-out ${isComplete ? "border-border/50 opacity-80" : "border-border"}`}
     >
       {/* Header */}
       <div className="mb-4 flex items-center gap-2">

@@ -4,7 +4,7 @@ import yaml from "js-yaml";
 import type { LocalConfig } from "./config.js";
 import { getPackageUrl } from "./config.js";
 
-export type TestLevel = "smoke" | "d4" | "d5" | "all";
+export type TestLevel = "smoke" | "d4" | "d5" | "d6" | "all";
 
 export interface TestTarget {
   slug: string;
@@ -23,6 +23,13 @@ interface Manifest {
   name: string;
   demos: Array<{ id: string; features?: string[] }>;
   features?: string[];
+  /**
+   * Features the integration's framework architecturally cannot support
+   * (e.g. lacks graph-interrupt API). Propagated to D6 driver inputs so
+   * the harness reclassifies probe failures on these features as
+   * `skipped-incapable` instead of counting them as red.
+   */
+  not_supported_features?: string[];
   deployed?: boolean;
 }
 
@@ -34,7 +41,7 @@ interface Manifest {
 
 /**
  * Liveness (smoke) driver input — mirrors the `discoverySmokeInputSchema`
- * branch in `src/probes/drivers/liveness.ts`. The CLI always uses the
+ * branch in `src/probes/drivers/d2-liveness.ts`. The CLI always uses the
  * discovery shape (key + name + publicUrl) rather than the static shape
  * (key + url) because local port mapping naturally produces a base URL,
  * not a full `/smoke` endpoint path.
@@ -64,17 +71,51 @@ export interface ChatToolsInput {
 }
 
 /**
- * e2e-deep (D5) driver input — mirrors the `inputSchema` in
- * `src/probes/drivers/e2e-deep.ts`. `backendUrl` or `publicUrl` is
- * required. The CLI sets `backendUrl` from local-ports and populates
- * `demos` from the manifest's top-level `features` array (registry IDs
- * that the driver maps to D5 feature types via `demosToFeatureTypes()`).
+ * e2e-deep (D5) driver input. D5 is now "D6 take-one": it runs the SAME D6
+ * driver (`createE2eFullDriver`) but scoped to the representative featureTypes
+ * per `D5_REPRESENTATIVES` and emitting the `d5:` dashboard prefix. So the
+ * input mirrors the D6 `inputSchema` (`src/probes/drivers/d6-all-pills.ts`)
+ * plus the two scoping knobs: `representativeOnly: true` filters to the
+ * representatives map (keyed per featureType, so it keeps every featureType
+ * that has a representative entry — nearly all), and `rowPrefix: "d5"` threads
+ * the `d5:` key prefix through every emitted row. `backendUrl` or `publicUrl` is required; the CLI sets `backendUrl` from
+ * local-ports and populates `demos` from the manifest's top-level `features`
+ * array (registry IDs the driver maps via `demosToFeatureTypes()`).
  */
 export interface DeepInput {
   key: string;
   backendUrl: string;
   name: string;
   demos: string[];
+  /**
+   * Manifest `not_supported_features` set — forwarded so the driver
+   * reclassifies failing probes on these features as `skipped-incapable`
+   * instead of red. Empty/undefined when the manifest omits the field.
+   * Mirrors `FullInput` (D6) so local CLI D5 runs match D6 and don't
+   * false-red architecturally-unsupported features.
+   */
+  notSupportedFeatures?: string[];
+  representativeOnly: true;
+  rowPrefix: "d5";
+  shape: "package";
+}
+
+/**
+ * e2e-full (D6) driver input — mirrors the `inputSchema` in
+ * `src/probes/drivers/e2e-full.ts`. Same shape as D5 (uses `demos`
+ * field) and runs ALL features (no sampling).
+ */
+export interface FullInput {
+  key: string;
+  backendUrl: string;
+  name: string;
+  demos: string[];
+  /**
+   * Manifest `not_supported_features` set — forwarded so the driver
+   * reclassifies failing probes on these features as `skipped-incapable`
+   * instead of red. Empty/undefined when the manifest omits the field.
+   */
+  notSupportedFeatures?: string[];
   shape: "package";
 }
 
@@ -165,6 +206,15 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
     );
   }
 
+  if (
+    manifest.not_supported_features !== undefined &&
+    !Array.isArray(manifest.not_supported_features)
+  ) {
+    throw new Error(
+      `Invalid "not_supported_features" in manifest for ${slug}: expected array`,
+    );
+  }
+
   return {
     slug: manifest.slug as string,
     name: (manifest.name as string) ?? slug,
@@ -174,8 +224,22 @@ export function loadManifest(slug: string, config: LocalConfig): Manifest {
     features: Array.isArray(manifest.features)
       ? (manifest.features as string[])
       : undefined,
+    not_supported_features: Array.isArray(manifest.not_supported_features)
+      ? (manifest.not_supported_features as string[])
+      : undefined,
     deployed: manifest.deployed as boolean | undefined,
   };
+}
+
+/**
+ * Return the demo ids for a slug from its manifest. Used by the control-plane
+ * runner to synthesize the `LOCAL_SERVICES_JSON` discovery record's `demos`
+ * array (load-bearing: the d6 all-pills driver derives its feature matrix
+ * from `demos`, so an empty array short-circuits to a zero-cell false-green).
+ */
+export function demosForSlug(slug: string, config: LocalConfig): string[] {
+  const manifest = loadManifest(slug, config);
+  return manifest.demos.map((d) => d.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,10 +256,20 @@ export function buildSmokeInputs(
   const slugs = [target.slug];
 
   return slugs.map((slug) => {
-    const manifest = loadManifest(slug, config);
+    void loadManifest(slug, config); // ensures the slug is real
+    // The driver's `deriveSlug` for discovery-mode inputs takes
+    // `input.name` and strips a leading `showcase-` prefix. In production
+    // discovery `name` is the Railway service name (`showcase-<slug>`),
+    // so the derived slug matches the rest of the row keyspace
+    // (`smoke:<slug>`, `health:<slug>`, etc.). The CLI was previously
+    // passing `manifest.name` (the display name like "LangGraph (Python)")
+    // which stripped to itself, producing rows like
+    // `health:LangGraph (Python)` that didn't join with anything else
+    // on the dashboard. Use the showcase-prefixed slug shape to mirror
+    // production.
     return {
       key: `smoke:${slug}`,
-      name: manifest.name,
+      name: `showcase-${slug}`,
       publicUrl: getPackageUrl(slug, config),
       shape: "package" as const,
     };
@@ -238,10 +312,13 @@ export function buildChatToolsInputs(
 }
 
 /**
- * Build e2e-deep (D5) driver inputs. Reads the manifest's top-level
- * `features` array. When `target.demo` is set, filters features to
- * just that demo ID (the features list in the manifest uses the same
- * identifiers as demo IDs).
+ * Build e2e-deep (D5) driver inputs for the D6 driver ("D5 take-one"). Reads
+ * the manifest's top-level `features` array and stamps `representativeOnly` +
+ * `rowPrefix: "d5"` so the shared D6 driver runs the representative
+ * featureTypes per `D5_REPRESENTATIVES` (keyed per featureType, so this keeps
+ * every featureType that has a representative entry — nearly all) and emits
+ * `d5:` rows. When `target.demo` is set, filters features to just that demo ID
+ * (the features list in the manifest uses the same identifiers as demo IDs).
  */
 export function buildDeepInputs(
   target: TestTarget,
@@ -265,10 +342,54 @@ export function buildDeepInputs(
       }
 
       return {
-        key: `e2e-deep:${slug}`,
+        key: `d5-single-pill-e2e:${slug}`,
         backendUrl: getPackageUrl(slug, config),
         name: manifest.name,
         demos: features,
+        notSupportedFeatures: manifest.not_supported_features,
+        // D5 = D6-take-one: scope the D6 driver to the representative
+        // featureTypes per D5_REPRESENTATIVES and emit under the `d5:`
+        // dashboard prefix.
+        representativeOnly: true as const,
+        rowPrefix: "d5" as const,
+        shape: "package" as const,
+      };
+    })
+    .filter((input) => input.demos.length > 0);
+}
+
+/**
+ * Build e2e-full (D6) driver inputs. Same as D5 but uses the `d6:` key
+ * prefix and passes ALL features (no representative filter). When
+ * `target.demo` is set, filters features to just that demo ID.
+ */
+export function buildFullInputs(
+  target: TestTarget,
+  config: LocalConfig,
+): FullInput[] {
+  const slugs = [target.slug];
+
+  return slugs
+    .map((slug) => {
+      const manifest = loadManifest(slug, config);
+      let features = manifest.features ?? [];
+
+      if (target.demo) {
+        features = features.filter((f) => f === target.demo);
+        if (features.length === 0) {
+          const available = (manifest.features ?? []).join(", ");
+          throw new Error(
+            `Feature "${target.demo}" not found in ${slug}. Available: ${available}`,
+          );
+        }
+      }
+
+      return {
+        key: `d6:${slug}`,
+        backendUrl: getPackageUrl(slug, config),
+        name: manifest.name,
+        demos: features,
+        notSupportedFeatures: manifest.not_supported_features,
         shape: "package" as const,
       };
     })
