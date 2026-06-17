@@ -31,19 +31,34 @@
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
-      "types": "./dist/index.d.cts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./web-components": {
-      "types": "./dist/web-components/index.d.cts",
-      "import": "./dist/web-components/index.mjs",
-      "require": "./dist/web-components/index.cjs"
+      "import": {
+        "types": "./dist/web-components/index.d.mts",
+        "default": "./dist/web-components/index.mjs"
+      },
+      "require": {
+        "types": "./dist/web-components/index.d.cts",
+        "default": "./dist/web-components/index.cjs"
+      }
     },
     "./web-components/define": {
-      "types": "./dist/web-components/define.d.cts",
-      "import": "./dist/web-components/define.mjs",
-      "require": "./dist/web-components/define.cjs"
+      "import": {
+        "types": "./dist/web-components/define.d.mts",
+        "default": "./dist/web-components/define.mjs"
+      },
+      "require": {
+        "types": "./dist/web-components/define.d.cts",
+        "default": "./dist/web-components/define.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
