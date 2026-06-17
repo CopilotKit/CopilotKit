@@ -65,6 +65,24 @@ export const SILENCE_ALERT_RATE_LIMIT_MS = 6 * 3_600_000;
 /** §9: silence threshold N — alert when now − lastSuccessAt > N × period. */
 export const SILENCE_PERIOD_MULTIPLIER = 3;
 
+/**
+ * Minimum number of consecutive failed evaluation cycles before a silence
+ * alert posts. Layered ON TOP of the existing 3×period threshold (an AND,
+ * not OR): the alert only fires once BOTH the elapsed-time gate
+ * (`now - lastSuccessAt > 3 × period`) and the consecutive-cycle gate are
+ * satisfied. Without this, a single bad cron tick on a family whose
+ * `lastSuccessAt` was already stale (e.g. after a long quiet window or a
+ * deploy gap) could trip the alert immediately — the staging incident on
+ * 2026-06-17 where one ~25 min Cloudflare WAF burst on backboard-railway
+ * GraphQL caused every family to alert from a single tick.
+ *
+ * Three was chosen to match the elapsed-time multiplier — the alert posts
+ * when the family has missed roughly three of its own evaluation windows
+ * in a row, which is the same "this is no longer a single flap" threshold
+ * applied along the orthogonal axis. Exported so tests pin the SSOT.
+ */
+export const SILENCE_CONSECUTIVE_TICK_THRESHOLD = 3;
+
 export interface FamilySilenceMonitorDeps {
   /** The SHARED memoized §5.2.1 projection instance (§5.2 — same one the routes get). */
   summary: Pick<MemoizedFamilySummary, "get">;
@@ -176,6 +194,27 @@ export function createFamilySilenceMonitor(
   // ── In-memory state (lost on restart — boot grace covers the gap) ──────
   /** Per-family gate: last evaluation instant. */
   const lastEvalMs = new Map<string, number>();
+  /**
+   * Per-family count of consecutive evaluation cycles for which the family
+   * was observed silent (both the elapsed-time gate AND the per-family
+   * evaluation actually ran). Reset to zero on any cycle where the family
+   * evaluated and was NOT silent (i.e. a fresh `lastSuccessAt` returned the
+   * family to healthy). Layered with `SILENCE_CONSECUTIVE_TICK_THRESHOLD`
+   * (an AND with the existing 3×period elapsed-time gate) to require three
+   * consecutive silent ticks before a silence alert posts — the lever for
+   * the 2026-06-17 Cloudflare-WAF-burst incident where one bad tick
+   * tripped the alert on a stale lastSuccessAt.
+   *
+   * Lives in memory (lost on restart, like every other counter in this
+   * module — boot grace + restart-recovery via the durable alert-state
+   * store cover the gap).
+   *
+   * NOT incremented during boot grace: a family observed silent inside the
+   * grace window doesn't count toward the consecutive-tick total, so a
+   * cold-start tick can never alone push the counter to threshold. The
+   * meta-alert path keeps its own clock (failingSinceMs) and is unaffected.
+   */
+  const consecutiveSilentTicks = new Map<string, number>();
   /** Meta-alert clock: first consecutive evaluation-failure instant (grace-clamped). */
   const failingSinceMs = new Map<string, number>();
   /** Outstanding alerts awaiting their recovered one-shot. */
@@ -385,6 +424,10 @@ export function createFamilySilenceMonitor(
 
     const silent = nowMs - ref.refMs > SILENCE_PERIOD_MULTIPLIER * periodMs;
     if (!silent) {
+      // Family is healthy this cycle — reset the consecutive-silent counter
+      // so the threshold gate only ever fires on UNINTERRUPTED runs of
+      // silent observations.
+      consecutiveSilentTicks.delete(fam.family);
       // §9 recovered one-shot: the next successful batch after an alert.
       if (entry.lastSuccessAt) {
         await postRecovered(
@@ -397,6 +440,23 @@ export function createFamilySilenceMonitor(
     }
 
     if (nowMs < graceEndMs) return; // boot grace (1×period, §9)
+
+    // Consecutive-silent-tick gate (Change 3 — 2026-06-17 Cloudflare-WAF
+    // incident remediation). The elapsed-time gate above (3×period) shows
+    // the family LOOKS silent right now; the consecutive-tick gate shows
+    // it has STAYED that way across multiple evaluation cycles, so a
+    // single bad tick with a stale `lastSuccessAt` can no longer trip the
+    // alert. Both gates must be satisfied to post.
+    const ticks = (consecutiveSilentTicks.get(fam.family) ?? 0) + 1;
+    consecutiveSilentTicks.set(fam.family, ticks);
+    if (ticks < SILENCE_CONSECUTIVE_TICK_THRESHOLD) {
+      logger.debug("fleet.family-silence.silence-tick-incremented", {
+        family: fam.family,
+        consecutiveSilentTicks: ticks,
+        threshold: SILENCE_CONSECUTIVE_TICK_THRESHOLD,
+      });
+      return;
+    }
 
     const cycles = Math.floor((nowMs - ref.refMs) / periodMs);
     const attempt = lastAttemptText(entry);
@@ -417,6 +477,7 @@ export function createFamilySilenceMonitor(
       logger.warn("fleet.family-silence.silence-alert-posted", {
         family: fam.family,
         cycles,
+        consecutiveSilentTicks: ticks,
         lastAttempt: attempt,
       });
     }
