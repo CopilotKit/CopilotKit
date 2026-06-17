@@ -223,10 +223,14 @@ export function createRunRenderer(args: {
       const tasks: Promise<void>[] = [];
       for (const [id, stream] of Array.from(streams.entries())) {
         const buf = buffers.get(id) ?? "";
-        if (buf.length > 0) {
-          stream.append(buf + INTERRUPTED_SUFFIX);
-          tasks.push(stream.finish());
-        }
+        // Finish EVERY active stream unconditionally. A stream that posted a
+        // `_thinking…_` placeholder but currently has an empty/whitespace
+        // buffer must still be resolved, otherwise it leaves a permanent
+        // placeholder row. For a stream that never posted a placeholder
+        // (lazy-post skipped on an always-empty buffer), `finish()` is a
+        // harmless no-op (its dispatch early-returns on an empty buffer).
+        stream.append(buf + INTERRUPTED_SUFFIX);
+        tasks.push(stream.finish());
         streams.delete(id);
         finalised.add(id);
       }

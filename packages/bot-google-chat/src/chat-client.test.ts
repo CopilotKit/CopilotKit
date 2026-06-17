@@ -106,6 +106,35 @@ describe("ChatClient.patchMessage", () => {
     expect(init.method).toBe("PATCH");
     expect(String(url)).toContain("updateMask=text%2CcardsV2");
   });
+
+  it("throws (without issuing a request) when name is empty", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const c = makeClient(fetchImpl);
+    await expect(c.patchMessage("", { text: "x" }, "text")).rejects.toThrow(
+      /patchMessage: empty message name/,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChatClient.deleteMessage", () => {
+  it("DELETEs the message resource", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const c = makeClient(fetchImpl);
+    await c.deleteMessage("spaces/A/messages/M1");
+    const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
+    expect(init.method).toBe("DELETE");
+    expect(String(url)).toContain("/spaces/A/messages/M1");
+  });
+
+  it("throws (without issuing a request) when name is empty", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    const c = makeClient(fetchImpl);
+    await expect(c.deleteMessage("")).rejects.toThrow(
+      /deleteMessage: empty message name/,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });
 
 describe("ChatClient.uploadAttachment", () => {

@@ -39,4 +39,24 @@ describe("createRunRenderer", () => {
     await r.subscriber.onTextMessageEndEvent?.({ event: { messageId: "m1" } } as any);
     expect(client.createMessage).toHaveBeenCalled();
   });
+
+  it("markInterrupted finishes a started-but-unended stream (resolves its placeholder)", async () => {
+    const client = makeClient();
+    const r = createRunRenderer({ client, target: { space: "spaces/A", thread: "spaces/A/threads/T" } });
+    // A stream that posted its `_thinking…_` placeholder via a content event
+    // but never received TEXT_MESSAGE_END.
+    await r.subscriber.onTextMessageStartEvent?.({ event: { messageId: "m1" } } as any);
+    await r.subscriber.onTextMessageContentEvent?.({ event: { messageId: "m1", delta: "hi" } } as any);
+    expect(client.createMessage).toHaveBeenCalled();
+
+    await r.markInterrupted();
+
+    // The placeholder must be resolved with the interrupted suffix appended,
+    // not left dangling as `_thinking…_`.
+    expect(client.patchMessage).toHaveBeenCalled();
+    const patched = client.patchMessage.mock.calls
+      .map((c: any[]) => c[1]?.text ?? "")
+      .join("\n");
+    expect(patched).toContain("interrupted");
+  });
 });

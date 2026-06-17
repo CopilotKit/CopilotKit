@@ -31,14 +31,18 @@ export class ChatClient {
   private async request(path: string, init: RequestInit & { query?: Record<string, string> }): Promise<Response> {
     const token = await this.tokenProvider.getToken();
     const url = new URL(`${this.apiUrl}${path}`);
-    for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v);
+    // `query` is a custom field on our `init` shape, not part of `RequestInit`.
+    // Strip it out before spreading into the fetch options so we never pass an
+    // unknown `query` key into `fetch`.
+    const { query, ...fetchInit } = init;
+    for (const [k, v] of Object.entries(query ?? {})) url.searchParams.set(k, v);
     const res = await this.fetchImpl(url, {
-      ...init,
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+      ...fetchInit,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(fetchInit.headers ?? {}) },
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(`google-chat ${init.method ?? "GET"} ${path} failed: ${res.status} ${body}`);
+      throw new Error(`google-chat ${fetchInit.method ?? "GET"} ${path} failed: ${res.status} ${body}`);
     }
     return res;
   }
@@ -61,10 +65,21 @@ export class ChatClient {
   }
 
   async patchMessage(name: string, body: object, updateMask: string): Promise<void> {
+    // Fail loud on an empty/falsy name: `adapter.stream()` can return
+    // `{ id: "" }` for an empty agent response (no placeholder posted), and a
+    // PATCH against `/` would silently hit a malformed URL.
+    if (!name) {
+      throw new Error("google-chat patchMessage: empty message name");
+    }
     await this.request(`/${name}`, { method: "PATCH", body: JSON.stringify(body), query: { updateMask } });
   }
 
   async deleteMessage(name: string): Promise<void> {
+    // Fail loud on an empty/falsy name (see `patchMessage`): a DELETE against
+    // `/` would silently hit a malformed URL.
+    if (!name) {
+      throw new Error("google-chat deleteMessage: empty message name");
+    }
     await this.request(`/${name}`, { method: "DELETE" });
   }
 
