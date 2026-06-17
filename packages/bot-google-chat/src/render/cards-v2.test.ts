@@ -36,6 +36,46 @@ describe("renderGoogleChatMessage", () => {
     expect(widgets.length).toBeLessThanOrEqual(100);
   });
 
+  it("appends a '… N more …' indicator when section widgets overflow the per-card budget", () => {
+    const many = Array.from({ length: 130 }, (_, i) => section(`s${i}`));
+    const out = renderGoogleChatMessage(many);
+    const widgets = (out.cardsV2![0] as any).card.sections.flatMap(
+      (s: any) => s.widgets,
+    );
+
+    // Still within the per-card budget.
+    expect(widgets.length).toBeLessThanOrEqual(100);
+
+    // The final widget is the overflow indicator carrying the hidden count.
+    const last = widgets[widgets.length - 1];
+    expect(last.textParagraph).toBeDefined();
+    expect(last.textParagraph.text).toMatch(/^… \d+ more not shown$/);
+    // 130 inputs, 99 kept + 1 indicator = 100, so 31 are hidden.
+    expect(last.textParagraph.text).toContain("31 more");
+  });
+
+  it("gives two handler-less, value-less buttons distinct onClick.action.function ids", () => {
+    const button = (label: string): BotNode => ({
+      type: "button",
+      props: { children: [text(label)] },
+    });
+    const actionsNode: BotNode = {
+      type: "actions",
+      props: { children: [button("One"), button("Two")] },
+    };
+
+    const out = renderGoogleChatMessage([actionsNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const buttons = widgets.find((w) => w.buttonList !== undefined).buttonList
+      .buttons;
+
+    expect(buttons).toHaveLength(2);
+    const fnA = buttons[0].onClick.action.function;
+    const fnB = buttons[1].onClick.action.function;
+    expect(fnA).not.toBe(fnB);
+  });
+
   it("renders an actions/button node as a buttonList widget with the ck: id in onClick.action.function", () => {
     // Simulate a button whose onClick has been stamped with a ck: id by the action registry.
     const ckId = "ck:abc123";

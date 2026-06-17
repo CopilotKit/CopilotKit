@@ -33,11 +33,21 @@ function idFromHandler(handler: unknown): string | undefined {
   return undefined;
 }
 
-/** Derive a button's Google Chat `onClick.action.function` id: prefer the registry-stamped ck: id, else a stable fallback. */
-function buttonFunctionId(props: Record<string, unknown>): string {
+/**
+ * Derive a button's Google Chat `onClick.action.function` id: prefer the
+ * registry-stamped ck: id, else a fallback that stays unique per button.
+ *
+ * The fallback incorporates the button's `index` within its action set so two
+ * handler-less buttons that share a value (or both lack one) still emit
+ * distinct function ids — `decodeInteraction` keys `InteractionEvent.id` off
+ * this field, so collisions would make clicks indistinguishable.
+ */
+function buttonFunctionId(props: Record<string, unknown>, index: number): string {
   const fromHandler = idFromHandler(props.onClick);
   if (fromHandler) return fromHandler;
-  return props.value !== undefined ? JSON.stringify(props.value) : "action";
+  return props.value !== undefined
+    ? `${JSON.stringify(props.value)}:${index}`
+    : `ck-fallback-${index}`;
 }
 
 /** Render an `actions` node into a `buttonList` widget, or return null if no buttons. */
@@ -45,12 +55,20 @@ function renderActionsWidget(node: BotNode): Widget | null {
   const buttonNodes = childrenOf(node).filter(
     (c) => typeof c.type === "string" && c.type === "button",
   );
-  const { items } = clampArray(buttonNodes, GCHAT_LIMITS.buttonsPerSet);
+  const { items, overflow } = clampArray(buttonNodes, GCHAT_LIMITS.buttonsPerSet);
   if (items.length === 0) return null;
 
-  const buttons = items.map((btn) => {
+  // A buttonList can't carry a text note, so the dropped buttons can't be
+  // surfaced in-card — at least warn so it's debuggable.
+  if (overflow > 0) {
+    console.warn(
+      `[bot-google-chat] cardsV2 button set exceeded ${GCHAT_LIMITS.buttonsPerSet} buttons; dropped ${overflow} (card "ck-card").`,
+    );
+  }
+
+  const buttons = items.map((btn, index) => {
     const props = btn.props ?? {};
-    const functionId = buttonFunctionId(props);
+    const functionId = buttonFunctionId(props, index);
     const buttonObj: Record<string, unknown> = {
       text: truncateText(collectText(btn), GCHAT_LIMITS.buttonText),
       onClick: {
@@ -188,7 +206,27 @@ export function renderGoogleChatMessage(ir: BotNode[]): {
 
   const widgets: Widget[] = bodyNodes.flatMap(renderNodeWidgets);
 
-  const { items: clampedWidgets } = clampArray(widgets, GCHAT_LIMITS.widgetsPerCard);
+  // Clamp widgets to the per-card budget. When some overflow, reserve one slot
+  // for a trailing indicator so the truncation is visible (and still respects
+  // the limit), and warn so it's diagnosable.
+  let clampedWidgets: Widget[];
+  {
+    const limit = GCHAT_LIMITS.widgetsPerCard;
+    const overflow = widgets.length > limit ? widgets.length - limit : 0;
+    if (overflow > 0) {
+      const reserved = clampArray(widgets, limit - 1);
+      const hidden = reserved.overflow;
+      clampedWidgets = [
+        ...reserved.items,
+        { textParagraph: { text: `… ${hidden} more not shown` } },
+      ];
+      console.warn(
+        `[bot-google-chat] cardsV2 card exceeded ${limit} widgets; ${hidden} not shown (card "ck-card").`,
+      );
+    } else {
+      clampedWidgets = clampArray(widgets, limit).items;
+    }
+  }
 
   // A section with an empty `widgets: []` array is rejected by the Chat API.
   // If nothing rendered to a widget (all nodes were unknown/empty) and there
