@@ -8,10 +8,12 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
@@ -47,8 +49,12 @@ function determineMaxOutputTokens(): number | undefined {
 
 function determineModel(): BuiltInAgentClassicConfig["model"] {
   if (openRouterApiKey) {
-    process.env.OPENAI_BASE_URL ??= "https://openrouter.ai/api/v1";
-    return `openai/${determineOpenRouterModelId()}`;
+    const openrouter = createOpenAI({
+      apiKey: openRouterApiKey,
+      baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
+    });
+
+    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
     return "openai/gpt-5.2";
@@ -65,7 +71,6 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
   maxOutputTokens: determineMaxOutputTokens(),
-  ...(openRouterApiKey ? { apiKey: openRouterApiKey } : {}),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {

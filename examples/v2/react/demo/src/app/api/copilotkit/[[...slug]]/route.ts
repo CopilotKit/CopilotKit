@@ -4,17 +4,29 @@ import {
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
 
-const determineModel = () => {
+const determineOpenRouterModelId = () => {
+  return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
+};
+
+const determineModel = (): BuiltInAgentClassicConfig["model"] => {
   if (openRouterApiKey) {
-    process.env.OPENAI_BASE_URL ??= "https://openrouter.ai/api/v1";
-    return `openai/${process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-4o-mini"}`;
+    const openrouter = createOpenAI({
+      apiKey: openRouterApiKey,
+      baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
+    });
+
+    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
     return "openai/gpt-5.2";
@@ -31,7 +43,6 @@ const determineModel = () => {
 
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
-  ...(openRouterApiKey ? { apiKey: openRouterApiKey } : {}),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {
