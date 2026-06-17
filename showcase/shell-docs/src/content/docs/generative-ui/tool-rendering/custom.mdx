@@ -49,9 +49,15 @@ The flight renderer follows the same pattern with a different component and sche
 </Callout>
 
 Per-tool renderers compose with a catch-all: named renderers claim the
-"interesting" tools and a wildcard handles everything else. See
-[Catch-all Tool Rendering](/generative-ui/tool-rendering/catch-all) to use the
-built-in catch-all, customize it, or render nothing for unhandled tool calls.
+"interesting" tools and a wildcard handles everything else. In the primary
+cell, the same `CustomCatchallRenderer` from the catch-all example catches
+`get_stock_price` and `roll_dice`:
+
+<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
+
+See [Catch-all Tool Rendering](/generative-ui/tool-rendering/catch-all) to use
+the built-in catch-all, customize it, or render nothing for unhandled tool
+calls.
 
 ## The backend tool definition
 
