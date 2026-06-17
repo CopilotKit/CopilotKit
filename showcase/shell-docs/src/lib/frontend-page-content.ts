@@ -58,7 +58,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     },
     {
       type: "section",
-      title: "React parallels",
+      title: "React docs",
       icon: "lucide/RefreshCw",
       variant: "shadow-divider",
     },

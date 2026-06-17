@@ -53,7 +53,7 @@ describe("frontend options", () => {
     );
   });
 
-  it("keeps non-React frontend sidebars focused before shadowing React parallels", () => {
+  it("keeps non-React frontend sidebars focused before shadowing React docs", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
 
     expect(navTree.slice(0, 6)).toEqual([
@@ -80,7 +80,7 @@ describe("frontend options", () => {
 
     expect(navTree).toContainEqual({
       type: "section",
-      title: "React parallels",
+      title: "React docs",
       icon: "lucide/RefreshCw",
       variant: "shadow-divider",
     });
