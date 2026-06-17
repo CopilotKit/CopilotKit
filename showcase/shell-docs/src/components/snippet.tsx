@@ -38,7 +38,7 @@
 import React from "react";
 import demoContent from "../data/demo-content.json";
 import catalogData from "../data/catalog.json";
-import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { SnippetCodeBlock } from "./snippet-code-block";
 
 interface Region {
   file: string;
@@ -132,6 +132,8 @@ interface SnippetProps {
   title?: string;
   /** Hide the file-path caption. */
   noCaption?: boolean;
+  /** Highlight one or more lines in the rendered snippet, e.g. "4-16" or "1,4-6". */
+  highlightLines?: string;
 }
 
 function WarningBox({ children }: { children: React.ReactNode }) {
@@ -308,6 +310,7 @@ export function Snippet({
   // path that's already implied by surrounding doc context.
   title: _title,
   noCaption,
+  highlightLines,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
@@ -321,6 +324,7 @@ export function Snippet({
         cell={cell}
         defaultCell={defaultCell}
         noCaption={noCaption}
+        highlightLines={highlightLines}
       />
     ) : null;
 
@@ -468,10 +472,11 @@ export function Snippet({
   const caption = noCaption ? undefined : basename;
 
   return (
-    <DynamicCodeBlock
+    <SnippetCodeBlock
       lang={resolveShikiLanguage(reg.language)}
       code={reg.code}
-      codeblock={caption ? { title: caption } : undefined}
+      caption={caption}
+      highlightLines={highlightLines}
     />
   );
 }
