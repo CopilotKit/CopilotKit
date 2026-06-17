@@ -79,6 +79,30 @@ describe("markdownToChat", () => {
     ).toBe("<https://en.wikipedia.org/wiki/Foo_(bar)|wiki>");
   });
 
+  // ── Fix: links are extracted BEFORE the emphasis passes, so `*`/`_`/`~` ──
+  // inside a URL is never rewritten as Chat emphasis and the URL stays verbatim.
+  it("keeps underscores in a link URL verbatim (not turned into italics)", () => {
+    expect(markdownToChat("[doc](https://x.com/path/_foo_/bar)")).toBe(
+      "<https://x.com/path/_foo_/bar|doc>",
+    );
+  });
+  it("keeps asterisks in a link URL verbatim (not turned into italics)", () => {
+    expect(markdownToChat("[doc](https://x.com/p/*a*/b)")).toBe(
+      "<https://x.com/p/*a*/b|doc>",
+    );
+  });
+  it("does not let a `|` in the URL break the chat link (percent-encoded)", () => {
+    // The `|` must not be read as the <url|text> label delimiter; it is
+    // percent-encoded so the href round-trips intact (no truncation at a=1).
+    const out = markdownToChat("[t](https://x.com/?a=1|2)");
+    expect(out).toBe("<https://x.com/?a=1%7C2|t>");
+    expect(out).not.toContain("a=1|2"); // the raw pipe didn't survive as a delimiter
+  });
+  it("does not let a `>` in the URL prematurely end the chat link", () => {
+    const out = markdownToChat("[t](https://x.com/?a=1>2)");
+    expect(out).toBe("<https://x.com/?a=1%3E2|t>");
+  });
+
   // ── Fix 2: sentinel control bytes are stripped from input ─────────────────
   it("strips sentinel control bytes from the input without corrupting prose", () => {
     // A literal \x10 sentinel embedded in user/LLM content must be removed,

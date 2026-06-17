@@ -409,6 +409,36 @@ describe("renderGoogleChatMessage", () => {
     expect(html).not.toContain("</a>)");
   });
 
+  // ── Fix: links are extracted BEFORE the escape/emphasis passes, so `*`/`_` ──
+  // inside a URL is never rewritten as <i>/<b> and spliced into the href.
+  it("keeps underscores in a link URL verbatim (no <i> in the href)", () => {
+    const out = renderGoogleChatMessage([
+      section("[doc](https://x.com/path/_foo_/bar)"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html).toContain(
+      '<a href="https://x.com/path/_foo_/bar">doc</a>',
+    );
+    // The href must be the EXACT url — no emphasis tags spliced in.
+    expect(html).not.toContain("<i>");
+  });
+  it("keeps asterisks in a link URL verbatim (no <i> in the href)", () => {
+    const out = renderGoogleChatMessage([
+      section("[doc](https://x.com/p/*a*/b)"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html).toContain('<a href="https://x.com/p/*a*/b">doc</a>');
+    expect(html).not.toContain("<i>");
+  });
+
   it("gives handler-less buttons bounded, sanitized, distinct fallback ids", () => {
     // Buttons with large, brace/quote-laden values: the FUNCTION id must not
     // carry the value (bounded + opaque), yet remain distinct per button.

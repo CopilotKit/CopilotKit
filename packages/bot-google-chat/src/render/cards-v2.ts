@@ -11,14 +11,6 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-/** Reverse {@link escapeHtml} so a URL can be scheme-checked as its raw form. */
-function unescapeHtml(s: string): string {
-  return s
-    .replace(/&gt;/g, ">")
-    .replace(/&lt;/g, "<")
-    .replace(/&amp;/g, "&");
-}
-
 /**
  * Allow only safe link schemes. Permits http:, https:, and mailto:
  * (case-insensitive), scheme-relative `//host` URLs, and relative URLs with
@@ -94,6 +86,32 @@ export function markdownToCardHtml(input: string): string {
     return codePlaceholder(codeRegions.length - 1);
   });
 
+  // ── 1b. Pull markdown links out into their OWN sentinel placeholders, ──
+  // BEFORE the HTML-escape and emphasis passes, so `*`/`_`/`~` inside a URL
+  // can never be rewritten as `<i>`/`<b>`/`<s>` tags and spliced into the
+  // href (which would produce malformed markup Chat may reject). The link
+  // sentinel uses a DISTINCT prefix from the code placeholder
+  // (`\x10LINK${i}\x10` vs `\x10CODE${i}\x10`) so the two restore passes can't
+  // interfere. The final `<a href="…">…</a>` form is built NOW from the RAW
+  // (pre-escape) text/url, HTML-escaping both so the URL never passes through
+  // the emphasis transforms. We keep link text PLAIN (no emphasis) — the
+  // simplest correct option. The URL group tolerates one level of balanced
+  // `(...)` so links to pages whose path contains parens aren't truncated at
+  // the first `)`. A disallowed scheme (javascript:, …) is NOT emitted as a
+  // link — only the visible text is kept (and runs through the emphasis passes
+  // as plain text), so a crafted link can't smuggle an href into the card.
+  const linkRegions: string[] = [];
+  const linkPlaceholder = (i: number) => `\x10LINK${i}\x10`;
+  body = body.replace(
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
+    (_m, t: string, u: string) => {
+      if (!isSafeUrl(u)) return t; // keep raw text; let emphasis passes see it
+      const href = escapeHtml(u).replace(/"/g, "&quot;");
+      linkRegions.push(`<a href="${href}">${escapeHtml(t)}</a>`);
+      return linkPlaceholder(linkRegions.length - 1);
+    },
+  );
+
   // ── 2. Escape HTML so the only markup is the tags we emit below. ──
   body = escapeHtml(body);
 
@@ -123,24 +141,20 @@ export function markdownToCardHtml(input: string): string {
   // Italic _text_ → <i>text</i>
   body = body.replace(/(^|[^_\w])_(\S(?:[^_\n]*\S)?)_(?!\w)/g, "$1<i>$2</i>");
 
-  // Markdown links [text](url) → <a href="url">text</a>. The text/url were
-  // HTML-escaped above. Drop links whose URL uses a disallowed scheme
-  // (javascript:, data:, …) and emit only the (still-escaped) visible text,
-  // so a crafted link can't smuggle an executable href into the card.
-  // The URL group tolerates one level of balanced `(...)` so links to pages
-  // whose path contains parens (Wikipedia/MSDN, e.g. `.../Foo_(bar)`) aren't
-  // truncated at the first `)` and don't leak a stray `)` into the card.
-  body = body.replace(
-    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
-    (_m, t: string, u: string) =>
-      isSafeUrl(unescapeHtml(u))
-        ? `<a href="${u.replace(/"/g, "&quot;")}">${t}</a>`
-        : t,
-  );
+  // (Markdown links were already extracted into sentinel placeholders in step
+  // 1b, before the escape and emphasis passes, so their URLs never reach the
+  // emphasis transforms and can't be corrupted.)
 
-  // ── 4. Restore bold sentinels and code regions, then newlines → <br>. ──
+  // ── 4. Restore bold sentinels, links, and code regions, then newlines → <br>. ──
   body = body.replace(new RegExp(BOLD_OPEN, "g"), "<b>");
   body = body.replace(new RegExp(BOLD_CLOSE, "g"), "</b>");
+  // Links restore to their pre-rendered `<a href="…">…</a>` form (built in
+  // step 1b). The LINK and CODE placeholders use distinct prefixes so the two
+  // restore passes never match each other's sentinels.
+  body = body.replace(
+    /\x10LINK(\d+)\x10/g,
+    (_m, idx) => linkRegions[Number(idx)] ?? "",
+  );
   body = body.replace(
     /\x10CODE(\d+)\x10/g,
     (_m, idx) => escapeHtml(codeRegions[Number(idx)] ?? ""),

@@ -84,6 +84,32 @@ export function markdownToChat(input: string): string {
     },
   );
 
+  // ── 1b. Pull markdown links out into their OWN sentinel placeholders, ──
+  // BEFORE the emphasis passes, so `*`/`_`/`~` inside a URL can never be
+  // rewritten as Chat emphasis (which would silently mistype the URL path).
+  // The link sentinel uses a DISTINCT prefix from the code placeholder
+  // (`\x10LINK${i}\x10` vs `\x10CODE${i}\x10`) so the two restore passes can't
+  // interfere. The final `<url|text>` form is built NOW with the URL verbatim
+  // (never emphasis-transformed); we percent-encode `|`→`%7C` and `>`→`%3E` in
+  // the URL and strip them from the TEXT so neither breaks the `<url|text>`
+  // delimiters. The URL group tolerates one level of balanced `(...)` so links
+  // to pages whose path contains parens (Wikipedia/MSDN, e.g. `.../Foo_(bar)`)
+  // aren't truncated at the first `)`. A disallowed scheme (javascript:, …) is
+  // NOT emitted as a link — only the visible text is kept (and runs through the
+  // emphasis passes as plain text), so a crafted link can't smuggle an href.
+  const linkRegions: string[] = [];
+  const linkPlaceholder = (i: number) => `\x10LINK${i}\x10`;
+  body = body.replace(
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
+    (_m, t: string, u: string) => {
+      if (!isSafeUrl(u)) return t; // keep text; let emphasis passes see it
+      const safeUrl = u.replace(/\|/g, "%7C").replace(/>/g, "%3E");
+      const safeText = t.replace(/[|>]/g, " ").trim();
+      linkRegions.push(`<${safeUrl}|${safeText}>`);
+      return linkPlaceholder(linkRegions.length - 1);
+    },
+  );
+
   // ── 2. Bold first, into a sentinel; then italic won't eat its output. ──
   // The two strings below are single non-printing control-character bytes
   // (\x11 open, \x12 close) — deliberate, load-bearing sentinels, NOT empty
@@ -113,23 +139,23 @@ export function markdownToChat(input: string): string {
   body = body.replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g, "$1_$2_");
   // Italic _text_ stays _text_ (no-op transform, but ensures the form is canonical).
 
-  // Markdown links [text](url) → <url|text>. Drop links whose URL uses a
-  // disallowed scheme (javascript:, data:, …) and keep only the visible
-  // text, so a crafted link can't smuggle an executable href through Chat.
-  // The URL group tolerates one level of balanced `(...)` so links to pages
-  // whose path contains parens (Wikipedia/MSDN, e.g. `.../Foo_(bar)`) aren't
-  // truncated at the first `)` and don't leak a stray `)` into the output.
-  body = body.replace(
-    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
-    (_m, t: string, u: string) => (isSafeUrl(u) ? `<${u}|${t}>` : t),
-  );
+  // (Markdown links were already extracted into sentinel placeholders in step
+  // 1b, before the emphasis passes, so their URLs never reach the emphasis
+  // transforms and can't be corrupted.)
 
   // Bullet list markers: `- ` / `* ` / `+ ` at the start of a line → "•  "
   body = body.replace(/^(\s*)[-*+]\s+/gm, "$1•  ");
 
-  // ── 3. Restore sentinels and code regions. ──
+  // ── 3. Restore sentinels, links, and code regions. ──
   body = body.replace(new RegExp(BOLD_OPEN, "g"), "*");
   body = body.replace(new RegExp(BOLD_CLOSE, "g"), "*");
+  // Links restore to their pre-rendered `<url|text>` form (built in step 1b).
+  // The LINK and CODE placeholders use distinct prefixes (`\x10LINK` vs
+  // `\x10CODE`) so the two restore passes never match each other's sentinels.
+  body = body.replace(
+    /\x10LINK(\d+)\x10/g,
+    (_m, idx) => linkRegions[Number(idx)] ?? "",
+  );
   body = body.replace(
     /CODE(\d+)/g,
     (_m, idx) => codeRegions[Number(idx)] ?? "",
