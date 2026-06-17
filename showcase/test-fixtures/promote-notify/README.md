@@ -22,11 +22,11 @@ field is used only for internal logging. This keeps the header service total
 and the thread/oss-alerts counts internally consistent when a truncation
 sentinel is present.
 
-| File | Outcome | `succeeded` | `failed` | `pre_staging` | `abort_reason` |
-|---|---|---|---|---|---|
-| `success.json` | All-green promote | 29 services | 0 | `green` | `null` |
-| `partial.json` | Mixed result, 3 services failed with diverse failure categories (`staging-divergence`, `verify-prod-timeout`, `sigkill`) | 26 services | 3 | `amber` | `null` |
-| `total-failure.json` | Fleet-wide preflight abort, no services attempted | 0 services | 29 services (all `staging-probe-red`) | `red` | `fleet-preflight` |
+| File                 | Outcome                                                                                                                  | `succeeded` | `failed`                              | `pre_staging` | `abort_reason`    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------- | ------------------------------------- | ------------- | ----------------- |
+| `success.json`       | All-green promote                                                                                                        | 29 services | 0                                     | `green`       | `null`            |
+| `partial.json`       | Mixed result, 3 services failed with diverse failure categories (`staging-divergence`, `verify-prod-timeout`, `sigkill`) | 26 services | 3                                     | `amber`       | `null`            |
+| `total-failure.json` | Fleet-wide preflight abort, no services attempted                                                                        | 0 services  | 29 services (all `staging-probe-red`) | `red`         | `fleet-preflight` |
 
 > `abort_reason` is meaningful only on `outcome=total` (zero succeeded); the validator enforces this invariant via `assert_outcome_consistency`.
 
