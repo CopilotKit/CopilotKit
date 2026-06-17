@@ -13,7 +13,8 @@
 // - src/app/api/copilotkit-ogui/route.ts (scoping pattern)
 // - src/app/api/copilotkit-mcp-apps/route.ts (mcpApps config pattern)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -42,6 +43,10 @@ const runtime = new CopilotRuntime({
   a2ui: {
     // Inject the dynamic `generate_a2ui` tool into the agent
     injectA2UITool: true,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   mcpApps: {
     servers: [

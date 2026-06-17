@@ -25,8 +25,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-read-write
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -36,12 +34,30 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
+  # Reasoning-family NSF: while spring-ai DOES emit REASONING_MESSAGE_* events
+  # for the `reasoning-custom` / `reasoning-default` demos (via the dedicated
+  # ReasoningController at /reasoning/, which writes raw-JSON
+  # REASONING_MESSAGE_START/CONTENT/END frames whose `type` matches the
+  # @ag-ui/core zod schema — workaround for the AG-UI Java SDK gap where
+  # Spring AI 1.0.1's SDK has no REASONING_MESSAGE_* subtypes), the following
+  # canonical reasoning cell-ids are NOT covered by that workaround and
+  # cannot mount here:
+  #   * `reasoning-default-render` — alternate render-path for default
+  #     reasoning that this Spring backend does not parallel.
+  #   * `agentic-chat-reasoning` — agentic-chat composed with reasoning
+  #     frames; spring-ai's default agent at `/` does not emit reasoning.
+  #   * `tool-rendering-reasoning-chain` — registered against the default
+  #     Spring agent at the root path (no reasoning emission), and spring-ai
+  #     has no parallel multi-tool-call streaming surface to interleave with
+  #     reasoning frames, so the reasoning-chain composition cannot mount.
+  # Skipped-incapable, not regressions. NSF entries are canonical cell-ids
+  # matching the dashboard cell-schema.
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
-  - agentic-chat-reasoning
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - chat-customization-css
@@ -60,6 +76,8 @@ features:
   - headless-complete
   - beautiful-chat
   - readonly-state-agent-context
+  - shared-state-read-write
+  - shared-state-streaming
   - subagents
   - auth
   - voice

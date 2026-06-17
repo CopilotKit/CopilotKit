@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-slack",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Slack platform adapter for CopilotKit JSX bots (@copilotkit/bot).",
   "license": "MIT",
   "repository": {
@@ -43,8 +43,8 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.53",
-    "@ag-ui/core": "0.0.53",
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
     "@copilotkit/bot": "workspace:~",
     "@copilotkit/bot-ui": "workspace:~",
     "@copilotkit/core": "workspace:^",

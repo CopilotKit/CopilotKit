@@ -56,7 +56,16 @@ interface CopilotRuntimeMiddlewares {
    * Auto-apply A2UIMiddleware to agents at run time.
    * Pass an object to enable and customise behaviour, or omit to disable.
    */
-  a2ui?: BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig;
+  a2ui?: BaseCopilotRuntimeMiddlewareOptions &
+    A2UIMiddlewareConfig & {
+      /**
+       * Explicit on/off switch. Omit (or set `true`) to enable; set `false`
+       * to disable A2UI for this runtime while keeping the rest of the config
+       * (e.g. a `schema`/`catalog`) in place. A bare `a2ui: {}` stays enabled
+       * for backwards compatibility.
+       */
+      enabled?: boolean;
+    };
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
@@ -351,6 +360,22 @@ export function isIntelligenceRuntime(
   runtime: CopilotRuntimeLike,
 ): runtime is CopilotIntelligenceRuntimeLike {
   return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
+}
+
+/**
+ * Single source of truth for "is A2UI on for this runtime?". Both the run path
+ * (which applies `A2UIMiddleware`) and the `/info` response (which tells the
+ * client whether to mount the A2UI renderer + catalog context) MUST go through
+ * this, so they can never disagree — the divergence between them was the root
+ * of CopilotKit/CopilotKit#5369.
+ *
+ * Backwards compatible: any config object is enabled (matching the historical
+ * `!!runtime.a2ui`); only an explicit `enabled: false` turns it off.
+ */
+export function isA2UIEnabled(
+  a2ui: CopilotRuntimeOptions["a2ui"],
+): a2ui is NonNullable<CopilotRuntimeOptions["a2ui"]> {
+  return !!a2ui && a2ui.enabled !== false;
 }
 
 /**

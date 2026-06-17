@@ -410,11 +410,13 @@ describe("SlackAdapter action wiring", () => {
       ...(adapter as unknown as { client: object }).client,
       auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
     } as never;
-    // attachSlackListener calls app.command/event/message — stub them.
+    // attachSlackListener calls app.command/event/message and (default-on)
+    // attachAssistant calls app.assistant — stub them.
     Object.assign(app, {
       command: vi.fn(),
       event: vi.fn(),
       message: vi.fn(),
+      assistant: vi.fn(),
     });
 
     const received: InteractionEvent[] = [];
@@ -424,6 +426,7 @@ describe("SlackAdapter action wiring", () => {
         received.push(evt);
       },
       onCommand: vi.fn(),
+      onThreadStarted: vi.fn(),
     };
     await adapter.start(sink);
 

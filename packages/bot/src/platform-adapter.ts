@@ -18,6 +18,10 @@ export interface SurfaceCapabilities {
   supportsReactions: boolean;
   supportsStreaming: boolean;
   maxBlocksPerMessage?: number;
+  /** Pinned prompt chips on a conversation surface (Slack assistant pane). */
+  supportsSuggestedPrompts?: boolean;
+  /** Nameable conversations (Slack assistant-thread titles). */
+  supportsThreadTitle?: boolean;
   [k: string]: unknown;
 }
 
@@ -72,11 +76,24 @@ export interface IncomingCommand {
   platform: string;
 }
 
+/**
+ * A "conversation opened" lifecycle event (Slack: `assistant_thread_started`).
+ * Adapters without the concept never emit it.
+ */
+export interface IncomingThreadStart {
+  conversationKey: string;
+  replyTarget: ReplyTarget;
+  user?: PlatformUser;
+  platform: string;
+}
+
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
   /** A slash command fired. Routed to the matching `bot.onCommand` handler (ignored if none). */
   onCommand(cmd: IncomingCommand): void | Promise<void>;
+  /** A conversation surface opened. Adapters without the concept never call it. */
+  onThreadStarted(evt: IncomingThreadStart): void | Promise<void>;
 }
 
 export interface UserQuery {
@@ -144,4 +161,24 @@ export interface PlatformAdapter {
    * commands at all simply omit it and command handlers never fire there.
    */
   registerCommands?(commands: readonly CommandSpec[]): void | Promise<void>;
+  /**
+   * Optional: pin suggested prompts on a conversation surface (backs the
+   * capability-gated `Thread.setSuggestedPrompts`). Adapters without the
+   * concept omit this, and `Thread.setSuggestedPrompts` returns
+   * `{ ok: false, error }` without throwing.
+   */
+  setSuggestedPrompts?(
+    target: ReplyTarget,
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Optional: set the conversation's display title (backs `Thread.setTitle`).
+   * Adapters without the concept omit this, and `Thread.setTitle` returns
+   * `{ ok: false, error }` without throwing.
+   */
+  setThreadTitle?(
+    target: ReplyTarget,
+    title: string,
+  ): Promise<{ ok: boolean; error?: string }>;
 }

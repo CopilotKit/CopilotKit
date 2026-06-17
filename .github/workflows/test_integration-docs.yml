@@ -2,10 +2,14 @@ name: test / integration / docs
 on:
   pull_request:
     branches: [main]
-    paths: ["docs/**"]
+    paths:
+      - "docs/**"
+      - "showcase/shell-docs/src/content/**"
   push:
     branches: [main]
-    paths: ["docs/**"]
+    paths:
+      - "docs/**"
+      - "showcase/shell-docs/src/content/**"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:

@@ -14,6 +14,19 @@
       "display_name": "CopilotKit Triage",
       "always_online": true
     },
+    "assistant_view": {
+      "assistant_description": "On-call triage assistant — query/file Linear issues and find/write Notion pages.",
+      "suggested_prompts": [
+        {
+          "title": "Triage my open issues",
+          "message": "Triage my open issues"
+        },
+        {
+          "title": "What shipped this week?",
+          "message": "Summarize what shipped this week"
+        }
+      ]
+    },
     "slash_commands": [
       {
         "command": "/agent",
@@ -34,6 +47,7 @@
       "user": ["chat:write"],
       "bot": [
         "app_mentions:read",
+        "assistant:write",
         "channels:history",
         "groups:history",
         "im:history",
@@ -63,6 +77,8 @@
     "event_subscriptions": {
       "bot_events": [
         "app_mention",
+        "assistant_thread_started",
+        "assistant_thread_context_changed",
         "message.channels",
         "message.groups",
         "message.im",

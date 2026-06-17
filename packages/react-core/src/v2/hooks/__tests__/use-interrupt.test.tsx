@@ -63,6 +63,7 @@ describe("useInterrupt", () => {
     // F21: clean up the test-only global installed by the 2nd-interrupt
     // BugHarness so it cannot leak across tests.
     delete (globalThis as { __forceRerender?: () => void }).__forceRerender;
+    runAgentMock.mockReset();
   });
 
   function Harness({
@@ -628,6 +629,133 @@ describe("useInterrupt", () => {
     expect(handler).not.toHaveBeenCalled();
     expect(screen.queryByTestId("interrupt")).toBeNull();
     expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  // RESUME-PATH regression: `resolve()` MUST return a Promise that settles
+  // only when the underlying `copilotkit.runAgent` call settles. Callers
+  // (e.g. the showcase `interrupt-headless` demo's `useHeadlessInterrupt`,
+  // or any consumer that wants to chain post-resume UI like the harness
+  // DOM settle-check for the confirmation bubble) cannot sequence against
+  // the resume run otherwise. The showcase quarantine of `interrupt-headless`
+  // cites exactly this failure mode: backend resumes + streams (HTTP 200),
+  // but downstream observers can't tell when the resume has actually
+  // landed because resolve() returns void instead of a Promise.
+  it("resolve returns a Promise that settles when runAgent settles (RESUME-PATH)", async () => {
+    // Make runAgent return a manually-controlled promise so we can assert
+    // resolve() awaits it rather than fire-and-forget.
+    let releaseRunAgent: ((result: { newMessages: never[] }) => void) | null =
+      null;
+    runAgentMock.mockImplementation(
+      () =>
+        new Promise((res) => {
+          releaseRunAgent = res;
+        }),
+    );
+
+    let capturedResolve: ((response: unknown) => unknown) | null = null;
+    function CaptureHarness() {
+      useInterrupt({
+        renderInChat: false,
+        render: ({ event, resolve }) => {
+          capturedResolve = resolve;
+          return <button data-testid="interrupt">{String(event.value)}</button>;
+        },
+      });
+      return <div />;
+    }
+
+    render(<CaptureHarness />);
+    emitInterrupt("resume-me");
+
+    // resolve must exist and must return a thenable.
+    expect(capturedResolve).toBeTypeOf("function");
+    const returnedFromResolve = capturedResolve!({ approved: true });
+    expect(returnedFromResolve).toBeDefined();
+    expect(
+      returnedFromResolve &&
+        typeof (returnedFromResolve as { then?: unknown }).then === "function",
+    ).toBe(true);
+
+    // runAgent was dispatched.
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+
+    // Race against a sentinel to assert the returned promise has NOT yet
+    // settled (runAgent is still pending). Deterministic regardless of
+    // internal microtask-chain depth.
+    const before = await Promise.race([
+      returnedFromResolve as Promise<unknown>,
+      Promise.resolve("pending"),
+    ]);
+    expect(before).toBe("pending");
+
+    // Settle the runAgent promise and deterministically await the
+    // returned promise inside act() so React state updates flush.
+    await act(async () => {
+      releaseRunAgent!({ newMessages: [] });
+      await returnedFromResolve;
+    });
+
+    // The returned promise must resolve with the runAgent result, not
+    // just settle. A regression where resolve() returns a different
+    // settled promise (or `undefined` cast as thenable) would otherwise
+    // still pass.
+    const value = await returnedFromResolve;
+    expect(value).toEqual({ newMessages: [] });
+  });
+
+  // RESUME-PATH-REJECT regression (CR Round 3 Fix D): if `runAgent` rejects
+  // synchronously / before the run actually starts (network error, auth
+  // failure, validation reject), `onRunFailed` may never fire — meaning the
+  // popup would stay mounted indefinitely. The framework `resolve` catch
+  // MUST clear `pendingEvent` AND rethrow so callers see the error. This
+  // test asserts both: rejection propagates, console.error fires, and the
+  // popup unmounts (no `interrupt` test-id in the DOM).
+  it("resolve rejects when runAgent rejects, logs the failure, and clears pending (RESUME-PATH-REJECT)", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rejection = new Error("boom");
+    runAgentMock.mockImplementationOnce(() => Promise.reject(rejection));
+
+    let capturedResolve: ((response: unknown) => unknown) | null = null;
+    function RejectHarness() {
+      const element = useInterrupt({
+        renderInChat: false,
+        render: ({ event, resolve }) => {
+          capturedResolve = resolve;
+          return <button data-testid="interrupt">{String(event.value)}</button>;
+        },
+      });
+      return <div data-testid="reject-container">{element}</div>;
+    }
+
+    render(<RejectHarness />);
+    emitInterrupt("reject-me");
+
+    // The popup should currently be mounted (pending event was set).
+    expect(screen.queryByTestId("interrupt")).not.toBeNull();
+    expect(capturedResolve).toBeTypeOf("function");
+
+    // Call resolve and await rejection inside act so React state flushes.
+    const returnedFromResolve = capturedResolve!({
+      approved: true,
+    }) as Promise<unknown>;
+
+    await act(async () => {
+      await expect(returnedFromResolve).rejects.toBe(rejection);
+    });
+
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+
+    // Console.error MUST have been called with the rejection (so callers
+    // grepping logs can detect the failure even if they don't `await`).
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("runAgent rejected"),
+      rejection,
+    );
+
+    // Popup MUST be unmounted — pendingEvent cleared by the catch.
+    expect(screen.queryByTestId("interrupt")).toBeNull();
+
     errorSpy.mockRestore();
   });
 });

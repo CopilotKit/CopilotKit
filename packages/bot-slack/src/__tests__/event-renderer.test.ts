@@ -412,13 +412,110 @@ describe("createRunRenderer", () => {
     await sub.onTextMessageEndEvent!({ event: { messageId: "a" } } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "b" } } as never);
 
-    const lastUpdateForFirstTs = [...fake.updates]
-      .reverse()
-      .find((u) => u.ts === "1.000");
-    const lastUpdateForSecondTs = [...fake.updates]
-      .reverse()
-      .find((u) => u.ts === "2.000");
+    const lastUpdateForFirstTs = fake.updates
+      .filter((u) => u.ts === "1.000")
+      .at(-1);
+    const lastUpdateForSecondTs = fake.updates
+      .filter((u) => u.ts === "2.000")
+      .at(-1);
     expect(lastUpdateForFirstTs?.text).toBe("AAA");
     expect(lastUpdateForSecondTs?.text).toBe("BBB");
+  });
+});
+
+describe("createRunRenderer — assistant pane status mode", () => {
+  function makePaneClient() {
+    const statuses: { status: string; loading_messages?: string[] }[] = [];
+    const posts: { text: string; ts: string }[] = [];
+    const updates: { ts: string; text: string }[] = [];
+    let counter = 0;
+    const chat = {
+      postMessage: vi.fn(async (args: { text: string }) => {
+        counter++;
+        const ts = `${counter}.000`;
+        posts.push({ text: args.text, ts });
+        return { ok: true, ts };
+      }),
+      update: vi.fn(async (args: { ts: string; text: string }) => {
+        updates.push(args);
+        return { ok: true };
+      }),
+      delete: vi.fn(async () => ({ ok: true })),
+    };
+    const assistant = {
+      threads: {
+        setStatus: vi.fn(
+          async (args: { status: string; loading_messages?: string[] }) => {
+            statuses.push({
+              status: args.status,
+              loading_messages: args.loading_messages,
+            });
+            return { ok: true };
+          },
+        ),
+      },
+    };
+    const client = { chat, assistant } as unknown as WebClient;
+    return { client, statuses, posts };
+  }
+
+  it("sets native status on run start instead of posting a placeholder", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "D1", threadTs: "100.0" },
+      assistantStatus: { thinking: "is pondering…", loadingMessages: ["a"] },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    expect(f.posts).toHaveLength(0);
+    expect(f.statuses[0]).toEqual({
+      status: "is pondering…",
+      loading_messages: ["a"],
+    });
+  });
+
+  it("surfaces tool calls as live status, not :wrench: rows", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "D1", threadTs: "100.0" },
+      assistantStatus: {},
+    });
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    expect(f.posts).toHaveLength(0);
+    expect(f.statuses.at(-1)?.status).toBe("is using `search`…");
+  });
+
+  it("clears the status once a reply is posted", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "D1", threadTs: "100.0" },
+      assistantStatus: {},
+    });
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m", role: "assistant" },
+    } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m", delta: "hi" },
+      textMessageBuffer: "",
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m" } } as never);
+    expect(f.statuses.some((s) => s.status === "")).toBe(true);
+  });
+
+  it("clears the status on run finish when nothing was posted", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "D1", threadTs: "100.0" },
+      assistantStatus: { thinking: "t" },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onRunFinishedEvent!({} as never);
+    expect(f.statuses.at(-1)?.status).toBe("");
   });
 });

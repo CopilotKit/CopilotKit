@@ -4,12 +4,10 @@
  * an achieved-depth column (D0-D4).
  */
 import { useMemo } from "react";
-import { getPackages, type Package } from "@/lib/registry";
-import {
-  keyFor,
-  type ConnectionStatus,
-  type LiveStatusMap,
-} from "@/lib/live-status";
+import { getPackages } from "@/lib/registry";
+import type { Package } from "@/lib/registry";
+import { keyFor } from "@/lib/live-status";
+import type { ConnectionStatus, LiveStatusMap } from "@/lib/live-status";
 import { LevelStrip } from "@/components/level-strip";
 import { DepthChip } from "@/components/depth-chip";
 
@@ -99,7 +97,7 @@ export function PackagesSection({
                   className="ml-2 text-[10px] font-normal normal-case text-[var(--text-muted)]"
                   data-testid="packages-uwct-legend"
                 >
-                  (U=Up, W=Wired, C=Chats, T=Tools)
+                  (U=Up, A=API (HTTP), C=Chats, T=Tools)
                 </span>
               </th>
               <th className="bg-[var(--bg-muted)] px-4 py-2 text-center border-b border-l border-[var(--border)]">

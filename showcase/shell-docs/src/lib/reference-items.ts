@@ -26,7 +26,13 @@ export const REFERENCE_CONTENT_DIR = path.join(
 // `reference-version-selector.tsx` (a `Record<ReferenceVersion, string>`,
 // so a missing label is a compile error), and create a
 // `src/content/reference/<id>/` folder.
-export const REFERENCE_VERSIONS = ["v2", "v1", "core", "bot"] as const;
+export const REFERENCE_VERSIONS = [
+  "v2",
+  "v1",
+  "react-native",
+  "core",
+  "bot",
+] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
 /** The root SDK whose content lives directly under `reference/`. */
@@ -57,6 +63,7 @@ type ReferenceSubdir =
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v2: ["components", "hooks"],
   v1: ["components", "hooks", "classes", "sdk"],
+  "react-native": ["components", "hooks"],
   core: ["classes", "types", "enums"],
   bot: ["components", "functions", "classes", "types", "slack"],
 };

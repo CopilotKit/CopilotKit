@@ -19,8 +19,8 @@ CopilotKit connects to external agent frameworks through the **AG-UI (Agent-UI) 
 
 1. **Agent server** -- your agent framework runs as an HTTP server (usually FastAPI/uvicorn for Python, or an Express/Next.js route for JS/TS)
 2. **AG-UI adapter** -- a framework-specific adapter translates between the agent's native interface and the AG-UI wire protocol
-3. **CopilotKit runtime** -- the Next.js API route creates a `CopilotRuntime` that connects to the agent via an AG-UI client class
-4. **Frontend** -- React components use `useAgent`, `useFrontendTool`, `useRenderToolCall`, and `useHumanInTheLoop` to interact with the agent
+3. **CopilotKit runtime** -- the Next.js catch-all API route creates a `CopilotRuntime` that connects to the agent via an AG-UI client class, mounted with the V2 multi-route Hono handler
+4. **Frontend** -- React components use `useAgent`, `useFrontendTool`, `useRenderTool`, and `useHumanInTheLoop` to interact with the agent
 
 ## Supported Integrations
 
@@ -78,76 +78,87 @@ import "@copilotkit/react-core/v2/styles.css";
 
 export default function RootLayout({ children }) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent_name">
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       {children}
     </CopilotKit>
   );
 }
 ```
 
-The `agent` prop must match the key used in `CopilotRuntime({ agents: { my_agent_name: ... } })`.
+The provider component is `CopilotKit` (imported from `@copilotkit/react-core/v2`). There is no `agent` prop -- agents are selected per-hook via `agentId` (matching a key from `CopilotRuntime({ agents: { ... } })`). Set `useSingleEndpoint={false}` so the v1-compat bridge uses multi-route transport against the catch-all backend route below; omitting it defaults to single-route, which a multi-route backend 404s.
 
 ### API Route Pattern (route.ts)
 
-All integrations create a Next.js API route at `src/app/api/copilotkit/route.ts`:
+All integrations create a Next.js catch-all API route at `src/app/api/copilotkit/[[...slug]]/route.ts` using the V2 multi-route Hono handler:
 
 ```tsx
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
 // Import the appropriate agent class for your framework
 
 const runtime = new CopilotRuntime({
   agents: {
-    my_agent: new SomeAgentClass({ url: "http://localhost:8000/" }),
+    default: new SomeAgentClass({ url: "http://localhost:8000/" }),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
+
+Use `createCopilotHonoHandler` (the non-deprecated factory; `createCopilotEndpoint` is an alias). The frontend selects this agent via `agentId: "default"`.
 
 ### Shared State (useAgent)
 
+`useAgent` returns `{ agent }` only. Read state via `agent.state` and write via `agent.setState`:
+
 ```tsx
-const { state, setState } = useAgent<{ proverbs: string[] }>({
-  name: "my_agent",
-  initialState: { proverbs: [] },
-});
+const { agent } = useAgent({ agentId: "default" });
+const state = (agent.state as { proverbs: string[] } | undefined) ?? {
+  proverbs: [],
+};
+const setState = (next: { proverbs: string[] }) => agent.setState(next);
 ```
 
 ### Frontend Tools (useFrontendTool)
 
 ```tsx
+import { z } from "zod";
+
 useFrontendTool({
   name: "setThemeColor",
-  parameters: [
-    { name: "themeColor", description: "Hex color value", required: true },
-  ],
-  handler({ themeColor }) {
+  parameters: z.object({
+    themeColor: z.string().describe("The theme color to set."),
+  }),
+  handler: async ({ themeColor }) => {
     setThemeColor(themeColor);
+    return `Set theme color to ${themeColor}`;
   },
 });
 ```
 
-### Generative UI (useRenderToolCall)
+### Generative UI (useRenderTool)
 
 ```tsx
-useRenderToolCall(
+import { z } from "zod";
+
+useRenderTool(
   {
     name: "get_weather",
-    description: "Get weather for a location.",
-    parameters: [{ name: "location", type: "string", required: true }],
-    render: ({ args }) => <WeatherCard location={args.location} />,
+    parameters: z.object({ location: z.string() }),
+    render: ({ parameters }) => <WeatherCard location={parameters.location} />,
   },
   [],
 );
@@ -176,8 +187,8 @@ On the agent side, shared state is managed differently per framework, but the pr
 
 Frontend (all integrations):
 
-- `@copilotkit/react` -- hooks (`useAgent`, `useFrontendTool`, `useRenderToolCall`, `useHumanInTheLoop`) and UI components (`CopilotSidebar`, `CopilotPopup`)
-- `@copilotkit/runtime` -- server runtime (`CopilotRuntime`, `ExperimentalEmptyAdapter`)
+- `@copilotkit/react-core/v2` -- provider (`CopilotKit`), hooks (`useAgent`, `useFrontendTool`, `useRenderTool`, `useHumanInTheLoop`), and chat components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`). Styles: `import "@copilotkit/react-core/v2/styles.css"`.
+- `@copilotkit/runtime/v2` -- server runtime (`CopilotRuntime`, `createCopilotHonoHandler`, `InMemoryAgentRunner`)
 
 AG-UI client classes (choose one per integration):
 

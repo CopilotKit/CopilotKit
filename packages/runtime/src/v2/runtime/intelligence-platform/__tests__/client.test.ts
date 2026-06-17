@@ -245,11 +245,14 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse({ thread }));
 
-      const result = await client.getThread({ threadId: "t-1" });
+      const result = await client.getThread({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual(thread);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1");
+      expect(url).toBe("https://api.example.com/api/threads/t-1?userId=user-1");
       expect(opts.method).toBe("GET");
     });
   });
@@ -267,11 +270,16 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
-      const result = await client.getThreadMessages({ threadId: "t-1" });
+      const result = await client.getThreadMessages({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual(payload);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1/messages");
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t-1/messages?userId=user-1",
+      );
       expect(opts.method).toBe("GET");
     });
   });
@@ -335,6 +343,8 @@ describe("CopilotKitIntelligence", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        agentId: "agent-1",
         reason:
           "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
       });

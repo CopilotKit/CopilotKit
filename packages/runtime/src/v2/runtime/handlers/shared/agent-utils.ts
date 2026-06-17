@@ -4,7 +4,11 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
-import { isIntelligenceRuntime, resolveAgents } from "../../core/runtime";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import {
   INTELLIGENCE_USER_ID_HEADER,
@@ -61,8 +65,14 @@ export function configureAgentForRequest(params: {
   const { runtime, request, agentId } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
-  if (runtime.a2ui) {
-    const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
+  if (isA2UIEnabled(runtime.a2ui)) {
+    // `enabled` is a CopilotKit-level switch, not an A2UIMiddleware option —
+    // drop it (alongside the agent filter) before forwarding to the middleware.
+    const {
+      agents: targetAgents,
+      enabled: _enabled,
+      ...a2uiOptions
+    } = runtime.a2ui;
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
       agent.use(new A2UIMiddleware(a2uiOptions));

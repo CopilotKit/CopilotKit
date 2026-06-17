@@ -219,31 +219,35 @@ dotnet user-secrets set GitHubToken "$(gh auth token)"
 
 ---
 
-## Next.js Route (both Python and .NET)
+## Next.js Route (both Python and .NET) -- src/app/api/copilotkit/[[...slug]]/route.ts
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+    default: new HttpAgent({
+      url: process.env.AGENT_URL || "http://localhost:8000/",
+    }),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
-Both Python and .NET variants use `HttpAgent` from `@ag-ui/client`.
+Both Python and .NET variants use `HttpAgent` from `@ag-ui/client` -- both speak AG-UI directly.

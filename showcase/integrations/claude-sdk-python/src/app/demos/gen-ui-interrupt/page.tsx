@@ -14,8 +14,8 @@
 
 // @region[frontend-useinterrupt-render]
 import React, { useRef } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
   useFrontendTool,

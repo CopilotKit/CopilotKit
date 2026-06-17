@@ -353,8 +353,10 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   },
   {
     id: "F13",
+    // Keeps the framework segment (aws-strands -> canonical `strands`),
+    // mirroring the shell copy — see the comment there.
     source: "/aws-strands/human-in-the-loop",
-    destination: "/human-in-the-loop",
+    destination: "/strands/human-in-the-loop",
   },
   {
     id: "F14",
@@ -428,13 +430,12 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/copilot-suggestions",
     destination: "/prebuilt-components",
   },
-  // /direct-to-llm and /integrations/built-in-agent → built-in-agent (BIA canonical)
+  // /direct-to-llm → built-in-agent (BIA canonical). R15/R17
+  // (/integrations/built-in-agent[/:path*]) are docs-host-only entries
+  // that live in the shell-docs copy — on the SHELL host that path is a
+  // LIVE registry product page; the shell copy dropped them (mirrored
+  // here per the sync policy above).
   { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
-  {
-    id: "R15",
-    source: "/integrations/built-in-agent",
-    destination: "/built-in-agent",
-  },
   { id: "R18", source: "/mcp", destination: "/coding-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
   {
@@ -721,15 +722,11 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/crewai-crews/:path*",
     destination: "/crewai-crews/:path*",
   },
-  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
+  // Category 4 wildcards — direct-to-llm retires to BIA. R17 is
+  // docs-host-only — see the R15 note in ROOT_RENAMES above.
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
-    destination: "/built-in-agent/:path*",
-  },
-  {
-    id: "R17",
-    source: "/integrations/built-in-agent/:path*",
     destination: "/built-in-agent/:path*",
   },
   { id: "R26", source: "/shared/:path*", destination: "/:path*" },
