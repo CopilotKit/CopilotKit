@@ -9,6 +9,7 @@
 
 import React from "react";
 import { FrameworkSelector } from "./framework-selector";
+import { FrontendQuickstartSelector } from "./frontend-quickstart-selector";
 import { getCategoryLabel, getDocsMode, getIntegrations } from "@/lib/registry";
 import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/docs-render";
 
@@ -47,14 +48,15 @@ export function SidebarFrameworkSelector() {
 
   return (
     // The sidebar column itself is already fixed within the docs layout, so
-    // this selector can stay in normal flow. Keeping it non-sticky avoids a
-    // raised layer overlapping the first selected sidebar item at scroll-top.
-    <div>
+    // these selectors can stay in normal flow. Keeping them non-sticky avoids
+    // a raised layer overlapping the first selected sidebar item at scroll-top.
+    <div className="flex flex-col gap-2">
       <FrameworkSelector
         options={options}
         categoryOrder={categoryOrder}
         variant="sidebar"
       />
+      <FrontendQuickstartSelector />
     </div>
   );
 }

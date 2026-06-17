@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
+import { FRONTEND_QUICKSTARTS } from "./frontend-quickstarts";
 import { getDocsMode } from "./registry";
 import { isRouteGroupSegment } from "./route-groups";
 
@@ -607,7 +608,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    withFrontendQuickstartNav(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -627,7 +630,7 @@ export function buildRootSurfaceNav(folder: string): NavNode[] {
   return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
 }
 
-const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
+const SHARED_ROOT_SECTIONS = ["Intelligence Platform"];
 
 // Sections pulled from the root `meta.json` into the Built-in Agent
 // sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
@@ -640,15 +643,13 @@ const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
 //
 // Each title slots into a matching empty `---Section---` placeholder in
 // BIA's `meta.json` when present (so position is author-controlled),
-// otherwise the section appends at the end. "Intelligence Platform" and
-// "Platforms" stay in the list so the root surface keeps the generated
-// Intelligence Platform IA and shared platform guides.
+// otherwise the section appends at the end. "Intelligence Platform" stays in
+// the list so the root surface keeps the generated Intelligence Platform IA.
 const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
   "Intelligence Platform",
   "Deploy",
-  "Platforms",
   "Other",
 ];
 
@@ -669,6 +670,60 @@ function dropEmptySections(navTree: NavNode[]): NavNode[] {
     // next section boundary.
     return next !== undefined && next.type !== "section";
   });
+}
+
+function frontendQuickstartGroup(): NavNode {
+  return {
+    type: "group",
+    title: "Quickstart",
+    slug: "quickstart",
+    defaultOpen: true,
+    children: FRONTEND_QUICKSTARTS.map((frontend) => ({
+      type: "page",
+      title: frontend.label,
+      slug: frontend.slug,
+      icon: `frontend/${frontend.iconKey}`,
+    })),
+  };
+}
+
+function withFrontendQuickstartNav(navTree: NavNode[]): NavNode[] {
+  let replacedQuickstart = false;
+
+  const rewrite = (node: NavNode): NavNode | null => {
+    if (node.type === "page") {
+      if (node.slug === "quickstart") {
+        replacedQuickstart = true;
+        return frontendQuickstartGroup();
+      }
+      if (
+        node.slug === "vue" ||
+        node.slug === "react-native" ||
+        node.slug === "slack" ||
+        node.slug === "microsoft-teams"
+      ) {
+        return null;
+      }
+      return node;
+    }
+
+    if (node.type === "group") {
+      const children = node.children
+        .map(rewrite)
+        .filter((child): child is NavNode => child !== null);
+      return children.length > 0 ? { ...node, children } : null;
+    }
+
+    return node;
+  };
+
+  const rewritten = navTree
+    .map(rewrite)
+    .filter((node): node is NavNode => node !== null);
+
+  return replacedQuickstart
+    ? rewritten
+    : [frontendQuickstartGroup(), ...rewritten];
 }
 
 function sectionRange(
@@ -886,7 +941,7 @@ export function buildFrameworkNav(
   frameworkSlug: string,
 ): NavNode[] {
   return mergeFrameworkNav(
-    buildNavTree(CONTENT_DIR),
+    withFrontendQuickstartNav(buildNavTree(CONTENT_DIR)),
     buildFrameworkOverridesNav(docsFolder),
     frameworkName,
     frameworkSectionIcon(frameworkSlug),

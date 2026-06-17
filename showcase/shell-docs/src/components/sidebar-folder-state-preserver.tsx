@@ -12,10 +12,14 @@
 // This component:
 //   1. On mount and on every URL change, marks the current folder panels
 //      so Fumadocs's mount-time collapsible animation is suppressed.
-//   2. Reads the saved map from localStorage and, for every folder
-//      trigger whose current `data-state` differs from the saved value,
-//      clicks the trigger to restore the saved state.
-//   3. Attaches a delegated `click` listener on `#nd-sidebar` that
+//   2. Opens any folder containing the selected page for the current
+//      route. For other folders, reads the saved map from localStorage
+//      and clicks triggers whose current `data-state` differs from the
+//      saved value.
+//   3. Consumes one-shot folder-open requests from other controls, like
+//      the frontend quickstart picker, without overwriting saved user
+//      preferences.
+//   4. Attaches a delegated `click` listener on `#nd-sidebar` that
 //      records each folder's new `data-state` (read on the next
 //      animation frame, after Radix has updated it) into the map.
 //
@@ -36,38 +40,16 @@
 
 import { useEffect, useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
+import {
+  consumeSidebarFolderOpenOnce,
+  readSidebarFolderState,
+  resolveSidebarFolderDesiredState,
+  SIDEBAR_FOLDER_OPEN_REQUEST_EVENT,
+  sidebarHrefMatchesPathname,
+  writeSidebarFolderState,
+} from "@/lib/sidebar-folder-state";
 
-const STORAGE_KEY = "shell-docs-sidebar-folders";
 const SKIP_INITIAL_ANIMATION_ATTR = "data-shell-docs-skip-initial-animation";
-
-type FolderStateMap = Record<string, "open" | "closed">;
-
-function readStateMap(): FolderStateMap {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as FolderStateMap;
-    }
-  } catch (err) {
-    // Corrupted JSON, SecurityError (third-party iframe / privacy
-    // mode), or quota — log so a user reporting "my folders keep
-    // resetting" can diagnose, then start fresh below.
-    console.warn("[sidebar-folder-state-preserver] failed to read state", err);
-  }
-  return {};
-}
-
-function writeStateMap(map: FolderStateMap) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch (err) {
-    // Same rationale as the read side — non-critical state, but log so
-    // a quota / access error doesn't silently swallow the failure.
-    console.warn("[sidebar-folder-state-preserver] failed to write state", err);
-  }
-}
 
 // Fumadocs folder triggers are <button>s that toggle a sibling
 // Collapsible. They carry `data-state="open" | "closed"` and an
@@ -102,6 +84,40 @@ function enableFolderAnimation(trigger: HTMLButtonElement) {
   findFolderContent(trigger)?.removeAttribute(SKIP_INITIAL_ANIMATION_ATTR);
 }
 
+function folderContainsSelectedPage(
+  trigger: HTMLButtonElement,
+  pathname: string,
+) {
+  const content = findFolderContent(trigger);
+  if (!content) return false;
+  const origin = window.location.origin;
+  return Array.from(content.querySelectorAll<HTMLAnchorElement>("a[href]"))
+    .map((link) => link.getAttribute("href"))
+    .some((href) =>
+      href ? sidebarHrefMatchesPathname(href, pathname, origin) : false,
+    );
+}
+
+function clickWithoutPersisting(trigger: HTMLButtonElement) {
+  // Mark BEFORE dispatching so the delegated click handler that fires
+  // synchronously on `.click()` sees the marker and skips recording.
+  // Cleared on the next rAF — by then any genuine user-initiated click
+  // will have a fresh, unmarked event.
+  syntheticClicks.add(trigger);
+  trigger.click();
+  requestAnimationFrame(() => syntheticClicks.delete(trigger));
+}
+
+function openFolderByKey(key: string) {
+  const triggers = findFolderTriggers();
+  for (const trigger of triggers) {
+    if (folderKey(trigger) !== key) continue;
+    if (trigger.getAttribute("data-state") !== "open") {
+      clickWithoutPersisting(trigger);
+    }
+  }
+}
+
 // Triggers we just synthetically clicked during a restore pass. The
 // delegated click handler skips these so a restore-driven click doesn't
 // get recorded back into localStorage — without this guard a Radix
@@ -120,23 +136,21 @@ export function SidebarFolderStatePreserver() {
     // classes so route-mounted open folders do not animate on every
     // page navigation. Real user clicks remove the marker below, so
     // interactive open/close still animates normally.
-    const saved = readStateMap();
+    const saved = readSidebarFolderState();
     const triggers = findFolderTriggers();
     markInitialFolderAnimations(triggers);
     for (const trigger of triggers) {
       const key = folderKey(trigger);
       if (!key) continue;
-      const desired = saved[key];
+      const desired = resolveSidebarFolderDesiredState({
+        containsSelectedPage: folderContainsSelectedPage(trigger, pathname),
+        openOnceRequested: consumeSidebarFolderOpenOnce(key),
+        savedState: saved[key],
+      });
       if (desired === undefined) continue;
       const current = trigger.getAttribute("data-state");
       if (current !== desired) {
-        // Mark BEFORE dispatching so the delegated click handler that
-        // fires synchronously on `.click()` sees the marker and skips
-        // recording. Cleared on the next rAF — by then any genuine
-        // user-initiated click will have a fresh, unmarked event.
-        syntheticClicks.add(trigger);
-        trigger.click();
-        requestAnimationFrame(() => syntheticClicks.delete(trigger));
+        clickWithoutPersisting(trigger);
       }
     }
   }, [pathname]);
@@ -168,16 +182,27 @@ export function SidebarFolderStatePreserver() {
       requestAnimationFrame(() => {
         const state = trigger.getAttribute("data-state");
         if (state !== "open" && state !== "closed") return;
-        const map = readStateMap();
+        const map = readSidebarFolderState();
         if (map[key] === state) return;
         map[key] = state;
-        writeStateMap(map);
+        writeSidebarFolderState(map);
       });
     };
 
+    const onOpenRequest = (event: Event) => {
+      const detail = (event as CustomEvent<{ folder?: unknown }>).detail;
+      if (typeof detail?.folder !== "string") return;
+      openFolderByKey(detail.folder);
+    };
+
     sidebar.addEventListener("click", onClick);
+    window.addEventListener(SIDEBAR_FOLDER_OPEN_REQUEST_EVENT, onOpenRequest);
     return () => {
       sidebar.removeEventListener("click", onClick);
+      window.removeEventListener(
+        SIDEBAR_FOLDER_OPEN_REQUEST_EVENT,
+        onOpenRequest,
+      );
     };
   }, []);
 

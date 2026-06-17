@@ -22,6 +22,10 @@ import {
   buildRootSurfaceNav,
   loadDoc,
 } from "@/lib/docs-render";
+import {
+  frontendQuickstartContentSlugPath,
+  frontendQuickstartHref,
+} from "@/lib/frontend-quickstarts";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
@@ -75,10 +79,11 @@ export async function generateMetadata({
   }
   // Root URLs serve the BIA-authored page when one exists (see
   // UnscopedDocsPage) — mirror that resolution for metadata.
+  const contentSlugPath = frontendQuickstartContentSlugPath(slugPath);
   const doc =
     loadDoc(
-      `integrations/${getDocsFolder(HOME_DEFAULT_FRAMEWORK)}/${slugPath}`,
-    ) ?? loadDoc(slugPath);
+      `integrations/${getDocsFolder(HOME_DEFAULT_FRAMEWORK)}/${contentSlugPath}`,
+    ) ?? loadDoc(contentSlugPath);
   return buildDocMetadata({
     title: doc?.fm.title ?? slugPath,
     description: doc?.fm.description,
@@ -120,10 +125,7 @@ function DocsOverview() {
       slug: i.slug,
       name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
       logo: i.logo ?? null,
-      href:
-        i.slug === HOME_DEFAULT_FRAMEWORK
-          ? "/quickstart"
-          : `/${i.slug}/quickstart`,
+      href: frontendQuickstartHref(i.slug, "react"),
     }));
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>

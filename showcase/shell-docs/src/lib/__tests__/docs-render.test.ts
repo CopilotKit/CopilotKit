@@ -48,6 +48,12 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
   return false;
 }
 
+function hasSection(navTree: NavNode[], section: string) {
+  return navTree.some(
+    (node) => node.type === "section" && node.title === section,
+  );
+}
+
 function sectionPages(navTree: NavNode[], section: string): string[] {
   const pages: string[] = [];
   let inSection = false;
@@ -60,6 +66,20 @@ function sectionPages(navTree: NavNode[], section: string): string[] {
     if (node.type === "page") pages.push(node.title);
   }
   return pages;
+}
+
+function findGroup(navTree: NavNode[], title: string): Extract<
+  NavNode,
+  { type: "group" }
+> | null {
+  for (const node of navTree) {
+    if (node.type === "group") {
+      if (node.title === title) return node;
+      const child = findGroup(node.children, title);
+      if (child) return child;
+    }
+  }
+  return null;
 }
 
 function collectMdxFiles(dir: string): string[] {
@@ -235,20 +255,98 @@ describe("framework nav", () => {
     expect(teams?.hideTOC).toBe(true);
   });
 
-  it("includes the shared React Native platform guide in generated framework nav", () => {
+  it("groups frontend SDKs under Quickstart in generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
       "langgraph-python",
     );
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    const quickstart = findGroup(navTree, "Quickstart");
+
+    expect(quickstart?.children).toEqual([
+      {
+        type: "page",
+        title: "React",
+        slug: "react",
+        icon: "frontend/react",
+      },
+      {
+        type: "page",
+        title: "Vue",
+        slug: "vue",
+        icon: "frontend/vue",
+      },
+      {
+        type: "page",
+        title: "React Native",
+        slug: "react-native",
+        icon: "frontend/react-native",
+      },
+      {
+        type: "page",
+        title: "Slack",
+        slug: "slack",
+        icon: "frontend/slack",
+      },
+      {
+        type: "page",
+        title: "Microsoft Teams",
+        slug: "microsoft-teams",
+        icon: "frontend/microsoft-teams",
+      },
+    ]);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(
+      false,
+    );
+    expect(hasSection(navTree, "Platforms")).toBe(false);
   });
 
-  it("includes the shared React Native platform guide in authored framework nav", () => {
+  it("groups frontend SDKs under Quickstart in authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    const quickstart = findGroup(navTree, "Quickstart");
+
+    expect(quickstart?.children).toEqual([
+      {
+        type: "page",
+        title: "React",
+        slug: "react",
+        icon: "frontend/react",
+      },
+      {
+        type: "page",
+        title: "Vue",
+        slug: "vue",
+        icon: "frontend/vue",
+      },
+      {
+        type: "page",
+        title: "React Native",
+        slug: "react-native",
+        icon: "frontend/react-native",
+      },
+      {
+        type: "page",
+        title: "Slack",
+        slug: "slack",
+        icon: "frontend/slack",
+      },
+      {
+        type: "page",
+        title: "Microsoft Teams",
+        slug: "microsoft-teams",
+        icon: "frontend/microsoft-teams",
+      },
+    ]);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(
+      false,
+    );
+    expect(hasSection(navTree, "Platforms")).toBe(false);
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
