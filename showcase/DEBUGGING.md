@@ -2,6 +2,11 @@
 
 Quick-reference for running, debugging, and iterating on showcase integrations locally.
 
+For the canonical cell red→green SOP and the `bin/showcase test` invocation
+table (control-plane vs `--direct`), see
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green). This document
+covers the per-failure-mode investigation strategies that complement the SOP.
+
 ## Prerequisites
 
 See [README.md](README.md) for Docker/Colima/OrbStack setup, API key configuration, and the general layout of the showcase directory. This document assumes you have a working Docker engine and a populated `.env` file.
@@ -46,12 +51,24 @@ This is the iterative process for going from a red probe to green. Each section 
 
 ### Phase 1: Establish the Red Baseline
 
-Start the infrastructure and run the failing test to see the exact error:
+Run the failing test in an isolated stack to see the exact error. This is the
+production-equivalent path — control-plane pipeline, per-slug rebuild only,
+no interference with the shared `showcase-*` stack:
 
 ```sh
-showcase up aimock mastra        # or whatever slug is failing
+showcase test mastra:<demo> --d5 --isolate --verbose
+```
+
+For the older shared-stack workflow (e.g. if you already have the stack up and
+want to iterate without a fresh build), the equivalent two-step is:
+
+```sh
+showcase up aimock mastra
 showcase test mastra --d5 --verbose
 ```
+
+But `--isolate` is the canonical SOP. See
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green).
 
 What to look for in the output -- the specific probe name and error message. Common patterns:
 
@@ -70,9 +87,19 @@ showcase logs aimock --grep "fixture|match|NO match|404"
 
 What the log lines mean:
 
-- **"matched fixture X at turnIndex N"** -- aimock found a fixture for this request and is returning it. If the same turnIndex repeats, the supervisor is stuck in a loop (re-sending the same request and getting the same canned response).
-- **"NO match"** -- the request pattern doesn't match any fixture. This means either the fixture is missing, or the request shape has changed (different model, different system prompt, different tool definitions).
-- **Repeated matches at the same turnIndex** -- the agent's retry/loop logic is firing because it didn't get the response it expected from the previous turn. The fixture chain is broken somewhere upstream.
+- **"matched fixture X"** (with the chosen discriminator — `turnIndex`,
+  `hasToolResult`, `toolCallId`, `sequenceIndex`, or just `userMessage`) --
+  aimock found a fixture for this request and is returning it. If the same
+  discriminator repeats turn-after-turn, the agent is stuck in a loop
+  (re-sending the same request and getting the same canned response).
+- **"NO match"** -- the request pattern doesn't match any fixture. This means
+  either the fixture is missing, or the request shape has changed (different
+  model, different system prompt, different tool definitions), or the chosen
+  discriminator (often `toolCallId` strict-equality) silently misses against a
+  backend that rewrites IDs.
+- **Repeated matches at the same discriminator value** -- the agent's
+  retry/loop logic is firing because it didn't get the response it expected
+  from the previous turn. The fixture chain is broken somewhere upstream.
 
 ### Phase 3: The aimock Edit-Build-Deploy-Test Cycle
 
@@ -138,7 +165,17 @@ showcase recreate aimock
 showcase test <slug> --d5 --verbose
 ```
 
-Fixtures are baked into the aimock Docker image at build time. Simply editing the JSON file on disk does nothing until the container is recreated with the updated files. This is the most common "why isn't my fix working?" mistake.
+Fixtures are baked into the aimock Docker image at build time AND cached in
+memory at container startup. Simply editing the JSON file on disk does nothing
+until the container is recreated (or restarted in the case of a volume-mounted
+isolated stack). This is the most common "why isn't my fix working?" mistake.
+
+In an `--isolate` stack, aimock reads its fixtures from a volume mount, so a
+fresh isolated slot picks up edits at startup automatically. But within a
+warm slot, edits require an explicit
+`docker restart showcase-iso<N>-aimock`. See
+[`GOTCHAS.md`](./GOTCHAS.md#-isolate--aimock-operational-edge-cases) for the
+operational details.
 
 ### Phase 6: Verify Green
 
@@ -439,11 +476,15 @@ Look at the agent's event emission code. Every event that creates a message need
 
 **When**: A feature fails and you're about to blame the framework.
 
-**Do**: Run `showcase test langgraph-python --d5` in the SAME environment first. If langgraph-python also fails, the problem is infrastructure (stale aimock, broken fixtures, Docker state), not the framework. This saves hours of framework-specific debugging that turns out to be a shared issue.
+**Do**: Run `showcase test langgraph-python:<demo> --d5 --isolate` in the SAME
+environment first. If langgraph-python also fails on the same cell, the
+problem is infrastructure (stale aimock, broken fixtures, Docker state, probe
+bug), not the framework. This saves hours of framework-specific debugging that
+turns out to be a shared issue.
 
 ```sh
-showcase test langgraph-python --d5   # gold standard check
-showcase test <slug> --d5             # then your target
+showcase test langgraph-python:<demo> --d5 --isolate   # gold standard check
+showcase test <slug>:<demo> --d5 --isolate             # then your target
 ```
 
 ### Strategy 6: Check custom renderers for missing testids

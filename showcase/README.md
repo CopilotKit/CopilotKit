@@ -137,15 +137,21 @@ The showcase harness includes a CLI that runs the same probe drivers (liveness, 
 
 ### Test options
 
-| Option           | Description                                                |
-| ---------------- | ---------------------------------------------------------- |
-| `--d5`           | Run D5 (subagents/tool-rendering/agentic-chat) probes only |
-| `--d6`           | Run D6 probes only                                         |
-| `--verbose`      | Verbose test output                                        |
-| `--cycle`        | On failure, auto-dump aimock logs from the test window     |
-| `--timeout <ms>` | Test timeout in milliseconds (default: 30000)              |
+| Option            | Description                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `--d5`            | Run D5 probes. Defaults to the `agentic-chat` representative; `:demo` qualifier honored post-A18 |
+| `--d6`            | Run D6 probes (full sweep, or single demo when `:demo` is passed)                            |
+| `--isolate [name]`| Run in an isolated compose project with offset ports (canonical verification path)           |
+| `--direct`        | Use the in-process driver (bypasses control-plane). Legacy; not for value-tests              |
+| `--verbose`       | Verbose test output                                                                          |
+| `--cycle`         | On failure, auto-dump aimock logs from the test window                                       |
+| `--timeout <ms>`  | Test timeout in milliseconds (default: 30000)                                                |
 
 `--d5` and `--d6` are mutually exclusive. When neither is given, all tests run.
+
+For the full invocation table (control-plane vs `--direct`, per-demo scoping
+matrix) and the cell red→green SOP, see
+[`TESTING.md`](./TESTING.md#bin-showcase-test-invocation-semantics).
 
 ### How it works
 
@@ -161,9 +167,12 @@ The CLI reuses the same probe drivers that the showcase-harness service runs on 
 
 ### Use cases
 
-1. **Debugging Dn failures** — reproduce a CI/Railway failure locally with `--d5 --verbose --cycle` to see what aimock matched
-2. **Building new demos** — `up` the integration, iterate on code, `test <slug> --d5` to verify, repeat
-3. **Background automation** — run `test <slug> --d5` as a pre-push sanity check
+1. **Debugging Dn failures** — reproduce a CI/Railway failure locally with
+   `bin/showcase test <slug>:<demo> --d5 --isolate --verbose` (production-equivalent
+   control-plane pipeline; see [`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green)).
+2. **Building new demos** — `up` the integration, iterate on code, `test <slug>:<demo> --d5 --isolate` to verify, repeat.
+3. **Cell-flip value-tests** — `bin/showcase test <slug>:<feature> --d6 --isolate` against ≥3 candidate cells before merging a "this fixes N cells" claim.
+4. **Background automation** — run `test <slug> --d5 --isolate` as a pre-push sanity check.
 
 ## Local Docker workflow
 

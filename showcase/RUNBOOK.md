@@ -8,32 +8,52 @@ Intended audience: engineers and AI agents working on showcase integrations.
 ALWAYS use `bin/showcase` for all operations. Never raw `docker compose` or `docker build`.
 
 ```
-bin/showcase up <slug>                      # start container
-bin/showcase rebuild <slug>                 # code changes (new image)
-bin/showcase test <slug> --d5               # run D5 probe
-bin/showcase test <slug> --d6 --isolate <name>   # canonical d6 verification
+bin/showcase up <slug>                                  # start container
+bin/showcase rebuild <slug>                             # code changes (new image)
+bin/showcase test <slug>:<demo> --d5 --isolate          # single d5 cell, production-equivalent
+bin/showcase test <slug> --d6 --isolate                 # canonical d6 verification
 ```
 
 - **`rebuild`** handles symlink dereferencing that raw `docker build` cannot (`tools/` and `shared-tools/` are symlinks to `../../shared/`).
 - **`recreate`** for env/config changes (same image, new container).
 - **`rebuild`** for code changes (new image).
+- **`--isolate`** is the default verification flow. Post-A21+A21b, only the
+  target slug rebuilds; infra services (aimock, pocketbase, dashboard, harness,
+  harness-pool-worker) reuse cached images. Cold-build is ~30s–2 min per slug.
+- **`--d5` / `--d6`** route through the production-equivalent control-plane
+  (producer → queue → worker, same pipeline Railway runs). `--direct` switches
+  to the legacy in-process driver; use only for fast non-pipeline debugging.
+
+See [`TESTING.md`](./TESTING.md#bin-showcase-test-invocation-semantics) for the
+full CLI invocation table and the cell red→green SOP.
 
 ## Verifying a Slug's D6 State (canonical flow)
 
 To verify an integration's D6 state, run:
 
 ```
-bin/showcase test <slug> --d6 --isolate <name>
+bin/showcase test <slug> --d6 --isolate
 ```
 
-This is THE default way to verify a slug. `--isolate <name>` brings up a fully
-isolated stack — its own aimock + PocketBase + dashboard + integration +
-harness control-plane and pool-worker — on offset ports in its own docker
-compose project, then runs the canonical `harness/src/probes/drivers/d6-all-pills.ts`
-driver: it enqueues per-pill jobs, the isolated worker claims them, and asserts
-per-pill. This is **identical to the non-isolate path** — the same driver, the
-same per-pill assertions — just on isolated ports/project so it doesn't disturb
-the shared long-lived `showcase-*` stack.
+This is THE default way to verify a slug. `--isolate` brings up a fully isolated
+stack — its own aimock + PocketBase + dashboard + integration + harness
+control-plane and pool-worker — on offset ports in its own docker compose
+project, then runs the canonical
+`harness/src/probes/drivers/d6-all-pills.ts` driver via the production-equivalent
+control-plane pipeline (producer → queue → worker, same as Railway): it enqueues
+per-pill jobs, the isolated worker claims them, and asserts per-pill. This is
+**identical to the non-isolate path** — the same driver, the same per-pill
+assertions — just on isolated ports/project so it doesn't disturb the shared
+long-lived `showcase-*` stack.
+
+The name argument to `--isolate` is optional; omit it and the CLI auto-assigns
+one. Pass an explicit name (e.g. `--isolate d6verify`) when you want to inspect
+the stack with `--keep`.
+
+Post-A21+A21b, only the target slug rebuilds — infra services (aimock,
+pocketbase, dashboard, harness, harness-pool-worker) reuse cached images from
+the local Docker store. Cold-build per slug is ~30s–2 min, not the 10+ min
+full-stack rebuild it used to be.
 
 Verifiers use THIS flow rather than hand-driving the browser. Hand-driving
 breaks the identical-tests invariant: the whole point is that the same driver
@@ -46,18 +66,40 @@ below for the full mechanics and cleanup.
 
 ## Fixture Matching
 
-D5 fixtures use `hasToolResult` (not `turnIndex`) for multi-turn disambiguation.
+D5/D6 fixtures use several discriminators for multi-turn disambiguation. Pick
+the one that's backend-id-invariant for your case — fragility of
+`toolCallId`-based matching against backends that rewrite IDs (Anthropic
+`toolu_*`, TanStack `fc-*`) is the most common cell-failure root cause.
 
-| Field                  | Meaning                                          |
-| ---------------------- | ------------------------------------------------ |
-| `hasToolResult: false` | First LLM call -- no tool result in messages yet |
-| `hasToolResult: true`  | Follow-up call -- tool result present            |
+| Field                  | Meaning                                                                |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `userMessage`          | substring on the last `role:"user"` message                            |
+| `hasToolResult`        | boolean: any `role:"tool"` message present (thread-global predicate)   |
+| `turnIndex`            | integer: count of `role:"assistant"` messages                          |
+| `toolCallId`           | strict equality vs last `role:"tool"` `tool_call_id` (FRAGILE)         |
+| `sequenceIndex`        | repeat-invocation discriminator (per-X-Test-Id counter; see GOTCHAS)   |
+| `context`              | equality vs `x-aimock-context` header                                  |
 
-`turnIndex` counts assistant messages, which varies across frameworks. **Do not use `turnIndex` in new fixtures.**
+Match-key choice guidance:
 
-The `mcp-subagents` supervisor chain should also avoid `turnIndex`; chain each
-follow-up on the prior tool call's `toolCallId` so repeated and interleaved pill
-clicks replay the same way.
+- **First-leg vs follow-up disambiguation across the whole thread:** use
+  `hasToolResult`. It's a stateless predicate over the request shape, immune to
+  backend ID rewrites.
+- **Repeat-invocation distinction within one conversation (e.g. click pill 1
+  then pill 1 again):** use `sequenceIndex` variants ordered before a
+  non-sequenced fallback. See the beautiful-chat calculator fixtures and the
+  `sequenceIndex` caveats in [`GOTCHAS.md`](./GOTCHAS.md).
+- **Per-turn discriminator within a multi-turn flow:** use `turnIndex`. Post-A12/A13/A20,
+  this is the canonical backend-id-invariant alternative for cases where
+  `toolCallId` would otherwise be the match key (the Anthropic / TanStack
+  Responses API rewrites IDs through `responsesInputToMessages`, so
+  `toolCallId` strict-equality silently misses).
+- **`toolCallId` strict equality:** acceptable only when the backend is known
+  not to rewrite IDs (e.g. langgraph-python). Otherwise swap to `turnIndex` or
+  `hasToolResult`.
+
+The `mcp-subagents` supervisor chain anchors follow-ups on `toolCallId` per
+the LGP canonical pattern — langgraph-python does not rewrite IDs.
 
 ### Fixture locations
 
@@ -103,14 +145,24 @@ Missing any of these means that provider's integrations bypass aimock and hit re
 
 ## Debugging Sequence
 
-1. Check container health: `docker compose -f showcase/docker-compose.local.yml ps`
-2. Check container logs: `docker logs showcase-<slug> --tail 30`
-3. Enable aimock debug: add `--log-level debug` to compose command
-4. Run test: `bin/showcase test <slug> --d5 --verbose`
-5. Check aimock logs for fixture matching: `docker logs showcase-aimock 2>&1 | grep "Fixture matched\|No fixture"`
-6. If fixture matches but test fails: frontend/runtime issue (check component rendering, testid attributes)
-7. If fixture does not match: check `hasToolResult`, `userMessage` substring matching
-8. If zero aimock requests: check base URL env var for that provider
+1. Run the production-equivalent isolated probe with verbose output:
+   `bin/showcase test <slug>:<demo> --d5 --isolate --verbose`
+2. Check container health (isolated slot N): `docker ps --filter name=showcase-iso<N>-`
+3. Check integration logs: `docker logs showcase-iso<N>-<slug> --tail 30`
+4. Check aimock fixture matching: `docker logs showcase-iso<N>-aimock 2>&1 | grep "Fixture matched\|No fixture"`
+   (or hit the journal endpoint: `curl http://localhost:<aimock-port>/journal`)
+5. If fixture matches but test fails: frontend/runtime issue (check component
+   rendering, `data-testid` attributes, custom assistantMessage renderers).
+6. If fixture does not match: check the discriminator key — `userMessage`
+   substring, `turnIndex` (post-A12/A13/A20 canonical for backend-id-rewriting
+   stacks), `hasToolResult`, `sequenceIndex`. Do NOT assume `toolCallId` strict
+   equality holds; it doesn't on Anthropic/TanStack Responses API backends.
+7. If zero aimock requests: check base URL env var for that provider (see
+   [Docker Compose Environment](#docker-compose-environment)).
+8. Cross-check against LGP gold standard for the same cell:
+   `bin/showcase test langgraph-python:<demo> --d5 --isolate`. If LGP is also
+   red, the problem is infra (probe, aimock fixture content, harness), not the
+   integration under test.
 
 ## Production Debugging
 
@@ -245,10 +297,17 @@ Earned by bugs. Do not repeat.
 
 - **NEVER** change a demo's fundamental functionality to pass a test. The demo IS the point.
 - **NEVER** replace chart/data-viz gen-ui with trivial text components.
-- **NEVER** use `turnIndex` in new fixtures. Use `hasToolResult`.
+- **NEVER** anchor multi-turn disambiguation on `toolCallId` strict equality
+  when the backend rewrites IDs (Anthropic, TanStack). Use `turnIndex` or
+  `hasToolResult` instead — see [Fixture Matching](#fixture-matching).
+- **NEVER** modify `response.content` to match what a real LLM emits. The
+  canonical narration is fixture-author truth; the d5 probe asserts on it.
+  Tune `match` keys, not the response.
 - **NEVER** use raw `docker build`. Symlinks break. Use `bin/showcase rebuild`.
 - **NEVER** assume "agent says done" means "D5 is green." Always run the actual test.
 - **NEVER** add a backend tool for something that should be a frontend HITL tool.
+- **NEVER** use `--direct` for cell-flip value-tests. It bypasses the queue/worker
+  pipeline staging actually runs and has misled investigations in the past.
 
 ## Aimock Fixture Deployment
 

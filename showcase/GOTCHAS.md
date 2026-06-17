@@ -136,6 +136,37 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 ---
 
+## `--isolate` & aimock operational edge cases
+
+**aimock caches fixtures at container startup.** aimock reads fixtures from disk
+exactly once at boot and serves matches from an in-memory map. Editing a
+fixture in a live stack has no effect until the container restarts. Within an
+`--isolate` slot:
+
+- **Fresh slot** (cold-start) — aimock loads fixtures from the volume mount on
+  startup, so the first run after a fixture edit picks up the change for free.
+- **Warm slot** (reusing a kept stack) — fixture edits require an explicit
+  `docker restart showcase-iso<N>-aimock` before the next test run, or you'll
+  see the pre-edit behavior with no log indication of why.
+
+This is the most-recurring "why isn't my fixture fix working?" trap during
+iterative cell debugging.
+
+**`--isolate` slot collisions with foreign Docker projects.** The slot registry
+under `~/.local/state/copilotkit/showcase/slots/` only tracks `showcase-*`
+compose projects. If a sibling project (e.g. `ag2mm-*`, or another tool's
+docker stack) owns the same host ports for an auto-picked slot, health checks
+cross-resolve to the foreign containers and results misroute silently — the
+isolated stack appears red even though its own containers are healthy. Two
+remediations:
+
+- **Pre-reserve the conflicting slot:** `mkdir
+  ~/.local/state/copilotkit/showcase/slots/<N>` for each slot whose port range
+  collides with the foreign stack. The CLI skips reserved slots when picking.
+- **Tear down the foreign stack first:** `docker compose -p <foreign-project> down`
+  before launching `--isolate`. Cleanest, but requires knowing which project
+  is the culprit.
+
 ## Running D6 in Parallel (`--isolate`)
 
 **The shared aimock is NOT a serialization bottleneck.** aimock matching is stateless per-request and context-keyed (`x-aimock-context: <slug>` per request); the only cross-request state is the per-X-Test-Id sequence counters (see the `sequenceIndex` gotcha above), which D6's per-run unique test ids (`buildE2eTestId`) keep isolated. So one instance serves many integrations concurrently with zero cross-talk for D6 traffic. Many integrations can run D6 at once.
