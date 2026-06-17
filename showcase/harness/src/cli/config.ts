@@ -53,8 +53,8 @@ export function loadConfig(): LocalConfig {
     // When --isolate offsets the aimock host port, honor env overrides so the
     // harness's host-side references point at the per-project aimock.
     aimockUrl: process.env.AIMOCK_URL_LOCAL || "http://localhost:4010",
-    dashboardUrl: process.env.DASHBOARD_URL_LOCAL || "http://localhost:3200",
-    dashboardPort: Number(process.env.DASHBOARD_PORT_LOCAL) || 3200,
+    dashboardUrl: process.env.DASHBOARD_URL_LOCAL || "http://localhost:3210",
+    dashboardPort: Number(process.env.DASHBOARD_PORT_LOCAL) || 3210,
   };
 }
 
