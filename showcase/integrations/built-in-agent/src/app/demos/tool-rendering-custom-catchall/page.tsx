@@ -11,19 +11,10 @@ import {
   CopilotChat,
   CopilotKitProvider,
   useConfigureSuggestions,
+  useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
 import { CustomCatchallRenderer } from "./custom-catchall-renderer";
 import type { CatchallToolStatus } from "./custom-catchall-renderer";
-
-// @region[suppress-catchall-rendering]
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
-
-function YourMainContent() {
-  useDefaultRenderTool({
-    render: ({ name, parameters, status, result }) => null,
-  });
-}
-// @endregion[suppress-catchall-rendering]
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
