@@ -10,7 +10,7 @@ function makeStore(messages: any[]) {
 }
 
 describe("GoogleChatConversationStore.getOrCreate", () => {
-  it("builds agent history from listMessages, skipping the bot's own messages", async () => {
+  it("builds agent history from listMessages, including bot replies as assistant turns", async () => {
     const store = makeStore([
       { name: "m1", text: "hello", sender: { name: "users/1", type: "HUMAN" } },
       { name: "m2", text: "hi there", sender: { name: "users/BOT", type: "BOT" } },

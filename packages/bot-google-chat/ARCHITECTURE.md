@@ -77,7 +77,7 @@ POST /webhooks/google-chat
 
 ### JWT verification
 
-`createInboundVerifier` (`auth.ts`) verifies the `Authorization: Bearer <jwt>` header on every inbound POST. It uses `google-auth-library`'s `OAuth2Client.verifyIdToken` against the Google Chat system service account's x509 certificates (`chat@system.gserviceaccount.com`), checking that `aud` matches `googleChatProjectNumber` (or an explicit `audience`) and `iss` is the Chat issuer. Returns 401 immediately if verification fails.
+`createInboundVerifier` (`auth.ts`) verifies the `Authorization: Bearer <jwt>` header on every inbound POST. Chat webhook JWTs are signed by the Chat system service account (`chat@system.gserviceaccount.com`), not Google's standard federated OIDC keys, so it uses `google-auth-library`'s `OAuth2Client.verifySignedJwtWithCertsAsync(token, certs, audience, [CHAT_ISSUER])` rather than `verifyIdToken` (which can't be pointed at custom certs). It fetches that account's x509 certs from the cert endpoint and verifies the signature, the `aud` (matching `googleChatProjectNumber` or an explicit `audience`), and the `iss` (the Chat issuer) against them in one call. Because Google rotates these signing keys frequently, the in-memory cert cache self-heals: on a verification failure it refetches the certs once and retries before rejecting the token. Returns 401 immediately if verification still fails.
 
 ### Egress / streaming
 

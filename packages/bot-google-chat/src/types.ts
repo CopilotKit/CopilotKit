@@ -39,8 +39,6 @@ export interface IncomingTurn {
 export interface GoogleChatAdapterOptions {
   /** Service account credentials JSON (object) or path to the key file. */
   credentials?: object | string;
-  /** Use Application Default Credentials instead of explicit credentials. */
-  useApplicationDefaultCredentials?: boolean;
   /** GCP project number — expected `aud` of inbound webhook JWTs. */
   googleChatProjectNumber?: string;
   /** Override the expected inbound JWT audience (defaults to googleChatProjectNumber). */

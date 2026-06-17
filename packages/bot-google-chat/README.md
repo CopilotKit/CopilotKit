@@ -34,12 +34,14 @@ pnpm add @copilotkit/bot-google-chat @copilotkit/bot
 
 ## Environment variables
 
-Neither variable below is strictly required when [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) are configured. Credential resolution is `opts.credentials ?? GOOGLE_CHAT_CREDENTIALS`; if neither is set the adapter falls back to `GoogleAuth` ADC discovery (which itself consults `GOOGLE_APPLICATION_CREDENTIALS`, then other ADC sources). You do still need a valid `googleChatProjectNumber` to verify inbound webhook JWTs.
+Of the two below, only `GOOGLE_CHAT_CREDENTIALS` is read from the environment by the adapter. `GOOGLE_CHAT_PROJECT_NUMBER` is a convention the **caller** reads and passes explicitly as the `googleChatProjectNumber` option (as the Quickstart does) — the adapter does not consult `process.env` for it.
+
+Credentials are not strictly required when [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) are configured. Credential resolution is `opts.credentials ?? GOOGLE_CHAT_CREDENTIALS`; if neither is set the adapter falls back to `GoogleAuth` ADC discovery (which itself consults `GOOGLE_APPLICATION_CREDENTIALS`, then other ADC sources). You do still need a valid `googleChatProjectNumber` to verify inbound webhook JWTs.
 
 | Var                              | Purpose                                                                                          |
 | -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `GOOGLE_CHAT_CREDENTIALS`        | Service account JSON key — object literal, path to key file, or raw JSON string. Used when `opts.credentials` is not passed. If unset, the adapter falls back to `GoogleAuth` ADC discovery (which consults `GOOGLE_APPLICATION_CREDENTIALS`). |
-| `GOOGLE_CHAT_PROJECT_NUMBER`     | GCP project number — expected `aud` of inbound webhook JWTs. Pass as `googleChatProjectNumber`. |
+| `GOOGLE_CHAT_CREDENTIALS`        | Service account JSON key — object literal, path to key file, or raw JSON string. **Read directly by the adapter** when `opts.credentials` is not passed. If unset, the adapter falls back to `GoogleAuth` ADC discovery (which consults `GOOGLE_APPLICATION_CREDENTIALS`). |
+| `GOOGLE_CHAT_PROJECT_NUMBER`     | GCP project number — expected `aud` of inbound webhook JWTs. **Not read by the adapter**; the caller reads it and passes it as the `googleChatProjectNumber` option (see Quickstart). |
 
 ## Quickstart
 

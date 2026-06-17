@@ -21,6 +21,12 @@ export function markdownToChat(input: string): string {
   if (!input) return input;
 
   // ── 1. Pull code regions and tables out so we don't touch them. ──
+  // NOTE: the placeholder (and the BOLD sentinels below) are wrapped in
+  // intentional, load-bearing non-printing control-character bytes (\x10
+  // here; \x11/\x12 below). They are invisible in most editors but are NOT
+  // decorative — they are collision-proof sentinels chosen so they can never
+  // appear in real input. Do NOT "clean them up" or replace them with visible
+  // text; doing so would let user content collide with our placeholders.
   const codeRegions: string[] = [];
   const codePlaceholder = (i: number) => `CODE${i}`;
 
@@ -45,6 +51,9 @@ export function markdownToChat(input: string): string {
   );
 
   // ── 2. Bold first, into a sentinel; then italic won't eat its output. ──
+  // The two strings below are single non-printing control-character bytes
+  // (\x11 open, \x12 close) — deliberate, load-bearing sentinels, NOT empty
+  // strings. Do NOT replace them with visible markers (see note in step 1).
   const BOLD_OPEN = "";
   const BOLD_CLOSE = "";
   body = body.replace(/\*\*([^\n*]+?)\*\*/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
