@@ -1,0 +1,29 @@
+# ── Agent backend (runtime.ts) ──────────────────────────────────────────
+# A CopilotKit `BuiltInAgent` served over AG-UI (see runtime.ts). This is a
+# standalone image: it installs the published `@copilotkit/*` packages from
+# npm, so it does NOT need the monorepo as build context — point Railway's
+# "Root Directory" at `examples/slack` and this Dockerfile builds from there.
+#
+# This service has no public domain in the recommended setup; the bot reaches
+# it over Railway's private network (see RAILWAY.md).
+FROM node:22-slim
+
+# pnpm comes with Node via corepack.
+RUN corepack enable
+WORKDIR /app
+
+# Install dependencies first so the layer caches across source-only changes.
+# There is no lockfile in this directory (the monorepo's lives at the repo
+# root and isn't part of this build context), so resolve fresh.
+COPY package.json ./
+RUN pnpm install --no-frozen-lockfile
+
+# App source (runtime.ts + app/). `.dockerignore` keeps node_modules/.env out.
+COPY . .
+
+# runtime.ts reads PORT (defaults to 8200). Fixing it makes the bot's
+# AGENT_URL deterministic over the private network.
+ENV PORT=8200
+EXPOSE 8200
+
+CMD ["pnpm", "run", "runtime"]

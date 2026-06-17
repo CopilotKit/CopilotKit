@@ -390,7 +390,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/bot
       '@copilotkit/bot-discord':
-        specifier: workspace:*
+        specifier: ~0.0.1
         version: link:../../packages/bot-discord
       '@copilotkit/bot-slack':
         specifier: workspace:*
