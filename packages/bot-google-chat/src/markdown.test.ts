@@ -22,4 +22,26 @@ describe("markdownToChat", () => {
     expect(out).toContain("`x`");
     expect(out).toContain("CODE0");
   });
+
+  // Headings: the whole line becomes a single bold span. Inline bold inside a
+  // heading must not produce nested/unbalanced asterisks.
+  it("converts a heading whose entire text is bold to a single bold span", () => {
+    expect(markdownToChat("# **Important**")).toBe("*Important*");
+  });
+  it("converts a heading with inline bold to a single bold span", () => {
+    expect(markdownToChat("## Step **1** done")).toBe("*Step 1 done*");
+  });
+  it("converts a plain heading to a single bold span", () => {
+    expect(markdownToChat("# Plain Heading")).toBe("*Plain Heading*");
+  });
+
+  it("converts *italic* to _italic_", () => {
+    expect(markdownToChat("*x*")).toBe("_x_");
+  });
+  it("converts ~~strike~~ to ~strike~", () => {
+    expect(markdownToChat("~~x~~")).toBe("~x~");
+  });
+  it("converts a bullet marker to •  ", () => {
+    expect(markdownToChat("- x")).toBe("•  x");
+  });
 });

@@ -59,10 +59,17 @@ export function markdownToChat(input: string): string {
   body = body.replace(/\*\*([^\n*]+?)\*\*/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
   body = body.replace(/__([^\n_]+?)__/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
 
-  // Headings (#…) → bold (also sentinel-marked).
+  // Headings (#…) → bold (also sentinel-marked). The whole heading line
+  // becomes a single bold span, so any inline **bold**/__bold__ inside it was
+  // already turned into BOLD_OPEN/BOLD_CLOSE sentinels above and is now
+  // redundant. Strip those inner sentinels before re-wrapping, otherwise the
+  // line would carry nested sentinel pairs that collapse to unbalanced `*` on
+  // restore (e.g. "# **Important**" → "**Important**" instead of "*Important*").
+  const boldSentinel = new RegExp(`[${BOLD_OPEN}${BOLD_CLOSE}]`, "g");
   body = body.replace(
     /^\s{0,3}#{1,6}\s+(.*)$/gm,
-    (_m, text: string) => `${BOLD_OPEN}${text.trim()}${BOLD_CLOSE}`,
+    (_m, text: string) =>
+      `${BOLD_OPEN}${text.replace(boldSentinel, "").trim()}${BOLD_CLOSE}`,
   );
 
   // Strikethrough ~~text~~ → ~text~
