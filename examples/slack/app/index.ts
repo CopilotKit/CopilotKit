@@ -11,7 +11,11 @@
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/bot";
-import { defaultSlackTools, defaultSlackContext, SanitizingHttpAgent } from "@copilotkit/bot-slack";
+import {
+  defaultSlackTools,
+  defaultSlackContext,
+  SanitizingHttpAgent,
+} from "@copilotkit/bot-slack";
 import { defaultWhatsAppContext } from "@copilotkit/bot-whatsapp";
 import { buildAdapters } from "./adapters.js";
 import { appTools } from "./tools/index.js";
@@ -76,9 +80,14 @@ async function main() {
   // here. The platform-formatting context is chosen per-turn from thread.platform.
   bot.onMention(async ({ thread, message }) => {
     const platformCtx =
-      thread.platform === "whatsapp" ? defaultWhatsAppContext : defaultSlackContext;
+      thread.platform === "whatsapp"
+        ? defaultWhatsAppContext
+        : defaultSlackContext;
     await thread.runAgent({
-      context: [...platformCtx, ...senderContext(message.user, thread.platform)],
+      context: [
+        ...platformCtx,
+        ...senderContext(message.user, thread.platform),
+      ],
     });
   });
 

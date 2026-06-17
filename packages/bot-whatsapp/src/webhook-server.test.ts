@@ -131,7 +131,12 @@ describe("WebhookServer", () => {
   });
 
   it("responds 200 ok to GET / for health checks", async () => {
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "S", onEvent: async () => {} });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "V",
+      appSecret: "S",
+      onEvent: async () => {},
+    });
     await server.start(0);
     try {
       const res = await get(server, "/");
@@ -143,7 +148,12 @@ describe("WebhookServer", () => {
   });
 
   it("still 404s an unknown path (health route doesn't broaden 200)", async () => {
-    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "S", onEvent: async () => {} });
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "V",
+      appSecret: "S",
+      onEvent: async () => {},
+    });
     await server.start(0);
     try {
       const res = await get(server, "/nope");

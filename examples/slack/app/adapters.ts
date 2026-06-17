@@ -17,7 +17,10 @@ export function buildAdapters(env: NodeJS.ProcessEnv): PlatformAdapter[] {
   };
 
   const adapters: PlatformAdapter[] = [
-    slack({ botToken: need("SLACK_BOT_TOKEN"), appToken: need("SLACK_APP_TOKEN") }),
+    slack({
+      botToken: need("SLACK_BOT_TOKEN"),
+      appToken: need("SLACK_APP_TOKEN"),
+    }),
   ];
 
   if (env.WHATSAPP_ACCESS_TOKEN) {

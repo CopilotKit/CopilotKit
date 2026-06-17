@@ -82,7 +82,9 @@ const bot = createBot({
 // senderContext names the requesting user (per thread.platform) so the agent
 // acts "as" them.
 bot.onMention(async ({ thread, message }) => {
-  await thread.runAgent({ context: senderContext(message.user, thread.platform) });
+  await thread.runAgent({
+    context: senderContext(message.user, thread.platform),
+  });
 });
 
 await bot.start();
@@ -179,7 +181,10 @@ defineBotCommand({
   description: "Ask the triage agent anything (no @mention needed).",
   async handler({ thread, text, user }) {
     if (!text) return void thread.post("Usage: `/agent <your question>`");
-    await thread.runAgent({ prompt: text, context: senderContext(user, thread.platform) });
+    await thread.runAgent({
+      prompt: text,
+      context: senderContext(user, thread.platform),
+    });
   },
 });
 ```

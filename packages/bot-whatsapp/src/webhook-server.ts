@@ -49,7 +49,11 @@ export class WebhookServer {
     // itself lives at `this.args.path`; everything else 404s as before. Guard
     // with `path !== "/"` so that if an operator configures the webhook AT the
     // root, the Meta verify handshake (GET /?hub...) is not shadowed by health.
-    if (req.method === "GET" && url.pathname === "/" && this.args.path !== "/") {
+    if (
+      req.method === "GET" &&
+      url.pathname === "/" &&
+      this.args.path !== "/"
+    ) {
       res.statusCode = 200;
       res.setHeader("content-type", "text/plain");
       res.end("ok");
