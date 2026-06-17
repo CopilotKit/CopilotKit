@@ -128,14 +128,17 @@ function renderNodeWidgets(node: BotNode): Widget[] {
     case "fields": {
       const fieldChildren = childrenOf(node).filter((c) => c.type === "field");
       for (const f of fieldChildren) {
+        // `decoratedText` REQUIRES `text`; `topLabel` is only an optional
+        // adornment above it. The field's content goes in `text`.
         const txt = truncateText(collectText(f), GCHAT_LIMITS.decoratedTextTop);
-        if (txt) widgets.push({ decoratedText: { topLabel: txt } });
+        if (txt) widgets.push({ decoratedText: { text: txt } });
       }
       break;
     }
     case "field": {
+      // `decoratedText` REQUIRES `text`; put the field's content there.
       const txt = truncateText(collectText(node), GCHAT_LIMITS.decoratedTextTop);
-      if (txt) widgets.push({ decoratedText: { topLabel: txt } });
+      if (txt) widgets.push({ decoratedText: { text: txt } });
       break;
     }
     case "text": {
@@ -183,18 +186,28 @@ export function renderGoogleChatMessage(ir: BotNode[]): {
   const headerNode = nodes.find((n) => n.type === "header");
   const bodyNodes = nodes.filter((n) => n.type !== "header");
 
-  let widgets: Widget[] = bodyNodes.flatMap(renderNodeWidgets);
+  const widgets: Widget[] = bodyNodes.flatMap(renderNodeWidgets);
 
   const { items: clampedWidgets } = clampArray(widgets, GCHAT_LIMITS.widgetsPerCard);
 
-  const card: Record<string, unknown> = {
-    sections: [{ widgets: clampedWidgets }],
-  };
+  // A section with an empty `widgets: []` array is rejected by the Chat API.
+  // If nothing rendered to a widget (all nodes were unknown/empty) and there
+  // is no header to carry the card, fall back to a plain text body.
+  if (clampedWidgets.length === 0 && !headerNode) {
+    return { text: " " };
+  }
+
+  const card: Record<string, unknown> = {};
 
   if (headerNode) {
     card.header = {
       title: truncateText(collectText(headerNode), GCHAT_LIMITS.headerText),
     };
+  }
+
+  // Only emit a section when there are widgets; an empty `widgets: []` is invalid.
+  if (clampedWidgets.length > 0) {
+    card.sections = [{ widgets: clampedWidgets }];
   }
 
   return { cardsV2: [{ cardId: "ck-card", card }] };

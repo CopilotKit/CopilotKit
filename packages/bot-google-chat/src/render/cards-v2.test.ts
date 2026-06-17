@@ -80,4 +80,40 @@ describe("renderGoogleChatMessage", () => {
     // The button text should be present.
     expect(buttons[0].text).toBe("Click me");
   });
+
+  it("renders a field as a decoratedText whose `text` (not just topLabel) carries the content", () => {
+    const fieldsNode: BotNode = {
+      type: "fields",
+      props: {
+        children: [
+          { type: "field", props: { children: [text("Status: Online")] } },
+        ],
+      },
+    };
+
+    const out = renderGoogleChatMessage([fieldsNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+
+    const decorated = widgets.find((w) => w.decoratedText !== undefined);
+    expect(decorated).toBeDefined();
+    // `decoratedText` REQUIRES `text` — content must live there, not only in topLabel.
+    expect(decorated.decoratedText.text).toBe("Status: Online");
+  });
+
+  it("returns a plain text body (no empty-widgets section) when non-plain-text IR produces zero widgets", () => {
+    // `divider`/unknown wrapping that yields no widgets — here an unknown node
+    // type means renderNodeWidgets emits nothing, but the IR is not plain text
+    // so the fast path is skipped.
+    const unknownNode: BotNode = {
+      type: "totally-unknown-node" as any,
+      props: { children: [] },
+    };
+
+    const out = renderGoogleChatMessage([unknownNode]);
+
+    // Must NOT emit a card with an empty `widgets: []` section.
+    expect(out.cardsV2).toBeUndefined();
+    expect(typeof out.text).toBe("string");
+  });
 });
