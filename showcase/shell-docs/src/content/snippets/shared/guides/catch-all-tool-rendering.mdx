@@ -1,34 +1,3 @@
-A catch-all renderer handles every tool call that does not have an exact-name
-renderer. `useDefaultRenderTool` registers that wildcard renderer for you with
-`name: "*"`.
-
-Use a catch-all when you want otherwise-unhandled tool calls to share one UI:
-the built-in CopilotKit card, a branded fallback, or no UI at all.
-
-## Built-in catch-all (zero-config)
-
-<FrameworkSetup concept="agent-setup" />
-
-The simplest entry point: call `useDefaultRenderTool()` with no arguments.
-CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
-wildcard: every otherwise-unhandled tool call renders as a tidy status card
-(tool name, live **Running → Done** pill, collapsible arguments/result)
-without you writing any UI.
-
-Without this hook, and without another catch-all renderer, otherwise-unhandled
-tool calls are invisible; the user only sees the assistant's final text
-summary.
-
-<Snippet
-  cell="tool-rendering-default-catchall"
-  region="default-catchall-zero-config"
-  title="frontend/src/app/page.tsx — useDefaultRenderTool()"
-/>
-
-Here's what the built-in status card looks like for each tool call:
-
-<InlineDemo demo="tool-rendering-default-catchall" />
-
 ## Customize the catch-all
 
 Once you want on-brand chrome, pass a `render` function to
@@ -42,13 +11,8 @@ and final `result`:
 <Snippet
   cell="tool-rendering-custom-catchall"
   region="use-default-render-tool-wildcard"
-  title="frontend/src/app/page.tsx — custom wildcard renderer"
+  title="page.tsx"
 />
-
-Here's the branded catch-all in action, where every otherwise-unhandled tool
-call gets the same on-brand card:
-
-<InlineDemo demo="tool-rendering-custom-catchall" />
 
 ## Render nothing from the catch-all
 
@@ -125,10 +89,3 @@ function App() {
   return <ChatInterface />;
 }
 ```
-
-<Callout type="info">
-  In v2, use [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)
-  for catch-all rendering, and
-  [`useRenderTool`](/reference/hooks/useRenderTool) for named or explicit
-  wildcard renderer registration.
-</Callout>
