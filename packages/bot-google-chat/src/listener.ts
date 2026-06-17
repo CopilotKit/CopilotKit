@@ -1,4 +1,4 @@
-import { DM_SCOPE, conversationKeyOf } from "./types.js";
+import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
 export interface ListenerHandlers {
