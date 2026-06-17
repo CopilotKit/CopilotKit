@@ -37,11 +37,15 @@ export function markdownToCardHtml(input: string): string {
   if (!input) return input;
 
   // ── 1. Pull code regions out so their contents aren't reinterpreted. ──
-  // The placeholder and the sentinels below use non-printing control bytes
-  // (\x10 / \x11 / \x12) so user content can never collide with them. Do NOT
-  // replace them with visible text.
+  // The code placeholder is wrapped in the non-printing control byte \x10, and
+  // the bold sentinels below are the control bytes \x11 (open) / \x12 (close).
+  // All three are real, load-bearing, collision-proof bytes — invisible in most
+  // editors but deliberately chosen so they can never appear in real user input.
+  // Do NOT replace them with visible text. Any markdown-style transform in this
+  // package MUST use these control-byte sentinels (see markdown.ts) to avoid
+  // colliding with user text.
   const codeRegions: string[] = [];
-  const codePlaceholder = (i: number) => `CODE${i}`;
+  const codePlaceholder = (i: number) => `\x10CODE${i}\x10`;
 
   let body = input.replace(/```[\s\S]*?```/g, (match) => {
     codeRegions.push(match);
@@ -92,7 +96,7 @@ export function markdownToCardHtml(input: string): string {
   body = body.replace(new RegExp(BOLD_OPEN, "g"), "<b>");
   body = body.replace(new RegExp(BOLD_CLOSE, "g"), "</b>");
   body = body.replace(
-    /CODE(\d+)/g,
+    /\x10CODE(\d+)\x10/g,
     (_m, idx) => escapeHtml(codeRegions[Number(idx)] ?? ""),
   );
   body = body.replace(/\r?\n/g, "<br>");

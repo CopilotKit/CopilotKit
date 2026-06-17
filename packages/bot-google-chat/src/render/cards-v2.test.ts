@@ -195,6 +195,30 @@ describe("renderGoogleChatMessage", () => {
     expect(html).not.toContain("~~");
   });
 
+  it("preserves literal CODE<n> in card text when no code regions exist", () => {
+    // Regression: the code-region placeholder must use a collision-proof
+    // \x10 sentinel (mirroring markdown.ts), not a human-typeable token, so
+    // card-routed prose containing "CODE0" is not deleted during restore.
+    const out = renderGoogleChatMessage([section("refer to CODE0 here")]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    expect(tp.textParagraph.text).toContain("CODE0");
+  });
+
+  it("preserves literal CODE<n> in card text alongside a real code region", () => {
+    const out = renderGoogleChatMessage([
+      section("see `x` and refer to CODE0"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+    // The real inline code is restored verbatim AND the literal CODE0 survives.
+    expect(html).toContain("`x`");
+    expect(html).toContain("CODE0");
+  });
+
   it("escapes raw HTML in card text so it can't inject markup", () => {
     const node = section("a < b & c > d");
     const out = renderGoogleChatMessage([node]);
