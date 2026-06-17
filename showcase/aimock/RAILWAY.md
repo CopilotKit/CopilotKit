@@ -1,5 +1,10 @@
 # showcase-aimock Railway service reference
 
+Tagline: authoritative backup of the `showcase-aimock` Railway service config
+(image, startCommand, fixture URLs, env vars) and the from-scratch recreate
+recipe. Concrete IDs / domains live in the Notion plan (section 9), not in
+this public repo.
+
 This document persists the Railway service configuration for `showcase-aimock`
 in the repo so the service can be reconstructed from scratch if Railway state
 is ever lost. All runtime config (image, startCommand, env vars) lives only in

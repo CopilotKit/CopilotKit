@@ -1,5 +1,9 @@
 # Integration Checklist
 
+Tagline: per-package source checklist + external setup (Railway, secrets, CI,
+registry) for adding a new integration framework. Cross-ref:
+`../examples/integrations/<slug>/` for canonical Dojo dep-pinning source.
+
 Two checklists: what makes a **complete package**, and what **external setup** is needed when adding a new framework.
 
 ---

@@ -1,5 +1,10 @@
 # Showcase Railway Operations
 
+Tagline: fleet-wide auto-update config, pending service provisioning, and the
+recipe for adding a new Railway service. For day-to-day promote/snapshot/pin
+operations see [`./bin/README.md`](./bin/README.md). For aimock-specific
+service reconstruction see [`./aimock/RAILWAY.md`](./aimock/RAILWAY.md).
+
 ## Pending Service Provisioning
 
 One service is wired into `showcase_deploy.yml` with placeholder
