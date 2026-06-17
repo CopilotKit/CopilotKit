@@ -20,7 +20,7 @@ and final `result`:
 The catch-all can also be a deliberate opt-out. Return `null` when you want
 otherwise-unhandled tool calls to run without painting UI in the chat.
 
-Include `status` in the signature when the renderer may later become
+Keep the full renderer signature in place when the renderer may later become
 conditional:
 
 <Snippet
@@ -51,7 +51,7 @@ function App() {
       handler: async ({ query }) => {
         /* ... */
       },
-      render: ({ status }) => null,
+      render: ({ name, parameters, status, result }) => null,
     },
     [],
   );

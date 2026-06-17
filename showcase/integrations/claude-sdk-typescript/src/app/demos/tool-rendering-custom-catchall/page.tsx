@@ -19,7 +19,7 @@ import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
 function YourMainContent() {
   useDefaultRenderTool({
-    render: ({ status }) => null,
+    render: ({ name, parameters, status, result }) => null,
   });
 }
 // @endregion[suppress-catchall-rendering]
