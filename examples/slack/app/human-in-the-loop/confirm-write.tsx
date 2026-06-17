@@ -37,9 +37,7 @@ export function ConfirmWrite({ action, detail }: ConfirmWriteProps) {
     <Message accent="#E2B340">
       <Header>{`📝 ${action}?`}</Header>
       {detail ? <Section>{detail}</Section> : null}
-      <Context>
-        {":lock:  Nothing is written until you click **Create**."}
-      </Context>
+      <Context>{"🔒  Nothing is written until you click **Create**."}</Context>
       <Actions>
         <Button
           value={{ confirmed: true }}
@@ -49,9 +47,7 @@ export function ConfirmWrite({ action, detail }: ConfirmWriteProps) {
               message.ref,
               <Message accent="#27AE60">
                 <Header>{`✅ ${action}`}</Header>
-                <Context>
-                  {":white_check_mark:  Approved — writing now."}
-                </Context>
+                <Context>{"✅  Approved — writing now."}</Context>
               </Message>,
             );
           }}
@@ -66,9 +62,7 @@ export function ConfirmWrite({ action, detail }: ConfirmWriteProps) {
               message.ref,
               <Message accent="#EB5757">
                 <Header>{`🚫 ${action}`}</Header>
-                <Context>
-                  {":no_entry_sign:  Declined — nothing was written."}
-                </Context>
+                <Context>{"🚫  Declined — nothing was written."}</Context>
               </Message>,
             );
           }}

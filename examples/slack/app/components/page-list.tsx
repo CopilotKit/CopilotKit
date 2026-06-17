@@ -55,13 +55,13 @@ export function PageList({ heading, pages }: PageListProps): BotNode {
     const meta = [
       page.snippet,
       page.edited
-        ? `:clock3: edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
+        ? `🕒 edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
         : null,
     ]
       .filter(Boolean)
       .join("\n");
 
-    rows.push(<Section>{`:page_facing_up:  ${titleLink}`}</Section>);
+    rows.push(<Section>{`📄  ${titleLink}`}</Section>);
     if (meta) rows.push(<Context>{meta}</Context>);
     if (i < pages.length - 1) rows.push(<Divider />);
   });

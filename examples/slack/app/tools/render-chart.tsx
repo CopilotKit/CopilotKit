@@ -1,10 +1,10 @@
 /**
  * `render_chart` — the agent emits a Chart.js config; we render it to a PNG
  * locally (headless Chromium) and deliver it to the thread via the SDK's
- * `ctx.thread.postFile`. Slack shows the image inline. This is the "upload a CSV →
- * get a chart" payoff: the agent parses the data, then calls this. After the
- * upload we also post a small JSX caption card (`<Context>`) so the tool
- * doubles as a render-tool demo.
+ * `ctx.thread.postFile`. The image renders inline in the conversation. This
+ * is the "upload a CSV → get a chart" payoff: the agent parses the data, then
+ * calls this. After the upload we also post a small JSX caption card
+ * (`<Context>`) so the tool doubles as a render-tool demo.
  */
 import { z } from "zod";
 import { Context } from "@copilotkit/bot-ui";
@@ -68,10 +68,10 @@ function slug(s: string): string {
 export const renderChartTool = defineBotTool({
   name: "render_chart",
   description:
-    "Render a chart as an image and post it to the Slack thread. Pass a " +
-    "Chart.js config OBJECT (type + data, optionally options). Use this to " +
+    "Render a chart as an image and post it to the conversation thread. Pass " +
+    "a Chart.js config OBJECT (type + data, optionally options). Use this to " +
     "visualize data — e.g. after analyzing an uploaded CSV. The image renders " +
-    "inline in Slack.",
+    "inline in the conversation.",
   parameters: schema,
   async handler({ title, chartSpec }, ctx) {
     // chartSpec is an object; tolerate a stringified one too (some models
@@ -99,7 +99,7 @@ export const renderChartTool = defineBotTool({
       }
       // After the image lands, post a small JSX caption card.
       await ctx.thread.post(
-        <Context>{`:bar_chart:  *${title ?? "Chart"}* — rendered as an image above.`}</Context>,
+        <Context>{`📊  *${title ?? "Chart"}* — rendered as an image above.`}</Context>,
       );
       return "Rendered and posted the chart image to the thread.";
     } catch (e) {

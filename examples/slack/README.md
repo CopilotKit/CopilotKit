@@ -1,10 +1,11 @@
-# slack-example — on-call triage assistant
+# slack-and-telegram-example — on-call triage assistant
 
-A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack): a
-Slack bot that turns incident chatter into tracked work. It's built with
+A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack) and
+[`@copilotkit/bot-telegram`](../../packages/bot-telegram): a bot that turns
+incident chatter into tracked work. It's built with
 [`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core),
-the Slack adapter, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
-cross-platform JSX vocabulary for rich messages). It connects to **Linear**
+the Slack and Telegram adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui)
+(a cross-platform JSX vocabulary for rich messages). It connects to **Linear**
 and **Notion** over MCP and can:
 
 - **Query Linear** — _"what's open in CPK this cycle?"_ → renders issues
@@ -23,26 +24,33 @@ performs any Linear/Notion write.
 ## How it fits together
 
 ```
-Slack  ──@mention──▶  bot (app/)  ──AG-UI──▶  runtime (runtime.ts)
+Slack / Telegram ──@mention──▶  bot (app/)  ──AG-UI──▶  runtime (runtime.ts)
                                                 │  BuiltInAgent (LLM)
                                                 ├── Linear  MCP  (hosted)
                                                 └── Notion  MCP  (sidecar)
 ```
 
-- **`app/`** — the Slack-side bot: `createBot` + the `slack()` adapter, the
-  `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
-  the `issue_card` / `issue_list` / `page_list` render-tools, the
-  `confirm_write` HITL gate, and the bot's context. This is the directory
-  you'd copy to start your own bot.
+- **`app/`** — the bot application, platform-neutral: `createBot` started for
+  the `slack()` and/or `telegram()` adapter (whichever credentials are set),
+  the `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
+  the `issue_card` / `issue_list` / `page_list` render-tools, the showcase
+  tools, the `confirm_write` HITL gate, and the bot's context. The components
+  emit a cross-platform JSX IR that each adapter renders natively. This is the
+  directory you'd copy to start your own bot.
 - **`runtime.ts`** — the agent backend: a single CopilotKit `BuiltInAgent`
   (LLM + Linear/Notion MCP), served over AG-UI. No Python, no LangGraph.
-- **`e2e/`** — a live-Slack test harness (sends real messages to a test
-  channel). _Legacy/WIP — see [Tests](#tests)._
+- **`e2e/`** — live test harnesses. The Slack harness (`run.ts` /
+  `restart-recovery.ts`, `pnpm e2e`) is _legacy/WIP — see [Tests](#tests)_; the
+  Telegram harness (`telegram-run.ts`, `pnpm e2e:telegram`) is a manual-trigger
+  smoke test — see [`e2e/TELEGRAM-README.md`](e2e/TELEGRAM-README.md).
 
 ### The bot (`app/index.ts`)
 
-The whole bot is `createBot` + the Slack adapter, one `onMention` handler,
-and `start()`:
+The core shape is `createBot` + an adapter, one `onMention` handler, and
+`start()`. The snippet below is an **abridged, single-platform sketch** — the
+real `app/index.ts` starts a Slack and/or Telegram bot depending on which
+credentials are set, threads `agentHeaders`, and adds graceful shutdown; read
+the file for the full dual-platform wiring:
 
 ```ts
 import { createBot } from "@copilotkit/bot";
@@ -313,12 +321,20 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
-> **Deploying from this monorepo (e.g. Railway):** this example depends on the
-> published `@copilotkit/bot*` packages (`package.json`), so a standalone build
-> installs them from npm. The pnpm lockfile lives at the **repo root**, so make
-> sure each service's **watch paths** include `pnpm-lock.yaml` and `package.json`
-> (not just `examples/slack/**`) — otherwise a dependency bump won't trigger a
-> redeploy and a frozen install can fail with an out-of-date lockfile.
+> **Deploying from this monorepo (e.g. Railway):** the Slack-side packages
+> (`@copilotkit/bot`, `@copilotkit/bot-slack`, `@copilotkit/bot-ui`) are
+> published, so a build installs them from npm. The pnpm lockfile lives at the
+> **repo root**, so make sure each service's **watch paths** include
+> `pnpm-lock.yaml` and `package.json` (not just `examples/slack/**`) — otherwise
+> a dependency bump won't trigger a redeploy and a frozen install can fail with
+> an out-of-date lockfile.
+>
+> **Telegram support is new:** `@copilotkit/bot-telegram` is not published yet,
+> so it is referenced as `workspace:*` and the example currently runs **from the
+> monorepo** (`pnpm --filter slack-example start`). Standalone deploys (the
+> example's own `pnpm-lock.yaml`) work for Slack today; once `bot-telegram`
+> publishes alongside its siblings, switch the dep to `~0.0.2` and regenerate the
+> standalone lockfile to enable standalone Telegram deploys.
 
 ## Tests
 
@@ -330,3 +346,88 @@ pnpm test            # unit tests (read_thread, render tools, components, confir
 > being migrated to the new `createBot` API — it still targets the old bridge
 > and the obsolete button-value resume path, so it does not run against this
 > example as-is.
+
+---
+
+## Running on Telegram
+
+This same app also runs a Telegram bot using the
+[`@copilotkit/bot-telegram`](../../packages/bot-telegram) adapter. The app
+starts whichever platform's credentials are present — Slack-only, Telegram-only,
+or both simultaneously.
+
+### 1. BotFather setup
+
+1. Open Telegram and message [@BotFather](https://t.me/BotFather).
+2. Send `/newbot` and follow the prompts — choose a display name and a
+   username (must end in `bot`). BotFather replies with your **bot token**
+   (looks like `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`).
+3. **Enable group message access:** send `/setprivacy` to BotFather, select
+   your bot, then choose **Disable**. This lets the bot see messages it's
+   @mentioned in or replied to inside group chats. (Privacy mode is on by
+   default — without this step the bot only sees commands and DMs.)
+4. **Slash commands are auto-published on startup** — the adapter calls
+   `setMyCommands` via `registerCommands` when `bot.start()` runs, so
+   `/agent` and `/triage` appear in Telegram's command menu automatically.
+   No manual `/setcommands` step in BotFather is needed.
+
+### 2. Credentials
+
+Add the following to your `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=<token from BotFather>
+```
+
+You do **not** need to change `OPENAI_API_KEY`, `LINEAR_API_KEY`, or
+`NOTION_TOKEN` — they are shared with the Slack adapter.
+
+### 3. Start the bot
+
+```bash
+pnpm start          # tsx app/index.ts — starts whichever adapters are configured
+```
+
+Long-polling is the default ingress (no public URL or webhook setup required).
+To switch to webhook mode see the `telegram()` adapter options; the default
+`mode: "polling"` works for development and most production deployments.
+
+### 4. Try it
+
+Start a DM with your bot or add it to a group and @mention it:
+
+> @YourBotUsername what are the open CPK issues this cycle?
+
+> @YourBotUsername file this thread as a bug in CPK
+
+Or use the slash commands (appear automatically in the Telegram command menu):
+
+> /agent what's open in CPK this sprint?
+
+> /triage
+
+### 5. Ingress modes
+
+| Mode      | How it works                                                                     |
+| --------- | -------------------------------------------------------------------------------- |
+| `polling` | **Default.** grammY long-polling. No public URL needed.                          |
+| `webhook` | grammY webhook + minimal Node HTTP server. Requires `webhook.domain`.            |
+| `auto`    | Webhook when `VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`/`NETLIFY` is set, else polling. |
+
+### 6. Telegram e2e
+
+A live end-to-end harness for the Telegram bot lives alongside the Slack one:
+
+```bash
+# Requires TELEGRAM_BOT_TOKEN + TELEGRAM_TEST_CHAT_ID in .env
+pnpm e2e:telegram
+
+# Run a single case by name filter:
+CASE_FILTER='C1' pnpm e2e:telegram
+```
+
+By default the harness runs in **manual-trigger** mode: it prints each test
+prompt and waits for you to send it in the Telegram chat, then polls the bot's
+reply and validates it. Set `TELEGRAM_SENDER_BOT_TOKEN` in `.env` (a second
+"sender" bot added to a shared group) for fully automated sending. See
+[`e2e/TELEGRAM-README.md`](./e2e/TELEGRAM-README.md) for full details.

@@ -2,7 +2,7 @@
   "name": "slack-example",
   "version": "0.0.1",
   "private": true,
-  "description": "Runnable demo for @copilotkit/bot-slack \u2014 an on-call triage Slack bot backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and a live-Slack e2e harness.",
+  "description": "Runnable demo for @copilotkit/bot-slack and @copilotkit/bot-telegram \u2014 an on-call triage bot (Slack and/or Telegram from one shared app) backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and e2e harnesses.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -13,11 +13,13 @@
     "check-types": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "tsx e2e/run.ts",
-    "e2e:restart": "tsx e2e/restart-recovery.ts"
+    "e2e:restart": "tsx e2e/restart-recovery.ts",
+    "e2e:telegram": "tsx e2e/telegram-run.ts"
   },
   "dependencies": {
     "@copilotkit/bot": "~0.0.2",
     "@copilotkit/bot-slack": "~0.0.2",
+    "@copilotkit/bot-telegram": "workspace:*",
     "@copilotkit/bot-ui": "~0.0.2",
     "@copilotkit/runtime": "^1.59.5",
     "@slack/bolt": "^4.2.0",
