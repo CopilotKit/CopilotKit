@@ -68,10 +68,10 @@ function sectionPages(navTree: NavNode[], section: string): string[] {
   return pages;
 }
 
-function findGroup(navTree: NavNode[], title: string): Extract<
-  NavNode,
-  { type: "group" }
-> | null {
+function findGroup(
+  navTree: NavNode[],
+  title: string,
+): Extract<NavNode, { type: "group" }> | null {
   for (const node of navTree) {
     if (node.type === "group") {
       if (node.title === title) return node;
@@ -298,9 +298,7 @@ describe("framework nav", () => {
     ]);
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
-    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(
-      false,
-    );
+    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(false);
     expect(hasSection(navTree, "Platforms")).toBe(false);
   });
 
@@ -343,9 +341,7 @@ describe("framework nav", () => {
     ]);
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
-    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(
-      false,
-    );
+    expect(hasSectionPage(navTree, "Platforms", "Microsoft Teams")).toBe(false);
     expect(hasSection(navTree, "Platforms")).toBe(false);
   });
 

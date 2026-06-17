@@ -107,8 +107,7 @@ export async function generateMetadata({
     // mirror UnscopedDocsPage's resolution so the metadata matches the
     // content the route serves.
     const unscopedPath = [framework, ...(slug ?? [])].join("/");
-    const unscopedContentPath =
-      frontendQuickstartContentSlugPath(unscopedPath);
+    const unscopedContentPath = frontendQuickstartContentSlugPath(unscopedPath);
     const doc =
       loadDoc(
         `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedContentPath}`,
@@ -275,8 +274,7 @@ export default async function FrameworkScopedDocsPage({
     integration?.name ??
     frameworkOverviews[framework]?.frameworkName ??
     framework;
-  const requestedContentSlugPath =
-    frontendQuickstartContentSlugPath(slugPath);
+  const requestedContentSlugPath = frontendQuickstartContentSlugPath(slugPath);
 
   let contentSlugPath: string = requestedContentSlugPath;
   let doc: ReturnType<typeof loadDoc> = null;

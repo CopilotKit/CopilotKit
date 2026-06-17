@@ -19,16 +19,12 @@ describe("FrontendLogo", () => {
     for (const markup of rendered) {
       expect(markup).toContain("<svg");
     }
-    expect(rendered.join("\n")).toContain("data-frontend-icon=\"slack\"");
+    expect(rendered.join("\n")).toContain('data-frontend-icon="slack"');
     expect(rendered.join("\n")).toContain(
-      "data-frontend-icon=\"microsoft-teams\"",
+      'data-frontend-icon="microsoft-teams"',
     );
-    expect(rendered.join("\n")).toContain(
-      "data-icon-library=\"react-icons/si\"",
-    );
-    expect(rendered.join("\n")).toContain(
-      "data-icon-library=\"react-icons/tb\"",
-    );
+    expect(rendered.join("\n")).toContain('data-icon-library="react-icons/si"');
+    expect(rendered.join("\n")).toContain('data-icon-library="react-icons/tb"');
   });
 
   it("uses icon library packages instead of inline logo paths", () => {

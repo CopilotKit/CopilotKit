@@ -1,5 +1,4 @@
-export const SIDEBAR_FOLDER_STATE_STORAGE_KEY =
-  "shell-docs-sidebar-folders";
+export const SIDEBAR_FOLDER_STATE_STORAGE_KEY = "shell-docs-sidebar-folders";
 export const SIDEBAR_FOLDER_OPEN_ONCE_STORAGE_KEY =
   "shell-docs-sidebar-open-once";
 export const SIDEBAR_FOLDER_OPEN_REQUEST_EVENT =

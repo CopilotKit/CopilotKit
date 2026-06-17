@@ -61,9 +61,7 @@ describe("frontend quickstart routing", () => {
     expect(frontendQuickstartContentSlugPath("quickstart/react-native")).toBe(
       "react-native",
     );
-    expect(frontendQuickstartContentSlugPath("quickstart/slack")).toBe(
-      "slack",
-    );
+    expect(frontendQuickstartContentSlugPath("quickstart/slack")).toBe("slack");
     expect(
       frontendQuickstartContentSlugPath("quickstart/microsoft-teams"),
     ).toBe("microsoft-teams");
