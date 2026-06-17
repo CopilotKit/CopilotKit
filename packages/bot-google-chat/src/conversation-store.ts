@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
 import type { ChatClient, ChatMessage } from "./chat-client.js";
+import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
 export interface AgentSession {
@@ -38,9 +39,15 @@ export class GoogleChatConversationStore {
     const agent = makeAgent(threadId);
     let history: AgentMessage[] = [];
     try {
-      history = this.translate(await this.client.listMessages(key.spaceId));
+      // Scope history to a single thread when this conversation IS a thread
+      // (scope is the thread resource name); for a DM, list the whole space.
+      const messages =
+        key.scope !== DM_SCOPE
+          ? await this.client.listMessages(key.spaceId, { threadName: key.scope })
+          : await this.client.listMessages(key.spaceId);
+      history = this.translate(messages);
     } catch (err) {
-      console.warn("[bot-google-chat] failed to fetch conversation history:", err);
+      console.warn("[bot-google-chat] failed to fetch conversation history for", key.spaceId, err);
       history = [];
     }
     (agent as unknown as { messages: AgentMessage[] }).messages = history;

@@ -40,6 +40,35 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     expect(captured.messages).toEqual([]);
   });
 
+  it("scopes the history fetch to the thread when scope is a thread resource name", async () => {
+    const client = { listMessages: vi.fn(async () => []) } as any;
+    const store = new GoogleChatConversationStore({ client, botUserId: "users/BOT" });
+    await store.getOrCreate(
+      { spaceId: "spaces/A", scope: "spaces/A/threads/T" },
+      { space: "spaces/A", thread: "spaces/A/threads/T" },
+      () => ({ messages: [] }) as any,
+    );
+    expect(client.listMessages).toHaveBeenCalledTimes(1);
+    const args = client.listMessages.mock.calls[0] as any[];
+    expect(args[0]).toBe("spaces/A");
+    expect(args[1]).toEqual({ threadName: "spaces/A/threads/T" });
+  });
+
+  it("does NOT scope to a thread for DM scope (whole space)", async () => {
+    const client = { listMessages: vi.fn(async () => []) } as any;
+    const store = new GoogleChatConversationStore({ client, botUserId: "users/BOT" });
+    await store.getOrCreate(
+      { spaceId: "spaces/A", scope: "dm" },
+      { space: "spaces/A" },
+      () => ({ messages: [] }) as any,
+    );
+    expect(client.listMessages).toHaveBeenCalledTimes(1);
+    const args = client.listMessages.mock.calls[0] as any[];
+    expect(args[0]).toBe("spaces/A");
+    // No threadName opts passed for DM scope.
+    expect(args[1]).toBeUndefined();
+  });
+
   it("excludes bot status rows (🔧 / ✅ / _thinking…_ / _…(continued)_) from translated history", async () => {
     const store = makeStore([
       { name: "m1", text: "what can you do?", sender: { name: "users/1", type: "HUMAN" } },

@@ -8,6 +8,7 @@ function makeAdapter() {
     patchMessage: vi.fn(async () => {}),
     deleteMessage: vi.fn(async () => {}),
     listMessages: vi.fn(async () => []),
+    uploadAttachment: vi.fn(async () => ({ ok: true, fileId: "f1" })),
   };
   const adapter = new GoogleChatAdapter({ googleChatProjectNumber: "123" });
   (adapter as unknown as { chatClient: unknown }).chatClient = chatClient;
@@ -69,6 +70,48 @@ describe("GoogleChatAdapter", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await adapter.delete({ id: "spaces/A/messages/M1" } as any);
     expect(chatClient.deleteMessage).toHaveBeenCalledWith("spaces/A/messages/M1");
+  });
+
+  it("getMessages() scopes the listing to the thread when target.thread is set", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    await adapter.getMessages({ space: "spaces/A", thread: "spaces/A/threads/T" } as unknown);
+    expect(chatClient.listMessages).toHaveBeenCalledTimes(1);
+    const args = chatClient.listMessages.mock.calls[0] as any[];
+    expect(args[0]).toBe("spaces/A");
+    expect(args[1]).toEqual({ threadName: "spaces/A/threads/T" });
+  });
+
+  it("getMessages() lists the whole space when target.thread is absent", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    await adapter.getMessages({ space: "spaces/A" } as unknown);
+    const args = chatClient.listMessages.mock.calls[0] as any[];
+    expect(args[0]).toBe("spaces/A");
+    expect(args[1]).toBeUndefined();
+  });
+
+  it("postFile() threads the upload when target.thread is set", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    const bytes = new Uint8Array([1, 2, 3]);
+    await adapter.postFile(
+      { space: "spaces/A", thread: "spaces/A/threads/T" } as unknown,
+      { bytes, filename: "f.png" },
+    );
+    expect(chatClient.uploadAttachment).toHaveBeenCalledTimes(1);
+    const args = chatClient.uploadAttachment.mock.calls[0] as any[];
+    expect(args[0]).toBe("spaces/A");
+    expect(args[1]).toBe(bytes);
+    expect(args[2]).toBe("f.png");
+    expect(args[3]).toEqual({ threadName: "spaces/A/threads/T" });
+  });
+
+  it("postFile() posts top-level (no threadName) when target.thread is absent", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    await adapter.postFile(
+      { space: "spaces/A" } as unknown,
+      { bytes: new Uint8Array([1]), filename: "f.png" },
+    );
+    const args = chatClient.uploadAttachment.mock.calls[0] as any[];
+    expect(args[3]).toBeUndefined();
   });
 
   it("decodeInteraction() decodes CARD_CLICKED", () => {

@@ -261,14 +261,17 @@ export class GoogleChatAdapter implements PlatformAdapter {
   async getMessages(target: BotReplyTarget): Promise<ThreadMessage[]> {
     const t = target as ReplyTarget;
     try {
-      const messages = await this.chatClient.listMessages(t.space);
+      const messages = await this.chatClient.listMessages(
+        t.space,
+        t.thread ? { threadName: t.thread } : undefined,
+      );
       return messages.map((m) => ({
         text: m.text ?? "",
         isBot: m.sender?.type === "BOT",
         user: m.sender?.name ? { id: m.sender.name } : undefined,
       }));
     } catch (err) {
-      console.warn("[bot-google-chat] getMessages failed:", err);
+      console.warn("[bot-google-chat] getMessages failed for", t.space, err);
       return [];
     }
   }
@@ -283,7 +286,12 @@ export class GoogleChatAdapter implements PlatformAdapter {
     },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     const t = target as ReplyTarget;
-    return this.chatClient.uploadAttachment(t.space, args.bytes, args.filename);
+    return this.chatClient.uploadAttachment(
+      t.space,
+      args.bytes,
+      args.filename,
+      t.thread ? { threadName: t.thread } : undefined,
+    );
   }
 
   registerCommands(_commands: readonly CommandSpec[]): void {
