@@ -1,33 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const verifyIdToken = vi.fn();
+const verifySignedJwtWithCertsAsync = vi.fn();
 vi.mock("google-auth-library", () => ({
-  OAuth2Client: class { verifyIdToken = verifyIdToken; },
+  OAuth2Client: class { verifySignedJwtWithCertsAsync = verifySignedJwtWithCertsAsync; },
   GoogleAuth: class {},
 }));
 
 import { createInboundVerifier, UnauthorizedError } from "./auth.js";
 
+const CERTS = { kid1: "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----" };
+
+function stubCertFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ ok: true, json: async () => CERTS }) as unknown as Response),
+  );
+}
+
 describe("createInboundVerifier", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stubCertFetch();
+  });
 
   it("rejects a missing Authorization header", async () => {
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify(undefined)).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(verifySignedJwtWithCertsAsync).not.toHaveBeenCalled();
   });
 
-  it("accepts a token whose aud and issuer match", async () => {
-    verifyIdToken.mockResolvedValueOnce({
+  it("accepts a token that verifies against the Chat x509 certs", async () => {
+    verifySignedJwtWithCertsAsync.mockResolvedValueOnce({
       getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
     });
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify("Bearer good.jwt.token")).resolves.toBeUndefined();
+    expect(verifySignedJwtWithCertsAsync).toHaveBeenCalledWith(
+      "good.jwt.token",
+      CERTS,
+      "123",
+      ["chat@system.gserviceaccount.com"],
+    );
   });
 
-  it("rejects a token with the wrong issuer", async () => {
-    verifyIdToken.mockResolvedValueOnce({
-      getPayload: () => ({ aud: "123", iss: "evil@example.com" }),
-    });
+  it("rejects a token whose signature/audience/issuer fails verification", async () => {
+    verifySignedJwtWithCertsAsync.mockRejectedValueOnce(new Error("invalid signature"));
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify("Bearer bad.jwt")).rejects.toBeInstanceOf(UnauthorizedError);
   });
@@ -35,6 +52,6 @@ describe("createInboundVerifier", () => {
   it("bypasses verification when disableSignatureVerification is set", async () => {
     const v = createInboundVerifier({ disableSignatureVerification: true });
     await expect(v.verify(undefined)).resolves.toBeUndefined();
-    expect(verifyIdToken).not.toHaveBeenCalled();
+    expect(verifySignedJwtWithCertsAsync).not.toHaveBeenCalled();
   });
 });
