@@ -5,40 +5,47 @@ renderer. `useDefaultRenderTool` registers that wildcard renderer for you with
 Use a catch-all when you want otherwise-unhandled tool calls to share one UI:
 the built-in CopilotKit card, a branded fallback, or no UI at all.
 
-## Use the built-in catch-all
+## Built-in catch-all (zero-config)
 
-Call `useDefaultRenderTool()` with no arguments to use CopilotKit's built-in
-`DefaultToolCallRenderer` as the wildcard renderer. It shows the tool name,
-current status, arguments, and result without custom UI code.
+<FrameworkSetup concept="agent-setup" />
 
-```tsx title="app/page.tsx"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+The simplest entry point: call `useDefaultRenderTool()` with no arguments.
+CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
+wildcard: every otherwise-unhandled tool call renders as a tidy status card
+(tool name, live **Running → Done** pill, collapsible arguments/result)
+without you writing any UI.
 
-function YourMainContent() {
-  useDefaultRenderTool();
+Without this hook, and without another catch-all renderer, otherwise-unhandled
+tool calls are invisible; the user only sees the assistant's final text
+summary.
 
-  return <ChatInterface />;
-}
-```
+<Snippet
+  cell="tool-rendering-default-catchall"
+  region="default-catchall-zero-config"
+  title="frontend/src/app/page.tsx — useDefaultRenderTool()"
+/>
 
-<Callout type="info">
-  Without a catch-all renderer or a named renderer for a tool, tool calls still
-  run but do not paint UI in the chat.
-</Callout>
+Here's what the built-in status card looks like for each tool call:
+
+<InlineDemo demo="tool-rendering-default-catchall" />
 
 ## Customize the catch-all
 
-Pass a `render` function when you want one branded UI for every otherwise
-unhandled tool. The catch-all receives the tool `name`, parsed `parameters`,
-current `status`, and final `result`.
+Once you want on-brand chrome, pass a `render` function to
+`useDefaultRenderTool`. It's a convenience wrapper around
+`useRenderTool({ name: "*", ... })`: one wildcard renderer handles every tool
+call not claimed by a named renderer.
+
+The catch-all receives the tool `name`, parsed `parameters`, current `status`,
+and final `result`:
 
 <Snippet
   cell="tool-rendering-custom-catchall"
   region="use-default-render-tool-wildcard"
-  title="frontend/src/app/page.tsx - custom catch-all renderer"
+  title="frontend/src/app/page.tsx — custom wildcard renderer"
 />
 
-Here is the branded catch-all in action, where every otherwise-unhandled tool
+Here's the branded catch-all in action, where every otherwise-unhandled tool
 call gets the same on-brand card:
 
 <InlineDemo demo="tool-rendering-custom-catchall" />
