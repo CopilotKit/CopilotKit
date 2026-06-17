@@ -21,6 +21,7 @@ import { renderCardsV2, renderGoogleChatMessage } from "./render/cards-v2.js";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToChat } from "./markdown.js";
 import { createTokenProvider, createInboundVerifier } from "./auth.js";
+import type { InboundVerifier } from "./auth.js";
 import { createRequestHandler, startServer } from "./server.js";
 import type { ChatRequestHandler } from "./server.js";
 import { ChatClient } from "./chat-client.js";
@@ -39,6 +40,7 @@ export class GoogleChatAdapter implements PlatformAdapter {
   requestHandler: ChatRequestHandler;
 
   private readonly opts: GoogleChatAdapterOptions;
+  private readonly verifier: InboundVerifier;
   private server: { close(): Promise<void> } | undefined;
 
   constructor(opts: GoogleChatAdapterOptions) {
@@ -62,7 +64,7 @@ export class GoogleChatAdapter implements PlatformAdapter {
 
     // Build collaborators — no network I/O in the constructor
     const tokenProvider = createTokenProvider(opts);
-    const verifier = createInboundVerifier(opts);
+    this.verifier = createInboundVerifier(opts);
     this.chatClient = new ChatClient({
       tokenProvider,
       apiUrl: opts.apiUrl,
@@ -70,16 +72,12 @@ export class GoogleChatAdapter implements PlatformAdapter {
 
     // Placeholder handler; real one is built in start() once we have the sink
     this.requestHandler = createRequestHandler({
-      verifier,
+      verifier: this.verifier,
       onEvent: async (_event: unknown) => ({}),
     });
-
-    // Store references for use in start()
-    (this as unknown as { _verifier: typeof verifier })._verifier = verifier;
   }
 
   async start(sink: IngressSink): Promise<void> {
-    const verifier = (this as unknown as { _verifier: ReturnType<typeof createInboundVerifier> })._verifier;
 
     const onEvent = async (event: unknown): Promise<unknown> => {
       // First try CARD_CLICKED interaction decoding
@@ -131,7 +129,7 @@ export class GoogleChatAdapter implements PlatformAdapter {
     };
 
     // Build the real request handler with the live onEvent
-    this.requestHandler = createRequestHandler({ verifier, onEvent });
+    this.requestHandler = createRequestHandler({ verifier: this.verifier, onEvent });
 
     // Start HTTP server if port is configured
     if (this.opts.port) {

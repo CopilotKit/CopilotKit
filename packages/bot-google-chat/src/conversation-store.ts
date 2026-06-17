@@ -47,11 +47,28 @@ export class GoogleChatConversationStore {
   }
 
   private translate(messages: ChatMessage[]): AgentMessage[] {
+    /**
+     * Skip bot messages that are run-renderer status rows or stream
+     * placeholders — they must not round-trip back into agent history.
+     *
+     * Markers emitted by event-renderer.ts / chunked-message-stream.ts:
+     *   🔧 `<tool>`…   — tool-call start row (onToolCallStartEvent)
+     *   ✅ `<tool>`    — tool-call end row (onToolCallEndEvent)
+     *   _thinking…_    — ChunkedMessageStream first-chunk placeholder
+     *   _…(continued)_ — ChunkedMessageStream continuation placeholder
+     */
+    const isStatusOrPlaceholder = (text: string): boolean =>
+      text.startsWith("🔧 ") ||
+      text.startsWith("✅ ") ||
+      text === "_thinking…_" ||
+      text === "_…(continued)_";
+
     const out: AgentMessage[] = [];
     for (const m of messages) {
       const isBot = m.sender?.type === "BOT" || m.sender?.name === this.botUserId;
       const text = (m.text ?? "").trim();
       if (!text) continue;
+      if (isBot && isStatusOrPlaceholder(text)) continue;
       const role: "user" | "assistant" = isBot ? "assistant" : "user";
       const tail = out[out.length - 1];
       if (tail && tail.role === role) {

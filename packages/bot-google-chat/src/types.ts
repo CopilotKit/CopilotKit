@@ -53,8 +53,6 @@ export interface GoogleChatAdapterOptions {
   port?: number;
   /** Override the Chat REST base URL (testing). Defaults to https://chat.googleapis.com/v1 */
   apiUrl?: string;
-  /** "edit" (default) edit-in-place streaming, or "off". */
-  streaming?: "edit" | "off";
   /** Surface tool-status rows during a run. Default true. */
   showToolStatus?: boolean;
   /** Custom-event names treated as interrupts by the run renderer. */
