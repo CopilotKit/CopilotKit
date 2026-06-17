@@ -44,6 +44,12 @@ every framework URL uses the same MDX source.
    directly at a showcase demo cell. For these pages, inspect the corresponding
    showcase demo/integration source and generated shell-docs data before
    changing code examples.
+   Some pages also render shared snippet components such as `<ToolRendering />`
+   or imports from `@/snippets/...`; preserve those links when splitting or
+   moving pages. Be careful with the docs inliner: snippet imports are often
+   matched by exact JSX shapes such as
+   `<SharedContent components={props.components} />`. Adding extra props can
+   prevent the snippet from inlining and make the page silently lose content.
 3. Preserve existing content where possible. Compare against git history with
    `git show <base>:<path>` and keep prior wording, snippet components,
    code-highlighting directives, and demo embeds unless the requested change
@@ -62,6 +68,9 @@ every framework URL uses the same MDX source.
    or Playwright snapshots. For framework-selector-sensitive pages, verify at
    least the reference/bare page, the canonical LangGraph Python route, and one
    additional framework variant that uses a different MDX pattern if one exists.
+   Inspect code blocks, not just headings: confirm expected Shiki syntax
+   colors, highlighted lines from `[!code highlight]`, filenames, copy buttons,
+   demos, and feature-viewer/code links survived the move.
 7. Run source checks after visual verification. At minimum use
    `npm --prefix showcase/shell-docs run typecheck`; for routing/sidebar
    changes also run the relevant redirect tests and
