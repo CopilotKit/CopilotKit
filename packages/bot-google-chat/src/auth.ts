@@ -13,6 +13,14 @@ const CHAT_ISSUER = "chat@system.gserviceaccount.com";
 /** x509 cert endpoint for the account that signs inbound Chat webhook JWTs. */
 const CHAT_CERT_URL =
   "https://www.googleapis.com/service_accounts/v1/metadata/x509/chat@system.gserviceaccount.com";
+/**
+ * Minimum interval between cert refetches triggered by a verification failure.
+ * Google rotates the Chat signing keys ~daily, so a 5-minute window still
+ * self-heals a genuine rotation promptly while capping the refetch rate to at
+ * most one per window — so a flood of forged/garbage tokens from unauthenticated
+ * callers can't amplify into unbounded outbound HTTPS fetches and cache thrash.
+ */
+const CERT_REFETCH_MIN_INTERVAL_MS = 5 * 60_000;
 
 export class UnauthorizedError extends Error {
   constructor(message: string) {
@@ -86,6 +94,11 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   // self-heal: on a verification failure we treat the cache as possibly stale,
   // refetch once, and retry (see verify below).
   let cachedCerts: Certificates | undefined;
+  // Timestamp (ms, Date.now) of the last self-heal refetch. Used to debounce
+  // those refetches so bad-token volume can't drive outbound fetch volume.
+  // Starts at -Infinity so the first verification failure is always allowed to
+  // refetch (the certs are, by definition, "stale enough" before any refetch).
+  let lastRefetchAt = Number.NEGATIVE_INFINITY;
   async function getCerts(forceRefresh = false): Promise<Certificates> {
     if (cachedCerts && !forceRefresh) return cachedCerts;
     const res = await fetch(CHAT_CERT_URL);
@@ -105,10 +118,25 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
       try {
         const certs = await getCerts();
         await client.verifySignedJwtWithCertsAsync(token, certs, audience, [CHAT_ISSUER]);
-      } catch {
+      } catch (initialErr) {
         // Verification failed: the cached certs may be stale after a Google key
         // rotation. Clear the cache, refetch once, and retry a single time
         // before deciding the token is genuinely bad.
+        //
+        // But a forged/garbage token from an unauthenticated caller fails here
+        // too, so refetching on EVERY failure would let a flood of bad tokens
+        // amplify into one outbound fetch (and cache thrash) per request. Only
+        // refetch if we haven't already refetched within
+        // CERT_REFETCH_MIN_INTERVAL_MS. This still self-heals a genuine rotation
+        // promptly (the first failure in a window always refetches) while
+        // capping refetches to at most one per window regardless of bad-token
+        // volume.
+        if (Date.now() - lastRefetchAt < CERT_REFETCH_MIN_INTERVAL_MS) {
+          throw new UnauthorizedError(
+            `token verification failed: ${(initialErr as Error).message}`,
+          );
+        }
+        lastRefetchAt = Date.now();
         console.warn(
           "bot-google-chat: JWT verification failed; refetching Chat x509 certs (possible key rotation) and retrying once",
         );
