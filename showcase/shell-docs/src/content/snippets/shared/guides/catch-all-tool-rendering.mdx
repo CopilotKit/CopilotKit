@@ -20,15 +20,20 @@ and final `result`:
 The catch-all can also be a deliberate opt-out. Return `null` when you want
 otherwise-unhandled tool calls to run without painting UI in the chat.
 
-Render a tiny registration component anywhere under `CopilotKit`. Keep the
-full renderer signature in place when the renderer may later become conditional:
+Register the catch-all anywhere under `CopilotKit`. Keep the full renderer
+signature in place when the renderer may later become conditional:
 
-<Snippet
-  cell="tool-rendering-custom-catchall"
-  region="suppress-catchall-rendering"
-  fallbackFramework="langgraph-python"
-  title="page.tsx"
-/>
+```tsx title="app/page.tsx"
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+function ToolRenderingRegistration() {
+  useDefaultRenderTool({
+    render: ({ name, parameters, status, result }) => null,
+  });
+
+  return null;
+}
+```
 
 You can make the opt-out conditional too. For example, return `null` while
 `status` is in progress, then render a result card when the call completes.
