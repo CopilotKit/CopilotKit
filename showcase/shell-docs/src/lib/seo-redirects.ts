@@ -951,16 +951,30 @@ const FOLDER_INDEX: RedirectEntry[] = [
 // /generative-ui/tool-rendering is now a sidebar folder, with the previous
 // page body moved to /generative-ui/tool-rendering/custom. Keep the old page
 // URL working at both the root and framework-scoped surfaces.
+//
+// The wildcard renderer page was briefly introduced under /default, but the
+// user-facing concept is catch-all rendering. Keep that short-lived URL
+// working too.
 const TOOL_RENDERING_SECTION_REDIRECTS: RedirectEntry[] = [
   {
     id: "TR-section-root",
     source: "/generative-ui/tool-rendering",
     destination: "/generative-ui/tool-rendering/custom",
   },
+  {
+    id: "TR-catchall-root",
+    source: "/generative-ui/tool-rendering/default",
+    destination: "/generative-ui/tool-rendering/catch-all",
+  },
   ...CANONICAL_FRAMEWORKS.map((fw) => ({
     id: `TR-section×${fw}`,
     source: `/${fw}/generative-ui/tool-rendering`,
     destination: `/${fw}/generative-ui/tool-rendering/custom`,
+  })),
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `TR-catchall×${fw}`,
+    source: `/${fw}/generative-ui/tool-rendering/default`,
+    destination: `/${fw}/generative-ui/tool-rendering/catch-all`,
   })),
 ];
 

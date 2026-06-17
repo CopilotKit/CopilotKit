@@ -29,23 +29,6 @@ Render tool calls when you want to:
 - Render rich, polished results once a tool completes
 - Give tool-heavy agents a transparent, on-brand chat experience
 
-## Custom catch-all
-
-Once you want on-brand chrome, pass a `render` function to
-`useDefaultRenderTool`. It's a convenience wrapper around
-`useRenderTool({ name: "*", ... })`: one wildcard renderer handles every
-tool call, named or not:
-
-<Snippet
-  cell="tool-rendering-custom-catchall"
-  region="use-default-render-tool-wildcard"
-  title="frontend/src/app/page.tsx — custom wildcard renderer"
-/>
-
-Here's the branded catch-all in action, where every tool call gets the same on-brand card:
-
-<InlineDemo demo="tool-rendering-custom-catchall" />
-
 ## Per-tool renderers
 
 The most expressive path is one renderer per tool name. The primary
@@ -66,11 +49,9 @@ The flight renderer follows the same pattern with a different component and sche
 </Callout>
 
 Per-tool renderers compose with a catch-all: named renderers claim the
-"interesting" tools and a wildcard handles everything else. In the primary
-cell, the same `CustomCatchallRenderer` from above catches `get_stock_price`
-and `roll_dice`:
-
-<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
+"interesting" tools and a wildcard handles everything else. See
+[Catch-all Tool Rendering](/generative-ui/tool-rendering/catch-all) to use the
+built-in catch-all, customize it, or render nothing for unhandled tool calls.
 
 ## The backend tool definition
 

@@ -1,0 +1,127 @@
+A catch-all renderer handles every tool call that does not have an exact-name
+renderer. `useDefaultRenderTool` registers that wildcard renderer for you with
+`name: "*"`.
+
+Use a catch-all when you want otherwise-unhandled tool calls to share one UI:
+the built-in CopilotKit card, a branded fallback, or no UI at all.
+
+## Use the built-in catch-all
+
+Call `useDefaultRenderTool()` with no arguments to use CopilotKit's built-in
+`DefaultToolCallRenderer` as the wildcard renderer. It shows the tool name,
+current status, arguments, and result without custom UI code.
+
+```tsx title="app/page.tsx"
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
+  useDefaultRenderTool();
+
+  return <ChatInterface />;
+}
+```
+
+<Callout type="info">
+  Without a catch-all renderer or a named renderer for a tool, tool calls still
+  run but do not paint UI in the chat.
+</Callout>
+
+## Customize the catch-all
+
+Pass a `render` function when you want one branded UI for every otherwise
+unhandled tool. The catch-all receives the tool `name`, parsed `parameters`,
+current `status`, and final `result`.
+
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  region="use-default-render-tool-wildcard"
+  title="frontend/src/app/page.tsx - custom catch-all renderer"
+/>
+
+Here is the branded catch-all in action, where every otherwise-unhandled tool
+call gets the same on-brand card:
+
+<InlineDemo demo="tool-rendering-custom-catchall" />
+
+## Render nothing from the catch-all
+
+The catch-all can also be a deliberate opt-out. Return `null` when you want
+otherwise-unhandled tool calls to run without painting UI in the chat.
+
+Include `status` in the signature when the renderer may later become
+conditional:
+
+```tsx title="app/page.tsx"
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
+  useDefaultRenderTool({
+    render: ({ status }) => null,
+  });
+
+  return <ChatInterface />;
+}
+```
+
+You can make the opt-out conditional too. For example, return `null` while
+`status` is in progress, then render a result card when the call completes.
+
+If you are configuring renderers at the provider boundary, register the same
+wildcard explicitly:
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKit,
+  defineToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+
+const suppressUnhandledToolCalls = defineToolCallRenderer({
+  name: "*",
+  render: ({ status }) => null,
+});
+
+function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[suppressUnhandledToolCalls]}
+    >
+      <YourApp />
+    </CopilotKit>
+  );
+}
+```
+
+## Suppress one named frontend tool
+
+For a single frontend tool, return `null` from that tool's renderer. A named
+renderer takes priority over the catch-all, even when that named renderer
+returns nothing.
+
+```tsx title="app/page.tsx"
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+function App() {
+  useFrontendTool(
+    {
+      name: "searchDatabase",
+      parameters: z.object({ query: z.string() }),
+      handler: async ({ query }) => {
+        /* ... */
+      },
+      render: ({ status }) => null,
+    },
+    [],
+  );
+
+  return <ChatInterface />;
+}
+```
+
+<Callout type="info">
+  In v2, use [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)
+  for catch-all rendering, and
+  [`useRenderTool`](/reference/hooks/useRenderTool) for named or explicit
+  wildcard renderer registration.
+</Callout>

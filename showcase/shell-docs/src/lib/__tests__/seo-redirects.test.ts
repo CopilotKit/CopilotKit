@@ -91,7 +91,7 @@ describe("seoRedirects", () => {
     );
   });
 
-  it("redirects bare tool rendering section URLs to the custom rendering page", () => {
+  it("redirects tool rendering section URLs and old default child URLs", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([
         {
@@ -100,9 +100,19 @@ describe("seoRedirects", () => {
           destination: "/generative-ui/tool-rendering/custom",
         },
         {
+          id: "TR-catchall-root",
+          source: "/generative-ui/tool-rendering/default",
+          destination: "/generative-ui/tool-rendering/catch-all",
+        },
+        {
           id: "TR-section×mastra",
           source: "/mastra/generative-ui/tool-rendering",
           destination: "/mastra/generative-ui/tool-rendering/custom",
+        },
+        {
+          id: "TR-catchall×mastra",
+          source: "/mastra/generative-ui/tool-rendering/default",
+          destination: "/mastra/generative-ui/tool-rendering/catch-all",
         },
       ]),
     );

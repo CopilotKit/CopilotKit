@@ -71,16 +71,12 @@ richer UI:
 
 <Snippet region="render-weather-tool" />
 
-</Step>
-<Step>
-### Add a catch-all renderer (optional)
-
-For every other tool the agent calls, a single `useDefaultRenderTool`
-hook can provide a uniform fallback UI — this is exactly how the demo
-above handles `get_stock_price`, `roll_dice`, and any tool the agent might
-add later without a dedicated renderer:
-
-<Snippet region="catchall-renderer" />
+<Callout type="info">
+  Named renderers compose with a catch-all. See
+  [Catch-all Tool Rendering](/langgraph-python/generative-ui/tool-rendering/catch-all)
+  to use the built-in catch-all, customize it, or render nothing for
+  unhandled tool calls.
+</Callout>
 
 </Step>
 <Step>
@@ -91,4 +87,3 @@ render the tool call and display the arguments that were passed to the tool.
 
 </Step>
 </Steps>
-
