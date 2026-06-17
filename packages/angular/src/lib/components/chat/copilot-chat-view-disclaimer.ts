@@ -4,7 +4,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../..//utils";
 import { injectChatLabels } from "../../chat-config";
 
@@ -15,8 +15,6 @@ import { injectChatLabels } from "../../chat-config";
  */
 @Component({
   selector: "copilot-chat-view-disclaimer",
-  standalone: true,
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -43,7 +41,7 @@ export class CopilotChatViewDisclaimer {
   // Computed class matching React exactly
   get computedClass(): string {
     return cn(
-      "text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto",
+      "cpk:text-center cpk:text-xs cpk:text-muted-foreground cpk:py-3 cpk:px-4 cpk:max-w-3xl cpk:mx-auto",
       this.inputClass(),
     );
   }

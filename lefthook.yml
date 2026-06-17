@@ -88,7 +88,14 @@ pre-commit:
       tags: test-packages
       env:
         NX_TUI: "false"
-      run: pnpm run test && pnpm run check:packages
+      run: |
+        set -- {staged_files}
+        if [ "$#" -gt 0 ]; then
+          projects=$(printf '%s\n' "$@" | pnpm nx show projects --affected --projects 'packages/*' --stdin --sep=,)
+          if [ -n "$projects" ]; then
+            pnpm nx run-many -t test,publint,attw --projects="$projects" --outputStyle=static
+          fi
+        fi
 
     check-plugin-skills:
       tags: plugin-skills
