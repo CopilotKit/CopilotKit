@@ -3,10 +3,10 @@
 This example runs as **two services** in one Railway project, both built from
 this same directory and the same Git branch:
 
-| Service   | Process       | Inbound port | Public domain |
-| --------- | ------------- | ------------ | ------------- |
-| `runtime` | `runtime.ts`  | yes (`8200`) | not needed    |
-| `bot`     | `app/index.ts`| none         | no            |
+| Service   | Process        | Inbound port | Public domain |
+| --------- | -------------- | ------------ | ------------- |
+| `runtime` | `runtime.ts`   | yes (`8200`) | not needed    |
+| `bot`     | `app/index.ts` | none         | no            |
 
 The `bot` connects out to Slack (Socket Mode) and/or Discord (gateway) and
 POSTs to the `runtime` over Railway's **private network**. The `runtime` holds
