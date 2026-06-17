@@ -65,7 +65,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     {
       type: "page",
       title:
-        "More dedicated guides are on the way for this frontend. Use the React docs below as parallels for the same CopilotKit patterns.",
+        "More dedicated guides are on the way for this frontend. Use the React docs below for the same CopilotKit patterns.",
       slug: getFrontendUsingTheseDocsSlug(id),
       variant: "shadow-note",
     },

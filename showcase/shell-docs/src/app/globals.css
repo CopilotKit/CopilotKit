@@ -589,6 +589,21 @@
   line-height: 1.45;
 }
 
+.shell-docs-shadow-nav-note-action {
+  color: var(--accent);
+  font-weight: 650;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+  white-space: nowrap;
+}
+
+.shell-docs-sidebar
+  a:has(.shell-docs-shadow-nav-note):hover
+  .shell-docs-shadow-nav-note-action {
+  text-decoration-thickness: 2px;
+}
+
 .shell-docs-shadow-nav-item {
   color: color-mix(in srgb, var(--text-muted) 78%, var(--accent));
 }

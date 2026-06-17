@@ -48,7 +48,26 @@ function renderNavName(
 
   if (!className && !icon) return title;
 
-  const label = React.createElement("span", { className, key: "label" }, title);
+  const labelContent =
+    variant === "shadow-note"
+      ? React.createElement(
+          React.Fragment,
+          null,
+          title,
+          " ",
+          React.createElement(
+            "span",
+            { className: "shell-docs-shadow-nav-note-action" },
+            "Read more",
+          ),
+        )
+      : title;
+
+  const label = React.createElement(
+    "span",
+    { className, key: "label" },
+    labelContent,
+  );
 
   return icon ? React.createElement(React.Fragment, null, icon, label) : label;
 }
