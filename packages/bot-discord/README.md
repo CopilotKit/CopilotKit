@@ -219,7 +219,8 @@ in `ctx.text`.
 
 > **App setup** (OAuth scopes, bot permissions, invite URL) is done via the
 > Discord Developer Portal and the OAuth2 invite flow. A complete wiring example
-> lives in [`examples/discord`](../../examples/discord).
+> lives in [`examples/slack`](../../examples/slack) — one bot app that runs
+> Slack and/or Discord depending on which secrets you set.
 
 ## What's NOT in v1
 
