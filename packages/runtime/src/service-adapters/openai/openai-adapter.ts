@@ -47,6 +47,25 @@
  *
  * return new OpenAIAdapter({ openai });
  * ```
+ *
+ * ## Example with Atlas Cloud (OpenAI-compatible)
+ *
+ * ```ts
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
+ * // Atlas Cloud exposes an OpenAI-compatible API for LLMs (DeepSeek, Qwen, GLM, Kimi, MiniMax, …)
+ * // https://www.atlascloud.ai
+ * const openai = new OpenAI({
+ *   apiKey: process.env["ATLASCLOUD_API_KEY"],
+ *   baseURL: "https://api.atlascloud.ai/v1",
+ * });
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * // deepseek-ai/deepseek-v4-pro is a reasoning model — give it enough max_tokens (>= 512)
+ * return new OpenAIAdapter({ openai, model: "deepseek-ai/deepseek-v4-pro" });
+ * ```
  */
 import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";

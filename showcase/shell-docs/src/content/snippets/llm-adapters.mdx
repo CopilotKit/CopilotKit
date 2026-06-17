@@ -25,6 +25,14 @@ Currently, we support the following LLM adapters natively:
 </Callout>
 
 <Callout type="info">
+  Using an **OpenAI-compatible** provider such as [Atlas
+  Cloud](https://www.atlascloud.ai)? Point the `OpenAIAdapter` at its `baseURL`
+  — no custom adapter required. See the [OpenAIAdapter
+  reference](/reference/v1/classes/llm-adapters/OpenAIAdapter) for an Atlas
+  Cloud example (DeepSeek, Qwen, GLM, Kimi, MiniMax, …).
+</Callout>
+
+<Callout type="info">
   It's not too hard to write your own LLM adapter from scratch -- see the
   existing adapters for inspiration. And of course, we would love a
   contribution! ⭐️
