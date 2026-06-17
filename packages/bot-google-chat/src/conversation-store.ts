@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
 import type { ChatClient, ChatMessage } from "./chat-client.js";
+import { isBotStatusOrPlaceholder } from "./status-markers.js";
 import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
@@ -10,26 +11,9 @@ export interface AgentSession {
   replyTarget: ReplyTarget;
 }
 
-/**
- * True when `text` is a run-renderer status row or stream placeholder that the
- * bot posts to the surface but must NOT round-trip back into agent history.
- *
- * Markers emitted by event-renderer.ts / chunked-message-stream.ts:
- *   🔧 `<tool>`…   — tool-call start row (onToolCallStartEvent)
- *   ✅ `<tool>`    — tool-call end row (onToolCallEndEvent)
- *   _thinking…_    — ChunkedMessageStream first-chunk placeholder
- *   _…(continued)_ — ChunkedMessageStream continuation placeholder
- *
- * Caller must verify the message is from the bot before applying this filter.
- */
-export function isBotStatusOrPlaceholder(text: string): boolean {
-  return (
-    text.startsWith("🔧 ") ||
-    text.startsWith("✅ ") ||
-    text === "_thinking…_" ||
-    text === "_…(continued)_"
-  );
-}
+// Re-exported from the single source of truth in `status-markers.ts` so that
+// existing importers (e.g. `adapter.ts`) keep working unchanged.
+export { isBotStatusOrPlaceholder } from "./status-markers.js";
 
 interface AgentMessage {
   id: string;

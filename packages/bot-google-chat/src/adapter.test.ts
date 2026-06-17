@@ -96,6 +96,7 @@ describe("GoogleChatAdapter", () => {
       { name: "m2", text: "Here is the answer.", sender: { type: "BOT", name: "users/bot" } },
       { name: "m3", text: "🔧 `search`…", sender: { type: "BOT", name: "users/bot" } },
       { name: "m4", text: "✅ `search`", sender: { type: "BOT", name: "users/bot" } },
+      { name: "m4b", text: "⏹ `search`", sender: { type: "BOT", name: "users/bot" } },
       { name: "m5", text: "_thinking…_", sender: { type: "BOT", name: "users/bot" } },
       { name: "m6", text: "_…(continued)_", sender: { type: "BOT", name: "users/bot" } },
     ] as any[]);

@@ -72,13 +72,15 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     expect(args[1]).toBeUndefined();
   });
 
-  it("excludes bot status rows (🔧 / ✅ / _thinking…_ / _…(continued)_) from translated history", async () => {
+  it("excludes bot status rows (🔧 / ✅ / ⏹ / _thinking…_ / _…(continued)_) from translated history", async () => {
     const store = makeStore([
       { name: "m1", text: "what can you do?", sender: { name: "users/1", type: "HUMAN" } },
       // tool-call start row — must be excluded
       { name: "m2", text: "🔧 `search`…", sender: { name: "users/BOT", type: "BOT" } },
       // tool-call end row — must be excluded
       { name: "m3", text: "✅ `search`", sender: { name: "users/BOT", type: "BOT" } },
+      // interrupted tool-status row — must be excluded
+      { name: "m3b", text: "⏹ `search`", sender: { name: "users/BOT", type: "BOT" } },
       // ChunkedMessageStream placeholders — must be excluded
       { name: "m4", text: "_thinking…_", sender: { name: "users/BOT", type: "BOT" } },
       { name: "m5", text: "_…(continued)_", sender: { name: "users/BOT", type: "BOT" } },
@@ -101,6 +103,7 @@ describe("isBotStatusOrPlaceholder", () => {
   it("matches tool-status rows and stream placeholders", () => {
     expect(isBotStatusOrPlaceholder("🔧 `search`…")).toBe(true);
     expect(isBotStatusOrPlaceholder("✅ `search`")).toBe(true);
+    expect(isBotStatusOrPlaceholder("⏹ `search`")).toBe(true);
     expect(isBotStatusOrPlaceholder("_thinking…_")).toBe(true);
     expect(isBotStatusOrPlaceholder("_…(continued)_")).toBe(true);
   });

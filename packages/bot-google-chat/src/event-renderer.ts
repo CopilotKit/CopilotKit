@@ -6,10 +6,16 @@ import type {
 } from "@copilotkit/bot";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToChat } from "./markdown.js";
+import { TOOL_STATUS_PREFIXES } from "./status-markers.js";
 import type { ChatClient } from "./chat-client.js";
 import type { ReplyTarget } from "./types.js";
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
+
+// Tool-status row prefixes, sourced from the shared single source of truth so
+// the emitter here and the history filter in `status-markers.ts` can't drift.
+const [TOOL_START_PREFIX, TOOL_END_PREFIX, TOOL_INTERRUPT_PREFIX] =
+  TOOL_STATUS_PREFIXES;
 
 /**
  * Construct a {@link RunRenderer} for a single agent run in Google Chat.
@@ -142,7 +148,7 @@ export function createRunRenderer(args: {
       try {
         const msg = await client.createMessage(
           target.space,
-          { text: `🔧 \`${event.toolCallName}\`…` },
+          { text: `${TOOL_START_PREFIX}\`${event.toolCallName}\`…` },
           { threadName: target.thread, replyToThread: !!target.thread },
         );
         toolStatusName.set(event.toolCallId, msg.name);
@@ -173,7 +179,7 @@ export function createRunRenderer(args: {
       try {
         await client.patchMessage(
           name,
-          { text: `✅ \`${toolCallName}\`` },
+          { text: `${TOOL_END_PREFIX}\`${toolCallName}\`` },
           "text",
         );
       } catch (err) {
@@ -251,7 +257,11 @@ export function createRunRenderer(args: {
         tasks.push(
           (async () => {
             try {
-              await client.patchMessage(name, { text: `⏹ \`${label}\`` }, "text");
+              await client.patchMessage(
+                name,
+                { text: `${TOOL_INTERRUPT_PREFIX}\`${label}\`` },
+                "text",
+              );
             } catch (err) {
               console.error("[gchat-renderer] tool-interrupt patch failed:", err);
             }
