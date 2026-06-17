@@ -9,18 +9,18 @@ image. Railway deploys those images from `main` on push.
 
 ## Agent Fanout — when X, see Y
 
-| When you need to...                                                    | Read                                                                                                                       |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Turn a red cell green (cell red→green SOP, `bin/showcase test` CLI)    | [`./TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green)                                                               |
-| Debug a failure mode locally (debugging loop, strategies, prod ops)    | [`./DEBUGGING.md`](./DEBUGGING.md)                                                                                         |
-| Look up a framework / fixture / `--isolate` edge case                  | [`./GOTCHAS.md`](./GOTCHAS.md)                                                                                             |
-| Add a brand-new integration (per-package + external setup)             | [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md)                                                                 |
-| Style a demo page (Tailwind v4, CopilotKit overrides, layout patterns) | [`./STYLING-GUIDE.md`](./STYLING-GUIDE.md)                                                                                 |
-| Reason about which shell renders what / consolidate a new frontend     | [`./FRONTEND-STRATEGY.md`](./FRONTEND-STRATEGY.md)                                                                         |
-| Deploy / promote / pin / roll back a Railway service                   | [`./RAILWAY.md`](./RAILWAY.md) (fleet config) + [`./bin/README.md`](./bin/README.md) (`bin/railway` CLI)                    |
-| Understand aimock fixture semantics (fixtures + Railway reconstruction) | [`./aimock/README.md`](./aimock/README.md) + [`./aimock/RAILWAY.md`](./aimock/RAILWAY.md)                                  |
-| Operate showcase-harness (alerts, probes, hot reload, build/deploy)    | [`./harness/README.md`](./harness/README.md) + [`./harness/docs/rotation-drill.md`](./harness/docs/rotation-drill.md)       |
-| Track or check per-slug deviations from canonical                      | `./integrations/<slug>/PARITY_NOTES.md`                                                                                    |
+| When you need to...                                                     | Read                                                                                                                  |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Turn a red cell green (cell red→green SOP, `bin/showcase test` CLI)     | [`./TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green)                                                          |
+| Debug a failure mode locally (debugging loop, strategies, prod ops)     | [`./DEBUGGING.md`](./DEBUGGING.md)                                                                                    |
+| Look up a framework / fixture / `--isolate` edge case                   | [`./GOTCHAS.md`](./GOTCHAS.md)                                                                                        |
+| Add a brand-new integration (per-package + external setup)              | [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md)                                                            |
+| Style a demo page (Tailwind v4, CopilotKit overrides, layout patterns)  | [`./STYLING-GUIDE.md`](./STYLING-GUIDE.md)                                                                            |
+| Reason about which shell renders what / consolidate a new frontend      | [`./FRONTEND-STRATEGY.md`](./FRONTEND-STRATEGY.md)                                                                    |
+| Deploy / promote / pin / roll back a Railway service                    | [`./RAILWAY.md`](./RAILWAY.md) (fleet config) + [`./bin/README.md`](./bin/README.md) (`bin/railway` CLI)              |
+| Understand aimock fixture semantics (fixtures + Railway reconstruction) | [`./aimock/README.md`](./aimock/README.md) + [`./aimock/RAILWAY.md`](./aimock/RAILWAY.md)                             |
+| Operate showcase-harness (alerts, probes, hot reload, build/deploy)     | [`./harness/README.md`](./harness/README.md) + [`./harness/docs/rotation-drill.md`](./harness/docs/rotation-drill.md) |
+| Track or check per-slug deviations from canonical                       | `./integrations/<slug>/PARITY_NOTES.md`                                                                               |
 
 Anything below is from-scratch local setup — skip if your stack is already up.
 

@@ -165,7 +165,7 @@ isolated stack appears red even though its own containers are healthy. Two
 remediations:
 
 - **Pre-reserve the conflicting slot:** `mkdir
-  ~/.local/state/copilotkit/showcase/slots/<N>` for each slot whose port range
+~/.local/state/copilotkit/showcase/slots/<N>` for each slot whose port range
   collides with the foreign stack. The CLI skips reserved slots when picking.
 - **Tear down the foreign stack first:** `docker compose -p <foreign-project> down`
   before launching `--isolate`. Cleanest, but requires knowing which project
