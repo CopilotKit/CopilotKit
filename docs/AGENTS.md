@@ -13,6 +13,15 @@ Author live CopilotKit docs in `showcase/shell-docs/src/content/` instead:
 - Reusable snippets: `showcase/shell-docs/src/content/snippets/`
 - Framework overview pages: `showcase/shell-docs/src/content/framework-overviews/`
 
+Shell-docs is partly authored MDX and partly generated from `showcase/`.
+Pages can pull runnable demos and snippets from generated showcase bundles such
+as `showcase/shell-docs/src/data/demo-content.json`,
+`showcase/shell-docs/src/data/catalog.json`, and
+`showcase/shell-docs/src/data/registry.json`. When a docs page uses
+`<Snippet>`, `<InlineDemo>`, or framework-specific variants, check the
+corresponding showcase demo or integration manifest before assuming the MDX
+alone owns the content.
+
 If a requested change appears to live under `docs/content/docs/`, find the
 canonical shell-docs counterpart and edit that file. Treat this folder as
 read-only history unless the task is specifically about maintaining the retired

@@ -1,6 +1,6 @@
 ---
 title: "useDefaultRenderTool"
-description: "Register a wildcard default renderer for unhandled tool calls"
+description: "Register a catch-all renderer for otherwise-unhandled tool calls"
 ---
 
 ## Overview
@@ -9,8 +9,9 @@ description: "Register a wildcard default renderer for unhandled tool calls"
 
 This is part of the v2 tool rendering hook set with [`useComponent`](/reference/hooks/useComponent), [`useRenderTool`](/reference/hooks/useRenderTool), and [`useRenderToolCall`](/reference/hooks/useRenderToolCall).
 
-- With no config, it registers CopilotKit's built-in default tool-call UI.
-- With `render`, it replaces that default UI with your own wildcard renderer.
+- With no config, it registers CopilotKit's built-in tool-call UI as the
+  catch-all renderer.
+- With `render`, it replaces that built-in UI with your own wildcard renderer.
 
 Use this for catch-all rendering of tool calls that do not have a specific named renderer.
 
@@ -26,7 +27,7 @@ function useDefaultRenderTool(
       parameters: any;
       status: string;
       result: string | undefined;
-    }) => React.ReactElement;
+    }) => React.ReactNode;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -35,13 +36,13 @@ function useDefaultRenderTool(
 ## Behavior
 
 - Internally calls `useRenderTool({ name: "*", ... })`.
-- If `config.render` is omitted, uses an expandable default card UI that shows status, parameters, and result.
+- If `config.render` is omitted, uses an expandable built-in card UI that shows status, parameters, and result.
 - If `config.render` is provided, your renderer is used instead.
 - Inherits `useRenderTool` registration behavior and dependency semantics.
 
 ## Usage
 
-### Built-in default renderer
+### Built-in catch-all
 
 ```tsx
 function App() {
@@ -50,7 +51,7 @@ function App() {
 }
 ```
 
-### Custom wildcard renderer
+### Customize the catch-all
 
 ```tsx
 function App() {
@@ -65,6 +66,18 @@ function App() {
     },
     [],
   );
+
+  return null;
+}
+```
+
+### Render nothing
+
+```tsx
+function App() {
+  useDefaultRenderTool({
+    render: ({ status }) => null,
+  });
 
   return null;
 }

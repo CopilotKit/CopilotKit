@@ -919,7 +919,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   Threads: "shared/threads/threads.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
-  DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  CatchAllToolRendering: "shared/guides/catch-all-tool-rendering.mdx",
   // Versionless aliases retained for backward compat with older MDX that
   // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",

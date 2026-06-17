@@ -13,6 +13,11 @@ edits from landing in this retired tree when the live source is in
 
 - **CopilotKit docs** → author in `showcase/shell-docs/src/content/`
   (`docs/`, `reference/`, `snippets/`, `framework-overviews/`).
+- **Showcase-backed docs content** → many shell-docs pages embed generated
+  showcase snippets/demos through `<Snippet>` and `<InlineDemo>`. If the text
+  or code appears to come from a runnable demo, inspect the matching
+  `showcase/` integration/demo source and generated shell-docs data as well as
+  the MDX page.
 - **AG-UI protocol docs** → author upstream in
   [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui) (publishes to docs.ag-ui.com),
   then sync back into the mirror at `showcase/shell-docs/src/content/ag-ui/`.
