@@ -25,9 +25,10 @@ Create a small hook, then call it from any component rendered under
 later become conditional:
 
 ```tsx title="app/use-suppress-catch-all-tool-rendering.ts"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 export function useSuppressCatchAllToolRendering() {
+  // [!code highlight:3]
   useDefaultRenderTool({
     render: ({ name, parameters, status, result }) => null,
   });
@@ -43,11 +44,12 @@ For a single frontend tool, return `null` from that tool's renderer. A named
 renderer takes priority over the catch-all, even when that named renderer
 returns nothing.
 
-```tsx title="app/page.tsx"
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+```tsx title="app/use-suppress-search-database-tool-rendering.ts"
+import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { z } from "zod";
 
-function App() {
+export function useSuppressSearchDatabaseToolRendering() {
+  // [!code highlight:11]
   useFrontendTool(
     {
       name: "searchDatabase",
@@ -59,7 +61,5 @@ function App() {
     },
     [],
   );
-
-  return <ChatInterface />;
 }
 ```
