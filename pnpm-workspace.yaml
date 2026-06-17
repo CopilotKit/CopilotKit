@@ -11,7 +11,6 @@ packages:
   - "examples/showcases/generative-ui-playground"
   - "examples/showcases/banking"
   - "examples/slack"
-  - "examples/whatsapp"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
   - "showcase/harness"

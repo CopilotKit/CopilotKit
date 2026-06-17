@@ -1,9 +1,11 @@
-# slack-example — on-call triage assistant
+# slack-example — on-call triage assistant (Slack + WhatsApp)
 
-A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack): a
-Slack bot that turns incident chatter into tracked work. It's built with
+A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack) and
+[`@copilotkit/bot-whatsapp`](../../packages/bot-whatsapp): a bot that turns
+incident chatter into tracked work, reachable over **Slack** and optionally
+**WhatsApp** from a single codebase. It's built with
 [`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core),
-the Slack adapter, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
+the Slack and WhatsApp adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
 cross-platform JSX vocabulary for rich messages). It connects to **Linear**
 and **Notion** over MCP and can:
 
@@ -312,6 +314,24 @@ processes, and every connection is env-driven. Deploy the runtime and bot,
 set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
+
+### WhatsApp (same bot, second adapter)
+
+The bot runs WhatsApp as a second adapter whenever `WHATSAPP_ACCESS_TOKEN` is
+set — Slack stays on Socket Mode (outbound), WhatsApp adds an inbound webhook
+HTTP server on `$PORT`. To enable it on the deployed bot service (Railway):
+
+1. Generate a public domain on the **bot** service (Settings → Networking).
+   Railway routes it to `$PORT`, which the WhatsApp adapter listens on.
+2. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
+   `WHATSAPP_VERIFY_TOKEN` on the bot service. (`runtime` is unchanged.)
+3. In the Meta app → WhatsApp → Configuration: Callback URL
+   `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
+   subscribe to the `messages` field.
+
+Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
+the same headless browser the Slack path already runs; their PNGs go out as
+WhatsApp images via the media upload.
 
 ## Tests
 

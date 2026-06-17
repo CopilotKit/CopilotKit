@@ -242,7 +242,7 @@ This guide takes you from zero to a WhatsApp bot that replies to every inbound m
 
 ## Split the bot and the agent
 
-The bot and its agent talk over [AG-UI](https://docs.ag-ui.com) — an open protocol for agent ↔ frontend communication — so they don't have to share a process. Move the `CopilotSseRuntime` block into its own process (or use any existing AG-UI endpoint) and point the bot at it via `AGENT_URL`, exactly how the full [on-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/whatsapp) is wired:
+The bot and its agent talk over [AG-UI](https://docs.ag-ui.com) — an open protocol for agent ↔ frontend communication — so they don't have to share a process. Move the `CopilotSseRuntime` block into its own process (or use any existing AG-UI endpoint) and point the bot at it via `AGENT_URL`, exactly how the full [on-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) is wired:
 
 ```tsx title="bot.tsx"
 agent: (threadId) => {
@@ -252,7 +252,7 @@ agent: (threadId) => {
 },
 ```
 
-See the [full example README](https://github.com/CopilotKit/CopilotKit/tree/main/examples/whatsapp) for the complete two-process setup with Linear and Notion MCP integrations.
+See the [full example README](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) for the complete two-process setup with Linear and Notion MCP integrations.
 
 ## Interactive components
 
@@ -313,4 +313,4 @@ value instead.
 ## Next steps
 
 - **API reference:** the [Bots reference](/reference/bot) — [createBot](/reference/bot/functions/createBot), the [Thread API](/reference/bot/classes/Thread), [tools](/reference/bot/functions/defineBotTool) & [commands](/reference/bot/functions/defineBotCommand), and the [component vocabulary](/reference/bot/components/Message)
-- **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/whatsapp) — tools, human-in-the-loop, commands, file uploads, persistent history
+- **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, commands, file uploads, persistent history

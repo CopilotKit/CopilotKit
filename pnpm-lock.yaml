@@ -2029,46 +2029,6 @@ importers:
         specifier: 5.8.2
         version: 5.8.2
 
-  examples/whatsapp:
-    dependencies:
-      '@ag-ui/client':
-        specifier: 0.0.57
-        version: 0.0.57
-      '@copilotkit/bot':
-        specifier: workspace:~
-        version: link:../../packages/bot
-      '@copilotkit/bot-ui':
-        specifier: workspace:~
-        version: link:../../packages/bot-ui
-      '@copilotkit/bot-whatsapp':
-        specifier: workspace:~
-        version: link:../../packages/bot-whatsapp
-      '@copilotkit/runtime':
-        specifier: ^1.59.5
-        version: 1.59.5(4c17f358ce8005944aeca87c7a73a8ac)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@notionhq/notion-mcp-server':
-        specifier: ^2.2.1
-        version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.11
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
-
   packages/a2ui-renderer:
     dependencies:
       '@a2ui/web_core':
