@@ -11,12 +11,9 @@
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/bot";
-import {
-  slack,
-  defaultSlackTools,
-  defaultSlackContext,
-  SanitizingHttpAgent,
-} from "@copilotkit/bot-slack";
+import { defaultSlackTools, defaultSlackContext, SanitizingHttpAgent } from "@copilotkit/bot-slack";
+import { defaultWhatsAppContext } from "@copilotkit/bot-whatsapp";
+import { buildAdapters } from "./adapters.js";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
@@ -39,13 +36,8 @@ async function main() {
     : undefined;
 
   const bot = createBot({
-    adapters: [
-      slack({
-        botToken: required("SLACK_BOT_TOKEN"),
-        appToken: required("SLACK_APP_TOKEN"),
-      }),
-    ],
-    // One AG-UI agent per Slack conversation. The backend is a CopilotKit
+    adapters: buildAdapters(process.env),
+    // One AG-UI agent per conversation. The backend is a CopilotKit
     // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a
     // UUID-format threadId, so the raw conversation thread id is fine.
     // (The old LangGraph bridge hashed it to a UUID; not needed here.)
@@ -62,10 +54,10 @@ async function main() {
     // cards). Both are plain `BotTool`s whose handler receives the generic
     // `BotToolContext`; the adapter supplies `thread`/`message`/`user` per
     // call and tools reach platform power via `thread` methods, so no cast
-    // is needed. `defaultSlackContext` ships tagging/mrkdwn/thread-model
-    // guidance; `appContext` adds identity + triage policy.
+    // is needed. Platform-formatting context (Slack mrkdwn / WhatsApp markdown)
+    // is injected per-turn in onMention; `appContext` adds identity + triage policy.
     tools: [...defaultSlackTools, ...appTools],
-    context: [...defaultSlackContext, ...appContext],
+    context: [...appContext],
     // Slash commands (`/agent`, `/triage`). Each must ALSO be declared in the
     // Slack app config to actually fire — see README. The adapter forwards
     // every received command; the engine routes by name.
@@ -79,8 +71,15 @@ async function main() {
   // registered it routes ALL turns to it. So this single handler covers
   // mentions, owned-thread replies, AND DMs; a second onMessage handler would
   // never fire (and registering both would risk double-handling).
+  // One handler covers every surface. createBot is mention-preferred, so all
+  // turns (Slack mentions/DMs/owned-thread replies AND WhatsApp messages) route
+  // here. The platform-formatting context is chosen per-turn from thread.platform.
   bot.onMention(async ({ thread, message }) => {
-    await thread.runAgent({ context: senderContext(message.user) });
+    const platformCtx =
+      thread.platform === "whatsapp" ? defaultWhatsAppContext : defaultSlackContext;
+    await thread.runAgent({
+      context: [...platformCtx, ...senderContext(message.user, thread.platform)],
+    });
   });
 
   await bot.start();
