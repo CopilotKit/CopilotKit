@@ -25,7 +25,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const replyTarget: ReplyTarget = { space: spaceId, thread: isDm ? undefined : threadName };
 
   const params = body.common?.parameters ?? body.action?.parameters ?? [];
-  const rawValue = params.find((p) => p.key === "value")?.value ?? params[0]?.value;
+  const rawValue = params.find((p) => p.key === "value")?.value;
   let value: unknown = rawValue;
   if (typeof rawValue === "string") {
     try { value = JSON.parse(rawValue); } catch { value = rawValue; }

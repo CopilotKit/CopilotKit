@@ -35,6 +35,14 @@ export class GoogleChatAdapter implements PlatformAdapter {
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 30000;
 
+  /**
+   * Bot-echo suppression primarily uses `sender.type === "BOT"`. This
+   * `botUserId` is a best-effort secondary guard for the `sender.name ===
+   * botUserId` comparisons in listener/conversation-store; the engine may
+   * populate it. It is intentionally left empty by default in v1 because
+   * Google Chat does not expose the bot's own user id without extra setup,
+   * so those comparisons never match on their own.
+   */
   botUserId = "";
   chatClient: ChatClient;
   requestHandler: ChatRequestHandler;
@@ -259,7 +267,8 @@ export class GoogleChatAdapter implements PlatformAdapter {
         isBot: m.sender?.type === "BOT",
         user: m.sender?.name ? { id: m.sender.name } : undefined,
       }));
-    } catch {
+    } catch (err) {
+      console.warn("[bot-google-chat] getMessages failed:", err);
       return [];
     }
   }

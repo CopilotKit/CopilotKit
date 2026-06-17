@@ -102,7 +102,7 @@ export async function routeChatEvent(
 
     // Plain message → onTurn.
     // Chat's argumentText already strips the bot mention; prefer it over text.
-    const rawText = msg.argumentText ?? msg.text ?? "";
+    const rawText = msg.argumentText || msg.text || "";
     const userText = rawText.trim();
 
     await handlers.onTurn({

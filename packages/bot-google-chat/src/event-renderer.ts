@@ -171,7 +171,7 @@ export function createRunRenderer(args: {
         await client.patchMessage(
           name,
           { text: `✅ \`${toolCallName}\`` },
-          "text,cardsV2",
+          "text",
         );
       } catch (err) {
         console.error("[gchat-renderer] tool-end patch failed:", err);

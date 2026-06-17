@@ -39,7 +39,8 @@ export class GoogleChatConversationStore {
     let history: AgentMessage[] = [];
     try {
       history = this.translate(await this.client.listMessages(key.spaceId));
-    } catch {
+    } catch (err) {
+      console.warn("[bot-google-chat] failed to fetch conversation history:", err);
       history = [];
     }
     (agent as unknown as { messages: AgentMessage[] }).messages = history;

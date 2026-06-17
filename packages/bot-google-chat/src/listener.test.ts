@@ -39,6 +39,25 @@ describe("routeChatEvent", () => {
     });
   });
 
+  it("falls back to text when argumentText is empty", async () => {
+    const h = handlers();
+    await routeChatEvent(
+      {
+        type: "MESSAGE",
+        space: { name: "spaces/A", type: "ROOM" },
+        message: {
+          argumentText: "",
+          text: " hello there ",
+          thread: { name: "spaces/A/threads/T" },
+          sender: { name: "users/1", displayName: "Ada", type: "HUMAN" },
+        },
+      },
+      { botUserId: "users/BOT", handlers: h },
+    );
+    expect(h.onTurn).toHaveBeenCalledTimes(1);
+    expect((h.onTurn.mock.calls[0] as any[])[0].userText).toBe("hello there");
+  });
+
   it("routes a slash command to onCommand", async () => {
     const h = handlers();
     await routeChatEvent(
