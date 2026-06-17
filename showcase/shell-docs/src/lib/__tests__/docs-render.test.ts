@@ -48,6 +48,20 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
   return false;
 }
 
+function sectionPages(navTree: NavNode[], section: string): string[] {
+  const pages: string[] = [];
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (!inSection) continue;
+    if (node.type === "page") pages.push(node.title);
+  }
+  return pages;
+}
+
 function collectMdxFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const filePath = path.join(dir, entry.name);
@@ -235,5 +249,20 @@ describe("framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+  });
+
+  it("uses the generated Enterprise section for authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("ag2");
+
+    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
+      false,
+    );
+    expect(sectionPages(navTree, "Enterprise")).toEqual([
+      "How the Enterprise Intelligence Platform Works",
+      "How Threads & Persistence Work",
+      "Observability",
+      "Self-Hosting Intelligence",
+      "Threads",
+    ]);
   });
 });
