@@ -32,6 +32,25 @@ function buildUrl(prefix: string, slug: string): string {
   return left ? `${left}/${right}` : `/${right}`;
 }
 
+function renderNavName(
+  title: string,
+  variant: NavNode["variant"],
+  icon?: React.ReactNode,
+): React.ReactNode {
+  const className =
+    variant === "shadow-divider"
+      ? "shell-docs-shadow-nav-divider"
+      : variant === "shadow"
+        ? "shell-docs-shadow-nav-item"
+        : undefined;
+
+  if (!className && !icon) return title;
+
+  const label = React.createElement("span", { className, key: "label" }, title);
+
+  return icon ? React.createElement(React.Fragment, null, icon, label) : label;
+}
+
 // Convert a single shell-docs NavNode into ZERO OR MORE PageTree.Nodes.
 // Most nodes map 1:1, but a `group` with no title (the dedup-with-
 // section-header case) gets FLATTENED into its children — otherwise
@@ -61,21 +80,14 @@ export function navNodeToPageTreeNodes(
     // `inline-flex items-center gap-2` styling still aligns the SVG
     // and label exactly as it would have with the prop split.
     const icon = resolveSidebarIcon(node.icon);
-    const name: React.ReactNode = icon
-      ? React.createElement(
-          React.Fragment,
-          null,
-          icon,
-          React.createElement("span", null, node.title),
-        )
-      : node.title;
+    const name = renderNavName(node.title, node.variant, icon);
     return [{ type: "separator", name }];
   }
   if (node.type === "page") {
     return [
       {
         type: "page",
-        name: node.title,
+        name: renderNavName(node.title, node.variant),
         url: buildUrl(slugHrefPrefix, node.slug),
       },
     ];
@@ -113,7 +125,7 @@ export function navNodeToPageTreeNodes(
   return [
     {
       type: "folder",
-      name: node.title,
+      name: renderNavName(node.title, node.variant),
       // Inline-folder groups (from a meta.json `{ title, pages, defaultOpen }`
       // entry) can opt into starting expanded; everything else stays
       // collapsed by default and Fumadocs still auto-opens the folder

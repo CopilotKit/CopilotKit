@@ -8,11 +8,20 @@ import {
   isFrontendId,
 } from "../frontend-options";
 import {
+  FRONTEND_IN_PROGRESS_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
+  getFrontendDocsInProgressSlug,
   getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
 import { loadDoc } from "../docs-render";
+import type { NavNode } from "../docs-render";
+
+function flattenNavTree(tree: NavNode[]): NavNode[] {
+  return tree.flatMap((node) =>
+    node.type === "group" ? [node, ...flattenNavTree(node.children)] : [node],
+  );
+}
 
 describe("frontend options", () => {
   it("keeps React as the full docs surface and routes other frontends to quickstarts", () => {
@@ -34,20 +43,56 @@ describe("frontend options", () => {
       expect(isFrontendId(id)).toBe(true);
       expect(getFrontendOption(id).name).toBeTruthy();
       expect(getFrontendContentSlug(id)).toBe(`frontends/${id}`);
+      expect(getFrontendDocsInProgressSlug(id)).toBe(
+        `frontends/${id}/docs-in-progress`,
+      );
       expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
     }
+    expect(loadDoc(FRONTEND_IN_PROGRESS_CONTENT_SLUG)?.fm.title).toBe(
+      "Docs in progress",
+    );
   });
 
-  it("keeps non-React frontend sidebars focused on the current quickstart", () => {
-    expect(getFrontendQuickstartNavTree("slack")).toEqual([
+  it("keeps non-React frontend sidebars focused before shadowing React parallels", () => {
+    const navTree = getFrontendQuickstartNavTree("slack");
+
+    expect(navTree.slice(0, 6)).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
+      {
+        type: "page",
+        title: "Docs in progress",
+        slug: "frontends/slack/docs-in-progress",
+        icon: "lucide/Wrench",
+      },
       { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
+      {
+        type: "page",
+        title: "Reference docs",
+        slug: "reference",
+      },
       {
         type: "page",
         title: "React docs for deeper examples",
         slug: "",
       },
     ]);
+
+    expect(navTree).toContainEqual({
+      type: "section",
+      title: "React parallels",
+      icon: "lucide/RefreshCw",
+      variant: "shadow-divider",
+    });
+
+    expect(flattenNavTree(navTree)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "page",
+          title: "Prebuilt Components",
+          variant: "shadow",
+        }),
+      ]),
+    );
   });
 });

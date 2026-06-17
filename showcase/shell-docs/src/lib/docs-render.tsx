@@ -28,9 +28,22 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
+export type NavNodeVariant = "shadow" | "shadow-divider";
+
 export type NavNode =
-  | { type: "page"; title: string; slug: string; icon?: string }
-  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "page";
+      title: string;
+      slug: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
+  | {
+      type: "section";
+      title: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
   | {
       type: "group";
       title: string;
@@ -38,6 +51,7 @@ export type NavNode =
       children: NavNode[];
       defaultOpen?: boolean;
       icon?: string;
+      variant?: NavNodeVariant;
     };
 
 // Section headers (the all-caps separators) carry the only icons in
