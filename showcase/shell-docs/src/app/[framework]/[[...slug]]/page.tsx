@@ -240,6 +240,14 @@ export default async function FrameworkScopedDocsPage({
     return <FrameworkRootPage framework={framework} />;
   }
 
+  if (slugPath === "quickstart") {
+    redirect(
+      framework === ROOT_FRAMEWORK
+        ? "/react"
+        : `/${framework}/quickstart/react`,
+    );
+  }
+
   // `/<framework>/unselected/<path>` is incoherent — a framework IS
   // selected, so the URL should never assert the "unselected" state
   // alongside. Collapse to the framework-scoped path (which serves the

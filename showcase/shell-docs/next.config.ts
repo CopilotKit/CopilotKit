@@ -221,6 +221,11 @@ const nextConfig: NextConfig = {
         destination: "/:path*",
         permanent: true,
       },
+      {
+        source: "/:framework/quickstart",
+        destination: "/:framework/quickstart/react",
+        permanent: true,
+      },
       // troubleshooting/migrate-to-* in unselected → existing
       // /migrate/* canonical (already redirected at the
       // /troubleshooting/migrate-to-* level).
