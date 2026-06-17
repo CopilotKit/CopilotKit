@@ -50,6 +50,7 @@ import type { LocalConfig } from "./config.js";
 import type { TestTarget } from "./targets.js";
 import type { TerminalResult } from "./results.js";
 import { demosForSlug } from "./targets.js";
+import { demosToFeatureTypes } from "../probes/helpers/d5-feature-mapping.js";
 
 /** The two fleet levels this runner can drive. */
 export type ControlPlaneLevel = "d5" | "d6";
@@ -112,17 +113,36 @@ function resolvePbCreds(config: LocalConfig): {
 }
 
 /**
+ * A per-slug scoping record used by {@link buildLocalServicesJson} and
+ * {@link expectedKeys}. `demo` is set ONLY when the caller typed
+ * `<slug>:<demo>` (explicit per-demo scoping); when absent, the level's
+ * default semantics apply (d5 = representative `agentic-chat`; d6 = full
+ * demo set).
+ */
+interface SlugScope {
+  slug: string;
+  demo?: string;
+}
+
+/**
  * Build the `LOCAL_SERVICES_JSON` discovery roster the enumerator reads. If
  * the env already supplies it (the control-plane container's value), reuse it
  * verbatim; otherwise synthesize the canonical local record per requested
  * slug, matching the compose overlay shape exactly.
  *
- * `level` controls the demo set: d5 ("take-one") only needs the representative
- * demo (`agentic-chat`), mirroring the like-staging overlay; d6 needs the
- * slug's full demo set so the all-pills driver exercises every cell.
+ * Per-slug demo scoping:
+ *   - When the caller explicitly typed `<slug>:<demo>`, this synthesizes
+ *     `demos: [<demo>]` regardless of level — the worker will route only
+ *     that demo through the d5/d6 driver, mirroring the legacy direct path's
+ *     `target.demo` semantics (`buildDeepInputs`/`buildFullInputs` in
+ *     `targets.ts`).
+ *   - When `demo` is absent, level controls the demo set: d5 ("take-one")
+ *     only needs the representative demo (`agentic-chat`), mirroring the
+ *     like-staging overlay; d6 needs the slug's full demo set so the
+ *     all-pills driver exercises every cell.
  */
 function buildLocalServicesJson(
-  slugs: string[],
+  scopes: SlugScope[],
   level: ControlPlaneLevel,
   config: LocalConfig,
 ): string {
@@ -130,10 +150,14 @@ function buildLocalServicesJson(
   if (fromEnv && fromEnv.trim().length > 0) {
     return fromEnv;
   }
-  const records = slugs.map((slug) => ({
+  const records = scopes.map(({ slug, demo }) => ({
     name: `showcase-${slug}`,
     publicUrl: `http://${slug}:10000`,
-    demos: level === "d5" ? ["agentic-chat"] : demosForSlug(slug, config),
+    demos: demo
+      ? [demo]
+      : level === "d5"
+        ? ["agentic-chat"]
+        : demosForSlug(slug, config),
   }));
   return JSON.stringify(records);
 }
@@ -183,12 +207,43 @@ function buildEnumerator(
 
 /**
  * The dashboard status keys a run is expected to terminate, derived from the
- * level + slug. d5 emits the aggregate `d5-single-pill-e2e:<slug>` plus the
- * per-feature `d5:<slug>/<featureType>` side rows; the representative demo is
- * `agentic-chat`, so we wait on `d5:<slug>/agentic-chat`. d6 emits the
- * per-service `d6:<slug>` cell.
+ * level + slug (+ optional demo scoping).
+ *
+ * Default (`demo` absent) semantics — UNCHANGED from the pre-A18 behavior:
+ *   - d5 emits the aggregate `d5-single-pill-e2e:<slug>` plus the per-feature
+ *     `d5:<slug>/<featureType>` side rows; the representative demo is
+ *     `agentic-chat`, so we wait on `d5:<slug>/agentic-chat`.
+ *   - d6 emits the per-service aggregate `d6:<slug>` cell.
+ *
+ * Per-demo scoping (`demo` set — operator typed `<slug>:<demo>`):
+ *   - The worker emits side rows keyed by FEATURE TYPE, not demo ID. We
+ *     translate the demo ID into its featureType(s) via the same
+ *     `REGISTRY_TO_D5` mapping the d6 driver uses (`demosToFeatureTypes`),
+ *     and wait on each resulting `<level>:<slug>/<featureType>` side row.
+ *     The default-scope key (e.g. `d5:<slug>/agentic-chat` or the d6
+ *     aggregate) is INTENTIONALLY OMITTED — the run is scoped to the demo,
+ *     so substituting agentic-chat or waiting on the full-sweep aggregate
+ *     would be the same false-positive bug A18 fixes.
+ *   - If the demo ID does not map to any featureType (e.g. a registry
+ *     feature outside the closed D5 set), throw — the run would otherwise
+ *     enqueue but never produce a matching side row, hanging until timeout.
  */
-function expectedKeys(level: ControlPlaneLevel, slug: string): string[] {
+function expectedKeys(
+  level: ControlPlaneLevel,
+  slug: string,
+  demo?: string,
+): string[] {
+  if (demo) {
+    const featureTypes = demosToFeatureTypes([demo]);
+    if (featureTypes.length === 0) {
+      throw new Error(
+        `control-plane ${level}: demo "${demo}" does not map to any D5 featureType ` +
+          `(no entry in REGISTRY_TO_D5). The worker would not emit a matching ` +
+          `side row — refusing to enqueue a run that cannot terminate.`,
+      );
+    }
+    return featureTypes.map((ft) => `${level}:${slug}/${ft}`);
+  }
   if (level === "d5") {
     return [`d5-single-pill-e2e:${slug}`, `d5:${slug}/agentic-chat`];
   }
@@ -329,24 +384,44 @@ export async function runViaControlPlane(
   const { level } = options;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-  const slugs = [...new Set(targets.map((t) => t.slug))];
+
+  // Deduplicate (slug, demo) pairs. The default (demo === undefined) path
+  // collapses repeated bare slugs to one record (matching the pre-A18
+  // `[...new Set(slugs)]`); an explicit `slug:demo` keeps the demo distinct,
+  // so a run like `built-in-agent built-in-agent:tool-rendering` enqueues
+  // both the default representative and the scoped per-demo job.
+  const scopes: SlugScope[] = [];
+  const seen = new Set<string>();
+  for (const t of targets) {
+    const key = `${t.slug} ${t.demo ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    scopes.push({ slug: t.slug, demo: t.demo });
+  }
+  const slugs = [...new Set(scopes.map((s) => s.slug))];
 
   const creds = resolvePbCreds(config);
 
   // Build the discovery env the enumerator reads — the SAME static-injection
   // seam staging's control-plane container uses.
-  const localServicesJson = buildLocalServicesJson(slugs, level, config);
+  const localServicesJson = buildLocalServicesJson(scopes, level, config);
   const env: Record<string, string | undefined> = {
     ...process.env,
     LOCAL_SERVICES_JSON: localServicesJson,
   };
 
+  // Display the per-scope label so an operator sees the demo qualifier
+  // (`<slug>:<demo>`) on the CLI banner, mirroring how the legacy direct path
+  // labels a per-demo run.
+  const scopeLabel = scopes
+    .map((s) => (s.demo ? `${s.slug}:${s.demo}` : s.slug))
+    .join(", ");
   console.log(
-    `\n  \x1b[36mControl-plane ${level.toUpperCase()} run:\x1b[0m ${slugs.join(", ")}`,
+    `\n  \x1b[36mControl-plane ${level.toUpperCase()} run:\x1b[0m ${scopeLabel}`,
   );
   logger.info("cli.control-plane.start", {
     level,
-    slugs,
+    scopes,
     pbUrl: creds.url,
   });
 
@@ -404,7 +479,11 @@ export async function runViaControlPlane(
   }
 
   // -- Wait for the worker fleet to drain + the aggregator to write cells ---
-  const allKeys = slugs.flatMap((slug) => expectedKeys(level, slug));
+  // Iterate scopes (NOT bare slugs) so per-demo runs wait on per-cell keys
+  // (`<level>:<slug>/<featureType>`) instead of the default-scope key.
+  const allKeys = scopes.flatMap(({ slug, demo }) =>
+    expectedKeys(level, slug, demo),
+  );
   console.log(
     `  \x1b[2mWaiting for worker fleet to produce cells: ${allKeys.join(", ")}\x1b[0m`,
   );
