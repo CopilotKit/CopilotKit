@@ -30,6 +30,12 @@ describe("ChatClient.createMessage", () => {
     expect(String(url)).toContain("messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
     expect(JSON.parse(init.body).thread).toEqual({ name: "spaces/A/threads/T" });
   });
+
+  it("throws when a 2xx response is missing the message name", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 }));
+    const c = makeClient(fetchImpl);
+    await expect(c.createMessage("spaces/A", { text: "hi" })).rejects.toThrow(/missing message name/);
+  });
 });
 
 describe("ChatClient.patchMessage", () => {
@@ -40,6 +46,48 @@ describe("ChatClient.patchMessage", () => {
     const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
     expect(init.method).toBe("PATCH");
     expect(String(url)).toContain("updateMask=text%2CcardsV2");
+  });
+});
+
+describe("ChatClient.uploadAttachment", () => {
+  it("uploads media then creates a message referencing the attachment", async () => {
+    const fetchImpl = vi.fn(async (input: any) => {
+      const url = String(input);
+      if (url.includes("attachments:upload")) {
+        return new Response(
+          JSON.stringify({ attachmentDataRef: { resourceName: "RES_NAME", attachmentUploadToken: "TOK" } }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), { status: 200 });
+    });
+    const c = makeClient(fetchImpl);
+    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1, 2, 3]), "file.txt");
+
+    expect(res).toEqual({ ok: true, fileId: "RES_NAME" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // Step 1: media upload endpoint on the /upload/v1 base.
+    const [uploadUrl, uploadInit] = (fetchImpl.mock.calls[0] as any[])!;
+    expect(String(uploadUrl)).toContain("/upload/v1/spaces/A/attachments:upload");
+    expect(String(uploadUrl)).toContain("uploadType=multipart");
+    expect((uploadInit.headers as any).Authorization).toBe("Bearer tok");
+    expect(uploadInit.method).toBe("POST");
+
+    // Step 2: create message on the REST base referencing the attachment.
+    const [createUrl, createInit] = (fetchImpl.mock.calls[1] as any[])!;
+    expect(String(createUrl)).toContain("/v1/spaces/A/messages");
+    expect(String(createUrl)).not.toContain("/upload/v1");
+    const body = JSON.parse(createInit.body);
+    expect(body.attachment[0].attachmentDataRef).toEqual({ resourceName: "RES_NAME", attachmentUploadToken: "TOK" });
+  });
+
+  it("returns ok:false without creating a message when the upload fails", async () => {
+    const fetchImpl = vi.fn(async () => new Response("nope", { status: 500 }));
+    const c = makeClient(fetchImpl);
+    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1]), "f.txt");
+    expect(res.ok).toBe(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
 
